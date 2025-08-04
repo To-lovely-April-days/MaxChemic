@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using MaxChemical.Modules.Designer.Models;
 using DevicePlugins.Devices;
@@ -23,7 +24,7 @@ namespace MaxChemical.Modules.Designer.Views
         public event EventHandler<NestedCommandEventArgs> NestedCommandRemoved;
         public event EventHandler<LogicCommandRequestEventArgs> LogicCommandRequested;
 
-        private bool _isExpanded = true;
+        private bool _isExpanded = true; // 默认展开
 
         public LoopNodeControlView()
         {
@@ -40,6 +41,14 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        // 展开/折叠按钮点击事件
+        private void ExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleExpand();
+            e.Handled = true; // 防止事件冒泡
+        }
+
+        // 节点点击事件 - 只处理文字区域的点击
         private void Node_Click(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
@@ -50,22 +59,31 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private void ExpandButton_Click(object sender, RoutedEventArgs e)
+        // 展开/折叠逻辑
+        private void ToggleExpand()
         {
             _isExpanded = !_isExpanded;
 
-            //if (_isExpanded)
-            //{
-            //    ChildrenContainer.Visibility = Visibility.Visible;
-            //    ExpandIcon.Data = Geometry.Parse("M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z");
-            //    ExpandButton.ToolTip = "折叠循环";
-            //}
-            //else
-            //{
-            //    ChildrenContainer.Visibility = Visibility.Collapsed;
-            //    ExpandIcon.Data = Geometry.Parse("M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z");
-            //    ExpandButton.ToolTip = "展开循环";
-            //}
+            var duration = TimeSpan.FromMilliseconds(200);
+
+            if (_isExpanded)
+            {
+                // 展开
+                ChildrenContainer.Visibility = Visibility.Visible;
+                ExpandToggle.ToolTip = "折叠循环";
+
+                var rotateAnimation = new DoubleAnimation(0, duration);
+                ExpandIconTransform.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
+            }
+            else
+            {
+                // 折叠
+                ChildrenContainer.Visibility = Visibility.Collapsed;
+                ExpandToggle.ToolTip = "展开循环";
+
+                var rotateAnimation = new DoubleAnimation(-90, duration);
+                ExpandIconTransform.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
+            }
         }
 
         #region 拖拽事件处理
@@ -92,8 +110,9 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (sender is Border border)
             {
-                border.Background = new SolidColorBrush(Color.FromRgb(0xF8, 0xF8, 0xF8));
-                border.BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD));
+                // 恢复到正确的原始样式
+                border.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF8, 0xE1));
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xB7, 0x4D));
             }
             e.Handled = true;
         }
@@ -125,11 +144,11 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
 
-                // 恢复拖放区域样式
+                // 恢复拖放区域样式到正确的原始颜色
                 if (sender is Border border)
                 {
-                    border.Background = new SolidColorBrush(Color.FromRgb(0xF8, 0xF8, 0xF8));
-                    border.BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD));
+                    border.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF8, 0xE1));
+                    border.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xB7, 0x4D));
                 }
             }
             catch (Exception ex)
@@ -393,6 +412,10 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 清空现有UI
                 LoopChildrenContent.Children.Clear();
+
+                // 根据是否有子命令决定是否显示提示文字
+                bool hasChildren = loopNode.Children.Count > 0;
+                EmptyHint.Text = hasChildren ? "拖拽更多步骤" : "+ 添加步骤";
 
                 // 为每个子命令创建UI
                 foreach (var child in loopNode.Children)

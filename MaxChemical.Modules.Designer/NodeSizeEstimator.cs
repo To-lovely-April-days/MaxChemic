@@ -309,8 +309,12 @@ namespace MaxChemical.Modules.Designer
                 case "loop":
                 case "for":
                 case "while":
-                    // 循环节点
-                    return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
+                    // 循环节点 - 使用动态估算
+                    if (node.NodeControl is LoopNodeControlView loopControl)
+                    {
+                        return EstimateLoopNodeSizeFromControl(loopControl);
+                    }
+                    return EstimateLoopNodeSize(node);
 
                 case "wait":
                 case "delay":
@@ -471,6 +475,111 @@ namespace MaxChemical.Modules.Designer
                 }
             }
             return DEVICE_NODE_WIDTH;
+        }
+
+        /// <summary>
+        /// 动态估算循环节点尺寸（基于实际控件内容）
+        /// </summary>
+        public static Size EstimateLoopNodeSizeFromControl(LoopNodeControlView loopControl)
+        {
+            try
+            {
+                if (loopControl == null)
+                    return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
+
+                // 首先尝试获取实际渲染尺寸
+                loopControl.UpdateLayout();
+                if (loopControl.ActualHeight > 0 && loopControl.ActualWidth > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"循环节点使用实际尺寸: {loopControl.ActualWidth}x{loopControl.ActualHeight}");
+                    return new Size(loopControl.ActualWidth, loopControl.ActualHeight);
+                }
+
+                // 如果无法获取实际尺寸，基于内容数量估算
+                var loopCommands = loopControl.GetLoopCommands();
+                int commandCount = loopCommands?.Count ?? 0;
+
+                var estimatedSize = EstimateLoopNodeSizeByContent(commandCount, loopCommands);
+                System.Diagnostics.Debug.WriteLine($"循环节点基于内容估算尺寸: {estimatedSize.Width}x{estimatedSize.Height} (命令数:{commandCount})");
+
+                return estimatedSize;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"估算循环节点尺寸失败: {ex.Message}");
+                return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
+            }
+        }
+
+        /// <summary>
+        /// 根据内容估算循环节点尺寸
+        /// </summary>
+        public static Size EstimateLoopNodeSizeByContent(int commandCount, IReadOnlyList<CommandNode> commands = null)
+        {
+            try
+            {
+                // 计算基础宽度
+                double totalWidth = LOOP_NODE_MIN_WIDTH;
+
+                // 计算高度
+                double totalHeight = 60; // 基础高度：标题 + 拖放区域基础高度
+
+                if (commandCount > 0 && commands != null)
+                {
+                    double maxChildWidth = 0;
+
+                    foreach (var command in commands)
+                    {
+                        // 计算每个子命令的高度
+                        double childHeight = EstimateNodeSize(command).Height;
+                        totalHeight += childHeight + 8; // 子项高度 + 间距
+
+                        // 计算每个子命令的宽度，找出最大值
+                        double childWidth = EstimateNodeSize(command).Width;
+                        maxChildWidth = Math.Max(maxChildWidth, childWidth);
+                    }
+
+                    // 根据子命令的最大宽度调整循环节点宽度
+                    totalWidth = Math.Max(totalWidth, maxChildWidth + 40); // 子项宽度 + 内边距
+                }
+
+                // 添加底部边距
+                totalHeight += 20;
+
+                return new Size(totalWidth, Math.Max(LOOP_NODE_MIN_HEIGHT, totalHeight));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"根据内容估算循环节点尺寸失败: {ex.Message}");
+                return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
+            }
+        }
+
+        /// <summary>
+        /// 估算循环节点的尺寸（基于CommandNode）
+        /// </summary>
+        public static Size EstimateLoopNodeSize(CommandNode loopNode)
+        {
+            try
+            {
+                if (loopNode == null || !loopNode.IsLoopNode)
+                    return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
+
+                // 如果有控件实例，使用动态估算
+                if (loopNode.NodeControl is LoopNodeControlView loopControl)
+                {
+                    return EstimateLoopNodeSizeFromControl(loopControl);
+                }
+
+                // 否则基于Children集合估算
+                var children = loopNode.Children?.ToList();
+                return EstimateLoopNodeSizeByContent(children?.Count ?? 0, children?.AsReadOnly());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"估算循环节点尺寸失败: {ex.Message}");
+                return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
+            }
         }
     }
 }

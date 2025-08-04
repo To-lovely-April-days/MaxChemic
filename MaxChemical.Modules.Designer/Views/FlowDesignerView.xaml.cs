@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -355,10 +356,36 @@ namespace MaxChemical.Modules.Designer.Views
                 var contentPresenter = sender as ContentPresenter;
                 if (contentPresenter?.DataContext is CommandNode node)
                 {
+                    // 检查是否点击在特定的交互元素上
+                    if (IsClickOnInteractiveElement(e))
+                    {
+                        // 如果点击在交互元素（如按钮）上，不处理选择逻辑
+                        return;
+                    }
+
                     HandleNodeSelection(node);
                     e.Handled = true;
                 }
             }
+        }
+        private bool IsClickOnInteractiveElement(MouseButtonEventArgs e)
+        {
+            var element = e.OriginalSource as FrameworkElement;
+
+            // 检查是否点击在按钮或其他交互控件上
+            while (element != null)
+            {
+                if (element is Button ||
+                    element is ToggleButton ||
+                    element.Name == "ExpandToggle" ||
+                    element.Name == "DropZone")
+                {
+                    return true;
+                }
+                element = element.Parent as FrameworkElement;
+            }
+
+            return false;
         }
 
         private void CommandNode_Click(object sender, MouseButtonEventArgs e)

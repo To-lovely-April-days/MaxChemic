@@ -284,6 +284,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         parallelControl.Width = estimatedSize.Width;
                         parallelControl.MinWidth = estimatedSize.Width;
                     }
+                    else if (commandNode.NodeControl is LoopNodeControlView loopControl)
+                    {
+                        SubscribeToLoopNodeEvents(loopControl, commandNode);
+
+                        var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
+                        loopControl.Width = estimatedSize.Width;
+                        loopControl.MinWidth = estimatedSize.Width;
+                    }
                 }
 
                 // 阶段3: 添加到集合但保持不可见
@@ -522,6 +530,56 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 return new System.Windows.Point(normalNodeX, nextY);
             }
         }
+
+
+        /// <summary>
+        /// 订阅循环节点事件的方法
+        /// </summary>
+        private void SubscribeToLoopNodeEvents(LoopNodeControlView loopControl, CommandNode commandNode)
+        {
+            try
+            {
+                // 订阅内容变化事件
+                loopControl.ContentChanged += (s, e) =>
+                {
+                    Debug.WriteLine($"循环节点内容发生变化: {commandNode.DisplayName}");
+                    Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        RefreshNodeLayout(commandNode);
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                };
+
+                // 订阅嵌套命令添加事件
+                loopControl.NestedCommandAdded += (s, e) =>
+                {
+                    Debug.WriteLine($"嵌套命令已添加到循环节点: {e.NestedCommand.DisplayName}");
+                    HandleNestedCommandAdded(e);
+                };
+
+                // 订阅嵌套命令移除事件
+                loopControl.NestedCommandRemoved += (s, e) =>
+                {
+                    Debug.WriteLine($"嵌套命令已从循环节点移除: {e.NestedCommand.DisplayName}");
+                    HandleNestedCommandRemoved(e);
+                };
+
+                // 订阅LogicCommand创建请求事件
+                loopControl.LogicCommandRequested += (s, e) =>
+                {
+                    var createdCommand = CreateLogicCommandFromPluginId(e.PluginId);
+                    e.ResultCommand = createdCommand;
+                    Debug.WriteLine($"为循环节点嵌套拖拽创建LogicCommand: {createdCommand?.Name ?? "失败"}");
+                };
+
+                Debug.WriteLine($"为循环节点 {commandNode.DisplayName} 订阅了所有事件");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅循环节点事件失败: {ex.Message}");
+                Log.Error(ex, "订阅循环节点事件失败");
+            }
+        }
+
 
         /// <summary>
         /// 获取节点的预估高度
