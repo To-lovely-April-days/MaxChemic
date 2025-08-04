@@ -1,0 +1,48 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+using MaxChemical.Modules.Designer.Models;
+
+namespace MaxChemical.Modules.Designer.Views
+{
+    /// <summary>
+    /// SetVariableNodeControlView.xaml 的交互逻辑
+    /// </summary>
+    public partial class SetVariableNodeControlView : UserControl
+    {
+        public SetVariableNodeControlView()
+        {
+            InitializeComponent();
+        }
+
+        private void Node_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
+            {
+                var routedEventArgs = new RoutedEventArgs(NodeClickEvent, node);
+                RaiseEvent(routedEventArgs);
+                e.Handled = true;
+            }
+        }
+
+        public static readonly RoutedEvent NodeClickEvent = EventManager.RegisterRoutedEvent(
+            "NodeClick", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(SetVariableNodeControlView));
+
+        public event RoutedEventHandler NodeClick
+        {
+            add { AddHandler(NodeClickEvent, value); }
+            remove { RemoveHandler(NodeClickEvent, value); }
+        }
+    }
+}

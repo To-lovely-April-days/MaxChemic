@@ -1,0 +1,155 @@
+﻿<UserControl x:Class="MaxChemical.Shell.Views.CustomTitleBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prism="http://prismlibrary.com/"
+             prism:ViewModelLocator.AutoWireViewModel="True"
+             Height="28">
+
+    <UserControl.Resources>
+        <!-- 标题栏按钮样式 -->
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="45"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontFamily" Value="Marlett"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" x:Name="ButtonBorder">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E5E5E5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#CCCCCC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 关闭按钮样式 -->
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E81123"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#C50E1F"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 登录按钮样式 -->
+        <Style x:Key="LoginButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#606060"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,0,15,0"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                x:Name="ButtonBorder" 
+                                Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <Image Width="16" Height="16" 
+                                       Source="pack://siteoforigin:,,,/Resources/Icon/user.png"
+                                       Margin="0,0,10,0"/>
+                                <ContentPresenter VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#F0F0F0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E0E0E0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="#F4F3EF" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：应用程序图标和标题 -->
+            <StackPanel Grid.Column="0" 
+                        Orientation="Horizontal" 
+                        VerticalAlignment="Center" 
+                        Margin="8,0">
+                <Border Width="16" Height="16" Margin="12,0,4,0">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/logo.png"/>
+                </Border>
+                <TextBlock Text="{Binding ApplicationTitle}"
+                           Foreground="#646464" 
+                           FontSize="14" 
+                           VerticalAlignment="Center"
+                           Margin="0,6,0,6"/>
+            </StackPanel>
+
+            <!-- 中间：可拖拽区域 -->
+            <Grid Grid.Column="1" 
+                  Background="Transparent"
+                  x:Name="DragArea">
+                <Grid.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding DragMoveCommand}"/>
+                </Grid.InputBindings>
+            </Grid>
+
+            <!-- 右侧：登录信息和控制按钮 -->
+            <StackPanel Grid.Column="2" 
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+
+                <!-- 登录按钮 -->
+                <Button Content="{Binding LoginText}" 
+                        Command="{Binding LoginCommand}"
+                        Style="{StaticResource LoginButtonStyle}"/>
+
+                <!-- 窗口控制按钮 -->
+                <Button Command="{Binding MinimizeCommand}" 
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        ToolTip="{Binding MinimizeTooltip}">
+                    <Image Width="16" Height="2" 
+                           Source="pack://siteoforigin:,,,/Resources/Icon/minimize.png"/>
+                </Button>
+
+                <Button Command="{Binding MaximizeCommand}" 
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        ToolTip="{Binding MaximizeTooltip}">
+                    <Image Width="18" Height="18" 
+                           Source="pack://siteoforigin:,,,/Resources/Icon/maximize.png"/>
+                </Button>
+
+                <Button Command="{Binding CloseCommand}" 
+                        Style="{StaticResource CloseButtonStyle}"
+                        ToolTip="{Binding CloseTooltip}">
+                    <Image Width="14" Height="14" 
+                           Source="pack://siteoforigin:,,,/Resources/Icon/close.png"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

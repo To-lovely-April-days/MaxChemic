@@ -1,0 +1,278 @@
+﻿<!-- Controls/IfNodeControl.xaml -->
+<UserControl x:Class="MaxChemical.Modules.Designer.Views.IfNodeControlView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
+    </UserControl.Resources>
+
+    <!-- 主容器 - 垂直布局 -->
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+
+        <!-- 1. 主体卡片 (统一样式) - 居中显示 -->
+        <Border x:Name="MainStepCard"
+                Width="231" Height="64"
+                Background="White"
+                CornerRadius="6"
+                Cursor="Hand"
+                MouseDown="Node_Click"
+                UseLayoutRounding="True"
+                SnapsToDevicePixels="True"
+                HorizontalAlignment="Center"
+                Margin="0,10,0,10">
+
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Setter Property="BorderThickness" Value="2"/>
+                    <!-- 始终保持2像素边框 -->
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="BorderBrush" Value="#0078D4"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="False">
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="4"
+                                  Direction="315"
+                                  BlurRadius="8"
+                                  Color="#000000"
+                                  Opacity="0.25"/>
+            </Border.Effect>
+
+            <!-- 卡片内容 -->
+            <Grid Margin="16 0 50 0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧图标 - 统一为24x24尺寸 -->
+                <Grid Grid.Column="0" Width="36" Height="27" Margin="0,0,12,0">
+                    <Image Source="{Binding LogicCommand.Properties[Bezel_lessIconPath]}"
+           Width="24" 
+           Height="24"
+           Stretch="Uniform"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- 右侧文字内容 -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DisplayName, FallbackValue='条件判断'}"
+                               FontSize="14"
+                               FontWeight="Medium"
+                               Foreground="#333"
+                               Margin="0,0,0,2"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock FontSize="11"
+                               Foreground="#999"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} {1} {2}">
+                                <Binding Path="LogicCommand.Properties[LeftOperand]" FallbackValue="变量"/>
+                                <Binding Path="LogicCommand.Properties[Operator]" FallbackValue="=="/>
+                                <Binding Path="LogicCommand.Properties[RightOperand]" FallbackValue="值"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. 分支结构画布 - 使用动态高度 -->
+        <Canvas x:Name="BranchCanvas"
+                Width="600"
+                HorizontalAlignment="Center">
+
+            <!-- 主干垂直连接线 - 从主卡片中心向下 -->
+            <Line x:Name="MainVerticalLine"
+                  X1="300" Y1="0" X2="300" Y2="24"
+                  Stroke="#CCCED3"
+                  StrokeThickness="2"/>
+
+            <!-- 左侧水平连接线 (FALSE) -->
+            <Line x:Name="LeftHorizontalLine"
+                  X1="150" Y1="24" X2="300" Y2="24"
+                  Stroke="#CCCED3"
+                  StrokeThickness="2"/>
+
+            <!-- 右侧水平连接线 (TRUE) -->
+            <Line x:Name="RightHorizontalLine"
+                  X1="300" Y1="24" X2="450" Y2="24"
+                  Stroke="#CCCED3"
+                  StrokeThickness="2"/>
+
+            <!-- FALSE分支垂直线 -->
+            <Line x:Name="FalseVerticalLine"
+                  X1="150" Y1="24" X2="150" Y2="36"
+                  Stroke="#F44336"
+                  StrokeThickness="2"/>
+
+            <!-- TRUE分支垂直线 -->
+            <Line x:Name="TrueVerticalLine"
+                  X1="450" Y1="24" X2="450" Y2="36"
+                  Stroke="#4CAF50"
+                  StrokeThickness="2"/>
+
+            <!-- FALSE箭头 -->
+            <Polygon x:Name="FalseArrow"
+                     Canvas.Left="146" Canvas.Top="32"
+                     Fill="#F44336">
+                <Polygon.Points>
+                    <Point X="0" Y="0"/>
+                    <Point X="8" Y="0"/>
+                    <Point X="4" Y="8"/>
+                </Polygon.Points>
+            </Polygon>
+
+            <!-- TRUE箭头 -->
+            <Polygon x:Name="TrueArrow"
+                     Canvas.Left="446" Canvas.Top="32"
+                     Fill="#4CAF50">
+                <Polygon.Points>
+                    <Point X="0" Y="0"/>
+                    <Point X="8" Y="0"/>
+                    <Point X="4" Y="8"/>
+                </Polygon.Points>
+            </Polygon>
+
+            <!-- FALSE分支容器 -->
+            <Border x:Name="FalseBranchWrapper"
+                    Canvas.Left="50" Canvas.Top="40"
+                    MinWidth="200">
+                <StackPanel MinWidth="200">
+                    <!-- FALSE标签 -->
+                    <TextBlock Text="FALSE"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               Foreground="#F44336"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"/>
+
+                    <!-- FALSE分支拖放区域 -->
+                    <Border x:Name="FalseBranchDropZone"
+                            Background="#08F44336"
+                            BorderBrush="#1EF44336"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8"
+                            MinHeight="60"
+                            MinWidth="200"
+                            AllowDrop="True"
+                            UseLayoutRounding="True"
+                            SnapsToDevicePixels="True"
+                            Margin="0,4,0,0"
+                            DragEnter="FalseBranch_DragEnter"
+                            DragOver="FalseBranch_DragOver"
+                            DragLeave="FalseBranch_DragLeave"
+                            Drop="FalseBranch_Drop">
+
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#08F44336"/>
+                                <Setter Property="BorderBrush" Value="#1EF44336"/>
+                                <Style.Triggers>
+                                    <Trigger Property="Tag" Value="DragOver">
+                                        <Setter Property="Background" Value="#20F44336"/>
+                                        <Setter Property="BorderBrush" Value="#40F44336"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <Grid UseLayoutRounding="True">
+                            <!-- 拖放提示 -->
+                            <TextBlock x:Name="FalseHint"
+                                       Text="拖拽步骤到此处"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="#80F44336"
+                                       FontSize="11"
+                                       FontStyle="Italic"
+                                       FontFamily="Segoe UI"
+                                       UseLayoutRounding="True"/>
+
+                            <!-- 分支内容容器 -->
+                            <StackPanel x:Name="FalseBranchContent"
+                                        UseLayoutRounding="True"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- TRUE分支容器 -->
+            <Border x:Name="TrueBranchWrapper"
+                    Canvas.Left="350" Canvas.Top="40"
+                    MinWidth="200">
+                <StackPanel MinWidth="200">
+                    <!-- TRUE标签 -->
+                    <TextBlock Text="TRUE"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               Foreground="#4CAF50"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"/>
+
+                    <!-- TRUE分支拖放区域 -->
+                    <Border x:Name="TrueBranchDropZone"
+                            Background="#084CAF50"
+                            BorderBrush="#1E4CAF50"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8"
+                            MinHeight="60"
+                            MinWidth="200"
+                            AllowDrop="True"
+                            UseLayoutRounding="True"
+                            SnapsToDevicePixels="True"
+                            Margin="0,4,0,0"
+                            DragEnter="TrueBranch_DragEnter"
+                            DragOver="TrueBranch_DragOver"
+                            DragLeave="TrueBranch_DragLeave"
+                            Drop="TrueBranch_Drop">
+
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#084CAF50"/>
+                                <Setter Property="BorderBrush" Value="#1E4CAF50"/>
+                                <Style.Triggers>
+                                    <Trigger Property="Tag" Value="DragOver">
+                                        <Setter Property="Background" Value="#204CAF50"/>
+                                        <Setter Property="BorderBrush" Value="#404CAF50"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <Grid UseLayoutRounding="True">
+                            <!-- 拖放提示 -->
+                            <TextBlock x:Name="TrueHint"
+                                       Text="拖拽步骤到此处"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="#804CAF50"
+                                       FontSize="11"
+                                       FontStyle="Italic"
+                                       FontFamily="Segoe UI"
+                                       UseLayoutRounding="True"/>
+
+                            <!-- 分支内容容器 -->
+                            <StackPanel x:Name="TrueBranchContent"
+                                        UseLayoutRounding="True"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Canvas>
+    </StackPanel>
+</UserControl>

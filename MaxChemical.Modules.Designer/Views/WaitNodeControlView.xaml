@@ -1,0 +1,167 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.WaitNodeControlView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Border x:Name="MainStepCard"
+            Width="231" Height="64"
+            Background="White"
+            CornerRadius="6"
+            Cursor="Hand"
+            MouseDown="Node_Click"
+            UseLayoutRounding="True"
+            SnapsToDevicePixels="True"
+            HorizontalAlignment="Center"
+            Margin="0,10,0,10">
+
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="2"/>
+                <!-- 始终保持2像素边框 -->
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BorderBrush" Value="#0078D4"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsSelected}" Value="False">
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
+
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="4"
+                              Direction="315"
+                              BlurRadius="8"
+                              Color="#000000"
+                              Opacity="0.25"/>
+        </Border.Effect>
+
+        <!-- 卡片内容 -->
+        <Grid Margin="14">
+            <!-- 从16减少到14，为边框留出空间 -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧图标 - 统一为24x24尺寸 -->
+            <Grid Grid.Column="0" Width="32" Height="27" Margin="0,0,10,0">
+                <!-- 稍微减小宽度和边距 -->
+                <Image Source="{Binding LogicCommand.Properties[Bezel_lessIconPath]}"
+                       Width="24" 
+                       Height="24"
+                       Stretch="Uniform"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- 右侧文字内容 -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding DisplayName, FallbackValue='等待'}"
+                           FontSize="14"
+                           FontWeight="Medium"
+                           Foreground="#333"
+                           Margin="0,0,0,2"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="130"/>
+                <!-- 限制最大宽度 -->
+
+                <!-- 动态显示等待信息 -->
+                <TextBlock FontSize="11"
+                           Foreground="#999"
+                           TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="130">  <!-- 限制最大宽度 -->
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <!-- 默认显示固定时间等待 -->
+                            <Setter Property="Text">
+                                <Setter.Value>
+                                    <MultiBinding StringFormat="{}等待时长: {0} {1}">
+                                        <Binding Path="LogicCommand.Properties[WaitTime]" FallbackValue="5"/>
+                                        <Binding Path="LogicCommand.Properties[TimeUnit]" FallbackValue="秒"/>
+                                    </MultiBinding>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <!-- 当CommandType为Wait时显示固定时间等待 -->
+                                <DataTrigger Binding="{Binding LogicCommand.CommandType}" Value="Wait">
+                                    <Setter Property="Text">
+                                        <Setter.Value>
+                                            <MultiBinding StringFormat="{}等待时长: {0} {1}">
+                                                <Binding Path="LogicCommand.Properties[WaitTime]" FallbackValue="5"/>
+                                                <Binding Path="LogicCommand.Properties[TimeUnit]" FallbackValue="秒"/>
+                                            </MultiBinding>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+
+                                <!-- 当CommandType为WaitIf时显示条件等待 -->
+                                <DataTrigger Binding="{Binding LogicCommand.CommandType}" Value="WaitIf">
+                                    <Setter Property="Text">
+                                        <Setter.Value>
+                                            <MultiBinding StringFormat="{}超时: {0}秒，间隔: {1}秒">
+                                                <Binding Path="LogicCommand.Properties[TimeoutSeconds]" FallbackValue="30"/>
+                                                <Binding Path="LogicCommand.Properties[CheckIntervalSeconds]" FallbackValue="1"/>
+                                            </MultiBinding>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+
+                                <!-- 当CommandType为Loop时显示循环信息 -->
+                                <DataTrigger Binding="{Binding LogicCommand.CommandType}" Value="Loop">
+                                    <Setter Property="Text">
+                                        <Setter.Value>
+                                            <MultiBinding StringFormat="{}循环次数: {0}">
+                                                <Binding Path="LogicCommand.Properties[LoopCount]" FallbackValue="1"/>
+                                            </MultiBinding>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+
+                                <!-- 当CommandType为Condition时显示条件判断 -->
+                                <DataTrigger Binding="{Binding LogicCommand.CommandType}" Value="Condition">
+                                    <Setter Property="Text">
+                                        <Setter.Value>
+                                            <MultiBinding StringFormat="{}{0} {1} {2}">
+                                                <Binding Path="LogicCommand.Properties[LeftOperand]" FallbackValue="变量"/>
+                                                <Binding Path="LogicCommand.Properties[Operator]" FallbackValue="=="/>
+                                                <Binding Path="LogicCommand.Properties[RightOperand]" FallbackValue="值"/>
+                                            </MultiBinding>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+
+       
+
+            <!-- 删除按钮 -->
+            <Button Grid.Column="3"
+                    Width="16" Height="16"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Content="✕"
+                    FontSize="10"
+                    Foreground="#999"
+                    VerticalAlignment="Center"
+                    Margin="6,0,0,0"  
+                Command="{Binding DataContext.RemoveCommandNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="删除命令"
+                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </Grid>
+    </Border>
+</UserControl>

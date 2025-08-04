@@ -1,0 +1,110 @@
+﻿<!-- Controls/SetVariableNodeControl.xaml -->
+<UserControl x:Class="MaxChemical.Modules.Designer.Views.SetVariableNodeControlView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
+    </UserControl.Resources>
+
+    <Border Width="231" Height="64"
+            Background="White"
+            CornerRadius="6"
+            Cursor="Hand"
+            MouseDown="Node_Click">
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="4"
+                              Direction="315"
+                              BlurRadius="8"
+                              Color="#000000"
+                              Opacity="0.25"/>
+        </Border.Effect>
+
+        <Border BorderBrush="#FF6B6B" 
+                BorderThickness="{Binding IsSelected, Converter={StaticResource BoolToThicknessConverter}}"
+                CornerRadius="6">
+            <Grid Margin="16 8 16 8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 设置变量图标 -->
+                <Grid Grid.Column="0" Width="36" Height="36" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <Ellipse Fill="#795548" Width="36" Height="36"/>
+                    <Path Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"
+                          Fill="White"
+                          Width="18" Height="18"
+                          Stretch="Uniform"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- 文字内容 -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DisplayName}" 
+                               FontSize="14" 
+                               FontWeight="Medium"
+                               Foreground="#333"
+                               Margin="0,0,0,2"/>
+                    <TextBlock FontSize="11" Foreground="#999">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} = {1}">
+                                <Binding Path="LogicCommand.Properties[VariableName]" FallbackValue="变量名"/>
+                                <Binding Path="LogicCommand.Properties[VariableValue]" FallbackValue="值"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- 停止按钮 -->
+                <Button Grid.Column="2"
+                        Width="20" Height="20"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        VerticalAlignment="Center"
+                        Margin="10,0,0,0"
+                        Command="{Binding DataContext.StopCommandNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}"
+                        ToolTip="停止当前步骤"
+                        Visibility="{Binding IsExecuting, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Ellipse Fill="#F44336" Width="16" Height="16"/>
+                </Button>
+
+                <!-- 编号标识 -->
+                <Border Grid.Column="3"
+                        Width="24" Height="24"
+                        Background="#795548"
+                        CornerRadius="12"
+                        VerticalAlignment="Center"
+                        Margin="8,0,8,0">
+                    <TextBlock Text="{Binding Order, StringFormat={}{0:D2}}" 
+                               FontSize="10" 
+                               FontWeight="Bold"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- 删除按钮 -->
+                <Button Grid.Column="4"
+                        Width="16" Height="16"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Content="✕"
+                        FontSize="10"
+                        Foreground="#999"
+                        VerticalAlignment="Top"
+                        Command="{Binding DataContext.RemoveCommandNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}"
+                        ToolTip="删除命令"
+                        Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </Grid>
+        </Border>
+    </Border>
+</UserControl>
