@@ -146,22 +146,52 @@
                 </TextBlock>
             </StackPanel>
 
-       
+
 
             <!-- 删除按钮 -->
-            <Button Grid.Column="3"
-                    Width="16" Height="16"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Content="✕"
-                    FontSize="10"
-                    Foreground="#999"
-                    VerticalAlignment="Center"
-                    Margin="6,0,0,0"  
-                Command="{Binding DataContext.RemoveCommandNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    CommandParameter="{Binding}"
-                    ToolTip="删除命令"
-                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <Border x:Name="DeleteButton"
+        Grid.Column="2"
+        Width="20"
+        Height="20"
+        Background="Transparent"
+        VerticalAlignment="Center"
+        HorizontalAlignment="Right"
+        Cursor="Hand"
+        MouseLeftButtonUp="DeleteButton_Click"
+        Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                            <!-- 鼠标悬停效果 - 淡灰色背景 -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#10000000"/>
+                                <Setter Property="CornerRadius" Value="10"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <TextBlock Text="×"
+               FontSize="14"
+               FontWeight="Bold"
+               Foreground="#666666"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#666666"/>
+                            <Style.Triggers>
+                                <!-- 鼠标悬停时变深色 -->
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=IsMouseOver}" Value="True">
+                                    <Setter Property="Foreground" Value="#333333"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
         </Grid>
     </Border>
 </UserControl>

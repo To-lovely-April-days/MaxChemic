@@ -39,7 +39,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
         public ICommand RemoveCommandNodeCommand { get; private set; }
         public ICommand ValidateAllNodesCommand { get; private set; }
         public ICommand RefreshPluginsCommand { get; private set; }
-
+        // 添加节点点击命令
+        public ICommand NodeClickCommand { get; private set; }
         // 事件
         public event EventHandler<CommandNode> NodeAdded;
 
@@ -62,7 +63,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
             get => _nodesVisible;
             set => SetProperty(ref _nodesVisible, value);
         }
-
+        // 添加选中节点属性
+        private CommandNode _selectedNode;
+        public CommandNode SelectedNode
+        {
+            get => _selectedNode;
+            set => SetProperty(ref _selectedNode, value);
+        }
         public FlowDesignerViewModel(
             IDeviceManager deviceManager,
             IEventAggregator eventAggregator,
@@ -145,6 +152,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             RemoveCommandNodeCommand = new DelegateCommand<CommandNode>(RemoveCommandNode);
             ValidateAllNodesCommand = new DelegateCommand(ValidateAllNodes);
             RefreshPluginsCommand = new DelegateCommand(RefreshPlugins);
+            // 新增：节点点击命令
+            NodeClickCommand = new DelegateCommand<CommandNode>(HandleNodeClick);
         }
 
         private void LoadLogicCommandPlugins()
@@ -291,6 +300,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                         loopControl.Width = estimatedSize.Width;
                         loopControl.MinWidth = estimatedSize.Width;
+                    }
+                    else if (commandNode.NodeControl is WaitNodeControlView waitControl)
+                    {
+                        SubscribeToWaitNodeEvents(waitControl, commandNode);
+                    }
+                    else if (commandNode.NodeControl is SetVariableNodeControlView setVarControl)
+                    {
+                        SubscribeToSetVariableNodeEvents(setVarControl, commandNode);
                     }
                 }
 
@@ -443,7 +460,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     e.ResultCommand = createdCommand;
                     Debug.WriteLine($"为嵌套拖拽创建LogicCommand: {createdCommand?.Name ?? "失败"}");
                 };
-
+                // **新增：订阅删除请求事件**
+                parallelControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    Debug.WriteLine($"收到并行节点删除请求: {nodeToDelete.DisplayName}");
+                    HandleNodeDeleteRequest(nodeToDelete);
+                };
                 Debug.WriteLine($"为并行节点 {commandNode.DisplayName} 订阅了所有事件");
             }
             catch (Exception ex)
@@ -570,7 +592,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     e.ResultCommand = createdCommand;
                     Debug.WriteLine($"为循环节点嵌套拖拽创建LogicCommand: {createdCommand?.Name ?? "失败"}");
                 };
-
+                // **新增：订阅删除请求事件**
+                loopControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    Debug.WriteLine($"收到循环节点删除请求: {nodeToDelete.DisplayName}");
+                    HandleNodeDeleteRequest(nodeToDelete);
+                };
                 Debug.WriteLine($"为循环节点 {commandNode.DisplayName} 订阅了所有事件");
             }
             catch (Exception ex)
@@ -580,7 +607,71 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
         }
 
+        /// <summary>
+        /// 订阅等待节点事件的方法
+        /// </summary>
+        private void SubscribeToWaitNodeEvents(WaitNodeControlView waitControl, CommandNode commandNode)
+        {
+            try
+            {
+                // **订阅删除请求事件**
+                waitControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    Debug.WriteLine($"收到等待节点删除请求: {nodeToDelete.DisplayName}");
+                    HandleNodeDeleteRequest(nodeToDelete);
+                };
 
+                // **订阅点击事件（如果需要）**
+                waitControl.AddHandler(WaitNodeControlView.NodeClickEvent, new RoutedEventHandler((s, e) =>
+                {
+                    if (e.OriginalSource is RoutedEventArgs args && args.Source is CommandNode clickedNode)
+                    {
+                        Debug.WriteLine($"等待节点被点击: {clickedNode.DisplayName}");
+                        HandleNodeClick(clickedNode);
+                    }
+                }));
+
+                Debug.WriteLine($"为等待节点 {commandNode.DisplayName} 订阅了所有事件");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅等待节点事件失败: {ex.Message}");
+                Log.Error(ex, "订阅等待节点事件失败");
+            }
+        }
+
+        /// <summary>
+        /// 订阅设置变量节点事件的方法
+        /// </summary>
+        private void SubscribeToSetVariableNodeEvents(SetVariableNodeControlView setVarControl, CommandNode commandNode)
+        {
+            try
+            {
+                // **订阅删除请求事件**
+                setVarControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    Debug.WriteLine($"收到设置变量节点删除请求: {nodeToDelete.DisplayName}");
+                    HandleNodeDeleteRequest(nodeToDelete);
+                };
+
+                // **订阅点击事件（如果需要）**
+                setVarControl.AddHandler(SetVariableNodeControlView.NodeClickEvent, new RoutedEventHandler((s, e) =>
+                {
+                    if (e.OriginalSource is RoutedEventArgs args && args.Source is CommandNode clickedNode)
+                    {
+                        Debug.WriteLine($"设置变量节点被点击: {clickedNode.DisplayName}");
+                        HandleNodeClick(clickedNode);
+                    }
+                }));
+
+                Debug.WriteLine($"为设置变量节点 {commandNode.DisplayName} 订阅了所有事件");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅设置变量节点事件失败: {ex.Message}");
+                Log.Error(ex, "订阅设置变量节点事件失败");
+            }
+        }
         /// <summary>
         /// 获取节点的预估高度
         /// </summary>
@@ -733,6 +824,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     e.ResultCommand = createdCommand;
                     Debug.WriteLine($"为嵌套拖拽创建LogicCommand: {createdCommand?.Name ?? "失败"}");
                 };
+                // **新增：订阅删除请求事件**
+                ifControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    Debug.WriteLine($"收到IF节点删除请求: {nodeToDelete.DisplayName}");
+                    HandleNodeDeleteRequest(nodeToDelete);
+                };
 
                 Debug.WriteLine($"为IF节点 {commandNode.DisplayName} 订阅了所有事件");
             }
@@ -742,7 +839,62 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 Log.Error(ex, "订阅IF节点事件失败");
             }
         }
+        /// <summary>
+        /// 处理节点删除请求
+        /// </summary>
+        private void HandleNodeDeleteRequest(CommandNode nodeToDelete)
+        {
+            try
+            {
+                if (nodeToDelete == null) return;
 
+                Debug.WriteLine($"=== 处理节点删除请求: {nodeToDelete.DisplayName} ===");
+
+                // 根据节点类型生成确认消息
+                string confirmMessage = GenerateDeleteConfirmMessage(nodeToDelete);
+
+                var result = MessageBox.Show(
+                    confirmMessage,
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question,
+                    MessageBoxResult.No);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    RemoveCommandNode(nodeToDelete);
+                    Debug.WriteLine($"节点 {nodeToDelete.DisplayName} 已删除");
+                }
+                else
+                {
+                    Debug.WriteLine($"用户取消删除节点 {nodeToDelete.DisplayName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理节点删除请求失败: {ex.Message}");
+                Log.Error(ex, "处理节点删除请求失败");
+                MessageBox.Show($"删除节点时发生错误：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        /// <summary>
+        /// 生成删除确认消息
+        /// </summary>
+        private string GenerateDeleteConfirmMessage(CommandNode node)
+        {
+            string nodeType = node.IsIfNode ? "条件判断节点" :
+                             node.IsLoopNode ? "循环节点" :
+                             node.IsParallelNode ? "并行节点" :
+                             "节点";
+
+            string childrenInfo = "";
+            if (node.HasChildren)
+            {
+                childrenInfo = $"\n\n该{nodeType}包含 {node.ChildrenCount} 个子命令，删除后所有子命令也将被移除。";
+            }
+
+            return $"确定要删除{nodeType} '{node.DisplayName}' 吗？{childrenInfo}";
+        }
         public void AddDeviceToCanvas(IDevice device, System.Windows.Point position)
         {
             try
@@ -1528,7 +1680,69 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 Log.Error(ex, "刷新插件失败");
             }
         }
+        /// <summary>
+        /// 处理节点点击事件
+        /// </summary>
+        public void HandleNodeClick(CommandNode clickedNode)
+        {
+            try
+            {
+                if (clickedNode == null) return;
 
+                Debug.WriteLine($"=== 节点被点击: {clickedNode.DisplayName} ===");
+
+                // 取消所有主节点的选中状态
+                foreach (var node in CommandNodes)
+                {
+                    node.IsSelected = false;
+                    // 同时取消所有嵌套节点的选中状态
+                    ClearNestedNodeSelection(node);
+                }
+
+                // 选中被点击的节点
+                clickedNode.IsSelected = true;
+                Debug.WriteLine($"节点 {clickedNode.DisplayName} 已被选中");
+
+                // 触发属性变更通知
+                RaisePropertyChanged(nameof(CommandNodes));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理节点点击失败: {ex.Message}");
+                Log.Error(ex, "处理节点点击失败");
+            }
+        }
+
+        /// <summary>
+        /// 清除嵌套节点的选中状态
+        /// </summary>
+        private void ClearNestedNodeSelection(CommandNode parentNode)
+        {
+            try
+            {
+                if (parentNode?.HasChildren == true)
+                {
+                    foreach (var child in parentNode.Children)
+                    {
+                        child.IsSelected = false;
+                        // 递归清除更深层的嵌套节点
+                        ClearNestedNodeSelection(child);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除嵌套节点选中状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理嵌套节点点击（通过路由事件调用）
+        /// </summary>
+        public void HandleNestedNodeClick(CommandNode clickedNode)
+        {
+            HandleNodeClick(clickedNode);
+        }
         #endregion
 
         #region 事件处理

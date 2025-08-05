@@ -349,13 +349,20 @@
                                         <Grid Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <!-- 插件创建的逻辑命令节点控件 -->
                                             <ContentPresenter Content="{Binding NodeControl}"
-                                                              PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown"
-                                                              Visibility="{Binding NodeControl, Converter={StaticResource StringToVisibilityConverter}}"/>
+                              PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown"
+                              Visibility="{Binding NodeControl, Converter={StaticResource StringToVisibilityConverter}}">
+                                                <!-- 新增：为复杂节点添加事件处理 -->
+                                                <ContentPresenter.Style>
+                                                    <Style TargetType="ContentPresenter">
+                                                        <EventSetter Event="Loaded" Handler="ComplexNodeControl_Loaded"/>
+                                                    </Style>
+                                                </ContentPresenter.Style>
+                                            </ContentPresenter>
 
                                             <!-- 默认的设备命令节点模板 -->
                                             <ContentPresenter ContentTemplate="{StaticResource DeviceCommandNodeTemplate}"
-                                                              Content="{Binding}"
-                                                              PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown">
+                              Content="{Binding}"
+                              PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown">
                                                 <ContentPresenter.Style>
                                                     <Style TargetType="ContentPresenter">
                                                         <Setter Property="Visibility" Value="Collapsed"/>

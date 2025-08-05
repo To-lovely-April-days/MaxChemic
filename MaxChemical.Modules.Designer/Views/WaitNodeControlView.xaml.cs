@@ -21,6 +21,7 @@ namespace MaxChemical.Modules.Designer.Views
     /// </summary>
     public partial class WaitNodeControlView : UserControl
     {
+        public event EventHandler<CommandNode> NodeDeleteRequested;
         public WaitNodeControlView()
         {
             InitializeComponent();
@@ -36,7 +37,22 @@ namespace MaxChemical.Modules.Designer.Views
                 e.Handled = true;
             }
         }
-
+        private void DeleteButton_Click(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (DataContext is CommandNode node)
+                {
+                    System.Diagnostics.Debug.WriteLine($"请求删除等待节点: {node.DisplayName}");
+                    NodeDeleteRequested?.Invoke(this, node);
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"删除等待节点失败: {ex.Message}");
+            }
+        }
         // 定义路由事件
         public static readonly RoutedEvent NodeClickEvent = EventManager.RegisterRoutedEvent(
             "NodeClick", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(WaitNodeControlView));

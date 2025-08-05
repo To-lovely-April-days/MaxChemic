@@ -11,6 +11,8 @@ using System.Windows.Media.Imaging;
 using MaxChemical.Modules.Designer.Models;
 using DevicePlugins.Devices;
 using MaxChemical.DataModule.Model;
+using MaxChemical.Modules.Designer.ViewModels;
+using System.Windows.Data;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -23,7 +25,10 @@ namespace MaxChemical.Modules.Designer.Views
         public event EventHandler<NestedCommandEventArgs> NestedCommandAdded;
         public event EventHandler<NestedCommandEventArgs> NestedCommandRemoved;
         public event EventHandler<LogicCommandRequestEventArgs> LogicCommandRequested;
-
+        // 添加删除节点事件
+        public event EventHandler<CommandNode> NodeDeleteRequested;
+        // **新增：节点点击委托事件**
+        public event EventHandler<CommandNode> NodeClicked;
         private bool _isExpanded = true; // 默认展开
 
         public LoopNodeControlView()
@@ -53,12 +58,137 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
             {
+                System.Diagnostics.Debug.WriteLine($"=== LoopNodeControlView.Node_Click: {node.DisplayName} ===");
+
+                // **新增：处理节点点击**
+                HandleLoopNodeClick(node);
+
+                // **保留：原有的路由事件**
                 var routedEventArgs = new RoutedEventArgs(NodeClickEvent, node);
                 RaiseEvent(routedEventArgs);
+
                 e.Handled = true;
             }
         }
+        /// <summary>
+        /// 处理循环节点点击
+        /// </summary>
+        private void HandleLoopNodeClick(CommandNode loopNode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"处理循环节点点击: {loopNode.DisplayName}");
 
+                // 清除所有节点选中状态
+                ClearAllNodeSelections();
+
+                // 选中当前循环节点
+                loopNode.IsSelected = true;
+
+                // **触发委托事件**
+                NodeClicked?.Invoke(this, loopNode);
+
+                System.Diagnostics.Debug.WriteLine($"循环节点 {loopNode.DisplayName} 已被选中");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理循环节点点击失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理嵌套节点点击
+        /// </summary>
+        private void HandleNestedNodeClick(CommandNode nestedNode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"处理循环内嵌套节点点击: {nestedNode.DisplayName}");
+
+                // 清除所有节点选中状态
+                ClearAllNodeSelections();
+
+                // 选中当前嵌套节点
+                nestedNode.IsSelected = true;
+
+                // **关键：通知FlowDesignerView处理嵌套节点点击**
+                var flowDesignerView = FindVisualParent<FlowDesignerView>(this);
+                if (flowDesignerView?.DataContext is FlowDesignerViewModel flowViewModel)
+                {
+                    flowViewModel.HandleNodeClick(nestedNode);
+                    System.Diagnostics.Debug.WriteLine($"已通知FlowDesignerViewModel处理嵌套节点点击");
+                }
+
+                // 也触发委托事件
+                NodeClicked?.Invoke(this, nestedNode);
+
+                System.Diagnostics.Debug.WriteLine($"嵌套节点 {nestedNode.DisplayName} 处理完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理嵌套节点点击失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清除所有节点的选中状态
+        /// </summary>
+        private void ClearAllNodeSelections()
+        {
+            try
+            {
+                var flowDesignerView = FindVisualParent<FlowDesignerView>(this);
+                if (flowDesignerView?.DataContext is FlowDesignerViewModel flowViewModel)
+                {
+                    foreach (var node in flowViewModel.CommandNodes)
+                    {
+                        node.IsSelected = false;
+                        ClearNodeChildrenSelection(node);
+                    }
+                }
+
+                if (DataContext is CommandNode loopNode)
+                {
+                    loopNode.IsSelected = false;
+                }
+
+                System.Diagnostics.Debug.WriteLine("已清除所有节点的选中状态");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"清除节点选中状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 递归清除节点子节点的选中状态
+        /// </summary>
+        private void ClearNodeChildrenSelection(CommandNode node)
+        {
+            if (node?.HasChildren == true)
+            {
+                foreach (var child in node.Children)
+                {
+                    child.IsSelected = false;
+                    ClearNodeChildrenSelection(child);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 查找视觉树中的父级元素
+        /// </summary>
+        private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
+
+            if (parentObject == null) return null;
+
+            if (parentObject is T parent)
+                return parent;
+
+            return FindVisualParent<T>(parentObject);
+        }
         // 展开/折叠逻辑
         private void ToggleExpand()
         {
@@ -85,7 +215,25 @@ namespace MaxChemical.Modules.Designer.Views
                 ExpandIconTransform.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
             }
         }
-
+        /// <summary>
+        /// 删除按钮点击事件
+        /// </summary>
+        private void DeleteButton_Click(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (DataContext is CommandNode loopNode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"请求删除循环节点: {loopNode.DisplayName}");
+                    NodeDeleteRequested?.Invoke(this, loopNode);
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"删除循环节点失败: {ex.Message}");
+            }
+        }
         #region 拖拽事件处理
 
         private void DropArea_DragEnter(object sender, DragEventArgs e)
@@ -456,7 +604,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private UserControl CreateDeviceCommandControl(CommandNode nestedNode)
+         private UserControl CreateDeviceCommandControl(CommandNode nestedNode)
         {
             var border = new Border
             {
@@ -465,10 +613,25 @@ namespace MaxChemical.Modules.Designer.Views
                 Background = new SolidColorBrush(Colors.White),
                 CornerRadius = new CornerRadius(6),
                 Cursor = Cursors.Hand,
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
                 BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 4, 0, 4)
+                Margin = new Thickness(0, 4, 0, 4),
+                Tag = nestedNode
             };
+
+            // 绑定选中状态的边框样式
+            var borderStyle = new Style(typeof(Border));
+            borderStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0))));
+
+            var selectedTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsSelected") { Source = nestedNode },
+                Value = true
+            };
+            selectedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
+            selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
+
+            borderStyle.Triggers.Add(selectedTrigger);
+            border.Style = borderStyle;
 
             border.Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
@@ -479,9 +642,23 @@ namespace MaxChemical.Modules.Designer.Views
                 Opacity = 0.25
             };
 
+            // **修复：使用MouseLeftButtonDown，不阻止事件冒泡**
+            border.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is Border clickedBorder && clickedBorder.Tag is CommandNode node)
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套设备命令节点被点击: {node.DisplayName}");
+                    HandleNestedNodeClick(node);
+
+                    // **重要：设置Handled=true，防止事件继续冒泡到FlowDesignerView**
+                    e.Handled = true;
+                }
+            };
+
+            // 创建内容...
             var mainGrid = new Grid
             {
-                Margin = new Thickness(16)
+                Margin = new Thickness(16, 0, 16, 0)
             };
 
             mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -524,7 +701,8 @@ namespace MaxChemical.Modules.Designer.Views
             // 中间文字内容
             var textStack = new StackPanel
             {
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
             };
             Grid.SetColumn(textStack, 1);
 
@@ -550,56 +728,81 @@ namespace MaxChemical.Modules.Designer.Views
             textStack.Children.Add(helpText);
 
             // 删除按钮
-            var deleteButtonBorder = new Border
+            var deleteButton = new Border
             {
-                Width = 16,
-                Height = 16,
+                Width = 20,
+                Height = 20,
                 Background = new SolidColorBrush(Colors.Transparent),
-                VerticalAlignment = VerticalAlignment.Top,
+                VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Cursor = Cursors.Hand,
                 Tag = nestedNode
             };
 
+            var visibilityBinding = new Binding("IsSelected")
+            {
+                Source = nestedNode,
+                Converter = new BooleanToVisibilityConverter()
+            };
+            BindingOperations.SetBinding(deleteButton, UIElement.VisibilityProperty, visibilityBinding);
+
+            var deleteButtonStyle = new Style(typeof(Border));
+            deleteButtonStyle.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Colors.Transparent)));
+
+            var hoverTrigger = new Trigger { Property = Border.IsMouseOverProperty, Value = true };
+            hoverTrigger.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00))));
+            hoverTrigger.Setters.Add(new Setter(Border.CornerRadiusProperty, new CornerRadius(10)));
+
+            deleteButtonStyle.Triggers.Add(hoverTrigger);
+            deleteButton.Style = deleteButtonStyle;
+
             var deleteText = new TextBlock
             {
-                Text = "✕",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
+                Text = "×",
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            deleteButtonBorder.Child = deleteText;
-            deleteButtonBorder.MouseLeftButtonUp += (s, e) =>
+            var textHoverStyle = new Style(typeof(TextBlock));
+            textHoverStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66))));
+
+            var textHoverTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsMouseOver") { RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Border), 1) },
+                Value = true
+            };
+            textHoverTrigger.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33))));
+
+            textHoverStyle.Triggers.Add(textHoverTrigger);
+            deleteText.Style = textHoverStyle;
+
+            deleteButton.Child = deleteText;
+
+            deleteButton.MouseLeftButtonUp += (s, e) =>
             {
                 if (s is Border borderSender && borderSender.Tag is CommandNode node)
                 {
                     RemoveLoopCommand(node);
+                    e.Handled = true; // 删除按钮阻止事件传播
                 }
             };
 
-            deleteButtonBorder.MouseEnter += (s, e) =>
-            {
-                deleteText.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
-            };
-            deleteButtonBorder.MouseLeave += (s, e) =>
-            {
-                deleteText.Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99));
-            };
-
-            Grid.SetColumn(deleteButtonBorder, 2);
+            Grid.SetColumn(deleteButton, 2);
 
             mainGrid.Children.Add(iconGrid);
             mainGrid.Children.Add(textStack);
-            mainGrid.Children.Add(deleteButtonBorder);
+            mainGrid.Children.Add(deleteButton);
 
             border.Child = mainGrid;
 
             return new UserControl
             {
                 Content = border,
-                Tag = nestedNode
+                Tag = nestedNode,
+                DataContext = nestedNode
             };
         }
 
@@ -614,9 +817,35 @@ namespace MaxChemical.Modules.Designer.Views
                 Padding = new Thickness(8),
                 Margin = new Thickness(0, 4, 0, 4),
                 MinHeight = 36,
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Cursor = Cursors.Hand,
+                Tag = nestedNode // **重要：设置Tag**
             };
+            // 绑定选中状态的边框样式
+            var borderStyle = new Style(typeof(Border));
+            borderStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07))));
 
+            var selectedTrigger = new DataTrigger
+            {
+                Binding = new System.Windows.Data.Binding("IsSelected") { Source = nestedNode },
+                Value = true
+            };
+            selectedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
+            selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
+
+            borderStyle.Triggers.Add(selectedTrigger);
+            border.Style = borderStyle;
+
+            // **添加嵌套节点点击处理**
+            border.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is Border clickedBorder && clickedBorder.Tag is CommandNode node)
+                {
+                    System.Diagnostics.Debug.WriteLine($"循环内嵌套逻辑命令节点被点击: {node.DisplayName}");
+                    HandleNestedNodeClick(node);
+                    e.Handled = true; // 阻止事件冒泡
+                }
+            };
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -758,6 +987,13 @@ namespace MaxChemical.Modules.Designer.Views
                     ifControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
                     ifControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
                     ifControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
+
+                    // **新增：订阅嵌套IF节点的点击事件**
+                    ifControl.NodeClicked += (s, clickedNode) =>
+                    {
+                        System.Diagnostics.Debug.WriteLine($"循环内嵌套IF节点被点击: {clickedNode.DisplayName}");
+                        HandleNestedNodeClick(clickedNode);
+                    };
                 }
                 else if (nestedControl is ParallelNodeControlView parallelControl)
                 {
@@ -765,6 +1001,7 @@ namespace MaxChemical.Modules.Designer.Views
                     parallelControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
                     parallelControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
                     parallelControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
+                    parallelControl.NodeClicked += (s, clickedNode) => HandleNestedNodeClick(clickedNode);
                 }
                 else if (nestedControl is LoopNodeControlView loopControl)
                 {
@@ -772,6 +1009,13 @@ namespace MaxChemical.Modules.Designer.Views
                     loopControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
                     loopControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
                     loopControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
+
+                    // **订阅嵌套循环节点的点击事件**
+                    loopControl.NodeClicked += (s, clickedNode) =>
+                    {
+                        System.Diagnostics.Debug.WriteLine($"循环内嵌套循环节点被点击: {clickedNode.DisplayName}");
+                        HandleNestedNodeClick(clickedNode);
+                    };
                 }
             }
             catch (Exception ex)

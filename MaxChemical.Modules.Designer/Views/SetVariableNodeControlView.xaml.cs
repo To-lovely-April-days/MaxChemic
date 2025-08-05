@@ -21,6 +21,7 @@ namespace MaxChemical.Modules.Designer.Views
     /// </summary>
     public partial class SetVariableNodeControlView : UserControl
     {
+        public event EventHandler<CommandNode> NodeDeleteRequested;
         public SetVariableNodeControlView()
         {
             InitializeComponent();
@@ -33,6 +34,22 @@ namespace MaxChemical.Modules.Designer.Views
                 var routedEventArgs = new RoutedEventArgs(NodeClickEvent, node);
                 RaiseEvent(routedEventArgs);
                 e.Handled = true;
+            }
+        }
+        private void DeleteButton_Click(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (DataContext is CommandNode node)
+                {
+                    System.Diagnostics.Debug.WriteLine($"请求删除设置变量节点: {node.DisplayName}");
+                    NodeDeleteRequested?.Invoke(this, node);
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"删除设置变量节点失败: {ex.Message}");
             }
         }
 

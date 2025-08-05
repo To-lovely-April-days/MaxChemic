@@ -353,21 +353,93 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
+                System.Diagnostics.Debug.WriteLine($"=== FlowDesignerView.NodeControl_PreviewMouseLeftButtonDown 触发 ===");
+                System.Diagnostics.Debug.WriteLine($"Sender: {sender?.GetType().Name}");
+                System.Diagnostics.Debug.WriteLine($"OriginalSource: {e.OriginalSource?.GetType().Name}");
+
                 var contentPresenter = sender as ContentPresenter;
                 if (contentPresenter?.DataContext is CommandNode node)
                 {
-                    // 检查是否点击在特定的交互元素上
-                    if (IsClickOnInteractiveElement(e))
+                    System.Diagnostics.Debug.WriteLine($"ContentPresenter的DataContext节点: {node.DisplayName}");
+
+                    // **关键修复：检查点击是否来自嵌套节点**
+                    if (IsClickFromNestedNode(e.OriginalSource, node))
                     {
-                        // 如果点击在交互元素（如按钮）上，不处理选择逻辑
+                        System.Diagnostics.Debug.WriteLine("点击来自嵌套节点，跳过FlowDesignerView处理");
+                        // 不处理，让嵌套节点自己处理
                         return;
                     }
 
+                    // 检查是否点击在特定的交互元素上
+                    if (IsClickOnInteractiveElement(e))
+                    {
+                        System.Diagnostics.Debug.WriteLine("点击在交互元素上，跳过选择逻辑");
+                        return;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"处理主节点选择: {node.DisplayName}");
                     HandleNodeSelection(node);
                     e.Handled = true;
                 }
             }
         }
+        /// <summary>
+        /// 检查点击是否来自嵌套节点
+        /// </summary>
+        private bool IsClickFromNestedNode(object originalSource, CommandNode parentNode)
+        {
+            try
+            {
+                var element = originalSource as DependencyObject;
+
+                while (element != null)
+                {
+                    // 检查是否是带有CommandNode Tag的元素（嵌套节点的标识）
+                    if (element is FrameworkElement fe && fe.Tag is CommandNode tagNode)
+                    {
+                        // 如果Tag中的节点不是当前的父节点，说明是嵌套节点
+                        if (tagNode != parentNode)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"发现嵌套节点: {tagNode.DisplayName} (父节点: {parentNode.DisplayName})");
+                            return true;
+                        }
+                    }
+
+                    // 检查是否在特定的嵌套区域内
+                    if (element is StackPanel sp)
+                    {
+                        var spName = sp.Name;
+                        if (spName == "TrueBranchContent" || spName == "FalseBranchContent")
+                        {
+                            System.Diagnostics.Debug.WriteLine($"点击在分支内容区域: {spName}");
+                            return true;
+                        }
+                    }
+
+                    // 检查是否在分支容器内
+                    if (element is Border border)
+                    {
+                        var borderName = border.Name;
+                        if (borderName == "TrueBranchDropZone" || borderName == "FalseBranchDropZone" ||
+                            borderName == "TrueBranchWrapper" || borderName == "FalseBranchWrapper")
+                        {
+                            System.Diagnostics.Debug.WriteLine($"点击在分支区域: {borderName}");
+                            return true;
+                        }
+                    }
+
+                    element = VisualTreeHelper.GetParent(element);
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"检查嵌套节点点击失败: {ex.Message}");
+                return false;
+            }
+        }
+
         private bool IsClickOnInteractiveElement(MouseButtonEventArgs e)
         {
             var element = e.OriginalSource as FrameworkElement;
@@ -601,9 +673,120 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+        #region 节点点击事件处理 - 新增部分
 
-    
+        /// <summary>
+        /// 处理普通节点的路由点击事件
+        /// </summary>
+        private void OnNodeClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                CommandNode clickedNode = null;
+
+                // 从事件参数中获取点击的节点
+                if (e.OriginalSource is CommandNode node)
+                {
+                    clickedNode = node;
+                }
+                else if (sender is FrameworkElement element && element.DataContext is CommandNode dataNode)
+                {
+                    clickedNode = dataNode;
+                }
+                else if (sender is FrameworkElement elem && elem.Tag is CommandNode tagNode)
+                {
+                    clickedNode = tagNode;
+                }
+
+                if (clickedNode != null && this.DataContext is FlowDesignerViewModel viewModel)
+                {
+                    viewModel.HandleNodeClick(clickedNode);
+                    e.Handled = true;
+                    Debug.WriteLine($"处理节点点击: {clickedNode.DisplayName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理节点点击事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理复杂节点的路由点击事件（IF、循环、并行节点）
+        /// </summary>
+        private void OnComplexNodeClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (e.OriginalSource is CommandNode clickedNode)
+                {
+                    if (this.DataContext is FlowDesignerViewModel viewModel)
+                    {
+                        viewModel.HandleNodeClick(clickedNode);
+                        e.Handled = true;
+                        Debug.WriteLine($"处理复杂节点点击: {clickedNode.DisplayName}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理复杂节点点击事件失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 处理复杂节点控件加载完成事件
+        /// </summary>
+        private void ComplexNodeControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is ContentPresenter presenter && presenter.Content is UserControl nodeControl)
+                {
+                    // 为不同类型的复杂节点订阅点击事件
+                    if (nodeControl is Views.IfNodeControlView ifControl)
+                    {
+                        ifControl.NodeClicked += OnComplexNodeClicked;
+                        Debug.WriteLine($"为IF节点订阅了点击事件");
+                    }
+                    else if (nodeControl is Views.LoopNodeControlView loopControl)
+                    {
+                        loopControl.NodeClicked += OnComplexNodeClicked;
+                        Debug.WriteLine($"为循环节点订阅了点击事件");
+                    }
+                    else if (nodeControl is Views.ParallelNodeControlView parallelControl)
+                    {
+                        // **新增：订阅并行节点的点击事件**
+                        parallelControl.NodeClicked += OnComplexNodeClicked;
+                        Debug.WriteLine($"为并行节点订阅了点击事件");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅复杂节点点击事件失败: {ex.Message}");
+            }
+        }
+
+        // **新增：通用的复杂节点点击处理器**
+        private void OnComplexNodeClicked(object sender, CommandNode clickedNode)
+        {
+            try
+            {
+                if (clickedNode != null && this.DataContext is FlowDesignerViewModel viewModel)
+                {
+                    viewModel.HandleNodeClick(clickedNode);
+                    Debug.WriteLine($"处理复杂节点点击: {clickedNode.DisplayName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理复杂节点点击事件失败: {ex.Message}");
+            }
+        }
+        #endregion
+
+
     }
 
- 
+
 }

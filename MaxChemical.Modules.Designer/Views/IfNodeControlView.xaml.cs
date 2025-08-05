@@ -9,21 +9,23 @@ using System.Windows.Media.Imaging;
 using MaxChemical.Modules.Designer.Models;
 using DevicePlugins.Devices;
 using MaxChemical.DataModule.Model;
+using System.Windows.Data;
+using MaxChemical.Modules.Designer.ViewModels;
 
 namespace MaxChemical.Modules.Designer.Views
 {
-    /// <summary>
-    /// IfNodeControlView.xaml 的交互逻辑
-    /// </summary>
     public partial class IfNodeControlView : UserControl
     {
         public event EventHandler ContentChanged;
         public event EventHandler<NestedCommandEventArgs> NestedCommandAdded;
         public event EventHandler<NestedCommandEventArgs> NestedCommandRemoved;
         public event EventHandler<LogicCommandRequestEventArgs> LogicCommandRequested;
+        public event EventHandler<CommandNode> NodeDeleteRequested;
+
+        // **新增：节点点击事件（使用普通委托事件）**
+        public event EventHandler<CommandNode> NodeClicked;
 
         private Size _lastMeasuredSize;
-        // 保留内部集合用于UI快速访问，但数据存储在CommandNode.Children中
         private readonly List<CommandNode> _trueBranchCommands = new List<CommandNode>();
         private readonly List<CommandNode> _falseBranchCommands = new List<CommandNode>();
 
@@ -39,7 +41,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.NewValue is CommandNode ifNode)
             {
-                // 同步 Children 到内部集合和UI
                 SyncChildrenToUI();
             }
         }
@@ -50,13 +51,11 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
-                // 清空内部集合和UI
                 _trueBranchCommands.Clear();
                 _falseBranchCommands.Clear();
                 TrueBranchContent.Children.Clear();
                 FalseBranchContent.Children.Clear();
 
-                // 从Children集合重建UI
                 foreach (var child in ifNode.Children)
                 {
                     var branchType = child.GetExecutionProperty<string>("BranchType");
@@ -76,7 +75,6 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
 
-                // 更新提示文本
                 TrueHint.Visibility = TrueBranchContent.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                 FalseHint.Visibility = FalseBranchContent.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -102,8 +100,147 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #region 拖拽事件处理
+        #region 事件处理 - 重新设计
 
+        /// <summary>
+        /// IF节点主卡片点击事件
+        /// </summary>
+        private void Node_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
+            {
+                System.Diagnostics.Debug.WriteLine($"Node_Click 被触发: {node.DisplayName}");
+
+                // **简化处理：直接处理点击，不做复杂的区域检测**
+                HandleIfNodeClick(node);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// 处理IF节点点击
+        /// </summary>
+        private void HandleIfNodeClick(CommandNode ifNode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"处理IF节点点击: {ifNode.DisplayName}");
+
+                // 清除所有节点选中状态
+                ClearAllNodeSelections();
+
+                // 选中当前IF节点
+                ifNode.IsSelected = true;
+
+                // 触发事件
+                NodeClicked?.Invoke(this, ifNode);
+
+                System.Diagnostics.Debug.WriteLine($"IF节点 {ifNode.DisplayName} 已被选中");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理IF节点点击失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理嵌套节点点击
+        /// </summary>
+        private void HandleNestedNodeClick(CommandNode nestedNode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"=== IfNodeControlView.HandleNestedNodeClick: {nestedNode.DisplayName} ===");
+
+                // 清除所有节点的选中状态
+                ClearAllNodeSelections();
+
+                // 选中当前嵌套节点
+                nestedNode.IsSelected = true;
+
+                // **关键：触发FlowDesignerView的节点点击处理**
+                var flowDesignerView = FindVisualParent<FlowDesignerView>(this);
+                if (flowDesignerView?.DataContext is FlowDesignerViewModel flowViewModel)
+                {
+                    flowViewModel.HandleNodeClick(nestedNode);
+                    System.Diagnostics.Debug.WriteLine($"已通知FlowDesignerViewModel处理嵌套节点点击");
+                }
+
+                // 也触发NodeClicked事件（如果有其他订阅者）
+                NodeClicked?.Invoke(this, nestedNode);
+
+                System.Diagnostics.Debug.WriteLine($"嵌套节点 {nestedNode.DisplayName} 处理完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理嵌套节点点击失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清除所有节点的选中状态
+        /// </summary>
+        private void ClearAllNodeSelections()
+        {
+            try
+            {
+                var flowDesignerView = FindVisualParent<FlowDesignerView>(this);
+                if (flowDesignerView?.DataContext is FlowDesignerViewModel flowViewModel)
+                {
+                    foreach (var node in flowViewModel.CommandNodes)
+                    {
+                        node.IsSelected = false;
+                        ClearNodeChildrenSelection(node);
+                    }
+                }
+
+                if (DataContext is CommandNode ifNode)
+                {
+                    ifNode.IsSelected = false;
+                }
+
+                System.Diagnostics.Debug.WriteLine("已清除所有节点的选中状态");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"清除节点选中状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 递归清除节点子节点的选中状态
+        /// </summary>
+        private void ClearNodeChildrenSelection(CommandNode node)
+        {
+            if (node?.HasChildren == true)
+            {
+                foreach (var child in node.Children)
+                {
+                    child.IsSelected = false;
+                    ClearNodeChildrenSelection(child);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 查找视觉树中的父级元素
+        /// </summary>
+        private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
+
+            if (parentObject == null) return null;
+
+            if (parentObject is T parent)
+                return parent;
+
+            return FindVisualParent<T>(parentObject);
+        }
+
+        #endregion
+
+        #region 拖拽事件处理
+        // ... 拖拽相关代码保持不变 ...
         private void TrueBranch_DragEnter(object sender, DragEventArgs e)
         {
             if (CanAcceptDrop(e.Data))
@@ -184,10 +321,6 @@ namespace MaxChemical.Modules.Designer.Views
             e.Handled = true;
         }
 
-        #endregion
-
-        #region 拖拽处理逻辑
-
         private bool CanAcceptDrop(IDataObject data)
         {
             try
@@ -224,7 +357,6 @@ namespace MaxChemical.Modules.Designer.Views
                     System.Diagnostics.Debug.WriteLine($"  格式: {format}, 数据类型: {data?.GetType()?.Name ?? "null"}");
                 }
 
-                // 1. 优先处理 CommandDragInfo 格式
                 if (e.Data.GetDataPresent("CommandDragInfo"))
                 {
                     var commandDragInfo = e.Data.GetData("CommandDragInfo");
@@ -234,7 +366,6 @@ namespace MaxChemical.Modules.Designer.Views
                         System.Diagnostics.Debug.WriteLine($"从 CommandDragInfo 中成功提取命令: {command.GetType().Name}");
                     }
                 }
-                // 2. 处理直接的 DeviceCommand 格式
                 else if (e.Data.GetDataPresent("DeviceCommand"))
                 {
                     var deviceCommandData = e.Data.GetData("DeviceCommand");
@@ -244,13 +375,11 @@ namespace MaxChemical.Modules.Designer.Views
                         System.Diagnostics.Debug.WriteLine($"直接获取到 DeviceCommand: {deviceCmd.Name}");
                     }
                 }
-                // 3. 处理设备命令类型格式
                 else if (e.Data.GetDataPresent(typeof(DeviceCommand)))
                 {
                     command = e.Data.GetData(typeof(DeviceCommand));
                     System.Diagnostics.Debug.WriteLine("通过类型获取到 DeviceCommand");
                 }
-                // 4. 处理逻辑命令格式
                 else if (e.Data.GetDataPresent("LogicCommand"))
                 {
                     var logicCommandData = e.Data.GetData("LogicCommand");
@@ -264,7 +393,6 @@ namespace MaxChemical.Modules.Designer.Views
                         command = ExtractCommandFromDragInfo(logicCommandData);
                     }
                 }
-                // 5. 处理插件ID格式
                 else if (e.Data.GetDataPresent("PluginId"))
                 {
                     var pluginIdData = e.Data.GetData("PluginId");
@@ -366,15 +494,13 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (nestedNode != null && DataContext is CommandNode ifNode)
                 {
-                    // 使用统一的Children集合
                     ifNode.AddChildToBranch(nestedNode, isTrueBranch);
 
-                    // UI管理仍然使用内部集合来优化性能
                     var nestedControl = CreateNestedCommandControl(nestedNode);
 
                     if (isTrueBranch)
                     {
-                        _trueBranchCommands.Add(nestedNode); // 用于UI快速访问
+                        _trueBranchCommands.Add(nestedNode);
                         TrueBranchContent.Children.Add(nestedControl);
                         TrueHint.Visibility = Visibility.Collapsed;
                     }
@@ -385,7 +511,6 @@ namespace MaxChemical.Modules.Designer.Views
                         FalseHint.Visibility = Visibility.Collapsed;
                     }
 
-                    // 触发嵌套命令添加事件
                     NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
                     {
                         NestedCommand = nestedNode,
@@ -405,7 +530,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
-        #region UI控件创建
+        #region UI控件创建 - 重新设计事件处理
 
         private UserControl CreateNestedCommandControl(CommandNode nestedNode)
         {
@@ -427,6 +552,14 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 result = CreateNestedLoopNodeControl(nestedNode);
             }
+            else if (IsWaitLogicCommand(nestedNode)) 
+            {
+                result = CreateNestedWaitNodeControl(nestedNode);
+            }
+            else if (IsSetVariableLogicCommand(nestedNode))  
+            {
+                result = CreateNestedSetVariableNodeControl(nestedNode);
+            }
             else
             {
                 result = CreateLogicCommandControl(nestedNode);
@@ -435,6 +568,365 @@ namespace MaxChemical.Modules.Designer.Views
             return result;
         }
 
+        private UserControl CreateDeviceCommandControl(CommandNode nestedNode)
+        {
+            var border = new Border
+            {
+                Width = 231,
+                Height = 64,
+                Background = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(6),
+                Cursor = Cursors.Hand,
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 4, 0, 4),
+                Tag = nestedNode
+            };
+
+            // 绑定选中状态的边框样式
+            var borderStyle = new Style(typeof(Border));
+            borderStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0))));
+
+            var selectedTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsSelected") { Source = nestedNode },
+                Value = true
+            };
+            selectedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
+            selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
+
+            borderStyle.Triggers.Add(selectedTrigger);
+            border.Style = borderStyle;
+
+            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                ShadowDepth = 4,
+                Direction = 315,
+                BlurRadius = 8,
+                Color = Colors.Black,
+                Opacity = 0.25
+            };
+
+            // **修复：使用MouseLeftButtonDown，不阻止事件冒泡**
+            border.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is Border clickedBorder && clickedBorder.Tag is CommandNode node)
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套设备命令节点被点击: {node.DisplayName}");
+                    HandleNestedNodeClick(node);
+
+                    // **重要：设置Handled=true，防止事件继续冒泡到FlowDesignerView**
+                    e.Handled = true;
+                }
+            };
+
+            // 创建内容...
+            var mainGrid = new Grid
+            {
+                Margin = new Thickness(16, 0, 16, 0)
+            };
+
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // 左侧图标
+            var iconGrid = new Grid
+            {
+                Width = 32,
+                Height = 32,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0)
+            };
+            Grid.SetColumn(iconGrid, 0);
+
+            if (nestedNode.HasImage && !string.IsNullOrEmpty(nestedNode.DisplayImageLocation))
+            {
+                try
+                {
+                    var image = new Image
+                    {
+                        Source = new BitmapImage(new Uri(nestedNode.DisplayImageLocation, UriKind.RelativeOrAbsolute)),
+                        Stretch = Stretch.Uniform,
+                        Width = 26,
+                        Height = 26
+                    };
+                    iconGrid.Children.Add(image);
+                }
+                catch
+                {
+                    AddDefaultIconToGrid(iconGrid);
+                }
+            }
+            else
+            {
+                AddDefaultIconToGrid(iconGrid);
+            }
+
+            // 中间文字内容
+            var textStack = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            Grid.SetColumn(textStack, 1);
+
+            var nameText = new TextBlock
+            {
+                Text = nestedNode.DisplayName,
+                FontSize = 14,
+                FontWeight = FontWeights.Medium,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)),
+                Margin = new Thickness(0, 0, 0, 2),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+
+            var helpText = new TextBlock
+            {
+                Text = nestedNode.DisplayHelpText,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+
+            textStack.Children.Add(nameText);
+            textStack.Children.Add(helpText);
+
+            // 删除按钮
+            var deleteButton = new Border
+            {
+                Width = 20,
+                Height = 20,
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Cursor = Cursors.Hand,
+                Tag = nestedNode
+            };
+
+            var visibilityBinding = new Binding("IsSelected")
+            {
+                Source = nestedNode,
+                Converter = new BooleanToVisibilityConverter()
+            };
+            BindingOperations.SetBinding(deleteButton, UIElement.VisibilityProperty, visibilityBinding);
+
+            var deleteButtonStyle = new Style(typeof(Border));
+            deleteButtonStyle.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Colors.Transparent)));
+
+            var hoverTrigger = new Trigger { Property = Border.IsMouseOverProperty, Value = true };
+            hoverTrigger.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00))));
+            hoverTrigger.Setters.Add(new Setter(Border.CornerRadiusProperty, new CornerRadius(10)));
+
+            deleteButtonStyle.Triggers.Add(hoverTrigger);
+            deleteButton.Style = deleteButtonStyle;
+
+            var deleteText = new TextBlock
+            {
+                Text = "×",
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var textHoverStyle = new Style(typeof(TextBlock));
+            textHoverStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66))));
+
+            var textHoverTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsMouseOver") { RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Border), 1) },
+                Value = true
+            };
+            textHoverTrigger.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33))));
+
+            textHoverStyle.Triggers.Add(textHoverTrigger);
+            deleteText.Style = textHoverStyle;
+
+            deleteButton.Child = deleteText;
+
+            deleteButton.MouseLeftButtonUp += (s, e) =>
+            {
+                if (s is Border borderSender && borderSender.Tag is CommandNode node)
+                {
+                    RemoveNestedCommand(node);
+                    e.Handled = true; // 删除按钮阻止事件传播
+                }
+            };
+
+            Grid.SetColumn(deleteButton, 2);
+
+            mainGrid.Children.Add(iconGrid);
+            mainGrid.Children.Add(textStack);
+            mainGrid.Children.Add(deleteButton);
+
+            border.Child = mainGrid;
+
+            return new UserControl
+            {
+                Content = border,
+                Tag = nestedNode,
+                DataContext = nestedNode
+            };
+        }
+
+        private void AddDefaultIconToGrid(Grid iconGrid)
+        {
+            var iconBorder = new Border
+            {
+                Width = 26,
+                Height = 26,
+                Background = new SolidColorBrush(Color.FromRgb(0x6C, 0xB6, 0xFF)),
+                CornerRadius = new CornerRadius(13)
+            };
+
+            var iconText = new TextBlock
+            {
+                Text = "🔧",
+                FontSize = 16,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = new SolidColorBrush(Colors.White)
+            };
+
+            iconBorder.Child = iconText;
+            iconGrid.Children.Add(iconBorder);
+        }
+
+        private UserControl CreateLogicCommandControl(CommandNode nestedNode)
+        {
+            var border = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF3, 0xE0)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 4, 0, 4),
+                MinHeight = 36,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Cursor = Cursors.Hand,
+                Tag = nestedNode
+            };
+
+            // 绑定选中状态的边框样式
+            var borderStyle = new Style(typeof(Border));
+            borderStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07))));
+
+            var selectedTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsSelected") { Source = nestedNode },
+                Value = true
+            };
+            selectedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
+            selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
+
+            borderStyle.Triggers.Add(selectedTrigger);
+            border.Style = borderStyle;
+
+            // **修复：使用MouseLeftButtonDown，不阻止事件冒泡**
+            border.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is Border clickedBorder && clickedBorder.Tag is CommandNode node)
+                {
+                    System.Diagnostics.Debug.WriteLine($"=== 嵌套逻辑命令节点被点击: {node.DisplayName} ===");
+                    HandleNestedNodeClick(node);
+                    e.Handled = true;
+                }
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var nameText = new TextBlock
+            {
+                Text = nestedNode.DisplayName,
+                FontSize = 12,
+                FontWeight = FontWeights.Medium,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(nameText, 0);
+
+            var deleteButtonBorder = new Border
+            {
+                Width = 20,
+                Height = 20,
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Cursor = Cursors.Hand,
+                Tag = nestedNode
+            };
+
+            var visibilityBinding = new Binding("IsSelected")
+            {
+                Source = nestedNode,
+                Converter = new BooleanToVisibilityConverter()
+            };
+            BindingOperations.SetBinding(deleteButtonBorder, UIElement.VisibilityProperty, visibilityBinding);
+
+            var deleteButtonStyle = new Style(typeof(Border));
+            deleteButtonStyle.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Colors.Transparent)));
+
+            var hoverTrigger = new Trigger { Property = Border.IsMouseOverProperty, Value = true };
+            hoverTrigger.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00))));
+            hoverTrigger.Setters.Add(new Setter(Border.CornerRadiusProperty, new CornerRadius(10)));
+
+            deleteButtonStyle.Triggers.Add(hoverTrigger);
+            deleteButtonBorder.Style = deleteButtonStyle;
+
+            var deleteText = new TextBlock
+            {
+                Text = "×",
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var textHoverStyle = new Style(typeof(TextBlock));
+            textHoverStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66))));
+
+            var textHoverTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsMouseOver") { RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Border), 1) },
+                Value = true
+            };
+            textHoverTrigger.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33))));
+
+            textHoverStyle.Triggers.Add(textHoverTrigger);
+            deleteText.Style = textHoverStyle;
+
+            deleteButtonBorder.Child = deleteText;
+
+            deleteButtonBorder.MouseLeftButtonUp += (s, e) =>
+            {
+                if (s is Border borderSender && borderSender.Tag is CommandNode node)
+                {
+                    RemoveNestedCommand(node);
+                    e.Handled = true; // 删除按钮阻止事件传播
+                }
+            };
+
+            Grid.SetColumn(deleteButtonBorder, 1);
+
+            grid.Children.Add(nameText);
+            grid.Children.Add(deleteButtonBorder);
+            border.Child = grid;
+
+            return new UserControl
+            {
+                Content = border,
+                Tag = nestedNode,
+                DataContext = nestedNode
+            };
+        }
+
+        // 其他创建方法保持不变...
         private bool IsParallelLogicCommand(CommandNode node)
         {
             return node.LogicCommand != null &&
@@ -454,7 +946,115 @@ namespace MaxChemical.Modules.Designer.Views
                     node.LogicCommand.CommandType.ToString().Equals("For", StringComparison.OrdinalIgnoreCase) ||
                     node.LogicCommand.CommandType.ToString().Equals("While", StringComparison.OrdinalIgnoreCase));
         }
+        private bool IsWaitLogicCommand(CommandNode node)
+        {
+            return node.LogicCommand != null &&
+                   (node.LogicCommand.CommandType.ToString().Equals("Wait", StringComparison.OrdinalIgnoreCase) ||
+                    node.LogicCommand.CommandType.ToString().Equals("WaitIf", StringComparison.OrdinalIgnoreCase) ||
+                    node.LogicCommand.CommandType.ToString().Equals("Condition", StringComparison.OrdinalIgnoreCase));
+        }
+        private bool IsSetVariableLogicCommand(CommandNode node)
+        {
+            return node.LogicCommand != null &&
+                   (node.LogicCommand.CommandType.ToString().Equals("SetVariable", StringComparison.OrdinalIgnoreCase) ||
+                    node.LogicCommand.CommandType.ToString().Equals("VariableSet", StringComparison.OrdinalIgnoreCase) ||
+                    node.LogicCommand.CommandType.ToString().Equals("Variable", StringComparison.OrdinalIgnoreCase));
+        }
+        private UserControl CreateNestedSetVariableNodeControl(CommandNode nestedNode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"创建嵌套设置变量节点控件: {nestedNode.DisplayName}");
 
+                var nestedSetVariableControl = new SetVariableNodeControlView
+                {
+                    DataContext = nestedNode,
+                    Tag = nestedNode,
+                    Margin = new Thickness(0, 4, 0, 4)
+                };
+                nestedSetVariableControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套设置变量节点请求删除: {nodeToDelete.DisplayName}");
+                    RemoveNestedCommand(nodeToDelete);
+                };
+
+                // **重要：为设置变量控件添加点击事件处理**
+                nestedSetVariableControl.MouseLeftButtonDown += (s, e) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套设置变量节点直接点击: {nestedNode.DisplayName}");
+                    HandleNestedNodeClick(nestedNode);
+                    e.Handled = true; // 阻止事件继续冒泡
+                };
+
+                // **订阅设置变量节点的路由事件**
+                nestedSetVariableControl.AddHandler(SetVariableNodeControlView.NodeClickEvent, new RoutedEventHandler((s, e) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"设置变量节点路由事件在IF分支中触发: {nestedNode.DisplayName}");
+                    HandleNestedNodeClick(nestedNode);
+                    e.Handled = true;
+                }));
+
+                System.Diagnostics.Debug.WriteLine($"创建嵌套设置变量节点控件成功: {nestedNode.DisplayName}");
+                return nestedSetVariableControl;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"创建嵌套设置变量节点控件失败: {ex.Message}");
+                return CreateLogicCommandControl(nestedNode);
+            }
+        }
+        private UserControl CreateNestedWaitNodeControl(CommandNode nestedNode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"创建嵌套等待节点控件: {nestedNode.DisplayName}");
+
+                var nestedWaitControl = new WaitNodeControlView
+                {
+                    DataContext = nestedNode,
+                    Tag = nestedNode,
+                    Margin = new Thickness(0, 4, 0, 4)
+                };
+
+                // **包装容器，便于事件处理和定制**
+                var wrapper = new UserControl
+                {
+                    Content = nestedWaitControl,
+                    Tag = nestedNode,
+                    DataContext = nestedNode
+                };
+                // **重要：订阅删除事件**
+                nestedWaitControl.NodeDeleteRequested += (s, nodeToDelete) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套等待节点请求删除: {nodeToDelete.DisplayName}");
+                    RemoveNestedCommand(nodeToDelete);
+                };
+
+                // **为包装器添加点击事件处理**
+                wrapper.MouseLeftButtonDown += (s, e) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套等待节点包装器点击: {nestedNode.DisplayName}");
+                    HandleNestedNodeClick(nestedNode);
+                    e.Handled = true;
+                };
+
+                // **订阅等待节点的路由事件**
+                nestedWaitControl.AddHandler(WaitNodeControlView.NodeClickEvent, new RoutedEventHandler((s, e) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"等待节点路由事件在IF分支中触发: {nestedNode.DisplayName}");
+                    HandleNestedNodeClick(nestedNode);
+                    e.Handled = true;
+                }));
+
+                System.Diagnostics.Debug.WriteLine($"创建嵌套等待节点控件成功: {nestedNode.DisplayName}");
+                return wrapper;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"创建嵌套等待节点控件失败: {ex.Message}");
+                return CreateLogicCommandControl(nestedNode);
+            }
+        }
         private UserControl CreateNestedParallelNodeControl(CommandNode nestedNode)
         {
             try
@@ -618,6 +1218,13 @@ namespace MaxChemical.Modules.Designer.Views
                     LogicCommandRequested?.Invoke(this, e);
                 };
 
+                // **重要：订阅嵌套IF节点的点击事件**
+                nestedIfControl.NodeClicked += (s, clickedNode) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"嵌套IF节点被点击: {clickedNode.DisplayName}");
+                    HandleNestedNodeClick(clickedNode);
+                };
+
                 System.Diagnostics.Debug.WriteLine($"为嵌套IF节点 {nestedNode.DisplayName} 订阅了所有事件");
             }
             catch (Exception ex)
@@ -626,261 +1233,26 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private UserControl CreateDeviceCommandControl(CommandNode nestedNode)
-        {
-            var border = new Border
-            {
-                Width = 231,
-                Height = 64,
-                Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(6),
-                Cursor = Cursors.Hand,
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
-                BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 4, 0, 4)
-            };
-
-            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
-            {
-                ShadowDepth = 4,
-                Direction = 315,
-                BlurRadius = 8,
-                Color = Colors.Black,
-                Opacity = 0.25
-            };
-
-            var mainGrid = new Grid
-            {
-                Margin = new Thickness(16)
-            };
-
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // 左侧图标
-            var iconGrid = new Grid
-            {
-                Width = 32,
-                Height = 32,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0)
-            };
-            Grid.SetColumn(iconGrid, 0);
-
-            if (nestedNode.HasImage && !string.IsNullOrEmpty(nestedNode.DisplayImageLocation))
-            {
-                try
-                {
-                    var image = new Image
-                    {
-                        Source = new BitmapImage(new Uri(nestedNode.DisplayImageLocation, UriKind.RelativeOrAbsolute)),
-                        Stretch = Stretch.Uniform,
-                        Width = 26,
-                        Height = 26
-                    };
-                    iconGrid.Children.Add(image);
-                }
-                catch
-                {
-                    AddDefaultIconToGrid(iconGrid);
-                }
-            }
-            else
-            {
-                AddDefaultIconToGrid(iconGrid);
-            }
-
-            // 中间文字内容
-            var textStack = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(textStack, 1);
-
-            var nameText = new TextBlock
-            {
-                Text = nestedNode.DisplayName,
-                FontSize = 14,
-                FontWeight = FontWeights.Medium,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)),
-                Margin = new Thickness(0, 0, 0, 2),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-
-            var helpText = new TextBlock
-            {
-                Text = nestedNode.DisplayHelpText,
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-
-            textStack.Children.Add(nameText);
-            textStack.Children.Add(helpText);
-
-            // 删除按钮
-            var deleteButtonBorder = new Border
-            {
-                Width = 16,
-                Height = 16,
-                Background = new SolidColorBrush(Colors.Transparent),
-                VerticalAlignment = VerticalAlignment.Top,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Cursor = Cursors.Hand,
-                Tag = nestedNode
-            };
-
-            var deleteText = new TextBlock
-            {
-                Text = "✕",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            deleteButtonBorder.Child = deleteText;
-            deleteButtonBorder.MouseLeftButtonUp += (s, e) =>
-            {
-                if (s is Border borderSender && borderSender.Tag is CommandNode node)
-                {
-                    RemoveNestedCommand(node);
-                }
-            };
-
-            deleteButtonBorder.MouseEnter += (s, e) =>
-            {
-                deleteText.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
-            };
-            deleteButtonBorder.MouseLeave += (s, e) =>
-            {
-                deleteText.Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99));
-            };
-
-            Grid.SetColumn(deleteButtonBorder, 2);
-
-            mainGrid.Children.Add(iconGrid);
-            mainGrid.Children.Add(textStack);
-            mainGrid.Children.Add(deleteButtonBorder);
-
-            border.Child = mainGrid;
-
-            return new UserControl
-            {
-                Content = border,
-                Tag = nestedNode
-            };
-        }
-
-        private void AddDefaultIconToGrid(Grid iconGrid)
-        {
-            var iconBorder = new Border
-            {
-                Width = 26,
-                Height = 26,
-                Background = new SolidColorBrush(Color.FromRgb(0x6C, 0xB6, 0xFF)),
-                CornerRadius = new CornerRadius(13)
-            };
-
-            var iconText = new TextBlock
-            {
-                Text = "🔧",
-                FontSize = 16,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-
-            iconBorder.Child = iconText;
-            iconGrid.Children.Add(iconBorder);
-        }
-
-        private UserControl CreateLogicCommandControl(CommandNode nestedNode)
-        {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF3, 0xE0)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(8),
-                Margin = new Thickness(0, 4, 0, 4),
-                MinHeight = 36,
-                HorizontalAlignment = HorizontalAlignment.Stretch
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var nameText = new TextBlock
-            {
-                Text = nestedNode.DisplayName,
-                FontSize = 12,
-                FontWeight = FontWeights.Medium,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            Grid.SetColumn(nameText, 0);
-
-            var deleteButtonBorder = new Border
-            {
-                Width = 20,
-                Height = 20,
-                Background = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36)),
-                CornerRadius = new CornerRadius(10),
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Cursor = Cursors.Hand,
-                Tag = nestedNode
-            };
-
-            var deleteText = new TextBlock
-            {
-                Text = "×",
-                FontSize = 12,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            deleteButtonBorder.Child = deleteText;
-            deleteButtonBorder.MouseLeftButtonUp += (s, e) =>
-            {
-                if (s is Border borderSender && borderSender.Tag is CommandNode node)
-                {
-                    RemoveNestedCommand(node);
-                }
-            };
-
-            deleteButtonBorder.MouseEnter += (s, e) =>
-            {
-                deleteButtonBorder.Background = new SolidColorBrush(Color.FromRgb(0xD3, 0x2F, 0x2F));
-            };
-            deleteButtonBorder.MouseLeave += (s, e) =>
-            {
-                deleteButtonBorder.Background = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
-            };
-
-            Grid.SetColumn(deleteButtonBorder, 1);
-
-            grid.Children.Add(nameText);
-            grid.Children.Add(deleteButtonBorder);
-            border.Child = grid;
-
-            return new UserControl
-            {
-                Content = border,
-                Tag = nestedNode
-            };
-        }
-
         #endregion
 
         #region 命令管理
+
+        private void DeleteButton_Click(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (DataContext is CommandNode ifNode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"请求删除IF节点: {ifNode.DisplayName}");
+                    NodeDeleteRequested?.Invoke(this, ifNode);
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"删除IF节点失败: {ex.Message}");
+            }
+        }
 
         public void RemoveNestedCommand(CommandNode nestedNode)
         {
@@ -891,7 +1263,6 @@ namespace MaxChemical.Modules.Designer.Views
                 bool isTrueBranch = _trueBranchCommands.Contains(nestedNode);
                 bool removed = false;
 
-                // 从统一的Children集合中移除
                 ifNode.RemoveChild(nestedNode);
 
                 if (isTrueBranch)
@@ -1190,25 +1561,6 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
-
-        private void Node_Click(object sender, MouseButtonEventArgs e)
-        {
-            if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
-            {
-                var routedEventArgs = new RoutedEventArgs(NodeClickEvent, node);
-                RaiseEvent(routedEventArgs);
-                e.Handled = true;
-            }
-        }
-
-        public static readonly RoutedEvent NodeClickEvent = EventManager.RegisterRoutedEvent(
-            "NodeClick", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(IfNodeControlView));
-
-        public event RoutedEventHandler NodeClick
-        {
-            add { AddHandler(NodeClickEvent, value); }
-            remove { RemoveHandler(NodeClickEvent, value); }
-        }
     }
 
     #region 事件参数类
