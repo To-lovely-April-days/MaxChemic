@@ -1,16 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// FlowDesignerView.xaml.cs (重构后)
+using System;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Shapes;
 using DevicePlugins.Devices;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.Designer.Services;
+using MaxChemical.Logging;
 using static MaxChemical.Modules.Designer.ViewModels.FlowDesignerViewModel;
 
 namespace MaxChemical.Modules.Designer.Views
@@ -19,18 +18,27 @@ namespace MaxChemical.Modules.Designer.Views
     {
         private FlowDesignerViewModel _currentViewModel;
         private Size _lastMainGridSize = Size.Empty;
-        private const double SIZE_CHANGE_THRESHOLD = 5.0; // 5像素阈值
+        private const double SIZE_CHANGE_THRESHOLD = 5.0;
         private readonly System.Windows.Threading.DispatcherTimer _sizeChangeDebounceTimer;
         private bool _isInternalSizeChange = false;
+        public event EventHandler<CommandNode> NodeDeleteRequested;
+        private readonly ILogService _logger;
+        private readonly NodeManagementService _nodeManagementService;
+        private readonly DesignerDragDropService _dragDropService;
 
         public FlowDesignerView()
         {
             InitializeComponent();
 
+            // 初始化服务
+            _logger = new LogService().ForContext<FlowDesignerView>();
+            _nodeManagementService = new NodeManagementService(_logger);
+            _dragDropService = new DesignerDragDropService(_logger);
+
             // 初始化防抖定时器
             _sizeChangeDebounceTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(150) // 150ms防抖
+                Interval = TimeSpan.FromMilliseconds(150)
             };
             _sizeChangeDebounceTimer.Tick += OnSizeChangeDebounceTimerTick;
 
@@ -38,104 +46,91 @@ namespace MaxChemical.Modules.Designer.Views
             Unloaded += FlowDesignerView_Unloaded;
             DataContextChanged += OnDataContextChanged;
 
-            // 添加调试信息
-            Debug.WriteLine("FlowDesignerView 构造函数完成");
-            Debug.WriteLine($"初始 DataContext: {DataContext?.GetType().Name ?? "null"}");
+            _logger.LogDebug("FlowDesignerView 构造函数完成");
+            _logger.LogDebug("初始 DataContext: {Type}", DataContext?.GetType().Name ?? "null");
         }
 
         private void FlowDesignerView_Loaded(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("FlowDesignerView_Loaded 被调用");
-            Debug.WriteLine($"Loaded 时的 DataContext: {DataContext?.GetType().Name ?? "null"}");
+            _logger.LogDebug("FlowDesignerView_Loaded 被调用");
+            _logger.LogDebug("Loaded 时的 DataContext: {Type}", DataContext?.GetType().Name ?? "null");
 
             CenterStartNodeSafe();
-
-            // 直接检查和订阅 ViewModel（而不是等待 DataContextChanged）
             TrySubscribeToViewModelDirectly();
         }
 
         private void FlowDesignerView_Unloaded(object sender, RoutedEventArgs e)
         {
-            // 清理定时器
             _sizeChangeDebounceTimer?.Stop();
 
-            // 取消事件订阅
             if (_currentViewModel != null)
             {
                 _currentViewModel.NodeAdded -= OnNodeAdded;
-              
+                _currentViewModel.CanvasWidthRequested -= OnCanvasWidthRequested;
             }
 
-            Debug.WriteLine("FlowDesignerView 已卸载，清理完成");
+            _logger.LogDebug("FlowDesignerView 已卸载，清理完成");
         }
+
         private void TrySubscribeToViewModelDirectly()
         {
-            Debug.WriteLine("尝试直接订阅 ViewModel");
+            _logger.LogDebug("尝试直接订阅 ViewModel");
 
             if (DataContext is FlowDesignerViewModel viewModel)
             {
-                Debug.WriteLine("找到 FlowDesignerViewModel，开始订阅");
+                _logger.LogDebug("找到 FlowDesignerViewModel，开始订阅");
 
-                // 如果已经有相同的 ViewModel，先取消订阅
                 if (_currentViewModel == viewModel)
                 {
-                    Debug.WriteLine("ViewModel 相同，无需重复订阅");
+                    _logger.LogDebug("ViewModel 相同，无需重复订阅");
                     return;
                 }
 
-                // 取消之前的订阅
                 if (_currentViewModel != null)
                 {
-                    Debug.WriteLine("取消之前的订阅");
+                    _logger.LogDebug("取消之前的订阅");
                     _currentViewModel.NodeAdded -= OnNodeAdded;
-                    if (_currentViewModel!= null)
-                    {
-                        _currentViewModel.CanvasWidthRequested -= OnCanvasWidthRequested;
-                    }
+                    _currentViewModel.CanvasWidthRequested -= OnCanvasWidthRequested;
                 }
 
-                // 订阅新的 ViewModel
                 _currentViewModel = viewModel;
                 _currentViewModel.NodeAdded += OnNodeAdded;
                 _currentViewModel.CanvasWidthRequested += OnCanvasWidthRequested;
 
-                Debug.WriteLine($"成功订阅 ViewModel，HashCode: {_currentViewModel.GetHashCode()}");
-              
+                _logger.LogDebug("成功订阅 ViewModel，HashCode: {HashCode}", _currentViewModel.GetHashCode());
             }
             else
             {
-                Debug.WriteLine($"DataContext 不是 FlowDesignerViewModel: {DataContext?.GetType().Name ?? "null"}");
+                _logger.LogDebug("DataContext 不是 FlowDesignerViewModel: {Type}", DataContext?.GetType().Name ?? "null");
             }
         }
+
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            Debug.WriteLine($"DataContextChanged: Old={e.OldValue?.GetType().Name}, New={e.NewValue?.GetType().Name}");
+            _logger.LogDebug("DataContextChanged: Old={Old}, New={New}",
+                e.OldValue?.GetType().Name, e.NewValue?.GetType().Name);
 
-            // 取消旧的订阅
             if (_currentViewModel != null)
             {
                 _currentViewModel.NodeAdded -= OnNodeAdded;
-                _currentViewModel.CanvasWidthRequested -= OnCanvasWidthRequested; // 新增
-                Debug.WriteLine("取消旧的事件订阅");
+                _currentViewModel.CanvasWidthRequested -= OnCanvasWidthRequested;
+                _logger.LogDebug("取消旧的事件订阅");
             }
 
-            // 订阅新的ViewModel
             if (e.NewValue is FlowDesignerViewModel newViewModel)
             {
                 _currentViewModel = newViewModel;
                 _currentViewModel.NodeAdded += OnNodeAdded;
-                _currentViewModel.CanvasWidthRequested += OnCanvasWidthRequested; // 新增
-                Debug.WriteLine($"订阅新的事件，ViewModel HashCode: {_currentViewModel.GetHashCode()}");
+                _currentViewModel.CanvasWidthRequested += OnCanvasWidthRequested;
+                _logger.LogDebug("订阅新的事件，ViewModel HashCode: {HashCode}", _currentViewModel.GetHashCode());
             }
             else
             {
                 _currentViewModel = null;
-                Debug.WriteLine("DataContext 不是 FlowDesignerViewModel 类型");
+                _logger.LogDebug("DataContext 不是 FlowDesignerViewModel 类型");
             }
         }
-        /// <summary>
-        /// 处理画布宽度请求
-        /// </summary>
+
         private void OnCanvasWidthRequested(object sender, CanvasWidthRequestEventArgs e)
         {
             try
@@ -146,61 +141,39 @@ namespace MaxChemical.Modules.Designer.Views
                     if (actualWidth > 0)
                     {
                         e.ActualCanvasWidth = actualWidth;
-                        Debug.WriteLine($"提供实际画布宽度: {actualWidth}");
+                        _logger.LogTrace("提供实际画布宽度: {Width}", actualWidth);
                     }
                     else
                     {
-                        Debug.WriteLine($"画布宽度无效: {actualWidth}");
+                        _logger.LogTrace("画布宽度无效: {Width}", actualWidth);
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("CanvasContainer 为 null");
+                    _logger.LogTrace("CanvasContainer 为 null");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"获取画布宽度失败: {ex.Message}");
+                _logger.LogError(ex, "获取画布宽度失败");
             }
         }
-      
-        private void TrySubscribeToViewModel()
-        {
-            if (DataContext is FlowDesignerViewModel viewModel && _currentViewModel != viewModel)
-            {
-                // 取消之前的订阅
-                if (_currentViewModel != null)
-                {
-                    _currentViewModel.NodeAdded -= OnNodeAdded;
-                  
-                }
-
-                _currentViewModel = viewModel;
-                _currentViewModel.NodeAdded += OnNodeAdded;
-              
-                Debug.WriteLine($"TrySubscribeToViewModel: 成功订阅，ViewModel HashCode: {_currentViewModel.GetHashCode()}");
-            }
-        }
-
-
 
         private void OnNodeAdded(object sender, CommandNode newNode)
         {
-            Debug.WriteLine($"OnNodeAdded 被调用: {newNode.DisplayName}");
+            _logger.LogDebug("OnNodeAdded 被调用: {NodeName}", newNode.DisplayName);
 
-            // 标记为内部变化，防止启动节点居中被再次触发
             _isInternalSizeChange = true;
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                Debug.WriteLine($"节点 {newNode.DisplayName} 显示完成，位置: ({newNode.X}, {newNode.Y})");
+                _logger.LogDebug("节点 {NodeName} 显示完成，位置: ({X}, {Y})", newNode.DisplayName, newNode.X, newNode.Y);
                 ScrollToNodeSmooth(newNode);
 
-                // 延迟重新启用启动节点居中检测
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     _isInternalSizeChange = false;
-                    Debug.WriteLine("重新启用启动节点居中检测");
+                    _logger.LogTrace("重新启用启动节点居中检测");
                 }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
             }), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -208,20 +181,17 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 滚动方法
 
-        /// <summary>
-        /// 平滑滚动到节点
-        /// </summary>
         private void ScrollToNodeSmooth(CommandNode node)
         {
             if (CanvasScrollViewer == null || node == null)
             {
-                Debug.WriteLine("CanvasScrollViewer 为 null 或节点为空，无法滚动");
+                _logger.LogWarning("CanvasScrollViewer 为 null 或节点为空，无法滚动");
                 return;
             }
 
             try
             {
-                Debug.WriteLine($"开始平滑滚动到节点: {node.DisplayName}, 位置: ({node.X}, {node.Y})");
+                _logger.LogDebug("开始平滑滚动到节点: {NodeName}, 位置: ({X}, {Y})", node.DisplayName, node.X, node.Y);
 
                 double nodeX = node.X;
                 double nodeY = node.Y;
@@ -240,7 +210,6 @@ namespace MaxChemical.Modules.Designer.Views
                 targetHorizontalOffset = Math.Min(targetHorizontalOffset, maxHorizontalOffset);
                 targetVerticalOffset = Math.Min(targetVerticalOffset, maxVerticalOffset);
 
-                // 使用定时器实现平滑滚动
                 var timer = new System.Windows.Threading.DispatcherTimer();
                 var startTime = DateTime.Now;
                 var duration = TimeSpan.FromMilliseconds(500);
@@ -264,7 +233,7 @@ namespace MaxChemical.Modules.Designer.Views
                     if (progress >= 1.0)
                     {
                         timer.Stop();
-                        Debug.WriteLine($"平滑滚动完成: {node.DisplayName}");
+                        _logger.LogDebug("平滑滚动完成: {NodeName}", node.DisplayName);
                     }
                 };
 
@@ -272,15 +241,10 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"平滑滚动到节点时发生错误: {ex.Message}");
+                _logger.LogError(ex, "平滑滚动到节点时发生错误: {NodeName}", node?.DisplayName);
             }
         }
 
-
-
-        /// <summary>
-        /// 获取节点宽度
-        /// </summary>
         private double GetNodeWidth(CommandNode node)
         {
             try
@@ -288,19 +252,16 @@ namespace MaxChemical.Modules.Designer.Views
                 if (node?.NodeControl != null)
                 {
                     return node.NodeControl.ActualWidth > 0 ? node.NodeControl.ActualWidth :
-                           GetEstimatedNodeWidth(node); // 使用估算宽度
+                           GetEstimatedNodeWidth(node);
                 }
-                return GetEstimatedNodeWidth(node); // 使用估算宽度
+                return GetEstimatedNodeWidth(node);
             }
             catch
             {
-                return GetEstimatedNodeWidth(node); // 使用估算宽度
+                return GetEstimatedNodeWidth(node);
             }
         }
 
-        /// <summary>
-        /// 获取节点高度
-        /// </summary>
         private double GetNodeHeight(CommandNode node)
         {
             try
@@ -308,84 +269,144 @@ namespace MaxChemical.Modules.Designer.Views
                 if (node?.NodeControl != null)
                 {
                     return node.NodeControl.ActualHeight > 0 ? node.NodeControl.ActualHeight :
-                           GetEstimatedNodeHeight(node); // 使用估算高度
+                           GetEstimatedNodeHeight(node);
                 }
-                return GetEstimatedNodeHeight(node); // 使用估算高度
+                return GetEstimatedNodeHeight(node);
             }
             catch
             {
-                return GetEstimatedNodeHeight(node); // 使用估算高度
+                return GetEstimatedNodeHeight(node);
             }
         }
-        /// <summary>
-        /// 获取估算节点宽度
-        /// </summary>
+
         private double GetEstimatedNodeWidth(CommandNode node)
         {
             if (node == null) return 231;
 
             if (node.IsIfNode) return 600;
-            if (node.IsParallelNode) return 800; // 添加并行节点处理
-            if (node.IsLoopNode) return 400;     // 如果有循环节点
+            if (node.IsParallelNode) return 800;
+            if (node.IsLoopNode) return 400;
 
-            return 231; // 普通节点默认宽度
+            return 231;
         }
 
-        /// <summary>
-        /// 获取估算节点高度
-        /// </summary>
         private double GetEstimatedNodeHeight(CommandNode node)
         {
             if (node == null) return 64;
 
             if (node.IsIfNode) return 300;
-            if (node.IsParallelNode) return 250; // 添加并行节点处理
-            if (node.IsLoopNode) return 150;     // 如果有循环节点
+            if (node.IsParallelNode) return 250;
+            if (node.IsLoopNode) return 150;
 
-            return 64; // 普通节点默认高度
+            return 64;
         }
+
         #endregion
 
         #region 节点选择和点击处理
+        // 设备节点选择点击
+        private void DeviceNode_SelectClick(object sender, MouseButtonEventArgs e)
+        {
+            _logger.LogDebug("🔍 设备节点选择点击");
 
-        // 节点控件点击事件处理
+            try
+            {
+                if (sender is FrameworkElement element && element.DataContext is CommandNode node)
+                {
+                    _logger.LogDebug("选择设备节点: {NodeName}", node.DisplayName);
+                    HandleNodeSelection(node);
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "设备节点选择失败");
+            }
+        }
+
+        // 设备节点删除点击
+        private void DeviceNode_DeleteClick(object sender, RoutedEventArgs e)
+        {
+            _logger.LogDebug("设备节点删除点击");
+
+            try
+            {
+                if (sender is Border border && border.Tag is CommandNode nodeToDelete)
+                {
+                    _logger.LogDebug("删除设备节点: {NodeName}", nodeToDelete.DisplayName);
+
+                    var viewModel = DataContext as FlowDesignerViewModel;
+                    if (viewModel?.RemoveCommandNodeCommand?.CanExecute(nodeToDelete) == true)
+                    {
+                        viewModel.RemoveCommandNodeCommand.Execute(nodeToDelete);
+                        _logger.LogDebug("删除设备节点成功");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("删除命令无法执行");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "删除设备节点失败");
+            }
+        }
+
         private void NodeControl_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // 这个方法现在只处理逻辑节点（IF、循环、并行等）
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                System.Diagnostics.Debug.WriteLine($"=== FlowDesignerView.NodeControl_PreviewMouseLeftButtonDown 触发 ===");
-                System.Diagnostics.Debug.WriteLine($"Sender: {sender?.GetType().Name}");
-                System.Diagnostics.Debug.WriteLine($"OriginalSource: {e.OriginalSource?.GetType().Name}");
+                _logger.LogTrace("逻辑节点 PreviewMouseLeftButtonDown 触发");
 
                 var contentPresenter = sender as ContentPresenter;
                 if (contentPresenter?.DataContext is CommandNode node)
                 {
-                    System.Diagnostics.Debug.WriteLine($"ContentPresenter的DataContext节点: {node.DisplayName}");
+                    _logger.LogTrace("逻辑节点: {NodeName}", node.DisplayName);
 
-                    // **关键修复：检查点击是否来自嵌套节点**
                     if (IsClickFromNestedNode(e.OriginalSource, node))
                     {
-                        System.Diagnostics.Debug.WriteLine("点击来自嵌套节点，跳过FlowDesignerView处理");
-                        // 不处理，让嵌套节点自己处理
+                        _logger.LogTrace("点击来自嵌套节点，跳过处理");
                         return;
                     }
 
-                    // 检查是否点击在特定的交互元素上
-                    if (IsClickOnInteractiveElement(e))
+                    if (IsClickOnLogicNodeInteractiveElement(e))
                     {
-                        System.Diagnostics.Debug.WriteLine("点击在交互元素上，跳过选择逻辑");
+                        _logger.LogTrace("点击在逻辑节点的交互元素上，跳过选择");
                         return;
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"处理主节点选择: {node.DisplayName}");
+                    _logger.LogTrace("处理逻辑节点选择: {NodeName}", node.DisplayName);
                     HandleNodeSelection(node);
                     e.Handled = true;
                 }
             }
         }
-        /// <summary>
-        /// 检查点击是否来自嵌套节点
-        /// </summary>
+
+        // 专门为逻辑节点检查交互元素
+        private bool IsClickOnLogicNodeInteractiveElement(MouseButtonEventArgs e)
+        {
+            var element = e.OriginalSource as FrameworkElement;
+
+            while (element != null)
+            {
+                if (element is Button ||
+                    element is System.Windows.Controls.Primitives.ToggleButton ||
+                    element.Name == "ExpandToggle" ||
+                    element.Name == "DropZone" ||
+                    element.Name == "TrueBranchDropZone" ||
+                    element.Name == "FalseBranchDropZone")
+                {
+                    return true;
+                }
+                element = element.Parent as FrameworkElement;
+            }
+
+            return false;
+        }
+     
+
         private bool IsClickFromNestedNode(object originalSource, CommandNode parentNode)
         {
             try
@@ -394,36 +415,33 @@ namespace MaxChemical.Modules.Designer.Views
 
                 while (element != null)
                 {
-                    // 检查是否是带有CommandNode Tag的元素（嵌套节点的标识）
                     if (element is FrameworkElement fe && fe.Tag is CommandNode tagNode)
                     {
-                        // 如果Tag中的节点不是当前的父节点，说明是嵌套节点
                         if (tagNode != parentNode)
                         {
-                            System.Diagnostics.Debug.WriteLine($"发现嵌套节点: {tagNode.DisplayName} (父节点: {parentNode.DisplayName})");
+                            _logger.LogTrace("发现嵌套节点: {NestedNode} (父节点: {ParentNode})",
+                                tagNode.DisplayName, parentNode.DisplayName);
                             return true;
                         }
                     }
 
-                    // 检查是否在特定的嵌套区域内
                     if (element is StackPanel sp)
                     {
                         var spName = sp.Name;
                         if (spName == "TrueBranchContent" || spName == "FalseBranchContent")
                         {
-                            System.Diagnostics.Debug.WriteLine($"点击在分支内容区域: {spName}");
+                            _logger.LogTrace("点击在分支内容区域: {Name}", spName);
                             return true;
                         }
                     }
 
-                    // 检查是否在分支容器内
                     if (element is Border border)
                     {
                         var borderName = border.Name;
                         if (borderName == "TrueBranchDropZone" || borderName == "FalseBranchDropZone" ||
                             borderName == "TrueBranchWrapper" || borderName == "FalseBranchWrapper")
                         {
-                            System.Diagnostics.Debug.WriteLine($"点击在分支区域: {borderName}");
+                            _logger.LogTrace("点击在分支区域: {Name}", borderName);
                             return true;
                         }
                     }
@@ -435,7 +453,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"检查嵌套节点点击失败: {ex.Message}");
+                _logger.LogError(ex, "检查嵌套节点点击失败");
                 return false;
             }
         }
@@ -444,11 +462,10 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var element = e.OriginalSource as FrameworkElement;
 
-            // 检查是否点击在按钮或其他交互控件上
             while (element != null)
             {
                 if (element is Button ||
-                    element is ToggleButton ||
+                    element is System.Windows.Controls.Primitives.ToggleButton ||
                     element.Name == "ExpandToggle" ||
                     element.Name == "DropZone")
                 {
@@ -473,218 +490,25 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        // 处理节点选中逻辑
         private void HandleNodeSelection(CommandNode node)
         {
             var viewModel = DataContext as FlowDesignerViewModel;
             if (viewModel != null && node != null)
             {
-                // 清除其他节点的选中状态
-                foreach (var n in viewModel.CommandNodes)
-                {
-                    n.IsSelected = false;
-                }
-
-                // 选中当前节点
+                _nodeManagementService.ClearAllSelections(viewModel);
                 node.IsSelected = true;
                 ScrollToNodeSmooth(node);
 
-                Debug.WriteLine($"已选中命令节点: {node.DisplayName}");
+                _logger.LogDebug("已选中命令节点: {NodeName}", node.DisplayName);
             }
         }
 
-        #endregion
-
-        #region 启动节点居中和大小变化处理
-
-        private void CenterStartNodeSafe()
-        {
-            if (DesignCanvas == null || CanvasContainer == null)
-            {
-                Debug.WriteLine("Canvas组件未就绪，跳过居中");
-                return;
-            }
-
-            try
-            {
-                double canvasWidth = CanvasContainer.ActualWidth;
-
-                if (canvasWidth <= 0)
-                {
-                    Debug.WriteLine($"Canvas宽度无效: {canvasWidth}，跳过居中");
-                    return;
-                }
-
-                double centerX = (canvasWidth - 231) / 2;
-                double startY = 10;
-
-                var viewModel = DataContext as FlowDesignerViewModel;
-                if (viewModel != null)
-                {
-                    // 检查位置是否真的需要改变
-                    double currentX = viewModel.StartNodeX;
-                    double currentY = viewModel.StartNodeY;
-
-                    if (Math.Abs(currentX - centerX) < 1.0 && Math.Abs(currentY - startY) < 1.0)
-                    {
-                        Debug.WriteLine($"启动节点位置变化过小，跳过: ({currentX:F1},{currentY:F1}) -> ({centerX:F1},{startY:F1})");
-                        return;
-                    }
-
-                    Debug.WriteLine($"执行启动节点居中: ({currentX:F1},{currentY:F1}) -> ({centerX:F1},{startY:F1})");
-
-                    // 标记为内部变化，避免循环
-                    _isInternalSizeChange = true;
-                    try
-                    {
-                        viewModel.UpdateStartNodePositionAndRearrange(centerX, startY);
-                    }
-                    finally
-                    {
-                        // 延迟重置标志，确保相关的布局更新完成
-                        Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            _isInternalSizeChange = false;
-                        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _isInternalSizeChange = false;
-                Debug.WriteLine($"安全启动节点居中失败: {ex.Message}");
-            }
-        }
-
-        private void CenterStartNode()
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                CenterStartNodeSafe();
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
-        /// <summary>
-        /// 改进的MainGrid_SizeChanged，添加防抖和阈值检查
-        /// </summary>
-        private void MainGrid_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            // 检查是否是内部触发的尺寸变化（避免循环）
-            if (_isInternalSizeChange)
-            {
-                Debug.WriteLine("跳过内部触发的尺寸变化");
-                return;
-            }
-
-            // 检查尺寸变化是否足够大
-            double widthChange = Math.Abs(e.NewSize.Width - _lastMainGridSize.Width);
-            double heightChange = Math.Abs(e.NewSize.Height - _lastMainGridSize.Height);
-
-            if (widthChange < SIZE_CHANGE_THRESHOLD && heightChange < SIZE_CHANGE_THRESHOLD)
-            {
-                Debug.WriteLine($"MainGrid尺寸变化过小，跳过: {widthChange:F2}x{heightChange:F2}");
-                return;
-            }
-
-            Debug.WriteLine($"MainGrid显著尺寸变化: {_lastMainGridSize.Width:F1}x{_lastMainGridSize.Height:F1} -> {e.NewSize.Width:F1}x{e.NewSize.Height:F1}");
-            _lastMainGridSize = e.NewSize;
-
-            // 使用防抖处理
-            _sizeChangeDebounceTimer.Stop();
-            _sizeChangeDebounceTimer.Start();
-        }
-
-        private void OnSizeChangeDebounceTimerTick(object sender, EventArgs e)
-        {
-            _sizeChangeDebounceTimer.Stop();
-
-            try
-            {
-                Debug.WriteLine("执行防抖后的启动节点居中");
-                CenterStartNodeSafe();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"防抖尺寸变化处理异常: {ex.Message}");
-            }
-        }
-
-        #endregion
-
-        #region 拖放处理
-
-        // 画布拖放处理
-        private void Canvas_Drop(object sender, DragEventArgs e)
-        {
-            try
-            {
-                if (e.Data.GetDataPresent("DeviceCommand"))
-                {
-                    var command = e.Data.GetData("DeviceCommand") as DeviceCommand;
-                    if (command != null)
-                    {
-                        var viewModel = DataContext as FlowDesignerViewModel;
-                        viewModel?.AddCommandToCanvas(command);
-                        Debug.WriteLine($"设备命令 {command.Name} 已添加到流程");
-                    }
-                }
-                else if (e.Data.GetDataPresent("LogicCommand"))
-                {
-                    var logicCommand = e.Data.GetData("LogicCommand") as LogicCommand;
-                    if (logicCommand != null)
-                    {
-                        var viewModel = DataContext as FlowDesignerViewModel;
-                        viewModel?.AddCommandToCanvas(logicCommand);
-                        Debug.WriteLine($"逻辑命令 {logicCommand.Name} 已添加到流程");
-                    }
-                }
-                else if (e.Data.GetDataPresent("Device"))
-                {
-                    var device = e.Data.GetData("Device") as IDevice;
-                    if (device != null)
-                    {
-                        Point dropPosition = e.GetPosition(DesignCanvas);
-                        var viewModel = DataContext as FlowDesignerViewModel;
-                        viewModel?.AddDeviceToCanvas(device, dropPosition);
-                    }
-                }
-
-                e.Handled = true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"处理拖放操作时发生错误: {ex.Message}");
-            }
-        }
-
-        private void Canvas_DragOver(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetDataPresent("DeviceCommand") ||
-                e.Data.GetDataPresent("LogicCommand") ||
-                e.Data.GetDataPresent("Device"))
-            {
-                e.Effects = DragDropEffects.Copy;
-            }
-            else
-            {
-                e.Effects = DragDropEffects.None;
-            }
-            e.Handled = true;
-        }
-
-        #endregion
-        #region 节点点击事件处理 - 新增部分
-
-        /// <summary>
-        /// 处理普通节点的路由点击事件
-        /// </summary>
         private void OnNodeClick(object sender, RoutedEventArgs e)
         {
             try
             {
                 CommandNode clickedNode = null;
 
-                // 从事件参数中获取点击的节点
                 if (e.OriginalSource is CommandNode node)
                 {
                     clickedNode = node;
@@ -702,18 +526,15 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     viewModel.HandleNodeClick(clickedNode);
                     e.Handled = true;
-                    Debug.WriteLine($"处理节点点击: {clickedNode.DisplayName}");
+                    _logger.LogDebug("处理节点点击: {NodeName}", clickedNode.DisplayName);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"处理节点点击事件失败: {ex.Message}");
+                _logger.LogError(ex, "处理节点点击事件失败");
             }
         }
 
-        /// <summary>
-        /// 处理复杂节点的路由点击事件（IF、循环、并行节点）
-        /// </summary>
         private void OnComplexNodeClick(object sender, RoutedEventArgs e)
         {
             try
@@ -724,50 +545,45 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         viewModel.HandleNodeClick(clickedNode);
                         e.Handled = true;
-                        Debug.WriteLine($"处理复杂节点点击: {clickedNode.DisplayName}");
+                        _logger.LogDebug("处理复杂节点点击: {NodeName}", clickedNode.DisplayName);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"处理复杂节点点击事件失败: {ex.Message}");
+                _logger.LogError(ex, "处理复杂节点点击事件失败");
             }
         }
-        /// <summary>
-        /// 处理复杂节点控件加载完成事件
-        /// </summary>
+
         private void ComplexNodeControl_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
                 if (sender is ContentPresenter presenter && presenter.Content is UserControl nodeControl)
                 {
-                    // 为不同类型的复杂节点订阅点击事件
-                    if (nodeControl is Views.IfNodeControlView ifControl)
+                    switch (nodeControl)
                     {
-                        ifControl.NodeClicked += OnComplexNodeClicked;
-                        Debug.WriteLine($"为IF节点订阅了点击事件");
-                    }
-                    else if (nodeControl is Views.LoopNodeControlView loopControl)
-                    {
-                        loopControl.NodeClicked += OnComplexNodeClicked;
-                        Debug.WriteLine($"为循环节点订阅了点击事件");
-                    }
-                    else if (nodeControl is Views.ParallelNodeControlView parallelControl)
-                    {
-                        // **新增：订阅并行节点的点击事件**
-                        parallelControl.NodeClicked += OnComplexNodeClicked;
-                        Debug.WriteLine($"为并行节点订阅了点击事件");
+                        case IfNodeControlView ifControl:
+                            ifControl.NodeClicked += OnComplexNodeClicked;
+                            _logger.LogTrace("为IF节点订阅了点击事件");
+                            break;
+                        case LoopNodeControlView loopControl:
+                            loopControl.NodeClicked += OnComplexNodeClicked;
+                            _logger.LogTrace("为循环节点订阅了点击事件");
+                            break;
+                        case ParallelNodeControlView parallelControl:
+                            parallelControl.NodeClicked += OnComplexNodeClicked;
+                            _logger.LogTrace("为并行节点订阅了点击事件");
+                            break;
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"订阅复杂节点点击事件失败: {ex.Message}");
+                _logger.LogError(ex, "订阅复杂节点点击事件失败");
             }
         }
 
-        // **新增：通用的复杂节点点击处理器**
         private void OnComplexNodeClicked(object sender, CommandNode clickedNode)
         {
             try
@@ -775,18 +591,179 @@ namespace MaxChemical.Modules.Designer.Views
                 if (clickedNode != null && this.DataContext is FlowDesignerViewModel viewModel)
                 {
                     viewModel.HandleNodeClick(clickedNode);
-                    Debug.WriteLine($"处理复杂节点点击: {clickedNode.DisplayName}");
+                    _logger.LogDebug("处理复杂节点点击: {NodeName}", clickedNode.DisplayName);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"处理复杂节点点击事件失败: {ex.Message}");
+                _logger.LogError(ex, "处理复杂节点点击事件失败");
             }
         }
+
         #endregion
 
+        #region 启动节点居中和大小变化处理
+
+        private void CenterStartNodeSafe()
+        {
+            if (DesignCanvas == null || CanvasContainer == null)
+            {
+                _logger.LogDebug("Canvas组件未就绪，跳过居中");
+                return;
+            }
+
+            try
+            {
+                double canvasWidth = CanvasContainer.ActualWidth;
+
+                if (canvasWidth <= 0)
+                {
+                    _logger.LogDebug("Canvas宽度无效: {Width}，跳过居中", canvasWidth);
+                    return;
+                }
+
+                double centerX = (canvasWidth - 231) / 2;
+                double startY = 10;
+
+                var viewModel = DataContext as FlowDesignerViewModel;
+                if (viewModel != null)
+                {
+                    double currentX = viewModel.StartNodeX;
+                    double currentY = viewModel.StartNodeY;
+
+                    if (Math.Abs(currentX - centerX) < 1.0 && Math.Abs(currentY - startY) < 1.0)
+                    {
+                        _logger.LogTrace("启动节点位置变化过小，跳过: ({CurrentX:F1},{CurrentY:F1}) -> ({CenterX:F1},{StartY:F1})",
+                            currentX, currentY, centerX, startY);
+                        return;
+                    }
+
+                    _logger.LogDebug("执行启动节点居中: ({CurrentX:F1},{CurrentY:F1}) -> ({CenterX:F1},{StartY:F1})",
+                        currentX, currentY, centerX, startY);
+
+                    _isInternalSizeChange = true;
+                    try
+                    {
+                        viewModel.UpdateStartNodePositionAndRearrange(centerX, startY);
+                    }
+                    finally
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            _isInternalSizeChange = false;
+                        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _isInternalSizeChange = false;
+                _logger.LogError(ex, "安全启动节点居中失败");
+            }
+        }
+
+        private void MainGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (_isInternalSizeChange)
+            {
+                _logger.LogTrace("跳过内部触发的尺寸变化");
+                return;
+            }
+
+            double widthChange = Math.Abs(e.NewSize.Width - _lastMainGridSize.Width);
+            double heightChange = Math.Abs(e.NewSize.Height - _lastMainGridSize.Height);
+
+            if (widthChange < SIZE_CHANGE_THRESHOLD && heightChange < SIZE_CHANGE_THRESHOLD)
+            {
+                _logger.LogTrace("MainGrid尺寸变化过小，跳过: {WidthChange:F2}x{HeightChange:F2}", widthChange, heightChange);
+                return;
+            }
+
+            _logger.LogDebug("MainGrid显著尺寸变化: {OldWidth:F1}x{OldHeight:F1} -> {NewWidth:F1}x{NewHeight:F1}",
+                _lastMainGridSize.Width, _lastMainGridSize.Height, e.NewSize.Width, e.NewSize.Height);
+            _lastMainGridSize = e.NewSize;
+
+            _sizeChangeDebounceTimer.Stop();
+            _sizeChangeDebounceTimer.Start();
+        }
+
+        private void OnSizeChangeDebounceTimerTick(object sender, EventArgs e)
+        {
+            _sizeChangeDebounceTimer.Stop();
+
+            try
+            {
+                _logger.LogDebug("执行防抖后的启动节点居中");
+                CenterStartNodeSafe();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "防抖尺寸变化处理异常");
+            }
+        }
+
+        #endregion
+
+        #region 拖放处理
+
+        private void Canvas_Drop(object sender, DragEventArgs e)
+        {
+            try
+            {
+                var command = _dragDropService.ExtractCommandFromDragData(e.Data);
+                if (command != null)
+                {
+                    var viewModel = DataContext as FlowDesignerViewModel;
+
+                    if (command is DeviceCommand deviceCmd)
+                    {
+                        viewModel?.AddCommandToCanvas(deviceCmd);
+                        _logger.LogDebug("设备命令 {CommandName} 已添加到流程", deviceCmd.Name);
+                    }
+                    else if (command is LogicCommand logicCmd)
+                    {
+                        viewModel?.AddCommandToCanvas(logicCmd);
+                        _logger.LogDebug("逻辑命令 {CommandName} 已添加到流程", logicCmd.Name);
+                    }
+                    else if (command is Services.PluginIdRequest pluginRequest)
+                    {
+                        var logicCommand = viewModel?.CreateLogicCommandFromPluginId(pluginRequest.PluginId);
+                        if (logicCommand != null)
+                        {
+                            viewModel.AddCommandToCanvas(logicCommand);
+                            _logger.LogDebug("通过插件ID创建的逻辑命令 {CommandName} 已添加到流程", logicCommand.Name);
+                        }
+                    }
+                }
+                else if (e.Data.GetDataPresent("Device") && e.Data.GetData("Device") is IDevice device)
+                {
+                    Point dropPosition = e.GetPosition(DesignCanvas);
+                    var viewModel = DataContext as FlowDesignerViewModel;
+                    viewModel?.AddDeviceToCanvas(device, dropPosition);
+                }
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理拖放操作时发生错误");
+            }
+        }
+
+        private void Canvas_DragOver(object sender, DragEventArgs e)
+        {
+            if (_dragDropService.CanAcceptDrop(e.Data) || e.Data.GetDataPresent("Device"))
+            {
+                e.Effects = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        #endregion
 
     }
-
-
 }

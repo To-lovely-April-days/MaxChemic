@@ -17,15 +17,15 @@ namespace MaxChemical.Modules.Designer
         // 预定义的节点尺寸
         public const double DEVICE_NODE_WIDTH = 231;
         public const double DEVICE_NODE_HEIGHT = 64;
-        public const double IF_NODE_MIN_WIDTH = 600;
+        public const double IF_NODE_MIN_WIDTH = 231;
         public const double IF_NODE_MIN_HEIGHT = 200;
-        public const double PARALLEL_NODE_MIN_WIDTH = 960; // 新增
+        public const double PARALLEL_NODE_MIN_WIDTH = 231; // 新增
         public const double PARALLEL_NODE_MIN_HEIGHT = 250; // 新增
         public const double LOOP_NODE_MIN_WIDTH = 231; // 循环节点
         public const double LOOP_NODE_MIN_HEIGHT = 150;
-        public const double WAIT_NODE_MIN_WIDTH = 300; // 等待节点
+        public const double WAIT_NODE_MIN_WIDTH = 231; // 等待节点
         public const double WAIT_NODE_MIN_HEIGHT = 100;
-        public const double LOGIC_NODE_WIDTH = 200;
+        public const double LOGIC_NODE_WIDTH = 231;
         public const double LOGIC_NODE_HEIGHT = 40;
 
         /// <summary>
@@ -456,7 +456,7 @@ namespace MaxChemical.Modules.Designer
         /// <summary>
         /// 获取默认节点宽度
         /// </summary>
-        private static double GetDefaultNodeWidth(CommandNode node)
+        public static double GetDefaultNodeWidth(CommandNode node)
         {
             if (node?.IsLogicCommand == true)
             {
@@ -581,5 +581,8 @@ namespace MaxChemical.Modules.Designer
                 return new Size(LOOP_NODE_MIN_WIDTH, LOOP_NODE_MIN_HEIGHT);
             }
         }
+
+
+
     }
 }

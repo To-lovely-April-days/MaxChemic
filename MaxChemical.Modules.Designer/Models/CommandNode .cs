@@ -230,7 +230,14 @@ namespace MaxChemical.Modules.Designer.Models
             (LogicCommand.CommandType.ToString().Equals("Wait", StringComparison.OrdinalIgnoreCase) ||
              LogicCommand.CommandType.ToString().Equals("Delay", StringComparison.OrdinalIgnoreCase) ||
              LogicCommand.CommandType.ToString().Equals("Sleep", StringComparison.OrdinalIgnoreCase));
-
+        /// <summary>
+        /// 是否为赋值节点
+        /// </summary>
+        public bool IsSetVariableNode => IsLogicCommand &&
+            (LogicCommand.CommandType.ToString().Equals("SetVariable", StringComparison.OrdinalIgnoreCase) ||
+             LogicCommand.CommandType.ToString().Equals("Variable", StringComparison.OrdinalIgnoreCase) ||
+             LogicCommand.CommandType.ToString().Equals("VariableSet", StringComparison.OrdinalIgnoreCase));
+        
         /// <summary>
         /// 是否为复杂节点（需要特殊布局处理的节点）
         /// </summary>

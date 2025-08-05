@@ -200,7 +200,7 @@
                     DragOver="DropArea_DragOver"
                     DragEnter="DropArea_DragEnter"
                     DragLeave="DropArea_DragLeave"
-                    MouseLeftButtonDown="DropArea_Click"
+                   
                     Cursor="Hand">
 
                 <Border.Style>

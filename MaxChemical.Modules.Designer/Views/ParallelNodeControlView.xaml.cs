@@ -13,6 +13,9 @@ using System.Windows.Media.Imaging;
 using System.Diagnostics;
 using MaxChemical.Modules.Designer.ViewModels;
 using System.Windows.Data;
+using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Events;
+using MaxChemical.Modules.Designer.Services;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -25,22 +28,33 @@ namespace MaxChemical.Modules.Designer.Views
         public event EventHandler<NestedCommandEventArgs> NestedCommandAdded;
         public event EventHandler<NestedCommandEventArgs> NestedCommandRemoved;
         public event EventHandler<LogicCommandRequestEventArgs> LogicCommandRequested;
-        // 添加删除节点事件
         public event EventHandler<CommandNode> NodeDeleteRequested;
-        // **新增：节点点击委托事件**
         public event EventHandler<CommandNode> NodeClicked;
+
         private Size _lastMeasuredSize;
-        // 保留内部集合用于UI快速访问
         private readonly List<ParallelBranchInfo> _parallelBranches = new List<ParallelBranchInfo>();
         private int _currentMaxParallelCount = 0;
+
+        private readonly ILogService _logger;
+        private readonly NodeControlFactory _nodeControlFactory;
+        private readonly DesignerDragDropService _dragDropService;
+        private readonly NodeManagementService _nodeManagementService;
 
         public ParallelNodeControlView()
         {
             InitializeComponent();
+
+            // 初始化服务
+            _logger = new LogService().ForContext<ParallelNodeControlView>();
+            _nodeControlFactory = new NodeControlFactory(_logger);
+            _dragDropService = new DesignerDragDropService(_logger);
+            _nodeManagementService = new NodeManagementService(_logger);
+
             Loaded += OnLoaded;
             SizeChanged += OnSizeChanged;
             DataContextChanged += OnDataContextChanged;
         }
+
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
@@ -67,7 +81,6 @@ namespace MaxChemical.Modules.Designer.Views
                     InitializeParallelBranches();
                 }
 
-                // 同步Children到UI
                 SyncChildrenToUI();
             }
         }
@@ -87,9 +100,9 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"获取MaxParallelCount失败: {ex.Message}");
+                _logger.LogError(ex, "获取MaxParallelCount失败");
             }
-            return 4; // 默认值
+            return 4;
         }
 
         private void SyncChildrenToUI()
@@ -98,7 +111,6 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
-                // 清空所有分支的UI
                 foreach (var branchInfo in _parallelBranches)
                 {
                     var branchContent = FindBranchContentContainer(branchInfo.Index);
@@ -109,7 +121,6 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
 
-                // 从Children集合重建UI
                 foreach (var child in parallelNode.Children)
                 {
                     var branchIndex = child.GetExecutionProperty<int>("BranchIndex");
@@ -118,7 +129,11 @@ namespace MaxChemical.Modules.Designer.Views
                         var branchInfo = _parallelBranches[branchIndex];
                         branchInfo.Commands.Add(child);
 
-                        var nestedControl = CreateNestedCommandControl(child, branchIndex);
+                        var nestedControl = _nodeControlFactory.CreateNestedCommandControl(
+                            child,
+                            HandleNestedNodeClick,
+                            (node) => RemoveNestedCommand(node, branchIndex));
+
                         var branchContent = FindBranchContentContainer(branchIndex);
                         if (branchContent != null)
                         {
@@ -137,9 +152,10 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"同步并行节点Children到UI失败: {ex.Message}");
+                _logger.LogError(ex, "同步并行节点Children到UI失败");
             }
         }
+
 
         #region 并行分支管理
 
@@ -151,7 +167,6 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
 
                 var maxParallelCount = GetMaxParallelCount(node);
-
                 ClearAllBranches();
 
                 for (int i = 0; i < maxParallelCount; i++)
@@ -160,13 +175,14 @@ namespace MaxChemical.Modules.Designer.Views
                 }
 
                 UpdateBranchCanvasLayout();
-                System.Diagnostics.Debug.WriteLine($"创建了 {maxParallelCount} 个并行分支");
+                _logger.LogDebug("创建了 {Count} 个并行分支", maxParallelCount);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"初始化并行分支失败: {ex.Message}");
+                _logger.LogError(ex, "初始化并行分支失败");
             }
         }
+
 
         private void CreateParallelBranch(int branchIndex)
         {
@@ -314,269 +330,115 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                if (DataContext is CommandNode loopNode)
+                if (DataContext is CommandNode parallelNode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"请求删除循环节点: {loopNode.DisplayName}");
-                    NodeDeleteRequested?.Invoke(this, loopNode);
+                    _logger.LogDebug("请求删除并行节点: {NodeName}", parallelNode.DisplayName);
+                    NodeDeleteRequested?.Invoke(this, parallelNode);
                     e.Handled = true;
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"删除循环节点失败: {ex.Message}");
+                _logger.LogError(ex, "删除并行节点失败");
             }
         }
         #region 拖拽事件处理
 
         private void Branch_DragEnter(object sender, DragEventArgs e)
         {
-            Debug.WriteLine("=== Branch_DragEnter 被调用 ===");
-            Debug.WriteLine($"Sender: {sender?.GetType().Name}");
+            _logger.LogTrace("Branch_DragEnter 被调用");
 
-            if (sender is Border border)
+            if (sender is Border border && _dragDropService.CanAcceptDrop(e.Data))
             {
-                Debug.WriteLine($"Border Tag: {border.Tag}");
-            }
-
-            bool canAccept = CanAcceptDrop(e.Data);
-            Debug.WriteLine($"CanAcceptDrop 结果: {canAccept}");
-
-            if (canAccept)
-            {
-                if (sender is Border borderSender)
-                {
-                    borderSender.Uid = "DragOver";
-                    Debug.WriteLine("设置拖放悬停状态");
-
-                    borderSender.Background = new SolidColorBrush(Color.FromArgb(0x20, 0x60, 0x7D, 0x8B));
-                    borderSender.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0x60, 0x7D, 0x8B));
-                }
+                _dragDropService.SetDragOverStyle(border);
                 e.Effects = DragDropEffects.Copy;
-                Debug.WriteLine("设置拖放效果为 Copy");
+                _logger.LogTrace("设置拖放效果为 Copy");
             }
             else
             {
                 e.Effects = DragDropEffects.None;
-                Debug.WriteLine("拒绝拖放");
+                _logger.LogTrace("拒绝拖放");
             }
             e.Handled = true;
-            Debug.WriteLine("=== Branch_DragEnter 处理完成 ===");
         }
 
         private void Branch_DragOver(object sender, DragEventArgs e)
         {
-            bool canAccept = CanAcceptDrop(e.Data);
-            e.Effects = canAccept ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Effects = _dragDropService.CanAcceptDrop(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
             e.Handled = true;
         }
 
         private void Branch_DragLeave(object sender, DragEventArgs e)
         {
-            Debug.WriteLine("Branch_DragLeave 被调用");
+            _logger.LogTrace("Branch_DragLeave 被调用");
             if (sender is Border border)
             {
-                border.Uid = null;
-                Debug.WriteLine("清除拖放悬停状态");
-
-                border.Background = new SolidColorBrush(Color.FromArgb(0x08, 0x60, 0x7D, 0x8B));
-                border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x1E, 0x60, 0x7D, 0x8B));
+                _dragDropService.ClearDragOverStyle(border);
+                _logger.LogTrace("清除拖放悬停状态");
             }
             e.Handled = true;
         }
 
         private void Branch_Drop(object sender, DragEventArgs e)
         {
-            Debug.WriteLine("=== Branch_Drop 被调用 ===");
-            Debug.WriteLine($"Sender: {sender?.GetType().Name}");
+            _logger.LogDebug("Branch_Drop 被调用");
 
             if (sender is Border border)
             {
-                border.Uid = null;
-                Debug.WriteLine("清除拖放状态");
-
-                border.Background = new SolidColorBrush(Color.FromArgb(0x08, 0x60, 0x7D, 0x8B));
-                border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x1E, 0x60, 0x7D, 0x8B));
-
-                Debug.WriteLine($"Border Tag 类型: {border.Tag?.GetType().Name}");
-                Debug.WriteLine($"Border Tag 值: {border.Tag}");
+                _dragDropService.ClearDragOverStyle(border);
+                _logger.LogTrace("清除拖放状态");
 
                 if (border.Tag is int branchIndex)
                 {
-                    Debug.WriteLine($"分支索引: {branchIndex}");
+                    _logger.LogDebug("分支索引: {BranchIndex}", branchIndex);
                     HandleCommandDrop(e, branchIndex);
                 }
                 else
                 {
-                    Debug.WriteLine($"Border.Tag 不是 int 类型: {border.Tag?.GetType().Name ?? "null"}，值: {border.Tag}");
+                    _logger.LogWarning("Border.Tag 不是 int 类型: {Type}，值: {Value}",
+                        border.Tag?.GetType().Name ?? "null", border.Tag);
                 }
             }
             else
             {
-                Debug.WriteLine("Sender 不是 Border 类型");
+                _logger.LogWarning("Sender 不是 Border 类型");
             }
             e.Handled = true;
-            Debug.WriteLine("=== Branch_Drop 处理完成 ===");
-        }
-
-        private bool CanAcceptDrop(IDataObject data)
-        {
-            try
-            {
-                Debug.WriteLine("=== CanAcceptDrop 检查开始 ===");
-
-                var formats = data.GetFormats();
-                Debug.WriteLine($"数据格式数量: {formats.Length}");
-
-                bool hasLogicCommand = data.GetDataPresent("LogicCommand");
-                bool hasDeviceCommand = data.GetDataPresent("DeviceCommand");
-                bool hasPluginId = data.GetDataPresent("PluginId");
-                bool hasCommandDragInfo = data.GetDataPresent("CommandDragInfo");
-                bool hasCommandDragData = data.GetDataPresent("CommandDragData");
-                bool hasDeviceCommandType = data.GetDataPresent(typeof(DeviceCommand));
-                bool hasLogicCommandType = data.GetDataPresent(typeof(LogicCommand));
-
-                bool canAccept = hasLogicCommand || hasDeviceCommand || hasPluginId ||
-                                hasCommandDragInfo || hasCommandDragData ||
-                                hasDeviceCommandType || hasLogicCommandType;
-
-                Debug.WriteLine($"最终结果: {canAccept}");
-                return canAccept;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"CanAcceptDrop 异常: {ex.Message}");
-                return false;
-            }
         }
 
         private void HandleCommandDrop(DragEventArgs e, int branchIndex)
         {
             try
             {
-                Debug.WriteLine($"=== 处理分支 {branchIndex} 的命令拖放 ===");
+                _logger.LogDebug("处理分支 {BranchIndex} 的命令拖放", branchIndex);
 
-                var command = ExtractCommandFromDragData(e.Data);
+                var command = _dragDropService.ExtractCommandFromDragData(e.Data);
+
+                if (command is Services.PluginIdRequest pluginRequest)
+                {
+                    var args = new LogicCommandRequestEventArgs { PluginId = pluginRequest.PluginId };
+                    LogicCommandRequested?.Invoke(this, args);
+                    command = args.ResultCommand;
+                }
+
                 if (command != null)
                 {
-                    Debug.WriteLine($"提取到命令: {command.GetType().Name}");
+                    _logger.LogDebug("提取到命令: {Type}", command.GetType().Name);
                     AddCommandToBranch(command, branchIndex);
                 }
                 else
                 {
-                    Debug.WriteLine("未能提取到有效命令");
+                    _logger.LogWarning("未能提取到有效命令");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"处理命令拖拽失败: {ex.Message}");
-            }
-        }
-
-        private object ExtractCommandFromDragData(IDataObject data)
-        {
-            try
-            {
-                if (data.GetDataPresent("CommandDragInfo"))
-                {
-                    var commandDragInfo = data.GetData("CommandDragInfo");
-                    var command = ExtractCommandFromDragInfo(commandDragInfo);
-                    if (command != null) return command;
-                }
-
-                if (data.GetDataPresent("DeviceCommand"))
-                {
-                    var deviceCommandData = data.GetData("DeviceCommand");
-                    if (deviceCommandData is DeviceCommand deviceCmd)
-                        return deviceCmd;
-                }
-
-                if (data.GetDataPresent(typeof(DeviceCommand)))
-                {
-                    var typeCommand = data.GetData(typeof(DeviceCommand));
-                    if (typeCommand is DeviceCommand typeDeviceCmd)
-                        return typeDeviceCmd;
-                }
-
-                if (data.GetDataPresent("LogicCommand"))
-                {
-                    var logicCommandData = data.GetData("LogicCommand");
-                    if (logicCommandData is LogicCommand logicCmd)
-                        return logicCmd;
-                    else
-                        return ExtractCommandFromDragInfo(logicCommandData);
-                }
-
-                if (data.GetDataPresent("PluginId"))
-                {
-                    var pluginIdData = data.GetData("PluginId");
-                    if (pluginIdData != null)
-                    {
-                        return TryRecreateLogicCommand(pluginIdData.ToString());
-                    }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"提取命令时发生异常: {ex.Message}");
-                return null;
-            }
-        }
-
-        private object ExtractCommandFromDragInfo(object commandDragInfo)
-        {
-            try
-            {
-                if (commandDragInfo == null) return null;
-
-                if (commandDragInfo is CommandDragInfo dragInfo)
-                {
-                    return dragInfo.Command;
-                }
-
-                var type = commandDragInfo.GetType();
-                if (type.Name == "CommandDragInfo")
-                {
-                    var commandProperty = type.GetProperty("Command");
-                    if (commandProperty != null)
-                    {
-                        var command = commandProperty.GetValue(commandDragInfo);
-                        if (command is DeviceCommand deviceCmd)
-                        {
-                            return deviceCmd;
-                        }
-                    }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"从 CommandDragInfo 提取命令失败: {ex.Message}");
-                return null;
-            }
-        }
-
-        private LogicCommand TryRecreateLogicCommand(string pluginId)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(pluginId))
-                    return null;
-
-                var args = new LogicCommandRequestEventArgs { PluginId = pluginId };
-                LogicCommandRequested?.Invoke(this, args);
-                return args.ResultCommand;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"重新创建LogicCommand失败: {ex.Message}");
-                return null;
+                _logger.LogError(ex, "处理命令拖拽失败");
             }
         }
 
         #endregion
+
 
         #region 命令管理
 
@@ -600,14 +462,19 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (nestedNode != null && DataContext is CommandNode parallelNode)
                 {
-                    // 使用统一的Children集合
                     parallelNode.AddChildToParallelBranch(nestedNode, branchIndex);
 
-                    // UI管理仍然使用内部集合
                     var branchInfo = _parallelBranches[branchIndex];
                     branchInfo.Commands.Add(nestedNode);
 
-                    var nestedControl = CreateNestedCommandControl(nestedNode, branchIndex);
+                    var nestedControl = _nodeControlFactory.CreateNestedCommandControl(
+                        nestedNode,
+                        HandleNestedNodeClick,
+                        (node) => RemoveNestedCommand(node, branchIndex));
+
+                    // 新增：订阅嵌套复杂节点的内容变化事件
+                    SubscribeToNestedComplexNodeEvents(nestedControl, nestedNode, branchIndex);
+
                     var branchContent = FindBranchContentContainer(branchIndex);
                     if (branchContent != null)
                     {
@@ -631,483 +498,102 @@ namespace MaxChemical.Modules.Designer.Views
                     UpdateBranchCanvasLayout();
                     OnBranchContentChanged();
 
-                    System.Diagnostics.Debug.WriteLine($"添加命令到并行分支 {branchIndex}: {nestedNode.DisplayName}");
+                    _logger.LogDebug("添加命令到并行分支 {BranchIndex}: {NodeName}", branchIndex, nestedNode.DisplayName);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"添加嵌套命令失败: {ex.Message}");
+                _logger.LogError(ex, "添加嵌套命令失败");
             }
         }
-
-        private UserControl CreateNestedCommandControl(CommandNode nestedNode, int branchIndex)
-        {
-            if (nestedNode.IsDeviceCommand)
-            {
-                return CreateDeviceCommandControl(nestedNode, branchIndex);
-            }
-            else if (IsIfLogicCommand(nestedNode))
-            {
-                return CreateNestedIfNodeControl(nestedNode, branchIndex);
-            }
-            else if (IsParallelLogicCommand(nestedNode))
-            {
-                return CreateNestedParallelNodeControl(nestedNode, branchIndex);
-            }
-            else if (IsLoopLogicCommand(nestedNode))
-            {
-                return CreateNestedLoopNodeControl(nestedNode, branchIndex);
-            }
-            else
-            {
-                return CreateLogicCommandControl(nestedNode, branchIndex);
-            }
-        }
-
-        private bool IsIfLogicCommand(CommandNode node)
-        {
-            return node.LogicCommand != null &&
-                   node.LogicCommand.CommandType.ToString().Equals("If", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private bool IsParallelLogicCommand(CommandNode node)
-        {
-            return node.LogicCommand != null &&
-                   node.LogicCommand.CommandType.ToString().Equals("Parallel", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private bool IsLoopLogicCommand(CommandNode node)
-        {
-            return node.LogicCommand != null &&
-                   (node.LogicCommand.CommandType.ToString().Equals("Loop", StringComparison.OrdinalIgnoreCase) ||
-                    node.LogicCommand.CommandType.ToString().Equals("For", StringComparison.OrdinalIgnoreCase) ||
-                    node.LogicCommand.CommandType.ToString().Equals("While", StringComparison.OrdinalIgnoreCase));
-        }
-
-        private UserControl CreateNestedIfNodeControl(CommandNode nestedNode, int branchIndex)
+        // 新增：订阅嵌套复杂节点事件的方法
+        private void SubscribeToNestedComplexNodeEvents(UserControl nestedControl, CommandNode nestedNode, int branchIndex)
         {
             try
             {
-                var nestedIfControl = new IfNodeControlView
+                _logger.LogDebug("订阅嵌套节点事件: {NodeType} - {NodeName}",
+                    nestedControl.GetType().Name, nestedNode.DisplayName);
+
+                switch (nestedControl)
                 {
-                    DataContext = nestedNode,
-                    Tag = nestedNode,
-                    Margin = new Thickness(0, 4, 0, 4)
-                };
+                    case ParallelNodeControlView nestedParallelControl:
+                        _logger.LogDebug("订阅嵌套并行节点事件: {NodeName}", nestedNode.DisplayName);
 
-                SubscribeToNestedNodeEvents(nestedIfControl, nestedNode, branchIndex);
-                return nestedIfControl;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"创建嵌套IF节点控件失败: {ex.Message}");
-                return CreateLogicCommandControl(nestedNode, branchIndex);
-            }
-        }
+                        nestedParallelControl.ContentChanged += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套并行节点内容发生变化: {NodeName}", nestedNode.DisplayName);
+                            OnBranchContentChanged();
+                        };
 
-        private UserControl CreateNestedParallelNodeControl(CommandNode nestedNode, int branchIndex)
-        {
-            try
-            {
-                var nestedParallelControl = new ParallelNodeControlView
-                {
-                    DataContext = nestedNode,
-                    Tag = nestedNode,
-                    Margin = new Thickness(0, 4, 0, 4)
-                };
+                        nestedParallelControl.NestedCommandAdded += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套并行节点添加了命令: {NestedCommand}", e.NestedCommand.DisplayName);
+                            OnBranchContentChanged();
+                        };
 
-                SubscribeToNestedNodeEvents(nestedParallelControl, nestedNode, branchIndex);
-                return nestedParallelControl;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"创建嵌套并行节点控件失败: {ex.Message}");
-                return CreateLogicCommandControl(nestedNode, branchIndex);
-            }
-        }
+                        nestedParallelControl.NestedCommandRemoved += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套并行节点移除了命令: {NestedCommand}", e.NestedCommand.DisplayName);
+                            OnBranchContentChanged();
+                        };
+                        break;
 
-        private UserControl CreateNestedLoopNodeControl(CommandNode nestedNode, int branchIndex)
-        {
-            try
-            {
-                var nestedLoopControl = new LoopNodeControlView
-                {
-                    DataContext = nestedNode,
-                    Tag = nestedNode,
-                    Margin = new Thickness(0, 4, 0, 4)
-                };
+                    case Views.IfNodeControlView nestedIfControl:
+                        _logger.LogDebug("订阅嵌套IF节点事件: {NodeName}", nestedNode.DisplayName);
 
-                SubscribeToNestedNodeEvents(nestedLoopControl, nestedNode, branchIndex);
-                return nestedLoopControl;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"创建嵌套循环节点控件失败: {ex.Message}");
-                return CreateLogicCommandControl(nestedNode, branchIndex);
-            }
-        }
+                        nestedIfControl.ContentChanged += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套IF节点内容发生变化: {NodeName}", nestedNode.DisplayName);
+                            OnBranchContentChanged();
+                        };
 
-        private void SubscribeToNestedNodeEvents(UserControl nestedControl, CommandNode nestedNode, int branchIndex)
-        {
-            try
-            {
-                if (nestedControl is IfNodeControlView ifControl)
-                {
-                    ifControl.ContentChanged += (s, e) => OnBranchContentChanged();
-                    ifControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
-                    ifControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
-                    ifControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
+                        nestedIfControl.NestedCommandAdded += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套IF节点添加了命令: {NestedCommand}", e.NestedCommand.DisplayName);
+                            OnBranchContentChanged();
+                        };
 
-                    // **新增：订阅嵌套IF节点的点击事件**
-                    ifControl.NodeClicked += (s, clickedNode) =>
-                    {
-                        System.Diagnostics.Debug.WriteLine($"并行分支内嵌套IF节点被点击: {clickedNode.DisplayName}");
-                        HandleNestedNodeClick(clickedNode);
-                    };
-                }
-                else if (nestedControl is ParallelNodeControlView parallelControl)
-                {
-                    parallelControl.ContentChanged += (s, e) => OnBranchContentChanged();
-                    parallelControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
-                    parallelControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
-                    parallelControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
+                        nestedIfControl.NestedCommandRemoved += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套IF节点移除了命令: {NestedCommand}", e.NestedCommand.DisplayName);
+                            OnBranchContentChanged();
+                        };
+                        break;
 
-                    // **新增：订阅嵌套并行节点的点击事件**
-                    parallelControl.NodeClicked += (s, clickedNode) =>
-                    {
-                        System.Diagnostics.Debug.WriteLine($"并行分支内嵌套并行节点被点击: {clickedNode.DisplayName}");
-                        HandleNestedNodeClick(clickedNode);
-                    };
-                }
-                else if (nestedControl is LoopNodeControlView loopControl)
-                {
-                    loopControl.ContentChanged += (s, e) => OnBranchContentChanged();
-                    loopControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
-                    loopControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
-                    loopControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
+                    case Views.LoopNodeControlView nestedLoopControl:
+                        _logger.LogDebug("订阅嵌套循环节点事件: {NodeName}", nestedNode.DisplayName);
 
-                    // **新增：订阅嵌套循环节点的点击事件**
-                    loopControl.NodeClicked += (s, clickedNode) =>
-                    {
-                        System.Diagnostics.Debug.WriteLine($"并行分支内嵌套循环节点被点击: {clickedNode.DisplayName}");
-                        HandleNestedNodeClick(clickedNode);
-                    };
+                        // 假设LoopNodeControlView也有ContentChanged等事件
+                        nestedLoopControl.ContentChanged += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套循环节点内容发生变化: {NodeName}", nestedNode.DisplayName);
+                            OnBranchContentChanged();
+                        };
+
+                        nestedLoopControl.NestedCommandAdded += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套循环节点添加了命令: {NestedCommand}", e.NestedCommand.DisplayName);
+                            OnBranchContentChanged();
+                        };
+
+                        nestedLoopControl.NestedCommandRemoved += (s, e) =>
+                        {
+                            _logger.LogDebug("并行节点内的嵌套循环节点移除了命令: {NestedCommand}", e.NestedCommand.DisplayName);
+                            OnBranchContentChanged();
+                        };
+                        break;
+
+                    default:
+                        // 对于普通命令节点（DeviceCommand等），不需要特殊处理
+                        _logger.LogTrace("普通嵌套节点不需要特殊事件订阅: {NodeType}", nestedControl.GetType().Name);
+                        break;
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"订阅嵌套节点事件失败: {ex.Message}");
+                _logger.LogError(ex, "订阅嵌套复杂节点事件失败: {NodeName}", nestedNode?.DisplayName);
             }
         }
-
-        private UserControl CreateDeviceCommandControl(CommandNode nestedNode, int branchIndex)
-        {
-            var border = new Border
-            {
-                Width = 231,
-                Height = 64,
-                Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(6),
-                Cursor = Cursors.Hand,
-                BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 4, 0, 4),
-                Tag = nestedNode
-            };
-
-            // 绑定选中状态的边框样式
-            var borderStyle = new Style(typeof(Border));
-            borderStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0))));
-
-            var selectedTrigger = new DataTrigger
-            {
-                Binding = new Binding("IsSelected") { Source = nestedNode },
-                Value = true
-            };
-            selectedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
-            selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
-
-            borderStyle.Triggers.Add(selectedTrigger);
-            border.Style = borderStyle;
-
-            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
-            {
-                ShadowDepth = 4,
-                Direction = 315,
-                BlurRadius = 8,
-                Color = Colors.Black,
-                Opacity = 0.25
-            };
-
-            // **修复：使用MouseLeftButtonDown，不阻止事件冒泡**
-            border.MouseLeftButtonDown += (s, e) =>
-            {
-                if (s is Border clickedBorder && clickedBorder.Tag is CommandNode node)
-                {
-                    System.Diagnostics.Debug.WriteLine($"嵌套设备命令节点被点击: {node.DisplayName}");
-                    HandleNestedNodeClick(node);
-
-                    // **重要：设置Handled=true，防止事件继续冒泡到FlowDesignerView**
-                    e.Handled = true;
-                }
-            };
-           
-
-            var mainGrid = new Grid
-            {
-                Margin = new Thickness(16)
-            };
-
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // 左侧图标
-            var iconGrid = new Grid
-            {
-                Width = 32,
-                Height = 32,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0)
-            };
-            Grid.SetColumn(iconGrid, 0);
-
-            if (nestedNode.HasImage && !string.IsNullOrEmpty(nestedNode.DisplayImageLocation))
-            {
-                try
-                {
-                    var image = new Image
-                    {
-                        Source = new BitmapImage(new Uri(nestedNode.DisplayImageLocation, UriKind.RelativeOrAbsolute)),
-                        Stretch = Stretch.Uniform,
-                        Width = 26,
-                        Height = 26
-                    };
-                    iconGrid.Children.Add(image);
-                }
-                catch
-                {
-                    AddDefaultIconToGrid(iconGrid, 26);
-                }
-            }
-            else
-            {
-                AddDefaultIconToGrid(iconGrid, 26);
-            }
-
-            // 中间文字内容
-            var textStack = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(textStack, 1);
-
-            var nameText = new TextBlock
-            {
-                Text = nestedNode.DisplayName,
-                FontSize = 14,
-                FontWeight = FontWeights.Medium,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)),
-                Margin = new Thickness(0, 0, 0, 2),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-
-            var helpText = new TextBlock
-            {
-                Text = nestedNode.DisplayHelpText,
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-
-            textStack.Children.Add(nameText);
-            textStack.Children.Add(helpText);
-
-            // 删除按钮
-            var deleteButtonBorder = new Border
-            {
-                Width = 16,
-                Height = 16,
-                Background = new SolidColorBrush(Colors.Transparent),
-                VerticalAlignment = VerticalAlignment.Top,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Cursor = Cursors.Hand,
-                Tag = new NestedNodeInfo { Node = nestedNode, BranchIndex = branchIndex }
-            };
-
-            var deleteText = new TextBlock
-            {
-                Text = "✕",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            deleteButtonBorder.Child = deleteText;
-            deleteButtonBorder.MouseLeftButtonUp += (s, e) =>
-            {
-                if (s is Border borderSender && borderSender.Tag is NestedNodeInfo info)
-                {
-                    RemoveNestedCommand(info.Node, info.BranchIndex);
-                }
-            };
-
-            deleteButtonBorder.MouseEnter += (s, e) =>
-            {
-                deleteText.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
-            };
-            deleteButtonBorder.MouseLeave += (s, e) =>
-            {
-                deleteText.Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99));
-            };
-
-            Grid.SetColumn(deleteButtonBorder, 2);
-
-            mainGrid.Children.Add(iconGrid);
-            mainGrid.Children.Add(textStack);
-            mainGrid.Children.Add(deleteButtonBorder);
-
-            border.Child = mainGrid;
-
-            return new UserControl
-            {
-                Content = border,
-                Tag = new NestedNodeInfo { Node = nestedNode, BranchIndex = branchIndex }
-            };
-        }
-
-        private UserControl CreateLogicCommandControl(CommandNode nestedNode, int branchIndex)
-        {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF3, 0xE0)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(8),
-                Margin = new Thickness(0, 4, 0, 4),
-                MinHeight = 36,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Cursor = Cursors.Hand,
-                Tag = nestedNode // **重要：设置Tag**
-            };
-            // 绑定选中状态的边框样式
-            var borderStyle = new Style(typeof(Border));
-            borderStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07))));
-
-            var selectedTrigger = new DataTrigger
-            {
-                Binding = new System.Windows.Data.Binding("IsSelected") { Source = nestedNode },
-                Value = true
-            };
-            selectedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
-            selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
-
-            borderStyle.Triggers.Add(selectedTrigger);
-            border.Style = borderStyle;
-
-            // **添加嵌套节点点击处理**
-            border.MouseLeftButtonDown += (s, e) =>
-            {
-                if (s is Border clickedBorder && clickedBorder.Tag is CommandNode node)
-                {
-                    System.Diagnostics.Debug.WriteLine($"循环内嵌套逻辑命令节点被点击: {node.DisplayName}");
-                    HandleNestedNodeClick(node);
-                    e.Handled = true; // 阻止事件冒泡
-                }
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var nameText = new TextBlock
-            {
-                Text = nestedNode.DisplayName,
-                FontSize = 12,
-                FontWeight = FontWeights.Medium,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            Grid.SetColumn(nameText, 0);
-
-            var deleteButtonBorder = new Border
-            {
-                Width = 20,
-                Height = 20,
-                Background = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36)),
-                CornerRadius = new CornerRadius(10),
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Cursor = Cursors.Hand,
-                Tag = new NestedNodeInfo { Node = nestedNode, BranchIndex = branchIndex }
-            };
-
-            var deleteText = new TextBlock
-            {
-                Text = "×",
-                FontSize = 12,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            deleteButtonBorder.Child = deleteText;
-            deleteButtonBorder.MouseLeftButtonUp += (s, e) =>
-            {
-                if (s is Border borderSender && borderSender.Tag is NestedNodeInfo info)
-                {
-                    RemoveNestedCommand(info.Node, info.BranchIndex);
-                }
-            };
-
-            deleteButtonBorder.MouseEnter += (s, e) =>
-            {
-                deleteButtonBorder.Background = new SolidColorBrush(Color.FromRgb(0xD3, 0x2F, 0x2F));
-            };
-            deleteButtonBorder.MouseLeave += (s, e) =>
-            {
-                deleteButtonBorder.Background = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
-            };
-
-            Grid.SetColumn(deleteButtonBorder, 1);
-
-            grid.Children.Add(nameText);
-            grid.Children.Add(deleteButtonBorder);
-            border.Child = grid;
-
-            return new UserControl
-            {
-                Content = border,
-                Tag = new NestedNodeInfo { Node = nestedNode, BranchIndex = branchIndex }
-            };
-        }
-
-        private void AddDefaultIconToGrid(Grid iconGrid, double size)
-        {
-            var iconBorder = new Border
-            {
-                Width = size,
-                Height = size,
-                Background = new SolidColorBrush(Color.FromRgb(0x6C, 0xB6, 0xFF)),
-                CornerRadius = new CornerRadius(size / 2)
-            };
-
-            var iconText = new TextBlock
-            {
-                Text = "🔧",
-                FontSize = size * 0.6,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-
-            iconBorder.Child = iconText;
-            iconGrid.Children.Add(iconBorder);
-        }
-
         public void RemoveNestedCommand(CommandNode nestedNode, int branchIndex)
         {
             try
@@ -1121,21 +607,35 @@ namespace MaxChemical.Modules.Designer.Views
                 if (!branchInfo.Commands.Contains(nestedNode))
                     return;
 
-                // 从统一的Children集合中移除
                 parallelNode.RemoveChild(nestedNode);
-
                 branchInfo.Commands.Remove(nestedNode);
 
                 var branchContent = FindBranchContentContainer(branchIndex);
                 if (branchContent != null)
                 {
+                    // 修改这里：直接比较 Tag 是否为目标节点，或者使用 DataContext 比较
                     var controlToRemove = branchContent.Children
                         .OfType<UserControl>()
-                        .FirstOrDefault(c => c.Tag is NestedNodeInfo info && info.Node == nestedNode);
+                        .FirstOrDefault(c => c.Tag == nestedNode || c.DataContext == nestedNode);
 
                     if (controlToRemove != null)
                     {
                         branchContent.Children.Remove(controlToRemove);
+                        _logger.LogDebug("已从UI中移除控件: {NodeName}", nestedNode.DisplayName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("未找到要移除的控件: {NodeName}", nestedNode.DisplayName);
+
+                        // 备用方案：遍历所有控件进行调试
+                        _logger.LogDebug("分支 {BranchIndex} 中的控件数量: {Count}", branchIndex, branchContent.Children.Count);
+                        for (int i = 0; i < branchContent.Children.Count; i++)
+                        {
+                            var child = branchContent.Children[i];
+                            _logger.LogDebug("控件 {Index}: Type={Type}, Tag={Tag}, DataContext={DataContext}",
+                                i, child.GetType().Name, child is FrameworkElement fe ? fe.Tag?.ToString() : "null",
+                                child is FrameworkElement fe2 ? fe2.DataContext?.ToString() : "null");
+                        }
                     }
 
                     var hint = FindBranchHint(branchIndex);
@@ -1143,6 +643,10 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         hint.Visibility = branchContent.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                     }
+                }
+                else
+                {
+                    _logger.LogWarning("未找到分支内容容器: {BranchIndex}", branchIndex);
                 }
 
                 NestedCommandRemoved?.Invoke(this, new NestedCommandEventArgs
@@ -1156,15 +660,16 @@ namespace MaxChemical.Modules.Designer.Views
                 UpdateBranchCanvasLayout();
                 OnBranchContentChanged();
 
-                System.Diagnostics.Debug.WriteLine($"从并行分支 {branchIndex} 移除命令: {nestedNode.DisplayName}");
+                _logger.LogDebug("从并行分支 {BranchIndex} 移除命令: {NodeName}", branchIndex, nestedNode.DisplayName);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"移除嵌套命令失败: {ex.Message}");
+                _logger.LogError(ex, "移除嵌套命令失败: {NodeName}", nestedNode?.DisplayName);
             }
         }
 
         #endregion
+
 
         #region 辅助方法
 
@@ -1467,7 +972,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Dispose 失败: {ex.Message}");
+                _logger.LogError(ex, "Dispose 失败");
             }
         }
 
@@ -1477,18 +982,14 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
             {
-                System.Diagnostics.Debug.WriteLine($"=== ParallelNodeControlView.Node_Click: {node.DisplayName} ===");
-
-                // **新增：处理节点点击**
+                _logger.LogDebug("ParallelNodeControlView.Node_Click: {NodeName}", node.DisplayName);
                 HandleParallelNodeClick(node);
-
-                // **保留：原有的路由事件**
                 var routedEventArgs = new RoutedEventArgs(NodeClickEvent, node);
                 RaiseEvent(routedEventArgs);
-
                 e.Handled = true;
             }
         }
+
         /// <summary>
         /// 处理并行节点点击
         /// </summary>
@@ -1496,24 +997,22 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"处理并行节点点击: {parallelNode.DisplayName}");
+                _logger.LogDebug("处理并行节点点击: {NodeName}", parallelNode.DisplayName);
 
-                // 清除所有节点选中状态
-                ClearAllNodeSelections();
+                var flowViewModel = _nodeManagementService.GetFlowDesignerViewModel(this);
+                _nodeManagementService.ClearAllSelections(flowViewModel);
 
-                // 选中当前并行节点
                 parallelNode.IsSelected = true;
-
-                // **触发委托事件**
                 NodeClicked?.Invoke(this, parallelNode);
 
-                System.Diagnostics.Debug.WriteLine($"并行节点 {parallelNode.DisplayName} 已被选中");
+                _logger.LogDebug("并行节点 {NodeName} 已被选中", parallelNode.DisplayName);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"处理并行节点点击失败: {ex.Message}");
+                _logger.LogError(ex, "处理并行节点点击失败: {NodeName}", parallelNode?.DisplayName);
             }
         }
+
         /// <summary>
         /// 处理嵌套节点点击
         /// </summary>
@@ -1521,32 +1020,28 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"处理并行分支内嵌套节点点击: {nestedNode.DisplayName}");
+                _logger.LogDebug("处理并行分支内嵌套节点点击: {NodeName}", nestedNode.DisplayName);
 
-                // 清除所有节点选中状态
-                ClearAllNodeSelections();
+                var flowViewModel = _nodeManagementService.GetFlowDesignerViewModel(this);
+                _nodeManagementService.ClearAllSelections(flowViewModel);
 
-                // 选中当前嵌套节点
                 nestedNode.IsSelected = true;
 
-                // **关键：通知FlowDesignerView处理嵌套节点点击**
-                var flowDesignerView = FindVisualParent<FlowDesignerView>(this);
-                if (flowDesignerView?.DataContext is FlowDesignerViewModel flowViewModel)
+                if (flowViewModel != null)
                 {
                     flowViewModel.HandleNodeClick(nestedNode);
-                    System.Diagnostics.Debug.WriteLine($"已通知FlowDesignerViewModel处理嵌套节点点击");
+                    _logger.LogDebug("已通知FlowDesignerViewModel处理嵌套节点点击");
                 }
 
-                // 也触发委托事件
                 NodeClicked?.Invoke(this, nestedNode);
-
-                System.Diagnostics.Debug.WriteLine($"嵌套节点 {nestedNode.DisplayName} 处理完成");
+                _logger.LogDebug("嵌套节点 {NodeName} 处理完成", nestedNode.DisplayName);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"处理嵌套节点点击失败: {ex.Message}");
+                _logger.LogError(ex, "处理嵌套节点点击失败: {NodeName}", nestedNode?.DisplayName);
             }
         }
+
 
         /// <summary>
         /// 清除所有节点的选中状态

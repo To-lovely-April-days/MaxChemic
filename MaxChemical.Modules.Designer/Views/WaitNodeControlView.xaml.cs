@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Models;
 
 namespace MaxChemical.Modules.Designer.Views
@@ -22,19 +23,21 @@ namespace MaxChemical.Modules.Designer.Views
     public partial class WaitNodeControlView : UserControl
     {
         public event EventHandler<CommandNode> NodeDeleteRequested;
+        private readonly ILogService _logger;
         public WaitNodeControlView()
         {
             InitializeComponent();
+            _logger = new LogService().ForContext<WaitNodeControlView>();
         }
 
         private void Node_Click(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
             {
-                // 触发节点选中事件
                 var routedEventArgs = new RoutedEventArgs(NodeClickEvent, node);
                 RaiseEvent(routedEventArgs);
                 e.Handled = true;
+                _logger.LogDebug("等待节点被点击: {NodeName}", node.DisplayName);
             }
         }
         private void DeleteButton_Click(object sender, MouseButtonEventArgs e)
@@ -43,14 +46,14 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (DataContext is CommandNode node)
                 {
-                    System.Diagnostics.Debug.WriteLine($"请求删除等待节点: {node.DisplayName}");
+                    _logger.LogDebug("请求删除等待节点: {NodeName}", node.DisplayName);
                     NodeDeleteRequested?.Invoke(this, node);
                     e.Handled = true;
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"删除等待节点失败: {ex.Message}");
+                _logger.LogError(ex, "删除等待节点失败");
             }
         }
         // 定义路由事件
