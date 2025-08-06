@@ -486,17 +486,25 @@ namespace MaxChemical.Modules.Designer.Views
                             hint.Visibility = Visibility.Collapsed;
                         }
                     }
-
-                    NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        NestedCommand = nestedNode,
-                        IsTrueBranch = false,
-                        ParentIfNode = parallelNode,
-                        BranchIndex = branchIndex
-                    });
+                        UpdateBranchCanvasLayout();
+                        OnBranchContentChanged();
 
-                    UpdateBranchCanvasLayout();
-                    OnBranchContentChanged();
+
+                        // 触发嵌套命令添加事件
+                        NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
+                        {
+                            NestedCommand = nestedNode,
+                            IsTrueBranch = false,
+                            ParentIfNode = parallelNode,
+                            BranchIndex = branchIndex
+                        });
+
+                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+                   
+
+                
 
                     _logger.LogDebug("添加命令到并行分支 {BranchIndex}: {NodeName}", branchIndex, nestedNode.DisplayName);
                 }

@@ -216,52 +216,63 @@ namespace MaxChemical.Modules.Designer.Views
                 targetHorizontalOffset = Math.Max(0, Math.Min(targetHorizontalOffset, maxHorizontalOffset));
                 targetVerticalOffset = Math.Max(0, Math.Min(targetVerticalOffset, maxVerticalOffset));
 
+                // 如果已经很接近目标位置，直接跳转
+                double currentH = CanvasScrollViewer.HorizontalOffset;
+                double currentV = CanvasScrollViewer.VerticalOffset;
+
+                if (Math.Abs(currentH - targetHorizontalOffset) < 5 && Math.Abs(currentV - targetVerticalOffset) < 5)
+                {
+                    CanvasScrollViewer.ScrollToHorizontalOffset(targetHorizontalOffset);
+                    CanvasScrollViewer.ScrollToVerticalOffset(targetVerticalOffset);
+                    _logger.LogDebug("目标位置已接近，直接跳转: {NodeName}", node.DisplayName);
+                    return;
+                }
+
                 _logger.LogDebug("目标滚动位置: H={H}, V={V}, 视口大小: {W}x{H}",
                     targetHorizontalOffset, targetVerticalOffset, viewportWidth, viewportHeight);
 
-                var timer = new System.Windows.Threading.DispatcherTimer();
-                var startTime = DateTime.Now;
-                var duration = TimeSpan.FromMilliseconds(500);
-                var startHorizontal = CanvasScrollViewer.HorizontalOffset;
-                var startVertical = CanvasScrollViewer.VerticalOffset;
-
-                timer.Interval = TimeSpan.FromMilliseconds(16); // ~60fps
-                timer.Tick += (s, e) =>
-                {
-                    var elapsed = DateTime.Now - startTime;
-                    var progress = Math.Min(1.0, elapsed.TotalMilliseconds / duration.TotalMilliseconds);
-
-                    // 使用缓动函数，让滚动更平滑
-                    var easedProgress = EaseOutCubic(progress);
-
-                    var currentH = startHorizontal + (targetHorizontalOffset - startHorizontal) * easedProgress;
-                    var currentV = startVertical + (targetVerticalOffset - startVertical) * easedProgress;
-
-                    CanvasScrollViewer.ScrollToHorizontalOffset(currentH);
-                    CanvasScrollViewer.ScrollToVerticalOffset(currentV);
-
-                    if (progress >= 1.0)
-                    {
-                        timer.Stop();
-                        _logger.LogDebug("平滑滚动完成: {NodeName}, 最终位置: H={H}, V={V}",
-                            node.DisplayName, CanvasScrollViewer.HorizontalOffset, CanvasScrollViewer.VerticalOffset);
-                    }
-                };
-
-                timer.Start();
+                StartSmoothScroll(currentH, currentV, targetHorizontalOffset, targetVerticalOffset, node.DisplayName);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "平滑滚动到节点时发生错误: {NodeName}", node?.DisplayName);
             }
         }
-
-        // 缓动函数：三次方缓出
-        private double EaseOutCubic(double t)
+        private void StartSmoothScroll(double startH, double startV, double targetH, double targetV, string nodeName = "")
         {
-            return 1 - Math.Pow(1 - t, 3);
-        }
+            var startTime = DateTime.UtcNow;
+            var duration = TimeSpan.FromMilliseconds(300); // 减少动画时间，让滚动更快
 
+            EventHandler renderingHandler = null;
+            renderingHandler = (s, e) =>
+            {
+                var elapsed = DateTime.UtcNow - startTime;
+                var progress = Math.Min(1.0, elapsed.TotalMilliseconds / duration.TotalMilliseconds);
+
+                // 使用更平滑的缓动函数
+                var easedProgress = EaseInOutQuart(progress);
+
+                var currentH = startH + (targetH - startH) * easedProgress;
+                var currentV = startV + (targetV - startV) * easedProgress;
+
+                CanvasScrollViewer.ScrollToHorizontalOffset(currentH);
+                CanvasScrollViewer.ScrollToVerticalOffset(currentV);
+
+                if (progress >= 1.0)
+                {
+                    CompositionTarget.Rendering -= renderingHandler;
+                    _logger.LogDebug("平滑滚动完成: {NodeName}, 最终位置: H={H}, V={V}",
+                        nodeName, CanvasScrollViewer.HorizontalOffset, CanvasScrollViewer.VerticalOffset);
+                }
+            };
+
+            CompositionTarget.Rendering += renderingHandler;
+        }
+        // 更平滑的缓动函数：四次方缓入缓出
+        private double EaseInOutQuart(double t)
+        {
+            return t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t;
+        }
         // 添加一个重载方法，可以指定滚动到特定位置
         private void ScrollToPositionSmooth(double x, double y)
         {
@@ -278,45 +289,19 @@ namespace MaxChemical.Modules.Designer.Views
                 double viewportWidth = CanvasScrollViewer.ViewportWidth;
                 double viewportHeight = CanvasScrollViewer.ViewportHeight;
 
-                // 计算目标偏移量，使指定位置位于视口中心
                 double targetHorizontalOffset = x - viewportWidth / 2;
                 double targetVerticalOffset = y - viewportHeight / 2;
 
-                // 确保偏移量在有效范围内
                 double maxHorizontalOffset = Math.Max(0, CanvasScrollViewer.ScrollableWidth);
                 double maxVerticalOffset = Math.Max(0, CanvasScrollViewer.ScrollableHeight);
 
                 targetHorizontalOffset = Math.Max(0, Math.Min(targetHorizontalOffset, maxHorizontalOffset));
                 targetVerticalOffset = Math.Max(0, Math.Min(targetVerticalOffset, maxVerticalOffset));
 
-                var timer = new System.Windows.Threading.DispatcherTimer();
-                var startTime = DateTime.Now;
-                var duration = TimeSpan.FromMilliseconds(500);
-                var startHorizontal = CanvasScrollViewer.HorizontalOffset;
-                var startVertical = CanvasScrollViewer.VerticalOffset;
+                double currentH = CanvasScrollViewer.HorizontalOffset;
+                double currentV = CanvasScrollViewer.VerticalOffset;
 
-                timer.Interval = TimeSpan.FromMilliseconds(16);
-                timer.Tick += (s, e) =>
-                {
-                    var elapsed = DateTime.Now - startTime;
-                    var progress = Math.Min(1.0, elapsed.TotalMilliseconds / duration.TotalMilliseconds);
-
-                    var easedProgress = EaseOutCubic(progress);
-
-                    var currentH = startHorizontal + (targetHorizontalOffset - startHorizontal) * easedProgress;
-                    var currentV = startVertical + (targetVerticalOffset - startVertical) * easedProgress;
-
-                    CanvasScrollViewer.ScrollToHorizontalOffset(currentH);
-                    CanvasScrollViewer.ScrollToVerticalOffset(currentV);
-
-                    if (progress >= 1.0)
-                    {
-                        timer.Stop();
-                        _logger.LogDebug("平滑滚动到位置完成: ({X}, {Y})", x, y);
-                    }
-                };
-
-                timer.Start();
+                StartSmoothScroll(currentH, currentV, targetHorizontalOffset, targetVerticalOffset, $"位置({x}, {y})");
             }
             catch (Exception ex)
             {
@@ -324,20 +309,8 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        // 滚动到画布中心
-        private void ScrollToCanvasCenter()
-        {
-            if (CanvasScrollViewer == null)
-            {
-                _logger.LogWarning("CanvasScrollViewer 为 null，无法滚动到中心");
-                return;
-            }
 
-            double canvasCenterX = CanvasScrollViewer.ScrollableWidth / 2;
-            double canvasCenterY = CanvasScrollViewer.ScrollableHeight / 2;
-
-            ScrollToPositionSmooth(canvasCenterX, canvasCenterY);
-        }
+    
 
         private double GetNodeWidth(CommandNode node)
         {

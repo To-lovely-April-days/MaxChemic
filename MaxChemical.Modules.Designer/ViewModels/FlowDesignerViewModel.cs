@@ -332,6 +332,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogDebug("嵌套命令已添加到IF节点: {NestedCommand} -> {Branch}分支",
                     e.NestedCommand.DisplayName, e.IsTrueBranch ? "TRUE" : "FALSE");
+               
                 HandleNestedCommandAdded(e);
             };
 
@@ -504,7 +505,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         RefreshNodeLayout(e.ParentIfNode);
+                   
                     }), System.Windows.Threading.DispatcherPriority.Background);
+
+                   
                 }
             }
             catch (Exception ex)
@@ -948,10 +952,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     RearrangeNodesFromIndex(changedIndex + 1);
                     RebuildAllConnections();
                     UpdateCanvasSize();
-
+                  
                     _logger.LogDebug("节点布局刷新完成");
 
                 }), System.Windows.Threading.DispatcherPriority.Background);
+
+
             }
             catch (Exception ex)
             {
@@ -1226,8 +1232,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 if (CommandNodes.Count == 0)
                 {
-                    CanvasWidth = Math.Max(1200, StartNodeX + 400);
-                    CanvasHeight = Math.Max(800, StartNodeY + 200);
+                    CanvasWidth = Math.Max(1200, StartNodeX + 800);
+                    CanvasHeight = Math.Max(800, StartNodeY + 300);
                     _logger.LogTrace("无节点时画布大小: {Width}x{Height}", CanvasWidth, CanvasHeight);
                     return;
                 }

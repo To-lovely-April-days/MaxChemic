@@ -303,8 +303,7 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("IF节点内的并行节点内容发生变化");
                             OnBranchContentChanged();
                         };
-
-
+                     
                     }
                     else if (nestedControl is IfNodeControlView nestedIfControl)
                     {
@@ -313,8 +312,6 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("IF节点内的嵌套IF节点内容发生变化");
                             OnBranchContentChanged();
                         };
-
-
                     }
                     else if (nestedControl is LoopNodeControlView nestedloopControl)
                     {
@@ -336,16 +333,22 @@ namespace MaxChemical.Modules.Designer.Views
                         FalseBranchContent.Children.Add(nestedControl);
                         FalseHint.Visibility = Visibility.Collapsed;
                     }
-
-                    NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        NestedCommand = nestedNode,
-                        IsTrueBranch = isTrueBranch,
-                        ParentIfNode = ifNode
-                    });
+                        UpdateBranchCanvasHeight();
+                        ContentChanged?.Invoke(this, EventArgs.Empty);
 
-                    UpdateBranchCanvasHeight();
-                   
+                        // 触发嵌套命令添加事件
+                        NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
+                        {
+                            NestedCommand = nestedNode,
+                            IsTrueBranch = isTrueBranch,
+                            ParentIfNode = ifNode
+                        });
+
+                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+
                 }
             }
             catch (Exception ex)
