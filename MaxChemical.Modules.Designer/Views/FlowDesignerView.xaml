@@ -16,6 +16,7 @@
         <converters:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
         <converters:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter"/>
 
+   
         <!-- 自定义按钮样式 -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -34,34 +35,98 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
         <!-- 设备命令节点模板 -->
         <DataTemplate x:Key="DeviceCommandNodeTemplate">
             <Border Width="231" Height="64"
             Background="White"
             CornerRadius="6"
-            Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+            Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+            RenderTransformOrigin="0.5,0.5">
+
+                <!-- 设置RenderTransform用于动画 -->
+                <Border.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+                        <TranslateTransform X="0" Y="0"/>
+                    </TransformGroup>
+                </Border.RenderTransform>
+
+                <!-- 修正后的样式 - 高亮时替换阴影而不是叠加 -->
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="BorderBrush" Value="#E0E0E0"/>
                         <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect ShadowDepth="0"
+                                          Direction="315"
+                                          BlurRadius="8"
+                                          Color="#000000"
+                                          Opacity="0.25"/>
+                            </Setter.Value>
+                        </Setter>
                         <Style.Triggers>
+                            <!-- 选中状态 -->
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter Property="BorderBrush" Value="#0078D4"/>
                                 <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+
+                            <!-- 插入高亮状态 - 替换原始阴影，不叠加 -->
+                            <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
+                                <!-- 完全替换Effect，而不是叠加 -->
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect ShadowDepth="0"
+                                                  Direction="0"
+                                                 
+                                                  Color="#186DF5"
+                                                  Opacity="0.5"/>
+                                    </Setter.Value>
+                                </Setter>
+
+                                <!-- 与逻辑节点完全相同的动画 -->
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                     To="1.02" Duration="0:0:0.3"
+                                                     DecelerationRatio="0.6"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                     To="1.02" Duration="0:0:0.3"
+                                                     DecelerationRatio="0.6"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                                                     To="-3" Duration="0:0:0.3"
+                                                     DecelerationRatio="0.6"/>
+                                            <!-- 发光脉冲效果 -->
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                                     From="0.5" To="0.8" Duration="0:0:0.8"
+                                                     AutoReverse="True" RepeatBehavior="Forever"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                     To="1.0" Duration="0:0:0.3"
+                                                     AccelerationRatio="0.3"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                     To="1.0" Duration="0:0:0.3"
+                                                     AccelerationRatio="0.3"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                                                     To="0" Duration="0:0:0.3"
+                                                     AccelerationRatio="0.3"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
 
-                <Border.Effect>
-                    <DropShadowEffect ShadowDepth="4"
-                              Direction="315"
-                              BlurRadius="8"
-                              Color="#000000"
-                              Opacity="0.25"/>
-                </Border.Effect>
-
+                <!-- 现有的Grid内容保持不变 -->
                 <Grid>
                     <!-- 主要内容区域 - 负责节点选择 -->
                     <Border Margin="16,16,40,16"
@@ -151,14 +216,14 @@
 
                     <!-- 删除按钮 - 独立区域，不受选择事件影响 -->
                     <Border Width="20" Height="20"
-        Background="Transparent"
-        HorizontalAlignment="Right"
-        VerticalAlignment="Top"
-        Margin="0,5,5,0"
-        Cursor="Hand"
-        Tag="{Binding}"
-        Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"
-        MouseLeftButtonUp="DeviceNode_DeleteClick">
+                    Background="Transparent"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,5,5,0"
+                    Cursor="Hand"
+                    Tag="{Binding}"
+                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"
+                    MouseLeftButtonUp="DeviceNode_DeleteClick">
 
                         <Border.Style>
                             <Style TargetType="Border">
@@ -173,10 +238,10 @@
                         </Border.Style>
 
                         <TextBlock Text="×"
-               FontSize="14"
-               FontWeight="Bold"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Center">
+                           FontSize="14"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="#666666"/>
@@ -296,6 +361,7 @@
                     <Grid AllowDrop="True"
                           Drop="Canvas_Drop"
                           DragOver="Canvas_DragOver"
+                          DragLeave="Canvas_DragLeave"
                           SizeChanged="MainGrid_SizeChanged">
 
                         <!-- 标题 -->
@@ -378,40 +444,107 @@
                                         <Setter Property="Panel.ZIndex" Value="10" />
                                     </Style>
                                 </ItemsControl.ItemContainerStyle>
-                               <ItemsControl.ItemTemplate>
-    <DataTemplate>
-        <Grid Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
-            <!-- 插件创建的逻辑命令节点控件 - 保留 PreviewMouseLeftButtonDown -->
-            <ContentPresenter Content="{Binding NodeControl}"
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+              RenderTransformOrigin="0.5,0.5">
+
+                                            <!-- 设置RenderTransform用于动画 -->
+                                            <Grid.RenderTransform>
+                                                <TransformGroup>
+                                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+                                                    <TranslateTransform X="0" Y="0"/>
+                                                </TransformGroup>
+                                            </Grid.RenderTransform>
+
+                                            <!-- 逻辑节点高亮样式（保持不变） -->
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Style.Triggers>
+                                                        <!-- 插入高亮状态 - 为逻辑命令节点添加高亮效果 -->
+                                                        <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
+                                                            <Setter Property="Effect">
+                                                                <Setter.Value>
+                                                                    <DropShadowEffect ShadowDepth="0"
+                                                      Direction="0"
+                                                      BlurRadius="20"
+                                                      Color="#186DF5"
+                                                      Opacity="0.5"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+
+                                                            <!-- 逻辑节点的高亮动画 -->
+                                                            <DataTrigger.EnterActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                         To="1.02" Duration="0:0:0.3"
+                                                         DecelerationRatio="0.6"/>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                         To="1.02" Duration="0:0:0.3"
+                                                         DecelerationRatio="0.6"/>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                                                         To="-3" Duration="0:0:0.3"
+                                                         DecelerationRatio="0.6"/>
+                                                                        <!-- 发光脉冲效果 -->
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
+                                                         From="0.5" To="0.8" Duration="0:0:0.8"
+                                                         AutoReverse="True" RepeatBehavior="Forever"/>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.EnterActions>
+
+                                                            <DataTrigger.ExitActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                         To="1.0" Duration="0:0:0.3"
+                                                         AccelerationRatio="0.3"/>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                         To="1.0" Duration="0:0:0.3"
+                                                         AccelerationRatio="0.3"/>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                                                         To="0" Duration="0:0:0.3"
+                                                         AccelerationRatio="0.3"/>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.ExitActions>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+
+                                            <!-- 插件创建的逻辑命令节点控件 -->
+                                            <ContentPresenter Content="{Binding NodeControl}"
                               PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown"
                               Visibility="{Binding NodeControl, Converter={StaticResource StringToVisibilityConverter}}">
-                <ContentPresenter.Style>
-                    <Style TargetType="ContentPresenter">
-                        <EventSetter Event="Loaded" Handler="ComplexNodeControl_Loaded"/>
-                    </Style>
-                </ContentPresenter.Style>
-            </ContentPresenter>
+                                                <ContentPresenter.Style>
+                                                    <Style TargetType="ContentPresenter">
+                                                        <EventSetter Event="Loaded" Handler="ComplexNodeControl_Loaded"/>
+                                                    </Style>
+                                                </ContentPresenter.Style>
+                                            </ContentPresenter>
 
-            <!-- 默认的设备命令节点模板 - 移除 PreviewMouseLeftButtonDown -->
-            <ContentPresenter ContentTemplate="{StaticResource DeviceCommandNodeTemplate}"
+                                            <!-- 默认的设备命令节点模板 -->
+                                            <ContentPresenter ContentTemplate="{StaticResource DeviceCommandNodeTemplate}"
                               Content="{Binding}">
-                <ContentPresenter.Style>
-                    <Style TargetType="ContentPresenter">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsDeviceCommand}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding NodeControl}" Value="{x:Null}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ContentPresenter.Style>
-            </ContentPresenter>
-        </Grid>
-    </DataTemplate>
-</ItemsControl.ItemTemplate>
+                                                <ContentPresenter.Style>
+                                                    <Style TargetType="ContentPresenter">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDeviceCommand}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding NodeControl}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ContentPresenter.Style>
+                                            </ContentPresenter>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
                             <!-- 连接线集合 - ZIndex=5，确保连接线在节点之下但在背景之上 -->

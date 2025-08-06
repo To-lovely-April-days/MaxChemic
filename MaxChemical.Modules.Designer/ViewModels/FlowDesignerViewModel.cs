@@ -285,7 +285,191 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 _logger.LogError(ex, "添加逻辑命令节点失败: {CommandName}", logicCommand?.Name);
             }
         }
+        #region 位置插入方法 - 新增这个区域
 
+        public void AddCommandToCanvasAtPosition(DeviceCommand command, int insertIndex)
+        {
+            try
+            {
+                _logger.LogDebug("在位置 {Position} 添加设备命令: {CommandName}", insertIndex, command.Name);
+
+                var commandNode = new CommandNode(command)
+                {
+                    Order = insertIndex + 1
+                };
+
+                // 插入到指定位置
+                if (insertIndex >= 0 && insertIndex <= CommandNodes.Count)
+                {
+                    CommandNodes.Insert(insertIndex, commandNode);
+                }
+                else
+                {
+                    CommandNodes.Add(commandNode);
+                }
+
+                // 重新排列所有节点
+                RearrangeNodesFromInsert(insertIndex);
+                RebuildAllConnections();
+                UpdateCanvasSize();
+
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    NodeAdded?.Invoke(this, commandNode);
+                }));
+
+                _logger.LogInformation("设备命令节点 {CommandName} 已添加到位置 {Position}", command.Name, insertIndex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "在位置添加设备命令节点失败: {CommandName}, Position: {Position}",
+                    command?.Name, insertIndex);
+            }
+        }
+
+        public void AddCommandToCanvasAtPosition(LogicCommand logicCommand, int insertIndex)
+        {
+            try
+            {
+                _logger.LogDebug("在位置 {Position} 添加逻辑命令: {CommandName}", insertIndex, logicCommand.Name);
+
+                if (CommandNodes.Count == 0 && insertIndex == 0)
+                {
+                    EnsureStartNodeCentered(logicCommand);
+                }
+
+                var commandNode = new CommandNode(logicCommand)
+                {
+                    Order = insertIndex + 1,
+                    IsVisible = false
+                };
+
+                // 创建节点控件
+                var plugin = _pluginManager?.GetPlugin(logicCommand.CommandType.ToString());
+                if (plugin != null)
+                {
+                    commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
+                    var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
+                    commandNode.NodeControl.Width = estimatedSize.Width;
+                    commandNode.NodeControl.MinWidth = estimatedSize.Width;
+                    SubscribeToNodeControlEvents(commandNode, plugin);
+                }
+
+                // 插入到指定位置
+                if (insertIndex >= 0 && insertIndex <= CommandNodes.Count)
+                {
+                    CommandNodes.Insert(insertIndex, commandNode);
+                }
+                else
+                {
+                    CommandNodes.Add(commandNode);
+                }
+
+                // 重新排列所有节点
+                RearrangeNodesFromInsert(insertIndex);
+                RebuildAllConnections();
+
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    commandNode.IsVisible = true;
+                    NodeAdded?.Invoke(this, commandNode);
+                    _logger.LogDebug("节点 {CommandName} 在位置 {Position} 显示完成",
+                        logicCommand.Name, insertIndex);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+                UpdateCanvasSizeStable();
+                _logger.LogInformation("逻辑命令节点 {CommandName} 已添加到位置 {Position}", logicCommand.Name, insertIndex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "在位置添加逻辑命令节点失败: {CommandName}, Position: {Position}",
+                    logicCommand?.Name, insertIndex);
+            }
+        }
+
+        private void RearrangeNodesFromInsert(int insertIndex)
+        {
+            try
+            {
+                _logger.LogDebug("从插入位置 {Position} 重新排列节点", insertIndex);
+
+                // 更新所有节点的Order
+                for (int i = 0; i < CommandNodes.Count; i++)
+                {
+                    CommandNodes[i].Order = i + 1;
+                }
+
+                // 计算所有节点的新位置
+                const double nodeSpacing = 80;
+                const double standardNodeHeight = 64;
+
+                for (int i = 0; i < CommandNodes.Count; i++)
+                {
+                    var node = CommandNodes[i];
+
+                    if (i == 0)
+                    {
+                        // 第一个节点的位置计算
+                        var newPosition = CalculateFirstNodePosition(node);
+                        node.X = newPosition.X;
+                        node.Y = newPosition.Y;
+                    }
+                    else
+                    {
+                        // 后续节点的位置计算
+                        var previousNode = CommandNodes[i - 1];
+                        double previousHeight = GetEstimatedNodeHeight(previousNode);
+                        double newY = previousNode.Y + previousHeight + nodeSpacing;
+
+                        double previousCenterX = GetEstimatedNodeCenterX(previousNode);
+                        double newX;
+
+                        if (node.IsComplexNode)
+                        {
+                            double currentNodeWidth = GetEstimatedNodeWidth(node);
+                            newX = previousCenterX - (currentNodeWidth / 2);
+                        }
+                        else
+                        {
+                            newX = previousCenterX - (NodeSizeEstimator.DEVICE_NODE_WIDTH / 2);
+                        }
+
+                        node.X = newX;
+                        node.Y = newY;
+                    }
+
+                    _logger.LogTrace("重排节点 {Index}: {NodeName} -> ({X}, {Y})",
+                        i, node.DisplayName, node.X, node.Y);
+                }
+
+                _logger.LogDebug("节点重新排列完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "重新排列节点失败");
+            }
+        }
+
+        private Point CalculateFirstNodePosition(CommandNode node)
+        {
+            const double standardNodeWidth = NodeSizeEstimator.DEVICE_NODE_WIDTH;
+            const double standardNodeHeight = NodeSizeEstimator.DEVICE_NODE_HEIGHT;
+            const double nodeSpacing = 80;
+
+            if (IsComplexLogicCommand(node.LogicCommand))
+            {
+                double startNodeCenterX = StartNodeX + (standardNodeWidth / 2);
+                double estimatedWidth = NodeSizeEstimator.GetComplexNodeWidth(node.LogicCommand);
+                double nodeX = startNodeCenterX - (estimatedWidth / 2);
+                return new Point(nodeX, StartNodeY + standardNodeHeight + nodeSpacing);
+            }
+            else
+            {
+                return new Point(StartNodeX, StartNodeY + standardNodeHeight + nodeSpacing);
+            }
+        }
+
+        #endregion
         private void SubscribeToNodeControlEvents(CommandNode commandNode, ILogicCommandPlugin plugin)
         {
             try

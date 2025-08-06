@@ -21,10 +21,13 @@ namespace MaxChemical.Modules.Designer.Views
         private const double SIZE_CHANGE_THRESHOLD = 5.0;
         private readonly System.Windows.Threading.DispatcherTimer _sizeChangeDebounceTimer;
         private bool _isInternalSizeChange = false;
+        private DragInsertPosition _currentDragPosition;
         public event EventHandler<CommandNode> NodeDeleteRequested;
         private readonly ILogService _logger;
         private readonly NodeManagementService _nodeManagementService;
         private readonly DesignerDragDropService _dragDropService;
+        private readonly DragInsertPositionService _dragInsertService;
+       
 
         public FlowDesignerView()
         {
@@ -34,7 +37,7 @@ namespace MaxChemical.Modules.Designer.Views
             _logger = new LogService().ForContext<FlowDesignerView>();
             _nodeManagementService = new NodeManagementService(_logger);
             _dragDropService = new DesignerDragDropService(_logger);
-
+            _dragInsertService = new DragInsertPositionService(_logger); 
             // 初始化防抖定时器
             _sizeChangeDebounceTimer = new System.Windows.Threading.DispatcherTimer
             {
@@ -374,7 +377,7 @@ namespace MaxChemical.Modules.Designer.Views
         // 设备节点选择点击
         private void DeviceNode_SelectClick(object sender, MouseButtonEventArgs e)
         {
-            _logger.LogDebug("🔍 设备节点选择点击");
+            _logger.LogDebug("设备节点选择点击");
 
             try
             {
@@ -777,38 +780,69 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
+                // 清除高亮
+                var viewModel = DataContext as FlowDesignerViewModel;
+                _dragInsertService.ClearHighlight(viewModel);
+
                 var command = _dragDropService.ExtractCommandFromDragData(e.Data);
                 if (command != null)
                 {
-                    var viewModel = DataContext as FlowDesignerViewModel;
+                    // 获取插入位置
+                    int insertIndex = _currentDragPosition?.IsValidPosition == true ?
+                        _currentDragPosition.InsertIndex : -1;
 
                     if (command is DeviceCommand deviceCmd)
                     {
-                        viewModel?.AddCommandToCanvas(deviceCmd);
-                        _logger.LogDebug("设备命令 {CommandName} 已添加到流程", deviceCmd.Name);
+                        if (insertIndex >= 0)
+                        {
+                            viewModel?.AddCommandToCanvasAtPosition(deviceCmd, insertIndex);
+                        }
+                        else
+                        {
+                            viewModel?.AddCommandToCanvas(deviceCmd);
+                        }
+                        _logger.LogDebug("设备命令 {CommandName} 已添加到流程，位置: {Position}",
+                            deviceCmd.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
                     }
                     else if (command is LogicCommand logicCmd)
                     {
-                        viewModel?.AddCommandToCanvas(logicCmd);
-                        _logger.LogDebug("逻辑命令 {CommandName} 已添加到流程", logicCmd.Name);
+                        if (insertIndex >= 0)
+                        {
+                            viewModel?.AddCommandToCanvasAtPosition(logicCmd, insertIndex);
+                        }
+                        else
+                        {
+                            viewModel?.AddCommandToCanvas(logicCmd);
+                        }
+                        _logger.LogDebug("逻辑命令 {CommandName} 已添加到流程，位置: {Position}",
+                            logicCmd.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
                     }
                     else if (command is Services.PluginIdRequest pluginRequest)
                     {
                         var logicCommand = viewModel?.CreateLogicCommandFromPluginId(pluginRequest.PluginId);
                         if (logicCommand != null)
                         {
-                            viewModel.AddCommandToCanvas(logicCommand);
-                            _logger.LogDebug("通过插件ID创建的逻辑命令 {CommandName} 已添加到流程", logicCommand.Name);
+                            if (insertIndex >= 0)
+                            {
+                                viewModel.AddCommandToCanvasAtPosition(logicCommand, insertIndex);
+                            }
+                            else
+                            {
+                                viewModel.AddCommandToCanvas(logicCommand);
+                            }
+                            _logger.LogDebug("通过插件ID创建的逻辑命令 {CommandName} 已添加到流程，位置: {Position}",
+                                logicCommand.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
                         }
                     }
                 }
                 else if (e.Data.GetDataPresent("Device") && e.Data.GetData("Device") is IDevice device)
                 {
                     Point dropPosition = e.GetPosition(DesignCanvas);
-                    var viewModel = DataContext as FlowDesignerViewModel;
                     viewModel?.AddDeviceToCanvas(device, dropPosition);
                 }
 
+                // 重置拖拽位置
+                _currentDragPosition = null;
                 e.Handled = true;
             }
             catch (Exception ex)
@@ -819,17 +853,62 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void Canvas_DragOver(object sender, DragEventArgs e)
         {
-            if (_dragDropService.CanAcceptDrop(e.Data) || e.Data.GetDataPresent("Device"))
+            try
             {
-                e.Effects = DragDropEffects.Copy;
-            }
-            else
-            {
-                e.Effects = DragDropEffects.None;
-            }
-            e.Handled = true;
-        }
+                if (_dragDropService.CanAcceptDrop(e.Data) || e.Data.GetDataPresent("Device"))
+                {
+                    e.Effects = DragDropEffects.Copy;
 
+                    // 检测插入位置
+                    var viewModel = DataContext as FlowDesignerViewModel;
+                    if (viewModel != null && _dragDropService.CanAcceptDrop(e.Data))
+                    {
+                        Point mousePosition = e.GetPosition(DesignCanvas);
+                        var dragPosition = _dragInsertService.DetectInsertPosition(mousePosition, DesignCanvas, viewModel);
+
+                        // 更新高亮显示
+                        if (dragPosition.IsValidPosition)
+                        {
+                            if (_currentDragPosition?.HighlightNode != dragPosition.HighlightNode)
+                            {
+                                _dragInsertService.ClearHighlight(viewModel);
+                                if (dragPosition.HighlightNode != null)
+                                {
+                                    _dragInsertService.SetHighlight(dragPosition.HighlightNode, viewModel);
+                                }
+                            }
+                            _currentDragPosition = dragPosition;
+                        }
+                    }
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                }
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理拖拽悬停时发生错误");
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+            }
+        }
+        private void Canvas_DragLeave(object sender, DragEventArgs e)
+        {
+            try
+            {
+                // 清除高亮显示
+                var viewModel = DataContext as FlowDesignerViewModel;
+                _dragInsertService.ClearHighlight(viewModel);
+                _currentDragPosition = null;
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理拖拽离开时发生错误");
+            }
+        }
         #endregion
 
     }

@@ -98,7 +98,15 @@ namespace MaxChemical.Modules.Designer.Models
             get => _nodeControl;
             set => SetProperty(ref _nodeControl, value);
         }
-
+        /// <summary>
+        /// 插入高亮属性
+        /// </summary>
+        private bool _isInsertHighlight;
+        public bool IsInsertHighlight
+        {
+            get => _isInsertHighlight;
+            set => SetProperty(ref _isInsertHighlight, value);
+        }
         /// <summary>
         /// 子命令集合（统一用于所有容器类型）
         /// </summary>
