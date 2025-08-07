@@ -1,8 +1,12 @@
 ﻿using MaxChemical.Core;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
+using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Service;
+using MaxChemical.Modules.Designer.Service.Execution;
+using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.Designer.Views;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -36,7 +40,9 @@ namespace MaxChemical.Shell.ViewModels
         private readonly IDialogService _dialogService; // 新增
         private readonly ICanvasStateService _canvasStateService; // 新增
         private RegionLayout _currentRegionLayout;
-
+        private readonly ILogService _logger;
+        private readonly IFlowExecutionEngine _flowExecutionEngine;
+        private bool _isExecuting = false;
         // 本地化属性
         private string _tooltipOpenFolder = string.Empty;
         private string _tooltipNewDocument = string.Empty;
@@ -68,8 +74,10 @@ namespace MaxChemical.Shell.ViewModels
           ICanvasDataService canvasDataService,
           IDialogService dialogService,
           ICanvasStateService canvasStateService,
-          ICommandHistory commandHistory) // 新增参数
+          ICommandHistory commandHistory,
+          IFlowExecutionEngine flowExecutionEngine) // 新增参数
         {
+            _logger = new LogService().ForContext<MainToolBarViewModel>();
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _regionSettingsDialogProvider = regionSettingsDialogProvider ?? throw new ArgumentNullException(nameof(regionSettingsDialogProvider));
             _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
@@ -77,10 +85,11 @@ namespace MaxChemical.Shell.ViewModels
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _canvasStateService = canvasStateService ?? throw new ArgumentNullException(nameof(canvasStateService));
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory)); // 新增
-
+            _flowExecutionEngine = flowExecutionEngine ?? throw new ArgumentNullException(nameof(flowExecutionEngine));
             InitializeCommands();
             LoadLocalizedStrings();
             SubscribeEvents();
+            SubscribeExecutionEvents();
         }
 
 
@@ -264,9 +273,9 @@ namespace MaxChemical.Shell.ViewModels
             FitToViewCommand = new DelegateCommand(ExecuteFitToView); // 自适应功能
             DeleteCommand = new DelegateCommand(ExecuteDelete);
             SettingsCommand = new DelegateCommand(ExecuteSettings);
-            StartCommand = new DelegateCommand(ExecuteStart);
-            PauseCommand = new DelegateCommand(ExecutePause);
-            StopCommand = new DelegateCommand(ExecuteStop);
+            StartCommand = new DelegateCommand(ExecuteStart, CanExecuteStart);
+            PauseCommand = new DelegateCommand(ExecutePause, CanExecutePause);
+            StopCommand = new DelegateCommand(ExecuteStop, CanExecuteStop);
             StatusCommand = new DelegateCommand(ExecuteStatus);
 
             System.Diagnostics.Debug.WriteLine("MainToolBarViewModel InitializeCommands 完成");
@@ -297,7 +306,90 @@ namespace MaxChemical.Shell.ViewModels
             ButtonStop = _localizationService.GetString("Button_Stop");
             TextSimulationMode = _localizationService.GetString("Text_SimulationMode");
         }
+        private void SubscribeExecutionEvents()
+        {
+            _flowExecutionEngine.StateChanged += OnFlowExecutionStateChanged;
+            _flowExecutionEngine.NodeExecuting += OnNodeExecuting;
+            _flowExecutionEngine.NodeExecuted += OnNodeExecuted;
+            _flowExecutionEngine.ExecutionError += OnExecutionError;
+            _flowExecutionEngine.ProgressChanged += OnExecutionProgressChanged;
+        }
+        private void OnFlowExecutionStateChanged(object sender, FlowExecutionStateChangedEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                _isExecuting = e.NewState == FlowExecutionState.Running || e.NewState == FlowExecutionState.Paused;
 
+                // 更新所有相关命令的状态
+                StartCommand.RaiseCanExecuteChanged();
+                PauseCommand.RaiseCanExecuteChanged();
+                StopCommand.RaiseCanExecuteChanged();
+
+                // 更新状态消息
+                var statusMessage = e.NewState switch
+                {
+                    FlowExecutionState.Idle => "就绪",
+                    FlowExecutionState.Running => "流程执行中...",
+                    FlowExecutionState.Paused => "流程已暂停",
+                    FlowExecutionState.Completed => "流程执行完成",
+                    FlowExecutionState.Error => "流程执行出错",
+                    FlowExecutionState.Stopped => "流程已停止",
+                    FlowExecutionState.Stopping => "正在停止...",
+                    _ => "未知状态"
+                };
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(statusMessage);
+
+                System.Diagnostics.Debug.WriteLine($"执行引擎状态变化: {e.OldState} -> {e.NewState}");
+                System.Diagnostics.Debug.WriteLine($"Start按钮可用: {CanExecuteStart()}");
+                System.Diagnostics.Debug.WriteLine($"Pause按钮可用: {CanExecutePause()}");
+                System.Diagnostics.Debug.WriteLine($"Stop按钮可用: {CanExecuteStop()}");
+            });
+        }
+
+        private void OnNodeExecuting(object sender, NodeExecutionEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"正在执行: {e.Node.DisplayName}");
+            });
+        }
+
+        private void OnNodeExecuted(object sender, NodeExecutionEventArgs e)
+        {
+            var status = e.IsSuccessful ? "完成" : "失败";
+            var message = $"节点 {e.Node.DisplayName} 执行{status}";
+            if (!e.IsSuccessful && !string.IsNullOrEmpty(e.ErrorMessage))
+            {
+                message += $": {e.ErrorMessage}";
+            }
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(message);
+            });
+        }
+
+        private void OnExecutionError(object sender, FlowExecutionErrorEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                _dialogService?.ShowError($"流程执行错误: {e.ErrorMessage}", "执行错误");
+            });
+        }
+
+        private void OnExecutionProgressChanged(object sender, FlowExecutionProgressEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                var message = $"执行进度: {e.CompletedNodes}/{e.TotalNodes} ({e.ProgressPercentage:F1}%)";
+                if (e.CurrentNode != null)
+                {
+                    message += $" - {e.CurrentNode.DisplayName}";
+                }
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(message);
+            });
+        }
         private void SubscribeEvents()
         {
             _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChanged);
@@ -826,12 +918,190 @@ namespace MaxChemical.Shell.ViewModels
         }
 
         #endregion
+        private bool CanExecuteStart()
+        {
+            return _flowExecutionEngine.State == FlowExecutionState.Idle ||
+                   _flowExecutionEngine.State == FlowExecutionState.Paused ||
+                   _flowExecutionEngine.State == FlowExecutionState.Completed ||
+                   _flowExecutionEngine.State == FlowExecutionState.Stopped ||
+                   _flowExecutionEngine.State == FlowExecutionState.Error;
+        }
 
-        private void ExecuteStart() => ShowMessage("Message_Play");
-        private void ExecutePause() => ShowMessage("Message_Pause");
-        private void ExecuteStop() => ShowMessage("Message_Stop");
+        private bool CanExecutePause()
+        {
+            return _flowExecutionEngine.State == FlowExecutionState.Running;
+        }
+
+        private bool CanExecuteStop()
+        {
+            return _flowExecutionEngine.State == FlowExecutionState.Running ||
+                   _flowExecutionEngine.State == FlowExecutionState.Paused;
+        }
+        private void ExecuteStart()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"执行Start命令，当前状态: {_flowExecutionEngine.State}");
+
+                if (_flowExecutionEngine.State == FlowExecutionState.Paused)
+                {
+                    // 恢复执行
+                    _ = _flowExecutionEngine.ResumeAsync();
+                    _logger.LogInformation("恢复流程执行");
+                }
+                else if (_flowExecutionEngine.State == FlowExecutionState.Idle ||
+                         _flowExecutionEngine.State == FlowExecutionState.Completed ||
+                         _flowExecutionEngine.State == FlowExecutionState.Stopped ||
+                         _flowExecutionEngine.State == FlowExecutionState.Error)
+                {
+                    // 开始新的执行
+                    var flowViewModel = GetCurrentFlowDesigner();
+                    if (flowViewModel == null)
+                    {
+                        _dialogService?.ShowError("没有找到流程设计器", "执行失败");
+                        return;
+                    }
+
+                    if (!flowViewModel.CommandNodes.Any())
+                    {
+                        _dialogService?.ShowError("流程中没有任何节点，请先添加节点", "执行失败");
+                        return;
+                    }
+
+                    // 验证流程
+                    var validation = _flowExecutionEngine.ValidateFlow(flowViewModel);
+                    if (!validation.IsValid)
+                    {
+                        var errorMessage = "流程验证失败:\n" + string.Join("\n", validation.Errors);
+                        if (validation.Warnings.Any())
+                        {
+                            errorMessage += "\n\n警告:\n" + string.Join("\n", validation.Warnings);
+                        }
+                        _dialogService?.ShowError(errorMessage, "验证失败");
+                        return;
+                    }
+
+                    // 如果有警告，询问是否继续
+                    if (validation.Warnings.Any())
+                    {
+                        var warningMessage = "流程验证通过，但有以下警告:\n" + string.Join("\n", validation.Warnings) + "\n\n是否继续执行？";
+                        if (!_dialogService.ShowConfirmation(warningMessage, "执行确认"))
+                        {
+                            return;
+                        }
+                    }
+
+                    // 异步执行流程
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var result = await _flowExecutionEngine.ExecuteAsync(flowViewModel);
+
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                if (result.IsSuccessful)
+                                {
+                                    var message = $"流程执行成功！\n耗时: {result.Duration:mm\\:ss\\.fff}\n执行节点数: {result.TotalNodesExecuted}";
+                                    _dialogService?.ShowInfo(message, "执行完成");
+                                }
+                                else
+                                {
+                                    var message = $"流程执行失败！\n错误: {result.ErrorMessage}\n耗时: {result.Duration:mm\\:ss\\.fff}";
+                                    _dialogService?.ShowError(message, "执行失败");
+                                }
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                _dialogService?.ShowError($"启动流程执行失败: {ex.Message}", "启动失败");
+                            });
+                        }
+                    });
+
+                    _logger.LogInformation("开始执行流程");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"不支持的执行状态: {_flowExecutionEngine.State}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "执行开始命令失败");
+                _dialogService?.ShowError($"执行失败: {ex.Message}", "错误");
+            }
+        }
+
+        private void ExecutePause()
+        {
+            try
+            {
+                _ = _flowExecutionEngine.PauseAsync();
+                _logger.LogInformation("暂停流程执行");
+                _dialogService.ShowInfo("暂停流程执行");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "暂停流程失败");
+                _dialogService?.ShowError($"暂停失败: {ex.Message}", "错误");
+            }
+        }
+
+        private void ExecuteStop()
+        {
+            try
+            {
+                if (_flowExecutionEngine.State == FlowExecutionState.Running ||
+                    _flowExecutionEngine.State == FlowExecutionState.Paused)
+                {
+                    var result = _dialogService?.ShowConfirmation("确定要停止流程执行吗？", "停止确认");
+                    if (result == true)
+                    {
+                        _ = _flowExecutionEngine.StopAsync();
+                        _logger.LogInformation("停止流程执行");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "停止流程失败");
+                _dialogService?.ShowError($"停止失败: {ex.Message}", "错误");
+            }
+        }
+
         private void ExecuteStatus() => ShowMessage("ToolTip_SimulationMode");
+        private FlowDesignerViewModel GetCurrentFlowDesigner()
+        {
+            FlowDesignerViewModel flowViewModel = null;
+            var resetEvent = new ManualResetEventSlim(false);
 
+            try
+            {
+                _eventAggregator?.GetEvent<GetCurrentFlowDesignerRequestEvent>()?.Publish((viewModel) =>
+                {
+                    flowViewModel = viewModel;
+                    resetEvent.Set();
+                });
+
+                if (!resetEvent.Wait(TimeSpan.FromSeconds(1)))
+                {
+                    _logger.LogWarning("获取流程设计器超时");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "获取流程设计器失败");
+            }
+            finally
+            {
+                resetEvent.Dispose();
+            }
+
+            return flowViewModel;
+        }
         private void ShowMessage(string messageKey)
         {
             var message = _localizationService.GetString(messageKey);

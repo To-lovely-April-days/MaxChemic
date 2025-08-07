@@ -1,5 +1,4 @@
-﻿<!-- Controls/ParallelNodeControl.xaml -->
-<UserControl x:Class="MaxChemical.Modules.Designer.Views.ParallelNodeControlView"
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.ParallelNodeControlView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters">
@@ -7,38 +6,22 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
+        <converters:NodeExecutionStatusToBrushConverter x:Key="ExecutionStatusToBrushConverter"/>
+        <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
     </UserControl.Resources>
 
-    <!-- 主容器 - 垂直布局 -->
     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
 
-        <!-- 1. 主体卡片 (统一样式) - 居中显示 -->
         <Border x:Name="MainStepCard"
                 Width="231" Height="64"
-                Background="White"
                 CornerRadius="6"
                 Cursor="Hand"
                 MouseDown="Node_Click"
                 UseLayoutRounding="True"
                 SnapsToDevicePixels="True"
                 HorizontalAlignment="Center"
-                Margin="0,10,0,10">
-
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="BorderBrush" Value="Transparent"/>
-                    <Setter Property="BorderThickness" Value="2"/>
-                    <!-- 始终保持2像素边框 -->
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                            <Setter Property="BorderBrush" Value="#0078D4"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding IsSelected}" Value="False">
-                            <Setter Property="BorderBrush" Value="Transparent"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
+                Margin="0,10,0,10"
+                Style="{StaticResource ExecutingLogicNodeStyle}">
 
             <Border.Effect>
                 <DropShadowEffect ShadowDepth="4"
@@ -48,18 +31,45 @@
                                   Opacity="0.25"/>
             </Border.Effect>
 
-            <!-- 卡片内容 -->
             <Grid Margin="16 0 16 0">
+                <!-- 先定义所有属性元素 -->
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
-                    <!-- 新增：删除按钮列 -->
                 </Grid.ColumnDefinitions>
 
-                <!-- 左侧图标 - 统一为24x24尺寸 -->
+                <!-- 然后是内容元素 -->
+                <!-- 执行状态指示条 -->
+                <Rectangle Grid.ColumnSpan="3"
+                           Height="3" 
+                           VerticalAlignment="Top"
+                           Margin="-16,0,-16,0"
+                           Fill="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToBrushConverter}}"
+                           Opacity="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToOpacityConverter}}">
+                    <Rectangle.Style>
+                        <Style TargetType="Rectangle">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Rectangle.Style>
+                </Rectangle>
+
+                <!-- 左侧图标 -->
                 <Grid Grid.Column="0" Width="36" Height="27" Margin="0,0,12,0">
-                    <!-- 并行图标 -->
                     <Image Source="{Binding LogicCommand.Properties[Bezel_lessIconPath]}"
                            Width="24" 
                            Height="24"
@@ -70,26 +80,64 @@
 
                 <!-- 右侧文字内容 -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
-                    <TextBlock Text="{Binding DisplayName, FallbackValue='并行执行'}"
-                               FontSize="14"
-                               FontWeight="Medium"
-                               Foreground="#333"
-                               Margin="0,0,0,2"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock FontSize="11"
-                               Foreground="#999"
-                               TextWrapping="NoWrap"
-                               TextTrimming="CharacterEllipsis">
-                        <TextBlock.Text>
-                            <MultiBinding StringFormat="{}最大并行: {0}, 策略: {1}">
-                                <Binding Path="LogicCommand.Properties[MaxParallelCount]" FallbackValue="4"/>
-                                <Binding Path="LogicCommand.Properties[WaitStrategy]" FallbackValue="WaitAll"/>
-                            </MultiBinding>
-                        </TextBlock.Text>
-                    </TextBlock>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding DisplayName, FallbackValue='并行执行'}"
+                                   FontSize="14"
+                                   FontWeight="Medium"
+                                   Foreground="#333"
+                                   Margin="0,0,8,2"
+                                   TextTrimming="CharacterEllipsis"/>
+
+                        <!-- 执行状态圆点 -->
+                        <Ellipse Width="8" Height="8" 
+                                 Fill="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToBrushConverter}}"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,0,2">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="11"
+                                   Foreground="#999"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}最大并行: {0}, 策略: {1}">
+                                    <Binding Path="LogicCommand.Properties[MaxParallelCount]" FallbackValue="4"/>
+                                    <Binding Path="LogicCommand.Properties[WaitStrategy]" FallbackValue="WaitAll"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+
+                        <!-- 执行时间显示 -->
+                        <TextBlock Text="{Binding ExecutionDurationText}" 
+                                   FontSize="9" 
+                                   Foreground="#666"
+                                   Margin="8,0,0,0"
+                                   Visibility="{Binding ShowExecutionDuration, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
                 </StackPanel>
 
-                <!-- 删除按钮 - 新增 -->
+                <!-- 删除按钮 -->
                 <Border x:Name="DeleteButton"
                         Grid.Column="2"
                         Width="20"
@@ -105,7 +153,6 @@
                         <Style TargetType="Border">
                             <Setter Property="Background" Value="Transparent"/>
                             <Style.Triggers>
-                                <!-- 鼠标悬停效果 - 淡灰色背景 -->
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Background" Value="#10000000"/>
                                     <Setter Property="CornerRadius" Value="10"/>
@@ -124,7 +171,6 @@
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#666666"/>
                                 <Style.Triggers>
-                                    <!-- 鼠标悬停时变深色 -->
                                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=IsMouseOver}" Value="True">
                                         <Setter Property="Foreground" Value="#333333"/>
                                     </DataTrigger>
@@ -136,29 +182,25 @@
             </Grid>
         </Border>
 
-        <!-- 2. 并行分支结构画布 - 使用动态高度 -->
+        <!-- 并行分支结构画布 -->
         <Canvas x:Name="BranchCanvas"
                 Width="1000"
                 HorizontalAlignment="Center">
 
-            <!-- 主干垂直连接线 - 从主卡片中心向下 -->
             <Line x:Name="MainVerticalLine"
                   X1="500" Y1="0" X2="500" Y2="24"
                   Stroke="#CCCED3"
                   StrokeThickness="2"/>
 
-            <!-- 水平分配线 -->
             <Line x:Name="HorizontalDistributionLine"
                   X1="100" Y1="24" X2="900" Y2="24"
                   Stroke="#CCCED3"
                   StrokeThickness="2"/>
 
-            <!-- 并行分支容器 -->
             <StackPanel x:Name="ParallelBranchesContainer"
                         Canvas.Left="50" Canvas.Top="40"
                         Orientation="Horizontal"
                         HorizontalAlignment="Center">
-                <!-- 分支将通过代码动态生成 -->
             </StackPanel>
         </Canvas>
     </StackPanel>

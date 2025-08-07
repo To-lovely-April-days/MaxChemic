@@ -39,7 +39,7 @@ namespace MaxChemical.Modules.Designer.Events
 
     // 委托定义
     public delegate void NodeClickHandler(CommandNode node);
-    public delegate void NodeDeleteHandler(CommandNode node);
+    public delegate void NodeDeleteHandler(CommandNode nodeToDelete);
     public delegate void NestedCommandAddedHandler(NestedCommandEventArgs args);
     public delegate void NestedCommandRemovedHandler(NestedCommandEventArgs args);
     public delegate void ContentChangedHandler();

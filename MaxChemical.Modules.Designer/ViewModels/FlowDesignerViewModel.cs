@@ -1,5 +1,4 @@
-﻿// FlowDesignerViewModel.cs (重构后)
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -16,6 +15,7 @@ using MaxChemical.Logging;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using MaxChemical.Modules.Designer.Service.Execution;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -59,10 +59,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
 
         public FlowDesignerViewModel(
-            IDeviceManager deviceManager,
-            IEventAggregator eventAggregator,
-            ILogicCommandPluginManager pluginManager,
-            ILogService logService = null)
+       IDeviceManager deviceManager,
+       IEventAggregator eventAggregator,
+       ILogicCommandPluginManager pluginManager,
+       INodeExecutionStatusService executionStatusService = null, // 添加这个参数
+       ILogService logService = null)
         {
             _deviceManager = deviceManager;
             _eventAggregator = eventAggregator;
@@ -81,6 +82,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
             // 加载插件和订阅事件
             LoadLogicCommandPlugins();
             SubscribeToEvents();
+
+            // 设置当前视图模型到状态服务
+            executionStatusService?.SetCurrentFlowViewModel(this);
 
             _logger.LogInformation("FlowDesignerViewModel 初始化完成");
         }
@@ -196,9 +200,21 @@ namespace MaxChemical.Modules.Designer.ViewModels
             if (_eventAggregator != null)
             {
                 _eventAggregator.GetEvent<CommandDragFCompleteEvent>().Subscribe(OnCommandDragComplete);
+                _eventAggregator?.GetEvent<GetCurrentFlowDesignerRequestEvent>()?.Subscribe(OnGetCurrentFlowDesignerRequest);
             }
         }
-
+        private void OnGetCurrentFlowDesignerRequest(Action<FlowDesignerViewModel> callback)
+        {
+            try
+            {
+                callback?.Invoke(this);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "响应获取流程设计器请求失败");
+                callback?.Invoke(null);
+            }
+        }
         #endregion
 
         #region 添加节点方法
@@ -1408,7 +1424,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             RearrangeNodes();
         }
 
-        private void UpdateCanvasSize()
+        public void UpdateCanvasSize()
         {
             try
             {
@@ -1422,15 +1438,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     return;
                 }
 
-                double maxX = StartNodeX + 231;
-                double maxY = StartNodeY + 64;
+                double maxX = StartNodeX + 231; // 启动节点的右边界
+                double maxY = StartNodeY + 64;  // 启动节点的底边界
 
-                _logger.LogTrace("初始边界: 启动节点 {X}x{Y}", StartNodeX + 231, StartNodeY + 64);
+                _logger.LogTrace("初始边界: 启动节点右边界={MaxX}, 底边界={MaxY}", maxX, maxY);
 
                 foreach (var node in CommandNodes)
                 {
                     try
                     {
+                        // 强制更新节点控件布局
                         if (node.NodeControl != null)
                         {
                             Application.Current?.Dispatcher.Invoke(() =>
@@ -1439,58 +1456,162 @@ namespace MaxChemical.Modules.Designer.ViewModels
                             });
                         }
 
-                        var nodeSize = node.GetActualSize();
-                        double nodeRight = node.X + nodeSize.Width;
-                        double nodeBottom = node.Y + nodeSize.Height;
+                        // 计算节点的实际边界
+                        double nodeRight, nodeBottom;
+
+                        if (node.IsParallelNode && node.NodeControl is Views.ParallelNodeControlView parallelControl)
+                        {
+                            try
+                            {
+                                // 获取并行节点的实际尺寸
+                                double parallelControlWidth = 0;
+                                double parallelControlHeight = 0;
+
+                                Application.Current?.Dispatcher.Invoke(() =>
+                                {
+                                    parallelControl.UpdateLayout();
+
+                                    // 获取BranchCanvas的实际尺寸
+                                    var branchCanvas = parallelControl.BranchCanvas;
+                                    if (branchCanvas != null)
+                                    {
+                                        branchCanvas.UpdateLayout();
+                                        parallelControlWidth = Math.Max(branchCanvas.ActualWidth, branchCanvas.Width);
+                                        parallelControlHeight = Math.Max(branchCanvas.ActualHeight, branchCanvas.Height);
+
+                                        // 如果ActualWidth/Height为0，使用DesiredSize
+                                        if (parallelControlWidth <= 0)
+                                        {
+                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                                            parallelControlWidth = branchCanvas.DesiredSize.Width;
+                                        }
+                                        if (parallelControlHeight <= 0)
+                                        {
+                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                                            parallelControlHeight = branchCanvas.DesiredSize.Height;
+                                        }
+                                    }
+
+                                    // 如果还是0，使用整个并行控件的尺寸
+                                    if (parallelControlWidth <= 0)
+                                    {
+                                        parallelControlWidth = Math.Max(parallelControl.ActualWidth, parallelControl.Width);
+                                    }
+                                    if (parallelControlHeight <= 0)
+                                    {
+                                        parallelControlHeight = Math.Max(parallelControl.ActualHeight, parallelControl.Height);
+                                    }
+
+                                    // 最后的备用尺寸
+                                    if (parallelControlWidth <= 0) parallelControlWidth = 1000;
+                                    if (parallelControlHeight <= 0) parallelControlHeight = 300;
+                                });
+
+                                nodeRight = node.X + parallelControlWidth;
+                                nodeBottom = node.Y + parallelControlHeight + 64; // 64是主卡片高度
+
+                                _logger.LogTrace("并行节点 {NodeName}: 位置({X}, {Y}), 控件尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
+                                    node.DisplayName, node.X, node.Y, parallelControlWidth, parallelControlHeight, nodeRight, nodeBottom);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "获取并行节点 {NodeName} 尺寸失败，使用默认值", node.DisplayName);
+                                nodeRight = node.X + 1000;
+                                nodeBottom = node.Y + 400;
+                            }
+                        }
+                        else if (node.IsIfNode && node.NodeControl is Views.IfNodeControlView ifControl)
+                        {
+                            try
+                            {
+                                double ifControlWidth = 0;
+                                double ifControlHeight = 0;
+
+                                Application.Current?.Dispatcher.Invoke(() =>
+                                {
+                                    ifControl.UpdateLayout();
+                                    var branchCanvas = ifControl.BranchCanvas;
+                                    if (branchCanvas != null)
+                                    {
+                                        branchCanvas.UpdateLayout();
+                                        ifControlWidth = Math.Max(branchCanvas.ActualWidth, branchCanvas.Width);
+                                        ifControlHeight = Math.Max(branchCanvas.ActualHeight, branchCanvas.Height);
+
+                                        if (ifControlWidth <= 0)
+                                        {
+                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                                            ifControlWidth = branchCanvas.DesiredSize.Width;
+                                        }
+                                        if (ifControlHeight <= 0)
+                                        {
+                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                                            ifControlHeight = branchCanvas.DesiredSize.Height;
+                                        }
+                                    }
+
+                                    if (ifControlWidth <= 0) ifControlWidth = 800;
+                                    if (ifControlHeight <= 0) ifControlHeight = 300;
+                                });
+
+                                nodeRight = node.X + ifControlWidth;
+                                nodeBottom = node.Y + ifControlHeight + 64;
+
+                                _logger.LogTrace("IF节点 {NodeName}: 位置({X}, {Y}), 控件尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
+                                    node.DisplayName, node.X, node.Y, ifControlWidth, ifControlHeight, nodeRight, nodeBottom);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "获取IF节点 {NodeName} 尺寸失败，使用默认值", node.DisplayName);
+                                nodeRight = node.X + 800;
+                                nodeBottom = node.Y + 350;
+                            }
+                        }
+                        else
+                        {
+                            // 普通节点（设备命令等）
+                            var nodeSize = node.GetActualSize();
+                            nodeRight = node.X + nodeSize.Width;
+                            nodeBottom = node.Y + nodeSize.Height;
+
+                            _logger.LogTrace("普通节点 {NodeName}: 位置({X}, {Y}), 尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
+                                node.DisplayName, node.X, node.Y, nodeSize.Width, nodeSize.Height, nodeRight, nodeBottom);
+                        }
 
                         maxX = Math.Max(maxX, nodeRight);
                         maxY = Math.Max(maxY, nodeBottom);
 
-                        _logger.LogTrace("节点 {NodeName}: 位置({X}, {Y}), 尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
-                            node.DisplayName, node.X, node.Y, nodeSize.Width, nodeSize.Height, nodeRight, nodeBottom);
-
-                        if (node.IsIfNode && node.NodeControl is Views.IfNodeControlView ifControl)
-                        {
-                            try
-                            {
-                                var branchCanvas = ifControl.BranchCanvas;
-                                if (branchCanvas != null)
-                                {
-                                    double canvasWidth = branchCanvas.ActualWidth > 0 ? branchCanvas.ActualWidth : branchCanvas.Width;
-                                    double ifNodeActualRight = node.X + canvasWidth;
-                                    maxX = Math.Max(maxX, ifNodeActualRight);
-
-                                    _logger.LogTrace("IF节点 {NodeName} 内部Canvas宽度: {Width}, 实际右边界: {Right}",
-                                        node.DisplayName, canvasWidth, ifNodeActualRight);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogCritical(ex, "获取IF节点 {NodeName} 内部Canvas尺寸失败", node.DisplayName);
-                            }
-                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogCritical(ex, "获取节点 {NodeName} 尺寸失败", node.DisplayName);
-                        double defaultWidth = node.IsIfNode ? 800 : 231;
-                        double defaultHeight = node.IsIfNode ? 300 : 64;
+                        _logger.LogError(ex, "获取节点 {NodeName} 尺寸失败，使用默认值", node.DisplayName);
+                        double defaultWidth = node.IsIfNode ? 800 : node.IsParallelNode ? 1000 : 231;
+                        double defaultHeight = node.IsIfNode ? 350 : node.IsParallelNode ? 400 : 64;
                         maxX = Math.Max(maxX, node.X + defaultWidth);
                         maxY = Math.Max(maxY, node.Y + defaultHeight);
                     }
                 }
 
-                double newCanvasWidth = Math.Max(1200, maxX + 100);
-                double newCanvasHeight = Math.Max(800, maxY + 200);
+                // 计算新的画布尺寸，添加足够的边距
+                double newCanvasWidth = Math.Max(1200, maxX + 200);  // 增加右边距
+                double newCanvasHeight = Math.Max(800, maxY + 200);  // 增加下边距
+
+                _logger.LogDebug("画布尺寸计算: maxX={MaxX}, maxY={MaxY} -> 新尺寸: {Width}x{Height}",
+                    maxX, maxY, newCanvasWidth, newCanvasHeight);
 
                 bool sizeChanged = Math.Abs(CanvasWidth - newCanvasWidth) > 1 || Math.Abs(CanvasHeight - newCanvasHeight) > 1;
+
+                if (sizeChanged)
+                {
+                    _logger.LogDebug("画布大小将更新: {OldWidth}x{OldHeight} -> {NewWidth}x{NewHeight}",
+                        CanvasWidth, CanvasHeight, newCanvasWidth, newCanvasHeight);
+                }
 
                 CanvasWidth = newCanvasWidth;
                 CanvasHeight = newCanvasHeight;
 
                 if (sizeChanged)
                 {
-                    _logger.LogDebug("画布大小已更新: {Width}x{Height}", CanvasWidth, CanvasHeight);
+                    _logger.LogInformation("画布大小已更新: {Width}x{Height}", CanvasWidth, CanvasHeight);
                     RaisePropertyChanged(nameof(CanvasWidth));
                     RaisePropertyChanged(nameof(CanvasHeight));
                 }

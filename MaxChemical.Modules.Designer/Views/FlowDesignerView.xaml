@@ -16,7 +16,12 @@
         <converters:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
         <converters:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter"/>
 
-   
+        <!-- 执行状态转换器 -->
+        <converters:NodeExecutionStatusToBrushConverter x:Key="ExecutionStatusToBrushConverter"/>
+        <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
+
+    
+        
         <!-- 自定义按钮样式 -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -41,9 +46,9 @@
             Background="White"
             CornerRadius="6"
             Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-            RenderTransformOrigin="0.5,0.5">
+            RenderTransformOrigin="0.5,0.5"
+            Style="{StaticResource ExecutingDeviceNodeStyle}">
 
-                <!-- 设置RenderTransform用于动画 -->
                 <Border.RenderTransform>
                     <TransformGroup>
                         <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
@@ -51,85 +56,35 @@
                     </TransformGroup>
                 </Border.RenderTransform>
 
-                <!-- 修正后的样式 - 高亮时替换阴影而不是叠加 -->
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="BorderBrush" Value="#E0E0E0"/>
-                        <Setter Property="BorderThickness" Value="1"/>
-                        <Setter Property="Effect">
-                            <Setter.Value>
-                                <DropShadowEffect ShadowDepth="0"
-                                          Direction="315"
-                                          BlurRadius="8"
-                                          Color="#000000"
-                                          Opacity="0.25"/>
-                            </Setter.Value>
-                        </Setter>
-                        <Style.Triggers>
-                            <!-- 选中状态 -->
-                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="BorderBrush" Value="#0078D4"/>
-                                <Setter Property="BorderThickness" Value="2"/>
-                            </DataTrigger>
-
-                            <!-- 插入高亮状态 - 替换原始阴影，不叠加 -->
-                            <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
-                                <!-- 完全替换Effect，而不是叠加 -->
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect ShadowDepth="0"
-                                                  Direction="0"
-                                                 
-                                                  Color="#186DF5"
-                                                  Opacity="0.5"/>
-                                    </Setter.Value>
-                                </Setter>
-
-                                <!-- 与逻辑节点完全相同的动画 -->
-                                <DataTrigger.EnterActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                     To="1.02" Duration="0:0:0.3"
-                                                     DecelerationRatio="0.6"/>
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                     To="1.02" Duration="0:0:0.3"
-                                                     DecelerationRatio="0.6"/>
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                     To="-3" Duration="0:0:0.3"
-                                                     DecelerationRatio="0.6"/>
-                                            <!-- 发光脉冲效果 -->
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
-                                                     From="0.5" To="0.8" Duration="0:0:0.8"
-                                                     AutoReverse="True" RepeatBehavior="Forever"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </DataTrigger.EnterActions>
-
-                                <DataTrigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                     To="1.0" Duration="0:0:0.3"
-                                                     AccelerationRatio="0.3"/>
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                     To="1.0" Duration="0:0:0.3"
-                                                     AccelerationRatio="0.3"/>
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                     To="0" Duration="0:0:0.3"
-                                                     AccelerationRatio="0.3"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </DataTrigger.ExitActions>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-
-                <!-- 现有的Grid内容保持不变 -->
                 <Grid>
+                    <!-- 执行状态指示条 -->
+                    <Rectangle Height="3" 
+                       VerticalAlignment="Top"
+                       Fill="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToBrushConverter}}"
+                       Opacity="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToOpacityConverter}}">
+                        <Rectangle.Style>
+                            <Style TargetType="Rectangle">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Rectangle.Style>
+                    </Rectangle>
+
                     <!-- 主要内容区域 - 负责节点选择 -->
-                    <Border Margin="16,16,40,16"
+                    <Border Margin="16,0,16,0"
                     Background="Transparent"
                     Cursor="Hand"
                     MouseLeftButtonDown="DeviceNode_SelectClick">
@@ -200,22 +155,47 @@
                                    TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
 
-                            <!-- 关闭/停止按钮 -->
-                            <Button Grid.Column="2"
-                            Width="16" Height="16"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            VerticalAlignment="Center"
-                            Margin="8,0,0,0"
-                            ToolTip="停止当前步骤"
-                            Visibility="{Binding IsExecuting, Converter={StaticResource BoolToVisibilityConverter}}">
-                                <Ellipse Fill="#F44336" Width="12" Height="12"/>
-                            </Button>
+                            <!-- 执行状态指示器 -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
+                                <!-- 执行时间显示 -->
+                                <TextBlock Text="{Binding ExecutionDurationText}" 
+                                   FontSize="9" 
+                                   Foreground="#666"
+                                   HorizontalAlignment="Right"
+                                   Visibility="{Binding ShowExecutionDuration, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                <!-- 执行状态圆点 -->
+                                <Ellipse Width="8" Height="8" 
+                                 Fill="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToBrushConverter}}"
+                                 HorizontalAlignment="Right"
+                                 Margin="0,2,0,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
                     <!-- 删除按钮 - 独立区域，不受选择事件影响 -->
-                    <Border Width="20" Height="20"
+                    <Border x:Name="DeleteButton"
+                    Width="20" Height="20"
                     Background="Transparent"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
@@ -398,7 +378,7 @@
                                                       Opacity="0.25"/>
                                 </Border.Effect>
 
-                                <Grid Margin="16">
+                                <Grid Margin="16" >
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>

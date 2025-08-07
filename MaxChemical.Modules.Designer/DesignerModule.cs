@@ -1,6 +1,4 @@
 ﻿using MaxChemical.Infrastructure.Constants;
-using MaxChemical.Infrastructure.Services;
-using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views;
 using Prism.Ioc;
@@ -27,7 +25,7 @@ public class DesignerModule : IModule
         // 注册视图类型
         containerRegistry.Register<ProcessDesignerView>();
         containerRegistry.Register<FlowDesignerView>();
-       
+
 
     }
 }

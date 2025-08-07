@@ -836,28 +836,84 @@ namespace MaxChemical.Modules.Designer.Views
                 var branchContent = FindBranchContentContainer(branchIndex);
                 if (branchContent != null)
                 {
-                    // 修改这里：直接比较 Tag 是否为目标节点，或者使用 DataContext 比较
-                    var controlToRemove = branchContent.Children
+                    // 修复：改进控件查找逻辑
+                    UserControl controlToRemove = null;
+
+                    // 方法1：通过Tag查找
+                    controlToRemove = branchContent.Children
                         .OfType<UserControl>()
-                        .FirstOrDefault(c => c.Tag == nestedNode || c.DataContext == nestedNode);
+                        .FirstOrDefault(c => c.Tag == nestedNode);
+
+                    // 方法2：如果Tag查找失败，通过DataContext查找
+                    if (controlToRemove == null)
+                    {
+                        controlToRemove = branchContent.Children
+                            .OfType<UserControl>()
+                            .FirstOrDefault(c => c.DataContext == nestedNode);
+                    }
+
+                    // 方法3：如果还是找不到，通过遍历查找
+                    if (controlToRemove == null)
+                    {
+                        foreach (UIElement child in branchContent.Children)
+                        {
+                            if (child is UserControl control)
+                            {
+                                // 检查是否是设备命令控件
+                                if (control.GetType().Name == "DeviceCommandControlView" &&
+                                    control.DataContext == nestedNode)
+                                {
+                                    controlToRemove = control;
+                                    break;
+                                }
+
+                                // 检查是否是复杂逻辑控件
+                                if ((control is Views.IfNodeControlView ||
+                                     control is Views.ParallelNodeControlView ||
+                                     control is Views.LoopNodeControlView) &&
+                                    control.DataContext == nestedNode)
+                                {
+                                    controlToRemove = control;
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     if (controlToRemove != null)
                     {
                         branchContent.Children.Remove(controlToRemove);
                         _logger.LogDebug("已从UI中移除控件: {NodeName}", nestedNode.DisplayName);
+
+                        // 清理事件订阅
+                        try
+                        {
+                            if (controlToRemove is IDisposable disposable)
+                            {
+                                disposable.Dispose();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning($"{ex}清理控件事件订阅失败: {nestedNode.DisplayName}");
+                        }
                     }
                     else
                     {
                         _logger.LogWarning("未找到要移除的控件: {NodeName}", nestedNode.DisplayName);
 
-                        // 备用方案：遍历所有控件进行调试
+                        // 调试信息
                         _logger.LogDebug("分支 {BranchIndex} 中的控件数量: {Count}", branchIndex, branchContent.Children.Count);
                         for (int i = 0; i < branchContent.Children.Count; i++)
                         {
                             var child = branchContent.Children[i];
-                            _logger.LogDebug("控件 {Index}: Type={Type}, Tag={Tag}, DataContext={DataContext}",
-                                i, child.GetType().Name, child is FrameworkElement fe ? fe.Tag?.ToString() : "null",
-                                child is FrameworkElement fe2 ? fe2.DataContext?.ToString() : "null");
+                            if (child is FrameworkElement fe)
+                            {
+                                _logger.LogDebug("控件 {Index}: Type={Type}, Tag={Tag}, DataContext={DataContext}",
+                                    i, child.GetType().Name,
+                                    fe.Tag?.ToString() ?? "null",
+                                    fe.DataContext?.ToString() ?? "null");
+                            }
                         }
                     }
 
@@ -880,8 +936,12 @@ namespace MaxChemical.Modules.Designer.Views
                     BranchIndex = branchIndex
                 });
 
-                UpdateBranchCanvasLayout();
-                OnBranchContentChanged();
+                // 修复：确保布局和画布尺寸更新
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    UpdateBranchCanvasLayout();
+                    OnBranchContentChanged();
+                }), System.Windows.Threading.DispatcherPriority.Background);
 
                 _logger.LogDebug("从并行分支 {BranchIndex} 移除命令: {NodeName}", branchIndex, nestedNode.DisplayName);
             }
@@ -890,6 +950,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "移除嵌套命令失败: {NodeName}", nestedNode?.DisplayName);
             }
         }
+
 
         #endregion
 

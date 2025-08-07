@@ -53,6 +53,8 @@ namespace MaxChemical.Modules.Designer.Models
             HasImage = !string.IsNullOrEmpty(logicCommand.ImageLocation);
         }
 
+
+
         #region 基本属性
 
         /// <summary>
@@ -273,6 +275,139 @@ namespace MaxChemical.Modules.Designer.Models
 
         #endregion
 
+        #region 执行状态属性 - 新增部分
+        private NodeExecutionStatus _executionStatus = NodeExecutionStatus.Idle;
+        private DateTime? _executionStartTime;
+        private DateTime? _executionEndTime;
+        private string _executionErrorMessage;
+        public enum NodeExecutionStatus
+        {
+            Idle,           // 空闲
+            Waiting,        // 等待执行
+            Executing,      // 正在执行
+            Completed,      // 执行完成
+            Failed,         // 执行失败
+            Skipped         // 被跳过
+        }
+        /// <summary>
+        /// 执行状态
+        /// </summary>
+        public NodeExecutionStatus ExecutionStatus
+        {
+            get => _executionStatus;
+            set => SetProperty(ref _executionStatus, value);
+        }
+
+        /// <summary>
+        /// 执行开始时间
+        /// </summary>
+        public DateTime? ExecutionStartTime
+        {
+            get => _executionStartTime;
+            set => SetProperty(ref _executionStartTime, value);
+        }
+
+        /// <summary>
+        /// 执行结束时间
+        /// </summary>
+        public DateTime? ExecutionEndTime
+        {
+            get => _executionEndTime;
+            set => SetProperty(ref _executionEndTime, value);
+        }
+
+        /// <summary>
+        /// 执行错误消息
+        /// </summary>
+        public string ExecutionErrorMessage
+        {
+            get => _executionErrorMessage;
+            set => SetProperty(ref _executionErrorMessage, value);
+        }
+
+        /// <summary>
+        /// 执行持续时间
+        /// </summary>
+        public TimeSpan? ExecutionDuration
+        {
+            get
+            {
+                if (ExecutionStartTime.HasValue && ExecutionEndTime.HasValue)
+                {
+                    return ExecutionEndTime.Value - ExecutionStartTime.Value;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 执行持续时间显示文本
+        /// </summary>
+        public string ExecutionDurationText
+        {
+            get
+            {
+                var duration = ExecutionDuration;
+                if (duration.HasValue)
+                {
+                    if (duration.Value.TotalSeconds < 1)
+                        return $"{duration.Value.TotalMilliseconds:F0}ms";
+                    else if (duration.Value.TotalMinutes < 1)
+                        return $"{duration.Value.TotalSeconds:F1}s";
+                    else
+                        return $"{duration.Value:mm\\:ss\\.fff}";
+                }
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// 是否显示执行时间
+        /// </summary>
+        public bool ShowExecutionDuration => ExecutionDuration.HasValue;
+
+        /// <summary>
+        /// 执行状态显示文本
+        /// </summary>
+        public string ExecutionStatusText
+        {
+            get
+            {
+                return ExecutionStatus switch
+                {
+                    NodeExecutionStatus.Idle => "就绪",
+                    NodeExecutionStatus.Waiting => "等待中",
+                    NodeExecutionStatus.Executing => "执行中",
+                    NodeExecutionStatus.Completed => "已完成",
+                    NodeExecutionStatus.Failed => "失败",
+                    NodeExecutionStatus.Skipped => "已跳过",
+                    _ => "未知"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 执行状态颜色
+        /// </summary>
+        public string ExecutionStatusColor
+        {
+            get
+            {
+                return ExecutionStatus switch
+                {
+                    NodeExecutionStatus.Idle => "#E0E0E0",
+                    NodeExecutionStatus.Waiting => "#FF9800",
+                    NodeExecutionStatus.Executing => "#2196F3",
+                    NodeExecutionStatus.Completed => "#4CAF50",
+                    NodeExecutionStatus.Failed => "#F44336",
+                    NodeExecutionStatus.Skipped => "#9E9E9E",
+                    _ => "#E0E0E0"
+                };
+            }
+        }
+
+        #endregion
+
         #region 执行属性管理
 
         /// <summary>
@@ -404,6 +539,110 @@ namespace MaxChemical.Modules.Designer.Models
         public IEnumerable<CommandNode> GetParallelBranchChildren(int branchIndex)
         {
             return Children.Where(c => c.GetExecutionProperty<int>("BranchIndex") == branchIndex);
+        }
+        /// <summary>
+        /// 重置执行状态
+        /// </summary>
+        public void ResetExecutionStatus()
+        {
+            IsExecuting = false;
+            ExecutionStatus = NodeExecutionStatus.Idle;
+            ExecutionStartTime = null;
+            ExecutionEndTime = null;
+            ExecutionErrorMessage = null;
+
+            // 通知相关属性更新
+            RaisePropertyChanged(nameof(ExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionDurationText));
+            RaisePropertyChanged(nameof(ShowExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionStatusText));
+            RaisePropertyChanged(nameof(ExecutionStatusColor));
+        }
+
+        /// <summary>
+        /// 开始执行
+        /// </summary>
+        public void StartExecution()
+        {
+            IsExecuting = true;
+            ExecutionStatus = NodeExecutionStatus.Executing;
+            ExecutionStartTime = DateTime.Now;
+            ExecutionEndTime = null;
+            ExecutionErrorMessage = null;
+
+            // 通知相关属性更新
+            RaisePropertyChanged(nameof(ExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionDurationText));
+            RaisePropertyChanged(nameof(ShowExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionStatusText));
+            RaisePropertyChanged(nameof(ExecutionStatusColor));
+        }
+
+        /// <summary>
+        /// 完成执行
+        /// </summary>
+        public void CompleteExecution(bool isSuccessful = true, string errorMessage = null)
+        {
+            IsExecuting = false;
+            ExecutionStatus = isSuccessful ? NodeExecutionStatus.Completed : NodeExecutionStatus.Failed;
+            ExecutionEndTime = DateTime.Now;
+            ExecutionErrorMessage = errorMessage;
+
+            // 通知相关属性更新
+            RaisePropertyChanged(nameof(ExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionDurationText));
+            RaisePropertyChanged(nameof(ShowExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionStatusText));
+            RaisePropertyChanged(nameof(ExecutionStatusColor));
+        }
+
+        /// <summary>
+        /// 设置为等待状态
+        /// </summary>
+        public void SetWaitingExecution()
+        {
+            IsExecuting = false;
+            ExecutionStatus = NodeExecutionStatus.Waiting;
+            ExecutionStartTime = null;
+            ExecutionEndTime = null;
+            ExecutionErrorMessage = null;
+
+            // 通知相关属性更新
+            RaisePropertyChanged(nameof(ExecutionStatusText));
+            RaisePropertyChanged(nameof(ExecutionStatusColor));
+        }
+
+        /// <summary>
+        /// 设置为跳过状态
+        /// </summary>
+        public void SetSkippedExecution()
+        {
+            IsExecuting = false;
+            ExecutionStatus = NodeExecutionStatus.Skipped;
+            ExecutionEndTime = DateTime.Now;
+
+            // 通知相关属性更新
+            RaisePropertyChanged(nameof(ExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionDurationText));
+            RaisePropertyChanged(nameof(ShowExecutionDuration));
+            RaisePropertyChanged(nameof(ExecutionStatusText));
+            RaisePropertyChanged(nameof(ExecutionStatusColor));
+        }
+
+        /// <summary>
+        /// 递归重置所有子节点的执行状态
+        /// </summary>
+        public void ResetExecutionStatusRecursive()
+        {
+            ResetExecutionStatus();
+
+            if (HasChildren)
+            {
+                foreach (var child in Children)
+                {
+                    child.ResetExecutionStatusRecursive();
+                }
+            }
         }
 
         #endregion

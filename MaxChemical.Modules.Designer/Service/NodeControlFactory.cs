@@ -1,16 +1,14 @@
-﻿// NodeControlFactory.cs
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Data;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Events;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Logging;
-using System.Windows.Media.Animation;
+using static MaxChemical.Modules.Designer.Models.CommandNode;
 
 namespace MaxChemical.Modules.Designer.Services
 {
@@ -28,7 +26,10 @@ namespace MaxChemical.Modules.Designer.Services
             try
             {
                 if (node.IsDeviceCommand)
-                    return CreateDeviceCommandControl(node, clickHandler, deleteHandler);
+                {
+                    // 对于设备命令，使用 XAML 模板而不是代码创建
+                    return CreateDeviceCommandControlFromTemplate(node, clickHandler, deleteHandler);
+                }
 
                 if (IsComplexLogicCommand(node))
                     return CreateComplexNodeControl(node, clickHandler, deleteHandler);
@@ -48,46 +49,181 @@ namespace MaxChemical.Modules.Designer.Services
                    node.IsWaitNode || node.IsSetVariableNode;
         }
 
-        private UserControl CreateDeviceCommandControl(CommandNode node, NodeClickHandler clickHandler, NodeDeleteHandler deleteHandler)
+        // 新增：使用 XAML 模板创建设备命令控件
+        private UserControl CreateDeviceCommandControlFromTemplate(CommandNode node, NodeClickHandler clickHandler, NodeDeleteHandler deleteHandler)
+        {
+            try
+            {
+                // 创建一个 ContentControl 来承载模板内容
+                var contentControl = new ContentControl
+                {
+                    Content = node,
+                    DataContext = node,
+                    Tag = node
+                };
+
+                // 查找并应用设备命令模板
+                var template = FindDeviceCommandTemplate();
+                if (template != null)
+                {
+                    contentControl.ContentTemplate = template;
+                }
+
+                // 创建包装的 UserControl
+                var wrapper = new UserControl
+                {
+                    Content = contentControl,
+                    DataContext = node,
+                    Tag = node,
+                    Margin = new Thickness(0, 2, 0, 2) // 嵌套节点间距
+                };
+
+                // 设置点击事件处理（通过事件冒泡处理）
+                wrapper.MouseLeftButtonDown += (s, e) =>
+                {
+                    // 检查点击是否在删除按钮上
+                    if (e.OriginalSource is FrameworkElement element)
+                    {
+                        // 如果点击的是删除按钮，不处理选择事件
+                        var deleteButton = FindParent<Border>(element, b => b.Name == "DeleteButton" ||
+                            (b.Tag == node && b.Cursor == Cursors.Hand && b.Width == 20 && b.Height == 20));
+                        if (deleteButton != null)
+                        {
+                            deleteHandler.Invoke(node);
+                        }
+                    }
+
+                    clickHandler?.Invoke(node);
+                    e.Handled = true;
+                };
+
+                return wrapper;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "使用模板创建设备命令控件失败: {NodeName}", node.DisplayName);
+                // 回退到简单控件
+                return CreateSimpleDeviceControl(node, clickHandler, deleteHandler);
+            }
+        }
+
+        // 辅助方法：查找父元素
+        private T FindParent<T>(DependencyObject child, Func<T, bool> predicate = null) where T : DependencyObject
+        {
+            var parent = VisualTreeHelper.GetParent(child);
+            while (parent != null)
+            {
+                if (parent is T typedParent && (predicate == null || predicate(typedParent)))
+                    return typedParent;
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+            return null;
+        }
+
+        // 查找设备命令模板
+        private DataTemplate FindDeviceCommandTemplate()
+        {
+            try
+            {
+                // 从应用程序资源中查找模板
+                if (Application.Current?.Resources["DeviceCommandNodeTemplate"] is DataTemplate appTemplate)
+                {
+                    return appTemplate;
+                }
+
+                // 从当前窗口资源中查找
+                if (Application.Current?.MainWindow?.Resources["DeviceCommandNodeTemplate"] is DataTemplate windowTemplate)
+                {
+                    return windowTemplate;
+                }
+
+                // 查找 FlowDesignerView 的资源
+                var flowDesignerView = FindFlowDesignerView();
+                if (flowDesignerView?.Resources["DeviceCommandNodeTemplate"] is DataTemplate viewTemplate)
+                {
+                    return viewTemplate;
+                }
+
+                _logger.LogWarning("未找到 DeviceCommandNodeTemplate 模板");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "查找设备命令模板失败");
+                return null;
+            }
+        }
+
+        // 查找 FlowDesignerView 实例
+        private FrameworkElement FindFlowDesignerView()
+        {
+            try
+            {
+                if (Application.Current?.MainWindow == null) return null;
+
+                return FindChildOfType<Views.FlowDesignerView>(Application.Current.MainWindow);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "查找 FlowDesignerView 失败");
+                return null;
+            }
+        }
+
+        // 递归查找指定类型的子元素
+        private T FindChildOfType<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null) return null;
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                    return result;
+
+                var childResult = FindChildOfType<T>(child);
+                if (childResult != null)
+                    return childResult;
+            }
+            return null;
+        }
+
+        // 创建简单的设备控件作为回退
+        private UserControl CreateSimpleDeviceControl(CommandNode node, NodeClickHandler clickHandler, NodeDeleteHandler deleteHandler)
         {
             var border = new Border
             {
-                Width = 231,
-                Height = 64,
+                Width = 200,
+                Height = 40,
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(6),
-                Cursor = Cursors.Hand,
+                CornerRadius = new CornerRadius(4),
                 BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 4, 0, 4),
-                Tag = node
+                BorderBrush = new SolidColorBrush(Colors.LightGray),
+                Margin = new Thickness(0, 2, 0, 2),
+                Tag = node,
+                Cursor = Cursors.Hand
             };
 
-            border.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            var textBlock = new TextBlock
             {
-                ShadowDepth = 4,
-                Direction = 315,
-                BlurRadius = 8,
-                Color = Colors.Black,
-                Opacity = 0.25
+                Text = node.DisplayName,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 12
             };
 
-            // 统一的选中状态样式
-            ApplySelectionStyle(border, node);
-
-            // 统一的点击处理
+            border.Child = textBlock;
             border.MouseLeftButtonDown += (s, e) =>
             {
                 clickHandler?.Invoke(node);
                 e.Handled = true;
             };
 
-            border.Child = CreateDeviceCommandContent(node, deleteHandler);
-
             return new UserControl
             {
                 Content = border,
-                Tag = node,
-                DataContext = node
+                DataContext = node,
+                Tag = node
             };
         }
 
@@ -98,16 +234,17 @@ namespace MaxChemical.Modules.Designer.Services
                 Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF3, 0xE0)),
                 BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(8),
-                Margin = new Thickness(0, 4, 0, 4),
-                MinHeight = 36,
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6),
+                Margin = new Thickness(0, 2, 0, 2),
+                MinHeight = 30,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Cursor = Cursors.Hand,
                 Tag = node
             };
 
-            ApplySelectionStyle(border, node);
+            // 应用执行状态样式
+            ApplyLogicExecutionStyle(border, node);
 
             border.MouseLeftButtonDown += (s, e) =>
             {
@@ -146,7 +283,7 @@ namespace MaxChemical.Modules.Designer.Services
                 {
                     control.DataContext = node;
                     control.Tag = node;
-                    control.Margin = new Thickness(0, 4, 0, 4);
+                    control.Margin = new Thickness(0, 2, 0, 2);
 
                     // 订阅事件
                     SubscribeToComplexNodeEvents(control, node, clickHandler, deleteHandler);
@@ -161,27 +298,15 @@ namespace MaxChemical.Modules.Designer.Services
             }
         }
 
-        private void ApplySelectionStyle(Border border, CommandNode node)
+        // 为逻辑命令应用执行状态样式
+        private void ApplyLogicExecutionStyle(Border border, CommandNode node)
         {
             var style = new Style(typeof(Border));
 
-            // 默认边框样式
+            // 默认样式
             style.Setters.Add(new Setter(Border.BorderBrushProperty,
-                new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0))));
+                new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07))));
             style.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(1)));
-
-            // 默认阴影效果
-            style.Setters.Add(new Setter(Border.EffectProperty,
-                new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    ShadowDepth = 0,
-                    Direction = 315,
-                    BlurRadius = 8,
-                    Color = Colors.Black,
-                    Opacity = 0.25
-                }));
-
-            style.Setters.Add(new Setter(Border.HorizontalAlignmentProperty, HorizontalAlignment.Stretch));
 
             // 选中状态样式
             var selectedTrigger = new DataTrigger
@@ -193,55 +318,43 @@ namespace MaxChemical.Modules.Designer.Services
                 new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
             selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
 
-            // 插入高亮状态样式
-            var insertHighlightTrigger = new DataTrigger
+            // 执行状态样式
+            var executingTrigger = new DataTrigger
             {
-                Binding = new Binding("IsInsertHighlight") { Source = node },
-                Value = true
+                Binding = new Binding("ExecutionStatus") { Source = node },
+                Value = NodeExecutionStatus.Executing
             };
+            executingTrigger.Setters.Add(new Setter(Border.BorderBrushProperty,
+                new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3))));
+            executingTrigger.Setters.Add(new Setter(Border.BackgroundProperty,
+                new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD))));
 
-            insertHighlightTrigger.Setters.Add(new Setter(Border.BorderBrushProperty,
-                new SolidColorBrush(Color.FromRgb(0x18, 0x6D, 0xF5))));
-            insertHighlightTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
-            insertHighlightTrigger.Setters.Add(new Setter(Border.EffectProperty,
-                new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = Color.FromRgb(0x18, 0x6D, 0xF5),
-                    ShadowDepth = 0,
-                    Direction = 0,
-                    BlurRadius = 20,
-                    Opacity = 0.8  // 稍微增加透明度使效果更明显
-                }));
+            var completedTrigger = new DataTrigger
+            {
+                Binding = new Binding("ExecutionStatus") { Source = node },
+                Value = NodeExecutionStatus.Completed
+            };
+            completedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty,
+                new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50))));
+            completedTrigger.Setters.Add(new Setter(Border.BackgroundProperty,
+                new SolidColorBrush(Color.FromRgb(0xE8, 0xF5, 0xE8))));
+
+            var failedTrigger = new DataTrigger
+            {
+                Binding = new Binding("ExecutionStatus") { Source = node },
+                Value = NodeExecutionStatus.Failed
+            };
+            failedTrigger.Setters.Add(new Setter(Border.BorderBrushProperty,
+                new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36))));
+            failedTrigger.Setters.Add(new Setter(Border.BackgroundProperty,
+                new SolidColorBrush(Color.FromRgb(0xFF, 0xEB, 0xEE))));
 
             style.Triggers.Add(selectedTrigger);
-            style.Triggers.Add(insertHighlightTrigger);
+            style.Triggers.Add(executingTrigger);
+            style.Triggers.Add(completedTrigger);
+            style.Triggers.Add(failedTrigger);
+
             border.Style = style;
-        }
-
-        private Grid CreateDeviceCommandContent(CommandNode node, NodeDeleteHandler deleteHandler)
-        {
-            var grid = new Grid { Margin = new Thickness(16, 0, 16, 0) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // 图标
-            var iconGrid = CreateIconGrid(node);
-            Grid.SetColumn(iconGrid, 0);
-
-            // 文本内容
-            var textStack = CreateTextContent(node);
-            Grid.SetColumn(textStack, 1);
-
-            // 删除按钮
-            var deleteButton = CreateDeleteButton(node, deleteHandler);
-            Grid.SetColumn(deleteButton, 2);
-
-            grid.Children.Add(iconGrid);
-            grid.Children.Add(textStack);
-            grid.Children.Add(deleteButton);
-
-            return grid;
         }
 
         private Grid CreateLogicCommandContent(CommandNode node, NodeDeleteHandler deleteHandler)
@@ -253,7 +366,7 @@ namespace MaxChemical.Modules.Designer.Services
             var nameText = new TextBlock
             {
                 Text = node.DisplayName,
-                FontSize = 12,
+                FontSize = 11,
                 FontWeight = FontWeights.Medium,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 8, 0),
@@ -270,80 +383,12 @@ namespace MaxChemical.Modules.Designer.Services
             return grid;
         }
 
-        private Grid CreateIconGrid(CommandNode node)
-        {
-            var iconGrid = new Grid
-            {
-                Width = 32,
-                Height = 32,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0)
-            };
-
-            if (node.HasImage && !string.IsNullOrEmpty(node.DisplayImageLocation))
-            {
-                try
-                {
-                    var image = new Image
-                    {
-                        Source = new BitmapImage(new Uri(node.DisplayImageLocation, UriKind.RelativeOrAbsolute)),
-                        Stretch = Stretch.Uniform,
-                        Width = 26,
-                        Height = 26
-                    };
-                    iconGrid.Children.Add(image);
-                }
-                catch
-                {
-                    AddDefaultIcon(iconGrid);
-                }
-            }
-            else
-            {
-                AddDefaultIcon(iconGrid);
-            }
-
-            return iconGrid;
-        }
-
-        private StackPanel CreateTextContent(CommandNode node)
-        {
-            var textStack = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0)
-            };
-
-            var nameText = new TextBlock
-            {
-                Text = node.DisplayName,
-                FontSize = 14,
-                FontWeight = FontWeights.Medium,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)),
-                Margin = new Thickness(0, 0, 0, 2),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-
-            var helpText = new TextBlock
-            {
-                Text = node.DisplayHelpText,
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-
-            textStack.Children.Add(nameText);
-            textStack.Children.Add(helpText);
-
-            return textStack;
-        }
-
         private Border CreateDeleteButton(CommandNode node, NodeDeleteHandler deleteHandler)
         {
             var deleteButton = new Border
             {
-                Width = 20,
-                Height = 20,
+                Width = 16,
+                Height = 16,
                 Background = new SolidColorBrush(Colors.Transparent),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -363,7 +408,7 @@ namespace MaxChemical.Modules.Designer.Services
 
             var hoverTrigger = new Trigger { Property = Border.IsMouseOverProperty, Value = true };
             hoverTrigger.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00))));
-            hoverTrigger.Setters.Add(new Setter(Border.CornerRadiusProperty, new CornerRadius(10)));
+            hoverTrigger.Setters.Add(new Setter(Border.CornerRadiusProperty, new CornerRadius(8)));
 
             deleteButtonStyle.Triggers.Add(hoverTrigger);
             deleteButton.Style = deleteButtonStyle;
@@ -371,25 +416,12 @@ namespace MaxChemical.Modules.Designer.Services
             var deleteText = new TextBlock
             {
                 Text = "×",
-                FontSize = 14,
+                FontSize = 12,
                 FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-
-            var textHoverStyle = new Style(typeof(TextBlock));
-            textHoverStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66))));
-
-            var textHoverTrigger = new DataTrigger
-            {
-                Binding = new Binding("IsMouseOver") { RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Border), 1) },
-                Value = true
-            };
-            textHoverTrigger.Setters.Add(new Setter(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33))));
-
-            textHoverStyle.Triggers.Add(textHoverTrigger);
-            deleteText.Style = textHoverStyle;
 
             deleteButton.Child = deleteText;
             deleteButton.MouseLeftButtonUp += (s, e) =>
@@ -399,29 +431,6 @@ namespace MaxChemical.Modules.Designer.Services
             };
 
             return deleteButton;
-        }
-
-        private void AddDefaultIcon(Grid iconGrid)
-        {
-            var iconBorder = new Border
-            {
-                Width = 26,
-                Height = 26,
-                Background = new SolidColorBrush(Color.FromRgb(0x6C, 0xB6, 0xFF)),
-                CornerRadius = new CornerRadius(13)
-            };
-
-            var iconText = new TextBlock
-            {
-                Text = "🔧",
-                FontSize = 16,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-
-            iconBorder.Child = iconText;
-            iconGrid.Children.Add(iconBorder);
         }
 
         private void SubscribeToComplexNodeEvents(UserControl control, CommandNode node,

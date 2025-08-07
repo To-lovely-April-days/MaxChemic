@@ -178,7 +178,7 @@ namespace MaxChemical.Modules.Designer.Models
     {
         public string Bezel_lessIconPath = "pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessLoop.png";
         public LoopType LoopType { get; set; } = LoopType.FixedCount;
-        public int LoopCount { get; set; } = 1;
+        public int LoopCount { get; set; } = 3;
         public string LoopCondition { get; set; } = "";
         public string Description { get; set; } = "循环执行";
     }

@@ -159,6 +159,353 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <!-- 执行动画资源 -->
+            <Storyboard x:Key="ExecutingAnimation" RepeatBehavior="Forever">
+                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                     From="0.3" To="1.0" Duration="0:0:0.8"
+                     AutoReverse="True"/>
+                <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                    From="#4CAF50" To="#2196F3" Duration="0:0:1.2"
+                    AutoReverse="True"/>
+            </Storyboard>
+
+            <Storyboard x:Key="CompletedAnimation">
+                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                     From="1.0" To="0.8" Duration="0:0:0.3"/>
+                <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                    To="#4CAF50" Duration="0:0:0.3"/>
+            </Storyboard>
+
+            <Storyboard x:Key="FailedAnimation">
+                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                     From="1.0" To="0.9" Duration="0:0:0.3"/>
+                <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                    To="#F44336" Duration="0:0:0.3"/>
+            </Storyboard>
+
+            <!-- 设备节点执行状态样式 -->
+            <Style x:Key="ExecutingDeviceNodeStyle" TargetType="Border">
+                <Setter Property="BorderThickness" Value="2"/>
+                <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                <Setter Property="Background" Value="White"/>
+                <Style.Triggers>
+                    <!-- 选中状态 - 添加这个触发器 -->
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BorderBrush" Value="#0078D4"/>
+                        <Setter Property="BorderThickness" Value="2"/>
+                    </DataTrigger>
+
+                    <!-- 执行中动画 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Name="ExecutingStoryboard" Storyboard="{StaticResource ExecutingAnimation}"/>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <StopStoryboard BeginStoryboardName="ExecutingStoryboard"/>
+                        </DataTrigger.ExitActions>
+                        <Setter Property="BorderBrush" Value="#2196F3"/>
+                        <Setter Property="Background" Value="#E3F2FD"/>
+                    </DataTrigger>
+
+                    <!-- 完成状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Storyboard="{StaticResource CompletedAnimation}"/>
+                        </DataTrigger.EnterActions>
+                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                        <Setter Property="Background" Value="#E8F5E8"/>
+                    </DataTrigger>
+
+                    <!-- 失败状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Storyboard="{StaticResource FailedAnimation}"/>
+                        </DataTrigger.EnterActions>
+                        <Setter Property="BorderBrush" Value="#F44336"/>
+                        <Setter Property="Background" Value="#FFEBEE"/>
+                    </DataTrigger>
+
+                    <!-- 等待状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                        <Setter Property="BorderBrush" Value="#FF9800"/>
+                        <Setter Property="Background" Value="#FFF3E0"/>
+                    </DataTrigger>
+
+                    <!-- 插入高亮状态 - 添加这个触发器 -->
+                    <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
+                        <Setter Property="BorderBrush" Value="#186DF5"/>
+                        <Setter Property="BorderThickness" Value="2"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect ShadowDepth="0"
+                              Direction="0"
+                              BlurRadius="20"
+                              Color="#186DF5"
+                              Opacity="0.5"/>
+                            </Setter.Value>
+                        </Setter>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="ExecutingLogicNodeStyle" TargetType="Border">
+                <Setter Property="BorderThickness" Value="2"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+                            <TranslateTransform X="0" Y="0"/>
+                        </TransformGroup>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+
+                <Style.Triggers>
+                    <!-- 选中状态 -->
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BorderBrush" Value="#0078D4"/>
+                    </DataTrigger>
+
+                    <!-- 执行中动画 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Name="IfExecutingStoryboard">
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                          From="0.6" To="1.0" Duration="0:0:1"
+                                          AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                          From="1.0" To="1.02" Duration="0:0:1"
+                                          AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                          From="1.0" To="1.02" Duration="0:0:1"
+                                          AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <StopStoryboard BeginStoryboardName="IfExecutingStoryboard"/>
+                        </DataTrigger.ExitActions>
+                        <Setter Property="BorderBrush" Value="#2196F3"/>
+                        <Setter Property="Background" Value="#E3F2FD"/>
+                    </DataTrigger>
+
+                    <!-- 完成状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                          From="1.0" To="1.05" Duration="0:0:0.2"
+                                          AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                          From="1.0" To="1.05" Duration="0:0:0.2"
+                                          AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                        <Setter Property="Background" Value="#E8F5E8"/>
+                    </DataTrigger>
+
+                    <!-- 失败状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                        <Setter Property="BorderBrush" Value="#F44336"/>
+                        <Setter Property="Background" Value="#FFEBEE"/>
+                    </DataTrigger>
+
+                    <!-- 等待状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                        <Setter Property="BorderBrush" Value="#FF9800"/>
+                        <Setter Property="Background" Value="#FFF3E0"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- 设置变量节点执行状态样式 -->
+            <Style x:Key="ExecutingSetVariableNodeStyle" TargetType="Border">
+                <Setter Property="BorderThickness" Value="2"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+                            <TranslateTransform X="0" Y="0"/>
+                        </TransformGroup>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+
+                <Style.Triggers>
+                    <!-- 选中状态 -->
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BorderBrush" Value="#0078D4"/>
+                    </DataTrigger>
+
+                    <!-- 执行中动画 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Name="SetVarExecutingStoryboard">
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0.6" To="1.0" Duration="0:0:0.9"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                         From="1.0" To="1.02" Duration="0:0:0.9"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                         From="1.0" To="1.02" Duration="0:0:0.9"
+                                         AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <StopStoryboard BeginStoryboardName="SetVarExecutingStoryboard"/>
+                        </DataTrigger.ExitActions>
+                        <Setter Property="BorderBrush" Value="#795548"/>
+                        <Setter Property="Background" Value="#EFEBE9"/>
+                    </DataTrigger>
+
+                    <!-- 完成状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                         From="1.0" To="1.05" Duration="0:0:0.2"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                         From="1.0" To="1.05" Duration="0:0:0.2"
+                                         AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                        <Setter Property="Background" Value="#E8F5E8"/>
+                    </DataTrigger>
+
+                    <!-- 失败状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                        <Setter Property="BorderBrush" Value="#F44336"/>
+                        <Setter Property="Background" Value="#FFEBEE"/>
+                    </DataTrigger>
+
+                    <!-- 等待状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                        <Setter Property="BorderBrush" Value="#795548"/>
+                        <Setter Property="Background" Value="#EFEBE9"/>
+                    </DataTrigger>
+
+                    <!-- 插入高亮状态 -->
+                    <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
+                        <Setter Property="BorderBrush" Value="#186DF5"/>
+                        <Setter Property="BorderThickness" Value="2"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect ShadowDepth="0"
+                                      Direction="0"
+                                      BlurRadius="20"
+                                      Color="#186DF5"
+                                      Opacity="0.5"/>
+                            </Setter.Value>
+                        </Setter>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- 等待节点执行状态样式 -->
+            <Style x:Key="ExecutingWaitNodeStyle" TargetType="Border">
+                <Setter Property="BorderThickness" Value="2"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+                            <TranslateTransform X="0" Y="0"/>
+                        </TransformGroup>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+
+                <Style.Triggers>
+                    <!-- 选中状态 -->
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BorderBrush" Value="#0078D4"/>
+                    </DataTrigger>
+
+                    <!-- 执行中动画 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Name="WaitExecutingStoryboard">
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0.5" To="1.0" Duration="0:0:1.2"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                         From="1.0" To="1.01" Duration="0:0:1.2"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                         From="1.0" To="1.01" Duration="0:0:1.2"
+                                         AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <StopStoryboard BeginStoryboardName="WaitExecutingStoryboard"/>
+                        </DataTrigger.ExitActions>
+                        <Setter Property="BorderBrush" Value="#607D8B"/>
+                        <Setter Property="Background" Value="#ECEFF1"/>
+                    </DataTrigger>
+
+                    <!-- 完成状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                         From="1.0" To="1.05" Duration="0:0:0.2"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                         From="1.0" To="1.05" Duration="0:0:0.2"
+                                         AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                        <Setter Property="Background" Value="#E8F5E8"/>
+                    </DataTrigger>
+
+                    <!-- 失败状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
+                        <Setter Property="BorderBrush" Value="#F44336"/>
+                        <Setter Property="Background" Value="#FFEBEE"/>
+                    </DataTrigger>
+
+                    <!-- 等待状态 -->
+                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
+                        <Setter Property="BorderBrush" Value="#607D8B"/>
+                        <Setter Property="Background" Value="#ECEFF1"/>
+                    </DataTrigger>
+
+                    <!-- 插入高亮状态 -->
+                    <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
+                        <Setter Property="BorderBrush" Value="#186DF5"/>
+                        <Setter Property="BorderThickness" Value="2"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect ShadowDepth="0"
+                                      Direction="0"
+                                      BlurRadius="20"
+                                      Color="#186DF5"
+                                      Opacity="0.5"/>
+                            </Setter.Value>
+                        </Setter>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </prism:PrismApplication>
