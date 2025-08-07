@@ -20,8 +20,8 @@ namespace MaxChemical.Modules.Designer
         public const double IF_NODE_MIN_WIDTH = 231;
         public const double IF_NODE_MIN_HEIGHT = 200;
         public const double PARALLEL_NODE_MIN_WIDTH = 231; // 新增
-        public const double PARALLEL_NODE_MIN_HEIGHT = 250; // 新增
-        public const double LOOP_NODE_MIN_WIDTH = 231; // 循环节点
+        public const double PARALLEL_NODE_MIN_HEIGHT = 231; // 新增
+        public const double LOOP_NODE_MIN_WIDTH = 250; // 循环节点
         public const double LOOP_NODE_MIN_HEIGHT = 150;
         public const double WAIT_NODE_MIN_WIDTH = 231; // 等待节点
         public const double WAIT_NODE_MIN_HEIGHT = 100;

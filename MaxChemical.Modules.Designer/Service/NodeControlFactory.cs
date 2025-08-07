@@ -10,6 +10,7 @@ using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Events;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Logging;
+using System.Windows.Media.Animation;
 
 namespace MaxChemical.Modules.Designer.Services
 {
@@ -163,9 +164,26 @@ namespace MaxChemical.Modules.Designer.Services
         private void ApplySelectionStyle(Border border, CommandNode node)
         {
             var style = new Style(typeof(Border));
+
+            // 默认边框样式
             style.Setters.Add(new Setter(Border.BorderBrushProperty,
                 new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0))));
+            style.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(1)));
 
+            // 默认阴影效果
+            style.Setters.Add(new Setter(Border.EffectProperty,
+                new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    ShadowDepth = 0,
+                    Direction = 315,
+                    BlurRadius = 8,
+                    Color = Colors.Black,
+                    Opacity = 0.25
+                }));
+
+            style.Setters.Add(new Setter(Border.HorizontalAlignmentProperty, HorizontalAlignment.Stretch));
+
+            // 选中状态样式
             var selectedTrigger = new DataTrigger
             {
                 Binding = new Binding("IsSelected") { Source = node },
@@ -175,7 +193,28 @@ namespace MaxChemical.Modules.Designer.Services
                 new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))));
             selectedTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
 
+            // 插入高亮状态样式
+            var insertHighlightTrigger = new DataTrigger
+            {
+                Binding = new Binding("IsInsertHighlight") { Source = node },
+                Value = true
+            };
+
+            insertHighlightTrigger.Setters.Add(new Setter(Border.BorderBrushProperty,
+                new SolidColorBrush(Color.FromRgb(0x18, 0x6D, 0xF5))));
+            insertHighlightTrigger.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2)));
+            insertHighlightTrigger.Setters.Add(new Setter(Border.EffectProperty,
+                new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Color.FromRgb(0x18, 0x6D, 0xF5),
+                    ShadowDepth = 0,
+                    Direction = 0,
+                    BlurRadius = 20,
+                    Opacity = 0.8  // 稍微增加透明度使效果更明显
+                }));
+
             style.Triggers.Add(selectedTrigger);
+            style.Triggers.Add(insertHighlightTrigger);
             border.Style = style;
         }
 

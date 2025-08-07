@@ -309,7 +309,77 @@ namespace MaxChemical.Modules.Designer.Models
             child.SetExecutionProperty("BranchIndex", branchIndex);
             Children.Add(child);
         }
+        public void AddChildToBranchAtIndex(CommandNode child, bool isTrueBranch, int index)
+        {
+            try
+            {
+                child.SetExecutionProperty("BranchType", isTrueBranch ? "True" : "False");
 
+                // 获取同一分支的所有子节点的全局索引
+                var sameBranchIndices = new List<int>();
+
+                for (int i = 0; i < Children.Count; i++)
+                {
+                    var existingChild = Children[i];
+                    var existingBranchType = existingChild.GetExecutionProperty<string>("BranchType");
+
+                    if (existingBranchType == (isTrueBranch ? "True" : "False"))
+                    {
+                        sameBranchIndices.Add(i);
+                    }
+                }
+
+                // 如果索引超出当前分支范围，添加到分支末尾
+                if (index < 0 || index >= sameBranchIndices.Count)
+                {
+                    // 找到同分支的最后一个元素，插入到它后面
+                    if (sameBranchIndices.Count > 0)
+                    {
+                        int lastBranchIndex = sameBranchIndices[sameBranchIndices.Count - 1];
+                        Children.Insert(lastBranchIndex + 1, child);
+                    }
+                    else
+                    {
+                        // 分支为空，直接添加
+                        Children.Add(child);
+                    }
+                    return;
+                }
+
+                // 在指定的分支位置插入
+                if (index == 0 && sameBranchIndices.Count == 0)
+                {
+                    // 分支为空，直接添加
+                    Children.Add(child);
+                }
+                else if (index == 0)
+                {
+                    // 插入到第一个同分支元素之前
+                    Children.Insert(sameBranchIndices[0], child);
+                }
+                else if (index >= sameBranchIndices.Count)
+                {
+                    // 插入到最后一个同分支元素之后
+                    Children.Insert(sameBranchIndices[sameBranchIndices.Count - 1] + 1, child);
+                }
+                else
+                {
+                    // 插入到指定同分支元素之前
+                    Children.Insert(sameBranchIndices[index], child);
+                }
+
+                // 调试输出
+                System.Diagnostics.Debug.WriteLine($"AddChildToBranchAtIndex: 分支={isTrueBranch}, 索引={index}, 节点={child.DisplayName}");
+                System.Diagnostics.Debug.WriteLine($"  同分支索引列表: [{string.Join(", ", sameBranchIndices)}]");
+                System.Diagnostics.Debug.WriteLine($"  插入后Children总数: {Children.Count}");
+            }
+            catch (Exception ex)
+            {
+                // 记录错误，回退到普通添加
+                System.Diagnostics.Debug.WriteLine($"AddChildToBranchAtIndex失败: {ex.Message}");
+                Children.Add(child);
+            }
+        }
         /// <summary>
         /// 添加子命令到循环
         /// </summary>

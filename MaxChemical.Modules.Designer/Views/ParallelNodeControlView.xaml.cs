@@ -35,6 +35,11 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly List<ParallelBranchInfo> _parallelBranches = new List<ParallelBranchInfo>();
         private int _currentMaxParallelCount = 0;
 
+        private int _currentInsertionIndex = -1;
+        private int _currentBranchIndex = -1;
+        private CommandNode _highlightedNode; // 当前高亮的节点
+        private UserControl _highlightedControl; // 当前高亮的控件
+
         private readonly ILogService _logger;
         private readonly NodeControlFactory _nodeControlFactory;
         private readonly DesignerDragDropService _dragDropService;
@@ -364,7 +369,28 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void Branch_DragOver(object sender, DragEventArgs e)
         {
-            e.Effects = _dragDropService.CanAcceptDrop(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+            if (_dragDropService.CanAcceptDrop(e.Data))
+            {
+                e.Effects = DragDropEffects.Copy;
+
+                // 计算插入位置并高亮前一个节点
+                if (sender is Border border && border.Tag is int branchIndex)
+                {
+                    var branchContent = FindBranchContentContainer(branchIndex);
+                    if (branchContent != null)
+                    {
+                        var insertionInfo = GetInsertionInfo(e.GetPosition(branchContent), branchIndex);
+                        HighlightPreviousNode(insertionInfo, branchIndex);
+
+                        _currentInsertionIndex = insertionInfo.InsertionIndex;
+                        _currentBranchIndex = branchIndex;
+                    }
+                }
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
             e.Handled = true;
         }
 
@@ -376,8 +402,10 @@ namespace MaxChemical.Modules.Designer.Views
                 _dragDropService.ClearDragOverStyle(border);
                 _logger.LogTrace("清除拖放悬停状态");
             }
+            ClearHighlight();
             e.Handled = true;
         }
+
 
         private void Branch_Drop(object sender, DragEventArgs e)
         {
@@ -388,10 +416,15 @@ namespace MaxChemical.Modules.Designer.Views
                 _dragDropService.ClearDragOverStyle(border);
                 _logger.LogTrace("清除拖放状态");
 
-                if (border.Tag is int branchIndex)
+                // 记录当前的插入索引，然后清除高亮
+                int insertionIndex = _currentInsertionIndex;
+                int branchIndex = _currentBranchIndex;
+                ClearHighlight();
+
+                if (border.Tag is int tagBranchIndex)
                 {
-                    _logger.LogDebug("分支索引: {BranchIndex}", branchIndex);
-                    HandleCommandDrop(e, branchIndex);
+                    _logger.LogDebug("分支索引: {BranchIndex}, 插入索引: {InsertionIndex}", tagBranchIndex, insertionIndex);
+                    HandleCommandDrop(e, tagBranchIndex, insertionIndex);
                 }
                 else
                 {
@@ -406,11 +439,11 @@ namespace MaxChemical.Modules.Designer.Views
             e.Handled = true;
         }
 
-        private void HandleCommandDrop(DragEventArgs e, int branchIndex)
+        private void HandleCommandDrop(DragEventArgs e, int branchIndex, int insertionIndex = -1)
         {
             try
             {
-                _logger.LogDebug("处理分支 {BranchIndex} 的命令拖放", branchIndex);
+                _logger.LogDebug("处理分支 {BranchIndex} 位置 {InsertionIndex} 的命令拖放", branchIndex, insertionIndex);
 
                 var command = _dragDropService.ExtractCommandFromDragData(e.Data);
 
@@ -424,7 +457,7 @@ namespace MaxChemical.Modules.Designer.Views
                 if (command != null)
                 {
                     _logger.LogDebug("提取到命令: {Type}", command.GetType().Name);
-                    AddCommandToBranch(command, branchIndex);
+                    AddCommandToBranch(command, branchIndex, insertionIndex);
                 }
                 else
                 {
@@ -437,12 +470,179 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+
         #endregion
 
+        #region 高亮逻辑（并行分支版本）
 
+        private class InsertionInfo
+        {
+            public int InsertionIndex { get; set; }
+            public CommandNode PreviousNode { get; set; }
+            public UserControl PreviousControl { get; set; }
+            public bool IsInsertAtBeginning { get; set; }
+        }
+
+        private InsertionInfo GetInsertionInfo(Point mousePosition, int branchIndex)
+        {
+            try
+            {
+                var info = new InsertionInfo();
+
+                if (branchIndex < 0 || branchIndex >= _parallelBranches.Count)
+                {
+                    info.InsertionIndex = 0;
+                    info.IsInsertAtBeginning = true;
+                    return info;
+                }
+
+                var branchCommands = _parallelBranches[branchIndex].Commands;
+
+                // 如果分支为空，插入位置为0，没有前一个节点
+                if (branchCommands.Count == 0)
+                {
+                    info.InsertionIndex = 0;
+                    info.IsInsertAtBeginning = true;
+                    return info;
+                }
+
+                var branchContent = FindBranchContentContainer(branchIndex);
+                if (branchContent == null)
+                {
+                    info.InsertionIndex = 0;
+                    info.IsInsertAtBeginning = true;
+                    return info;
+                }
+
+                double cumulativeHeight = 0;
+
+                for (int i = 0; i < branchCommands.Count; i++)
+                {
+                    var node = branchCommands[i];
+                    var control = FindControlForNodeInBranch(branchContent, node);
+
+                    if (control != null)
+                    {
+                        // 获取控件的实际高度
+                        double controlHeight = control.ActualHeight;
+                        if (controlHeight == 0)
+                        {
+                            control.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                            controlHeight = control.DesiredSize.Height;
+                        }
+                        if (controlHeight == 0) controlHeight = 40; // 默认高度
+
+                        // 检查鼠标是否在当前控件的上半部分
+                        if (mousePosition.Y <= cumulativeHeight + controlHeight / 2)
+                        {
+                            // 插入到当前节点之前
+                            info.InsertionIndex = i;
+                            if (i == 0)
+                            {
+                                info.IsInsertAtBeginning = true;
+                            }
+                            else
+                            {
+                                info.PreviousNode = branchCommands[i - 1];
+                                info.PreviousControl = FindControlForNodeInBranch(branchContent, info.PreviousNode);
+                            }
+
+                            _logger.LogTrace("鼠标位置 {Y} 在分支 {BranchIndex} 节点 {Index} 上半部分，插入位置: {InsertIndex}",
+                                mousePosition.Y, branchIndex, i, i);
+                            return info;
+                        }
+
+                        cumulativeHeight += controlHeight + 8; // 8是margin
+                    }
+                }
+
+                // 如果鼠标在所有元素下方，插入到末尾
+                info.InsertionIndex = branchCommands.Count;
+                info.PreviousNode = branchCommands[branchCommands.Count - 1];
+                info.PreviousControl = FindControlForNodeInBranch(branchContent, info.PreviousNode);
+
+                _logger.LogTrace("鼠标位置 {Y} 在分支 {BranchIndex} 所有节点下方，插入位置: {InsertIndex}",
+                    mousePosition.Y, branchIndex, branchCommands.Count);
+                return info;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "计算插入信息失败");
+                return new InsertionInfo { InsertionIndex = 0, IsInsertAtBeginning = true };
+            }
+        }
+
+        private UserControl FindControlForNodeInBranch(StackPanel branchContent, CommandNode node)
+        {
+            foreach (UIElement child in branchContent.Children)
+            {
+                if (child is UserControl control)
+                {
+                    if (control.Tag == node || (control.DataContext is CommandNode contextNode && contextNode == node))
+                    {
+                        return control;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private void HighlightPreviousNode(InsertionInfo insertionInfo, int branchIndex)
+        {
+            try
+            {
+                // 先清除之前的高亮
+                ClearHighlight();
+
+                if (insertionInfo.IsInsertAtBeginning)
+                {
+                    // 插入到开头，不高亮任何节点
+                    _logger.LogTrace("插入到分支 {BranchIndex} 开头，无需高亮节点", branchIndex);
+                    return;
+                }
+
+                if (insertionInfo.PreviousNode != null)
+                {
+                    // 高亮前一个节点 - 只设置数据绑定属性，让DataTrigger处理样式
+                    _highlightedNode = insertionInfo.PreviousNode;
+                    _highlightedNode.IsInsertHighlight = true;
+
+                    _logger.LogTrace("高亮分支 {BranchIndex} 的前一个节点: {NodeName}", branchIndex, _highlightedNode.DisplayName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "设置节点高亮失败");
+            }
+        }
+
+        private void ClearHighlight()
+        {
+            try
+            {
+                // 只清除数据绑定属性，让DataTrigger处理样式恢复
+                if (_highlightedNode != null)
+                {
+                    _highlightedNode.IsInsertHighlight = false;
+                    _logger.LogDebug("清除节点 {NodeName} 的高亮状态", _highlightedNode.DisplayName);
+                    _highlightedNode = null;
+                }
+
+                _currentInsertionIndex = -1;
+                _currentBranchIndex = -1;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "清除节点高亮失败");
+            }
+        }
+
+
+
+        #endregion
         #region 命令管理
 
-        private void AddCommandToBranch(object command, int branchIndex)
+        private void AddCommandToBranch(object command, int branchIndex, int insertionIndex = -1)
         {
             try
             {
@@ -465,20 +665,40 @@ namespace MaxChemical.Modules.Designer.Views
                     parallelNode.AddChildToParallelBranch(nestedNode, branchIndex);
 
                     var branchInfo = _parallelBranches[branchIndex];
-                    branchInfo.Commands.Add(nestedNode);
+
+                    // 如果指定了插入索引，则在指定位置插入
+                    if (insertionIndex >= 0 && insertionIndex <= branchInfo.Commands.Count)
+                    {
+                        branchInfo.Commands.Insert(insertionIndex, nestedNode);
+                        _logger.LogDebug("在分支 {BranchIndex} 位置 {InsertionIndex} 插入命令: {NodeName}",
+                            branchIndex, insertionIndex, nestedNode.DisplayName);
+                    }
+                    else
+                    {
+                        branchInfo.Commands.Add(nestedNode);
+                        _logger.LogDebug("添加命令到分支 {BranchIndex} 末尾: {NodeName}", branchIndex, nestedNode.DisplayName);
+                    }
 
                     var nestedControl = _nodeControlFactory.CreateNestedCommandControl(
                         nestedNode,
                         HandleNestedNodeClick,
                         (node) => RemoveNestedCommand(node, branchIndex));
 
-                    // 新增：订阅嵌套复杂节点的内容变化事件
+                    // 订阅嵌套复杂节点的内容变化事件
                     SubscribeToNestedComplexNodeEvents(nestedControl, nestedNode, branchIndex);
 
                     var branchContent = FindBranchContentContainer(branchIndex);
                     if (branchContent != null)
                     {
-                        branchContent.Children.Add(nestedControl);
+                        // 在UI中也插入到对应位置
+                        if (insertionIndex >= 0 && insertionIndex <= branchContent.Children.Count)
+                        {
+                            branchContent.Children.Insert(insertionIndex, nestedControl);
+                        }
+                        else
+                        {
+                            branchContent.Children.Add(nestedControl);
+                        }
 
                         var hint = FindBranchHint(branchIndex);
                         if (hint != null)
@@ -486,11 +706,11 @@ namespace MaxChemical.Modules.Designer.Views
                             hint.Visibility = Visibility.Collapsed;
                         }
                     }
+
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         UpdateBranchCanvasLayout();
                         OnBranchContentChanged();
-
 
                         // 触发嵌套命令添加事件
                         NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
@@ -502,11 +722,6 @@ namespace MaxChemical.Modules.Designer.Views
                         });
 
                     }), System.Windows.Threading.DispatcherPriority.Loaded);
-                   
-
-                
-
-                    _logger.LogDebug("添加命令到并行分支 {BranchIndex}: {NodeName}", branchIndex, nestedNode.DisplayName);
                 }
             }
             catch (Exception ex)
