@@ -12,6 +12,9 @@ using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.Services.Execution;
 using Prism.Events;
 using MaxChemical.Modules.Designer.Event;
+using System.Diagnostics;
+using System.Collections.ObjectModel;
+using System.Globalization;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -276,6 +279,9 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             if (targetCmd == null)
                 throw new InvalidOperationException($"设备 {targetDevice.Name} 不支持命令: {node.DeviceCommand.Name}");
 
+            // 合并“模板参数 + 节点覆盖值”得到生效参数副本
+            var inputParameters = BuildEffectiveParametersForNode(node, targetCmd);
+
             // 通知画布开始动画
             _eventAggregator?.GetEvent<DeviceExecutionStartedEvent>()?.Publish(new DeviceExecutionEventArgs
             {
@@ -283,16 +289,22 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 CommandName = targetCmd.Name
             });
 
+            // 记录开始日志
+            _logger.LogInformation(
+                "执行设备命令开始: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} Params={Params}",
+                node.DisplayName, node.NodeId, node.BoundDeviceId, targetDevice.Name, targetCmd.Name, FormatParameters(inputParameters));
+
+            var sw = Stopwatch.StartNew();
             try
             {
-                _logger.LogDebug("执行设备[{DeviceName}]命令: {CommandName}", targetDevice.Name, targetCmd.Name);
+                // 在后台线程执行设备命令，避免阻塞
+                var result = await Task.Run(() => targetCmd.Action?.Invoke(inputParameters), cancellationToken);
 
-                var inputParameters = targetCmd.InputParameters ?? new DeviceParameters();
-                var result = targetCmd.Action?.Invoke(inputParameters);
+                sw.Stop();
 
-                await Task.Delay(100, cancellationToken); // 模拟异步耗时
-
-                _logger.LogDebug("设备[{DeviceName}]命令执行完成: {CommandName}", targetDevice.Name, targetCmd.Name);
+                _logger.LogInformation(
+                    "执行设备命令完成: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} DurationMs={Duration} Output={Output}",
+                    node.DisplayName, node.NodeId, node.BoundDeviceId, targetDevice.Name, targetCmd.Name, sw.ElapsedMilliseconds, FormatParameters(result as DeviceParameters));
 
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
                 {
@@ -305,6 +317,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
             catch (Exception ex)
             {
+                sw.Stop();
+
+                _logger.LogError(ex,
+                    "执行设备命令失败: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} DurationMs={Duration} Params={Params}",
+                    node.DisplayName, node.NodeId, node.BoundDeviceId, targetDevice.Name, targetCmd.Name, sw.ElapsedMilliseconds, FormatParameters(inputParameters));
+
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
                 {
                     DeviceId = node.BoundDeviceId,
@@ -312,6 +330,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     IsSuccessful = false,
                     ErrorMessage = ex.Message
                 });
+
                 throw;
             }
         }
@@ -687,6 +706,161 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
             }
             return total;
+        }
+
+        // 深拷贝模板参数 + 应用节点覆盖值
+        private static DeviceParameters BuildEffectiveParametersForNode(CommandNode node, DeviceCommand targetCmd)
+        {
+            var result = new DeviceParameters
+            {
+                Variables = new ObservableCollection<ParameterBase>()
+            };
+
+            var defs = targetCmd?.InputParameters?.Variables;
+            if (defs == null || defs.Count == 0)
+                return result;
+
+            foreach (var def in defs)
+            {
+                var name = def.Name;
+
+                // 覆盖值字符串（用不区分大小写的键存储更稳妥）
+                string ovStr = null;
+                if (node.ParameterOverrides != null)
+                    node.ParameterOverrides.TryGetValue(name, out ovStr);
+
+                ParameterBase clone = def switch
+                {
+                    StringParameter sp => CloneString(sp, ovStr),
+                    NumberParameter np => CloneNumber(np, ovStr),
+                    BooleanParameter bp => CloneBoolean(bp, ovStr),
+                    EnumParameter ep => CloneEnum(ep, ovStr),
+                    _ => CloneAsStringFallback(def, ovStr)
+                };
+
+                result.Variables.Add(clone);
+            }
+
+            return result;
+
+            static StringParameter CloneString(StringParameter t, string overrideStr)
+            {
+                var val = overrideStr ?? (t.Value?.ToString() ?? string.Empty);
+                var p = new StringParameter(t.Name, val, t.HelpText)
+                {
+                    MaxLength = t.MaxLength,
+                    Options = new ObservableCollection<string>(t.Options ?? new ObservableCollection<string>())
+                };
+                return p;
+            }
+
+            static NumberParameter CloneNumber(NumberParameter t, string overrideStr)
+            {
+                double fallback = t.Value is double dv ? dv : 0d;
+                double val = fallback;
+
+                if (!string.IsNullOrWhiteSpace(overrideStr))
+                {
+                    // 先 Invariant，再 CurrentCulture，兼容 1.23 和 1,23
+                    if (!double.TryParse(overrideStr, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out val) &&
+                        !double.TryParse(overrideStr, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out val))
+                    {
+                        val = fallback;
+                    }
+                }
+
+                var p = new NumberParameter(t.Name, t.MinValue, t.MaxValue, val, t.HelpText)
+                {
+                    DecimalPlaces = t.DecimalPlaces
+                };
+                return p;
+            }
+
+            static BooleanParameter CloneBoolean(BooleanParameter t, string overrideStr)
+            {
+                bool val = t.Value is bool bv && bv;
+
+                if (!string.IsNullOrWhiteSpace(overrideStr))
+                {
+                    if (bool.TryParse(overrideStr, out var b)) val = b;
+                    else if (overrideStr == "1") val = true;
+                    else if (overrideStr == "0") val = false;
+                    else if (overrideStr == "是") val = true;  // 可选：本地化支持
+                    else if (overrideStr == "否") val = false;
+                }
+
+                return new BooleanParameter(t.Name, val, t.HelpText);
+            }
+
+            static EnumParameter CloneEnum(EnumParameter t, string overrideStr)
+            {
+                object val = t.Value ?? Enum.GetValues(t.EnumType).GetValue(0);
+
+                if (!string.IsNullOrWhiteSpace(overrideStr))
+                {
+                    try
+                    {
+                        if (int.TryParse(overrideStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+                        {
+                            val = Enum.ToObject(t.EnumType, i);
+                        }
+                        else
+                        {
+                            // 正确签名：Enum.Parse(Type, string, bool)
+                            val = Enum.Parse(t.EnumType, overrideStr, true);
+                        }
+                    }
+                    catch
+                    {
+                        val = t.Value ?? Enum.GetValues(t.EnumType).GetValue(0);
+                    }
+                }
+
+                return new EnumParameter(t.Name, t.EnumType, val, t.HelpText);
+            }
+
+            static StringParameter CloneAsStringFallback(ParameterBase t, string overrideStr)
+            {
+                var val = overrideStr ?? (t.Value?.ToString() ?? string.Empty);
+                return new StringParameter(t.Name, val, t.HelpText);
+            }
+        }
+
+        // 日志用：把参数集合转成易读文本
+        private static string FormatParameters(DeviceParameters p)
+        {
+            if (p?.Variables == null || p.Variables.Count == 0) return "(none)";
+            var parts = new List<string>(p.Variables.Count);
+
+            foreach (var v in p.Variables)
+            {
+                string one = v switch
+                {
+                    NumberParameter np => $"{np.Name}={FormatNumber(np)}",
+                    BooleanParameter bp => $"{bp.Name}={(bp.Value is bool b && b ? "true" : "false")}",
+                    EnumParameter ep => $"{ep.Name}={ep.Value}",
+                    StringParameter sp => $"{sp.Name}=\"{sp.Value}\"",
+                    _ => $"{v.Name}={v.Value}"
+                };
+                parts.Add(one);
+            }
+            return string.Join(", ", parts);
+        }
+
+        private static string FormatNumber(NumberParameter np)
+        {
+            if (np.Value is double d)
+                return d.ToString($"F{Math.Max(0, np.DecimalPlaces)}", CultureInfo.InvariantCulture);
+
+            try
+            {
+                var dv = Convert.ToDouble(np.Value ?? 0, CultureInfo.InvariantCulture);
+                return dv.ToString($"F{Math.Max(0, np.DecimalPlaces)}", CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return np.Value?.ToString() ?? "0";
+            }
         }
     }
 }

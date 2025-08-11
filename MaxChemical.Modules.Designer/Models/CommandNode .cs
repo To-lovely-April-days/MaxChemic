@@ -405,12 +405,17 @@ namespace MaxChemical.Modules.Designer.Models
                 };
             }
         }
+
         private string _boundDeviceId;
         private string _boundDeviceName;
         private string _parameterSummary;
         private bool _isManualExecuting;
 
-        // 绑定到画布上的设备实例
+        // 每个节点自己的“参数覆盖值”：key=参数名, value=参数值
+        // 注意：不修改 DeviceCommand.InputParameters，避免多个节点共享导致联动
+        private Dictionary<string, string> _parameterOverrides = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyDictionary<string, string> ParameterOverrides => _parameterOverrides;
+
         public string BoundDeviceId
         {
             get => _boundDeviceId;
@@ -424,7 +429,6 @@ namespace MaxChemical.Modules.Designer.Models
             }
         }
 
-        // 画布显示名（建议与画布显示一致，如 泵#2）
         public string BoundDeviceName
         {
             get => _boundDeviceName;
@@ -433,36 +437,61 @@ namespace MaxChemical.Modules.Designer.Models
 
         public bool HasDeviceBinding => !string.IsNullOrEmpty(BoundDeviceId);
 
-        // 小黄点显示用：设备命令且未绑定时为 true
         public bool NeedsBinding => DeviceCommand != null && string.IsNullOrEmpty(BoundDeviceId);
 
-        // 参数摘要（显示在节点 UI 上）
+        // 参数摘要（UI 显示）
         public string ParameterSummary
         {
             get => _parameterSummary;
             set => SetProperty(ref _parameterSummary, value);
         }
 
-        public void RebuildParameterSummary()
-        {
-            if (DeviceCommand?.InputParameters?.Variables == null || DeviceCommand.InputParameters.Variables.Count == 0)
-            {
-                ParameterSummary = string.Empty;
-                return;
-            }
-
-            var kv = DeviceCommand.InputParameters.Variables
-                .Select(v => $"{v.Name}={v.Value}")
-                .ToArray();
-            ParameterSummary = string.Join(", ", kv);
-        }
-
-        // 手动执行状态（节点UI按钮启用/禁用）
+        // 手动执行状态（控制“停止”按钮可用状态等）
         public bool IsManualExecuting
         {
             get => _isManualExecuting;
             set => SetProperty(ref _isManualExecuting, value);
         }
+
+        // 批量应用参数覆盖
+        public void ApplyParameterOverrides(IDictionary<string, string> map)
+        {
+            _parameterOverrides = map != null
+                ? new Dictionary<string, string>(map, System.StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
+            RaisePropertyChanged(nameof(ParameterOverrides));
+            RebuildParameterSummary();
+        }
+
+        // 获取“生效参数”：用节点覆盖值覆盖模板默认值
+        public IEnumerable<(string Name, object Value)> GetEffectiveParameters()
+        {
+            var defs = DeviceCommand?.InputParameters?.Variables;
+            if (defs == null) yield break;
+
+            foreach (var v in defs)
+            {
+                var name = v.Name;
+                var value = (_parameterOverrides != null && _parameterOverrides.TryGetValue(name, out var ov))
+                    ? ov
+                    : v.Value;
+                yield return (name, value);
+            }
+        }
+
+        // 重新生成摘要文本
+        public void RebuildParameterSummary()
+        {
+            var eff = GetEffectiveParameters().ToArray();
+            if (eff.Length == 0)
+            {
+                ParameterSummary = string.Empty;
+                return;
+            }
+            ParameterSummary = string.Join(", ", eff.Select(kv => $"{kv.Name}={kv.Value}"));
+        }
+
         #endregion
 
         #region 执行属性管理

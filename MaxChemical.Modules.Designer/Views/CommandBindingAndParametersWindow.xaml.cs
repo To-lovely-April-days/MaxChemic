@@ -1,5 +1,6 @@
 ﻿using MaxChemical.Modules.Designer.Models;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 
@@ -49,21 +50,36 @@ namespace MaxChemical.Modules.Designer.Views
             else if (DeviceCombo.Items.Count > 0)
                 DeviceCombo.SelectedIndex = 0;
 
-            // 参数列表
+            // 生成参数编辑项：优先用节点覆盖值，否则用模板默认值
             var items = new List<ParamItem>();
-            var vars = _node.DeviceCommand?.InputParameters?.Variables;
-            if (vars != null)
+            var defs = _node.DeviceCommand?.InputParameters?.Variables;
+            if (defs != null)
             {
-                foreach (var v in vars)
-                    items.Add(new ParamItem { Name = v.Name, Value = v.Value.ToString() });
+                var overrides = _node.ParameterOverrides?.ToDictionary(kv => kv.Key, kv => kv.Value)
+                                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var d in defs)
+                {
+                    var name = d.Name;
+                    var valStr = overrides.TryGetValue(name, out var ov)
+                        ? ov
+                        : ToInvariantString(d.Value);
+
+                    items.Add(new ParamItem { Name = name, Value = valStr });
+                }
             }
             ParamsItems.ItemsSource = items;
 
-            // 若没有参数，隐藏参数面板
             if (items.Count == 0)
                 ParamsPanel.Visibility = Visibility.Collapsed;
         }
-
+        private static string ToInvariantString(object value)
+        {
+            if (value == null) return string.Empty;
+            return value is IFormattable f
+                ? f.ToString(null, CultureInfo.InvariantCulture)
+                : value.ToString();
+        }
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
             var selectedId = DeviceCombo.SelectedValue as string;
@@ -81,19 +97,17 @@ namespace MaxChemical.Modules.Designer.Views
                     ? dn
                     : selectedId;
 
-                // 保存参数
-                var list = ParamsItems.ItemsSource as IEnumerable<ParamItem>;
-                if (list != null && _node.DeviceCommand?.InputParameters?.Variables != null)
+                // 收集参数覆盖值并保存到节点
+                var map = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+                if (ParamsItems.ItemsSource is IEnumerable<ParamItem> list)
                 {
                     foreach (var item in list)
                     {
-                        var v = _node.DeviceCommand.InputParameters.Variables.FirstOrDefault(x => x.Name == item.Name);
-                        if (v != null) v.Value = item.Value;
+                        // 只存“与默认不同”不是必须；这里统一存值，简单可靠
+                        map[item.Name] = item.Value;
                     }
                 }
-
-                // 生成摘要，刷新节点 UI
-                _node.RebuildParameterSummary();
+                _node.ApplyParameterOverrides(map);
             }
 
             DialogResult = true;

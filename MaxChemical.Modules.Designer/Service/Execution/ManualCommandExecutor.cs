@@ -6,6 +6,8 @@ using Prism.Events;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -39,7 +41,8 @@ namespace MaxChemical.Modules.Designer.Service.Execution
             List<CanvasDeviceViewModel> canvasDevices = null;
             _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
 
-            var target = canvasDevices?.FirstOrDefault(d => d.DeviceId == node.BoundDeviceId)?.Device;
+            var targetVm = canvasDevices?.FirstOrDefault(d => d.DeviceId == node.BoundDeviceId);
+            var target = targetVm?.Device;
             if (target == null)
                 throw new InvalidOperationException("未在画布上找到绑定的设备。");
 
@@ -63,12 +66,13 @@ namespace MaxChemical.Modules.Designer.Service.Execution
 
             try
             {
+                // 构建“生效参数”的独立副本，避免污染模板
+                var input = BuildEffectiveParametersCopy(node);
+
                 await Task.Run(() =>
                 {
                     if (cts.IsCancellationRequested) return;
 
-                    var input = cmd.InputParameters ?? node.DeviceCommand.InputParameters ?? new DeviceParameters();
-                    // 实际命令为同步委托；如需可在命令内部检查取消
                     var _ = cmd.Action?.Invoke(input);
                 }, cts.Token);
 
@@ -81,7 +85,6 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                     node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
                 }
 
-                // 动画结束
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
                 {
                     DeviceId = node.BoundDeviceId,
@@ -113,6 +116,117 @@ namespace MaxChemical.Modules.Designer.Service.Execution
             if (_ctsMap.TryGetValue(nodeId, out var cts))
             {
                 cts.Cancel();
+            }
+        }
+
+        private static DeviceParameters BuildEffectiveParametersCopy(CommandNode node)
+        {
+            var result = new DeviceParameters();
+            var defs = node.DeviceCommand?.InputParameters?.Variables;
+            if (defs == null) return result;
+
+            foreach (var def in defs)
+            {
+                var name = def.Name;
+
+                // 修复：先定义并初始化，再 TryGetValue
+                string ovStr = null;
+                if (node.ParameterOverrides != null)
+                    node.ParameterOverrides.TryGetValue(name, out ovStr);
+
+                ParameterBase clone = def switch
+                {
+                    StringParameter sp => CloneString(sp, ovStr),
+                    NumberParameter np => CloneNumber(np, ovStr),
+                    BooleanParameter bp => CloneBoolean(bp, ovStr),
+                    EnumParameter ep => CloneEnum(ep, ovStr),
+                    _ => CloneAsStringFallback(def, ovStr) // 兜底：未知类型按字符串处理
+                };
+
+                result.Variables.Add(clone);
+            }
+
+            return result;
+
+            static StringParameter CloneString(StringParameter t, string overrideStr)
+            {
+                var val = overrideStr ?? (t.Value?.ToString() ?? string.Empty);
+                var p = new StringParameter(t.Name, val, t.HelpText)
+                {
+                    MaxLength = t.MaxLength,
+                    Options = new ObservableCollection<string>(t.Options ?? new ObservableCollection<string>())
+                };
+                return p;
+            }
+
+            static NumberParameter CloneNumber(NumberParameter t, string overrideStr)
+            {
+                double val;
+                if (!string.IsNullOrWhiteSpace(overrideStr))
+                {
+                    if (!double.TryParse(overrideStr, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out val))
+                        val = t.Value is double dv ? dv : 0d;
+                }
+                else
+                {
+                    val = t.Value is double dv ? dv : 0d;
+                }
+
+                var p = new NumberParameter(t.Name, t.MinValue, t.MaxValue, val, t.HelpText)
+                {
+                    DecimalPlaces = t.DecimalPlaces
+                };
+                return p;
+            }
+
+            static BooleanParameter CloneBoolean(BooleanParameter t, string overrideStr)
+            {
+                bool val;
+                if (!string.IsNullOrWhiteSpace(overrideStr))
+                {
+                    if (bool.TryParse(overrideStr, out var b)) val = b;
+                    else if (overrideStr == "1") val = true;
+                    else if (overrideStr == "0") val = false;
+                    else val = t.Value is bool bv && bv;
+                }
+                else
+                {
+                    val = t.Value is bool bv && bv;
+                }
+
+                return new BooleanParameter(t.Name, val, t.HelpText);
+            }
+
+            static EnumParameter CloneEnum(EnumParameter t, string overrideStr)
+            {
+                object val = t.Value ?? Enum.GetValues(t.EnumType).GetValue(0);
+
+                if (!string.IsNullOrWhiteSpace(overrideStr))
+                {
+                    try
+                    {
+                        if (int.TryParse(overrideStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+                        {
+                            val = Enum.ToObject(t.EnumType, i);
+                        }
+                        else
+                        {
+                            val = Enum.Parse(t.EnumType, overrideStr, ignoreCase: true);
+                        }
+                    }
+                    catch
+                    {
+                        val = t.Value ?? Enum.GetValues(t.EnumType).GetValue(0);
+                    }
+                }
+
+                return new EnumParameter(t.Name, t.EnumType, val, t.HelpText);
+            }
+
+            static StringParameter CloneAsStringFallback(ParameterBase t, string overrideStr)
+            {
+                var val = overrideStr ?? (t.Value?.ToString() ?? string.Empty);
+                return new StringParameter(t.Name, val, t.HelpText);
             }
         }
     }

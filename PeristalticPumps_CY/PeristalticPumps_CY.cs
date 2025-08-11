@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
@@ -43,14 +45,13 @@ namespace PeristalticPumps_CY
                        new NumberParameter("Speed", 0, 10000, 25000, "Target Speed in Rpm")
                     }
                 },
-                Action = delegate (DeviceParameters parameters)
+                Action = WrapAction("获取温度值", delegate (DeviceParameters parameters)
                 {
                     double Speed = parameters.GetValue<double>("Speed");
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;
                     while ((DateTime.Now - startTime).TotalSeconds < 3)
                     {
-                        // 执行一些无意义的计算来消耗CPU时间
                         double result = 0;
                         for (int i = 0; i < 10000000; i++)
                         {
@@ -60,15 +61,11 @@ namespace PeristalticPumps_CY
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                            {
-                                new StringParameter("Result")
-                                {
-                                    Value = "OK"
-                                },
-
-                            }
+                         {
+                             new StringParameter("Result") { Value = "OK" }
+                         }
                     };
-                },
+                }),
 
             });
             Commands.Add(new DeviceCommand
@@ -196,13 +193,12 @@ namespace PeristalticPumps_CY
                 Name = "关闭",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/off.png",
                 HelpText = "执行此命令可以关闭蠕动泵",
-                Action = delegate (DeviceParameters parameters)
+                Action = WrapAction("关闭", delegate (DeviceParameters parameters)
                 {
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;
                     while ((DateTime.Now - startTime).TotalSeconds < 3)
                     {
-                        // 执行一些无意义的计算来消耗CPU时间
                         double result = 0;
                         for (int i = 0; i < 10000000; i++)
                         {
@@ -212,15 +208,11 @@ namespace PeristalticPumps_CY
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                            {
-                                new StringParameter("Result")
-                                {
-                                    Value = "OK"
-                                },
-
-                            }
+                        {
+                            new StringParameter("Result") { Value = "OK" }
+                        }
                     };
-                },
+                }),
             });
         }
 
@@ -250,6 +242,71 @@ namespace PeristalticPumps_CY
             {
                 _serialPort.Close();
                   _logger.LogInformation("Serial port closed");
+            }
+        }
+
+        // 统一包装命令执行，记录开始/结束/异常日志
+        private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, DeviceParameters> inner)
+        {
+            return (DeviceParameters parameters) =>
+            {
+                var paramText = FormatParameters(parameters);
+                _logger.LogInformation($"[DeviceCommand-START] Device={Name} Command={commandName} Params={paramText}");
+
+                var sw = Stopwatch.StartNew();
+                try
+                {
+                    var output = inner(parameters);
+                    sw.Stop();
+
+                    var outputText = FormatParameters(output);
+                    _logger.LogInformation($"[DeviceCommand-END]   Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Output={outputText}");
+                    return output;
+                }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    _logger.LogError(ex, $"[DeviceCommand-ERROR] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Params={paramText}");
+                    throw;
+                }
+            };
+        }
+
+        // 将参数格式化成易读的字符串
+        private static string FormatParameters(DeviceParameters p)
+        {
+            if (p?.Variables == null || p.Variables.Count == 0) return "(none)";
+
+            var parts = new List<string>(p.Variables.Count);
+            foreach (var v in p.Variables)
+            {
+                string one = v switch
+                {
+                    NumberParameter np => $"{np.Name}={FormatNumber(np)}",
+                    BooleanParameter bp => $"{bp.Name}={(bp.Value is bool b && b ? "true" : "false")}",
+                    EnumParameter ep => $"{ep.Name}={ep.Value}",
+                    StringParameter sp => $"{sp.Name}=\"{sp.Value}\"",
+                    _ => $"{v.Name}={v.Value}"
+                };
+                parts.Add(one);
+            }
+            return string.Join(", ", parts);
+        }
+
+        private static string FormatNumber(NumberParameter np)
+        {
+            if (np.Value is double d)
+                return d.ToString($"F{Math.Max(0, np.DecimalPlaces)}", CultureInfo.InvariantCulture);
+
+            // 容错：如果 Value 不是 double，尽力转换后格式化
+            try
+            {
+                var dv = Convert.ToDouble(np.Value ?? 0, CultureInfo.InvariantCulture);
+                return dv.ToString($"F{Math.Max(0, np.DecimalPlaces)}", CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return np.Value?.ToString() ?? "0";
             }
         }
     }
