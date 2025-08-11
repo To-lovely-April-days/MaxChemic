@@ -16,6 +16,7 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using MaxChemical.Modules.Designer.Service.Execution;
+using MaxChemical.Modules.Designer.Views;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -532,7 +533,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogDebug("嵌套命令已添加到IF节点: {NestedCommand} -> {Branch}分支",
                     e.NestedCommand.DisplayName, e.IsTrueBranch ? "TRUE" : "FALSE");
-               
+
                 HandleNestedCommandAdded(e);
             };
 
@@ -705,10 +706,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         RefreshNodeLayout(e.ParentIfNode);
-                   
+
                     }), System.Windows.Threading.DispatcherPriority.Background);
 
-                   
+
                 }
             }
             catch (Exception ex)
@@ -1152,7 +1153,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     RearrangeNodesFromIndex(changedIndex + 1);
                     RebuildAllConnections();
                     UpdateCanvasSize();
-                  
+
                     _logger.LogDebug("节点布局刷新完成");
 
                 }), System.Windows.Threading.DispatcherPriority.Background);
@@ -1711,9 +1712,25 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         public void HandleNodeClick(CommandNode clickedNode)
         {
-            _nodeManagementService.HandleNodeClick(clickedNode, this);
-        }
+            try
+            {
+                if (clickedNode == null) return;
 
+                // NEW: 未绑定的设备命令，优先弹出小卡片选择器 string.IsNullOrEmpty(clickedNode.BoundDeviceId)
+                if (clickedNode.DeviceCommand != null)
+                {
+                    PromptBindDeviceForNode(clickedNode);
+                    return;
+                }
+
+                // 原有逻辑
+                _nodeManagementService.HandleNodeClick(clickedNode, this);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理节点点击失败: {NodeName}", clickedNode?.DisplayName);
+            }
+        }
         public void HandleNestedNodeClick(CommandNode clickedNode)
         {
             HandleNodeClick(clickedNode);
@@ -1782,6 +1799,91 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
         }
 
+        //构造候选列表（筛选支持命令 & 未被其它节点占用）
+        private List<CommandBindingAndParametersWindow.DeviceOption> BuildBindingCandidatesForNode(CommandNode node)
+        {
+            try
+            {
+                if (node?.DeviceCommand == null) return new List<CommandBindingAndParametersWindow.DeviceOption>();
+
+                // 1) 拉取画布设备
+                List<CanvasDeviceViewModel> canvasDevices = null;
+                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list =>
+                    canvasDevices = list ?? new List<CanvasDeviceViewModel>());
+
+                // 2) 支持该命令
+                var supports = canvasDevices?
+                    .Where(d => d?.Device?.Commands?.Any(c => c.Name == node.DeviceCommand.Name) == true)
+                    .ToList() ?? new List<CanvasDeviceViewModel>();
+
+                // 3) 剔除已被其它节点绑定的设备（允许当前节点保留自己的绑定）
+                var usedIds = CommandNodes
+                    .Where(n => n != node && !string.IsNullOrEmpty(n.BoundDeviceId))
+                    .Select(n => n.BoundDeviceId)
+                    .ToHashSet();
+
+                var candidates = supports.Where(d => !usedIds.Contains(d.DeviceId)).ToList();
+
+                // 4) 设备Id -> 画布显示名
+                Dictionary<string, string> displayNames = null;
+                _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Publish(map =>
+                    displayNames = map ?? new Dictionary<string, string>());
+
+                return candidates.Select(d =>
+                {
+                    var dn = (displayNames != null && displayNames.TryGetValue(d.DeviceId, out var name))
+                        ? name
+                        : (d.Device?.Name ?? d.DeviceId);
+                    return new CommandBindingAndParametersWindow.DeviceOption
+                    {
+                        Id = d.DeviceId,
+                        Display = dn
+                    };
+                }).ToList();
+            }
+            catch
+            {
+                return new List<CommandBindingAndParametersWindow.DeviceOption>();
+            }
+        }
+        //弹出绑定
+        public void PromptBindDeviceForNode(CommandNode node)
+        {
+            try
+            {
+                if (node?.DeviceCommand == null) return;
+
+                // 候选设备（支持该命令且未被其它节点占用）
+                var options = BuildBindingCandidatesForNode(node);
+                if (options == null || options.Count == 0)
+                {
+                    System.Windows.MessageBox.Show("当前画布上没有可执行该命令的可用设备。", "绑定设备",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+
+                // 设备Id -> 显示名(与画布一致，如 泵#2)
+                Dictionary<string, string> displayNames = null;
+                _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Publish(map =>
+                    displayNames = map ?? new Dictionary<string, string>());
+
+                var owner = System.Windows.Application.Current?.MainWindow;
+
+                // 使用带“参数编辑”的窗口
+                var saved = CommandBindingAndParametersWindow.ShowForNode(owner, node, options, displayNames ?? new Dictionary<string, string>());
+                if (!saved) return;
+
+                // 窗口内部已更新节点的 BoundDeviceId/BoundDeviceName 和参数，并重建 ParameterSummary
+                _logger.LogInformation("节点 {Node} 已绑定设备: {Bound}，参数: {Params}",
+                    node.DisplayName, node.BoundDeviceName, node.ParameterSummary);
+
+                RaisePropertyChanged(nameof(CommandNodes));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "绑定设备失败: {Node}", node?.DisplayName);
+            }
+        }
         #endregion
     }
 }

@@ -9,6 +9,9 @@ using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Logging;
 using DevicePlugins.Devices;
 using MaxChemical.Modules.Designer.Service.Execution;
+using MaxChemical.Modules.Designer.Services.Execution;
+using Prism.Events;
+using MaxChemical.Modules.Designer.Event;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -20,6 +23,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private readonly ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
         private FlowExecutionContext _executionContext;
         private readonly INodeExecutionStatusService _statusService;
+        private readonly IEventAggregator _eventAggregator;
+
         public FlowExecutionState State
         {
             get => _state;
@@ -41,10 +46,11 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         public event EventHandler<FlowExecutionErrorEventArgs> ExecutionError;
         public event EventHandler<FlowExecutionProgressEventArgs> ProgressChanged;
 
-        public FlowExecutionEngine(INodeExecutionStatusService statusService)
+        public FlowExecutionEngine(INodeExecutionStatusService statusService, IEventAggregator eventAggregator)
         {
             _logger = _logger?.ForContext<FlowExecutionEngine>() ?? new LogService().ForContext<FlowExecutionEngine>();
             _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
+            _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
         }
 
         public async Task<FlowExecutionResult> ExecuteAsync(FlowDesignerViewModel flowViewModel, CancellationToken cancellationToken = default)
@@ -60,16 +66,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
             try
             {
-                // 设置当前流程视图模型
                 _statusService.SetCurrentFlowViewModel(flowViewModel);
-
-                // 重置所有节点状态
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Running;
                 _logger.LogInformation("开始执行流程，共 {Count} 个节点", flowViewModel.CommandNodes.Count);
 
-                // 验证流程
                 var validation = ValidateFlow(flowViewModel);
                 if (!validation.IsValid)
                 {
@@ -79,10 +81,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 var totalNodes = CalculateTotalNodes(flowViewModel.CommandNodes);
                 var completedNodes = 0;
 
-                // 按顺序执行节点
                 foreach (var node in flowViewModel.CommandNodes)
                 {
-                    // 检查取消和暂停
                     _cancellationTokenSource.Token.ThrowIfCancellationRequested();
                     _pauseEvent.Wait(_cancellationTokenSource.Token);
 
@@ -104,7 +104,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 State = FlowExecutionState.Completed;
                 _logger.LogInformation("流程执行完成");
 
-                // 延迟重置状态
                 _ = Task.Delay(2000).ContinueWith(_ =>
                 {
                     if (State == FlowExecutionState.Completed)
@@ -124,7 +123,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
             catch (OperationCanceledException)
             {
-                // 重置所有节点状态
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Stopped;
@@ -149,7 +147,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
             catch (Exception ex)
             {
-                // 重置所有节点状态
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Error;
@@ -198,22 +195,17 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             try
             {
                 _logger.LogDebug("开始执行节点: {NodeName} ({NodeType})", node.DisplayName, node.CommandType);
-
-                // 设置节点为执行状态
                 _statusService.StartNodeExecution(node.NodeId);
-
                 NodeExecuting?.Invoke(this, executionArgs);
 
                 object result = null;
 
                 if (node.DeviceCommand != null)
                 {
-                    // 执行设备命令
-                    result = await ExecuteDeviceCommandAsync(node.DeviceCommand, context, cancellationToken);
+                    result = await ExecuteDeviceCommandAsync(node, context, cancellationToken);
                 }
                 else if (node.LogicCommand != null)
                 {
-                    // 执行逻辑命令
                     result = await ExecuteLogicCommandAsync(node, context, cancellationToken);
                 }
 
@@ -221,10 +213,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 executionArgs.IsSuccessful = true;
                 executionArgs.Result = result;
 
-                // 设置节点为完成状态
                 _statusService.CompleteNodeExecution(node.NodeId, true);
 
-                // 记录执行历史
                 context.ExecutionHistory.Add(new NodeExecutionRecord
                 {
                     NodeId = node.NodeId,
@@ -244,10 +234,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 executionArgs.IsSuccessful = false;
                 executionArgs.ErrorMessage = ex.Message;
 
-                // 设置节点为失败状态
                 _statusService.CompleteNodeExecution(node.NodeId, false);
 
-                // 记录执行历史
                 context.ExecutionHistory.Add(new NodeExecutionRecord
                 {
                     NodeId = node.NodeId,
@@ -267,27 +255,63 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
 
-        private async Task<object> ExecuteDeviceCommandAsync(DeviceCommand deviceCommand, FlowExecutionContext context, CancellationToken cancellationToken)
+        private async Task<object> ExecuteDeviceCommandAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
         {
+            if (node.DeviceCommand == null)
+                throw new InvalidOperationException("DeviceCommand 为空");
+
+            if (string.IsNullOrEmpty(node.BoundDeviceId))
+                throw new InvalidOperationException($"设备命令节点未绑定设备: {node.DisplayName}");
+
+            // 通过事件请求画布设备列表
+            List<CanvasDeviceViewModel> canvasDevices = null;
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+            var targetCanvasDevice = canvasDevices?.FirstOrDefault(d => d.DeviceId == node.BoundDeviceId);
+            var targetDevice = targetCanvasDevice?.Device;
+            if (targetDevice == null)
+                throw new InvalidOperationException($"未在画布上找到设备实例: {node.BoundDeviceId}");
+
+            var targetCmd = targetDevice.Commands?.FirstOrDefault(c => c.Name == node.DeviceCommand.Name);
+            if (targetCmd == null)
+                throw new InvalidOperationException($"设备 {targetDevice.Name} 不支持命令: {node.DeviceCommand.Name}");
+
+            // 通知画布开始动画
+            _eventAggregator?.GetEvent<DeviceExecutionStartedEvent>()?.Publish(new DeviceExecutionEventArgs
+            {
+                DeviceId = node.BoundDeviceId,
+                CommandName = targetCmd.Name
+            });
+
             try
             {
-                _logger.LogDebug("执行设备命令: {CommandName}", deviceCommand.Name);
+                _logger.LogDebug("执行设备[{DeviceName}]命令: {CommandName}", targetDevice.Name, targetCmd.Name);
 
-                // 准备输入参数
-                var inputParameters = deviceCommand.InputParameters ?? new DeviceParameters();
+                var inputParameters = targetCmd.InputParameters ?? new DeviceParameters();
+                var result = targetCmd.Action?.Invoke(inputParameters);
 
-                // 执行命令
-                var result = deviceCommand.Action?.Invoke(inputParameters);
+                await Task.Delay(100, cancellationToken); // 模拟异步耗时
 
-                // 模拟异步执行时间
-                await Task.Delay(100, cancellationToken);
+                _logger.LogDebug("设备[{DeviceName}]命令执行完成: {CommandName}", targetDevice.Name, targetCmd.Name);
 
-                _logger.LogDebug("设备命令执行完成: {CommandName}", deviceCommand.Name);
+                _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
+                {
+                    DeviceId = node.BoundDeviceId,
+                    CommandName = targetCmd.Name,
+                    IsSuccessful = true
+                });
+
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "设备命令执行失败: {CommandName}", deviceCommand.Name);
+                _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
+                {
+                    DeviceId = node.BoundDeviceId,
+                    CommandName = targetCmd.Name,
+                    IsSuccessful = false,
+                    ErrorMessage = ex.Message
+                });
                 throw;
             }
         }
@@ -320,17 +344,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private async Task<object> ExecuteIfCommandAsync(CommandNode ifNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行IF命令: {NodeName}", ifNode.DisplayName);
-
             try
             {
-                // 获取条件
                 var condition = ifNode.LogicCommand.Properties?.GetValueOrDefault("Condition", "true")?.ToString() ?? "true";
-
-                // 评估条件
                 var conditionResult = context.EvaluateCondition(condition);
                 _logger.LogDebug("IF条件评估结果: {Condition} = {Result}", condition, conditionResult);
 
-                // 执行对应分支
                 var branchToExecute = conditionResult ? "True" : "False";
                 var branchChildren = ifNode.Children?.Where(child =>
                     child.GetExecutionProperty<string>("BranchType") == branchToExecute).ToList() ?? new List<CommandNode>();
@@ -357,10 +376,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private async Task<object> ExecuteLoopCommandAsync(CommandNode loopNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行循环命令: {NodeName}", loopNode.DisplayName);
-
             try
             {
-                // 获取循环参数
                 var loopCountStr = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopCount", "1")?.ToString() ?? "1";
                 var loopVariable = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopVariable", "i")?.ToString() ?? "i";
 
@@ -371,17 +388,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                 _logger.LogDebug("循环参数: 次数={LoopCount}, 变量={LoopVariable}", loopCount, loopVariable);
 
-                // 执行循环
                 for (int i = 0; i < loopCount; i++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     _pauseEvent.Wait(cancellationToken);
 
-                    // 设置循环变量
                     context.SetVariable(loopVariable, i);
                     _logger.LogDebug("循环第 {Current}/{Total} 次，{Variable}={Value}", i + 1, loopCount, loopVariable, i);
 
-                    // 执行循环体 - 修改这里
                     foreach (var childNode in loopNode.Children ?? Enumerable.Empty<CommandNode>())
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -404,23 +418,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private async Task<object> ExecuteParallelCommandAsync(CommandNode parallelNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行并行命令: {NodeName}", parallelNode.DisplayName);
-
             try
             {
-                // 获取最大并行数
                 var maxParallelStr = parallelNode.LogicCommand.Properties?.GetValueOrDefault("MaxParallelCount", "4")?.ToString() ?? "4";
                 if (!int.TryParse(maxParallelStr, out var maxParallel))
                 {
                     maxParallel = 4;
                 }
 
-                // 按分支分组子节点
                 var branchGroups = parallelNode.Children?.GroupBy(child =>
                     child.GetExecutionProperty<int>("BranchIndex")).ToList() ?? new List<IGrouping<int, CommandNode>>();
 
                 _logger.LogDebug("并行执行 {BranchCount} 个分支，最大并行数: {MaxParallel}", branchGroups.Count, maxParallel);
 
-                // 创建并行任务
                 var tasks = new List<Task>();
 
                 foreach (var branchGroup in branchGroups)
@@ -446,7 +456,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     tasks.Add(task);
                 }
 
-                // 等待所有分支完成
                 await Task.WhenAll(tasks);
 
                 _logger.LogDebug("并行命令执行完成: {NodeName}", parallelNode.DisplayName);
@@ -462,10 +471,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private async Task<object> ExecuteWaitCommandAsync(CommandNode waitNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行等待命令: {NodeName}", waitNode.DisplayName);
-
             try
             {
-                // 获取等待时间
                 var waitTimeStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", "1000")?.ToString() ?? "1000";
                 if (!int.TryParse(waitTimeStr, out var waitTimeMs))
                 {
@@ -473,8 +480,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
                 _logger.LogDebug("等待 {WaitTime} 毫秒", waitTimeMs);
-
-                // 执行等待
                 await Task.Delay(waitTimeMs, cancellationToken);
 
                 _logger.LogDebug("等待命令执行完成: {NodeName}", waitNode.DisplayName);
@@ -490,10 +495,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private async Task<object> ExecuteSetVariableCommandAsync(CommandNode setVarNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行设置变量命令: {NodeName}", setVarNode.DisplayName);
-
             try
             {
-                // 获取变量名和值
                 var variableName = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableName", "")?.ToString() ?? "";
                 var variableValue = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableValue", "")?.ToString() ?? "";
 
@@ -502,11 +505,9 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     throw new InvalidOperationException("变量名不能为空");
                 }
 
-                // 设置变量
                 context.SetVariable(variableName, variableValue);
                 _logger.LogDebug("设置变量: {Name} = {Value}", variableName, variableValue);
 
-                // 模拟执行时间
                 await Task.Delay(50, cancellationToken);
 
                 _logger.LogDebug("设置变量命令执行完成: {NodeName}", setVarNode.DisplayName);
@@ -544,7 +545,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             if (State == FlowExecutionState.Running || State == FlowExecutionState.Paused)
             {
                 State = FlowExecutionState.Stopping;
-                _pauseEvent.Set(); // 确保恢复执行以便能够响应停止
+                _pauseEvent.Set();
                 _cancellationTokenSource?.Cancel();
                 _logger.LogInformation("流程执行停止中...");
             }
@@ -563,7 +564,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     return result;
                 }
 
-                // 验证每个节点
                 foreach (var node in flowViewModel.CommandNodes)
                 {
                     var nodeValidation = ValidateNode(node);
@@ -586,21 +586,23 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         {
             var result = new FlowValidationResult { IsValid = true };
 
-            // 基本验证
             if (string.IsNullOrEmpty(node.DisplayName))
             {
                 result.Warnings.Add($"节点缺少显示名称: {node.NodeId}");
             }
 
-            // 设备命令验证
             if (node.DeviceCommand != null)
             {
                 if (string.IsNullOrEmpty(node.DeviceCommand.Name))
                 {
                     result.Errors.Add($"设备命令缺少名称: {node.NodeId}");
                 }
+                // NEW: 必须绑定设备
+                if (string.IsNullOrEmpty(node.BoundDeviceId))
+                {
+                    result.Errors.Add($"设备命令未绑定设备: {node.DisplayName}");
+                }
             }
-            // 逻辑命令验证
             else if (node.LogicCommand != null)
             {
                 switch (node.LogicCommand.CommandType)
@@ -619,7 +621,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         break;
                 }
 
-                // 递归验证子节点
                 if (node.HasChildren)
                 {
                     foreach (var child in node.Children)
@@ -679,10 +680,10 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             var total = 0;
             foreach (var node in nodes)
             {
-                total++; // 当前节点
+                total++;
                 if (node.HasChildren)
                 {
-                    total += CalculateTotalNodes(node.Children); // 子节点
+                    total += CalculateTotalNodes(node.Children);
                 }
             }
             return total;

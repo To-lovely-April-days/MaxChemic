@@ -11,6 +11,8 @@ using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Logging;
 using static MaxChemical.Modules.Designer.ViewModels.FlowDesignerViewModel;
+using MaxChemical.Modules.Designer.Service.Execution;
+using Prism.Events;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -27,9 +29,9 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly NodeManagementService _nodeManagementService;
         private readonly DesignerDragDropService _dragDropService;
         private readonly DragInsertPositionService _dragInsertService;
-       
+        private readonly ManualCommandExecutor _manualExecutor;
 
-        public FlowDesignerView()
+        public FlowDesignerView(IEventAggregator eventAggregator)
         {
             InitializeComponent();
 
@@ -37,7 +39,8 @@ namespace MaxChemical.Modules.Designer.Views
             _logger = new LogService().ForContext<FlowDesignerView>();
             _nodeManagementService = new NodeManagementService(_logger);
             _dragDropService = new DesignerDragDropService(_logger);
-            _dragInsertService = new DragInsertPositionService(_logger); 
+            _dragInsertService = new DragInsertPositionService(_logger);
+            _manualExecutor = new ManualCommandExecutor(eventAggregator);
             // 初始化防抖定时器
             _sizeChangeDebounceTimer = new System.Windows.Threading.DispatcherTimer
             {
@@ -52,7 +55,35 @@ namespace MaxChemical.Modules.Designer.Views
             _logger.LogDebug("FlowDesignerView 构造函数完成");
             _logger.LogDebug("初始 DataContext: {Type}", DataContext?.GetType().Name ?? "null");
         }
+        private async void DeviceNode_RunClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is CommandNode node)
+            {
+                try
+                {
+                    await _manualExecutor.StartAsync(node);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"执行失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
 
+        private void DeviceNode_StopClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is CommandNode node)
+            {
+                try
+                {
+                    _manualExecutor.Stop(node.NodeId);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"停止失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
         private void FlowDesignerView_Loaded(object sender, RoutedEventArgs e)
         {
             _logger.LogDebug("FlowDesignerView_Loaded 被调用");
@@ -313,7 +344,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
 
-    
+
 
         private double GetNodeWidth(CommandNode node)
         {
@@ -475,7 +506,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             return false;
         }
-     
+
 
         private bool IsClickFromNestedNode(object originalSource, CommandNode parentNode)
         {
@@ -568,7 +599,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _nodeManagementService.ClearAllSelections(viewModel);
                 node.IsSelected = true;
                 ScrollToNodeSmooth(node);
-
+                viewModel.NodeClickCommand?.Execute(node);
                 _logger.LogDebug("已选中命令节点: {NodeName}", node.DisplayName);
             }
         }

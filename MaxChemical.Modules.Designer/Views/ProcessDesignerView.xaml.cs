@@ -16,6 +16,7 @@ using System.Windows.Media.Imaging;
 using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Commands;
+using System.Windows.Media.Animation;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -34,7 +35,12 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly ICanvasDataService _canvasDataService;
         private readonly ICommandHistory _commandHistory;
         private ProcessDesignerViewModel _viewModel;
+        // A. 设备显示名管理
+        private readonly Dictionary<string, int> _deviceNameCounters = new();      // 基础名 -> 累计序号
+        private readonly Dictionary<string, string> _deviceDisplayNames = new();    // DeviceId -> 显示名（泵#2）
 
+        // B. 执行动画管理
+        private readonly Dictionary<string, Storyboard> _runningAnimations = new();
         #endregion
 
         #region 私有字段 拖拽状态管理
@@ -177,8 +183,123 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 订阅画布操作相关事件
             SubscribeToCanvasEvents();
+            SubscribeToExecutionEvents();
+            SubscribeToDeviceDisplayNameRequest();
+        }
+        private void SubscribeToExecutionEvents()
+        {
+            _eventAggregator?.GetEvent<DeviceExecutionStartedEvent>()?.Subscribe(OnDeviceExecutionStarted, Prism.Events.ThreadOption.UIThread);
+            _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Subscribe(OnDeviceExecutionEnded, Prism.Events.ThreadOption.UIThread);
         }
 
+        private void OnDeviceExecutionStarted(DeviceExecutionEventArgs e)
+        {
+            var element = FindDeviceElementInCanvas(e.DeviceId) as Border;
+            if (element == null) return;
+
+            // 如果已有动画，先停掉
+            if (_runningAnimations.TryGetValue(e.DeviceId, out var prev))
+            {
+                prev.Stop();
+                _runningAnimations.Remove(e.DeviceId);
+            }
+
+            var sb = CreatePulseStoryboard(element);
+            _runningAnimations[e.DeviceId] = sb;
+            sb.Begin();
+        }
+
+        private void OnDeviceExecutionEnded(DeviceExecutionEventArgs e)
+        {
+            if (_runningAnimations.TryGetValue(e.DeviceId, out var sb))
+            {
+                sb.Stop();
+                _runningAnimations.Remove(e.DeviceId);
+            }
+
+            var element = FindDeviceElementInCanvas(e.DeviceId) as Border;
+            if (element == null) return;
+
+            // 成功/失败闪烁一次
+            element.Effect = null;
+            element.BorderThickness = new Thickness(2);
+            element.BorderBrush = e.IsSuccessful ? Brushes.LimeGreen : Brushes.Red;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                element.BorderThickness = new Thickness(0);
+                element.BorderBrush = Brushes.DarkBlue;
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private Storyboard CreatePulseStoryboard(Border element)
+        {
+            var brush = new SolidColorBrush(Colors.Orange);
+            element.BorderBrush = brush;
+            element.BorderThickness = new Thickness(2);
+
+            var colorAnim = new ColorAnimation
+            {
+                From = Colors.Orange,
+                To = Colors.DarkOrange,
+                Duration = TimeSpan.FromMilliseconds(500),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTarget(colorAnim, brush);
+            Storyboard.SetTargetProperty(colorAnim, new PropertyPath(SolidColorBrush.ColorProperty));
+
+            var effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Orange,
+                BlurRadius = 10,
+                ShadowDepth = 0,
+                Opacity = 0.4
+            };
+            element.Effect = effect;
+
+            var opacityAnim = new DoubleAnimation
+            {
+                From = 0.4,
+                To = 0.9,
+                Duration = TimeSpan.FromMilliseconds(500),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTarget(opacityAnim, element);
+            Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("(UIElement.Effect).(DropShadowEffect.Opacity)"));
+
+            var sb = new Storyboard();
+            sb.Children.Add(colorAnim);
+            sb.Children.Add(opacityAnim);
+            return sb;
+        }
+        private void SubscribeToDeviceDisplayNameRequest()
+        {
+            _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Subscribe(OnGetDeviceDisplayNamesRequest);
+        }
+
+        private void OnGetDeviceDisplayNamesRequest(Action<Dictionary<string, string>> callback)
+        {
+            try
+            {
+                // 返回一份拷贝，避免外部修改
+                callback?.Invoke(new Dictionary<string, string>(_deviceDisplayNames));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"返回设备显示名映射失败: {ex.Message}");
+                callback?.Invoke(new Dictionary<string, string>());
+            }
+        }
+        private string GetDisplayNameForNewDevice(IDevice device)
+        {
+            var baseName = string.IsNullOrWhiteSpace(device?.Name) ? "设备" : device.Name.Trim();
+            if (!_deviceNameCounters.TryGetValue(baseName, out var idx)) idx = 0;
+            idx++;
+            _deviceNameCounters[baseName] = idx;
+            return $"{baseName}#{idx}";
+        }
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
             // 清理所有事件订阅
@@ -2090,6 +2211,10 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var adjustedSize = GetAdjustedDeviceSize(canvasDevice.Device, canvasDevice.Width, canvasDevice.Height);
 
+            // NEW: 生成并缓存显示名（如 泵#2）
+            var displayName = GetDisplayNameForNewDevice(canvasDevice.Device);
+            _deviceDisplayNames[canvasDevice.DeviceId] = displayName;
+
             var deviceControl = new Border
             {
                 Width = adjustedSize.Width,
@@ -2104,8 +2229,8 @@ namespace MaxChemical.Modules.Designer.Views
                 AllowDrop = false
             };
 
-            // 创建设备内容
-            deviceControl.Child = CreateDeviceContent(canvasDevice, adjustedSize);
+            // NEW: 传 displayName，而不是 device.Name
+            deviceControl.Child = CreateDeviceContent(canvasDevice, adjustedSize, displayName);
 
             return deviceControl;
         }
@@ -2113,16 +2238,16 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 创建设备内容
         /// </summary>
-        private DockPanel CreateDeviceContent(CanvasDeviceViewModel canvasDevice, Size adjustedSize)
+        private DockPanel CreateDeviceContent(CanvasDeviceViewModel canvasDevice, Size adjustedSize, string displayName)
         {
             var mainPanel = new DockPanel { LastChildFill = true };
 
-            // 添加设备名称
-            var nameText = CreateDeviceNameText(canvasDevice.Device.Name);
+            // 设备名称（使用画布显示名）
+            var nameText = CreateDeviceNameText(displayName);
             DockPanel.SetDock(nameText, Dock.Bottom);
             mainPanel.Children.Add(nameText);
 
-            // 添加设备图标
+            // 设备图标
             var iconElement = CreateDeviceIcon(canvasDevice.Device, adjustedSize.Width - 4, adjustedSize.Height - 24);
             mainPanel.Children.Add(iconElement);
 
@@ -2639,6 +2764,8 @@ namespace MaxChemical.Modules.Designer.Views
                     // 从画布移除
                     DesignCanvas.Children.Remove(elementToRemove);
                     Debug.WriteLine($"设备 {deviceId} 的视觉元素已移除");
+                    //从映射移除：
+                    _deviceDisplayNames.Remove(deviceId);
                 }
                 else
                 {
@@ -3025,7 +3152,8 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 强制更新布局
                 DesignCanvas.UpdateLayout();
-
+                _deviceNameCounters.Clear();
+                _deviceDisplayNames.Clear();
                 Debug.WriteLine("画布清空完成");
             }
             catch (Exception ex)

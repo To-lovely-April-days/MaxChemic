@@ -43,9 +43,9 @@ namespace PeristalticPumps_CY
                        new NumberParameter("Speed", 0, 10000, 25000, "Target Speed in Rpm")
                     }
                 },
-                Action = delegate (DeviceParameters p)
+                Action = delegate (DeviceParameters parameters)
                 {
-                    double Speed = Parameters.GetValue<double>("Speed");
+                    double Speed = parameters.GetValue<double>("Speed");
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;
                     while ((DateTime.Now - startTime).TotalSeconds < 3)
@@ -83,9 +83,9 @@ namespace PeristalticPumps_CY
                        new NumberParameter("Speed", 0, 10000, 25000, "Target Speed in Rpm")
                     }
                 },
-                Action = delegate (DeviceParameters p)
+                Action = delegate (DeviceParameters parameters)
                 {
-                    double Speed = Parameters.GetValue<double>("Speed");
+                    double Speed = parameters.GetValue<double>("Speed");
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;
                     while ((DateTime.Now - startTime).TotalSeconds < 3)
@@ -123,9 +123,9 @@ namespace PeristalticPumps_CY
                        new NumberParameter("Speed", 0, 10000, 25000, "Target Speed in Rpm")
                     }
                 },
-                Action = delegate (DeviceParameters p)
+                Action = delegate (DeviceParameters parameters)
                 {
-                    double Speed = Parameters.GetValue<double>("Speed");
+                    double Speed = parameters.GetValue<double>("Speed");
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;
                     while ((DateTime.Now - startTime).TotalSeconds < 3)
@@ -163,9 +163,9 @@ namespace PeristalticPumps_CY
                        new NumberParameter("Speed", 0, 10000, 25000, "Target Speed in Rpm")
                     }
                 },
-                Action = delegate (DeviceParameters p)
+                Action = delegate (DeviceParameters parameters)
                 {
-                    double Speed = Parameters.GetValue<double>("Speed");
+                    double Speed = parameters.GetValue<double>("Speed");
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;
                     while ((DateTime.Now - startTime).TotalSeconds < 3)
@@ -196,7 +196,7 @@ namespace PeristalticPumps_CY
                 Name = "关闭",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/off.png",
                 HelpText = "执行此命令可以关闭蠕动泵",
-                Action = delegate (DeviceParameters p)
+                Action = delegate (DeviceParameters parameters)
                 {
                     var basevalue = Tuple.Create("1", "2", "3", "4", "5", "6", "7");
                     DateTime startTime = DateTime.Now;

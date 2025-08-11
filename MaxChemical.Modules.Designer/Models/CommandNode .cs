@@ -247,7 +247,7 @@ namespace MaxChemical.Modules.Designer.Models
             (LogicCommand.CommandType.ToString().Equals("SetVariable", StringComparison.OrdinalIgnoreCase) ||
              LogicCommand.CommandType.ToString().Equals("Variable", StringComparison.OrdinalIgnoreCase) ||
              LogicCommand.CommandType.ToString().Equals("VariableSet", StringComparison.OrdinalIgnoreCase));
-        
+
         /// <summary>
         /// 是否为复杂节点（需要特殊布局处理的节点）
         /// </summary>
@@ -405,7 +405,64 @@ namespace MaxChemical.Modules.Designer.Models
                 };
             }
         }
+        private string _boundDeviceId;
+        private string _boundDeviceName;
+        private string _parameterSummary;
+        private bool _isManualExecuting;
 
+        // 绑定到画布上的设备实例
+        public string BoundDeviceId
+        {
+            get => _boundDeviceId;
+            set
+            {
+                if (SetProperty(ref _boundDeviceId, value))
+                {
+                    RaisePropertyChanged(nameof(HasDeviceBinding));
+                    RaisePropertyChanged(nameof(NeedsBinding));
+                }
+            }
+        }
+
+        // 画布显示名（建议与画布显示一致，如 泵#2）
+        public string BoundDeviceName
+        {
+            get => _boundDeviceName;
+            set => SetProperty(ref _boundDeviceName, value);
+        }
+
+        public bool HasDeviceBinding => !string.IsNullOrEmpty(BoundDeviceId);
+
+        // 小黄点显示用：设备命令且未绑定时为 true
+        public bool NeedsBinding => DeviceCommand != null && string.IsNullOrEmpty(BoundDeviceId);
+
+        // 参数摘要（显示在节点 UI 上）
+        public string ParameterSummary
+        {
+            get => _parameterSummary;
+            set => SetProperty(ref _parameterSummary, value);
+        }
+
+        public void RebuildParameterSummary()
+        {
+            if (DeviceCommand?.InputParameters?.Variables == null || DeviceCommand.InputParameters.Variables.Count == 0)
+            {
+                ParameterSummary = string.Empty;
+                return;
+            }
+
+            var kv = DeviceCommand.InputParameters.Variables
+                .Select(v => $"{v.Name}={v.Value}")
+                .ToArray();
+            ParameterSummary = string.Join(", ", kv);
+        }
+
+        // 手动执行状态（节点UI按钮启用/禁用）
+        public bool IsManualExecuting
+        {
+            get => _isManualExecuting;
+            set => SetProperty(ref _isManualExecuting, value);
+        }
         #endregion
 
         #region 执行属性管理
