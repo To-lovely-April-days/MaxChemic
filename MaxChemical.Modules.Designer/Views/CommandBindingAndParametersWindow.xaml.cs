@@ -1,8 +1,10 @@
 ﻿using MaxChemical.Modules.Designer.Models;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -55,7 +57,7 @@ namespace MaxChemical.Modules.Designer.Views
             var defs = _node.DeviceCommand?.InputParameters?.Variables;
             if (defs != null)
             {
-                var overrides = _node.ParameterOverrides?.ToDictionary(kv => kv.Key, kv => kv.Value)
+                var overrides = _node.ParameterOverrides?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
                                 ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var d in defs)
@@ -73,6 +75,7 @@ namespace MaxChemical.Modules.Designer.Views
             if (items.Count == 0)
                 ParamsPanel.Visibility = Visibility.Collapsed;
         }
+
         private static string ToInvariantString(object value)
         {
             if (value == null) return string.Empty;
@@ -80,6 +83,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ? f.ToString(null, CultureInfo.InvariantCulture)
                 : value.ToString();
         }
+
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
             var selectedId = DeviceCombo.SelectedValue as string;
@@ -98,12 +102,11 @@ namespace MaxChemical.Modules.Designer.Views
                     : selectedId;
 
                 // 收集参数覆盖值并保存到节点
-                var map = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+                var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 if (ParamsItems.ItemsSource is IEnumerable<ParamItem> list)
                 {
                     foreach (var item in list)
                     {
-                        // 只存“与默认不同”不是必须；这里统一存值，简单可靠
                         map[item.Name] = item.Value;
                     }
                 }
@@ -120,6 +123,15 @@ namespace MaxChemical.Modules.Designer.Views
             Close();
         }
 
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // 支持拖动窗口
+            if (e.ButtonState == MouseButtonState.Pressed)
+            {
+                try { DragMove(); } catch { /* ignore */ }
+            }
+        }
+
         // 你现在要用的方式：带节点，返回是否保存成功
         public static bool ShowForNode(Window owner, CommandNode node, IEnumerable<DeviceOption> options, Dictionary<string, string> displayNames)
         {
@@ -133,8 +145,8 @@ namespace MaxChemical.Modules.Designer.Views
             var win = new CommandBindingAndParametersWindow(null, options, new Dictionary<string, string>())
             {
                 Owner = owner,
-                Title = title
             };
+            win.TitleText.Text = title;
             var result = win.ShowDialog();
             return result == true ? (win.DeviceCombo.SelectedValue as string) : null;
         }

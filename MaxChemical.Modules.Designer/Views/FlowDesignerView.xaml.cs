@@ -405,6 +405,25 @@ namespace MaxChemical.Modules.Designer.Views
         #endregion
 
         #region 节点选择和点击处理
+        // Add this new helper method near your existing IsClickOnInteractiveElement and IsClickOnLogicNodeInteractiveElement
+        private bool IsClickOnDeviceNodeInteractiveElement(MouseButtonEventArgs e)
+        {
+            var element = e.OriginalSource as FrameworkElement;
+
+            while (element != null)
+            {
+                // Check for buttons (execute, stop) or the delete border/button
+                if (element is Button ||
+                    element.Name == "DeleteButton" ||  // Your delete border's name
+                    (element is TextBlock tb && tb.Text == "×"))  // The '×' in delete button
+                {
+                    return true;
+                }
+                element = element.Parent as FrameworkElement;
+            }
+
+            return false;
+        }
         // 设备节点选择点击
         private void DeviceNode_SelectClick(object sender, MouseButtonEventArgs e)
         {
@@ -412,6 +431,13 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
+                // NEW: Skip if click is on interactive elements like buttons or delete
+                if (IsClickOnDeviceNodeInteractiveElement(e))
+                {
+                    _logger.LogTrace("点击在交互元素上（如按钮或删除），跳过弹出窗口");
+                    return;  // Don't trigger popup
+                }
+
                 if (sender is FrameworkElement element && element.DataContext is CommandNode node)
                 {
                     _logger.LogDebug("选择设备节点: {NodeName}", node.DisplayName);

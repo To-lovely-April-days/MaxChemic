@@ -90,6 +90,8 @@ namespace MaxChemical.Modules.Designer.Services
                         if (deleteButton != null)
                         {
                             deleteHandler.Invoke(node);
+                            e.Handled = true;
+                            return;
                         }
                     }
 
