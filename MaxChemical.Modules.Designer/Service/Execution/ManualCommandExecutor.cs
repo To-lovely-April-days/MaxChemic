@@ -97,7 +97,7 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                     _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
                     {
                         NodeId = node.NodeId,
-                        DeviceName = target.Name,
+                        DeviceName = node.BoundDeviceName,
                         CommandName = cmd.Name,
                         OutputParameters = outputParams
                     });

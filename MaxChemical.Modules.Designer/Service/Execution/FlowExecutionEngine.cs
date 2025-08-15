@@ -438,7 +438,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             // 记录开始日志
             _logger.LogInformation(
                 "执行设备命令开始: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} Params={Params}",
-                node.DisplayName, node.NodeId, node.BoundDeviceId, targetDevice.Name, targetCmd.Name, FormatParameters(inputParameters));
+                node.DisplayName, node.NodeId, node.BoundDeviceId, node.BoundDeviceName, targetCmd.Name, FormatParameters(inputParameters));
 
             var sw = Stopwatch.StartNew();
             try
@@ -462,7 +462,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
                 {
                     NodeId = node.NodeId,
-                    DeviceName = targetDevice.Name,
+                    DeviceName = node.BoundDeviceName,
                     CommandName = targetCmd.Name,
                     OutputParameters = resultParams
                 });

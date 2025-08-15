@@ -10,6 +10,7 @@ using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using Prism.Events;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -25,11 +26,7 @@ namespace MaxChemical.Modules.Designer.Views
             Loaded += OnLoaded;
         }
 
-        // 可选：DI
-        public LoopCommandPropertiesView(IEventAggregator eventAggregator) : this()
-        {
-            _eventAggregator = eventAggregator;
-        }
+    
 
         private CommandNode CurrentNode => DataContext as CommandNode;
 
@@ -400,7 +397,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var flowVM = FindFlowViewModel();
                 IEnumerable<CommandNode> allNodes = flowVM?.CommandNodes;
-
+                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
                 var variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
                 variableWindow.Owner = Window.GetWindow(this);
                 variableWindow.Title = "选择左操作数变量";
@@ -423,7 +420,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var flowVM = FindFlowViewModel();
                 IEnumerable<CommandNode> allNodes = flowVM?.CommandNodes;
-
+                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
                 var variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
                 variableWindow.Owner = Window.GetWindow(this);
                 variableWindow.Title = "选择右操作数变量";

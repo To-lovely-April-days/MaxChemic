@@ -9,6 +9,7 @@ using System.Windows.Media;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using Prism.Events;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -23,12 +24,7 @@ namespace MaxChemical.Modules.Designer.Views
             this.Loaded += OnLoaded;
            
         }
-        // 依赖注入构造函数
-        public IfCommandPropertiesView(IEventAggregator eventAggregator) : this()
-        {
-            _eventAggregator = eventAggregator;
-
-        }
+     
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             UpdateConditionPreview();
@@ -424,7 +420,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     allNodes = flowViewModel.CommandNodes;
                 }
-
+                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
                 var variableWindow = new VariableManagerWindow( _eventAggregator, allNodes);
                 variableWindow.Owner = Window.GetWindow(this);
 
@@ -453,7 +449,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     allNodes = flowViewModel.CommandNodes;
                 }
-
+                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
                 // 打开变量管理窗口
                 var variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
                 variableWindow.Owner = Window.GetWindow(this);
