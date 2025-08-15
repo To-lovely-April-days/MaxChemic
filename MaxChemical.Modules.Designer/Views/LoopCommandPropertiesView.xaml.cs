@@ -19,14 +19,16 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly ILogService _logger = new LogService().ForContext<LoopCommandPropertiesView>();
         private IEventAggregator _eventAggregator;
 
+        // 添加变量管理器窗口管理
+        private static VariableManagerWindow _sharedVariableWindow;
+        private static readonly object _windowLock = new object();
+
         public LoopCommandPropertiesView()
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
             Loaded += OnLoaded;
         }
-
-    
 
         private CommandNode CurrentNode => DataContext as CommandNode;
 
@@ -143,7 +145,6 @@ namespace MaxChemical.Modules.Designer.Views
             view.RefreshLoopNodeDisplay();
         }
 
-        // 新增：WaitTime 属性
         public static readonly DependencyProperty WaitTimeProperty =
             DependencyProperty.Register(nameof(WaitTime), typeof(int), typeof(LoopCommandPropertiesView),
                 new PropertyMetadata(10, OnWaitTimeChanged, CoerceWaitTime));
@@ -178,7 +179,6 @@ namespace MaxChemical.Modules.Designer.Views
             set => SetValue(ConditionPreviewTextProperty, value);
         }
 
-        // 新增：LoopSummaryText 属性
         public static readonly DependencyProperty LoopSummaryTextProperty =
             DependencyProperty.Register(nameof(LoopSummaryText), typeof(string), typeof(LoopCommandPropertiesView),
                 new PropertyMetadata(string.Empty));
@@ -188,9 +188,11 @@ namespace MaxChemical.Modules.Designer.Views
             get => (string)GetValue(LoopSummaryTextProperty);
             set => SetValue(LoopSummaryTextProperty, value);
         }
+
         public static readonly DependencyProperty IsDoWhileProperty =
-       DependencyProperty.Register(nameof(IsDoWhile), typeof(bool), typeof(LoopCommandPropertiesView),
-           new PropertyMetadata(false, OnIsDoWhileChanged));
+            DependencyProperty.Register(nameof(IsDoWhile), typeof(bool), typeof(LoopCommandPropertiesView),
+                new PropertyMetadata(false, OnIsDoWhileChanged));
+
         public bool IsDoWhile
         {
             get => (bool)GetValue(IsDoWhileProperty);
@@ -205,6 +207,7 @@ namespace MaxChemical.Modules.Designer.Views
             view.UpdateLoopSummaryText();
             view.RefreshLoopNodeDisplay();
         }
+
         #endregion
 
         #region 生命周期
@@ -232,7 +235,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                 var p = node.LogicCommand.Properties;
 
-                // 确保存在默认键
                 if (!p.ContainsKey("LoopType")) p["LoopType"] = LoopType.FixedCount;
                 if (!p.ContainsKey("LoopCount")) p["LoopCount"] = 3;
                 if (!p.ContainsKey("LeftOperand")) p["LeftOperand"] = "A";
@@ -240,9 +242,8 @@ namespace MaxChemical.Modules.Designer.Views
                 if (!p.ContainsKey("RightOperand")) p["RightOperand"] = "B";
                 if (!p.ContainsKey("Description")) p["Description"] = "循环执行";
                 if (!p.ContainsKey("WaitTime")) p["WaitTime"] = 10;
-                if (!p.ContainsKey("IsDoWhile")) p["IsDoWhile"] = false; // 新增
+                if (!p.ContainsKey("IsDoWhile")) p["IsDoWhile"] = false;
 
-                // 规范化 LoopType、Operator（兼容历史字符串/数字）
                 LoopTypeNormalized = ReadLoopType(p["LoopType"]);
                 OperatorNormalized = ReadOperator(p["Operator"]);
 
@@ -251,7 +252,7 @@ namespace MaxChemical.Modules.Designer.Views
                 RightOperand = p["RightOperand"]?.ToString() ?? "B";
                 Description = p["Description"]?.ToString() ?? "循环执行";
                 WaitTime = SafeToInt(p["WaitTime"], 10);
-                IsDoWhile = SafeToBool(p["IsDoWhile"], false); // 新增
+                IsDoWhile = SafeToBool(p["IsDoWhile"], false);
 
                 UpdateConditionPreviewText();
                 UpdateLoopSummaryText();
@@ -269,11 +270,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var node = CurrentNode;
                 if (node?.LogicCommand?.Properties == null) return;
 
-                // 将规范化值写回字典
                 node.LogicCommand.Properties[key] = value ?? "";
-
-                // 可选：这里如果 LogicCommand 实现了 INotifyPropertyChanged，可触发通知；
-                // 如果没有，下面的 RefreshLoopNodeDisplay 已经做了兜底刷新。
             }
             catch (Exception ex)
             {
@@ -313,7 +310,6 @@ namespace MaxChemical.Modules.Designer.Views
 
             ConditionPreviewText = description;
 
-            // 同时生成一个可执行的条件字符串（如引擎需要）
             var node = CurrentNode;
             if (node?.LogicCommand?.Properties != null)
             {
@@ -333,8 +329,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-
-        // 新增：更新循环摘要信息
         private void UpdateLoopSummaryText()
         {
             string summary = LoopTypeNormalized switch
@@ -357,7 +351,6 @@ namespace MaxChemical.Modules.Designer.Views
                 var node = CurrentNode;
                 if (node == null) return;
 
-                // 1) 如果直接持有控制
                 if (node.NodeControl is LoopNodeControlView loopControl)
                 {
                     var tmp = loopControl.DataContext;
@@ -367,7 +360,6 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
                 }
 
-                // 2) 视觉树查找
                 var mainWindow = Application.Current.MainWindow;
                 foreach (var ctrl in FindVisualChildren<LoopNodeControlView>(mainWindow))
                 {
@@ -393,46 +385,92 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void SelectLeftVariable_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                var flowVM = FindFlowViewModel();
-                IEnumerable<CommandNode> allNodes = flowVM?.CommandNodes;
-                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
-                var variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
-                variableWindow.Owner = Window.GetWindow(this);
-                variableWindow.Title = "选择左操作数变量";
-
-                if (variableWindow.ShowDialog() == true && variableWindow.SelectedVariable != null)
-                {
-                    LeftOperand = variableWindow.SelectedVariable.FullVariableName;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "选择左操作数变量失败");
-                MessageBox.Show("选择变量时发生错误", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            ShowVariableSelector("LeftOperand");
         }
 
         private void SelectRightVariable_Click(object sender, RoutedEventArgs e)
         {
+            ShowVariableSelector("RightOperand");
+        }
+
+        private void ShowVariableSelector(string operandType)
+        {
             try
             {
-                var flowVM = FindFlowViewModel();
-                IEnumerable<CommandNode> allNodes = flowVM?.CommandNodes;
+                var flowViewModel = FindFlowViewModel();
+                IEnumerable<CommandNode> allNodes = null;
+
+                if (flowViewModel != null)
+                {
+                    allNodes = flowViewModel.CommandNodes;
+                }
+
                 _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
-                var variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
+
+                VariableManagerWindow variableWindow = null;
+
+                lock (_windowLock)
+                {
+                    if (_sharedVariableWindow != null)
+                    {
+                        try
+                        {
+                            if (_sharedVariableWindow.IsLoaded && !_sharedVariableWindow.IsClosed)
+                            {
+                                variableWindow = _sharedVariableWindow;
+                                variableWindow.RefreshData(allNodes);
+                                variableWindow.WindowState = WindowState.Normal;
+                                variableWindow.Activate();
+                            }
+                            else
+                            {
+                                _sharedVariableWindow = null;
+                            }
+                        }
+                        catch
+                        {
+                            _sharedVariableWindow = null;
+                        }
+                    }
+
+                    if (variableWindow == null)
+                    {
+                        variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
+                        _sharedVariableWindow = variableWindow;
+
+                        variableWindow.Closed += (s, e) =>
+                        {
+                            lock (_windowLock)
+                            {
+                                if (_sharedVariableWindow == s)
+                                {
+                                    _sharedVariableWindow = null;
+                                }
+                            }
+                        };
+                    }
+                }
+
                 variableWindow.Owner = Window.GetWindow(this);
-                variableWindow.Title = "选择右操作数变量";
+                variableWindow.Title = operandType == "LeftOperand" ? "选择左操作数变量" : "选择右操作数变量";
 
                 if (variableWindow.ShowDialog() == true && variableWindow.SelectedVariable != null)
                 {
-                    RightOperand = variableWindow.SelectedVariable.FullVariableName;
+                    var selectedVar = variableWindow.SelectedVariable;
+
+                    if (operandType == "LeftOperand")
+                    {
+                        LeftOperand = selectedVar.FullVariableName;
+                    }
+                    else
+                    {
+                        RightOperand = selectedVar.FullVariableName;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "选择右操作数变量失败");
+                _logger.LogError(ex, "选择变量失败");
                 MessageBox.Show("选择变量时发生错误", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -440,6 +478,7 @@ namespace MaxChemical.Modules.Designer.Views
         #endregion
 
         #region 工具与限制
+
         private static bool SafeToBool(object val, bool @default)
         {
             try
@@ -448,7 +487,6 @@ namespace MaxChemical.Modules.Designer.Views
                 if (val is string s)
                 {
                     if (bool.TryParse(s, out var result)) return result;
-                    // 兼容数字字符串：1 = true, 0 = false
                     if (s == "1") return true;
                     if (s == "0") return false;
                 }
@@ -542,7 +580,6 @@ namespace MaxChemical.Modules.Designer.Views
             if (!NumericRegex.IsMatch(text)) e.CancelCommand();
         }
 
-        // 新增：WaitTime 输入限制
         private void WaitTimeBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
             e.Handled = !NumericRegex.IsMatch(e.Text);

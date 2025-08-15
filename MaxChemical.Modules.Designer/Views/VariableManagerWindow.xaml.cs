@@ -21,21 +21,24 @@ namespace MaxChemical.Modules.Designer.Views
     {
         private ObservableCollection<VariableViewModel> _allVariables;
         private ICollectionView _variablesView;
-        private Dictionary<string, VariableViewModel> _variableMap; // 用于快速查找和更新
+        private Dictionary<string, VariableViewModel> _variableMap;
         private IEnumerable<CommandNode> _allNodes;
         private IEventAggregator _eventAggregator;
         private SubscriptionToken _updateToken;
+        private bool _isSubscribed = false;
+        private bool _isWindowActive = false;
 
         public VariableViewModel SelectedVariable { get; private set; }
+        public bool IsClosed { get; private set; } = false;
 
-        public VariableManagerWindow(IEventAggregator eventAggregator,IEnumerable<CommandNode> allNodes = null )
+        public VariableManagerWindow(IEventAggregator eventAggregator, IEnumerable<CommandNode> allNodes = null)
         {
             InitializeComponent();
 
             _allVariables = new ObservableCollection<VariableViewModel>();
             _variableMap = new Dictionary<string, VariableViewModel>();
             _allNodes = allNodes;
-            _eventAggregator = eventAggregator;
+            _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
 
             LoadVariables(allNodes);
 
@@ -43,11 +46,111 @@ namespace MaxChemical.Modules.Designer.Views
             _variablesView.Filter = FilterVariables;
             VariablesDataGrid.ItemsSource = _variablesView;
 
-            // 订阅执行结果更新事件
-            if (_eventAggregator != null)
+            Loaded += VariableManagerWindow_Loaded;
+            Unloaded += VariableManagerWindow_Unloaded;
+        }
+
+        private void VariableManagerWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            _isWindowActive = true;
+            SubscribeToEvents();
+
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                _updateToken = _eventAggregator.GetEvent<NodeExecutionResultUpdatedEvent>()
-                    .Subscribe(OnNodeExecutionResultUpdated, ThreadOption.UIThread);
+                RefreshVariableValues();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void VariableManagerWindow_Unloaded(object sender, RoutedEventArgs e)
+        {
+            _isWindowActive = false;
+            UnsubscribeFromEvents();
+        }
+
+        private void SubscribeToEvents()
+        {
+            try
+            {
+                UnsubscribeFromEvents();
+
+                if (_eventAggregator != null && _isWindowActive)
+                {
+                    _updateToken = _eventAggregator.GetEvent<NodeExecutionResultUpdatedEvent>()
+                        .Subscribe(OnNodeExecutionResultUpdated, ThreadOption.UIThread, true);
+
+                    _isSubscribed = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 静默处理异常
+            }
+        }
+
+        private void UnsubscribeFromEvents()
+        {
+            try
+            {
+                if (_updateToken != null && _eventAggregator != null && _isSubscribed)
+                {
+                    _eventAggregator.GetEvent<NodeExecutionResultUpdatedEvent>().Unsubscribe(_updateToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 静默处理异常
+            }
+            finally
+            {
+                _updateToken = null;
+                _isSubscribed = false;
+            }
+        }
+
+        protected override void OnActivated(EventArgs e)
+        {
+            base.OnActivated(e);
+
+            if (!_isSubscribed && _isWindowActive)
+            {
+                SubscribeToEvents();
+            }
+
+            RefreshVariableValues();
+        }
+
+        public void ForceRefresh()
+        {
+            try
+            {
+                if (!_isWindowActive) return;
+
+                SubscribeToEvents();
+                RefreshVariableValues();
+                _variablesView?.Refresh();
+            }
+            catch (Exception ex)
+            {
+                // 静默处理异常
+            }
+        }
+
+        public void RefreshData(IEnumerable<CommandNode> allNodes)
+        {
+            try
+            {
+                _allNodes = allNodes;
+                LoadVariables(allNodes);
+                _variablesView?.Refresh();
+
+                if (!_isSubscribed && _isWindowActive)
+                {
+                    SubscribeToEvents();
+                }
+            }
+            catch (Exception ex)
+            {
+                // 静默处理异常
             }
         }
 
@@ -67,48 +170,63 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void OnNodeExecutionResultUpdated(NodeExecutionResultEventArgs args)
         {
-            if (args?.OutputParameters?.Variables == null) return;
-
-            // 更新对应的变量值
-            foreach (var param in args.OutputParameters.Variables)
+            try
             {
-                // 尝试通过NodeId精确匹配
-                if (!string.IsNullOrEmpty(args.NodeId))
+                if (!Dispatcher.CheckAccess())
                 {
-                    string exactKey = $"{args.DeviceName}.{args.CommandName}.{param.Name}.{args.NodeId}";
-                    if (_variableMap.TryGetValue(exactKey, out var exactVariable))
+                    Dispatcher.BeginInvoke(new Action(() => OnNodeExecutionResultUpdated(args)));
+                    return;
+                }
+
+                if (!_isWindowActive || !_isSubscribed) return;
+                if (args?.OutputParameters?.Variables == null) return;
+
+                bool hasUpdates = false;
+
+                foreach (var param in args.OutputParameters.Variables)
+                {
+                    if (!string.IsNullOrEmpty(args.NodeId))
                     {
-                        UpdateVariableValue(exactVariable, param);
-                        continue;
+                        string exactKey = $"{args.DeviceName}.{args.CommandName}.{param.Name}.{args.NodeId}";
+                        if (_variableMap.TryGetValue(exactKey, out var exactVariable))
+                        {
+                            UpdateVariableValue(exactVariable, param);
+                            hasUpdates = true;
+                            continue;
+                        }
                     }
 
+                    string key = $"{args.DeviceName}.{args.CommandName}.{param.Name}";
+                    var matchingVariables = _variableMap.Where(kvp => kvp.Key.StartsWith(key)).ToList();
+
+                    foreach (var kvp in matchingVariables)
+                    {
+                        UpdateVariableValue(kvp.Value, param);
+                        hasUpdates = true;
+                    }
                 }
 
-                // 回退到原来的匹配方式（兼容旧数据）
-                string key = $"{args.DeviceName}.{args.CommandName}.{param.Name}";
-                var matchingVariables = _variableMap.Where(kvp => kvp.Key.StartsWith(key)).ToList();
-
-                foreach (var kvp in matchingVariables)
+                if (hasUpdates)
                 {
-                    UpdateVariableValue(kvp.Value, param);
+                    _variablesView?.Refresh();
                 }
             }
-
-            // 刷新视图
-            _variablesView?.Refresh();
+            catch (Exception ex)
+            {
+                // 静默处理异常
+            }
         }
 
         private void UpdateVariableValue(VariableViewModel variable, ParameterBase param)
         {
-            // 更新变量值
             variable.VariableValue = param.Value;
 
-            // 如果是数值类型，格式化显示
             if (param is NumberParameter numParam && param.Value is double d)
             {
                 variable.VariableValue = Math.Round(d, numParam.DecimalPlaces);
             }
         }
+
         private void LoadVariables(IEnumerable<CommandNode> allNodes)
         {
             if (allNodes == null) return;
@@ -116,13 +234,9 @@ namespace MaxChemical.Modules.Designer.Views
             _allVariables.Clear();
             _variableMap.Clear();
 
-            // 用于去重的字典：Key = "DeviceName.CommandName.VariableName"，Value = 最新的变量信息
             var uniqueVariables = new Dictionary<string, (CommandNode Node, ParameterBase Param, DateTime? LastExecutionTime)>();
-
-            // 递归获取所有节点（包括子节点）
             var allNodesFlattened = GetAllNodesRecursive(allNodes);
 
-            // 遍历所有节点，收集设备命令的输出参数并去重
             foreach (var node in allNodesFlattened)
             {
                 if (node.DeviceCommand != null)
@@ -130,53 +244,43 @@ namespace MaxChemical.Modules.Designer.Views
                     string deviceName = node.DeviceName;
                     string commandName = node.CommandName;
 
-                    // 优先使用执行后的实际输出参数
                     DeviceParameters outputParams = null;
                     DateTime? lastExecutionTime = node.LastExecutionResult?.ExecutionTime;
 
-                    // 1. 首先尝试获取最后执行的输出参数（实际值）
                     if (node.LastOutputParameters?.Variables != null && node.LastOutputParameters.Variables.Count > 0)
                     {
                         outputParams = node.LastOutputParameters;
                     }
-                    // 2. 如果没有执行过，使用预定义的输出参数（默认值）
                     else if (node.DeviceCommand.OutputParameters?.Variables != null && node.DeviceCommand.OutputParameters.Variables.Count > 0)
                     {
                         outputParams = node.DeviceCommand.OutputParameters;
-                        lastExecutionTime = null; // 未执行过的节点没有执行时间
+                        lastExecutionTime = null;
                     }
 
                     if (outputParams?.Variables != null)
                     {
                         foreach (var param in outputParams.Variables)
                         {
-                            // 只处理设置为在变量管理器中可见的参数
                             if (param.IsVisibleInVariableManager)
                             {
                                 string uniqueKey = $"{deviceName}.{commandName}.{param.Name}";
 
-                                // 检查是否已存在相同的变量
                                 if (uniqueVariables.TryGetValue(uniqueKey, out var existing))
                                 {
-                                    // 如果当前节点有更新的执行时间，则替换
                                     bool shouldReplace = false;
 
                                     if (lastExecutionTime.HasValue && !existing.LastExecutionTime.HasValue)
                                     {
-                                        // 当前有执行时间，已存在的没有 -> 替换
                                         shouldReplace = true;
                                     }
                                     else if (lastExecutionTime.HasValue && existing.LastExecutionTime.HasValue)
                                     {
-                                        // 都有执行时间，比较时间 -> 选择更新的
                                         shouldReplace = lastExecutionTime.Value > existing.LastExecutionTime.Value;
                                     }
                                     else if (!lastExecutionTime.HasValue && !existing.LastExecutionTime.HasValue)
                                     {
-                                        // 都没有执行时间，保持第一个（不替换）
                                         shouldReplace = false;
                                     }
-                                    // 如果当前没有执行时间但已存在的有，则不替换
 
                                     if (shouldReplace)
                                     {
@@ -185,7 +289,6 @@ namespace MaxChemical.Modules.Designer.Views
                                 }
                                 else
                                 {
-                                    // 首次遇到该变量，直接添加
                                     uniqueVariables[uniqueKey] = (node, param, lastExecutionTime);
                                 }
                             }
@@ -194,7 +297,6 @@ namespace MaxChemical.Modules.Designer.Views
                 }
             }
 
-            // 将去重后的变量添加到集合中
             foreach (var kvp in uniqueVariables)
             {
                 var (node, param, lastExecutionTime) = kvp.Value;
@@ -203,24 +305,24 @@ namespace MaxChemical.Modules.Designer.Views
 
                 var variable = CreateVariableViewModel(deviceName, commandName, param, false, node.NodeId);
 
-                // 添加额外的状态信息
                 variable.HasExecutionData = lastExecutionTime.HasValue;
                 variable.LastExecutionTime = lastExecutionTime;
 
                 _allVariables.Add(variable);
 
-                // 添加到映射表以便快速更新
-                string mapKey = kvp.Key; // 使用去重的Key
-                _variableMap[mapKey] = variable;
+                string exactKey = $"{deviceName}.{commandName}.{param.Name}.{node.NodeId}";
+                string compatKey = $"{deviceName}.{commandName}.{param.Name}";
+
+                _variableMap[exactKey] = variable;
+                if (!_variableMap.ContainsKey(compatKey))
+                {
+                    _variableMap[compatKey] = variable;
+                }
             }
 
-            // 加载已保存的自定义变量
             LoadCustomVariables();
         }
 
-        /// <summary>
-        /// 递归获取所有节点（包括子节点）
-        /// </summary>
         private IEnumerable<CommandNode> GetAllNodesRecursive(IEnumerable<CommandNode> nodes)
         {
             if (nodes == null) yield break;
@@ -229,7 +331,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 yield return node;
 
-                // 递归获取子节点
                 if (node.HasChildren)
                 {
                     foreach (var child in GetAllNodesRecursive(node.Children))
@@ -240,15 +341,11 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        /// <summary>
-        /// 创建变量视图模型
-        /// </summary>
         private VariableViewModel CreateVariableViewModel(string deviceName, string commandName, ParameterBase param, bool isCustom, string nodeId = null)
         {
             string typeName = GetParameterTypeName(param);
             object value = param.Value;
 
-            // 格式化显示值
             if (param is NumberParameter numParam && value is double d)
             {
                 value = Math.Round(d, numParam.DecimalPlaces);
@@ -266,11 +363,6 @@ namespace MaxChemical.Modules.Designer.Views
             };
         }
 
-
-
-        /// <summary>
-        /// 根据参数对象获取其类型名称
-        /// </summary>
         private string GetParameterTypeName(ParameterBase parameter)
         {
             return parameter switch
@@ -283,9 +375,6 @@ namespace MaxChemical.Modules.Designer.Views
             };
         }
 
-        /// <summary>
-        /// 刷新变量值（可以由外部调用）
-        /// </summary>
         public void RefreshVariableValues()
         {
             if (_allNodes == null) return;
@@ -302,10 +391,8 @@ namespace MaxChemical.Modules.Designer.Views
                         string key = $"{deviceName}.{commandName}.{param.Name}";
                         if (_variableMap.TryGetValue(key, out var variable))
                         {
-                            // 更新变量值
                             variable.VariableValue = param.Value;
 
-                            // 如果是数值类型，格式化显示
                             if (param is NumberParameter numParam && param.Value is double d)
                             {
                                 variable.VariableValue = Math.Round(d, numParam.DecimalPlaces);
@@ -315,13 +402,11 @@ namespace MaxChemical.Modules.Designer.Views
                 }
             }
 
-            // 刷新视图
             _variablesView?.Refresh();
         }
 
         private void LoadCustomVariables()
         {
-            // TODO: 从配置文件或数据库加载自定义变量
             var customVar = new VariableViewModel
             {
                 VariableName = "Counter",
@@ -335,7 +420,6 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void AddVariable_Click(object sender, RoutedEventArgs e)
         {
-            // 添加新的空白变量行
             var newVariable = new VariableViewModel
             {
                 VariableName = $"Variable{_allVariables.Count(v => v.IsCustomVariable) + 1}",
@@ -348,17 +432,15 @@ namespace MaxChemical.Modules.Designer.Views
             _variableMap[$"custom.{newVariable.VariableName}"] = newVariable;
             _variablesView.Refresh();
 
-            // 选中新添加的行并开始编辑
             VariablesDataGrid.SelectedItem = newVariable;
             VariablesDataGrid.ScrollIntoView(newVariable);
 
-            // 延迟执行，确保UI更新完成
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 var row = VariablesDataGrid.ItemContainerGenerator.ContainerFromItem(newVariable) as DataGridRow;
                 if (row != null)
                 {
-                    var cell = GetCell(VariablesDataGrid, row, 2); // 变量名称列
+                    var cell = GetCell(VariablesDataGrid, row, 2);
                     if (cell != null)
                     {
                         cell.Focus();
@@ -434,11 +516,9 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (item is not VariableViewModel variable) return false;
 
-            // 过滤自定义变量
             if (ShowCustomOnlyCheckBox.IsChecked == true && !variable.IsCustomVariable)
                 return false;
 
-            // 搜索过滤
             if (!string.IsNullOrWhiteSpace(SearchBox.Text))
             {
                 var searchText = SearchBox.Text.ToLower();
@@ -492,13 +572,10 @@ namespace MaxChemical.Modules.Designer.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            IsClosed = true;
+            _isWindowActive = false;
+            UnsubscribeFromEvents();
             base.OnClosed(e);
-
-            // 取消订阅
-            if (_updateToken != null && _eventAggregator != null)
-            {
-                _eventAggregator.GetEvent<NodeExecutionResultUpdatedEvent>().Unsubscribe(_updateToken);
-            }
         }
     }
 }

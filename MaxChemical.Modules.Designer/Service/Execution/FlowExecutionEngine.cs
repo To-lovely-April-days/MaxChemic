@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using MaxChemical.Modules.Designer.Service;
+using System.Windows;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -458,14 +459,24 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                 // LastOutputParameters 会通过 setter 自动更新
 
-                // 发布执行结果更新事件
-                _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
+                // 确保在UI线程发布事件
+                if (_eventAggregator != null)
                 {
-                    NodeId = node.NodeId,
-                    DeviceName = node.BoundDeviceName,
-                    CommandName = targetCmd.Name,
-                    OutputParameters = resultParams
-                });
+                    var eventArgs = new NodeExecutionResultEventArgs
+                    {
+                        NodeId = node.NodeId,
+                        DeviceName = node.BoundDeviceName,
+                        CommandName = targetCmd.Name,
+                        OutputParameters = resultParams
+                    };
+
+                    // 使用UI线程发布事件
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        _eventAggregator.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(eventArgs);
+                    }));
+                }
+
 
                 _logger.LogInformation(
                     "执行设备命令完成: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} DurationMs={Duration} Output={Output}",

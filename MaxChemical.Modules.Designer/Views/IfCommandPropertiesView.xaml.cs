@@ -17,14 +17,18 @@ namespace MaxChemical.Modules.Designer.Views
     {
         private CancellationTokenSource _debounceCts;
         private IEventAggregator _eventAggregator;
+
+        // 添加变量管理器窗口管理
+        private static VariableManagerWindow _sharedVariableWindow;
+        private static readonly object _windowLock = new object();
+
         public IfCommandPropertiesView()
         {
             InitializeComponent();
             this.DataContextChanged += OnDataContextChanged;
             this.Loaded += OnLoaded;
-           
         }
-     
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             UpdateConditionPreview();
@@ -32,7 +36,6 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            // 初始化默认值
             if (DataContext is CommandNode node && node.LogicCommand != null)
             {
                 EnsureDefaultValues(node);
@@ -44,7 +47,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (node.LogicCommand?.Properties == null) return;
 
-            // 根据插件的默认值设置
             if (!node.LogicCommand.Properties.ContainsKey("LeftOperand"))
                 node.LogicCommand.Properties["LeftOperand"] = "A";
 
@@ -60,7 +62,6 @@ namespace MaxChemical.Modules.Designer.Views
 
         private async void OnValueChanged(object sender, RoutedEventArgs e)
         {
-            // 防抖处理
             _debounceCts?.Cancel();
             _debounceCts = new CancellationTokenSource();
             var token = _debounceCts.Token;
@@ -82,18 +83,9 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (DataContext is not CommandNode node) return;
 
-            System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] ApplyChanges called for node: {node.DisplayName}");
-
-            // 规范化值
             NormalizeValues(node);
-
-            // 更新条件预览
             UpdateConditionPreview();
-
-            // 生成条件表达式并存储
             GenerateConditionExpression(node);
-
-            // 刷新IF节点控件显示
             RefreshIfNodeDisplay(node);
         }
 
@@ -101,43 +93,31 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 方法1：直接刷新NodeControl（如果存在）
                 if (node.NodeControl is IfNodeControlView ifControl)
                 {
-                    System.Diagnostics.Debug.WriteLine("[IfCommandProperties] Found IfNodeControlView directly, refreshing...");
-
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         ifControl.RefreshConditionDisplay();
                     }), System.Windows.Threading.DispatcherPriority.Render);
-
                     return;
                 }
-
-                // 方法2：通过视觉树查找IfNodeControlView
-                System.Diagnostics.Debug.WriteLine("[IfCommandProperties] NodeControl not found directly, searching visual tree...");
 
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     var ifNodeControl = FindIfNodeControlForNode(node);
                     if (ifNodeControl != null)
                     {
-                        System.Diagnostics.Debug.WriteLine("[IfCommandProperties] Found IfNodeControlView in visual tree, refreshing...");
                         ifNodeControl.RefreshConditionDisplay();
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine("[IfCommandProperties] IfNodeControlView not found in visual tree");
-
-                        // 方法3：重新设置DataContext来触发绑定刷新
                         RefreshViaDataContext(node);
                     }
                 }), System.Windows.Threading.DispatcherPriority.Render);
-
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] RefreshIfNodeDisplay error: {ex.Message}");
+                // 静默处理异常
             }
         }
 
@@ -145,13 +125,11 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 查找包含这个节点的所有控件并刷新它们的DataContext
                 var ifNodeControls = FindAllIfNodeControls();
                 foreach (var control in ifNodeControls)
                 {
                     if (control.DataContext == node)
                     {
-                        System.Diagnostics.Debug.WriteLine("[IfCommandProperties] Refreshing via DataContext reset");
                         var temp = control.DataContext;
                         control.DataContext = null;
                         control.UpdateLayout();
@@ -162,7 +140,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] RefreshViaDataContext error: {ex.Message}");
+                // 静默处理异常
             }
         }
 
@@ -170,7 +148,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 从当前窗口开始查找
                 var mainWindow = Application.Current.MainWindow;
                 if (mainWindow != null)
                 {
@@ -184,7 +161,6 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
 
-                // 如果主窗口没找到，尝试从当前控件的父级查找
                 var parent = FindVisualParent<Window>(this);
                 if (parent != null && parent != mainWindow)
                 {
@@ -200,7 +176,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] FindIfNodeControlForNode error: {ex.Message}");
+                // 静默处理异常
             }
 
             return null;
@@ -212,14 +188,12 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
-                // 从主窗口查找
                 var mainWindow = Application.Current.MainWindow;
                 if (mainWindow != null)
                 {
                     controls.AddRange(FindVisualChildren<IfNodeControlView>(mainWindow));
                 }
 
-                // 从当前窗口查找（如果不同于主窗口）
                 var currentWindow = FindVisualParent<Window>(this);
                 if (currentWindow != null && currentWindow != mainWindow)
                 {
@@ -228,7 +202,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] FindAllIfNodeControls error: {ex.Message}");
+                // 静默处理异常
             }
 
             return controls;
@@ -252,23 +226,17 @@ namespace MaxChemical.Modules.Designer.Views
                     ? node.LogicCommand.Properties["RightOperand"]?.ToString() ?? "B"
                     : "B";
 
-                // 生成条件表达式字符串（用于执行引擎）
                 string condition = GenerateConditionString(leftOperand, operatorStr, rightOperand);
-
-                // 将生成的条件存储到Properties中（执行引擎可能会用到）
                 node.LogicCommand.Properties["Condition"] = condition;
-
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] Generated condition: {condition}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] GenerateConditionExpression error: {ex.Message}");
+                // 静默处理异常
             }
         }
 
         private string GenerateConditionString(string left, string op, string right)
         {
-            // 根据操作符生成条件字符串
             return op switch
             {
                 "Equal" => $"{left} == {right}",
@@ -304,7 +272,6 @@ namespace MaxChemical.Modules.Designer.Views
                     ? node.LogicCommand.Properties["RightOperand"]?.ToString() ?? "B"
                     : "B";
 
-                // 生成预览文本
                 string previewText = GetOperatorDisplay(operatorStr) switch
                 {
                     "等于 (==)" => $"如果 {leftOperand} 等于 {rightOperand}",
@@ -324,8 +291,6 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     ConditionPreview.Text = previewText;
                 }
-
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] Updated condition preview: {previewText}");
             }
             catch (Exception ex)
             {
@@ -333,7 +298,6 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     ConditionPreview.Text = "条件预览生成失败";
                 }
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] UpdateConditionPreview error: {ex.Message}");
             }
         }
 
@@ -361,14 +325,12 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
-                // 确保左操作数不为空
                 if (!node.LogicCommand.Properties.ContainsKey("LeftOperand") ||
                     string.IsNullOrWhiteSpace(node.LogicCommand.Properties["LeftOperand"]?.ToString()))
                 {
                     node.LogicCommand.Properties["LeftOperand"] = "A";
                 }
 
-                // 确保操作符有效
                 var validOperators = new[] {
                     "Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual",
                     "LessThan", "LessThanOrEqual", "Contains", "NotContains",
@@ -388,58 +350,36 @@ namespace MaxChemical.Modules.Designer.Views
                     node.LogicCommand.Properties["Operator"] = "Equal";
                 }
 
-                // 确保右操作数不为空
                 if (!node.LogicCommand.Properties.ContainsKey("RightOperand") ||
                     string.IsNullOrWhiteSpace(node.LogicCommand.Properties["RightOperand"]?.ToString()))
                 {
                     node.LogicCommand.Properties["RightOperand"] = "B";
                 }
 
-                // 确保描述不为空
                 if (!node.LogicCommand.Properties.ContainsKey("Description") ||
                     string.IsNullOrWhiteSpace(node.LogicCommand.Properties["Description"]?.ToString()))
                 {
                     node.LogicCommand.Properties["Description"] = "条件判断";
                 }
-
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] Normalized values - Left: {node.LogicCommand.Properties["LeftOperand"]}, Op: {node.LogicCommand.Properties["Operator"]}, Right: {node.LogicCommand.Properties["RightOperand"]}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[IfCommandProperties] NormalizeValues error: {ex.Message}");
+                // 静默处理异常
             }
         }
+
         private void SelectLeftVariable_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                var flowViewModel = FindFlowViewModel();
-                IEnumerable<CommandNode> allNodes = null;
-
-                if (flowViewModel != null)
-                {
-                    allNodes = flowViewModel.CommandNodes;
-                }
-                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
-                var variableWindow = new VariableManagerWindow( _eventAggregator, allNodes);
-                variableWindow.Owner = Window.GetWindow(this);
-
-                if (variableWindow.ShowDialog() == true && variableWindow.SelectedVariable != null)
-                {
-                    var selectedVar = variableWindow.SelectedVariable;
-                    LeftOperandBox.Text = selectedVar.FullVariableName;
-                    OnValueChanged(LeftOperandBox, null);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"选择变量失败: {ex.Message}");
-                MessageBox.Show("选择变量时发生错误", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            ShowVariableSelector("LeftOperand");
         }
 
         private void SelectRightVariable_Click(object sender, RoutedEventArgs e)
         {
+            ShowVariableSelector("RightOperand");
+        }
+
+        private void ShowVariableSelector(string operandType)
+        {
             try
             {
                 var flowViewModel = FindFlowViewModel();
@@ -449,31 +389,78 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     allNodes = flowViewModel.CommandNodes;
                 }
-                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
-                // 打开变量管理窗口
-                var variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
-                variableWindow.Owner = Window.GetWindow(this);
 
-                // 可以设置窗口标题以区分是选择右操作数
-                variableWindow.Title = "选择右操作数变量";
+                _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+
+                VariableManagerWindow variableWindow = null;
+
+                lock (_windowLock)
+                {
+                    if (_sharedVariableWindow != null)
+                    {
+                        try
+                        {
+                            if (_sharedVariableWindow.IsLoaded && !_sharedVariableWindow.IsClosed)
+                            {
+                                variableWindow = _sharedVariableWindow;
+                                variableWindow.RefreshData(allNodes);
+                                variableWindow.WindowState = WindowState.Normal;
+                                variableWindow.Activate();
+                            }
+                            else
+                            {
+                                _sharedVariableWindow = null;
+                            }
+                        }
+                        catch
+                        {
+                            _sharedVariableWindow = null;
+                        }
+                    }
+
+                    if (variableWindow == null)
+                    {
+                        variableWindow = new VariableManagerWindow(_eventAggregator, allNodes);
+                        _sharedVariableWindow = variableWindow;
+
+                        variableWindow.Closed += (s, e) =>
+                        {
+                            lock (_windowLock)
+                            {
+                                if (_sharedVariableWindow == s)
+                                {
+                                    _sharedVariableWindow = null;
+                                }
+                            }
+                        };
+                    }
+                }
+
+                variableWindow.Owner = Window.GetWindow(this);
+                variableWindow.Title = operandType == "LeftOperand" ? "选择左操作数变量" : "选择右操作数变量";
 
                 if (variableWindow.ShowDialog() == true && variableWindow.SelectedVariable != null)
                 {
                     var selectedVar = variableWindow.SelectedVariable;
 
-                    // 设置右操作数的值
-                    RightOperandBox.Text = selectedVar.FullVariableName;
-
-                    // 触发值变更事件
-                    OnValueChanged(RightOperandBox, null);
+                    if (operandType == "LeftOperand")
+                    {
+                        LeftOperandBox.Text = selectedVar.FullVariableName;
+                        OnValueChanged(LeftOperandBox, null);
+                    }
+                    else
+                    {
+                        RightOperandBox.Text = selectedVar.FullVariableName;
+                        OnValueChanged(RightOperandBox, null);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"选择右操作数变量失败: {ex.Message}");
                 MessageBox.Show("选择变量时发生错误", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
         private FlowDesignerViewModel FindFlowViewModel()
         {
             DependencyObject parent = this;
@@ -486,7 +473,6 @@ namespace MaxChemical.Modules.Designer.Views
             return null;
         }
 
-        // 辅助方法：查找视觉树中的子元素
         private static IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
         {
             if (depObj != null)
@@ -507,7 +493,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        // 辅助方法：查找视觉树中的父元素
         private static T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
             DependencyObject parentObject = VisualTreeHelper.GetParent(child);

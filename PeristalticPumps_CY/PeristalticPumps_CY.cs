@@ -25,11 +25,21 @@ namespace PeristalticPumps_CY
         private double _currentPressure = 0;
         private double _currentTemperature = 25.0;
         private DateTime _startTime;
-        private Random _random = new Random();
+        private double _totalVolume = 0;
+        private readonly object _stateLock = new object();
+
+        // 高质量随机数生成器 - 线程安全
+        private static readonly ThreadLocal<Random> ThreadLocalRandom = new ThreadLocal<Random>(
+            () => new Random(Guid.NewGuid().GetHashCode()));
+
+        // 状态变化模拟器
+        private readonly SimulationEngine _simulationEngine;
 
         public PeristalticPumps_CY()
         {
             _logger = LogManager.GetLogger<PeristalticPumps_CY>();
+            _simulationEngine = new SimulationEngine();
+
             Name = "YT600-1J";
             Manufacturer = "蠕动泵_YT600-1J＆KZ35-13-A";
             Category = DeviceCategories.Pumps;
@@ -83,7 +93,7 @@ namespace PeristalticPumps_CY
                         },
                         new NumberParameter("Temperature", -50, 200, 0, "当前温度")
                         {
-                            IsVisibleInVariableManager = true  // 温度值需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Unit", "℃", "温度单位")
                         {
@@ -95,7 +105,7 @@ namespace PeristalticPumps_CY
                         },
                         new BooleanParameter("IsWarning", false, "是否超温警告")
                         {
-                            IsVisibleInVariableManager = true  // 警告状态需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Message", "", "附加信息")
                         {
@@ -105,22 +115,14 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取温度值", async delegate (DeviceParameters parameters)
                 {
-                    // 模拟执行时间 200-500ms
-                    await Task.Delay(_random.Next(200, 500));
+                    await Task.Delay(ThreadLocalRandom.Value.Next(200, 500));
 
                     bool useCalibration = parameters.GetValue<bool>("UseCalibration");
                     double offset = parameters.GetValue<double>("Offset");
 
-                    // 模拟温度变化（如果泵在运行，温度会上升）
-                    if (_isRunning)
+                    lock (_stateLock)
                     {
-                        _currentTemperature += _random.NextDouble() * 0.5;
-                        _currentTemperature = Math.Min(_currentTemperature, 85); // 最高85度
-                    }
-                    else
-                    {
-                        _currentTemperature -= _random.NextDouble() * 0.2;
-                        _currentTemperature = Math.Max(_currentTemperature, 20); // 最低20度
+                        _currentTemperature = _simulationEngine.UpdateTemperature(_currentTemperature, _isRunning);
                     }
 
                     double finalTemp = useCalibration ? _currentTemperature + offset : _currentTemperature;
@@ -165,7 +167,7 @@ namespace PeristalticPumps_CY
                         },
                         new NumberParameter("FlowRate", 0, 1000, 0, "当前流量")
                         {
-                            IsVisibleInVariableManager = true  // 流量值需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Unit", "mL/min", "流量单位")
                         {
@@ -173,11 +175,11 @@ namespace PeristalticPumps_CY
                         },
                         new NumberParameter("TotalVolume", 0, 999999, 0, "累计流量(mL)")
                         {
-                            IsVisibleInVariableManager = true  // 累计流量需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new NumberParameter("CurrentSpeed", 0, 10000, 0, "当前转速(RPM)")
                         {
-                            IsVisibleInVariableManager = true  // 转速需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Timestamp", "", "采集时间")
                         {
@@ -187,21 +189,32 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取流量值", async delegate (DeviceParameters parameters)
                 {
-                    // 模拟执行时间 300-600ms
-                    await Task.Delay(_random.Next(300, 600));
+                    await Task.Delay(ThreadLocalRandom.Value.Next(300, 600));
 
                     var unit = parameters.GetValue<FlowRateUnit>("Unit");
                     double avgTime = parameters.GetValue<double>("AveragingTime");
 
-                    // 模拟流量计算（基于转速）
-                    _currentFlowRate = _isRunning ? _currentSpeed * 0.1 + _random.NextDouble() * 5 : 0;
+                    double currentFlowRate;
+                    double totalVolume;
+                    double currentSpeed;
+
+                    lock (_stateLock)
+                    {
+                        var flowData = _simulationEngine.UpdateFlowRate(_currentSpeed, _isRunning, _startTime);
+                        _currentFlowRate = flowData.FlowRate;
+                        _totalVolume = flowData.TotalVolume;
+
+                        currentFlowRate = _currentFlowRate;
+                        totalVolume = _totalVolume;
+                        currentSpeed = _currentSpeed;
+                    }
 
                     // 单位转换
                     double displayFlowRate = unit switch
                     {
-                        FlowRateUnit.LPerMin => _currentFlowRate / 1000,
-                        FlowRateUnit.MLPerSec => _currentFlowRate / 60,
-                        _ => _currentFlowRate
+                        FlowRateUnit.LPerMin => currentFlowRate / 1000,
+                        FlowRateUnit.MLPerSec => currentFlowRate / 60,
+                        _ => currentFlowRate
                     };
 
                     string unitStr = unit switch
@@ -211,14 +224,6 @@ namespace PeristalticPumps_CY
                         _ => "mL/min"
                     };
 
-                    // 计算累计流量
-                    double totalVolume = 0;
-                    if (_isRunning)
-                    {
-                        TimeSpan runTime = DateTime.Now - _startTime;
-                        totalVolume = _currentFlowRate * runTime.TotalMinutes;
-                    }
-
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
@@ -227,7 +232,7 @@ namespace PeristalticPumps_CY
                             new NumberParameter("FlowRate", 0, 1000, Math.Round(displayFlowRate, 3), "当前流量") { IsVisibleInVariableManager = true },
                             new StringParameter("Unit", unitStr, "") { IsVisibleInVariableManager = false },
                             new NumberParameter("TotalVolume", 0, 999999, Math.Round(totalVolume, 2), "累计流量(mL)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentSpeed", 0, 10000, _currentSpeed, "当前转速(RPM)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentSpeed", 0, 10000, Math.Round(currentSpeed, 1), "当前转速(RPM)") { IsVisibleInVariableManager = true },
                             new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false }
                         }
                     };
@@ -258,7 +263,7 @@ namespace PeristalticPumps_CY
                         },
                         new NumberParameter("Pressure", -100, 1000, 0, "当前压力")
                         {
-                            IsVisibleInVariableManager = true  // 压力值需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Unit", "kPa", "压力单位")
                         {
@@ -266,15 +271,15 @@ namespace PeristalticPumps_CY
                         },
                         new NumberParameter("MaxPressure", 0, 1000, 0, "最大压力记录")
                         {
-                            IsVisibleInVariableManager = false  // 记录值不需要显示
+                            IsVisibleInVariableManager = false
                         },
                         new NumberParameter("MinPressure", 0, 1000, 0, "最小压力记录")
                         {
-                            IsVisibleInVariableManager = false  // 记录值不需要显示
+                            IsVisibleInVariableManager = false
                         },
                         new BooleanParameter("IsOverPressure", false, "是否超压")
                         {
-                            IsVisibleInVariableManager = true  // 超压警告需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Timestamp", "", "采集时间")
                         {
@@ -284,33 +289,29 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取压力值", async delegate (DeviceParameters parameters)
                 {
-                    // 模拟执行时间 250-550ms
-                    await Task.Delay(_random.Next(250, 550));
+                    await Task.Delay(ThreadLocalRandom.Value.Next(250, 550));
 
                     var unit = parameters.GetValue<PressureUnit>("Unit");
                     bool isRelative = parameters.GetValue<bool>("RelativePressure");
 
-                    // 模拟压力（基于流量和运行状态）
-                    if (_isRunning)
+                    double currentPressure;
+                    lock (_stateLock)
                     {
-                        _currentPressure = 100 + _currentFlowRate * 0.5 + _random.NextDouble() * 20;
-                    }
-                    else
-                    {
-                        _currentPressure = isRelative ? 0 : 101.325; // 大气压
+                        _currentPressure = _simulationEngine.UpdatePressure(_currentFlowRate, _isRunning, isRelative);
+                        currentPressure = _currentPressure;
                     }
 
                     // 单位转换
                     double displayPressure = unit switch
                     {
-                        PressureUnit.Bar => _currentPressure / 100,
-                        PressureUnit.PSI => _currentPressure * 0.145038,
-                        PressureUnit.MPa => _currentPressure / 1000,
-                        _ => _currentPressure
+                        PressureUnit.Bar => currentPressure / 100,
+                        PressureUnit.PSI => currentPressure * 0.145038,
+                        PressureUnit.MPa => currentPressure / 1000,
+                        _ => currentPressure
                     };
 
                     string unitStr = unit.ToString();
-                    bool isOverPressure = _currentPressure > 500;
+                    bool isOverPressure = currentPressure > 500;
 
                     return new DeviceParameters
                     {
@@ -354,11 +355,11 @@ namespace PeristalticPumps_CY
                         },
                         new BooleanParameter("IsRunning", false, "运行状态")
                         {
-                            IsVisibleInVariableManager = true  // 运行状态需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new NumberParameter("ActualSpeed", 0, 10000, 0, "实际转速(RPM)")
                         {
-                            IsVisibleInVariableManager = true  // 实际转速需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Direction", "Forward", "运行方向")
                         {
@@ -381,24 +382,28 @@ namespace PeristalticPumps_CY
                     var direction = parameters.GetValue<PumpDirection>("Direction");
                     bool pulseFree = parameters.GetValue<bool>("EnablePulseFree");
 
-                    // 模拟加速过程，执行时间与加速时间相关
-                    int simulatedRampTime = Math.Min((int)(rampTime * 1000), 5000); // 最多5秒
+                    int simulatedRampTime = Math.Min((int)(rampTime * 1000), 5000);
                     await Task.Delay(simulatedRampTime);
 
-                    _isRunning = true;
-                    _currentSpeed = targetSpeed;
-                    _startTime = DateTime.Now;
+                    double actualSpeed;
+                    lock (_stateLock)
+                    {
+                        _isRunning = true;
+                        _currentSpeed = targetSpeed;
+                        _startTime = DateTime.Now;
+                        _totalVolume = 0; // 重置累计流量
 
-                    // 添加一些随机偏差
-                    double actualSpeed = targetSpeed + (_random.NextDouble() - 0.5) * 10;
+                        actualSpeed = _simulationEngine.GetActualSpeed(targetSpeed);
+                        _currentSpeed = actualSpeed;
+                    }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new BooleanParameter("IsRunning", _isRunning, "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("ActualSpeed", 0, 10000, actualSpeed, "实际转速(RPM)") { IsVisibleInVariableManager = true },
+                            new BooleanParameter("IsRunning", true, "") { IsVisibleInVariableManager = true },
+                            new NumberParameter("ActualSpeed", 0, 10000, Math.Round(actualSpeed, 1), "实际转速(RPM)") { IsVisibleInVariableManager = true },
                             new StringParameter("Direction", direction.ToString(), "") { IsVisibleInVariableManager = false },
                             new StringParameter("StartTime", _startTime.ToString("yyyy-MM-dd HH:mm:ss"), "") { IsVisibleInVariableManager = false },
                             new StringParameter("Message", $"泵已启动，{(pulseFree ? "无脉动模式" : "标准模式")}", "") { IsVisibleInVariableManager = false }
@@ -431,7 +436,7 @@ namespace PeristalticPumps_CY
                         },
                         new BooleanParameter("IsRunning", true, "运行状态")
                         {
-                            IsVisibleInVariableManager = true  // 运行状态需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("StopTime", "", "停止时间")
                         {
@@ -439,11 +444,11 @@ namespace PeristalticPumps_CY
                         },
                         new NumberParameter("TotalRunTime", 0, 999999, 0, "总运行时间(分钟)")
                         {
-                            IsVisibleInVariableManager = false  // 统计信息不需要显示
+                            IsVisibleInVariableManager = false
                         },
                         new NumberParameter("TotalVolume", 0, 999999, 0, "总泵送量(mL)")
                         {
-                            IsVisibleInVariableManager = true  // 总泵送量可能需要在变量管理器中显示
+                            IsVisibleInVariableManager = true
                         },
                         new StringParameter("Message", "", "状态信息")
                         {
@@ -459,35 +464,39 @@ namespace PeristalticPumps_CY
                     double totalRunTime = 0;
                     double totalVolume = 0;
 
-                    if (_isRunning)
+                    lock (_stateLock)
                     {
-                        TimeSpan runTime = DateTime.Now - _startTime;
-                        totalRunTime = runTime.TotalMinutes;
-                        totalVolume = _currentFlowRate * totalRunTime;
-
-                        if (!quickStop)
+                        if (_isRunning)
                         {
-                            // 模拟减速过程
-                            int simulatedDecelTime = Math.Min((int)(decelTime * 1000), 3000); // 最多3秒
-                            await Task.Delay(simulatedDecelTime);
-                        }
-                        else
-                        {
-                            // 紧急停止也需要一点时间
-                            await Task.Delay(100);
+                            TimeSpan runTime = DateTime.Now - _startTime;
+                            totalRunTime = runTime.TotalMinutes;
+                            totalVolume = _totalVolume;
                         }
                     }
 
-                    _isRunning = false;
-                    _currentSpeed = 0;
-                    _currentFlowRate = 0;
+                    if (!quickStop)
+                    {
+                        int simulatedDecelTime = Math.Min((int)(decelTime * 1000), 3000);
+                        await Task.Delay(simulatedDecelTime);
+                    }
+                    else
+                    {
+                        await Task.Delay(100);
+                    }
+
+                    lock (_stateLock)
+                    {
+                        _isRunning = false;
+                        _currentSpeed = 0;
+                        _currentFlowRate = 0;
+                    }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new BooleanParameter("IsRunning", _isRunning, "") { IsVisibleInVariableManager = true },
+                            new BooleanParameter("IsRunning", false, "") { IsVisibleInVariableManager = true },
                             new StringParameter("StopTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), "") { IsVisibleInVariableManager = false },
                             new NumberParameter("TotalRunTime", 0, 999999, Math.Round(totalRunTime, 2), "总运行时间(分钟)") { IsVisibleInVariableManager = false },
                             new NumberParameter("TotalVolume", 0, 999999, Math.Round(totalVolume, 2), "总泵送量(mL)") { IsVisibleInVariableManager = true },
@@ -558,12 +567,14 @@ namespace PeristalticPumps_CY
         {
             base.Shutdown();
 
-            // 如果泵还在运行，先停止
-            if (_isRunning)
+            lock (_stateLock)
             {
-                _isRunning = false;
-                _currentSpeed = 0;
-                _logger.LogInformation("Pump stopped during shutdown");
+                if (_isRunning)
+                {
+                    _isRunning = false;
+                    _currentSpeed = 0;
+                    _logger.LogInformation("Pump stopped during shutdown");
+                }
             }
 
             if (_serialPort != null && _serialPort.IsOpen)
@@ -571,6 +582,8 @@ namespace PeristalticPumps_CY
                 _serialPort.Close();
                 _logger.LogInformation("Serial port closed");
             }
+
+            ThreadLocalRandom?.Dispose();
         }
 
         // 统一包装命令执行，记录开始/结束/异常日志
@@ -584,7 +597,6 @@ namespace PeristalticPumps_CY
                 var sw = Stopwatch.StartNew();
                 try
                 {
-                    // 同步等待异步方法完成
                     var output = innerAsync(parameters).GetAwaiter().GetResult();
                     sw.Stop();
 
@@ -597,7 +609,6 @@ namespace PeristalticPumps_CY
                     sw.Stop();
                     _logger.LogError(ex, $"[DeviceCommand-ERROR] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Params={paramText}");
 
-                    // 返回错误状态的输出参数
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
@@ -645,6 +656,195 @@ namespace PeristalticPumps_CY
             {
                 return np.Value?.ToString() ?? "0";
             }
+        }
+    }
+
+    /// <summary>
+    /// 模拟引擎 - 生成真实的物理模拟数据
+    /// </summary>
+    public class SimulationEngine
+    {
+        private static long _globalCounter = 0;
+        private readonly object _lock = new object();
+
+        // 噪声生成器
+        private readonly PerlinNoise _temperatureNoise;
+        private readonly PerlinNoise _flowRateNoise;
+        private readonly PerlinNoise _pressureNoise;
+
+        // 设备状态历史
+        private double _lastTemperature = 25.0;
+        private double _lastPressure = 101.325;
+        private double _accumulatedVolume = 0;
+        private DateTime _lastUpdateTime = DateTime.Now;
+
+        public SimulationEngine()
+        {
+            // 使用不同的种子确保各参数独立变化
+            var baseHash = Guid.NewGuid().GetHashCode();
+            _temperatureNoise = new PerlinNoise(baseHash);
+            _flowRateNoise = new PerlinNoise(baseHash + 1);
+            _pressureNoise = new PerlinNoise(baseHash + 2);
+        }
+
+        public double UpdateTemperature(double currentTemp, bool isRunning)
+        {
+            lock (_lock)
+            {
+                var time = GetUniqueTimeValue();
+                var noise = _temperatureNoise.Sample(time * 0.01) * 2; // ±2度噪声
+
+                if (isRunning)
+                {
+                    // 运行时温度上升，有一定惯性
+                    var targetTemp = 45 + _temperatureNoise.Sample(time * 0.005) * 10; // 35-55度目标范围
+                    _lastTemperature += (targetTemp - _lastTemperature) * 0.02 + noise * 0.5;
+                    _lastTemperature = Math.Min(_lastTemperature, 85); // 限制最高温度
+                }
+                else
+                {
+                    // 停机时向环境温度回归
+                    var ambientTemp = 22 + _temperatureNoise.Sample(time * 0.002) * 3; // 19-25度环境温度
+                    _lastTemperature += (ambientTemp - _lastTemperature) * 0.01 + noise * 0.3;
+                    _lastTemperature = Math.Max(_lastTemperature, 15); // 限制最低温度
+                }
+
+                return Math.Round(_lastTemperature, 2);
+            }
+        }
+
+        public (double FlowRate, double TotalVolume) UpdateFlowRate(double targetSpeed, bool isRunning, DateTime startTime)
+        {
+            lock (_lock)
+            {
+                var now = DateTime.Now;
+                var deltaTime = (now - _lastUpdateTime).TotalMinutes;
+                _lastUpdateTime = now;
+
+                if (!isRunning)
+                {
+                    return (0, _accumulatedVolume);
+                }
+
+                var time = GetUniqueTimeValue();
+                var noise = _flowRateNoise.Sample(time * 0.02) * 5; // ±5 mL/min 噪声
+
+                // 基于转速计算理论流量，加入脉动和磨损效应
+                var theoreticalFlow = targetSpeed * 0.085; // 假设每RPM产生0.085 mL/min
+                var pulsationFactor = 1 + Math.Sin(time * 0.1) * 0.05; // ±5% 脉动
+                var actualFlow = theoreticalFlow * pulsationFactor + noise;
+
+                // 累计体积计算
+                if (deltaTime > 0)
+                {
+                    _accumulatedVolume += actualFlow * deltaTime;
+                }
+
+                return (Math.Max(0, Math.Round(actualFlow, 3)), Math.Round(_accumulatedVolume, 2));
+            }
+        }
+
+        public double UpdatePressure(double currentFlowRate, bool isRunning, bool isRelativePressure)
+        {
+            lock (_lock)
+            {
+                var time = GetUniqueTimeValue();
+                var noise = _pressureNoise.Sample(time * 0.03) * 8; // ±8 kPa 噪声
+
+                if (!isRunning)
+                {
+                    _lastPressure = isRelativePressure ? 0 : 101.325 + noise * 0.1;
+                }
+                else
+                {
+                    // 压力与流量相关，模拟管路阻力
+                    var basePressure = isRelativePressure ? 0 : 101.325;
+                    var flowPressure = currentFlowRate * 0.8 + Math.Pow(currentFlowRate, 1.2) * 0.02; // 非线性阻力
+                    var systemPressure = basePressure + flowPressure;
+
+                    // 添加系统响应延迟
+                    _lastPressure += (systemPressure - _lastPressure) * 0.1 + noise;
+                }
+
+                return Math.Round(Math.Max(0, _lastPressure), 2);
+            }
+        }
+
+        public double GetActualSpeed(double targetSpeed)
+        {
+            var time = GetUniqueTimeValue();
+            var noise = _flowRateNoise.Sample(time * 0.05) * 15; // ±15 RPM 噪声
+            var efficiency = 0.96 + _flowRateNoise.Sample(time * 0.01) * 0.06; // 90-102% 效率
+
+            return Math.Max(0, Math.Round(targetSpeed * efficiency + noise, 1));
+        }
+
+        private double GetUniqueTimeValue()
+        {
+            // 生成永不重复的时间值
+            var counter = Interlocked.Increment(ref _globalCounter);
+            var ticks = DateTime.UtcNow.Ticks;
+            var threadId = Thread.CurrentThread.ManagedThreadId;
+
+            // 结合时间戳、计数器和线程ID生成唯一值
+            return (ticks / 10000.0) + counter * 0.001 + threadId * 0.0001;
+        }
+    }
+
+    /// <summary>
+    /// Perlin噪声生成器 - 生成自然的连续噪声
+    /// </summary>
+    public class PerlinNoise
+    {
+        private readonly int[] _permutation;
+        private readonly int[] _p;
+
+        public PerlinNoise(int seed = 0)
+        {
+            var random = new Random(seed);
+            _permutation = new int[256];
+
+            for (int i = 0; i < 256; i++)
+            {
+                _permutation[i] = i;
+            }
+
+            // Fisher-Yates shuffle
+            for (int i = 255; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                (_permutation[i], _permutation[j]) = (_permutation[j], _permutation[i]);
+            }
+
+            _p = new int[512];
+            for (int i = 0; i < 512; i++)
+            {
+                _p[i] = _permutation[i % 256];
+            }
+        }
+
+        public double Sample(double x)
+        {
+            int X = (int)Math.Floor(x) & 255;
+            x -= Math.Floor(x);
+            double u = Fade(x);
+
+            return Lerp(u, Grad(_p[X], x), Grad(_p[X + 1], x - 1));
+        }
+
+        private static double Fade(double t)
+        {
+            return t * t * t * (t * (t * 6 - 15) + 10);
+        }
+
+        private static double Lerp(double t, double a, double b)
+        {
+            return a + t * (b - a);
+        }
+
+        private static double Grad(int hash, double x)
+        {
+            return (hash & 1) == 0 ? x : -x;
         }
     }
 }
