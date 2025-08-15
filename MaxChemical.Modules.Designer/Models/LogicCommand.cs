@@ -79,6 +79,7 @@ namespace MaxChemical.Modules.Designer.Models
         String,
         [Description("整数")]
         Integer,
+        Number,
         [Description("小数")]
         Double,
         [Description("布尔")]
@@ -137,6 +138,8 @@ namespace MaxChemical.Modules.Designer.Models
         {
             Properties[key] = value;
         }
+
+
     }
 
     /// <summary>
@@ -179,8 +182,17 @@ namespace MaxChemical.Modules.Designer.Models
         public string Bezel_lessIconPath = "pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessLoop.png";
         public LoopType LoopType { get; set; } = LoopType.FixedCount;
         public int LoopCount { get; set; } = 3;
-        public string LoopCondition { get; set; } = "";
+        public string LeftOperand { get; set; } = "A";
+        public ComparisonOperator Operator { get; set; } = ComparisonOperator.Equal;
+        public string RightOperand { get; set; } = "B";
         public string Description { get; set; } = "循环执行";
+        public int WaitTime { get; set; } = 10;
+
+        /// <summary>
+        /// Do-While 开关：true = do-while (先执行后判断), false = while (先判断后执行)
+        /// 仅在条件循环时有效
+        /// </summary>
+        public bool IsDoWhile { get; set; } = false;
     }
     /// <summary>
     /// 并行命令属性

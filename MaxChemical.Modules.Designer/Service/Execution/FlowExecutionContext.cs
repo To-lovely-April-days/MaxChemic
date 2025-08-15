@@ -42,92 +42,68 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         }
 
         /// <summary>
-        /// 获取变量
+        /// 获取变量（泛型版本）
         /// </summary>
         public T GetVariable<T>(string name, T defaultValue = default)
         {
-            if (Variables.TryGetValue(name, out var value) && value is T typedValue)
+            if (Variables.TryGetValue(name, out var value))
             {
-                return typedValue;
+                if (value is T typedValue)
+                    return typedValue;
+
+                // 尝试类型转换
+                try
+                {
+                    return (T)Convert.ChangeType(value, typeof(T));
+                }
+                catch
+                {
+                    return defaultValue;
+                }
             }
             return defaultValue;
         }
 
         /// <summary>
-        /// 评估条件表达式
+        /// 获取变量（object版本）
+        /// </summary>
+        public object GetVariable(string name)
+        {
+            return Variables.TryGetValue(name, out var value) ? value : null;
+        }
+
+        /// <summary>
+        /// 检查变量是否存在
+        /// </summary>
+        public bool HasVariable(string name)
+        {
+            return Variables.ContainsKey(name);
+        }
+
+        /// <summary>
+        /// 删除变量
+        /// </summary>
+        public bool RemoveVariable(string name)
+        {
+            return Variables.TryRemove(name, out _);
+        }
+
+        /// <summary>
+        /// 清空所有变量
+        /// </summary>
+        public void ClearVariables()
+        {
+            Variables.Clear();
+        }
+
+        /// <summary>
+        /// 评估条件表达式（保留兼容性）
         /// </summary>
         public bool EvaluateCondition(string condition)
         {
-            // 简单的条件评估实现
-            // 实际项目中可能需要更复杂的表达式引擎
-            try
-            {
-                // 替换变量
-                var evaluatedCondition = ReplaceVariables(condition);
-
-                // 简单的比较操作
-                if (evaluatedCondition.Contains("=="))
-                {
-                    var parts = evaluatedCondition.Split("==");
-                    if (parts.Length == 2)
-                    {
-                        var left = parts[0].Trim().Trim('"');
-                        var right = parts[1].Trim().Trim('"');
-                        return left.Equals(right, StringComparison.OrdinalIgnoreCase);
-                    }
-                }
-                else if (evaluatedCondition.Contains("!="))
-                {
-                    var parts = evaluatedCondition.Split("!=");
-                    if (parts.Length == 2)
-                    {
-                        var left = parts[0].Trim().Trim('"');
-                        var right = parts[1].Trim().Trim('"');
-                        return !left.Equals(right, StringComparison.OrdinalIgnoreCase);
-                    }
-                }
-                else if (evaluatedCondition.Contains(">"))
-                {
-                    var parts = evaluatedCondition.Split(">");
-                    if (parts.Length == 2 &&
-                        double.TryParse(parts[0].Trim(), out var left) &&
-                        double.TryParse(parts[1].Trim(), out var right))
-                    {
-                        return left > right;
-                    }
-                }
-                else if (evaluatedCondition.Contains("<"))
-                {
-                    var parts = evaluatedCondition.Split("<");
-                    if (parts.Length == 2 &&
-                        double.TryParse(parts[0].Trim(), out var left) &&
-                        double.TryParse(parts[1].Trim(), out var right))
-                    {
-                        return left < right;
-                    }
-                }
-
-                // 如果是布尔值
-                if (bool.TryParse(evaluatedCondition, out var boolResult))
-                {
-                    return boolResult;
-                }
-
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private string ReplaceVariables(string expression)
-        {
-            foreach (var variable in Variables)
-            {
-                expression = expression.Replace($"{{{variable.Key}}}", variable.Value?.ToString() ?? "");
-            }
-            return expression;
+            // 这个方法现在主要用于兼容性
+            // 实际的条件评估在ExecuteIfCommandAsync中实现
+            return true;
         }
     }
 

@@ -13,7 +13,6 @@ using static MaxChemical.Modules.Designer.Models.CommandNode;
 
 namespace MaxChemical.Modules.Designer.Service.Execution
 {
-
     public class NodeExecutionStatusService : INodeExecutionStatusService
     {
         private readonly ILogService _logger;
@@ -32,6 +31,11 @@ namespace MaxChemical.Modules.Designer.Service.Execution
         public void SetCurrentFlowViewModel(FlowDesignerViewModel flowViewModel)
         {
             _currentFlowViewModel = flowViewModel;
+        }
+
+        public FlowDesignerViewModel GetCurrentFlowViewModel()
+        {
+            return _currentFlowViewModel;
         }
 
         public void SetNodeExecutionStatus(string nodeId, NodeExecutionStatus status)

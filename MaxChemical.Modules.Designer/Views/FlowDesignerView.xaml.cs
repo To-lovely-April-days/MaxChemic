@@ -624,7 +624,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 _nodeManagementService.ClearAllSelections(viewModel);
                 node.IsSelected = true;
-                ScrollToNodeSmooth(node);
+                //ScrollToNodeSmooth(node);
                 viewModel.NodeClickCommand?.Execute(node);
                 _logger.LogDebug("已选中命令节点: {NodeName}", node.DisplayName);
             }
@@ -967,6 +967,30 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         #endregion
+
+        private void PropertyPanelRoot_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // 让事件在此处“终止”，不再冒泡到整体的“清空选中”逻辑
+            e.Handled = true;
+        }
+        private void CanvasHost_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            var original = e.OriginalSource as DependencyObject;
+            if (IsWithinPropertyPanel(original))
+                return;
+
+          
+        }
+        private bool IsWithinPropertyPanel(DependencyObject d)
+        {
+            while (d != null)
+            {
+                if (d is FrameworkElement fe && fe.Name == "PropertyPanelRoot")
+                    return true;
+                d = VisualTreeHelper.GetParent(d);
+            }
+            return false;
+        }
 
     }
 }

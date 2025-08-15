@@ -1,5 +1,4 @@
-﻿// MaxChemical.Modules.Designer.Services.Execution.FlowExecutionEngine.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -15,6 +14,7 @@ using MaxChemical.Modules.Designer.Event;
 using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -27,6 +27,36 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private FlowExecutionContext _executionContext;
         private readonly INodeExecutionStatusService _statusService;
         private readonly IEventAggregator _eventAggregator;
+        private readonly IDeviceNameResolverService _deviceNameResolver;
+        // 添加后台任务追踪
+        private readonly List<Task> _backgroundTasks = new List<Task>();
+        private readonly object _backgroundTasksLock = new object();
+
+        // 添加执行进度跟踪
+        private class ExecutionProgress
+        {
+            public int TotalNodes { get; set; }
+            public int CompletedNodes { get; set; }
+            public object Lock { get; } = new object();
+
+            public void IncrementCompleted()
+            {
+                lock (Lock)
+                {
+                    CompletedNodes++;
+                }
+            }
+
+            public double GetPercentage()
+            {
+                lock (Lock)
+                {
+                    return TotalNodes > 0 ? (double)CompletedNodes / TotalNodes * 100 : 0;
+                }
+            }
+        }
+
+        private ExecutionProgress _currentProgress;
 
         public FlowExecutionState State
         {
@@ -49,11 +79,13 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         public event EventHandler<FlowExecutionErrorEventArgs> ExecutionError;
         public event EventHandler<FlowExecutionProgressEventArgs> ProgressChanged;
 
-        public FlowExecutionEngine(INodeExecutionStatusService statusService, IEventAggregator eventAggregator)
+        public FlowExecutionEngine(INodeExecutionStatusService statusService, IEventAggregator eventAggregator,
+            IDeviceNameResolverService deviceNameResolver)
         {
             _logger = _logger?.ForContext<FlowExecutionEngine>() ?? new LogService().ForContext<FlowExecutionEngine>();
             _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            _deviceNameResolver = deviceNameResolver ?? throw new ArgumentNullException(nameof(deviceNameResolver));
         }
 
         public async Task<FlowExecutionResult> ExecuteAsync(FlowDesignerViewModel flowViewModel, CancellationToken cancellationToken = default)
@@ -67,13 +99,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             _executionContext = new FlowExecutionContext();
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
+            // 清空后台任务列表
+            lock (_backgroundTasksLock)
+            {
+                _backgroundTasks.Clear();
+            }
+
             try
             {
                 _statusService.SetCurrentFlowViewModel(flowViewModel);
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Running;
-                _logger.LogInformation("开始执行流程，共 {Count} 个节点", flowViewModel.CommandNodes.Count);
+                _logger.LogInformation("开始执行流程，共 {Count} 个顶层节点", flowViewModel.CommandNodes.Count);
 
                 var validation = ValidateFlow(flowViewModel);
                 if (!validation.IsValid)
@@ -81,9 +119,17 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     throw new InvalidOperationException($"流程验证失败: {string.Join(", ", validation.Errors)}");
                 }
 
+                // 初始化进度跟踪
                 var totalNodes = CalculateTotalNodes(flowViewModel.CommandNodes);
-                var completedNodes = 0;
+                _currentProgress = new ExecutionProgress
+                {
+                    TotalNodes = totalNodes,
+                    CompletedNodes = 0
+                };
 
+                _logger.LogInformation("流程包含总节点数: {TotalNodes} (含嵌套节点)", totalNodes);
+
+                // 执行所有顶层节点
                 foreach (var node in flowViewModel.CommandNodes)
                 {
                     _cancellationTokenSource.Token.ThrowIfCancellationRequested();
@@ -92,20 +138,42 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     if (State == FlowExecutionState.Stopping)
                         break;
 
-                    await ExecuteNodeAsync(node, _executionContext, _cancellationTokenSource.Token);
+                    await ExecuteNodeWithProgressAsync(node, _executionContext, _cancellationTokenSource.Token);
+                }
 
-                    completedNodes++;
-                    ProgressChanged?.Invoke(this, new FlowExecutionProgressEventArgs
+                // 等待所有后台任务完成
+                Task[] tasksToWait;
+                lock (_backgroundTasksLock)
+                {
+                    tasksToWait = _backgroundTasks.ToArray();
+                }
+
+                if (tasksToWait.Length > 0)
+                {
+                    _logger.LogInformation("等待 {Count} 个后台并行任务完成...", tasksToWait.Length);
+
+                    try
                     {
-                        TotalNodes = totalNodes,
-                        CompletedNodes = completedNodes,
-                        ProgressPercentage = (double)completedNodes / totalNodes * 100,
-                        CurrentNode = node
-                    });
+                        await Task.WhenAll(tasksToWait);
+                        _logger.LogInformation("所有后台并行任务已完成");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "后台并行任务执行出错");
+                        throw;
+                    }
+                }
+
+                // 检查是否所有节点都执行完成
+                if (_currentProgress.CompletedNodes < _currentProgress.TotalNodes && State != FlowExecutionState.Stopping)
+                {
+                    _logger.LogWarning("流程执行不完整: 预期 {Expected} 个节点，实际完成 {Actual} 个",
+                        _currentProgress.TotalNodes, _currentProgress.CompletedNodes);
                 }
 
                 State = FlowExecutionState.Completed;
-                _logger.LogInformation("流程执行完成");
+                _logger.LogInformation("流程执行完成，共执行 {Completed}/{Total} 个节点",
+                    _currentProgress.CompletedNodes, _currentProgress.TotalNodes);
 
                 _ = Task.Delay(2000).ContinueWith(_ =>
                 {
@@ -119,17 +187,38 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 {
                     IsSuccessful = true,
                     Duration = DateTime.Now - startTime,
-                    TotalNodesExecuted = completedNodes,
+                    TotalNodesExecuted = _currentProgress.CompletedNodes,
                     StartTime = startTime,
                     EndTime = DateTime.Now
                 };
             }
             catch (OperationCanceledException)
             {
+                // 取消后台任务
+                Task[] tasksToCancel;
+                lock (_backgroundTasksLock)
+                {
+                    tasksToCancel = _backgroundTasks.ToArray();
+                }
+
+                // 等待后台任务被取消
+                if (tasksToCancel.Length > 0)
+                {
+                    try
+                    {
+                        await Task.WhenAll(tasksToCancel);
+                    }
+                    catch
+                    {
+                        // 忽略取消导致的异常
+                    }
+                }
+
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Stopped;
-                _logger.LogInformation("流程执行被取消");
+                _logger.LogInformation("流程执行被取消，已执行 {Completed}/{Total} 个节点",
+                    _currentProgress?.CompletedNodes ?? 0, _currentProgress?.TotalNodes ?? 0);
 
                 _ = Task.Delay(1000).ContinueWith(_ =>
                 {
@@ -144,16 +233,39 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     IsSuccessful = false,
                     Duration = DateTime.Now - startTime,
                     ErrorMessage = "执行被取消",
+                    TotalNodesExecuted = _currentProgress?.CompletedNodes ?? 0,
                     StartTime = startTime,
                     EndTime = DateTime.Now
                 };
             }
             catch (Exception ex)
             {
+                // 取消后台任务
+                _cancellationTokenSource?.Cancel();
+
+                Task[] tasksToWait;
+                lock (_backgroundTasksLock)
+                {
+                    tasksToWait = _backgroundTasks.ToArray();
+                }
+
+                if (tasksToWait.Length > 0)
+                {
+                    try
+                    {
+                        await Task.WhenAll(tasksToWait);
+                    }
+                    catch
+                    {
+                        // 忽略后台任务的异常
+                    }
+                }
+
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Error;
-                _logger.LogError(ex, "流程执行失败");
+                _logger.LogError(ex, "流程执行失败，已执行 {Completed}/{Total} 个节点",
+                    _currentProgress?.CompletedNodes ?? 0, _currentProgress?.TotalNodes ?? 0);
 
                 ExecutionError?.Invoke(this, new FlowExecutionErrorEventArgs
                 {
@@ -175,6 +287,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     Duration = DateTime.Now - startTime,
                     ErrorMessage = ex.Message,
                     Exception = ex,
+                    TotalNodesExecuted = _currentProgress?.CompletedNodes ?? 0,
                     StartTime = startTime,
                     EndTime = DateTime.Now
                 };
@@ -183,9 +296,38 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             {
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
+                _currentProgress = null;
+
+                lock (_backgroundTasksLock)
+                {
+                    _backgroundTasks.Clear();
+                }
             }
         }
 
+        private async Task ExecuteNodeWithProgressAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
+        {
+            await ExecuteNodeAsync(node, context, cancellationToken);
+
+            // 更新进度
+            _currentProgress.IncrementCompleted();
+
+            // 发送进度事件
+            ProgressChanged?.Invoke(this, new FlowExecutionProgressEventArgs
+            {
+                TotalNodes = _currentProgress.TotalNodes,
+                CompletedNodes = _currentProgress.CompletedNodes,
+                ProgressPercentage = _currentProgress.GetPercentage(),
+                CurrentNode = node
+            });
+
+            _logger.LogDebug("节点执行进度: {Completed}/{Total} ({Percentage:F1}%)",
+                _currentProgress.CompletedNodes, _currentProgress.TotalNodes, _currentProgress.GetPercentage());
+        }
+
+        /// <summary>
+        /// 执行节点并更新进度
+        /// </summary>
         private async Task ExecuteNodeAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             var startTime = DateTime.Now;
@@ -275,11 +417,15 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             if (targetDevice == null)
                 throw new InvalidOperationException($"未在画布上找到设备实例: {node.BoundDeviceId}");
 
+            // 保存设备引用到节点
+            node.Device = targetDevice;
+            //node.BoundDeviceName = targetDevice.Name;
+
             var targetCmd = targetDevice.Commands?.FirstOrDefault(c => c.Name == node.DeviceCommand.Name);
             if (targetCmd == null)
                 throw new InvalidOperationException($"设备 {targetDevice.Name} 不支持命令: {node.DeviceCommand.Name}");
 
-            // 合并“模板参数 + 节点覆盖值”得到生效参数副本
+            // 合并"模板参数 + 节点覆盖值"得到生效参数副本
             var inputParameters = BuildEffectiveParametersForNode(node, targetCmd);
 
             // 通知画布开始动画
@@ -298,13 +444,32 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             try
             {
                 // 在后台线程执行设备命令，避免阻塞
-                var result = await Task.Run(() => targetCmd.Action?.Invoke(inputParameters), cancellationToken);
+                var resultParams = await Task.Run(() => targetCmd.Action?.Invoke(inputParameters), cancellationToken);
 
                 sw.Stop();
 
+                // 保存执行结果到节点
+                node.LastExecutionResult = new DeviceCommandResult
+                {
+                    Success = true,
+                    OutputParameters = resultParams,
+                    ExecutionTime = DateTime.Now
+                };
+
+                // LastOutputParameters 会通过 setter 自动更新
+
+                // 发布执行结果更新事件
+                _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
+                {
+                    NodeId = node.NodeId,
+                    DeviceName = targetDevice.Name,
+                    CommandName = targetCmd.Name,
+                    OutputParameters = resultParams
+                });
+
                 _logger.LogInformation(
                     "执行设备命令完成: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} DurationMs={Duration} Output={Output}",
-                    node.DisplayName, node.NodeId, node.BoundDeviceId, targetDevice.Name, targetCmd.Name, sw.ElapsedMilliseconds, FormatParameters(result as DeviceParameters));
+                    node.DisplayName, node.NodeId, node.BoundDeviceId, targetDevice.Name, targetCmd.Name, sw.ElapsedMilliseconds, FormatParameters(resultParams));
 
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
                 {
@@ -313,11 +478,20 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     IsSuccessful = true
                 });
 
-                return result;
+                return resultParams;
             }
             catch (Exception ex)
             {
                 sw.Stop();
+
+                // 保存失败结果
+                node.LastExecutionResult = new DeviceCommandResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    ExecutionTime = DateTime.Now
+                };
 
                 _logger.LogError(ex,
                     "执行设备命令失败: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} DurationMs={Duration} Params={Params}",
@@ -365,10 +539,30 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             _logger.LogDebug("执行IF命令: {NodeName}", ifNode.DisplayName);
             try
             {
-                var condition = ifNode.LogicCommand.Properties?.GetValueOrDefault("Condition", "true")?.ToString() ?? "true";
-                var conditionResult = context.EvaluateCondition(condition);
-                _logger.LogDebug("IF条件评估结果: {Condition} = {Result}", condition, conditionResult);
+                // 获取IF节点的条件参数
+                var leftOperand = ifNode.LogicCommand.Properties?.GetValueOrDefault("LeftOperand", "")?.ToString() ?? "";
+                var operatorStr = ifNode.LogicCommand.Properties?.GetValueOrDefault("Operator", "Equal")?.ToString() ?? "Equal";
+                var rightOperand = ifNode.LogicCommand.Properties?.GetValueOrDefault("RightOperand", "")?.ToString() ?? "";
 
+                _logger.LogDebug("IF条件参数: Left={Left}, Operator={Op}, Right={Right}",
+                    leftOperand, operatorStr, rightOperand);
+
+                // 解析左操作数的值
+                var leftValue = ResolveOperandValue(leftOperand, context, ifNode);
+
+                // 解析右操作数的值
+                var rightValue = ResolveOperandValue(rightOperand, context, ifNode);
+
+                _logger.LogDebug("解析后的值: Left={LeftVal} (Type={LeftType}), Right={RightVal} (Type={RightType})",
+                    leftValue, leftValue?.GetType().Name ?? "null",
+                    rightValue, rightValue?.GetType().Name ?? "null");
+
+                // 评估条件
+                bool conditionResult = EvaluateCondition(leftValue, operatorStr, rightValue);
+
+                _logger.LogDebug("IF条件评估结果: {Result}", conditionResult);
+
+                // 选择要执行的分支
                 var branchToExecute = conditionResult ? "True" : "False";
                 var branchChildren = ifNode.Children?.Where(child =>
                     child.GetExecutionProperty<string>("BranchType") == branchToExecute).ToList() ?? new List<CommandNode>();
@@ -380,7 +574,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     cancellationToken.ThrowIfCancellationRequested();
                     _pauseEvent.Wait(cancellationToken);
 
-                    await ExecuteNodeAsync(childNode, context, cancellationToken);
+                    await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
                 }
 
                 return conditionResult;
@@ -392,40 +586,46 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
 
+
         private async Task<object> ExecuteLoopCommandAsync(CommandNode loopNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行循环命令: {NodeName}", loopNode.DisplayName);
+
             try
             {
-                var loopCountStr = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopCount", "1")?.ToString() ?? "1";
+                // 读取 LoopType（兼容枚举/字符串/数值）
+                var loopTypeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopType", LoopType.FixedCount);
+                var loopType = ReadLoopType(loopTypeObj);
+
+                // 读取循环间隔时间（毫秒）
+                var waitTimeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", 10);
+                int waitTimeMs = SafeToInt(waitTimeObj, 10);
+                waitTimeMs = Math.Max(0, waitTimeMs); // 确保非负数
+
+                // 循环变量名（可选），默认 i
                 var loopVariable = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopVariable", "i")?.ToString() ?? "i";
 
-                if (!int.TryParse(loopCountStr, out var loopCount))
+                // 子节点快照
+                var children = loopNode.Children?.ToList() ?? new List<CommandNode>();
+
+                _logger.LogDebug("循环参数: Type={Type}, WaitTime={WaitTime}ms, Variable={Variable}, Children={Count}",
+                    loopType, waitTimeMs, loopVariable, children.Count);
+
+                switch (loopType)
                 {
-                    loopCount = 1;
+                    case LoopType.FixedCount:
+                        return await ExecuteFixedCountLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable);
+
+                    case LoopType.Conditional:
+                        return await ExecuteConditionalLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable);
+
+                    case LoopType.Infinite:
+                        return await ExecuteInfiniteLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable);
+
+                    default:
+                        _logger.LogWarning("未识别的 LoopType: {Type}，按固定次数1次处理", loopType);
+                        return await ExecuteFixedCountLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable);
                 }
-
-                _logger.LogDebug("循环参数: 次数={LoopCount}, 变量={LoopVariable}", loopCount, loopVariable);
-
-                for (int i = 0; i < loopCount; i++)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    _pauseEvent.Wait(cancellationToken);
-
-                    context.SetVariable(loopVariable, i);
-                    _logger.LogDebug("循环第 {Current}/{Total} 次，{Variable}={Value}", i + 1, loopCount, loopVariable, i);
-
-                    foreach (var childNode in loopNode.Children ?? Enumerable.Empty<CommandNode>())
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        _pauseEvent.Wait(cancellationToken);
-
-                        await ExecuteNodeAsync(childNode, context, cancellationToken);
-                    }
-                }
-
-                _logger.LogDebug("循环命令执行完成: {NodeName}", loopNode.DisplayName);
-                return loopCount;
             }
             catch (Exception ex)
             {
@@ -434,23 +634,479 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
 
+        /// <summary>
+        /// 执行固定次数循环
+        /// </summary>
+        private async Task<int> ExecuteFixedCountLoopAsync(CommandNode loopNode, FlowExecutionContext context,
+            CancellationToken cancellationToken, List<CommandNode> children, int waitTimeMs, string loopVariable)
+        {
+            // 读取 LoopCount（支持变量/字符串）
+            object countRaw = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopCount", 1);
+            int loopCount = 1;
+
+            // 将 LoopCount 当作表达式/变量名解析
+            if (countRaw != null)
+            {
+                var countVal = ResolveOperandValue(countRaw.ToString(), context, loopNode);
+                if (countVal is int i) loopCount = i;
+                else if (countVal is double d) loopCount = (int)d;
+                else if (!int.TryParse(countVal?.ToString() ?? "1", out loopCount))
+                    loopCount = 1;
+            }
+
+            loopCount = Math.Max(0, loopCount);
+            _logger.LogDebug("固定次数循环: 次数={LoopCount}, 间隔={WaitTime}ms, 变量={LoopVariable}",
+                loopCount, waitTimeMs, loopVariable);
+
+            // 预调整总节点数（避免进度超过100%）
+            if (loopCount > 1 && children.Count > 0)
+            {
+                var extraExecutions = (loopCount - 1) * CalculateTotalNodes(children);
+                lock (_currentProgress.Lock)
+                {
+                    _currentProgress.TotalNodes += extraExecutions;
+                }
+                _logger.LogDebug("进度总量调整: +{Extra} → Total={Total}", extraExecutions, _currentProgress.TotalNodes);
+            }
+
+            for (int i = 0; i < loopCount; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _pauseEvent.Wait(cancellationToken);
+
+                context.SetVariable(loopVariable, i);
+                _logger.LogDebug("固定次数循环第 {Current}/{Total} 次，{Variable}={Value}",
+                    i + 1, loopCount, loopVariable, i);
+
+                // 执行子节点
+                foreach (var childNode in children)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _pauseEvent.Wait(cancellationToken);
+
+                    await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+                }
+
+                // 循环间隔等待（最后一次循环不需要等待）
+                if (i < loopCount - 1 && waitTimeMs > 0)
+                {
+                    _logger.LogDebug("循环间隔等待 {WaitTime}ms", waitTimeMs);
+                    await Task.Delay(waitTimeMs, cancellationToken);
+                }
+            }
+
+            _logger.LogDebug("固定次数循环完成: {NodeName}, 执行次数: {Count}", loopNode.DisplayName, loopCount);
+            return loopCount;
+        }
+
+        /// <summary>
+        /// 执行条件循环（支持 Do-While 和 While）
+        /// </summary>
+        private async Task<int> ExecuteConditionalLoopAsync(CommandNode loopNode, FlowExecutionContext context,
+            CancellationToken cancellationToken, List<CommandNode> children, int waitTimeMs, string loopVariable)
+        {
+            // 读取三元条件和Do-While开关
+            var leftOperand = loopNode.LogicCommand.Properties?.GetValueOrDefault("LeftOperand", "A")?.ToString() ?? "A";
+            var operatorValue = loopNode.LogicCommand.Properties?.GetValueOrDefault("Operator", ComparisonOperator.Equal);
+            var rightOperand = loopNode.LogicCommand.Properties?.GetValueOrDefault("RightOperand", "B")?.ToString() ?? "B";
+            var isDoWhile = SafeToBool(loopNode.LogicCommand.Properties?.GetValueOrDefault("IsDoWhile", false), false);
+
+            _logger.LogDebug("条件循环参数: Left={Left}, Op={Op}, Right={Right}, DoWhile={DoWhile}, 间隔={WaitTime}ms",
+                leftOperand, operatorValue, rightOperand, isDoWhile, waitTimeMs);
+
+            // 安全阈值，防止死循环
+            const int maxIterations = 100000;
+            int iteration = 0;
+
+            if (isDoWhile)
+            {
+                // Do-While 循环：先执行，后判断
+                do
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _pauseEvent.Wait(cancellationToken);
+
+                    // 动态累加总节点
+                    if (children.Count > 0)
+                    {
+                        lock (_currentProgress.Lock)
+                        {
+                            _currentProgress.TotalNodes += CalculateTotalNodes(children);
+                        }
+                    }
+
+                    context.SetVariable(loopVariable, iteration);
+                    _logger.LogDebug("Do-While循环第 {Current} 次，{Var}={Val}，执行子节点",
+                        iteration + 1, loopVariable, iteration);
+
+                    // 执行子节点
+                    foreach (var childNode in children)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        _pauseEvent.Wait(cancellationToken);
+                        await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+                    }
+
+                    iteration++;
+
+                    // 循环间隔等待
+                    if (waitTimeMs > 0)
+                    {
+                        _logger.LogDebug("Do-While循环间隔等待 {WaitTime}ms", waitTimeMs);
+                        await Task.Delay(waitTimeMs, cancellationToken);
+                    }
+
+                    // 检查是否继续循环
+                    bool shouldContinue = EvaluateLoopTriplet(leftOperand, operatorValue, rightOperand, context, loopNode);
+                    if (!shouldContinue)
+                    {
+                        _logger.LogDebug("Do-While循环第 {Current} 次后，条件为假，退出循环", iteration);
+                        break;
+                    }
+
+                } while (iteration < maxIterations);
+            }
+            else
+            {
+                // While 循环：先判断，后执行
+                while (iteration < maxIterations)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _pauseEvent.Wait(cancellationToken);
+
+                    // 先判断条件
+                    bool shouldContinue = EvaluateLoopTriplet(leftOperand, operatorValue, rightOperand, context, loopNode);
+                    if (!shouldContinue)
+                    {
+                        _logger.LogDebug("While循环第 {Current} 次，条件为假，退出循环", iteration + 1);
+                        break;
+                    }
+
+                    // 动态累加总节点
+                    if (children.Count > 0)
+                    {
+                        lock (_currentProgress.Lock)
+                        {
+                            _currentProgress.TotalNodes += CalculateTotalNodes(children);
+                        }
+                    }
+
+                    context.SetVariable(loopVariable, iteration);
+                    _logger.LogDebug("While循环第 {Current} 次，{Var}={Val}，条件为真，执行子节点",
+                        iteration + 1, loopVariable, iteration);
+
+                    // 执行子节点
+                    foreach (var childNode in children)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        _pauseEvent.Wait(cancellationToken);
+                        await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+                    }
+
+                    iteration++;
+
+                    // 循环间隔等待
+                    if (waitTimeMs > 0)
+                    {
+                        _logger.LogDebug("While循环间隔等待 {WaitTime}ms", waitTimeMs);
+                        await Task.Delay(waitTimeMs, cancellationToken);
+                    }
+                }
+            }
+
+            if (iteration >= maxIterations)
+                _logger.LogWarning("条件循环达到最大迭代次数 {MaxIterations}，强制退出", maxIterations);
+
+            _logger.LogDebug("条件循环完成: 迭代次数={Count}, 模式={Mode}", iteration, isDoWhile ? "Do-While" : "While");
+            return iteration;
+        }
+
+        /// <summary>
+        /// 执行无限循环
+        /// </summary>
+        private async Task<int> ExecuteInfiniteLoopAsync(CommandNode loopNode, FlowExecutionContext context,
+            CancellationToken cancellationToken, List<CommandNode> children, int waitTimeMs, string loopVariable)
+        {
+            // 无限循环，直到 Stop/Cancel。设安全阈值以免极端情况下长时间跑满进度。
+            const int maxIterations = 1000000;
+            int iteration = 0;
+
+            _logger.LogDebug("无限循环开始，间隔={WaitTime}ms", waitTimeMs);
+
+            while (State != FlowExecutionState.Stopping && iteration < maxIterations)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _pauseEvent.Wait(cancellationToken);
+
+                // 动态累加总节点
+                if (children.Count > 0)
+                {
+                    lock (_currentProgress.Lock)
+                    {
+                        _currentProgress.TotalNodes += CalculateTotalNodes(children);
+                    }
+                }
+
+                context.SetVariable(loopVariable, iteration);
+                _logger.LogDebug("无限循环第 {Current} 次，{Var}={Val}", iteration + 1, loopVariable, iteration);
+
+                // 执行子节点
+                foreach (var childNode in children)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _pauseEvent.Wait(cancellationToken);
+                    await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+                }
+
+                iteration++;
+
+                // 循环间隔等待
+                if (waitTimeMs > 0)
+                {
+                    _logger.LogDebug("无限循环间隔等待 {WaitTime}ms", waitTimeMs);
+                    await Task.Delay(waitTimeMs, cancellationToken);
+                }
+            }
+
+            if (iteration >= maxIterations)
+                _logger.LogWarning("无限循环达到安全上限 {MaxIterations} 次，自动退出", maxIterations);
+
+            _logger.LogDebug("无限循环结束: 迭代次数={Count}", iteration);
+            return iteration;
+        }
+
+        /// <summary>
+        /// 安全转换为布尔值
+        /// </summary>
+        private static bool SafeToBool(object val, bool defaultValue)
+        {
+            try
+            {
+                if (val is bool b) return b;
+                if (val is string s)
+                {
+                    if (bool.TryParse(s, out var result)) return result;
+                    // 兼容数字字符串：1 = true, 0 = false
+                    if (s == "1") return true;
+                    if (s == "0") return false;
+                    // 兼容中文
+                    if (s.Equals("是", StringComparison.OrdinalIgnoreCase) ||
+                        s.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+                        s.Equals("true", StringComparison.OrdinalIgnoreCase)) return true;
+                    if (s.Equals("否", StringComparison.OrdinalIgnoreCase) ||
+                        s.Equals("no", StringComparison.OrdinalIgnoreCase) ||
+                        s.Equals("false", StringComparison.OrdinalIgnoreCase)) return false;
+                }
+                if (val is int i) return i != 0;
+                if (val is double d) return d != 0.0;
+                if (val is float f) return f != 0.0f;
+            }
+            catch { }
+            return defaultValue;
+        }
+
+        /// <summary>
+        /// 使用三元字段（LeftOperand/Operator/RightOperand）评估循环条件
+        /// </summary>
+        private bool EvaluateLoopTriplet(string leftOperand, object operatorValue, string rightOperand,
+            FlowExecutionContext context, CommandNode loopNode)
+        {
+            try
+            {
+                // 解析左右操作数的值
+                var leftVal = ResolveOperandValue(leftOperand, context, loopNode);
+                var rightVal = ResolveOperandValue(rightOperand, context, loopNode);
+                var opStr = ReadOperatorString(operatorValue);
+
+                _logger.LogDebug("循环条件评估: {Left}({LeftVal}) {Op} {Right}({RightVal})",
+                    leftOperand, leftVal, opStr, rightOperand, rightVal);
+
+                bool result = EvaluateCondition(leftVal, opStr, rightVal);
+
+                _logger.LogDebug("循环条件结果: {Result}", result);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "循环条件评估失败: {Left} {Op} {Right}", leftOperand, operatorValue, rightOperand);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 改进的操作符字符串读取
+        /// </summary>
+        private static string ReadOperatorString(object val)
+        {
+            // 支持 ComparisonOperator 枚举或字符串（含符号）
+            if (val is ComparisonOperator op)
+            {
+                return op switch
+                {
+                    ComparisonOperator.Equal => "Equal",
+                    ComparisonOperator.NotEqual => "NotEqual",
+                    ComparisonOperator.GreaterThan => "GreaterThan",
+                    ComparisonOperator.GreaterThanOrEqual => "GreaterThanOrEqual",
+                    ComparisonOperator.LessThan => "LessThan",
+                    ComparisonOperator.LessThanOrEqual => "LessThanOrEqual",
+                    ComparisonOperator.Contains => "Contains",
+                    ComparisonOperator.NotContains => "NotContains",
+                    _ => "Equal"
+                };
+            }
+
+            var s = val?.ToString() ?? "Equal";
+            // 兼容符号写法
+            return s switch
+            {
+                "==" => "Equal",
+                "!=" => "NotEqual",
+                ">" => "GreaterThan",
+                ">=" => "GreaterThanOrEqual",
+                "<" => "LessThan",
+                "<=" => "LessThanOrEqual",
+                _ => s
+            };
+        }
+
+        /// <summary>
+        /// 安全转换为整数
+        /// </summary>
+        private static int SafeToInt(object val, int defaultValue)
+        {
+            try
+            {
+                if (val is int i) return i;
+                if (val is double d) return (int)d;
+                if (val is float f) return (int)f;
+                if (val is decimal dec) return (int)dec;
+                if (val is string s && int.TryParse(s, out var parsed)) return parsed;
+                if (val != null)
+                {
+                    var conv = Convert.ToInt32(val, CultureInfo.InvariantCulture);
+                    return conv;
+                }
+            }
+            catch { }
+            return defaultValue;
+        }
+        private static LoopType ReadLoopType(object val)
+        {
+            if (val is LoopType lt) return lt;
+            if (val is string s && Enum.TryParse<LoopType>(s, true, out var parsed)) return parsed;
+            try
+            {
+                var i = Convert.ToInt32(val, CultureInfo.InvariantCulture);
+                return (LoopType)Enum.ToObject(typeof(LoopType), i);
+            }
+            catch { }
+            return LoopType.FixedCount;
+        }
+
+       
+    
+        /// <summary>
+        /// 评估循环条件
+        /// </summary>
+        private bool EvaluateLoopCondition(string condition, FlowExecutionContext context, CommandNode loopNode)
+        {
+            if (string.IsNullOrWhiteSpace(condition))
+                return false;
+
+            // 解析条件表达式（支持简单的比较运算）
+            // 例如: i < 10, count != 0, status == 'complete'
+
+            // 简单解析：查找操作符
+            string[] operators = { "<=", ">=", "!=", "==", "<", ">", "Contains", "StartsWith", "EndsWith" };
+            string foundOperator = null;
+            int operatorIndex = -1;
+
+            foreach (var op in operators)
+            {
+                var index = condition.IndexOf(op, StringComparison.OrdinalIgnoreCase);
+                if (index > 0)
+                {
+                    foundOperator = op;
+                    operatorIndex = index;
+                    break;
+                }
+            }
+
+            if (foundOperator != null && operatorIndex > 0)
+            {
+                var leftPart = condition.Substring(0, operatorIndex).Trim();
+                var rightPart = condition.Substring(operatorIndex + foundOperator.Length).Trim();
+
+                var leftValue = ResolveOperandValue(leftPart, context, loopNode);
+                var rightValue = ResolveOperandValue(rightPart, context, loopNode);
+
+                // 转换操作符格式
+                var operatorStr = foundOperator switch
+                {
+                    "==" => "Equal",
+                    "!=" => "NotEqual",
+                    ">" => "GreaterThan",
+                    ">=" => "GreaterThanOrEqual",
+                    "<" => "LessThan",
+                    "<=" => "LessThanOrEqual",
+                    _ => foundOperator
+                };
+
+                return EvaluateCondition(leftValue, operatorStr, rightValue);
+            }
+
+            // 如果没有操作符，尝试作为布尔值解析
+            var conditionValue = ResolveOperandValue(condition, context, loopNode);
+            if (conditionValue is bool boolValue)
+                return boolValue;
+
+            // 尝试转换为布尔值
+            if (conditionValue != null)
+            {
+                var strValue = conditionValue.ToString();
+                if (bool.TryParse(strValue, out var result))
+                    return result;
+
+                // 非空字符串视为true
+                return !string.IsNullOrWhiteSpace(strValue);
+            }
+
+            return false;
+        }
         private async Task<object> ExecuteParallelCommandAsync(CommandNode parallelNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行并行命令: {NodeName}", parallelNode.DisplayName);
+
             try
             {
+                // 读取属性并做容错
                 var maxParallelStr = parallelNode.LogicCommand.Properties?.GetValueOrDefault("MaxParallelCount", "4")?.ToString() ?? "4";
-                if (!int.TryParse(maxParallelStr, out var maxParallel))
+                if (!int.TryParse(maxParallelStr, out var maxParallel)) maxParallel = 4;
+                maxParallel = Math.Max(1, maxParallel);
+
+                var waitStrategyStr = parallelNode.LogicCommand.Properties?.GetValueOrDefault("WaitStrategy", "NoWait")?.ToString() ?? "NoWait";
+                if (!Enum.TryParse(waitStrategyStr, true, out ParallelWaitStrategy waitStrategy))
                 {
-                    maxParallel = 4;
+                    waitStrategy = ParallelWaitStrategy.NoWait;
                 }
 
-                var branchGroups = parallelNode.Children?.GroupBy(child =>
-                    child.GetExecutionProperty<int>("BranchIndex")).ToList() ?? new List<IGrouping<int, CommandNode>>();
+                var timeoutStr = parallelNode.LogicCommand.Properties?.GetValueOrDefault("TimeoutSeconds", "0")?.ToString() ?? "0";
+                if (!double.TryParse(timeoutStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var timeoutSeconds))
+                {
+                    timeoutSeconds = 0;
+                }
 
-                _logger.LogDebug("并行执行 {BranchCount} 个分支，最大并行数: {MaxParallel}", branchGroups.Count, maxParallel);
+                var branchGroups = parallelNode.Children?
+                    .GroupBy(child => child.GetExecutionProperty<int>("BranchIndex"))
+                    .OrderBy(g => g.Key)
+                    .ToList() ?? new List<IGrouping<int, CommandNode>>();
 
-                var tasks = new List<Task>();
+                _logger.LogDebug("并行执行 {BranchCount} 个分支，最大并行数: {MaxParallel}，等待策略: {Strategy}，超时: {Timeout}s",
+                    branchGroups.Count, maxParallel, waitStrategy, timeoutSeconds);
+
+                var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var throttler = new SemaphoreSlim(maxParallel);
+                var branchTasks = new List<Task>();
 
                 foreach (var branchGroup in branchGroups)
                 {
@@ -459,23 +1115,138 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                     var task = Task.Run(async () =>
                     {
-                        _logger.LogDebug("开始执行并行分支 {BranchIndex}，包含 {Count} 个节点", branchIndex, branchNodes.Count);
-
-                        foreach (var childNode in branchNodes)
+                        await throttler.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+                        try
                         {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            _pauseEvent.Wait(cancellationToken);
+                            _logger.LogDebug("开始执行并行分支 {BranchIndex}，包含 {Count} 个节点", branchIndex, branchNodes.Count);
 
-                            await ExecuteNodeAsync(childNode, context, cancellationToken);
+                            foreach (var childNode in branchNodes)
+                            {
+                                linkedCts.Token.ThrowIfCancellationRequested();
+                                _pauseEvent.Wait(linkedCts.Token);
+
+                                // 使用带进度的执行方法
+                                await ExecuteNodeWithProgressAsync(childNode, context, linkedCts.Token).ConfigureAwait(false);
+                            }
+
+                            _logger.LogDebug("并行分支 {BranchIndex} 执行完成", branchIndex);
                         }
+                        finally
+                        {
+                            throttler.Release();
+                        }
+                    }, linkedCts.Token);
 
-                        _logger.LogDebug("并行分支 {BranchIndex} 执行完成", branchIndex);
-                    }, cancellationToken);
-
-                    tasks.Add(task);
+                    branchTasks.Add(task);
                 }
 
-                await Task.WhenAll(tasks);
+                // 根据等待策略处理
+                if (waitStrategy == ParallelWaitStrategy.NoWait)
+                {
+                    // NoWait策略：将任务添加到后台任务列表，主流程继续
+                    _logger.LogInformation("并行节点 {NodeName} 使用NoWait策略，{Count} 个分支将在后台执行",
+                        parallelNode.DisplayName, branchTasks.Count);
+
+                    lock (_backgroundTasksLock)
+                    {
+                        _backgroundTasks.AddRange(branchTasks);
+                    }
+
+                    // 添加任务完成后的清理
+                    _ = Task.WhenAll(branchTasks).ContinueWith(t =>
+                    {
+                        lock (_backgroundTasksLock)
+                        {
+                            foreach (var task in branchTasks)
+                            {
+                                _backgroundTasks.Remove(task);
+                            }
+                        }
+
+                        if (t.IsFaulted)
+                        {
+                            _logger.LogError(t.Exception, "后台并行任务执行失败");
+                        }
+                        else
+                        {
+                            _logger.LogDebug("并行节点 {NodeName} 的后台任务全部完成", parallelNode.DisplayName);
+                        }
+                    }, TaskContinuationOptions.ExecuteSynchronously);
+
+                    return branchGroups.Count;
+                }
+
+                // WaitAll 或 WaitAny 策略
+                Task timeoutTask = null;
+                if (timeoutSeconds > 0)
+                {
+                    timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), linkedCts.Token);
+                }
+
+                switch (waitStrategy)
+                {
+                    case ParallelWaitStrategy.WaitAll:
+                        {
+                            _logger.LogDebug("并行节点 {NodeName} 使用WaitAll策略，等待所有分支完成", parallelNode.DisplayName);
+
+                            var allTask = Task.WhenAll(branchTasks);
+                            if (timeoutTask != null)
+                            {
+                                var completed = await Task.WhenAny(allTask, timeoutTask).ConfigureAwait(false);
+                                if (completed == timeoutTask)
+                                {
+                                    _logger.LogWarning("并行命令超时（WaitAll），TimeoutSeconds={Timeout}", timeoutSeconds);
+                                    linkedCts.Cancel(); // 取消未完成的任务
+                                    throw new TimeoutException($"并行命令等待全部分支超时（{timeoutSeconds}s）");
+                                }
+                            }
+                            await allTask.ConfigureAwait(false); // 传播异常
+                            break;
+                        }
+
+                    case ParallelWaitStrategy.WaitAny:
+                        {
+                            _logger.LogDebug("并行节点 {NodeName} 使用WaitAny策略，等待任一分支完成", parallelNode.DisplayName);
+
+                            if (branchTasks.Count == 0) return 0;
+                            var anyTask = Task.WhenAny(branchTasks);
+                            if (timeoutTask != null)
+                            {
+                                var completed = await Task.WhenAny(anyTask, timeoutTask).ConfigureAwait(false);
+                                if (completed == timeoutTask)
+                                {
+                                    _logger.LogWarning("并行命令超时（WaitAny），TimeoutSeconds={Timeout}", timeoutSeconds);
+                                    linkedCts.Cancel(); // 取消未完成的任务
+                                    throw new TimeoutException($"并行命令等待任一分支超时（{timeoutSeconds}s）");
+                                }
+                            }
+                            var firstCompleted = await anyTask.ConfigureAwait(false);
+
+                            // WaitAny完成后，其他任务继续在后台执行
+                            var remainingTasks = branchTasks.Where(t => t != firstCompleted).ToList();
+                            if (remainingTasks.Count > 0)
+                            {
+                                _logger.LogDebug("WaitAny策略：首个分支已完成，{Count} 个分支继续在后台执行", remainingTasks.Count);
+                                lock (_backgroundTasksLock)
+                                {
+                                    _backgroundTasks.AddRange(remainingTasks);
+                                }
+
+                                // 清理后台任务
+                                _ = Task.WhenAll(remainingTasks).ContinueWith(t =>
+                                {
+                                    lock (_backgroundTasksLock)
+                                    {
+                                        foreach (var task in remainingTasks)
+                                        {
+                                            _backgroundTasks.Remove(task);
+                                        }
+                                    }
+                                }, TaskContinuationOptions.ExecuteSynchronously);
+                            }
+                            break;
+                        }
+                }
 
                 _logger.LogDebug("并行命令执行完成: {NodeName}", parallelNode.DisplayName);
                 return branchGroups.Count;
@@ -492,17 +1263,80 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             _logger.LogDebug("执行等待命令: {NodeName}", waitNode.DisplayName);
             try
             {
-                var waitTimeStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", "1000")?.ToString() ?? "1000";
-                if (!int.TryParse(waitTimeStr, out var waitTimeMs))
+                // 检查是否是条件等待
+                var condition = waitNode.LogicCommand.Properties?.GetValueOrDefault("Condition", "")?.ToString() ?? "";
+
+                if (!string.IsNullOrWhiteSpace(condition))
                 {
-                    waitTimeMs = 1000;
+                    // 条件等待
+                    var timeoutSecondsStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeoutSeconds", "30")?.ToString() ?? "30";
+                    var checkIntervalStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("CheckIntervalSeconds", "1")?.ToString() ?? "1";
+
+                    // 解析超时时间（支持变量）
+                    var timeoutValue = ResolveOperandValue(timeoutSecondsStr, context, waitNode);
+                    double timeoutSeconds = 30;
+                    if (timeoutValue != null && double.TryParse(timeoutValue.ToString(), out var parsed))
+                        timeoutSeconds = parsed;
+
+                    // 解析检查间隔（支持变量）
+                    var intervalValue = ResolveOperandValue(checkIntervalStr, context, waitNode);
+                    double checkInterval = 1;
+                    if (intervalValue != null && double.TryParse(intervalValue.ToString(), out var parsedInterval))
+                        checkInterval = parsedInterval;
+
+                    _logger.LogDebug("条件等待: 条件={Condition}, 超时={Timeout}秒, 检查间隔={Interval}秒",
+                        condition, timeoutSeconds, checkInterval);
+
+                    var startTime = DateTime.Now;
+                    var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    var interval = TimeSpan.FromSeconds(checkInterval);
+
+                    while (DateTime.Now - startTime < timeout)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        // 评估条件
+                        bool conditionMet = EvaluateLoopCondition(condition, context, waitNode);
+
+                        if (conditionMet)
+                        {
+                            _logger.LogDebug("条件等待完成，条件已满足");
+                            return (DateTime.Now - startTime).TotalMilliseconds;
+                        }
+
+                        // 等待检查间隔
+                        await Task.Delay(interval, cancellationToken);
+                    }
+
+                    throw new TimeoutException($"条件等待超时: {condition}");
                 }
+                else
+                {
+                    // 固定时间等待
+                    var waitTimeStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", "5")?.ToString() ?? "5";
+                    var timeUnit = waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeUnit", TimeUnit.Seconds)?.ToString() ?? "Seconds";
 
-                _logger.LogDebug("等待 {WaitTime} 毫秒", waitTimeMs);
-                await Task.Delay(waitTimeMs, cancellationToken);
+                    // 解析等待时间（支持变量）
+                    var waitTimeValue = ResolveOperandValue(waitTimeStr, context, waitNode);
+                    double waitTime = 5;
+                    if (waitTimeValue != null && double.TryParse(waitTimeValue.ToString(), out var parsed))
+                        waitTime = parsed;
 
-                _logger.LogDebug("等待命令执行完成: {NodeName}", waitNode.DisplayName);
-                return waitTimeMs;
+                    // 转换为毫秒
+                    int waitTimeMs = timeUnit switch
+                    {
+                        "Milliseconds" => (int)waitTime,
+                        "Seconds" => (int)(waitTime * 1000),
+                        "Minutes" => (int)(waitTime * 60000),
+                        _ => (int)(waitTime * 1000)
+                    };
+
+                    _logger.LogDebug("等待 {WaitTime} {Unit} ({Ms} 毫秒)", waitTime, timeUnit, waitTimeMs);
+                    await Task.Delay(waitTimeMs, cancellationToken);
+
+                    _logger.LogDebug("等待命令执行完成: {NodeName}", waitNode.DisplayName);
+                    return waitTimeMs;
+                }
             }
             catch (Exception ex)
             {
@@ -511,31 +1345,175 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
 
+
         private async Task<object> ExecuteSetVariableCommandAsync(CommandNode setVarNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行设置变量命令: {NodeName}", setVarNode.DisplayName);
             try
             {
                 var variableName = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableName", "")?.ToString() ?? "";
-                var variableValue = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableValue", "")?.ToString() ?? "";
+                var variableValueStr = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableValue", "")?.ToString() ?? "";
+                var variableType = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableType", VariableType.String)?.ToString() ?? "String";
 
                 if (string.IsNullOrEmpty(variableName))
                 {
                     throw new InvalidOperationException("变量名不能为空");
                 }
 
-                context.SetVariable(variableName, variableValue);
-                _logger.LogDebug("设置变量: {Name} = {Value}", variableName, variableValue);
+                // 解析变量值（支持引用其他变量或设备输出）
+                var resolvedValue = ResolveOperandValue(variableValueStr, context, setVarNode);
 
+                // 根据指定的类型进行转换
+                object finalValue = ConvertToType(resolvedValue, variableType);
+
+                // 设置变量
+                context.SetVariable(variableName, finalValue);
+
+                _logger.LogDebug("设置变量: {Name} = {Value} (类型: {Type})",
+                    variableName, finalValue, variableType);
+
+                // 短暂延迟以确保变量设置完成
                 await Task.Delay(50, cancellationToken);
 
                 _logger.LogDebug("设置变量命令执行完成: {NodeName}", setVarNode.DisplayName);
-                return variableValue;
+                return finalValue;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "设置变量命令执行失败: {NodeName}", setVarNode.DisplayName);
                 throw;
+            }
+        }
+        /// <summary>
+        /// 根据指定类型转换值
+        /// </summary>
+        private object ConvertToType(object value, string typeName)
+        {
+            if (value == null)
+                return null;
+
+            // 处理枚举名称和字符串形式
+            switch (typeName)
+            {
+                case "String":
+                case "System.String":
+                    if (Enum.TryParse<VariableType>(typeName, out var strType) && strType == VariableType.String)
+                        return value.ToString();
+                    return value.ToString();
+
+                case "Number":
+                case "Double":
+                case "System.Double":
+                    if (Enum.TryParse<VariableType>(typeName, out var numType) && numType == VariableType.Number)
+                        goto ParseDouble;
+                    goto ParseDouble;
+
+                case "Integer":
+                case "Int":
+                case "Int32":
+                case "System.Int32":
+                    if (Enum.TryParse<VariableType>(typeName, out var intType) && intType == VariableType.Integer)
+                        goto ParseInt;
+                    goto ParseInt;
+
+                case "Boolean":
+                case "Bool":
+                case "System.Boolean":
+                    if (Enum.TryParse<VariableType>(typeName, out var boolType) && boolType == VariableType.Boolean)
+                        goto ParseBool;
+                    goto ParseBool;
+
+                case "DateTime":
+                case "System.DateTime":
+                    if (Enum.TryParse<VariableType>(typeName, out var dateType) && dateType == VariableType.DateTime)
+                        goto ParseDateTime;
+                    goto ParseDateTime;
+
+                default:
+                    // 尝试解析为VariableType枚举
+                    if (Enum.TryParse<VariableType>(typeName, out var varType))
+                    {
+                        return ConvertToVariableType(value, varType);
+                    }
+                    return value;
+            }
+
+        ParseDouble:
+            if (double.TryParse(value.ToString(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out double doubleValue))
+                return doubleValue;
+            return 0.0;
+
+        ParseInt:
+            if (int.TryParse(value.ToString(), NumberStyles.Integer,
+                CultureInfo.InvariantCulture, out int intValue))
+                return intValue;
+            return 0;
+
+        ParseBool:
+            if (value is bool boolValue)
+                return boolValue;
+            if (bool.TryParse(value.ToString(), out bool parsed))
+                return parsed;
+            // 将非零数字视为true
+            if (double.TryParse(value.ToString(), out double num))
+                return num != 0;
+            // 将非空字符串视为true
+            return !string.IsNullOrWhiteSpace(value.ToString());
+
+        ParseDateTime:
+            if (value is DateTime dt)
+                return dt;
+            if (DateTime.TryParse(value.ToString(), out DateTime parsedDate))
+                return parsedDate;
+            return DateTime.Now;
+        }
+
+        /// <summary>
+        /// 根据VariableType枚举转换值
+        /// </summary>
+        private object ConvertToVariableType(object value, VariableType type)
+        {
+            if (value == null)
+                return null;
+
+            switch (type)
+            {
+                case VariableType.String:
+                    return value.ToString();
+
+                case VariableType.Number:
+                    if (double.TryParse(value.ToString(), NumberStyles.Float | NumberStyles.AllowThousands,
+                        CultureInfo.InvariantCulture, out double doubleValue))
+                        return doubleValue;
+                    return 0.0;
+
+                case VariableType.Integer:
+                    if (int.TryParse(value.ToString(), NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out int intValue))
+                        return intValue;
+                    return 0;
+
+                case VariableType.Boolean:
+                    if (value is bool boolValue)
+                        return boolValue;
+                    if (bool.TryParse(value.ToString(), out bool parsed))
+                        return parsed;
+                    // 将非零数字视为true
+                    if (double.TryParse(value.ToString(), out double num))
+                        return num != 0;
+                    // 将非空字符串视为true
+                    return !string.IsNullOrWhiteSpace(value.ToString());
+
+                case VariableType.DateTime:
+                    if (value is DateTime dt)
+                        return dt;
+                    if (DateTime.TryParse(value.ToString(), out DateTime parsedDate))
+                        return parsedDate;
+                    return DateTime.Now;
+
+                default:
+                    return value;
             }
         }
 
@@ -569,7 +1547,506 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogInformation("流程执行停止中...");
             }
         }
+        /// <summary>
+        /// 解析操作数的值（可能是常量、变量引用或设备输出变量）
+        /// </summary>
+        private object ResolveOperandValue(string operand, FlowExecutionContext context, CommandNode currentNode)
+        {
+            if (string.IsNullOrWhiteSpace(operand))
+                return null;
 
+            // 去除前后空格
+            operand = operand.Trim();
+
+            // 1. 检查是否是变量引用格式 ${variableName} 或 $variableName
+            if (operand.StartsWith("${") && operand.EndsWith("}"))
+            {
+                var varName = operand.Substring(2, operand.Length - 3);
+                return ResolveVariable(varName, context, currentNode);
+            }
+            else if (operand.StartsWith("$"))
+            {
+                var varName = operand.Substring(1);
+                return ResolveVariable(varName, context, currentNode);
+            }
+
+            // 2. 检查是否是设备输出变量格式: DeviceName.CommandName.VariableName
+            if (operand.Contains("."))
+            {
+                var value = ResolveDeviceOutputVariable(operand, context, currentNode);
+                if (value != null)
+                {
+                    _logger.LogDebug("解析设备输出变量: {Operand} = {Value}", operand, value);
+                    return value;
+                }
+            }
+
+            // 3. 尝试从上下文变量中获取（如果操作数本身就是变量名）
+            if (context.HasVariable(operand))
+            {
+                return context.GetVariable(operand);
+            }
+
+            // 4. 解析为常量值
+            return ParseConstantValue(operand);
+        }
+        /// <summary>
+        /// <summary>
+        /// 解析设备输出变量
+        /// </summary>
+        private object ResolveDeviceOutputVariable(string variablePath, FlowExecutionContext context, CommandNode currentNode)
+        {
+            try
+            {
+                var parts = variablePath.Split('.');
+                if (parts.Length < 2)
+                    return null;
+
+                string deviceDisplayName = null;
+                string deviceId = null;
+                string commandName = null;
+                string variableName = null;
+
+                if (parts.Length == 2)
+                {
+                    // 格式: CommandName.VariableName
+                    commandName = parts[0];
+                    variableName = parts[1];
+                }
+                else if (parts.Length >= 3)
+                {
+                    // 格式: 泵#1.启动.流量
+                    deviceDisplayName = parts[0];
+                    commandName = parts[1];
+                    variableName = string.Join(".", parts.Skip(2));
+
+                    // 将显示名称转换为DeviceId
+                    deviceId = _deviceNameResolver.GetDeviceIdByDisplayName(deviceDisplayName);
+
+                    if (string.IsNullOrEmpty(deviceId))
+                    {
+                        _logger.LogWarning("无法解析设备名称: {DeviceName}", deviceDisplayName);
+                        return null;
+                    }
+                }
+
+                // 从执行历史中查找
+                var executedNode = FindExecutedNodeWithOutput(context, deviceId, commandName);
+                if (executedNode?.LastOutputParameters?.Variables != null)
+                {
+                    var outputVar = executedNode.LastOutputParameters.Variables
+                        .FirstOrDefault(v => v.Name == variableName);
+
+                    if (outputVar != null)
+                    {
+                        _logger.LogDebug("找到设备输出变量: {Path} = {Value}", variablePath, outputVar.Value);
+                        return outputVar.Value;
+                    }
+                }
+
+                // 从全局已执行的节点中查找
+                var flowViewModel = _statusService?.GetCurrentFlowViewModel();
+                if (flowViewModel != null)
+                {
+                    var allNodes = GetAllNodes(flowViewModel.CommandNodes);
+
+                    var matchingNodes = allNodes.Where(node =>
+                    {
+                        if (node.DeviceCommand == null || node.CommandName != commandName)
+                            return false;
+
+                        if (node.LastOutputParameters?.Variables == null)
+                            return false;
+
+                        // 如果没有指定设备，匹配所有
+                        if (string.IsNullOrEmpty(deviceId))
+                            return true;
+
+                        // 比较DeviceId
+                        return !string.IsNullOrEmpty(node.BoundDeviceId) &&
+                               node.BoundDeviceId.Equals(deviceId, StringComparison.OrdinalIgnoreCase);
+                    })
+                    .OrderByDescending(n => n.LastExecutionResult?.ExecutionTime ?? DateTime.MinValue)
+                    .ToList();
+
+                    foreach (var node in matchingNodes)
+                    {
+                        var outputVar = node.LastOutputParameters.Variables
+                            .FirstOrDefault(v => v.Name == variableName);
+
+                        if (outputVar != null)
+                        {
+                            var nodeDisplayName = _deviceNameResolver.GetDisplayNameByDeviceId(node.BoundDeviceId);
+                            _logger.LogDebug("从全局节点找到设备输出变量: {Path} = {Value} (设备: {Device})",
+                                variablePath, outputVar.Value, nodeDisplayName ?? node.BoundDeviceId);
+                            return outputVar.Value;
+                        }
+                    }
+                }
+
+                // 智能匹配：如果用户只输入了基础设备名（不带编号）
+                if (!string.IsNullOrEmpty(deviceDisplayName) && !deviceDisplayName.Contains("#"))
+                {
+                    _logger.LogDebug("尝试模糊匹配设备名: {DeviceName}", deviceDisplayName);
+
+                    // 获取所有匹配基础名称的设备
+                    var allDisplayNames = _deviceNameResolver.GetAllDisplayNames();
+                    var matchingDeviceIds = allDisplayNames
+                        .Where(kvp => kvp.Value.StartsWith(deviceDisplayName + "#", StringComparison.OrdinalIgnoreCase))
+                        .Select(kvp => kvp.Key)
+                        .ToList();
+
+                    if (matchingDeviceIds.Any())
+                    {
+                        _logger.LogDebug("找到 {Count} 个匹配的设备", matchingDeviceIds.Count);
+
+                        var allNodes = GetAllNodes(flowViewModel.CommandNodes);
+
+                        // 查找最近执行的匹配设备
+                        var matchingNodesLoose = allNodes
+                            .Where(n => n.DeviceCommand != null &&
+                                       n.CommandName == commandName &&
+                                       !string.IsNullOrEmpty(n.BoundDeviceId) &&
+                                       matchingDeviceIds.Contains(n.BoundDeviceId) &&
+                                       n.LastOutputParameters?.Variables != null)
+                            .OrderByDescending(n => n.LastExecutionResult?.ExecutionTime ?? DateTime.MinValue)
+                            .ToList();
+
+                        foreach (var node in matchingNodesLoose)
+                        {
+                            var outputVar = node.LastOutputParameters.Variables
+                                .FirstOrDefault(v => v.Name == variableName);
+
+                            if (outputVar != null)
+                            {
+                                var nodeDisplayName = _deviceNameResolver.GetDisplayNameByDeviceId(node.BoundDeviceId);
+                                _logger.LogDebug("通过模糊匹配找到设备输出变量: {Path} = {Value} (设备: {Device})",
+                                    variablePath, outputVar.Value, nodeDisplayName ?? node.BoundDeviceId);
+                                return outputVar.Value;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "解析设备输出变量失败: {Path}", variablePath);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 查找已执行的节点输出（使用DeviceId匹配）
+        /// </summary>
+        private CommandNode FindExecutedNodeWithOutput(FlowExecutionContext context, string deviceId, string commandName)
+        {
+            // 从执行历史中反向查找（最新的优先）
+            var records = context.ExecutionHistory.AsEnumerable().Reverse();
+            foreach (var record in records)
+            {
+                if (!string.IsNullOrEmpty(record.NodeId))
+                {
+                    var node = FindNodeById(record.NodeId);
+                    if (node?.DeviceCommand != null && node.CommandName == commandName)
+                    {
+                        // 如果没有指定设备ID，则匹配任何设备的该命令
+                        if (string.IsNullOrEmpty(deviceId))
+                        {
+                            return node;
+                        }
+
+                        // 直接比较DeviceId
+                        if (!string.IsNullOrEmpty(node.BoundDeviceId) &&
+                            node.BoundDeviceId.Equals(deviceId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return node;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+       
+     
+     
+    
+        /// <summary>
+        /// 根据NodeId查找节点
+        /// </summary>
+        private CommandNode FindNodeById(string nodeId)
+        {
+            var flowViewModel = _statusService?.GetCurrentFlowViewModel();
+            if (flowViewModel == null)
+                return null;
+
+            var allNodes = GetAllNodes(flowViewModel.CommandNodes);
+            return allNodes.FirstOrDefault(n => n.NodeId == nodeId);
+        }
+
+        /// <summary>
+        /// 递归获取所有节点（包括子节点）
+        /// </summary>
+        private List<CommandNode> GetAllNodes(IEnumerable<CommandNode> nodes)
+        {
+            var result = new List<CommandNode>();
+            foreach (var node in nodes)
+            {
+                result.Add(node);
+                if (node.HasChildren)
+                {
+                    result.AddRange(GetAllNodes(node.Children));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 获取当前流程视图模型（辅助方法）
+        /// </summary>
+        private FlowDesignerViewModel GetCurrentFlowViewModel()
+        {
+            return _statusService?.GetCurrentFlowViewModel();
+        }
+
+        /// <summary>
+        /// 解析变量引用
+        /// </summary>
+        private object ResolveVariable(string variableName, FlowExecutionContext context, CommandNode currentNode)
+        {
+            // 1. 首先尝试从上下文变量中获取
+            if (context.HasVariable(variableName))
+            {
+                return context.GetVariable(variableName);
+            }
+
+            // 2. 尝试作为设备输出变量路径解析
+            var deviceVarValue = ResolveDeviceOutputVariable(variableName, context, currentNode);
+            if (deviceVarValue != null)
+            {
+                return deviceVarValue;
+            }
+
+            // 3. 返回null表示未找到
+            _logger.LogWarning("未找到变量: {VariableName}", variableName);
+            return null;
+        }
+
+        /// <summary>
+        /// 解析常量值
+        /// </summary>
+        private object ParseConstantValue(string value)
+        {
+            // 去除前后空格
+            value = value.Trim();
+
+            // 1. 布尔值
+            if (value.Equals("true", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (value.Equals("false", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // 2. null值
+            if (value.Equals("null", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // 3. 字符串（带引号）
+            if ((value.StartsWith("'") && value.EndsWith("'")) ||
+                (value.StartsWith("\"") && value.EndsWith("\"")))
+            {
+                return value.Substring(1, value.Length - 2);
+            }
+
+            // 4. 数字
+            // 尝试解析为整数
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int intVal))
+                return intVal;
+
+            // 尝试解析为浮点数
+            if (double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out double doubleVal))
+                return doubleVal;
+
+            // 5. 默认作为字符串返回
+            return value;
+        }
+
+        /// <summary>
+        /// 评估条件
+        /// </summary>
+        private bool EvaluateCondition(object leftValue, string operatorStr, object rightValue)
+        {
+            try
+            {
+                _logger.LogDebug("评估条件: {Left} {Op} {Right}", leftValue, operatorStr, rightValue);
+
+                // 处理null值
+                if (leftValue == null || rightValue == null)
+                {
+                    return operatorStr switch
+                    {
+                        "Equal" => leftValue == rightValue,
+                        "NotEqual" => leftValue != rightValue,
+                        _ => false
+                    };
+                }
+
+                // 根据操作符进行比较
+                switch (operatorStr)
+                {
+                    case "Equal":
+                        return AreEqual(leftValue, rightValue);
+
+                    case "NotEqual":
+                        return !AreEqual(leftValue, rightValue);
+
+                    case "GreaterThan":
+                        return Compare(leftValue, rightValue) > 0;
+
+                    case "GreaterThanOrEqual":
+                        return Compare(leftValue, rightValue) >= 0;
+
+                    case "LessThan":
+                        return Compare(leftValue, rightValue) < 0;
+
+                    case "LessThanOrEqual":
+                        return Compare(leftValue, rightValue) <= 0;
+
+                    case "Contains":
+                        return Contains(leftValue, rightValue);
+
+                    case "NotContains":
+                        return !Contains(leftValue, rightValue);
+
+                    case "StartsWith":
+                        return StartsWith(leftValue, rightValue);
+
+                    case "EndsWith":
+                        return EndsWith(leftValue, rightValue);
+
+                    default:
+                        _logger.LogWarning("未知的操作符: {Operator}，默认返回false", operatorStr);
+                        return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "条件评估失败");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 判断两个值是否相等
+        /// </summary>
+        private bool AreEqual(object left, object right)
+        {
+            // 如果类型相同，直接比较
+            if (left.GetType() == right.GetType())
+            {
+                return left.Equals(right);
+            }
+
+            // 尝试数值比较
+            if (TryConvertToDouble(left, out double leftDouble) &&
+                TryConvertToDouble(right, out double rightDouble))
+            {
+                return Math.Abs(leftDouble - rightDouble) < 0.0000001; // 考虑浮点数精度
+            }
+
+            // 字符串比较
+            return left.ToString().Equals(right.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 比较两个值的大小
+        /// </summary>
+        private int Compare(object left, object right)
+        {
+            // 尝试数值比较
+            if (TryConvertToDouble(left, out double leftDouble) &&
+                TryConvertToDouble(right, out double rightDouble))
+            {
+                return leftDouble.CompareTo(rightDouble);
+            }
+
+            // 字符串比较
+            return string.Compare(left.ToString(), right.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 判断是否包含
+        /// </summary>
+        private bool Contains(object left, object right)
+        {
+            var leftStr = left?.ToString() ?? "";
+            var rightStr = right?.ToString() ?? "";
+            return leftStr.IndexOf(rightStr, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// 判断是否以指定字符串开始
+        /// </summary>
+        private bool StartsWith(object left, object right)
+        {
+            var leftStr = left?.ToString() ?? "";
+            var rightStr = right?.ToString() ?? "";
+            return leftStr.StartsWith(rightStr, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 判断是否以指定字符串结束
+        /// </summary>
+        private bool EndsWith(object left, object right)
+        {
+            var leftStr = left?.ToString() ?? "";
+            var rightStr = right?.ToString() ?? "";
+            return leftStr.EndsWith(rightStr, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 尝试将值转换为double
+        /// </summary>
+        private bool TryConvertToDouble(object value, out double result)
+        {
+            result = 0;
+
+            if (value == null)
+                return false;
+
+            if (value is double d)
+            {
+                result = d;
+                return true;
+            }
+
+            if (value is int i)
+            {
+                result = i;
+                return true;
+            }
+
+            if (value is float f)
+            {
+                result = f;
+                return true;
+            }
+
+            if (value is decimal dec)
+            {
+                result = (double)dec;
+                return true;
+            }
+
+            if (value is bool b)
+            {
+                result = b ? 1 : 0;
+                return true;
+            }
+
+            return double.TryParse(value.ToString(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out result);
+        }
         public FlowValidationResult ValidateFlow(FlowDesignerViewModel flowViewModel)
         {
             var result = new FlowValidationResult { IsValid = true };
@@ -669,10 +2146,79 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
         private void ValidateLoopNode(CommandNode loopNode, FlowValidationResult result)
         {
-            var loopCountStr = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopCount", "")?.ToString();
-            if (string.IsNullOrWhiteSpace(loopCountStr) || !int.TryParse(loopCountStr, out var loopCount) || loopCount <= 0)
+            var typeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopType", LoopType.FixedCount);
+            var loopType = ReadLoopType(typeObj);
+
+            switch (loopType)
             {
-                result.Errors.Add($"循环节点的循环次数无效: {loopNode.DisplayName}");
+                case LoopType.FixedCount:
+                    {
+                        var loopCountObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopCount", null);
+                        if (loopCountObj == null)
+                        {
+                            result.Errors.Add($"循环节点缺少循环次数: {loopNode.DisplayName}");
+                            break;
+                        }
+
+                        var loopCountStr = loopCountObj.ToString();
+
+                        // 允许变量/表达式（如 $n 或 ${n}），这类不能静态验证数字
+                        bool looksLikeVariable = loopCountStr.StartsWith("$") || loopCountStr.Contains("${");
+                        if (!looksLikeVariable)
+                        {
+                            if (!int.TryParse(loopCountStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lc) || lc <= 0)
+                            {
+                                result.Errors.Add($"循环节点的循环次数无效: {loopNode.DisplayName}");
+                            }
+                        }
+                        break;
+                    }
+
+                case LoopType.Conditional:
+                    {
+                        var leftExists = loopNode.LogicCommand.Properties?.ContainsKey("LeftOperand") == true;
+                        var opExists = loopNode.LogicCommand.Properties?.ContainsKey("Operator") == true;
+                        var rightExists = loopNode.LogicCommand.Properties?.ContainsKey("RightOperand") == true;
+
+                        if (!leftExists || !opExists || !rightExists)
+                            result.Errors.Add($"条件循环缺少必要字段（Left/Operator/Right）: {loopNode.DisplayName}");
+
+                        var left = loopNode.LogicCommand.Properties?["LeftOperand"]?.ToString();
+                        var right = loopNode.LogicCommand.Properties?["RightOperand"]?.ToString();
+
+                        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+                            result.Warnings.Add($"条件循环的操作数为空（Left/Right）: {loopNode.DisplayName}");
+
+                        // 验证 IsDoWhile 字段
+                        var isDoWhileExists = loopNode.LogicCommand.Properties?.ContainsKey("IsDoWhile") == true;
+                        if (!isDoWhileExists)
+                        {
+                            // 如果不存在，设置默认值
+                            if (loopNode.LogicCommand.Properties != null)
+                            {
+                                loopNode.LogicCommand.Properties["IsDoWhile"] = false;
+                            }
+                        }
+
+                        break;
+                    }
+
+                case LoopType.Infinite:
+                    // 无限循环不强制校验，但可以检查是否有合理的退出机制
+                    result.Warnings.Add($"无限循环节点需要确保有合理的退出机制: {loopNode.DisplayName}");
+                    break;
+
+                default:
+                    result.Warnings.Add($"未知 LoopType: {loopType}，节点: {loopNode.DisplayName}");
+                    break;
+            }
+
+            // 验证循环间隔时间
+            var waitTimeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", 10);
+            var waitTimeMs = SafeToInt(waitTimeObj, 10);
+            if (waitTimeMs < 0)
+            {
+                result.Warnings.Add($"循环节点的等待时间不应为负数: {loopNode.DisplayName}");
             }
         }
 
@@ -863,4 +2409,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
     }
+
+  
 }

@@ -53,6 +53,18 @@ namespace MaxChemical.Modules.Designer.ViewModels
         // 事件
         public event EventHandler<CommandNode> NodeAdded;
         public event EventHandler<CanvasWidthRequestEventArgs> CanvasWidthRequested;
+        // 右侧属性栏设备候选
+        public class DeviceOption
+        {
+            public string Id { get; set; }
+            public string Display { get; set; }
+        }
+        private ObservableCollection<DeviceOption> _deviceOptionsForSelectedNode = new ObservableCollection<DeviceOption>();
+        public ObservableCollection<DeviceOption> DeviceOptionsForSelectedNode
+        {
+            get => _deviceOptionsForSelectedNode;
+            private set => SetProperty(ref _deviceOptionsForSelectedNode, value);
+        }
 
         public class CanvasWidthRequestEventArgs : EventArgs
         {
@@ -125,7 +137,23 @@ namespace MaxChemical.Modules.Designer.ViewModels
         public CommandNode SelectedNode
         {
             get => _selectedNode;
-            set => SetProperty(ref _selectedNode, value);
+            set
+            {
+                if (_selectedNode == value) return;
+
+                _selectedNode = value;
+
+                if (_selectedNode?.DeviceCommand != null)
+                {
+                    RefreshDeviceOptionsForSelectedNode(_selectedNode);
+                }
+                else
+                {
+                    DeviceOptionsForSelectedNode = null; // 或 new ObservableCollection<DeviceOption>()
+                }
+
+                RaisePropertyChanged();
+            }
         }
 
         #endregion
@@ -1716,15 +1744,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 if (clickedNode == null) return;
 
-                // NEW: 未绑定的设备命令，优先弹出小卡片选择器 string.IsNullOrEmpty(clickedNode.BoundDeviceId)
-                if (clickedNode.DeviceCommand != null)
-                {
-                    PromptBindDeviceForNode(clickedNode);
-                    return;
-                }
+                _nodeManagementService.ClearAllSelections(this);
+                clickedNode.IsSelected = true;
+                SelectedNode = clickedNode;
 
                 // 原有逻辑
-                _nodeManagementService.HandleNodeClick(clickedNode, this);
+                //_nodeManagementService.HandleNodeClick(clickedNode, this);
             }
             catch (Exception ex)
             {
@@ -1800,89 +1825,66 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
 
         //构造候选列表（筛选支持命令 & 未被其它节点占用）
-        private List<CommandBindingAndParametersWindow.DeviceOption> BuildBindingCandidatesForNode(CommandNode node)
+        public List<DeviceOption> GetBindingCandidatesForNode(CommandNode node)
         {
             try
             {
-                if (node?.DeviceCommand == null) return new List<CommandBindingAndParametersWindow.DeviceOption>();
+                if (node?.DeviceCommand == null) return new List<DeviceOption>();
 
-                // 1) 拉取画布设备
+                // 1) 请求画布设备（通过回调拿到结果）
                 List<CanvasDeviceViewModel> canvasDevices = null;
-                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list =>
-                    canvasDevices = list ?? new List<CanvasDeviceViewModel>());
+                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(result =>
+                {
+                    canvasDevices = result ?? new List<CanvasDeviceViewModel>();
+                });
 
                 // 2) 支持该命令
-                var supports = canvasDevices?
+                var supports = (canvasDevices ?? new List<CanvasDeviceViewModel>())
                     .Where(d => d?.Device?.Commands?.Any(c => c.Name == node.DeviceCommand.Name) == true)
-                    .ToList() ?? new List<CanvasDeviceViewModel>();
+                    .ToList();
 
-                // 3) 剔除已被其它节点绑定的设备（允许当前节点保留自己的绑定）
-                var usedIds = CommandNodes
-                    .Where(n => n != node && !string.IsNullOrEmpty(n.BoundDeviceId))
-                    .Select(n => n.BoundDeviceId)
-                    .ToHashSet();
+                //// 3) 剔除已被其它节点占用的设备（允许当前节点保留自己的绑定）
+                //var usedIds = CommandNodes
+                //    .Where(n => n != node && !string.IsNullOrEmpty(n.BoundDeviceId))
+                //    .Select(n => n.BoundDeviceId)
+                //    .ToHashSet();
 
-                var candidates = supports.Where(d => !usedIds.Contains(d.DeviceId)).ToList();
+                //var candidates = supports.Where(d => !usedIds.Contains(d.DeviceId)).ToList();
 
-                // 4) 设备Id -> 画布显示名
+                // 4) 请求显示名映射
                 Dictionary<string, string> displayNames = null;
                 _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Publish(map =>
-                    displayNames = map ?? new Dictionary<string, string>());
-
-                return candidates.Select(d =>
                 {
-                    var dn = (displayNames != null && displayNames.TryGetValue(d.DeviceId, out var name))
-                        ? name
+                    displayNames = map ?? new Dictionary<string, string>();
+                });
+
+                // 5) 组装 DeviceOption 列表
+                return supports.Select(d =>
+                {
+                    var display = (displayNames != null && displayNames.TryGetValue(d.DeviceId, out var dn))
+                        ? dn
                         : (d.Device?.Name ?? d.DeviceId);
-                    return new CommandBindingAndParametersWindow.DeviceOption
-                    {
-                        Id = d.DeviceId,
-                        Display = dn
-                    };
+                    return new DeviceOption { Id = d.DeviceId, Display = display };
                 }).ToList();
             }
             catch
             {
-                return new List<CommandBindingAndParametersWindow.DeviceOption>();
+                return new List<DeviceOption>();
             }
         }
-        //弹出绑定
-        public void PromptBindDeviceForNode(CommandNode node)
+
+        public void RefreshDeviceOptionsForSelectedNode(CommandNode node)
         {
-            try
+            var list = GetBindingCandidatesForNode(node) ?? new List<DeviceOption>();
+
+            // 确保当前已绑定设备在列表中（避免 ComboBox 丢选择）
+            if (!string.IsNullOrEmpty(node.BoundDeviceId) && !list.Any(o => o.Id == node.BoundDeviceId))
             {
-                if (node?.DeviceCommand == null) return;
-
-                // 候选设备（支持该命令且未被其它节点占用）
-                var options = BuildBindingCandidatesForNode(node);
-                if (options == null || options.Count == 0)
-                {
-                    System.Windows.MessageBox.Show("当前画布上没有可执行该命令的可用设备。", "绑定设备",
-                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                    return;
-                }
-
-                // 设备Id -> 显示名(与画布一致，如 泵#2)
-                Dictionary<string, string> displayNames = null;
-                _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Publish(map =>
-                    displayNames = map ?? new Dictionary<string, string>());
-
-                var owner = System.Windows.Application.Current?.MainWindow;
-
-                // 使用带“参数编辑”的窗口
-                var saved = CommandBindingAndParametersWindow.ShowForNode(owner, node, options, displayNames ?? new Dictionary<string, string>());
-                if (!saved) return;
-
-                // 窗口内部已更新节点的 BoundDeviceId/BoundDeviceName 和参数，并重建 ParameterSummary
-                _logger.LogInformation("节点 {Node} 已绑定设备: {Bound}，参数: {Params}",
-                    node.DisplayName, node.BoundDeviceName, node.ParameterSummary);
-
-                RaisePropertyChanged(nameof(CommandNodes));
+                var display = string.IsNullOrEmpty(node.BoundDeviceName) ? node.BoundDeviceId : node.BoundDeviceName;
+                list.Insert(0, new DeviceOption { Id = node.BoundDeviceId, Display = display });
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "绑定设备失败: {Node}", node?.DisplayName);
-            }
+
+            DeviceOptionsForSelectedNode = new ObservableCollection<DeviceOption>(list);
         }
         #endregion
     }

@@ -1,0 +1,145 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.IfCommandPropertiesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- DataContext = CommandNode -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="逻辑判断"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#333"/>
+
+            <!-- 左操作数 -->
+            <TextBlock Text="左操作数" Margin="0,12,0,4" Foreground="#666"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0"
+                         x:Name="LeftOperandBox"
+                         MinWidth="220"
+                         Text="{Binding LogicCommand.Properties[LeftOperand], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="OnValueChanged"
+                         ToolTip="输入变量名或常量值"/>
+
+                <Button Grid.Column="1"
+                        Content="..."
+                        Width="30"
+                        Margin="4,0,0,0"
+                        ToolTip="选择变量"
+                        Click="SelectLeftVariable_Click"/>
+            </Grid>
+
+            <!-- 操作符 -->
+            <TextBlock Text="比较操作符" Margin="0,12,0,4" Foreground="#666"/>
+            <ComboBox x:Name="OperatorCombo"
+                      MinWidth="260"
+                      SelectedValuePath="Tag"
+                      SelectedValue="{Binding LogicCommand.Properties[Operator], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      SelectionChanged="OnValueChanged">
+                <ComboBoxItem Content="等于 (==)" Tag="Equal"/>
+                <ComboBoxItem Content="不等于 (!=)" Tag="NotEqual"/>
+                <ComboBoxItem Tag="GreaterThan">
+                    <ComboBoxItem.Content>
+                        <TextBlock Text="大于 (&gt;)"/>
+                    </ComboBoxItem.Content>
+                </ComboBoxItem>
+                <ComboBoxItem Tag="GreaterThanOrEqual">
+                    <ComboBoxItem.Content>
+                        <TextBlock Text="大于等于 (&gt;=)"/>
+                    </ComboBoxItem.Content>
+                </ComboBoxItem>
+                <ComboBoxItem Tag="LessThan">
+                    <ComboBoxItem.Content>
+                        <TextBlock Text="小于 (&lt;)"/>
+                    </ComboBoxItem.Content>
+                </ComboBoxItem>
+                <ComboBoxItem Tag="LessThanOrEqual">
+                    <ComboBoxItem.Content>
+                        <TextBlock Text="小于等于 (&lt;=)"/>
+                    </ComboBoxItem.Content>
+                </ComboBoxItem>
+                <ComboBoxItem Content="包含" Tag="Contains"/>
+                <ComboBoxItem Content="不包含" Tag="NotContains"/>
+                <ComboBoxItem Content="开始于" Tag="StartsWith"/>
+                <ComboBoxItem Content="结束于" Tag="EndsWith"/>
+            </ComboBox>
+
+            <!-- 右操作数 -->
+            <TextBlock Text="右操作数" Margin="0,12,0,4" Foreground="#666"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0"
+                         x:Name="RightOperandBox"
+                         MinWidth="220"
+                         Text="{Binding LogicCommand.Properties[RightOperand], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="OnValueChanged"
+                         ToolTip="输入比较值、常量或变量名"/>
+
+                <Button Grid.Column="1"
+                        Content="..."
+                        Width="30"
+                        Margin="4,0,0,0"
+                        ToolTip="选择变量"
+                        Click="SelectRightVariable_Click"/>
+            </Grid>
+
+            <!-- 描述 -->
+            <TextBlock Text="描述" Margin="0,12,0,4" Foreground="#666"/>
+            <TextBox x:Name="DescriptionBox"
+                     MinWidth="260"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     Height="60"
+                     Text="{Binding LogicCommand.Properties[Description], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="OnValueChanged"/>
+
+            <Separator Margin="0,16,0,16"/>
+
+            <!-- 条件预览 -->
+            <TextBlock Text="条件预览" 
+                       Margin="0,0,0,4" 
+                       FontWeight="Medium"
+                       Foreground="#666"/>
+            <Border Background="#F8F8F8" 
+                    BorderBrush="#E0E0E0" 
+                    BorderThickness="1" 
+                    CornerRadius="4"
+                    Padding="8">
+                <TextBlock x:Name="ConditionPreview"
+                           TextWrapping="Wrap"
+                           FontFamily="Consolas"
+                           FontSize="12"
+                           Foreground="#333"/>
+            </Border>
+
+            <!-- 提示信息 -->
+            <Border Background="#F0F8FF" 
+                    BorderBrush="#B0D4FF" 
+                    BorderThickness="1" 
+                    CornerRadius="4"
+                    Padding="8"
+                    Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="使用说明" FontWeight="Medium" Foreground="#1976D2" Margin="0,0,0,4"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#555" FontSize="11">
+                        <TextBlock.Text>
+                            • 左操作数和右操作数可以是常量或变量名
+• 点击 "..." 按钮可从变量列表中选择变量
+• 变量引用格式：${变量名} 或直接使用变量名
+• 字符串常量请使用引号包围：'文本内容'
+• 数字常量直接输入：123, 45.67
+• 布尔值：true 或 false
+                        </TextBlock.Text>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

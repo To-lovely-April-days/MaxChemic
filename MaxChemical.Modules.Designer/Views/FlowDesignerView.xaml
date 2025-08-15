@@ -6,6 +6,7 @@
              xmlns:prism="http://prismlibrary.com/"
              xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters"
              prism:ViewModelLocator.AutoWireViewModel="True"
+             xmlns:views="clr-namespace:MaxChemical.Modules.Designer.Views"
              Background="White">
 
     <UserControl.Resources>
@@ -20,7 +21,7 @@
         <converters:NodeExecutionStatusToBrushConverter x:Key="ExecutionStatusToBrushConverter"/>
         <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
 
-
+      
 
         <!-- 自定义按钮样式 -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
@@ -41,7 +42,6 @@
             </Setter>
         </Style>
         <!-- 设备命令节点模板 -->
-        <!-- 设备命令节点模板（修复触发器错误 + 加执行/停止按钮 + 小黄点） -->
         <DataTemplate x:Key="DeviceCommandNodeTemplate">
             <Border Width="231" Height="64"
             Background="White"
@@ -269,6 +269,34 @@
                 </Grid>
             </Border>
         </DataTemplate>
+
+        <!-- 右侧属性栏用的 DataTemplate：设备命令 -->
+        <DataTemplate x:Key="DeviceCommandPropertiesTemplate">
+            <views:DeviceCommandPropertiesView/>
+        </DataTemplate>
+        <DataTemplate x:Key="IfCommandPropertiesTemplate">
+            <views:IfCommandPropertiesView/>
+        </DataTemplate>
+        <DataTemplate x:Key="LoopCommandPropertiesTemplate">
+            <views:LoopCommandPropertiesView/>
+        </DataTemplate>
+        <!-- 右侧属性栏用的 DataTemplate：并行命令 -->
+        <DataTemplate x:Key="ParallelCommandPropertiesTemplate">
+            <views:ParallelCommandPropertiesView/>
+        </DataTemplate>
+        <DataTemplate x:Key="DefaultPropertiesTemplate">
+            <Border Background="#FFF9F9F9" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="属性"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="#333"/>
+                    <TextBlock Text="请选择一个节点以编辑属性。"
+                               Margin="0,8,0,0"
+                               Foreground="#777"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -280,10 +308,15 @@
                    RadiusX="4"
                    RadiusY="4"/>
 
-        <!-- 设计画布 -->
+        <!-- 两列：左=画布，右=属性栏 -->
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="360" />
+            </Grid.ColumnDefinitions>
+
             <!-- 顶部工具栏区域 -->
-            <Border Height="72" VerticalAlignment="Top">
+            <Border  Grid.ColumnSpan="2" Height="72" VerticalAlignment="Top">
                 <Border.Background>
                     <SolidColorBrush Color="#EEEEEE" Opacity="0.27"/>
                 </Border.Background>
@@ -390,7 +423,8 @@
                                 Background="Transparent"
                                 Width="{Binding CanvasWidth}"
                                 Height="{Binding CanvasHeight}"
-                                Margin="0,35,0,0">
+                                Margin="0,35,0,0"
+                                 MouseDown="CanvasHost_MouseDown">
 
                             <!-- 流程启动节点 - ZIndex=10 -->
                             <Border x:Name="StartNode"
@@ -597,7 +631,63 @@
                     </Grid>
                 </Grid>
             </ScrollViewer>
+            <!-- 右侧属性栏 -->
+            <Border x:Name="PropertyPanelRoot" Grid.Column="1"
+                    Margin="0,72,0,0"
+                    Background="#FFFFFFFF"
+                    BorderBrush="#E5E5E5"
+                    BorderThickness="1,0,0,0"
+                    MouseDown="PropertyPanelRoot_MouseDown">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
+                    <!-- 属性栏标题 -->
+                    <Border Background="#F7F7F9" Padding="12,10">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="属性"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="#333"/>
+                            <TextBlock Text="{Binding SelectedNode.DisplayName}"
+                                       FontSize="12"
+                                       Foreground="#666"
+                                       Margin="8,0,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 属性内容：根据 SelectedNode 类型切换模板 -->
+                    <ContentControl Grid.Row="1"
+                                    Content="{Binding SelectedNode}">
+                        <ContentControl.Style>
+                            <Style TargetType="ContentControl">
+                                <Setter Property="ContentTemplate" Value="{StaticResource DefaultPropertiesTemplate}"/>
+                                <Style.Triggers>
+                                    <!-- 设备命令 -->
+                                    <DataTrigger Binding="{Binding SelectedNode.IsDeviceCommand}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource DeviceCommandPropertiesTemplate}"/>
+                                    </DataTrigger>
+                                    <!-- IF命令 -->
+                                    <DataTrigger Binding="{Binding SelectedNode.IsIfNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource IfCommandPropertiesTemplate}"/>
+                                    </DataTrigger>
+                                    <!-- 循环命令 -->
+                                    <DataTrigger Binding="{Binding SelectedNode.IsLoopNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource LoopCommandPropertiesTemplate}"/>
+                                    </DataTrigger>
+                                    <!-- 并行命令 -->
+                                    <DataTrigger Binding="{Binding SelectedNode.IsParallelNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource ParallelCommandPropertiesTemplate}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ContentControl.Style>
+                    </ContentControl>
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- 空状态提示 -->

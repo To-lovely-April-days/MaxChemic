@@ -8,6 +8,7 @@
         <converters:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
         <converters:NodeExecutionStatusToBrushConverter x:Key="ExecutionStatusToBrushConverter"/>
         <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
+        <converters:LoopHeaderSummaryConverter x:Key="LoopHeaderSummaryConverter"/>
     </UserControl.Resources>
 
     <StackPanel HorizontalAlignment="Center">
@@ -117,11 +118,23 @@
 
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontSize="11"
-                                   Foreground="#999">
+           Foreground="#999">
                             <TextBlock.Text>
-                                <MultiBinding StringFormat="{}执行 {0} 次 · {1} 个步骤">
-                                    <Binding Path="LogicCommand.Properties[LoopCount]" FallbackValue="10"/>
-                                    <Binding Path="Children.Count" FallbackValue="0"/>
+                                <MultiBinding Converter="{StaticResource LoopHeaderSummaryConverter}">
+                                    <!-- 0: LoopType（支持枚举/字符串/数值） -->
+                                    <Binding Path="LogicCommand.Properties[LoopType]"/>
+                                    <!-- 1: LoopCount -->
+                                    <Binding Path="LogicCommand.Properties[LoopCount]" />
+                                    <!-- 2: Children.Count -->
+                                    <Binding Path="Children.Count" />
+                                    <!-- 3: LeftOperand -->
+                                    <Binding Path="LogicCommand.Properties[LeftOperand]" />
+                                    <!-- 4: Operator（支持枚举/字符串/数值） -->
+                                    <Binding Path="LogicCommand.Properties[Operator]" />
+                                    <!-- 5: RightOperand -->
+                                    <Binding Path="LogicCommand.Properties[RightOperand]" />
+                                    <!-- 6: Condition（若属性面板已生成该值则优先使用） -->
+                                    <Binding Path="LogicCommand.Properties[Condition]" />
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>

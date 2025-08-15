@@ -14,6 +14,8 @@ using MaxChemical.Modules.Designer.Plugins;
 using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.Services.Execution;
+using System.Windows.Input;
+using Prism.Events;
 
 
 namespace MaxChemical.Shell;
@@ -67,6 +69,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<ILogicCommandPluginManager, LogicCommandPluginManager>();
         containerRegistry.RegisterSingleton<INodeExecutionStatusService, NodeExecutionStatusService>();
         containerRegistry.RegisterSingleton<IFlowExecutionEngine, FlowExecutionEngine>();
+        containerRegistry.RegisterSingleton<IDeviceNameResolverService, DeviceNameResolverService>();
     }
 
     protected override void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)

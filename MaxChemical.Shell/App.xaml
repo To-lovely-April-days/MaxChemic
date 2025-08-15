@@ -186,62 +186,91 @@
             <!-- 设备节点执行状态样式 -->
             <Style x:Key="ExecutingDeviceNodeStyle" TargetType="Border">
                 <Setter Property="BorderThickness" Value="2"/>
-                <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                <!-- 确保BorderBrush是SolidColorBrush -->
+                <Setter Property="BorderBrush">
+                    <Setter.Value>
+                        <SolidColorBrush Color="#E0E0E0"/>
+                    </Setter.Value>
+                </Setter>
                 <Setter Property="Background" Value="White"/>
                 <Style.Triggers>
-                    <!-- 选中状态 - 添加这个触发器 -->
+                    <!-- 选中状态 -->
                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                        <Setter Property="BorderBrush" Value="#0078D4"/>
+                        <Setter Property="BorderBrush">
+                            <Setter.Value>
+                                <SolidColorBrush Color="#0078D4"/>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="BorderThickness" Value="2"/>
                     </DataTrigger>
 
                     <!-- 执行中动画 -->
                     <DataTrigger Binding="{Binding ExecutionStatus}" Value="Executing">
                         <DataTrigger.EnterActions>
-                            <BeginStoryboard Name="ExecutingStoryboard" Storyboard="{StaticResource ExecutingAnimation}"/>
+                            <BeginStoryboard Name="ExecutingStoryboard">
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                       From="0.3" To="1.0" Duration="0:0:0.8"
+                                       AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
                         </DataTrigger.EnterActions>
                         <DataTrigger.ExitActions>
                             <StopStoryboard BeginStoryboardName="ExecutingStoryboard"/>
                         </DataTrigger.ExitActions>
-                        <Setter Property="BorderBrush" Value="#2196F3"/>
+                        <Setter Property="BorderBrush">
+                            <Setter.Value>
+                                <SolidColorBrush Color="#2196F3"/>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="Background" Value="#E3F2FD"/>
                     </DataTrigger>
 
                     <!-- 完成状态 -->
                     <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
-                        <DataTrigger.EnterActions>
-                            <BeginStoryboard Storyboard="{StaticResource CompletedAnimation}"/>
-                        </DataTrigger.EnterActions>
-                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                        <Setter Property="BorderBrush">
+                            <Setter.Value>
+                                <SolidColorBrush Color="#4CAF50"/>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="Background" Value="#E8F5E8"/>
                     </DataTrigger>
 
                     <!-- 失败状态 -->
                     <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
-                        <DataTrigger.EnterActions>
-                            <BeginStoryboard Storyboard="{StaticResource FailedAnimation}"/>
-                        </DataTrigger.EnterActions>
-                        <Setter Property="BorderBrush" Value="#F44336"/>
+                        <Setter Property="BorderBrush">
+                            <Setter.Value>
+                                <SolidColorBrush Color="#F44336"/>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="Background" Value="#FFEBEE"/>
                     </DataTrigger>
 
                     <!-- 等待状态 -->
                     <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
-                        <Setter Property="BorderBrush" Value="#FF9800"/>
+                        <Setter Property="BorderBrush">
+                            <Setter.Value>
+                                <SolidColorBrush Color="#FF9800"/>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="Background" Value="#FFF3E0"/>
                     </DataTrigger>
 
-                    <!-- 插入高亮状态 - 添加这个触发器 -->
+                    <!-- 插入高亮状态 -->
                     <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
-                        <Setter Property="BorderBrush" Value="#186DF5"/>
+                        <Setter Property="BorderBrush">
+                            <Setter.Value>
+                                <SolidColorBrush Color="#186DF5"/>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="BorderThickness" Value="2"/>
                         <Setter Property="Effect">
                             <Setter.Value>
                                 <DropShadowEffect ShadowDepth="0"
-                              Direction="0"
-                              BlurRadius="20"
-                              Color="#186DF5"
-                              Opacity="0.5"/>
+                                    Direction="0"
+                                    BlurRadius="20"
+                                    Color="#186DF5"
+                                    Opacity="0.5"/>
                             </Setter.Value>
                         </Setter>
                     </DataTrigger>

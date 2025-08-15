@@ -1158,7 +1158,66 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "OnBranchContentChanged 错误");
             }
         }
+        public void RefreshConditionDisplay()
+        {
+            try
+            {
+                if (DataContext is not CommandNode node) return;
+                if (node.LogicCommand?.Properties == null) return;
 
+                System.Diagnostics.Debug.WriteLine($"RefreshConditionDisplay called for: {node.DisplayName}");
+
+                // 获取属性值
+                var leftOperand = node.LogicCommand.Properties.ContainsKey("LeftOperand")
+                    ? node.LogicCommand.Properties["LeftOperand"]?.ToString() ?? "A"
+                    : "A";
+
+                var operatorStr = node.LogicCommand.Properties.ContainsKey("Operator")
+                    ? node.LogicCommand.Properties["Operator"]?.ToString() ?? "Equal"
+                    : "Equal";
+
+                var rightOperand = node.LogicCommand.Properties.ContainsKey("RightOperand")
+                    ? node.LogicCommand.Properties["RightOperand"]?.ToString() ?? "B"
+                    : "B";
+
+                // 转换操作符显示
+                var operatorDisplay = ConvertOperatorForDisplay(operatorStr);
+
+                // 直接更新TextBlock的文本
+                if (ConditionSummaryText != null)
+                {
+                    ConditionSummaryText.Text = $"{leftOperand} {operatorDisplay} {rightOperand}";
+                    System.Diagnostics.Debug.WriteLine($"Updated condition display: {leftOperand} {operatorDisplay} {rightOperand}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("ConditionSummaryText is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "刷新IF节点条件显示失败");
+                System.Diagnostics.Debug.WriteLine($"RefreshConditionDisplay error: {ex.Message}");
+            }
+        }
+
+        private string ConvertOperatorForDisplay(string operatorValue)
+        {
+            return operatorValue switch
+            {
+                "Equal" => "==",
+                "NotEqual" => "!=",
+                "GreaterThan" => ">",
+                "GreaterThanOrEqual" => ">=",
+                "LessThan" => "<",
+                "LessThanOrEqual" => "<=",
+                "Contains" => "包含",
+                "NotContains" => "不包含",
+                "StartsWith" => "开始于",
+                "EndsWith" => "结束于",
+                _ => operatorValue
+            };
+        }
         #endregion
     }
 }

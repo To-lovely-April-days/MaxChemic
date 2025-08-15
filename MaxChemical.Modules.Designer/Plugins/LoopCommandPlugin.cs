@@ -34,7 +34,6 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
             logicCommand.SetProperty("Bezel_lessIconPath", properties.Bezel_lessIconPath);
             logicCommand.SetProperty("LoopType", properties.LoopType);
             logicCommand.SetProperty("LoopCount", properties.LoopCount);
-            logicCommand.SetProperty("LoopCondition", properties.LoopCondition);
             logicCommand.SetProperty("Description", properties.Description);
 
             return new CommandNode(logicCommand);

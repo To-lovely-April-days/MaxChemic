@@ -280,6 +280,10 @@ namespace MaxChemical.Modules.Designer.Models
         private DateTime? _executionStartTime;
         private DateTime? _executionEndTime;
         private string _executionErrorMessage;
+
+        private DevicePlugins.Devices.IDevice _device;
+        private DeviceCommandResult _lastExecutionResult;
+        private DeviceParameters _lastOutputParameters;
         public enum NodeExecutionStatus
         {
             Idle,           // 空闲
@@ -491,6 +495,51 @@ namespace MaxChemical.Modules.Designer.Models
             }
             ParameterSummary = string.Join(", ", eff.Select(kv => $"{kv.Name}={kv.Value}"));
         }
+
+        /// <summary>
+        /// 关联的设备实例
+        /// </summary>
+        public DevicePlugins.Devices.IDevice Device
+        {
+            get => _device;
+            set => SetProperty(ref _device, value);
+        }
+
+        /// <summary>
+        /// 最后一次执行结果
+        /// </summary>
+        public DeviceCommandResult LastExecutionResult
+        {
+            get => _lastExecutionResult;
+            set
+            {
+                SetProperty(ref _lastExecutionResult, value);
+                // 同时更新输出参数
+                if (value?.OutputParameters != null)
+                {
+                    LastOutputParameters = value.OutputParameters;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 最后的输出参数（执行后的实际值）
+        /// </summary>
+        public DeviceParameters LastOutputParameters
+        {
+            get => _lastOutputParameters;
+            set => SetProperty(ref _lastOutputParameters, value);
+        }
+
+        /// <summary>
+        /// 获取设备名称
+        /// </summary>
+        public string DeviceName => BoundDeviceName ?? Device?.Name ?? "未知设备";
+
+        /// <summary>
+        /// 获取命令名称
+        /// </summary>
+        public string CommandName => DeviceCommand?.Name ?? "未知命令";
 
         #endregion
 
@@ -733,6 +782,7 @@ namespace MaxChemical.Modules.Designer.Models
 
         #endregion
 
+       
         #region 子命令管理方法
 
         /// <summary>

@@ -13,6 +13,10 @@ namespace MaxChemical.Modules.Designer.Service.Execution
         /// 设置当前流程设计器视图模型
         /// </summary>
         void SetCurrentFlowViewModel(FlowDesignerViewModel flowViewModel);
+        /// <summary>
+        /// 获取当前流程设计器视图模型
+        /// </summary>
+        FlowDesignerViewModel GetCurrentFlowViewModel();
 
         /// <summary>
         /// 设置节点执行状态

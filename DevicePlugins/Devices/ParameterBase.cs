@@ -1,7 +1,7 @@
-﻿using System;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System;
 
 namespace DevicePlugins.Devices
 {
@@ -15,6 +15,7 @@ namespace DevicePlugins.Devices
         private string _helpText = string.Empty;
         private bool _isRequired;
         private bool _isReadOnly;
+        private bool _isVisibleInVariableManager = false; // 新增属性，默认false
 
         /// <summary>
         /// 参数名称
@@ -81,6 +82,19 @@ namespace DevicePlugins.Devices
             set
             {
                 _isReadOnly = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// 是否在变量管理器中可见（默认false）
+        /// </summary>
+        public bool IsVisibleInVariableManager
+        {
+            get => _isVisibleInVariableManager;
+            set
+            {
+                _isVisibleInVariableManager = value;
                 OnPropertyChanged();
             }
         }
@@ -161,11 +175,12 @@ namespace DevicePlugins.Devices
             }
         }
 
-        public StringParameter(string name, string value = "", string helpText = "")
+        public StringParameter(string name, string value = "", string helpText = "", bool isVisibleInVariableManager = false)
         {
             Name = name;
             Value = value;
             HelpText = helpText;
+            IsVisibleInVariableManager = isVisibleInVariableManager;
         }
 
         protected override bool ValidateValue()
@@ -230,13 +245,15 @@ namespace DevicePlugins.Devices
             }
         }
 
-        public NumberParameter(string name, double minValue = double.MinValue, double maxValue = double.MaxValue, double value = 0, string helpText = "")
+        public NumberParameter(string name, double minValue = double.MinValue, double maxValue = double.MaxValue,
+            double value = 0, string helpText = "", bool isVisibleInVariableManager = false)
         {
             Name = name;
             MinValue = minValue;
             MaxValue = maxValue;
             Value = value;
             HelpText = helpText;
+            IsVisibleInVariableManager = isVisibleInVariableManager;
         }
 
         protected override bool ValidateValue()
@@ -253,11 +270,12 @@ namespace DevicePlugins.Devices
     /// </summary>
     public class BooleanParameter : ParameterBase
     {
-        public BooleanParameter(string name, bool value = false, string helpText = "")
+        public BooleanParameter(string name, bool value = false, string helpText = "", bool isVisibleInVariableManager = false)
         {
             Name = name;
             Value = value;
             HelpText = helpText;
+            IsVisibleInVariableManager = isVisibleInVariableManager;
         }
 
         protected override bool ValidateValue()
@@ -289,7 +307,7 @@ namespace DevicePlugins.Devices
             }
         }
 
-        public EnumParameter(string name, Type enumType, object? value = null, string helpText = "")
+        public EnumParameter(string name, Type enumType, object? value = null, string helpText = "", bool isVisibleInVariableManager = false)
         {
             if (!enumType.IsEnum)
                 throw new ArgumentException("Type must be an enum", nameof(enumType));
@@ -298,6 +316,7 @@ namespace DevicePlugins.Devices
             EnumType = enumType;
             Value = value ?? Enum.GetValues(enumType).GetValue(0);
             HelpText = helpText;
+            IsVisibleInVariableManager = isVisibleInVariableManager;
         }
 
         protected override bool ValidateValue()

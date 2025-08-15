@@ -1182,39 +1182,24 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                if (DataContext is CommandNode parallelNode)
-                {
-                    parallelNode.ClearChildren();
-                }
-
+                // 不要清空 parallelNode.Children!
                 foreach (var branchInfo in _parallelBranches)
                 {
                     var branchContent = FindBranchContentContainer(branchInfo.Index);
-                    if (branchContent != null)
-                    {
-                        branchContent.Children.Clear();
-                    }
-
+                    if (branchContent != null) branchContent.Children.Clear();
                     branchInfo.Commands.Clear();
-
                     var hint = FindBranchHint(branchInfo.Index);
-                    if (hint != null)
-                    {
-                        hint.Visibility = Visibility.Visible;
-                    }
+                    if (hint != null) hint.Visibility = Visibility.Visible;
                 }
 
                 var elementsToRemove = BranchCanvas.Children
                     .OfType<FrameworkElement>()
                     .Where(e => e.Name != null &&
-                               (e.Name.StartsWith("BranchVerticalLine_") ||
-                                e.Name.StartsWith("BranchArrow_")))
+                                (e.Name.StartsWith("BranchVerticalLine_") ||
+                                 e.Name.StartsWith("BranchArrow_")))
                     .ToList();
-
                 foreach (var element in elementsToRemove)
-                {
                     BranchCanvas.Children.Remove(element);
-                }
 
                 ParallelBranchesContainer.Children.Clear();
                 _parallelBranches.Clear();
@@ -1393,6 +1378,21 @@ namespace MaxChemical.Modules.Designer.Views
         {
             add { AddHandler(NodeClickEvent, value); }
             remove { RemoveHandler(NodeClickEvent, value); }
+        }
+
+        public void RefreshForPropertyChange()
+        {
+            try
+            {
+                InitializeParallelBranches(); // 重建分支
+                SyncChildrenToUI();           // 同步 existing Children
+                UpdateBranchCanvasLayout();   // 更新连线与尺寸
+                OnBranchContentChanged();     // 通知外部刷新
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "并行节点属性变化刷新失败");
+            }
         }
     }
 

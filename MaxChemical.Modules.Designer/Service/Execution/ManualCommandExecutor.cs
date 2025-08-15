@@ -64,25 +64,65 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                 CommandName = cmd.Name
             });
 
+            node.Device = target; // 保存设备引用
+            //node.BoundDeviceName = target.Name;
+
             try
             {
-                // 构建“生效参数”的独立副本，避免污染模板
+                // 构建"生效参数"的独立副本，避免污染模板
                 var input = BuildEffectiveParametersCopy(node);
+
+                // 声明输出参数变量
+                DeviceParameters outputParams = null;
 
                 await Task.Run(() =>
                 {
                     if (cts.IsCancellationRequested) return;
 
-                    var _ = cmd.Action?.Invoke(input);
+                    // 执行命令并获取输出参数
+                    outputParams = cmd.Action?.Invoke(input);
                 }, cts.Token);
 
-                if (cts.IsCancellationRequested)
+                if (!cts.IsCancellationRequested && outputParams != null)
+                {
+                    // 保存执行结果
+                    node.LastExecutionResult = new DeviceCommandResult
+                    {
+                        Success = true,
+                        OutputParameters = outputParams,
+                        ExecutionTime = DateTime.Now
+                    };
+
+                    // 发布结果更新事件
+                    _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
+                    {
+                        NodeId = node.NodeId,
+                        DeviceName = target.Name,
+                        CommandName = cmd.Name,
+                        OutputParameters = outputParams
+                    });
+
+                    node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
+                }
+                else if (cts.IsCancellationRequested)
                 {
                     node.ExecutionStatus = CommandNode.NodeExecutionStatus.Failed;
+                    node.LastExecutionResult = new DeviceCommandResult
+                    {
+                        Success = false,
+                        ErrorMessage = "执行被取消",
+                        ExecutionTime = DateTime.Now
+                    };
                 }
                 else
                 {
                     node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
+                    node.LastExecutionResult = new DeviceCommandResult
+                    {
+                        Success = true,
+                        OutputParameters = outputParams ?? new DeviceParameters(),
+                        ExecutionTime = DateTime.Now
+                    };
                 }
 
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
@@ -95,6 +135,14 @@ namespace MaxChemical.Modules.Designer.Service.Execution
             catch (Exception ex)
             {
                 node.ExecutionStatus = CommandNode.NodeExecutionStatus.Failed;
+                node.LastExecutionResult = new DeviceCommandResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    ExecutionTime = DateTime.Now
+                };
+
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
                 {
                     DeviceId = node.BoundDeviceId,
@@ -121,7 +169,11 @@ namespace MaxChemical.Modules.Designer.Service.Execution
 
         private static DeviceParameters BuildEffectiveParametersCopy(CommandNode node)
         {
-            var result = new DeviceParameters();
+            var result = new DeviceParameters
+            {
+                Variables = new ObservableCollection<ParameterBase>()
+            };
+
             var defs = node.DeviceCommand?.InputParameters?.Variables;
             if (defs == null) return result;
 

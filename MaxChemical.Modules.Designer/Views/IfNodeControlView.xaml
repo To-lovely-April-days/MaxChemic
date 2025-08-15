@@ -95,13 +95,19 @@
                                Foreground="#999"
                                TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis">
-                        <TextBlock.Text>
-                            <MultiBinding StringFormat="{}{0} {1} {2}">
-                                <Binding Path="LogicCommand.Properties[LeftOperand]" FallbackValue="变量"/>
-                                <Binding Path="LogicCommand.Properties[Operator]" FallbackValue="=="/>
-                                <Binding Path="LogicCommand.Properties[RightOperand]" FallbackValue="值"/>
-                            </MultiBinding>
-                        </TextBlock.Text>
+                        <TextBlock x:Name="ConditionSummaryText"
+           FontSize="11"
+           Foreground="#999"
+           TextWrapping="NoWrap"
+           TextTrimming="CharacterEllipsis">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}{0} {1} {2}">
+                                    <Binding Path="LogicCommand.Properties[LeftOperand]" FallbackValue="变量"/>
+                                    <Binding Path="LogicCommand.Properties[Operator]" FallbackValue="=="/>
+                                    <Binding Path="LogicCommand.Properties[RightOperand]" FallbackValue="值"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+</TextBlock>
                     </TextBlock>
                 </StackPanel>
 

@@ -23,14 +23,20 @@
                 Margin="0,10,0,10"
                 Style="{StaticResource ExecutingLogicNodeStyle}">
 
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform ScaleX="1" ScaleY="1"/>
+                    <TranslateTransform X="0" Y="0"/>
+                </TransformGroup>
+            </Border.RenderTransform>
+
             <Border.Effect>
                 <DropShadowEffect ShadowDepth="4"
-                                  Direction="315"
-                                  BlurRadius="8"
-                                  Color="#000000"
-                                  Opacity="0.25"/>
+                      Direction="315"
+                      BlurRadius="8"
+                      Color="#000000"
+                      Opacity="0.25"/>
             </Border.Effect>
-
             <Grid Margin="16 0 16 0">
                 <!-- 先定义所有属性元素 -->
                 <Grid.ColumnDefinitions>
