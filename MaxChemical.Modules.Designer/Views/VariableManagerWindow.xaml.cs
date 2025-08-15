@@ -81,6 +81,7 @@ namespace MaxChemical.Modules.Designer.Views
                         UpdateVariableValue(exactVariable, param);
                         continue;
                     }
+
                 }
 
                 // 回退到原来的匹配方式（兼容旧数据）

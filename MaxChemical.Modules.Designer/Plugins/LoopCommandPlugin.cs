@@ -1,5 +1,4 @@
-﻿// Plugins/Commands/LoopCommandPlugin.cs
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Views;
@@ -30,11 +29,20 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
         {
             var logicCommand = new LogicCommand(Name, Description, IconPath, LogicCommandType.Loop);
 
+            // 初始化所有必要的属性，确保绑定时不会出错
             var properties = new LoopCommandProperties();
             logicCommand.SetProperty("Bezel_lessIconPath", properties.Bezel_lessIconPath);
             logicCommand.SetProperty("LoopType", properties.LoopType);
             logicCommand.SetProperty("LoopCount", properties.LoopCount);
+            logicCommand.SetProperty("LeftOperand", properties.LeftOperand);
+            logicCommand.SetProperty("Operator", properties.Operator);
+            logicCommand.SetProperty("RightOperand", properties.RightOperand);
             logicCommand.SetProperty("Description", properties.Description);
+            logicCommand.SetProperty("WaitTime", properties.WaitTime);
+            logicCommand.SetProperty("IsDoWhile", properties.IsDoWhile);
+
+            // 初始化条件字符串
+            logicCommand.SetProperty("Condition", $"{properties.LeftOperand} == {properties.RightOperand}");
 
             return new CommandNode(logicCommand);
         }
@@ -56,7 +64,7 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
             }
             else if (loopType == LoopType.Conditional)
             {
-                var condition = node.LogicCommand?.GetProperty<string>("LoopCondition", "");
+                var condition = node.LogicCommand?.GetProperty<string>("Condition", "");
                 if (string.IsNullOrWhiteSpace(condition))
                 {
                     return ValidationResult.Error("循环条件不能为空");
