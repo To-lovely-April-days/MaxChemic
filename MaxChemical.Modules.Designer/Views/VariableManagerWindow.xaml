@@ -296,7 +296,8 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Style="{StaticResource TitleTextStyle}"
+                    <TextBlock x:Name="TitleTextBlock"
+                               Style="{StaticResource TitleTextStyle}"
                                Margin="14,0,0,0"
                                Text="变量管理器"/>
 
@@ -352,7 +353,12 @@
                       RowStyle="{StaticResource DataGridRowStyle}"
                       CellStyle="{StaticResource DataGridCellStyle}"
                       Margin="16"
-                      MouseDoubleClick="DataGrid_MouseDoubleClick">
+                      MouseDoubleClick="DataGrid_MouseDoubleClick"
+                   
+                      PreviewKeyDown="DataGrid_PreviewKeyDown"
+                       CellEditEnding="VariablesDataGrid_CellEditEnding"
+              
+ RowEditEnding="VariablesDataGrid_RowEditEnding">
 
                 <DataGrid.Columns>
                     <!-- 设备名称 -->
@@ -364,7 +370,7 @@
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsCustomVariable}" Value="True">
-                                        <Setter Property="Text" Value="—"/>
+                                        <Setter Property="Text" Value="--"/>
                                         <Setter Property="Foreground" Value="#999"/>
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -381,7 +387,7 @@
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsCustomVariable}" Value="True">
-                                        <Setter Property="Text" Value="—"/>
+                                        <Setter Property="Text" Value="--"/>
                                         <Setter Property="Foreground" Value="#999"/>
                                     </DataTrigger>
                                 </Style.Triggers>

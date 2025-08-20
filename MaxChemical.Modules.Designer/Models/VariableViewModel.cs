@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MaxChemical.Modules.Designer.Models
 {
@@ -20,6 +16,21 @@ namespace MaxChemical.Modules.Designer.Models
         private string _nodeId;
         private bool _hasExecutionData;
         private DateTime? _lastExecutionTime;
+        private int _id; // 新添加的Id属性
+
+        /// <summary>
+        /// 数据库ID
+        /// </summary>
+        public int Id
+        {
+            get => _id;
+            set
+            {
+                _id = value;
+                OnPropertyChanged();
+            }
+        }
+
         /// <summary>
         /// 设备名称
         /// </summary>
@@ -30,6 +41,7 @@ namespace MaxChemical.Modules.Designer.Models
             {
                 _deviceName = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(FullVariableName));
             }
         }
 
@@ -43,6 +55,7 @@ namespace MaxChemical.Modules.Designer.Models
             {
                 _commandName = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(FullVariableName));
             }
         }
 
@@ -99,6 +112,7 @@ namespace MaxChemical.Modules.Designer.Models
             {
                 _isCustomVariable = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(FullVariableName));
             }
         }
 
@@ -114,6 +128,7 @@ namespace MaxChemical.Modules.Designer.Models
                 OnPropertyChanged();
             }
         }
+
         /// <summary>
         /// 节点ID，用于区分不同节点的同名变量
         /// </summary>
@@ -205,18 +220,39 @@ namespace MaxChemical.Modules.Designer.Models
             try
             {
                 var stringValue = VariableValue.ToString();
+                object convertedValue;
 
-                VariableValue = VariableType switch
+                switch (VariableType)
                 {
-                    "Int32" => int.TryParse(stringValue, out var i) ? i : 0,
-                    "Double" => double.TryParse(stringValue, out var d) ? d : 0.0,
-                    "Boolean" => bool.TryParse(stringValue, out var b) ? b : false,
-                    "DateTime" => DateTime.TryParse(stringValue, out var dt) ? dt : DateTime.Now,
-                    _ => stringValue
-                };
+                    case "Int32":
+                    case "Integer":
+                        convertedValue = int.TryParse(stringValue, out var i) ? i : 0;
+                        break;
+                    case "Double":
+                        convertedValue = double.TryParse(stringValue, out var d) ? d : 0.0;
+                        break;
+                    case "Boolean":
+                        convertedValue = bool.TryParse(stringValue, out var b) ? b : false;
+                        break;
+                    case "DateTime":
+                        convertedValue = DateTime.TryParse(stringValue, out var dt) ? dt : DateTime.Now;
+                        break;
+                    default:
+                        convertedValue = stringValue;
+                        break;
+                }
+
+                if (!Equals(_variableValue, convertedValue))
+                {
+                    _variableValue = convertedValue;
+                    OnPropertyChanged(nameof(VariableValue));
+                    OnPropertyChanged(nameof(DisplayValue));
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                // 可以添加日志记录转换失败的情况
+                System.Diagnostics.Debug.WriteLine($"类型转换失败: {VariableType}, 值: {VariableValue}, 错误: {ex.Message}");
                 // 转换失败时保持原值
             }
         }
@@ -229,5 +265,3 @@ namespace MaxChemical.Modules.Designer.Models
         }
     }
 }
-
-

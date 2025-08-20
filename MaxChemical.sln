@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PeristalticPumps_CY", "Peri
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Logging", "MaxChemical.Logging\MaxChemical.Logging.csproj", "{09647BA2-E6FC-421D-91C3-BFFB084AC4C6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Data", "MaxChemical.Data\MaxChemical.Data.csproj", "{F84FC2D7-56AF-4462-BC1C-26614F2C8256}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -77,6 +79,10 @@ Global
 		{09647BA2-E6FC-421D-91C3-BFFB084AC4C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{09647BA2-E6FC-421D-91C3-BFFB084AC4C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{09647BA2-E6FC-421D-91C3-BFFB084AC4C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -29,17 +29,22 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
         {
             var logicCommand = new LogicCommand(Name, Description, IconPath, LogicCommandType.Wait);
 
-            // 设置默认属性 - 默认为固定时间等待
+            // 设置默认属性
             var properties = new WaitCommandProperties();
 
             // 固定时间等待属性
             logicCommand.SetProperty("WaitTime", properties.WaitTime);
             logicCommand.SetProperty("TimeUnit", properties.TimeUnit);
 
-            // 条件等待属性（默认为空，表示不使用条件等待）
-            logicCommand.SetProperty("Condition", properties.Condition);
+            // 条件等待属性
+            logicCommand.SetProperty("ConditionLeftVariable", properties.ConditionLeftVariable);
+            logicCommand.SetProperty("ConditionOperator", properties.ConditionOperator);
+            logicCommand.SetProperty("ConditionRightValue", properties.ConditionRightValue);
             logicCommand.SetProperty("TimeoutSeconds", properties.TimeoutSeconds);
             logicCommand.SetProperty("CheckIntervalSeconds", properties.CheckIntervalSeconds);
+
+            // 新增属性
+            logicCommand.SetProperty("ExecutionMode", properties.ExecutionMode);
 
             // 通用属性
             logicCommand.SetProperty("Description", properties.Description);

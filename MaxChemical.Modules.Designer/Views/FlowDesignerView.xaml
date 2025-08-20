@@ -284,6 +284,13 @@
         <DataTemplate x:Key="ParallelCommandPropertiesTemplate">
             <views:ParallelCommandPropertiesView/>
         </DataTemplate>
+        <!-- 等待命令属性模板 -->
+        <DataTemplate x:Key="WaitCommandPropertiesTemplate">
+            <views:WaitPropertiesView/>
+        </DataTemplate>
+        <DataTemplate x:Key="SetVariableCommandPropertiesTemplate">
+            <views:SetVariablePropertiesView/>
+        </DataTemplate>
         <DataTemplate x:Key="DefaultPropertiesTemplate">
             <Border Background="#FFF9F9F9" Padding="16">
                 <StackPanel>
@@ -297,6 +304,8 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
+        
+        
     </UserControl.Resources>
 
     <Grid>
@@ -661,26 +670,116 @@
 
                     <!-- 属性内容：根据 SelectedNode 类型切换模板 -->
                     <ContentControl Grid.Row="1"
-                                    Content="{Binding SelectedNode}">
+                Content="{Binding SelectedNode}">
                         <ContentControl.Style>
                             <Style TargetType="ContentControl">
+                                <!-- 基础样式 -->
+                                <Setter Property="Background" Value="#FAFBFC"/>
+                                <Setter Property="Padding" Value="0"/>
                                 <Setter Property="ContentTemplate" Value="{StaticResource DefaultPropertiesTemplate}"/>
+
+                                <!-- 添加过渡动画 -->
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform X="0"/>
+                                    </Setter.Value>
+                                </Setter>
+
                                 <Style.Triggers>
                                     <!-- 设备命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsDeviceCommand}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource DeviceCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 From="20" To="0" Duration="0:0:0.2"
+                                                 DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
                                     </DataTrigger>
+
                                     <!-- IF命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsIfNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource IfCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 From="20" To="0" Duration="0:0:0.2"
+                                                 DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
                                     </DataTrigger>
+
                                     <!-- 循环命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsLoopNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource LoopCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 From="20" To="0" Duration="0:0:0.2"
+                                                 DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
                                     </DataTrigger>
+
                                     <!-- 并行命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsParallelNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource ParallelCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 From="20" To="0" Duration="0:0:0.2"
+                                                 DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+
+                                    <!-- 设置变量命令 -->
+                                    <DataTrigger Binding="{Binding SelectedNode.IsSetVariableNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource SetVariableCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 From="20" To="0" Duration="0:0:0.2"
+                                                 DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+
+                                    <!-- 等待命令 -->
+                                    <DataTrigger Binding="{Binding SelectedNode.IsWaitNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource WaitCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                             From="20" To="0" Duration="0:0:0.2"
+                             DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                             From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

@@ -56,7 +56,19 @@ namespace MaxChemical.Modules.Designer.Models
         [Description("小时")]
         Hours
     }
-
+    /// <summary>
+    /// 执行模式
+    /// </summary>
+    /// <summary>
+    /// 执行模式
+    /// </summary>
+    public enum ExecutionMode
+    {
+        [Description("同步执行")]
+        Synchronous,
+        [Description("异步执行")]
+        Asynchronous
+    }
     /// <summary>
     /// 循环类型
     /// </summary>
@@ -152,15 +164,22 @@ namespace MaxChemical.Modules.Designer.Models
         public TimeUnit TimeUnit { get; set; } = TimeUnit.Seconds;
 
         // 条件等待属性
-        public string Condition { get; set; } = "";
+        public string ConditionLeftVariable { get; set; } = "";
+        public ComparisonOperator ConditionOperator { get; set; } = ComparisonOperator.Equal;
+        public string ConditionRightValue { get; set; } = "";
         public double TimeoutSeconds { get; set; } = 30.0;
         public double CheckIntervalSeconds { get; set; } = 1.0;
+        public bool IsInfiniteTimeout { get; set; } = false; // 是否无限超时
+
+        // 执行模式（只有两种）
+        public ExecutionMode ExecutionMode { get; set; } = ExecutionMode.Synchronous;
 
         // 通用属性
         public string Description { get; set; } = "等待指定时间";
     }
 
-  
+
+
 
     /// <summary>
     /// 条件判断命令属性

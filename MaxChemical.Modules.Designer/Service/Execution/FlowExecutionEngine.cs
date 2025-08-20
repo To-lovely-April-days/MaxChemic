@@ -16,6 +16,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using MaxChemical.Modules.Designer.Service;
 using System.Windows;
+using MaxChemical.Modules.Designer.Views;
+using MaxChemical.Data.Services;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -25,6 +27,15 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private FlowExecutionState _state = FlowExecutionState.Idle;
         private CancellationTokenSource _cancellationTokenSource;
         private readonly ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
+
+        // 新增：用户交互暂停事件
+        private readonly ManualResetEventSlim _userInteractionPauseEvent = new ManualResetEventSlim(true);
+        private volatile bool _isWaitingForUserInteraction = false;
+
+        // 新增：用户交互事件
+        public event EventHandler<UserInteractionEventArgs> UserInteractionStarted;
+        public event EventHandler<UserInteractionEventArgs> UserInteractionEnded;
+
         private FlowExecutionContext _executionContext;
         private readonly INodeExecutionStatusService _statusService;
         private readonly IEventAggregator _eventAggregator;
@@ -32,7 +43,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         // 添加后台任务追踪
         private readonly List<Task> _backgroundTasks = new List<Task>();
         private readonly object _backgroundTasksLock = new object();
-
+        private ICustomVariablePersistenceService _persistenceService;
         // 添加执行进度跟踪
         private class ExecutionProgress
         {
@@ -81,14 +92,43 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         public event EventHandler<FlowExecutionProgressEventArgs> ProgressChanged;
 
         public FlowExecutionEngine(INodeExecutionStatusService statusService, IEventAggregator eventAggregator,
-            IDeviceNameResolverService deviceNameResolver)
+            IDeviceNameResolverService deviceNameResolver, ICustomVariablePersistenceService persistenceService)
         {
             _logger = _logger?.ForContext<FlowExecutionEngine>() ?? new LogService().ForContext<FlowExecutionEngine>();
             _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _deviceNameResolver = deviceNameResolver ?? throw new ArgumentNullException(nameof(deviceNameResolver));
+            _persistenceService= persistenceService ?? throw new ArgumentNullException(nameof(persistenceService));
+            // 订阅上下文变量请求事件，用于变量管理器获取当前变量
+            _eventAggregator.GetEvent<RequestContextVariablesEvent>().Subscribe(callback =>
+            {
+                try
+                {
+                    if (_executionContext?.Variables != null)
+                    {
+                        // 将 ConcurrentDictionary 转换为普通 Dictionary
+                        var variables = _executionContext.Variables.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                        _logger.LogDebug("提供上下文变量: {Count} 个变量", variables.Count);
+                        foreach (var kvp in variables)
+                        {
+                            _logger.LogDebug("  {Key} = {Value}", kvp.Key, kvp.Value);
+                        }
+                        callback?.Invoke(variables);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("执行上下文为空或没有变量");
+                        callback?.Invoke(new Dictionary<string, object>());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "获取上下文变量失败");
+                    callback?.Invoke(new Dictionary<string, object>());
+                }
+            }, ThreadOption.PublisherThread, true);
         }
-
+       
         public async Task<FlowExecutionResult> ExecuteAsync(FlowDesignerViewModel flowViewModel, CancellationToken cancellationToken = default)
         {
             if (State != FlowExecutionState.Idle)
@@ -98,6 +138,22 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
             var startTime = DateTime.Now;
             _executionContext = new FlowExecutionContext();
+            var persistedVariables = await _persistenceService.LoadCustomVariablesAsync();
+           
+            foreach (var persistedVar in persistedVariables)
+            {
+                var staticVar = new VariableViewModel
+                {
+                    VariableName = persistedVar.Name,
+                    VariableValue = persistedVar.Value,
+                    VariableType = persistedVar.Type,
+                    IsCustomVariable = true,
+                    HasExecutionData = persistedVar.IsFromExecutionContext,
+                    LastExecutionTime = persistedVar.LastModifiedTime,
+                    Id = persistedVar.Id
+                };
+                _executionContext.SetVariable(staticVar.VariableName, staticVar.VariableValue);
+            }
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // 清空后台任务列表
@@ -343,6 +399,10 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogDebug("开始执行节点: {NodeName} ({NodeType})", node.DisplayName, node.CommandType);
                 _statusService.StartNodeExecution(node.NodeId);
                 NodeExecuting?.Invoke(this, executionArgs);
+                // *** 新增：在节点执行前检查暂停状态 ***
+                cancellationToken.ThrowIfCancellationRequested();
+                _pauseEvent.Wait(cancellationToken);
+                _userInteractionPauseEvent.Wait(cancellationToken);
 
                 object result = null;
 
@@ -400,7 +460,58 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 NodeExecuted?.Invoke(this, executionArgs);
             }
         }
+        /// <summary>
+        /// 开始用户交互（暂停所有分支）
+        /// </summary>
+        private void BeginUserInteraction(CommandNode node, string interactionType, string description)
+        {
+            if (_isWaitingForUserInteraction)
+            {
+                _logger.LogWarning("已经在等待用户交互，忽略新的交互请求: {NodeName}", node.DisplayName);
+                return;
+            }
 
+            _isWaitingForUserInteraction = true;
+            _userInteractionPauseEvent.Reset();
+
+            var eventArgs = new UserInteractionEventArgs
+            {
+                NodeId = node.NodeId,
+                NodeName = node.DisplayName,
+                InteractionType = interactionType,
+                Description = description,
+                StartTime = DateTime.Now
+            };
+
+            _logger.LogInformation("开始用户交互，暂停所有并行分支: {NodeName} - {Type}", node.DisplayName, interactionType);
+            UserInteractionStarted?.Invoke(this, eventArgs);
+        }
+
+        /// <summary>
+        /// 结束用户交互（恢复所有分支）
+        /// </summary>
+        private void EndUserInteraction(CommandNode node, string interactionType)
+        {
+            if (!_isWaitingForUserInteraction)
+            {
+                _logger.LogWarning("当前不在用户交互状态，忽略结束请求: {NodeName}", node.DisplayName);
+                return;
+            }
+
+            _isWaitingForUserInteraction = false;
+            _userInteractionPauseEvent.Set();
+
+            var eventArgs = new UserInteractionEventArgs
+            {
+                NodeId = node.NodeId,
+                NodeName = node.DisplayName,
+                InteractionType = interactionType,
+                StartTime = DateTime.Now
+            };
+
+            _logger.LogInformation("结束用户交互，恢复所有并行分支: {NodeName} - {Type}", node.DisplayName, interactionType);
+            UserInteractionEnded?.Invoke(this, eventArgs);
+        }
         private async Task<object> ExecuteDeviceCommandAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             if (node.DeviceCommand == null)
@@ -1014,8 +1125,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             return LoopType.FixedCount;
         }
 
-       
-    
+
+
         /// <summary>
         /// 评估循环条件
         /// </summary>
@@ -1134,9 +1245,11 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                             foreach (var childNode in branchNodes)
                             {
                                 linkedCts.Token.ThrowIfCancellationRequested();
-                                _pauseEvent.Wait(linkedCts.Token);
 
-                                // 使用带进度的执行方法
+                                // *** 新增：检查用户交互暂停和常规暂停 ***
+                                _pauseEvent.Wait(linkedCts.Token);
+                                _userInteractionPauseEvent.Wait(linkedCts.Token);
+
                                 await ExecuteNodeWithProgressAsync(childNode, context, linkedCts.Token).ConfigureAwait(false);
                             }
 
@@ -1275,78 +1388,17 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             try
             {
                 // 检查是否是条件等待
-                var condition = waitNode.LogicCommand.Properties?.GetValueOrDefault("Condition", "")?.ToString() ?? "";
+                var leftVariable = waitNode.LogicCommand.Properties?.GetValueOrDefault("ConditionLeftVariable", "")?.ToString() ?? "";
 
-                if (!string.IsNullOrWhiteSpace(condition))
+                if (!string.IsNullOrWhiteSpace(leftVariable))
                 {
                     // 条件等待
-                    var timeoutSecondsStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeoutSeconds", "30")?.ToString() ?? "30";
-                    var checkIntervalStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("CheckIntervalSeconds", "1")?.ToString() ?? "1";
-
-                    // 解析超时时间（支持变量）
-                    var timeoutValue = ResolveOperandValue(timeoutSecondsStr, context, waitNode);
-                    double timeoutSeconds = 30;
-                    if (timeoutValue != null && double.TryParse(timeoutValue.ToString(), out var parsed))
-                        timeoutSeconds = parsed;
-
-                    // 解析检查间隔（支持变量）
-                    var intervalValue = ResolveOperandValue(checkIntervalStr, context, waitNode);
-                    double checkInterval = 1;
-                    if (intervalValue != null && double.TryParse(intervalValue.ToString(), out var parsedInterval))
-                        checkInterval = parsedInterval;
-
-                    _logger.LogDebug("条件等待: 条件={Condition}, 超时={Timeout}秒, 检查间隔={Interval}秒",
-                        condition, timeoutSeconds, checkInterval);
-
-                    var startTime = DateTime.Now;
-                    var timeout = TimeSpan.FromSeconds(timeoutSeconds);
-                    var interval = TimeSpan.FromSeconds(checkInterval);
-
-                    while (DateTime.Now - startTime < timeout)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        // 评估条件
-                        bool conditionMet = EvaluateLoopCondition(condition, context, waitNode);
-
-                        if (conditionMet)
-                        {
-                            _logger.LogDebug("条件等待完成，条件已满足");
-                            return (DateTime.Now - startTime).TotalMilliseconds;
-                        }
-
-                        // 等待检查间隔
-                        await Task.Delay(interval, cancellationToken);
-                    }
-
-                    throw new TimeoutException($"条件等待超时: {condition}");
+                    return await ExecuteConditionWaitAsync(waitNode, context, cancellationToken);
                 }
                 else
                 {
                     // 固定时间等待
-                    var waitTimeStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", "5")?.ToString() ?? "5";
-                    var timeUnit = waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeUnit", TimeUnit.Seconds)?.ToString() ?? "Seconds";
-
-                    // 解析等待时间（支持变量）
-                    var waitTimeValue = ResolveOperandValue(waitTimeStr, context, waitNode);
-                    double waitTime = 5;
-                    if (waitTimeValue != null && double.TryParse(waitTimeValue.ToString(), out var parsed))
-                        waitTime = parsed;
-
-                    // 转换为毫秒
-                    int waitTimeMs = timeUnit switch
-                    {
-                        "Milliseconds" => (int)waitTime,
-                        "Seconds" => (int)(waitTime * 1000),
-                        "Minutes" => (int)(waitTime * 60000),
-                        _ => (int)(waitTime * 1000)
-                    };
-
-                    _logger.LogDebug("等待 {WaitTime} {Unit} ({Ms} 毫秒)", waitTime, timeUnit, waitTimeMs);
-                    await Task.Delay(waitTimeMs, cancellationToken);
-
-                    _logger.LogDebug("等待命令执行完成: {NodeName}", waitNode.DisplayName);
-                    return waitTimeMs;
+                    return await ExecuteFixedTimeWaitAsync(waitNode, context, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -1356,20 +1408,322 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
 
+        /// <summary>
+        /// 执行固定时间等待（带倒计时对话框）
+        /// </summary>
+        private async Task<object> ExecuteFixedTimeWaitAsync(CommandNode waitNode, FlowExecutionContext context, CancellationToken cancellationToken)
+        {
+            var waitTimeStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", "5")?.ToString() ?? "5";
+            var timeUnit = waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeUnit", "Seconds")?.ToString() ?? "Seconds";
+
+            // 解析等待时间（支持变量）
+            var waitTimeValue = ResolveOperandValue(waitTimeStr, context, waitNode);
+            double waitTime = 5;
+            if (waitTimeValue != null && double.TryParse(waitTimeValue.ToString(), out var parsed))
+                waitTime = parsed;
+
+            // 转换为TimeSpan
+            TimeSpan waitTimeSpan = timeUnit switch
+            {
+                "Milliseconds" => TimeSpan.FromMilliseconds(waitTime),
+                "Seconds" => TimeSpan.FromSeconds(waitTime),
+                "Minutes" => TimeSpan.FromMinutes(waitTime),
+                "Hours" => TimeSpan.FromHours(waitTime),
+                _ => TimeSpan.FromSeconds(waitTime)
+            };
+
+            _logger.LogDebug("固定时间等待: {WaitTime} {Unit}", waitTime, timeUnit);
+
+            // *** 开始用户交互，暂停其他分支 ***
+            BeginUserInteraction(waitNode, "FixedTimeWait", $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}");
+
+            try
+            {
+                // 使用TaskCompletionSource处理跨线程通信
+                var tcs = new TaskCompletionSource<CountdownResult>();
+
+                // 在UI线程显示对话框
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        var mainWindow = Application.Current.MainWindow;
+                        var countdownDialog = new CountdownDialog(waitTimeSpan, $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}")
+                        {
+                            Owner = mainWindow
+                        };
+
+                        // 启动倒计时
+                        countdownDialog.StartCountdown();
+
+                        // 显示对话框并处理结果
+                        var dialogResult = countdownDialog.ShowDialog();
+
+                        // 设置结果
+                        var result = new CountdownResult
+                        {
+                            IsCompleted = dialogResult == true,
+                            IsSkipped = countdownDialog.IsSkipped,
+                            IsStopped = countdownDialog.IsStopped,
+                            ActualWaitTime = waitTimeSpan.TotalMilliseconds
+                        };
+
+                        tcs.SetResult(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                }));
+
+                // 等待UI线程的结果
+                var result = await tcs.Task;
+
+                // 检查用户操作
+                if (result.IsStopped)
+                {
+                    _logger.LogInformation("用户停止了固定时间等待");
+                    throw new OperationCanceledException("用户停止了等待流程");
+                }
+
+                if (result.IsSkipped)
+                {
+                    _logger.LogInformation("用户跳过了固定时间等待");
+                    return 0; // 跳过等待，立即返回
+                }
+
+                _logger.LogDebug("固定时间等待完成: {NodeName}", waitNode.DisplayName);
+                return result.ActualWaitTime;
+            }
+            finally
+            {
+                // *** 结束用户交互，恢复其他分支 ***
+                EndUserInteraction(waitNode, "FixedTimeWait");
+            }
+        }
+
+        /// <summary>
+        /// 执行条件等待（循环检查条件）
+        /// </summary>
+        private async Task<object> ExecuteConditionWaitAsync(CommandNode waitNode, FlowExecutionContext context, CancellationToken cancellationToken)
+        {
+            var leftVariable = waitNode.LogicCommand.Properties?.GetValueOrDefault("ConditionLeftVariable", "")?.ToString() ?? "";
+            var operatorStr = waitNode.LogicCommand.Properties?.GetValueOrDefault("ConditionOperator", "Equals")?.ToString() ?? "Equals";
+            var rightValue = waitNode.LogicCommand.Properties?.GetValueOrDefault("ConditionRightValue", "")?.ToString() ?? "";
+            var executionMode = waitNode.LogicCommand.Properties?.GetValueOrDefault("ExecutionMode", "Synchronous")?.ToString() ?? "Synchronous";
+            var isInfiniteTimeout = Convert.ToBoolean(waitNode.LogicCommand.Properties?.GetValueOrDefault("IsInfiniteTimeout", false));
+            var timeoutSeconds = Convert.ToDouble(waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeoutSeconds", 30.0));
+            var checkInterval = Convert.ToDouble(waitNode.LogicCommand.Properties?.GetValueOrDefault("CheckIntervalSeconds", 1.0));
+
+            bool isAsyncMode = executionMode.Equals("Asynchronous", StringComparison.OrdinalIgnoreCase);
+
+            _logger.LogDebug("条件等待: {Left} {Op} {Right}, 模式: {Mode}, 无限超时: {Infinite}",
+                leftVariable, operatorStr, rightValue, executionMode, isInfiniteTimeout);
+
+            var startTime = DateTime.Now;
+            var checkIntervalSpan = TimeSpan.FromSeconds(checkInterval);
+            int iterationCount = 0;
+
+            // 构建条件表达式显示
+            string conditionExpression = BuildConditionExpression(leftVariable, operatorStr, rightValue);
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // 检查超时
+                if (!isInfiniteTimeout && (DateTime.Now - startTime).TotalSeconds >= timeoutSeconds)
+                {
+                    throw new TimeoutException($"条件等待超时: {conditionExpression}");
+                }
+
+                iterationCount++;
+                _logger.LogDebug("条件等待第 {Iteration} 次检查", iterationCount);
+
+                // 评估条件
+                bool conditionMet = EvaluateWaitCondition(leftVariable, operatorStr, rightValue, context, waitNode);
+
+                if (conditionMet)
+                {
+                    _logger.LogDebug("条件已满足: {Expression}", conditionExpression);
+
+                    // *** 开始用户交互，暂停其他分支 ***
+                    BeginUserInteraction(waitNode, "ConditionWait", $"条件满足: {conditionExpression}");
+
+                    try
+                    {
+                        // 条件满足，显示确认对话框
+                        var userChoice = await ShowConditionMetDialogAsync(conditionExpression, isAsyncMode);
+
+                        // 检查用户操作
+                        if (userChoice.IsStopped)
+                        {
+                            _logger.LogInformation("用户停止了条件等待");
+                            throw new OperationCanceledException("用户停止了等待流程");
+                        }
+
+                        if (userChoice.IsContinue)
+                        {
+                            _logger.LogInformation("用户确认继续执行，条件等待完成");
+                            return (DateTime.Now - startTime).TotalMilliseconds;
+                        }
+                    }
+                    finally
+                    {
+                        // *** 结束用户交互，恢复其他分支 ***
+                        EndUserInteraction(waitNode, "ConditionWait");
+                    }
+                }
+
+                // 等待检查间隔
+                _logger.LogDebug("条件未满足，等待 {Interval} 秒后重新检查", checkInterval);
+                await Task.Delay(checkIntervalSpan, cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// 异步显示条件满足对话框
+        /// </summary>
+        private async Task<ConditionDialogResult> ShowConditionMetDialogAsync(string conditionExpression, bool isAsyncMode)
+        {
+            var tcs = new TaskCompletionSource<ConditionDialogResult>();
+
+            // 在UI线程显示对话框
+            Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    var mainWindow = Application.Current.MainWindow;
+                    var conditionDialog = new ConditionMetDialog(conditionExpression, isAsyncMode)
+                    {
+                        Owner = mainWindow
+                    };
+
+                    // 显示对话框并处理结果
+                    var dialogResult = conditionDialog.ShowDialog();
+
+                    // 设置结果
+                    var result = new ConditionDialogResult
+                    {
+                        DialogResult = dialogResult == true,
+                        IsContinue = conditionDialog.IsContinue,
+                        IsStopped = conditionDialog.IsStopped
+                    };
+
+                    tcs.SetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }));
+
+            return await tcs.Task;
+        }
+
+        /// <summary>
+        /// 评估等待条件
+        /// </summary>
+        private bool EvaluateWaitCondition(string leftVariable, string operatorStr, string rightValue,
+            FlowExecutionContext context, CommandNode waitNode)
+        {
+            try
+            {
+                // 解析左侧变量值
+                var leftVal = ResolveOperandValue(leftVariable, context, waitNode);
+
+                // 解析右侧值
+                var rightVal = ResolveOperandValue(rightValue, context, waitNode);
+
+                _logger.LogDebug("条件评估: {Left}({LeftVal}) {Op} {Right}({RightVal})",
+                    leftVariable, leftVal, operatorStr, rightValue, rightVal);
+
+                // 根据操作符类型，某些操作符不需要右侧值
+                switch (operatorStr)
+                {
+                    case "IsTrue":
+                        return SafeToBool(leftVal, false);
+                    case "IsFalse":
+                        return !SafeToBool(leftVal, false);
+                    case "IsEmpty":
+                        return leftVal == null || string.IsNullOrWhiteSpace(leftVal.ToString());
+                    case "IsNotEmpty":
+                        return leftVal != null && !string.IsNullOrWhiteSpace(leftVal.ToString());
+                    default:
+                        // 需要右侧值的操作符
+                        return EvaluateCondition(leftVal, operatorStr, rightVal);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "条件评估失败: {Left} {Op} {Right}", leftVariable, operatorStr, rightValue);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 构建条件表达式显示文本
+        /// </summary>
+        private string BuildConditionExpression(string leftVariable, string operatorStr, string rightValue)
+        {
+            var operatorDisplay = operatorStr switch
+            {
+                "Equals" => "==",
+                "NotEquals" => "!=",
+                "GreaterThan" => ">",
+                "GreaterThanOrEqual" => ">=",
+                "LessThan" => "<",
+                "LessThanOrEqual" => "<=",
+                "Contains" => "包含",
+                "NotContains" => "不包含",
+                "IsTrue" => "为真",
+                "IsFalse" => "为假",
+                "IsEmpty" => "为空",
+                "IsNotEmpty" => "不为空",
+                _ => operatorStr
+            };
+
+            return operatorStr switch
+            {
+                "IsTrue" or "IsFalse" or "IsEmpty" or "IsNotEmpty" => $"{leftVariable} {operatorDisplay}",
+                _ => $"{leftVariable} {operatorDisplay} {rightValue}"
+            };
+        }
+
+        /// <summary>
+        /// 获取时间单位显示文本
+        /// </summary>
+        private string GetTimeUnitDisplay(string timeUnit)
+        {
+            return timeUnit switch
+            {
+                "Milliseconds" => "毫秒",
+                "Seconds" => "秒",
+                "Minutes" => "分钟",
+                "Hours" => "小时",
+                _ => "秒"
+            };
+        }
+
 
         private async Task<object> ExecuteSetVariableCommandAsync(CommandNode setVarNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行设置变量命令: {NodeName}", setVarNode.DisplayName);
             try
             {
-                var variableName = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableName", "")?.ToString() ?? "";
+                var variableNameRaw = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableName", "")?.ToString() ?? "";
                 var variableValueStr = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableValue", "")?.ToString() ?? "";
-                var variableType = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableType", VariableType.String)?.ToString() ?? "String";
+                var variableType = setVarNode.LogicCommand.Properties?.GetValueOrDefault("VariableType", "String")?.ToString() ?? "String";
 
-                if (string.IsNullOrEmpty(variableName))
+                if (string.IsNullOrEmpty(variableNameRaw))
                 {
                     throw new InvalidOperationException("变量名不能为空");
                 }
+
+                // 解析变量名 - 剥离 ${ } 或 $ 前缀，提取实际的变量名
+                string actualVariableName = ExtractActualVariableName(variableNameRaw);
+
+                _logger.LogDebug("设置变量: 原始名称={Raw}, 实际名称={Actual}", variableNameRaw, actualVariableName);
 
                 // 解析变量值（支持引用其他变量或设备输出）
                 var resolvedValue = ResolveOperandValue(variableValueStr, context, setVarNode);
@@ -1377,16 +1731,26 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 // 根据指定的类型进行转换
                 object finalValue = ConvertToType(resolvedValue, variableType);
 
-                // 设置变量
-                context.SetVariable(variableName, finalValue);
+                // 设置变量到上下文中（使用实际的变量名）
+                context.SetVariable(actualVariableName, finalValue);
 
-                _logger.LogDebug("设置变量: {Name} = {Value} (类型: {Type})",
-                    variableName, finalValue, variableType);
+                // 发布变量更新事件（后台服务会处理持久化）
+                _eventAggregator?.GetEvent<VariableUpdatedEvent>()?.Publish(new VariableUpdatedEventArgs
+                {
+                    VariableName = actualVariableName,
+                    VariableValue = finalValue,
+                    VariableType = variableType,
+                    UpdateTime = DateTime.Now,
+                    NodeId = setVarNode.NodeId,
+                    NodeName = setVarNode.DisplayName
+                });
 
-                // 短暂延迟以确保变量设置完成
+                _logger.LogInformation("设置变量成功: {Name} = {Value} (类型: {Type})",
+                    actualVariableName, finalValue, variableType);
+
+                // 只需要短暂延迟确保事件发布完成
                 await Task.Delay(50, cancellationToken);
 
-                _logger.LogDebug("设置变量命令执行完成: {NodeName}", setVarNode.DisplayName);
                 return finalValue;
             }
             catch (Exception ex)
@@ -1395,6 +1759,57 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 throw;
             }
         }
+
+        /// <summary>
+        /// 从 FullVariableName 格式中提取实际的变量名（修复版本：处理 ${ } 和 $ 前缀）
+        /// </summary>
+        private string ExtractActualVariableName(string variableNameInput)
+        {
+            if (string.IsNullOrWhiteSpace(variableNameInput))
+                return "";
+
+            variableNameInput = variableNameInput.Trim();
+
+            // 新添加：处理 ${variable} 格式，剥离 ${ } 返回内部变量名
+            if (variableNameInput.StartsWith("${") && variableNameInput.EndsWith("}"))
+            {
+                return variableNameInput.Substring(2, variableNameInput.Length - 3).Trim();
+            }
+
+            // 新添加：处理 $variable 格式，剥离 $ 返回变量名
+            if (variableNameInput.StartsWith("$") && !variableNameInput.StartsWith("${"))
+            {
+                return variableNameInput.Substring(1).Trim();
+            }
+
+            // 原逻辑：处理含 . 的格式（如 custom.variableName 或 device.cmd.var）
+            if (variableNameInput.Contains("."))
+            {
+                var parts = variableNameInput.Split('.');
+
+                if (parts.Length >= 2)
+                {
+                    // 如果是自定义变量格式：custom.variableName
+                    if (parts[0].Equals("custom", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return string.Join(".", parts.Skip(1)); // 返回 custom. 后面的部分
+                    }
+
+                    // 如果是设备输出变量格式：设备名.命令名.变量名
+                    if (parts.Length >= 3)
+                    {
+                        return string.Join(".", parts.Skip(2)); // 返回设备名.命令名. 后面的部分
+                    }
+
+                    // 如果只有两部分，返回最后一部分
+                    return parts.Last();
+                }
+            }
+
+            // 如果不包含点号，直接返回原始名称
+            return variableNameInput;
+        }
+
         /// <summary>
         /// 根据指定类型转换值
         /// </summary>
@@ -1554,6 +1969,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             {
                 State = FlowExecutionState.Stopping;
                 _pauseEvent.Set();
+                _userInteractionPauseEvent.Set(); // 确保用户交互不会阻塞停止
                 _cancellationTokenSource?.Cancel();
                 _logger.LogInformation("流程执行停止中...");
             }
@@ -1566,7 +1982,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             if (string.IsNullOrWhiteSpace(operand))
                 return null;
 
-            // 去除前后空格
             operand = operand.Trim();
 
             // 1. 检查是否是变量引用格式 ${variableName} 或 $variableName
@@ -1581,14 +1996,27 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 return ResolveVariable(varName, context, currentNode);
             }
 
-            // 2. 检查是否是设备输出变量格式: DeviceName.CommandName.VariableName
+            // 2. 检查是否是 FullVariableName 格式（用于设置变量时的值引用）
             if (operand.Contains("."))
             {
-                var value = ResolveDeviceOutputVariable(operand, context, currentNode);
-                if (value != null)
+                // 首先尝试作为设备输出变量解析
+                var deviceValue = ResolveDeviceOutputVariable(operand, context, currentNode);
+                if (deviceValue != null)
                 {
-                    _logger.LogDebug("解析设备输出变量: {Operand} = {Value}", operand, value);
-                    return value;
+                    _logger.LogDebug("解析设备输出变量: {Operand} = {Value}", operand, deviceValue);
+                    return deviceValue;
+                }
+
+                // 如果是 custom.variableName 格式，从上下文变量中获取
+                if (operand.StartsWith("custom.", StringComparison.OrdinalIgnoreCase))
+                {
+                    var actualVarName = operand.Substring(7); // 去掉 "custom." 前缀
+                    if (context.HasVariable(actualVarName))
+                    {
+                        var value = context.GetVariable(actualVarName);
+                        _logger.LogDebug("解析自定义变量: {Operand} = {Value}", operand, value);
+                        return value;
+                    }
                 }
             }
 
@@ -1778,10 +2206,10 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
             return null;
         }
-       
-     
-     
-    
+
+
+
+
         /// <summary>
         /// 根据NodeId查找节点
         /// </summary>
@@ -1825,21 +2253,36 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         /// </summary>
         private object ResolveVariable(string variableName, FlowExecutionContext context, CommandNode currentNode)
         {
-            // 1. 首先尝试从上下文变量中获取
-            if (context.HasVariable(variableName))
+            // 1. 如果是 FullVariableName 格式，先提取实际变量名
+            string actualVarName = ExtractActualVariableName(variableName);
+
+            // 2. 首先尝试从上下文变量中获取（使用实际变量名）
+            if (context.HasVariable(actualVarName))
             {
-                return context.GetVariable(variableName);
+                var value = context.GetVariable(actualVarName);
+                _logger.LogDebug("从上下文找到变量: {VariableName} (实际名: {ActualName}) = {Value}",
+                    variableName, actualVarName, value);
+                return value;
             }
 
-            // 2. 尝试作为设备输出变量路径解析
+            // 3. 如果实际变量名和原始变量名不同，尝试使用原始变量名
+            if (actualVarName != variableName && context.HasVariable(variableName))
+            {
+                var value = context.GetVariable(variableName);
+                _logger.LogDebug("从上下文找到变量(原始名): {VariableName} = {Value}", variableName, value);
+                return value;
+            }
+
+            // 4. 尝试作为设备输出变量路径解析（使用原始变量名）
             var deviceVarValue = ResolveDeviceOutputVariable(variableName, context, currentNode);
             if (deviceVarValue != null)
             {
+                _logger.LogDebug("从设备输出找到变量: {VariableName} = {Value}", variableName, deviceVarValue);
                 return deviceVarValue;
             }
 
-            // 3. 返回null表示未找到
-            _logger.LogWarning("未找到变量: {VariableName}", variableName);
+            // 5. 返回null表示未找到
+            _logger.LogWarning("未找到变量: {VariableName} (实际名: {ActualName})", variableName, actualVarName);
             return null;
         }
 
@@ -1906,6 +2349,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 switch (operatorStr)
                 {
                     case "Equal":
+                    case "Equals":
                         return AreEqual(leftValue, rightValue);
 
                     case "NotEqual":
@@ -2420,6 +2864,4 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
         }
     }
-
-  
 }

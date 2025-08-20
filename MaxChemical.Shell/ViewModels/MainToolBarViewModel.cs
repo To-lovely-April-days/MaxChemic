@@ -316,7 +316,7 @@ namespace MaxChemical.Shell.ViewModels
         }
         private void OnFlowExecutionStateChanged(object sender, FlowExecutionStateChangedEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 _isExecuting = e.NewState == FlowExecutionState.Running || e.NewState == FlowExecutionState.Paused;
 
@@ -349,7 +349,7 @@ namespace MaxChemical.Shell.ViewModels
 
         private void OnNodeExecuting(object sender, NodeExecutionEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"正在执行: {e.Node.DisplayName}");
             });
@@ -364,7 +364,7 @@ namespace MaxChemical.Shell.ViewModels
                 message += $": {e.ErrorMessage}";
             }
 
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(message);
             });
@@ -372,7 +372,7 @@ namespace MaxChemical.Shell.ViewModels
 
         private void OnExecutionError(object sender, FlowExecutionErrorEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 _dialogService?.ShowError($"流程执行错误: {e.ErrorMessage}", "执行错误");
             });
@@ -380,7 +380,7 @@ namespace MaxChemical.Shell.ViewModels
 
         private void OnExecutionProgressChanged(object sender, FlowExecutionProgressEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
             {
                 var message = $"执行进度: {e.CompletedNodes}/{e.TotalNodes} ({e.ProgressPercentage:F1}%)";
                 if (e.CurrentNode != null)
@@ -528,7 +528,7 @@ namespace MaxChemical.Shell.ViewModels
                 // 5. 清空当前画布并加载新内容
                 _eventAggregator?.GetEvent<ClearCanvasRequestEvent>()?.Publish();
 
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     try
                     {
@@ -998,7 +998,7 @@ namespace MaxChemical.Shell.ViewModels
                         {
                             var result = await _flowExecutionEngine.ExecuteAsync(flowViewModel);
 
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                             {
                                 if (result.IsSuccessful)
                                 {
@@ -1014,7 +1014,7 @@ namespace MaxChemical.Shell.ViewModels
                         }
                         catch (Exception ex)
                         {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                             {
                                 _dialogService?.ShowError($"启动流程执行失败: {ex.Message}", "启动失败");
                             });

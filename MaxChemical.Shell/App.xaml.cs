@@ -1,6 +1,8 @@
 ﻿using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Device;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Prism.Ioc;
 using Prism.Modularity;
 using System.IO;
@@ -16,7 +18,7 @@ using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.Services.Execution;
 using System.Windows.Input;
 using Prism.Events;
-
+using MaxChemical.Data.Services;
 
 namespace MaxChemical.Shell;
 
@@ -24,6 +26,7 @@ public partial class App : PrismApplication
 {
     private IHost? _host;
     private static ILogService? _logger;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // 初始化日志系统
@@ -35,21 +38,46 @@ public partial class App : PrismApplication
         _logger = MaxChemical.Logging.LogManager.GetLogger<App>();
         _logger.LogInformation("MaxChemical 应用程序启动");
 
+        // 创建和配置Host
+        CreateHost();
+
         base.OnStartup(e);
     }
 
-    protected override void OnExit(ExitEventArgs e)
+    private void CreateHost()
     {
-        var logger = MaxChemical.Logging.LogManager.GetLogger<App>();
-        logger.LogInformation("MaxChemical 应用程序退出");
+        try
+        {
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                    config.AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true);
+                    config.AddEnvironmentVariables();
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    // 注册日志服务 - 使用工厂模式
+                    services.AddSingleton<ILogService>(serviceProvider =>
+                    {
+                        return MaxChemical.Logging.LogManager.GetLogger("HostServices");
+                    });
 
-        MaxChemical.Logging.LogManager.Shutdown();
-        base.OnExit(e);
-    }
+                    // 如果您的ILogService需要特定的实现，可以这样注册
+                    // services.AddSingleton<ILogService, YourLogServiceImplementation>();
 
-    protected override Window CreateShell()
-    {
-        return Container.Resolve<MainWindow>();
+                    // 注册配置相关服务
+                    services.AddSingleton<IDatabaseConfigService, DatabaseConfigService>();
+                    services.AddSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();
+                })
+                .Build();
+
+            _logger?.LogInformation("Host创建完成");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "创建Host失败");
+        }
     }
 
     protected override void RegisterTypes(IContainerRegistry containerRegistry)
@@ -70,7 +98,56 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<INodeExecutionStatusService, NodeExecutionStatusService>();
         containerRegistry.RegisterSingleton<IFlowExecutionEngine, FlowExecutionEngine>();
         containerRegistry.RegisterSingleton<IDeviceNameResolverService, DeviceNameResolverService>();
+        containerRegistry.RegisterSingleton<IVariablePersistenceBackgroundService, VariablePersistenceBackgroundService>();
+        // 注册Prism自己的日志服务
+        containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
+
+        // 从Host服务中注册数据库相关服务到Prism容器
+        if (_host != null)
+        {
+            try
+            {
+                var databaseConfigService = _host.Services.GetRequiredService<IDatabaseConfigService>();
+                var customVariablePersistenceService = _host.Services.GetRequiredService<ICustomVariablePersistenceService>();
+
+                containerRegistry.RegisterInstance<IDatabaseConfigService>(databaseConfigService);
+                containerRegistry.RegisterInstance<ICustomVariablePersistenceService>(customVariablePersistenceService);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "从Host注册服务失败，使用降级方案");
+                // 降级方案：直接注册
+                containerRegistry.RegisterSingleton<IDatabaseConfigService, DatabaseConfigService>();
+                containerRegistry.RegisterSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();
+            }
+        }
+        else
+        {
+            // 降级方案：直接注册
+            containerRegistry.RegisterSingleton<IDatabaseConfigService, DatabaseConfigService>();
+            containerRegistry.RegisterSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();
+        }
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        var logger = MaxChemical.Logging.LogManager.GetLogger<App>();
+        logger.LogInformation("MaxChemical 应用程序退出");
+
+        // 停止Host
+        _host?.StopAsync().Wait(TimeSpan.FromSeconds(5));
+        _host?.Dispose();
+
+        MaxChemical.Logging.LogManager.Shutdown();
+        base.OnExit(e);
+    }
+
+    protected override Window CreateShell()
+    {
+        return Container.Resolve<MainWindow>();
+    }
+
+ 
 
     protected override void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)
     {
@@ -87,21 +164,57 @@ public partial class App : PrismApplication
         }
     }
 
-    protected override void OnInitialized()
+    protected override async void OnInitialized()
     {
         try
         {
             base.OnInitialized();
 
             // 启动 Host
-            _host?.StartAsync();
+            if (_host != null)
+            {
+                await _host.StartAsync();
+                _logger?.LogInformation("Host启动完成");
+            }
 
+            // 在容器初始化完成后初始化数据库
+            await InitializeDatabaseAsync();
+            // 启动变量持久化后台服务
+            var persistenceService = Container.Resolve<IVariablePersistenceBackgroundService>();
+            persistenceService.StartListening();
             _logger?.LogInformation("应用程序初始化完成");
         }
         catch (Exception ex)
         {
             _logger?.LogCritical(ex, "应用程序初始化失败");
-            throw;
+            MessageBox.Show($"应用程序初始化失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task InitializeDatabaseAsync()
+    {
+        try
+        {
+            var customVariablePersistenceService = Container.Resolve<ICustomVariablePersistenceService>();
+
+            _logger?.LogInformation("开始初始化数据库...");
+            await customVariablePersistenceService.InitializeDatabaseAsync();
+            _logger?.LogInformation("数据库初始化完成");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "数据库初始化失败");
+
+            var result = MessageBox.Show(
+                $"数据库初始化失败：{ex.Message}\n\n是否继续启动应用程序？",
+                "数据库连接错误",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.No)
+            {
+                Application.Current.Shutdown();
+            }
         }
     }
 }
