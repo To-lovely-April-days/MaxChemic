@@ -99,6 +99,10 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IFlowExecutionEngine, FlowExecutionEngine>();
         containerRegistry.RegisterSingleton<IDeviceNameResolverService, DeviceNameResolverService>();
         containerRegistry.RegisterSingleton<IVariablePersistenceBackgroundService, VariablePersistenceBackgroundService>();
+
+        // 注册新的项目数据服务
+        containerRegistry.RegisterSingleton<IProjectDataService, ProjectDataService>();
+        containerRegistry.RegisterSingleton<ProjectCoordinator>();
         // 注册Prism自己的日志服务
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
 

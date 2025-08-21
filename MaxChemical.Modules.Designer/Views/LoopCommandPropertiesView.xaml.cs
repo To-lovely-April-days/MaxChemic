@@ -214,12 +214,16 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            SyncFromNode();
+            Dispatcher.BeginInvoke(SyncFromNode, System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            SyncFromNode();
+            if (e.NewValue != null)
+            {
+                
+                Dispatcher.BeginInvoke(SyncFromNode, System.Windows.Threading.DispatcherPriority.DataBind);
+            }
         }
 
         #endregion
@@ -235,27 +239,27 @@ namespace MaxChemical.Modules.Designer.Views
 
                 var p = node.LogicCommand.Properties;
 
+                // 确保默认值
                 if (!p.ContainsKey("LoopType")) p["LoopType"] = LoopType.FixedCount;
-                if (!p.ContainsKey("LoopCount")) p["LoopCount"] = 3;
-                if (!p.ContainsKey("LeftOperand")) p["LeftOperand"] = "A";
                 if (!p.ContainsKey("Operator")) p["Operator"] = ComparisonOperator.Equal;
-                if (!p.ContainsKey("RightOperand")) p["RightOperand"] = "B";
-                if (!p.ContainsKey("Description")) p["Description"] = "循环执行";
-                if (!p.ContainsKey("WaitTime")) p["WaitTime"] = 10;
-                if (!p.ContainsKey("IsDoWhile")) p["IsDoWhile"] = false;
 
-                LoopTypeNormalized = ReadLoopType(p["LoopType"]);
-                OperatorNormalized = ReadOperator(p["Operator"]);
+                // 🔥 关键：延迟设置UI值
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    LoopTypeNormalized = ReadLoopType(p["LoopType"]);
+                    OperatorNormalized = ReadOperator(p["Operator"]);
 
-                LoopCount = SafeToInt(p["LoopCount"], 3);
-                LeftOperand = p["LeftOperand"]?.ToString() ?? "A";
-                RightOperand = p["RightOperand"]?.ToString() ?? "B";
-                Description = p["Description"]?.ToString() ?? "循环执行";
-                WaitTime = SafeToInt(p["WaitTime"], 10);
-                IsDoWhile = SafeToBool(p["IsDoWhile"], false);
+                    // 其他属性...
+                    LoopCount = SafeToInt(p["LoopCount"], 3);
+                    LeftOperand = p["LeftOperand"]?.ToString() ?? "A";
+                    RightOperand = p["RightOperand"]?.ToString() ?? "B";
+                    Description = p["Description"]?.ToString() ?? "循环执行";
+                    WaitTime = SafeToInt(p["WaitTime"], 10);
+                    IsDoWhile = SafeToBool(p["IsDoWhile"], false);
 
-                UpdateConditionPreviewText();
-                UpdateLoopSummaryText();
+                    UpdateConditionPreviewText();
+                    UpdateLoopSummaryText();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
             catch (Exception ex)
             {
@@ -529,12 +533,23 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (val is LoopType lt) return lt;
             if (val is string s && Enum.TryParse<LoopType>(s, out var p)) return p;
+
+            // 直接转换整数，不用IsDefined检查
+            if (val is int i)
+            {
+                if (i >= 0 && i <= 2) // LoopType有3个值：0,1,2
+                    return (LoopType)i;
+            }
+
+            // 兼容其他数值类型
             try
             {
-                var i = System.Convert.ToInt32(val, CultureInfo.InvariantCulture);
-                return (LoopType)Enum.ToObject(typeof(LoopType), i);
+                var intVal = Convert.ToInt32(val);
+                if (intVal >= 0 && intVal <= 2)
+                    return (LoopType)intVal;
             }
             catch { }
+
             return LoopType.FixedCount;
         }
 
@@ -542,14 +557,27 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (val is ComparisonOperator op) return op;
             if (val is string s && Enum.TryParse<ComparisonOperator>(s, out var p)) return p;
+
+            // 直接转换整数
+            if (val is int i)
+            {
+                if (i >= 0 && i <= 7) // ComparisonOperator有8个值：0-7
+                    return (ComparisonOperator)i;
+            }
+
+            //兼容其他数值类型
             try
             {
-                var i = System.Convert.ToInt32(val, CultureInfo.InvariantCulture);
-                return (ComparisonOperator)Enum.ToObject(typeof(ComparisonOperator), i);
+                var intVal = Convert.ToInt32(val);
+                if (intVal >= 0 && intVal <= 7)
+                    return (ComparisonOperator)intVal;
             }
             catch { }
+
             return ComparisonOperator.Equal;
         }
+
+        
 
         private static System.Collections.Generic.IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
         {

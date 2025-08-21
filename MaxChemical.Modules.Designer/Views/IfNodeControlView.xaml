@@ -14,7 +14,7 @@
     </UserControl.Resources>
 
     <!-- 主容器 - 垂直布局 -->
-    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" >
 
         <!-- 1. 主体卡片 (统一样式) - 居中显示 -->
         <Border x:Name="MainStepCard"

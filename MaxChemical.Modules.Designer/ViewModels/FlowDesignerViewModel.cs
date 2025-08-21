@@ -17,6 +17,9 @@ using Prism.Events;
 using Prism.Mvvm;
 using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.Views;
+using System.Windows.Threading;
+using System.Xml.Linq;
+using MaxChemical.Infrastructure.Events;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -187,7 +190,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 if (_pluginManager == null)
                 {
-                    _logger.LogWarning("插件管理器为null，无法加载逻辑命令插件");
+                    _logger.LogError("插件管理器为null，无法加载逻辑命令插件");
                     return;
                 }
 
@@ -196,7 +199,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 if (plugins == null || !plugins.Any())
                 {
-                    _logger.LogWarning("没有找到任何逻辑命令插件");
+                    _logger.LogError("没有找到任何逻辑命令插件");
                     return;
                 }
 
@@ -230,8 +233,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _eventAggregator.GetEvent<CommandDragFCompleteEvent>().Subscribe(OnCommandDragComplete);
                 _eventAggregator?.GetEvent<GetCurrentFlowDesignerRequestEvent>()?.Subscribe(OnGetCurrentFlowDesignerRequest);
+                // 订阅UI刷新事件
+                _eventAggregator?.GetEvent<FlowDesignerUIRefreshRequestEvent>().Subscribe(OnUIRefreshRequested);
+                // 添加新的事件订阅
+                SubscribeToFlowDataEvents();
             }
         }
+
         private void OnGetCurrentFlowDesignerRequest(Action<FlowDesignerViewModel> callback)
         {
             try
@@ -244,6 +252,1881 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 callback?.Invoke(null);
             }
         }
+        /// <summary>
+        /// 处理UI刷新请求
+        /// </summary>
+        private void OnUIRefreshRequested()
+        {
+            try
+            {
+                _logger.LogDebug("收到UI刷新请求，开始同步所有并行节点");
+
+                // 延迟执行以确保UI完全加载
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    RefreshAllParallelNodesUI();
+                   
+                }), DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理UI刷新请求失败");
+            }
+        }
+        /// <summary>
+        /// 刷新所有并行节点的UI
+        /// </summary>
+        private void RefreshAllParallelNodesUI()
+        {
+            try
+            {
+                _logger.LogDebug("=== 开始刷新所有并行节点UI ===");
+
+                var parallelNodes = CommandNodes.Where(node => node.IsParallelNode).ToList();
+                _logger.LogDebug($"找到 {parallelNodes.Count} 个并行节点需要刷新");
+
+                foreach (var parallelNode in parallelNodes)
+                {
+                    _logger.LogDebug($"刷新并行节点: {parallelNode.DisplayName}，子节点数: {parallelNode.Children.Count}");
+
+                    if (parallelNode.NodeControl is Views.ParallelNodeControlView parallelControl)
+                    {
+                        try
+                        {
+                            // 方法2: 调用刷新方法
+                            parallelControl.RefreshForPropertyChange();
+
+                            _logger.LogDebug($"并行节点 {parallelNode.DisplayName} UI刷新完成");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"刷新并行节点 {parallelNode.DisplayName} UI失败");
+                        }
+                    }
+                    
+                }
+
+                _logger.LogDebug("=== 所有并行节点UI刷新完成 ===");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "刷新所有并行节点UI失败");
+            }
+        }
+     
+
+        #region 流程数据事件订阅和处理
+
+        private void SubscribeToFlowDataEvents()
+        {
+            _eventAggregator?.GetEvent<GetCurrentFlowDataRequestEvent>()?.Subscribe(OnGetCurrentFlowDataRequest);
+            _eventAggregator?.GetEvent<ClearFlowRequestEvent>()?.Subscribe(OnClearFlowRequest);
+            _eventAggregator?.GetEvent<NewFlowCreatedEvent>()?.Subscribe(OnNewFlowCreated);
+            _eventAggregator?.GetEvent<LoadFlowRequestEvent>()?.Subscribe(OnLoadFlowRequest);
+            _eventAggregator?.GetEvent<FlowLoadedEvent>()?.Subscribe(OnFlowLoaded);
+        }
+
+        /// <summary>
+        /// 响应获取当前流程数据请求
+        /// </summary>
+        private void OnGetCurrentFlowDataRequest(Action<FlowDocument> callback)
+        {
+            try
+            {
+                var flowData = CreateFlowDocument();
+                CollectCommandNodeData(flowData);
+                CollectConnectionData(flowData);
+
+                callback?.Invoke(flowData);
+                _logger.LogDebug($"收集流程数据完成: 节点{flowData.CommandNodes.Count}个, 连接{flowData.Connections.Count}个");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集流程数据失败");
+                callback?.Invoke(null);
+            }
+        }
+
+        /// <summary>
+        /// 创建流程文档
+        /// </summary>
+        private FlowDocument CreateFlowDocument()
+        {
+            return new FlowDocument
+            {
+                Name = "当前流程",
+                CanvasWidth = CanvasWidth,
+                CanvasHeight = CanvasHeight,
+                StartNodeX = StartNodeX,
+                StartNodeY = StartNodeY,
+                LastModifiedTime = DateTime.Now
+            };
+        }
+
+        /// <summary>
+        /// 收集命令节点数据
+        /// </summary>
+        private void CollectCommandNodeData(FlowDocument flowData)
+        {
+            if (CommandNodes == null) return;
+
+            foreach (var commandNode in CommandNodes)
+            {
+                var nodeData = ConvertCommandNodeToData(commandNode);
+                flowData.CommandNodes.Add(nodeData);
+            }
+        }
+
+        /// <summary>
+        /// 将命令节点转换为数据模型
+        /// </summary>
+        private FlowCommandNodeData ConvertCommandNodeToData(CommandNode commandNode)
+        {
+            var nodeData = new FlowCommandNodeData
+            {
+                NodeId = commandNode.NodeId,
+                DisplayName = commandNode.DisplayName,
+                X = commandNode.X,
+                Y = commandNode.Y,
+                Order = commandNode.Order,
+                IsVisible = commandNode.IsVisible,
+                ExecutionStatus = commandNode.ExecutionStatus.ToString(),
+                ExecutionStartTime = commandNode.ExecutionStartTime,
+                ExecutionEndTime = commandNode.ExecutionEndTime,
+                ExecutionErrorMessage = commandNode.ExecutionErrorMessage
+            };
+
+            // 处理设备命令
+            if (commandNode.IsDeviceCommand && commandNode.DeviceCommand != null)
+            {
+                nodeData.CommandType = "DeviceCommand";
+                nodeData.DeviceCommandName = commandNode.DeviceCommand.Name;
+                nodeData.DeviceCommandType = commandNode.DeviceCommand.GetType().Name;
+                nodeData.BoundDeviceId = commandNode.BoundDeviceId;
+                nodeData.BoundDeviceName = commandNode.BoundDeviceName;
+
+                // 保存参数覆盖
+                if (commandNode.ParameterOverrides != null)
+                {
+                    nodeData.ParameterOverrides = new Dictionary<string, string>(commandNode.ParameterOverrides);
+                }
+
+                // 保存设备命令属性
+                CollectDeviceCommandProperties(commandNode.DeviceCommand, nodeData.DeviceCommandProperties);
+            }
+            // 处理逻辑命令
+            else if (commandNode.IsLogicCommand && commandNode.LogicCommand != null)
+            {
+                nodeData.CommandType = "LogicCommand";
+                nodeData.LogicCommandType = commandNode.LogicCommand.CommandType.ToString();
+                nodeData.LogicCommandName = commandNode.LogicCommand.Name;
+
+                // 保存逻辑命令属性
+                if (commandNode.LogicCommand.Properties != null)
+                {
+                    nodeData.LogicCommandProperties = new Dictionary<string, object>(commandNode.LogicCommand.Properties);
+                }
+            }
+
+            // 保存执行属性
+            if (commandNode.ExecutionProperties != null)
+            {
+                nodeData.ExecutionProperties = new Dictionary<string, object>(commandNode.ExecutionProperties);
+            }
+
+            // 递归保存子节点 - 关键是这里要正确处理分支
+            if (commandNode.HasChildren)
+            {
+                SaveChildNodesWithBranchInfo(commandNode, nodeData);
+            }
+
+            // 保存节点控件相关属性
+            CollectNodeControlProperties(commandNode, nodeData.NodeControlProperties);
+
+            return nodeData;
+        }
+        /// <summary>
+        /// 保存子节点并正确设置分支信息
+        /// </summary>
+        private void SaveChildNodesWithBranchInfo(CommandNode parentNode, FlowCommandNodeData parentNodeData)
+        {
+            try
+            {
+                var logicCommandType = parentNode.LogicCommand?.CommandType;
+
+                switch (logicCommandType)
+                {
+                    case LogicCommandType.Parallel:
+                        SaveParallelNodeChildren(parentNode, parentNodeData);
+                        break;
+
+                    case LogicCommandType.If:
+                        SaveIfNodeChildren(parentNode, parentNodeData);
+                        break;
+
+                    case LogicCommandType.Loop:
+                        SaveLoopNodeChildren(parentNode, parentNodeData);
+                        break;
+
+                    default:
+                        // 普通的顺序子节点
+                        SaveSequentialChildren(parentNode, parentNodeData);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "保存子节点分支信息失败: {NodeName}", parentNode.DisplayName);
+
+                // Fallback: 保存所有子节点但不设置分支信息
+                foreach (var child in parentNode.Children)
+                {
+                    var childData = ConvertCommandNodeToData(child);
+                    parentNodeData.Children.Add(childData);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 保存并行节点的子节点
+        /// </summary>
+        private void SaveParallelNodeChildren(CommandNode parallelNode, FlowCommandNodeData parallelNodeData)
+        {
+            try
+            {
+                _logger.LogDebug($"保存并行节点 {parallelNode.DisplayName} 的分支子节点");
+
+                // 方法1: 如果CommandNode有分支管理
+                if (HasBranchManagement(parallelNode))
+                {
+                    SaveFromBranchManagement(parallelNode, parallelNodeData);
+                }
+                // 方法2: 根据ExecutionProperties中的BranchIndex分组
+                else if (parallelNode.Children != null && parallelNode.Children.Any())
+                {
+                    SaveFromBranchIndex(parallelNode, parallelNodeData, "Parallel");
+                }
+
+                _logger.LogDebug($"并行节点保存完成，共 {parallelNodeData.Children.Count} 个子节点");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "保存并行节点子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 保存IF节点的子节点
+        /// </summary>
+        private void SaveIfNodeChildren(CommandNode ifNode, FlowCommandNodeData ifNodeData)
+        {
+            try
+            {
+                _logger.LogDebug($"=== 保存IF节点 {ifNode.DisplayName} 的分支子节点 ===");
+
+                if (ifNode.Children == null || !ifNode.Children.Any())
+                {
+                    _logger.LogDebug("IF节点没有子节点");
+                    return;
+                }
+
+                foreach (var child in ifNode.Children)
+                {
+                    var childData = ConvertCommandNodeToData(child);
+
+                    // 更准确地确定分支类型
+                    string branchType = DetermineIfBranchTypeAccurately(child, ifNode);
+
+                    // 设置分支信息到ExecutionProperties
+                    if (childData.ExecutionProperties == null)
+                    {
+                        childData.ExecutionProperties = new Dictionary<string, object>();
+                    }
+                    childData.ExecutionProperties["BranchType"] = branchType;
+                    childData.ExecutionProperties["ParentIfNodeId"] = ifNode.NodeId; // 添加父节点引用
+
+                    _logger.LogDebug($"保存IF子节点: {child.DisplayName} -> {branchType} 分支");
+                    ifNodeData.Children.Add(childData);
+                }
+
+                _logger.LogDebug($"IF节点保存完成，共 {ifNodeData.Children.Count} 个子节点");
+
+                // 输出调试信息
+                foreach (var child in ifNodeData.Children)
+                {
+                    var branchType = child.ExecutionProperties?.ContainsKey("BranchType") == true
+                        ? child.ExecutionProperties["BranchType"]
+                        : "Unknown";
+                    _logger.LogDebug($"  - {child.DisplayName}: {branchType}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "保存IF节点子节点失败");
+            }
+        }
+        /// <summary>
+        /// 更准确地确定IF分支类型
+        /// </summary>
+        private string DetermineIfBranchTypeAccurately(CommandNode childNode, CommandNode ifNode)
+        {
+            try
+            {
+                // 方法1: 优先从ExecutionProperties获取
+                var existingBranchType = childNode.GetExecutionProperty<string>("BranchType", null);
+                if (!string.IsNullOrEmpty(existingBranchType))
+                {
+                    _logger.LogDebug($"从ExecutionProperties获取分支类型: {existingBranchType}");
+                    return existingBranchType;
+                }
+
+                // 方法2: 从IF控件获取分支信息
+                if (ifNode.NodeControl is Views.IfNodeControlView ifControl)
+                {
+                    string controlBranchType = GetBranchTypeFromIfControl(childNode, ifControl);
+                    if (!string.IsNullOrEmpty(controlBranchType))
+                    {
+                        _logger.LogDebug($"从IF控件获取分支类型: {controlBranchType}");
+                        return controlBranchType;
+                    }
+                }
+
+                // 方法3: 根据子节点在Children中的位置推断（简单逻辑）
+                var childIndex = ifNode.Children.IndexOf(childNode);
+                if (childIndex >= 0)
+                {
+                    // 假设偶数索引为True分支，奇数索引为False分支
+                    // 这是一个简化的逻辑，你可以根据实际情况调整
+                    string inferredBranchType = (childIndex % 2 == 0) ? "True" : "False";
+                    _logger.LogDebug($"根据索引推断分支类型: 索引{childIndex} -> {inferredBranchType}");
+                    return inferredBranchType;
+                }
+
+                // 默认为True分支
+                _logger.LogDebug("使用默认分支类型: True");
+                return "True";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "确定IF分支类型失败");
+                return "True";
+            }
+        }
+        /// <summary>
+        /// 从IF控件获取分支类型
+        /// </summary>
+        private string GetBranchTypeFromIfControl(CommandNode childNode, Views.IfNodeControlView ifControl)
+        {
+            try
+            {
+                // 这里需要根据你的IfNodeControlView具体实现来获取分支信息
+                // 假设你的IF控件有方法可以查询节点属于哪个分支
+
+                // 方法1: 如果IF控件有公开的方法
+                if (ifControl.GetType().GetMethod("GetNodeBranchType") != null)
+                {
+                    var result = ifControl.GetType().GetMethod("GetNodeBranchType")
+                        .Invoke(ifControl, new object[] { childNode });
+                    if (result is string branchType && !string.IsNullOrEmpty(branchType))
+                    {
+                        return branchType;
+                    }
+                }
+
+                // 方法2: 检查子节点的特定属性
+                var branchProperty = childNode.GetExecutionProperty<string>("IfBranchType", null);
+                if (!string.IsNullOrEmpty(branchProperty))
+                {
+                    return branchProperty;
+                }
+
+                // 方法3: 其他获取方式...
+
+                return null; // 无法确定
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "从IF控件获取分支类型失败");
+                return null;
+            }
+        }
+        /// <summary>
+        /// 保存循环节点的子节点
+        /// </summary>
+        private void SaveLoopNodeChildren(CommandNode loopNode, FlowCommandNodeData loopNodeData)
+        {
+            try
+            {
+                _logger.LogDebug($"保存循环节点 {loopNode.DisplayName} 的子节点");
+
+                if (loopNode.Children != null && loopNode.Children.Any())
+                {
+                    foreach (var child in loopNode.Children)
+                    {
+                        var childData = ConvertCommandNodeToData(child);
+
+                        // 循环节点的子节点按顺序执行
+                        if (childData.ExecutionProperties == null)
+                        {
+                            childData.ExecutionProperties = new Dictionary<string, object>();
+                        }
+                        childData.ExecutionProperties["LoopChildIndex"] = loopNodeData.Children.Count;
+
+                        loopNodeData.Children.Add(childData);
+                    }
+                }
+
+                _logger.LogDebug($"循环节点保存完成，共 {loopNodeData.Children.Count} 个子节点");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "保存循环节点子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 保存顺序子节点
+        /// </summary>
+        private void SaveSequentialChildren(CommandNode parentNode, FlowCommandNodeData parentNodeData)
+        {
+            try
+            {
+                if (parentNode.Children != null && parentNode.Children.Any())
+                {
+                    foreach (var child in parentNode.Children)
+                    {
+                        var childData = ConvertCommandNodeToData(child);
+                        parentNodeData.Children.Add(childData);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "保存顺序子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 检查节点是否有分支管理能力
+        /// </summary>
+        private bool HasBranchManagement(CommandNode node)
+        {
+            // 根据你的CommandNode实现检查是否有Branches属性
+            try
+            {
+                // 使用反射检查是否有Branches属性
+                var branchesProperty = node.GetType().GetProperty("Branches");
+                return branchesProperty != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 从分支管理保存子节点
+        /// </summary>
+        private void SaveFromBranchManagement(CommandNode parentNode, FlowCommandNodeData parentNodeData)
+        {
+            try
+            {
+                // 假设CommandNode有Branches属性
+                var branchesProperty = parentNode.GetType().GetProperty("Branches");
+                if (branchesProperty?.GetValue(parentNode) is System.Collections.IList branches)
+                {
+                    for (int branchIndex = 0; branchIndex < branches.Count; branchIndex++)
+                    {
+                        // 修正泛型类型检查
+                        if (branches[branchIndex] is IList<CommandNode> branchChildren)
+                        {
+                            foreach (var child in branchChildren)
+                            {
+                                var childData = ConvertCommandNodeToData(child);
+
+                                // 设置分支索引
+                                if (childData.ExecutionProperties == null)
+                                {
+                                    childData.ExecutionProperties = new Dictionary<string, object>();
+                                }
+                                childData.ExecutionProperties["BranchIndex"] = branchIndex;
+
+                                parentNodeData.Children.Add(childData);
+                                _logger.LogDebug($"从分支 {branchIndex} 保存子节点: {child.DisplayName}");
+                            }
+                        }
+                        // 如果不是IList<CommandNode>，尝试其他类型
+                        else if (branches[branchIndex] is System.Collections.IList genericBranchList)
+                        {
+                            foreach (var item in genericBranchList)
+                            {
+                                if (item is CommandNode child)
+                                {
+                                    var childData = ConvertCommandNodeToData(child);
+
+                                    if (childData.ExecutionProperties == null)
+                                    {
+                                        childData.ExecutionProperties = new Dictionary<string, object>();
+                                    }
+                                    childData.ExecutionProperties["BranchIndex"] = branchIndex;
+
+                                    parentNodeData.Children.Add(childData);
+                                    _logger.LogDebug($"从分支 {branchIndex} 保存子节点: {child.DisplayName}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "从分支管理保存子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 从BranchIndex保存子节点
+        /// </summary>
+        private void SaveFromBranchIndex(CommandNode parentNode, FlowCommandNodeData parentNodeData, string nodeType)
+        {
+            try
+            {
+                foreach (var child in parentNode.Children)
+                {
+                    var childData = ConvertCommandNodeToData(child);
+
+                    // 尝试从ExecutionProperties获取分支信息 - 明确指定类型
+                    var branchIndexObj = child.GetExecutionProperty<object>("BranchIndex", null);
+                    if (branchIndexObj != null)
+                    {
+                        if (childData.ExecutionProperties == null)
+                        {
+                            childData.ExecutionProperties = new Dictionary<string, object>();
+                        }
+                        childData.ExecutionProperties["BranchIndex"] = branchIndexObj;
+
+                        _logger.LogDebug($"{nodeType}子节点 {child.DisplayName} 来自分支 {branchIndexObj}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"{nodeType}子节点 {child.DisplayName} 没有分支索引信息");
+                    }
+
+                    parentNodeData.Children.Add(childData);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "从BranchIndex保存子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 确定IF分支类型
+        /// </summary>
+        private string DetermineBranchType(CommandNode childNode, CommandNode ifNode)
+        {
+            try
+            {
+                // 方法1: 从ExecutionProperties获取 - 明确指定类型
+                var branchTypeObj = childNode.GetExecutionProperty<string>("BranchType", null);
+                if (!string.IsNullOrEmpty(branchTypeObj))
+                {
+                    return branchTypeObj;
+                }
+
+                // 方法2: 根据节点在IF控件中的位置判断
+                if (ifNode.NodeControl is Views.IfNodeControlView ifControl)
+                {
+                    // 这里需要根据你的具体IfNodeControlView实现来判断
+                    return DetermineBranchFromControl(childNode, ifControl);
+                }
+
+                // 方法3: 默认逻辑
+                return "True"; // 默认为True分支
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "确定IF分支类型失败");
+                return "True";
+            }
+        }
+
+        /// <summary>
+        /// 从控件确定分支类型
+        /// </summary>
+        private string DetermineBranchFromControl(CommandNode childNode, Views.IfNodeControlView ifControl)
+        {
+            try
+            {
+                // 检查childNode的某个属性 - 明确指定类型
+                var branchProperty = childNode.GetExecutionProperty<string>("IfBranchType", null);
+                if (!string.IsNullOrEmpty(branchProperty))
+                {
+                    return branchProperty;
+                }
+
+                return "True"; // 默认
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "从控件确定分支类型失败");
+                return "True";
+            }
+        }
+        /// <summary>
+        /// 收集设备命令属性
+        /// </summary>
+        private void CollectDeviceCommandProperties(DeviceCommand deviceCommand, Dictionary<string, object> properties)
+        {
+            if (deviceCommand?.InputParameters?.Variables == null) return;
+
+            foreach (var parameter in deviceCommand.InputParameters.Variables)
+            {
+                if (parameter.Value != null)
+                {
+                    properties[parameter.Name] = parameter.Value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 收集节点控件属性
+        /// </summary>
+        private void CollectNodeControlProperties(CommandNode commandNode, Dictionary<string, object> properties)
+        {
+            if (commandNode.NodeControl == null) return;
+
+            try
+            {
+                // 根据不同的节点控件类型收集不同的属性
+                switch (commandNode.NodeControl)
+                {
+                    case Views.IfNodeControlView ifControl:
+                        CollectIfNodeProperties(ifControl, properties);
+                        break;
+                    case Views.LoopNodeControlView loopControl:
+                        CollectLoopNodeProperties(loopControl, properties);
+                        break;
+                    case Views.ParallelNodeControlView parallelControl:
+                        CollectParallelNodeProperties(parallelControl, properties);
+                        break;
+                    case Views.WaitNodeControlView waitControl:
+                        CollectWaitNodeProperties(waitControl, properties);
+                        break;
+                    case Views.SetVariableNodeControlView setVarControl:
+                        CollectSetVariableNodeProperties(setVarControl, properties);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集节点控件属性失败: {NodeName}", commandNode.DisplayName);
+            }
+        }
+
+        private void CollectIfNodeProperties(Views.IfNodeControlView ifControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (ifControl.DataContext is CommandNode node)
+                {
+                    if (node.LogicCommand?.Properties != null)
+                    {
+                        foreach (var prop in node.LogicCommand.Properties)
+                        {
+                            properties[$"If_{prop.Key}"] = prop.Value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集IF节点属性失败");
+            }
+        }
+
+        private void CollectLoopNodeProperties(Views.LoopNodeControlView loopControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (loopControl.DataContext is CommandNode node)
+                {
+                    if (node.LogicCommand?.Properties != null)
+                    {
+                        foreach (var prop in node.LogicCommand.Properties)
+                        {
+                            properties[$"Loop_{prop.Key}"] = prop.Value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集循环节点属性失败");
+            }
+        }
+
+        private void CollectParallelNodeProperties(Views.ParallelNodeControlView parallelControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (parallelControl.DataContext is CommandNode node)
+                {
+                    if (node.LogicCommand?.Properties != null)
+                    {
+                        foreach (var prop in node.LogicCommand.Properties)
+                        {
+                            properties[$"Parallel_{prop.Key}"] = prop.Value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集并行节点属性失败");
+            }
+        }
+
+        private void CollectWaitNodeProperties(Views.WaitNodeControlView waitControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (waitControl.DataContext is CommandNode node)
+                {
+                    if (node.LogicCommand?.Properties != null)
+                    {
+                        foreach (var prop in node.LogicCommand.Properties)
+                        {
+                            properties[$"Wait_{prop.Key}"] = prop.Value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集等待节点属性失败");
+            }
+        }
+
+        private void CollectSetVariableNodeProperties(Views.SetVariableNodeControlView setVarControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (setVarControl.DataContext is CommandNode node)
+                {
+                    if (node.LogicCommand?.Properties != null)
+                    {
+                        foreach (var prop in node.LogicCommand.Properties)
+                        {
+                            properties[$"SetVariable_{prop.Key}"] = prop.Value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "收集设置变量节点属性失败");
+            }
+        }
+
+        /// <summary>
+        /// 收集连接数据
+        /// </summary>
+        private void CollectConnectionData(FlowDocument flowData)
+        {
+            if (Connections == null) return;
+
+            foreach (var connection in Connections)
+            {
+                var connectionData = new FlowConnectionData
+                {
+                    FromNodeId = connection.FromNodeId,
+                    ToNodeId = connection.ToNodeId,
+                    X = connection.X,
+                    Y = connection.Y,
+                    //LineLength = connection.LineLength,
+                    //ArrowTop = connection.ArrowTop,
+                    //TotalHeight = connection.TotalHeight
+                };
+
+                flowData.Connections.Add(connectionData);
+            }
+        }
+
+        /// <summary>
+        /// 清空流程请求处理
+        /// </summary>
+        private void OnClearFlowRequest()
+        {
+            try
+            {
+                _logger.LogDebug("开始清空流程");
+
+                // 清空所有节点
+                CommandNodes.Clear();
+
+                // 清空所有连接
+                Connections.Clear();
+
+                // 重置画布属性
+                CanvasWidth = 1200;
+                CanvasHeight = 800;
+                StartNodeX = (CanvasWidth - 231) / 2;
+                StartNodeY = 20;
+
+                // 清空选择状态
+                SelectedNode = null;
+
+                _logger.LogDebug("流程清空完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "清空流程失败");
+            }
+        }
+
+        /// <summary>
+        /// 新流程创建事件处理
+        /// </summary>
+        private void OnNewFlowCreated(FlowDocument newFlow)
+        {
+            try
+            {
+                // 应用新流程的画布设置
+                CanvasWidth = newFlow.CanvasWidth;
+                CanvasHeight = newFlow.CanvasHeight;
+                StartNodeX = newFlow.StartNodeX;
+                StartNodeY = newFlow.StartNodeY;
+
+                _logger.LogDebug($"新流程已创建: {newFlow.Name}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理新流程创建事件失败");
+            }
+        }
+
+        /// <summary>
+        /// 加载流程请求处理
+        /// </summary>
+        private void OnLoadFlowRequest(FlowDocument flowDocument)
+        {
+            try
+            {
+                _logger.LogDebug($"开始加载流程: {flowDocument.Name}");
+                _logger.LogDebug($"节点数量: {flowDocument.CommandNodes?.Count ?? 0}");
+                _logger.LogDebug($"连接数量: {flowDocument.Connections?.Count ?? 0}");
+
+                // 更新画布设置
+                CanvasWidth = flowDocument.CanvasWidth;
+                CanvasHeight = flowDocument.CanvasHeight;
+                StartNodeX = flowDocument.StartNodeX;
+                StartNodeY = flowDocument.StartNodeY;
+
+                // 恢复命令节点
+                RestoreCommandNodes(flowDocument.CommandNodes);
+
+                // 延迟恢复连接确保节点已创建
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    RestoreConnections(flowDocument.Connections);
+                    _eventAggregator?.GetEvent<FlowLoadedEvent>()?.Publish(flowDocument);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "加载流程失败");
+            }
+        }
+
+        /// <summary>
+        /// 恢复命令节点
+        /// </summary>
+        private void RestoreCommandNodes(List<FlowCommandNodeData> nodeDataList)
+        {
+            if (nodeDataList == null || !nodeDataList.Any())
+            {
+                _logger.LogDebug("没有节点需要恢复");
+                return;
+            }
+
+            _logger.LogDebug($"开始恢复 {nodeDataList.Count} 个节点");
+
+            foreach (var nodeData in nodeDataList)
+            {
+                try
+                {
+                    RestoreSingleCommandNode(nodeData);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "恢复节点 {NodeName} 失败", nodeData.DisplayName);
+                }
+            }
+
+            _logger.LogDebug($"节点恢复完成，当前节点数量: {CommandNodes?.Count ?? 0}");
+        }
+
+        /// <summary>
+        /// 恢复单个命令节点
+        /// </summary>
+        private void RestoreSingleCommandNode(FlowCommandNodeData nodeData)
+        {
+            _logger.LogDebug($"恢复节点: {nodeData.DisplayName} ID: {nodeData.NodeId}");
+
+            CommandNode commandNode = null;
+
+            // 根据命令类型创建相应的节点
+            if (nodeData.CommandType == "DeviceCommand")
+            {
+                var deviceCommand = RestoreDeviceCommandFromNodeData(nodeData);
+                if (deviceCommand != null)
+                {
+                    commandNode = new CommandNode(deviceCommand);
+                }
+            }
+            else if (nodeData.CommandType == "LogicCommand")
+            {
+                var logicCommand = RestoreLogicCommandFromNodeData(nodeData);
+                if (logicCommand != null)
+                {
+                    commandNode = new CommandNode(logicCommand);
+
+                    // 为逻辑命令创建节点控件
+                    var plugin = _pluginManager?.GetPlugin(logicCommand.CommandType.ToString());
+                    if (plugin != null)
+                    {
+                        commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
+                        SubscribeToNodeControlEvents(commandNode, plugin);
+                    }
+                }
+            }
+
+            if (commandNode == null)
+            {
+                _logger.LogError($"无法恢复节点: {nodeData.DisplayName}");
+                return;
+            }
+
+            // 恢复节点基本属性
+            RestoreNodeBasicProperties(commandNode, nodeData);
+
+            // 恢复设备绑定信息
+            RestoreNodeDeviceBinding(commandNode, nodeData);
+
+            // 恢复参数覆盖
+            RestoreNodeParameterOverrides(commandNode, nodeData);
+
+            // 恢复执行属性
+            RestoreNodeExecutionProperties(commandNode, nodeData);
+
+            // 恢复执行状态
+            RestoreNodeExecutionStatus(commandNode, nodeData);
+
+            // 递归恢复子节点
+            RestoreChildNodes(commandNode, nodeData.Children);
+           
+            // 恢复节点控件属性
+            RestoreNodeControlProperties(commandNode, nodeData.NodeControlProperties);
+
+            // 添加到集合
+            CommandNodes.Add(commandNode);
+
+            _logger.LogDebug($"节点 {nodeData.DisplayName} 恢复成功");
+        }
+
+        private DeviceCommand RestoreDeviceCommandFromNodeData(FlowCommandNodeData nodeData)
+        {
+            try
+            {
+                // 从设备管理器中查找设备命令
+                var allDevices = _deviceManager.GetAllDevices();
+
+                foreach (var device in allDevices)
+                {
+                    var command = device.Commands?.FirstOrDefault(c => c.Name == nodeData.DeviceCommandName);
+                    if (command != null)
+                    {
+                        // 创建命令副本
+                        var restoredCommand = new DeviceCommand
+                        {
+                            Name = command.Name,
+                            HelpText = command.HelpText,
+                            ImageLocation = command.ImageLocation,
+                            InputParameters = CloneDeviceParameters(command.InputParameters),
+                            OutputParameters = CloneDeviceParameters(command.OutputParameters)
+                        };
+
+                        // 恢复设备命令的属性
+                        if (nodeData.DeviceCommandProperties != null && restoredCommand.InputParameters?.Variables != null)
+                        {
+                            foreach (var prop in nodeData.DeviceCommandProperties)
+                            {
+                                var parameter = restoredCommand.InputParameters.Variables.FirstOrDefault(v => v.Name == prop.Key);
+                                if (parameter != null)
+                                {
+                                    parameter.Value = prop.Value;
+                                }
+                            }
+                        }
+
+                        return restoredCommand;
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复设备命令失败");
+                return null;
+            }
+        }
+
+        private LogicCommand RestoreLogicCommandFromNodeData(FlowCommandNodeData nodeData)
+        {
+            try
+            {
+                var logicCommand = new LogicCommand
+                {
+                    Name = nodeData.LogicCommandName ?? nodeData.LogicCommandType,
+                    CommandType = Enum.TryParse<LogicCommandType>(nodeData.LogicCommandType, out var commandType)
+                        ? commandType
+                        : LogicCommandType.Unknown
+                };
+
+                // 恢复逻辑命令的属性
+                if (nodeData.LogicCommandProperties != null)
+                {
+                    logicCommand.Properties = new Dictionary<string, object>(nodeData.LogicCommandProperties);
+                }
+                else
+                {
+                    logicCommand.Properties = new Dictionary<string, object>();
+                }
+
+                return logicCommand;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复逻辑命令失败");
+                return null;
+            }
+        }
+
+        private DeviceParameters CloneDeviceParameters(DeviceParameters original)
+        {
+            if (original?.Variables == null) return null;
+
+            var cloned = new DeviceParameters();
+            foreach (var variable in original.Variables)
+            {
+                cloned.Variables.Add(variable);
+            }
+            return cloned;
+        }
+
+        private void RestoreNodeBasicProperties(CommandNode commandNode, FlowCommandNodeData nodeData)
+        {
+            commandNode.NodeId = nodeData.NodeId;
+            commandNode.DisplayName = nodeData.DisplayName;
+            commandNode.X = nodeData.X;
+            commandNode.Y = nodeData.Y;
+            commandNode.Order = nodeData.Order;
+            commandNode.IsVisible = nodeData.IsVisible;
+        }
+
+        private void RestoreNodeDeviceBinding(CommandNode commandNode, FlowCommandNodeData nodeData)
+        {
+            if (!string.IsNullOrEmpty(nodeData.BoundDeviceId))
+            {
+                commandNode.BoundDeviceId = nodeData.BoundDeviceId;
+                commandNode.BoundDeviceName = nodeData.BoundDeviceName;
+            }
+        }
+
+        private void RestoreNodeParameterOverrides(CommandNode commandNode, FlowCommandNodeData nodeData)
+        {
+            if (nodeData.ParameterOverrides != null && nodeData.ParameterOverrides.Any())
+            {
+                commandNode.ApplyParameterOverrides(nodeData.ParameterOverrides);
+            }
+        }
+
+        private void RestoreNodeExecutionProperties(CommandNode commandNode, FlowCommandNodeData nodeData)
+        {
+            if (nodeData.ExecutionProperties == null) return;
+
+            try
+            {
+                foreach (var prop in nodeData.ExecutionProperties)
+                {
+                    // 确保正确设置执行属性
+                    commandNode.SetExecutionProperty(prop.Key, prop.Value);
+
+                    _logger.LogDebug($"恢复执行属性: {prop.Key} = {prop.Value} for node {commandNode.DisplayName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复执行属性失败: {NodeName}", commandNode.DisplayName);
+            }
+        }
+
+        private void RestoreNodeExecutionStatus(CommandNode commandNode, FlowCommandNodeData nodeData)
+        {
+            if (Enum.TryParse<CommandNode.NodeExecutionStatus>(nodeData.ExecutionStatus, out var status))
+            {
+                commandNode.ExecutionStatus = status;
+            }
+            commandNode.ExecutionStartTime = nodeData.ExecutionStartTime;
+            commandNode.ExecutionEndTime = nodeData.ExecutionEndTime;
+            commandNode.ExecutionErrorMessage = nodeData.ExecutionErrorMessage;
+        }
+
+        private void RestoreChildNodes(CommandNode parentNode, List<FlowCommandNodeData> childDataList)
+        {
+            if (childDataList == null || !childDataList.Any())
+            {
+                _logger.LogDebug("没有子节点需要恢复");
+                return;
+            }
+
+            _logger.LogDebug($"开始恢复 {childDataList.Count} 个子节点到父节点: {parentNode.DisplayName}");
+
+            try
+            {
+                var logicCommandType = parentNode.LogicCommand?.CommandType;
+
+                switch (logicCommandType)
+                {
+                    case LogicCommandType.Parallel:
+                        RestoreParallelNodeChildren(parentNode, childDataList);
+                        break;
+
+                    case LogicCommandType.If:
+                        RestoreIfNodeChildren(parentNode, childDataList);
+                        break;
+
+                    case LogicCommandType.Loop:
+                        RestoreLoopNodeChildren(parentNode, childDataList);
+                        break;
+
+                    default:
+                        // 普通的顺序子节点
+                        RestoreSequentialChildren(parentNode, childDataList);
+                        break;
+                }
+
+                
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复子节点失败: {NodeName}", parentNode.DisplayName);
+
+                // Fallback: 简单恢复所有子节点
+                foreach (var childData in childDataList)
+                {
+                    var childNode = RestoreChildCommandNode(childData);
+                    if (childNode != null)
+                    {
+                        parentNode.Children.Add(childNode);
+                    }
+                }
+            }
+
+            _logger.LogDebug($"子节点恢复完成，父节点 {parentNode.DisplayName} 现有子节点数: {parentNode.Children.Count}");
+        }
+        /// <summary>
+        /// 恢复并行节点的子节点
+        /// </summary>
+        private void RestoreParallelNodeChildren(CommandNode parallelNode, List<FlowCommandNodeData> childDataList)
+        {
+            try
+            {
+                _logger.LogDebug($"=== 开始恢复并行节点 {parallelNode.DisplayName} ===");
+                _logger.LogDebug($"要恢复的子节点数量: {childDataList.Count}");
+                _logger.LogDebug($"并行节点当前Children数量: {parallelNode.Children.Count}");
+
+                // 按分支索引分组
+                var branchGroups = childDataList
+                    .GroupBy(child => GetBranchIndex(child))
+                    .OrderBy(g => g.Key)
+                    .ToList();
+
+                _logger.LogDebug($"分支分组情况:");
+                foreach (var group in branchGroups)
+                {
+                    _logger.LogDebug($"  分支 {group.Key}: {group.Count()} 个节点");
+                }
+
+                foreach (var branchGroup in branchGroups)
+                {
+                    int branchIndex = branchGroup.Key;
+                    _logger.LogDebug($"--- 处理分支 {branchIndex} ---");
+
+                    foreach (var childData in branchGroup)
+                    {
+                        var childNode = RestoreChildCommandNode(childData);
+                        if (childNode != null)
+                        {
+                            _logger.LogDebug($"恢复子节点: {childNode.DisplayName}");
+
+                            // 设置分支信息
+                            childNode.SetExecutionProperty("BranchIndex", branchIndex);
+                            _logger.LogDebug($"设置BranchIndex: {branchIndex}");
+
+                            // 添加到父节点
+                            parallelNode.Children.Add(childNode);
+                            _logger.LogDebug($"添加到父节点Children，当前总数: {parallelNode.Children.Count}");
+                        }
+                    }
+                }
+
+                _logger.LogDebug($"数据恢复完成，Children总数: {parallelNode.Children.Count}");
+
+                // 延迟触发UI同步
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    TriggerParallelNodeUISync(parallelNode);
+                }), DispatcherPriority.Loaded);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复并行节点子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 触发并行节点UI同步
+        /// </summary>
+        private void TriggerParallelNodeUISync(CommandNode parallelNode)
+        {
+            try
+            {
+                _logger.LogDebug($"=== 触发并行节点UI同步: {parallelNode.DisplayName} ===");
+
+                if (parallelNode.NodeControl is Views.ParallelNodeControlView parallelControl)
+                {
+                    _logger.LogDebug("找到ParallelNodeControlView，开始同步UI");
+
+                    //  调用刷新方法
+                    try
+                    {
+                        parallelControl.RefreshForPropertyChange();
+                        _logger.LogDebug("RefreshForPropertyChange 调用成功");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "RefreshForPropertyChange 失败");
+                    }
+                }
+                else
+                {
+                    _logger.LogError("NodeControl 不是 ParallelNodeControlView 类型");
+                    if (parallelNode.NodeControl != null)
+                    {
+                        _logger.LogError($"实际类型: {parallelNode.NodeControl.GetType().Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "触发并行节点UI同步失败");
+            }
+        }
+
+        /// <summary>
+        /// 恢复IF节点的子节点
+        /// </summary>
+        private void RestoreIfNodeChildren(CommandNode ifNode, List<FlowCommandNodeData> childDataList)
+        {
+            try
+            {
+                _logger.LogDebug($"=== 开始恢复IF节点 {ifNode.DisplayName} ===");
+                _logger.LogDebug($"要恢复的子节点数量: {childDataList.Count}");
+
+                // 输出所有子节点的分支信息
+                foreach (var childData in childDataList)
+                {
+                    var branchType = GetBranchType(childData);
+                    _logger.LogDebug($"  子节点: {childData.DisplayName} -> {branchType} 分支");
+                }
+
+                // 按分支类型分组
+                var branchGroups = childDataList
+                    .GroupBy(child => GetBranchType(child))
+                    .ToList();
+
+                _logger.LogDebug($"分支分组情况:");
+                foreach (var group in branchGroups)
+                {
+                    _logger.LogDebug($"  {group.Key} 分支: {group.Count()} 个节点");
+                }
+
+                foreach (var branchGroup in branchGroups)
+                {
+                    string branchType = branchGroup.Key;
+                    _logger.LogDebug($"--- 处理 {branchType} 分支 ---");
+
+                    foreach (var childData in branchGroup)
+                    {
+                        var childNode = RestoreChildCommandNode(childData);
+                        if (childNode != null)
+                        {
+                            _logger.LogDebug($"恢复子节点: {childNode.DisplayName}");
+
+                            // 设置分支信息
+                            childNode.SetExecutionProperty("BranchType", branchType);
+                            childNode.SetExecutionProperty("ParentIfNodeId", ifNode.NodeId);
+                            _logger.LogDebug($"设置分支类型: {branchType}");
+
+                            // 添加到父节点
+                            ifNode.Children.Add(childNode);
+                            _logger.LogDebug($"添加到父节点Children，当前总数: {ifNode.Children.Count}");
+                        }
+                    }
+                }
+
+                _logger.LogDebug($"数据恢复完成，Children总数: {ifNode.Children.Count}");
+
+                // 延迟触发IF节点UI同步
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    TriggerIfNodeUISync(ifNode);
+                }), DispatcherPriority.Loaded);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复IF节点子节点失败");
+            }
+        }
+        /// <summary>
+        /// 触发IF节点UI同步
+        /// </summary>
+        private void TriggerIfNodeUISync(CommandNode ifNode)
+        {
+            try
+            {
+                _logger.LogDebug($"=== 触发IF节点UI同步: {ifNode.DisplayName} ===");
+
+                if (ifNode.NodeControl is Views.IfNodeControlView ifControl)
+                {
+                    _logger.LogDebug("找到IfNodeControlView，开始同步UI");
+
+                    try
+                    {
+
+                      ifControl.SyncChildrenToUI();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "IF节点UI同步失败");
+                    }
+                }
+                else
+                {
+                    _logger.LogError("NodeControl 不是 IfNodeControlView 类型");
+                    if (ifNode.NodeControl != null)
+                    {
+                        _logger.LogError($"实际类型: {ifNode.NodeControl.GetType().Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "触发IF节点UI同步失败");
+            }
+        }
+
+        /// <summary>
+        /// 恢复循环节点的子节点
+        /// </summary>
+        private void RestoreLoopNodeChildren(CommandNode loopNode, List<FlowCommandNodeData> childDataList)
+        {
+            try
+            {
+                _logger.LogDebug($"恢复循环节点 {loopNode.DisplayName} 的子节点");
+
+                // 按LoopChildIndex排序
+                var sortedChildren = childDataList
+                    .OrderBy(child => GetLoopChildIndex(child))
+                    .ToList();
+
+                foreach (var childData in sortedChildren)
+                {
+                    var childNode = RestoreChildCommandNode(childData);
+                    if (childNode != null)
+                    {
+                        loopNode.Children.Add(childNode);
+                        _logger.LogDebug($"恢复循环子节点 {childNode.DisplayName}");
+                    }
+                }
+               
+                _logger.LogDebug($"循环节点子节点恢复完成，共 {loopNode.Children.Count} 个");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复循环节点子节点失败");
+            }
+        }
+       
+        /// <summary>
+        /// 恢复顺序子节点
+        /// </summary>
+        private void RestoreSequentialChildren(CommandNode parentNode, List<FlowCommandNodeData> childDataList)
+        {
+            try
+            {
+                foreach (var childData in childDataList)
+                {
+                    var childNode = RestoreChildCommandNode(childData);
+                    if (childNode != null)
+                    {
+                        parentNode.Children.Add(childNode);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复顺序子节点失败");
+            }
+        }
+
+        /// <summary>
+        /// 获取分支索引
+        /// </summary>
+        private int GetBranchIndex(FlowCommandNodeData nodeData)
+        {
+            try
+            {
+                if (nodeData.ExecutionProperties != null &&
+                    nodeData.ExecutionProperties.ContainsKey("BranchIndex"))
+                {
+                    var branchIndexValue = nodeData.ExecutionProperties["BranchIndex"];
+                    if (branchIndexValue != null && int.TryParse(branchIndexValue.ToString(), out int branchIndex))
+                    {
+                        return branchIndex;
+                    }
+                }
+                return 0; // 默认分支0
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+
+        /// <summary>
+        /// 获取分支类型
+        /// </summary>
+        private string GetBranchType(FlowCommandNodeData nodeData)
+        {
+            try
+            {
+                if (nodeData.ExecutionProperties != null &&
+                    nodeData.ExecutionProperties.ContainsKey("BranchType"))
+                {
+                    var branchTypeValue = nodeData.ExecutionProperties["BranchType"];
+                    return branchTypeValue?.ToString() ?? "True";
+                }
+                return "True"; // 默认True分支
+            }
+            catch
+            {
+                return "True";
+            }
+        }
+
+        /// <summary>
+        /// 获取循环子节点索引
+        /// </summary>
+        private int GetLoopChildIndex(FlowCommandNodeData nodeData)
+        {
+            try
+            {
+                if (nodeData.ExecutionProperties != null &&
+                    nodeData.ExecutionProperties.ContainsKey("LoopChildIndex"))
+                {
+                    var indexValue = nodeData.ExecutionProperties["LoopChildIndex"];
+                    if (indexValue != null && int.TryParse(indexValue.ToString(), out int index))
+                    {
+                        return index;
+                    }
+                }
+                return 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 将子节点添加到并行分支
+        /// </summary>
+        private void AddChildToBranch(CommandNode parentNode, CommandNode childNode, int branchIndex)
+        {
+            try
+            {
+                childNode.SetExecutionProperty("BranchIndex", branchIndex);
+                parentNode.Children.Add(childNode);
+
+                _logger.LogDebug($"成功将节点 {childNode.DisplayName} 添加到并行分支 {branchIndex}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "添加子节点到并行分支失败");
+                parentNode.Children.Add(childNode); // fallback
+            }
+        }
+
+        /// <summary>
+        /// 将子节点添加到IF分支
+        /// </summary>
+        private void AddChildToIfBranch(CommandNode ifNode, CommandNode childNode, string branchType)
+        {
+            try
+            {
+                // 设置分支类型
+                childNode.SetExecutionProperty("BranchType", branchType);
+
+                // 如果有IF控件，添加到相应的分支容器
+                if (ifNode.NodeControl is Views.IfNodeControlView ifControl)
+                {
+                    AddToIfControlBranch(ifControl, childNode, branchType);
+                }
+
+                // 添加到Children
+                ifNode.Children.Add(childNode);
+
+                _logger.LogDebug($"成功将节点 {childNode.DisplayName} 添加到IF {branchType} 分支");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "添加子节点到IF分支失败");
+                ifNode.Children.Add(childNode); // fallback
+            }
+        }
+
+        /// <summary>
+        /// 添加到分支管理
+        /// </summary>
+        private void AddToBranchManagement(CommandNode parentNode, CommandNode childNode, int branchIndex)
+        {
+            try
+            {
+                var branchesProperty = parentNode.GetType().GetProperty("Branches");
+                if (branchesProperty?.GetValue(parentNode) is System.Collections.IList branches)
+                {
+                    // 确保分支存在
+                    while (branches.Count <= branchIndex)
+                    {
+                        var newBranch = new List<CommandNode>();
+                        branches.Add(newBranch);
+                    }
+
+                    // 修正类型检查
+                    if (branches[branchIndex] is IList<CommandNode> branchChildren)
+                    {
+                        branchChildren.Add(childNode);
+                    }
+                    else if (branches[branchIndex] is System.Collections.IList genericBranchList)
+                    {
+                        genericBranchList.Add(childNode);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "添加到分支管理失败");
+            }
+        }
+
+        /// <summary>
+        /// 添加到IF控件分支
+        /// </summary>
+        private void AddToIfControlBranch(Views.IfNodeControlView ifControl, CommandNode childNode, string branchType)
+        {
+            try
+            {
+                // 这里需要根据你的IfNodeControlView具体实现
+                // 例如：
+                /*
+                if (branchType == "True" && ifControl.TrueBranchContainer != null)
+                {
+                    ifControl.TrueBranchContainer.Children.Add(childNode.NodeControl);
+                }
+                else if (branchType == "False" && ifControl.FalseBranchContainer != null)
+                {
+                    ifControl.FalseBranchContainer.Children.Add(childNode.NodeControl);
+                }
+                */
+
+                _logger.LogDebug($"将节点控件添加到IF控件的 {branchType} 分支");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "添加到IF控件分支失败");
+            }
+        }
+       
+
+        private CommandNode RestoreChildCommandNode(FlowCommandNodeData nodeData)
+        {
+            try
+            {
+                CommandNode childNode = null;
+
+                if (nodeData.CommandType == "DeviceCommand")
+                {
+                    var deviceCommand = RestoreDeviceCommandFromNodeData(nodeData);
+                    if (deviceCommand != null)
+                    {
+                        childNode = new CommandNode(deviceCommand);
+                    }
+                }
+                else if (nodeData.CommandType == "LogicCommand")
+                {
+                    var logicCommand = RestoreLogicCommandFromNodeData(nodeData);
+                    if (logicCommand != null)
+                    {
+                        childNode = new CommandNode(logicCommand);
+
+                        // 为逻辑命令创建节点控件
+                        var plugin = _pluginManager?.GetPlugin(logicCommand.CommandType.ToString());
+                        if (plugin != null)
+                        {
+                            childNode.NodeControl = plugin.CreateNodeControl(childNode);
+                            SubscribeToNodeControlEvents(childNode, plugin);
+                        }
+                    }
+                }
+
+                if (childNode == null) return null;
+
+                // 恢复基本属性
+                RestoreNodeBasicProperties(childNode, nodeData);
+                RestoreNodeDeviceBinding(childNode, nodeData);
+                RestoreNodeParameterOverrides(childNode, nodeData);
+                RestoreNodeExecutionProperties(childNode, nodeData);
+                RestoreNodeExecutionStatus(childNode, nodeData);
+
+                // 递归恢复子节点的子节点
+                RestoreChildNodes(childNode, nodeData.Children);
+
+                // 恢复节点控件属性
+                RestoreNodeControlProperties(childNode, nodeData.NodeControlProperties);
+
+                _logger.LogDebug($"子节点 {nodeData.DisplayName} 恢复成功");
+                return childNode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复子节点失败: {NodeName}", nodeData.DisplayName);
+                return null;
+            }
+        }
+
+
+        private void RestoreNodeControlProperties(CommandNode commandNode, Dictionary<string, object> properties)
+        {
+            if (commandNode.NodeControl == null || properties == null || !properties.Any()) return;
+
+            try
+            {
+                // 根据不同的节点控件类型恢复不同的属性
+                switch (commandNode.NodeControl)
+                {
+                    case Views.IfNodeControlView ifControl:
+                        RestoreIfNodeProperties(ifControl, properties);
+                        break;
+                    case Views.LoopNodeControlView loopControl:
+                        RestoreLoopNodeProperties(loopControl, properties);
+                        break;
+                    case Views.ParallelNodeControlView parallelControl:
+                        RestoreParallelNodeProperties(parallelControl, properties);
+                        break;
+                    case Views.WaitNodeControlView waitControl:
+                        RestoreWaitNodeProperties(waitControl, properties);
+                        break;
+                    case Views.SetVariableNodeControlView setVarControl:
+                        RestoreSetVariableNodeProperties(setVarControl, properties);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复节点控件属性失败: {NodeName}", commandNode.DisplayName);
+            }
+        }
+
+        private void RestoreIfNodeProperties(Views.IfNodeControlView ifControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (ifControl.DataContext is CommandNode node && node.LogicCommand != null)
+                {
+                    foreach (var prop in properties.Where(p => p.Key.StartsWith("If_")))
+                    {
+                        var key = prop.Key.Substring(3); // 移除"If_"前缀
+                        node.LogicCommand.Properties[key] = prop.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复IF节点属性失败");
+            }
+        }
+
+        private void RestoreLoopNodeProperties(Views.LoopNodeControlView loopControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (loopControl.DataContext is CommandNode node && node.LogicCommand != null)
+                {
+                    foreach (var prop in properties.Where(p => p.Key.StartsWith("Loop_")))
+                    {
+                        var key = prop.Key.Substring(5); // 移除"Loop_"前缀
+                        node.LogicCommand.Properties[key] = prop.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复循环节点属性失败");
+            }
+        }
+
+        private void RestoreParallelNodeProperties(Views.ParallelNodeControlView parallelControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (parallelControl.DataContext is CommandNode node && node.LogicCommand != null)
+                {
+                    foreach (var prop in properties.Where(p => p.Key.StartsWith("Parallel_")))
+                    {
+                        var key = prop.Key.Substring(9); // 移除"Parallel_"前缀
+                        node.LogicCommand.Properties[key] = prop.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复并行节点属性失败");
+            }
+        }
+
+        private void RestoreWaitNodeProperties(Views.WaitNodeControlView waitControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (waitControl.DataContext is CommandNode node && node.LogicCommand != null)
+                {
+                    foreach (var prop in properties.Where(p => p.Key.StartsWith("Wait_")))
+                    {
+                        var key = prop.Key.Substring(5); // 移除"Wait_"前缀
+                        node.LogicCommand.Properties[key] = prop.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复等待节点属性失败");
+            }
+        }
+
+        private void RestoreSetVariableNodeProperties(Views.SetVariableNodeControlView setVarControl, Dictionary<string, object> properties)
+        {
+            try
+            {
+                if (setVarControl.DataContext is CommandNode node && node.LogicCommand != null)
+                {
+                    foreach (var prop in properties.Where(p => p.Key.StartsWith("SetVariable_")))
+                    {
+                        var key = prop.Key.Substring(12); // 移除"SetVariable_"前缀
+                        node.LogicCommand.Properties[key] = prop.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "恢复设置变量节点属性失败");
+            }
+        }
+
+        /// <summary>
+        /// 恢复连接
+        /// </summary>
+        private void RestoreConnections(List<FlowConnectionData> connectionDataList)
+        {
+            if (connectionDataList == null || !connectionDataList.Any())
+            {
+                _logger.LogDebug("没有连接需要恢复");
+                return;
+            }
+
+            _logger.LogDebug($"开始恢复 {connectionDataList.Count} 个连接");
+
+            foreach (var connectionData in connectionDataList)
+            {
+                try
+                {
+                    var connection = new NodeConnection
+                    {
+                        FromNodeId = connectionData.FromNodeId,
+                        ToNodeId = connectionData.ToNodeId,
+                        X = connectionData.X,
+                        Y = connectionData.Y,
+                        LineLength = connectionData.LineLength,
+                        ArrowTop = connectionData.ArrowTop,
+                        TotalHeight = connectionData.TotalHeight
+                    };
+
+                    Connections.Add(connection);
+                    _logger.LogDebug($"连接恢复成功: {connectionData.FromNodeId} -> {connectionData.ToNodeId}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "恢复连接失败: {FromId} -> {ToId}",
+                        connectionData.FromNodeId, connectionData.ToNodeId);
+                }
+            }
+
+            _logger.LogDebug($"连接恢复完成，当前连接数量: {Connections?.Count ?? 0}");
+        }
+
+        /// <summary>
+        /// 流程加载完成事件处理
+        /// </summary>
+        private void OnFlowLoaded(FlowDocument flowDocument)
+        {
+            try
+            {
+                _logger.LogDebug($"流程加载完成: {flowDocument.Name}");
+                _logger.LogDebug($"最终节点数量: {CommandNodes?.Count ?? 0}");
+                _logger.LogDebug($"最终连接数量: {Connections?.Count ?? 0}");
+
+                // 重建连接以确保位置正确
+                RebuildAllConnections();
+
+                // 更新画布大小
+                UpdateCanvasSize();
+
+                _logger.LogDebug("流程加载处理完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "流程加载完成处理失败");
+            }
+        }
+
+        #endregion
         #endregion
 
         #region 添加节点方法
@@ -772,14 +2655,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 if (string.IsNullOrEmpty(pluginId))
                 {
-                    _logger.LogWarning("插件ID为空，无法创建LogicCommand");
+                    _logger.LogError("插件ID为空，无法创建LogicCommand");
                     return null;
                 }
 
                 var plugin = _pluginManager?.GetPlugin(pluginId);
                 if (plugin == null)
                 {
-                    _logger.LogWarning("未找到插件: {PluginId}", pluginId);
+                    _logger.LogError("未找到插件: {PluginId}", pluginId);
                     return null;
                 }
 
@@ -1015,7 +2898,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                     if (nodeX < 0)
                     {
-                        _logger.LogWarning("计算出的X位置为负数: {X}", nodeX);
+                        _logger.LogError("计算出的X位置为负数: {X}", nodeX);
                     }
 
                     var result = new System.Windows.Point(nodeX, StartNodeY + standardNodeHeight + nodeSpacing);
@@ -1169,7 +3052,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     int changedIndex = CommandNodes.IndexOf(changedNode);
                     if (changedIndex == -1)
                     {
-                        _logger.LogWarning("未找到变化的节点");
+                        _logger.LogError("未找到变化的节点");
                         return;
                     }
 

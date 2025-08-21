@@ -116,44 +116,76 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
+                _logger.LogDebug($"=== 同步并行节点Children到UI: {parallelNode.DisplayName} ===");
+                _logger.LogDebug($"Children数量: {parallelNode.Children.Count}");
+
+                // 清空所有分支的UI
                 foreach (var branchInfo in _parallelBranches)
                 {
                     var branchContent = FindBranchContentContainer(branchInfo.Index);
                     if (branchContent != null)
                     {
                         branchContent.Children.Clear();
-                        branchInfo.Commands.Clear();
                     }
+                    branchInfo.Commands.Clear(); // 同时清空本地列表
                 }
 
-                foreach (var child in parallelNode.Children)
+                // 重新分组并创建UI
+                var branchGroups = parallelNode.Children
+                    .GroupBy(child => child.GetExecutionProperty<int>("BranchIndex"))
+                    .Where(group => group.Key >= 0 && group.Key < _parallelBranches.Count)
+                    .ToList();
+
+                foreach (var branchGroup in branchGroups)
                 {
-                    var branchIndex = child.GetExecutionProperty<int>("BranchIndex");
-                    if (branchIndex >= 0 && branchIndex < _parallelBranches.Count)
+                    int branchIndex = branchGroup.Key;
+                    var branchInfo = _parallelBranches[branchIndex];
+                    var branchContent = FindBranchContentContainer(branchIndex);
+
+                    if (branchContent == null)
                     {
-                        var branchInfo = _parallelBranches[branchIndex];
+                        _logger.LogWarning($"未找到分支 {branchIndex} 的内容容器");
+                        continue;
+                    }
+
+                    _logger.LogDebug($"处理分支 {branchIndex}，子节点数: {branchGroup.Count()}");
+
+                    foreach (var child in branchGroup.OrderBy(c => parallelNode.Children.IndexOf(c)))
+                    {
+                        // 添加到本地列表
                         branchInfo.Commands.Add(child);
 
+                        // 创建UI控件
                         var nestedControl = _nodeControlFactory.CreateNestedCommandControl(
                             child,
                             HandleNestedNodeClick,
                             (node) => RemoveNestedCommand(node, branchIndex));
 
-                        var branchContent = FindBranchContentContainer(branchIndex);
-                        if (branchContent != null)
+                        if (nestedControl != null)
                         {
                             branchContent.Children.Add(nestedControl);
 
-                            var hint = FindBranchHint(branchIndex);
-                            if (hint != null)
-                            {
-                                hint.Visibility = Visibility.Collapsed;
-                            }
+                            _logger.LogDebug($"为子节点 {child.DisplayName} 创建了UI控件");
+
+                            // 订阅嵌套复杂节点事件
+                            SubscribeToNestedComplexNodeEvents(nestedControl, child, branchIndex);
                         }
+                        else
+                        {
+                            _logger.LogError($"为子节点 {child.DisplayName} 创建UI控件失败");
+                        }
+                    }
+
+                    // 更新提示文本的可见性
+                    var hint = FindBranchHint(branchIndex);
+                    if (hint != null)
+                    {
+                        hint.Visibility = branchContent.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                     }
                 }
 
                 UpdateBranchCanvasLayout();
+                _logger.LogDebug("=== 并行节点Children同步到UI完成 ===");
             }
             catch (Exception ex)
             {

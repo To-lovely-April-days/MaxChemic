@@ -75,11 +75,11 @@ namespace MaxChemical.Modules.Designer.Models
     public enum LoopType
     {
         [Description("固定次数")]
-        FixedCount,
+        FixedCount=0,
         [Description("条件循环")]
-        Conditional,
+        Conditional=1,
         [Description("无限循环")]
-        Infinite
+        Infinite=2
     }
 
     /// <summary>

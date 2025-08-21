@@ -42,6 +42,7 @@ namespace MaxChemical.Modules.Designer.Service
         public void Reset()
         {
             HasUnsavedChanges = false;
+            CurrentFilePath = null;
         }
 
         public void SetCurrentFile(string filePath)

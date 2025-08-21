@@ -9,6 +9,7 @@
         <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <converters:NodeExecutionStatusToBrushConverter x:Key="ExecutionStatusToBrushConverter"/>
         <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
+        <converters:ImageSourceConverter x:Key="ImageSourceConverter"/>
     </UserControl.Resources>
 
     <Border x:Name="MainStepCard"
@@ -68,12 +69,23 @@
 
             <!-- 左侧图标 -->
             <Grid Grid.Column="0" Width="32" Height="27" Margin="0,0,10,0">
-                <Image Source="{Binding LogicCommand.Properties[Bezel_lessIconPath]}"
-                       Width="24" 
-                       Height="24"
-                       Stretch="Uniform"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+                <Image Source="{Binding LogicCommand.Properties[Bezel_lessIconPath], Converter={StaticResource ImageSourceConverter}}"
+           Width="24" 
+           Height="24"
+           Stretch="Uniform"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center">
+                    <!-- 🔥 添加默认图像样式 -->
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Style.Triggers>
+                                <Trigger Property="Source" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
             </Grid>
 
             <!-- 右侧文字内容 -->

@@ -17,6 +17,7 @@ using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Events;
 using MaxChemical.Modules.Designer.Services;
 using CommandDragInfo = MaxChemical.Modules.Designer.Events.CommandDragInfo;
+using System.Windows.Threading;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -59,8 +60,34 @@ namespace MaxChemical.Modules.Designer.Views
             Loaded += OnLoaded;
             SizeChanged += OnSizeChanged;
             DataContextChanged += OnDataContextChanged;
+            IsVisibleChanged += OnIsVisibleChanged;
         }
+        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            try
+            {
+                if ((bool)e.NewValue == true) // 变为可见
+                {
+                    _logger.LogDebug("并行节点控件变为可见，延迟同步UI");
 
+                    // 延迟同步UI，确保布局完成
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (DataContext is CommandNode loopNode && loopNode.Children.Count > 0)
+                        {
+                            _logger.LogDebug($"可见性变化触发UI同步: {loopNode.DisplayName}，子节点数: {loopNode.Children.Count}");
+                            OnLoopContentChanged();
+                            ToggleExpand();
+
+                        }
+                    }), DispatcherPriority.Background);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理可见性变化失败");
+            }
+        }
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             UpdateLoopCanvasLayout();
@@ -169,7 +196,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         // 展开/折叠逻辑
-        private void ToggleExpand()
+        public void ToggleExpand()
         {
             _isExpanded = !_isExpanded;
             var duration = TimeSpan.FromMilliseconds(200);
@@ -221,7 +248,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 更新循环Canvas布局 - 类似并行节点的UpdateBranchCanvasLayout
         /// </summary>
-        private void UpdateLoopCanvasLayout()
+        public void UpdateLoopCanvasLayout()
         {
             try
             {
@@ -279,7 +306,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 内容变化通知方法 - 类似并行节点的OnBranchContentChanged
         /// </summary>
-        private void OnLoopContentChanged()
+        public void OnLoopContentChanged()
         {
             try
             {

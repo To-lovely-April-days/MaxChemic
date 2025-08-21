@@ -3,6 +3,7 @@ using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Event;
+using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.ViewModels;
@@ -10,6 +11,7 @@ using MaxChemical.Modules.Designer.Views;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using System.Diagnostics;
 using System.Windows;
 
 namespace MaxChemical.Shell.ViewModels
@@ -39,10 +41,15 @@ namespace MaxChemical.Shell.ViewModels
         private readonly ICanvasDataService _canvasDataService; // 新增
         private readonly IDialogService _dialogService; // 新增
         private readonly ICanvasStateService _canvasStateService; // 新增
+
+        private readonly IProjectDataService _projectDataService; // 替换为项目数据服务
+        private readonly ProjectCoordinator _projectCoordinator; // 添加项目协调器
+
         private RegionLayout _currentRegionLayout;
         private readonly ILogService _logger;
         private readonly IFlowExecutionEngine _flowExecutionEngine;
         private bool _isExecuting = false;
+
         // 本地化属性
         private string _tooltipOpenFolder = string.Empty;
         private string _tooltipNewDocument = string.Empty;
@@ -71,21 +78,25 @@ namespace MaxChemical.Shell.ViewModels
           IEventAggregator eventAggregator,
           IRegionSettingsDialogProvider regionSettingsDialogProvider,
           ILocalizationService localizationService,
+          IProjectDataService projectDataService,
           ICanvasDataService canvasDataService,
           IDialogService dialogService,
           ICanvasStateService canvasStateService,
           ICommandHistory commandHistory,
-          IFlowExecutionEngine flowExecutionEngine) // 新增参数
+          IFlowExecutionEngine flowExecutionEngine,
+          ProjectCoordinator projectCoordinator) // 新增参数
         {
             _logger = new LogService().ForContext<MainToolBarViewModel>();
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _regionSettingsDialogProvider = regionSettingsDialogProvider ?? throw new ArgumentNullException(nameof(regionSettingsDialogProvider));
             _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
-            _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
+            _projectDataService = projectDataService ?? throw new ArgumentNullException(nameof(projectDataService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _canvasStateService = canvasStateService ?? throw new ArgumentNullException(nameof(canvasStateService));
-            _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory)); // 新增
+            _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _flowExecutionEngine = flowExecutionEngine ?? throw new ArgumentNullException(nameof(flowExecutionEngine));
+            _projectCoordinator = projectCoordinator ?? throw new ArgumentNullException(nameof(projectCoordinator));
+            _canvasDataService= canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
             InitializeCommands();
             LoadLocalizedStrings();
             SubscribeEvents();
@@ -484,134 +495,33 @@ namespace MaxChemical.Shell.ViewModels
 
         #region Command Implementations
 
-        private void ExecuteOpenFolder()
-        {
-            try
-            {
-                // 1. 检查当前画布是否有未保存的修改
-                if (_canvasStateService.HasUnsavedChanges)
-                {
-                    var result = _dialogService.ShowConfirmation(
-                        "当前画布有未保存的修改，是否先保存？",
-                        "打开文件");
+        #region 文件操作命令
 
-                    if (result)
-                    {
-                        ExecuteSave();
-                        // 如果保存失败，取消打开操作
-                        if (_canvasStateService.HasUnsavedChanges)
-                        {
-                            return;
-                        }
-                    }
-                }
-
-                // 2. 显示打开文件对话框
-                var fileName = _dialogService.ShowOpenFileDialog(
-                    "MaxChemical 画布文件|*.mcc|JSON 文件|*.json|所有文件|*.*");
-
-                if (string.IsNullOrEmpty(fileName))
-                    return;
-
-                // 3. 加载画布文档
-                var canvasDocument = _canvasDataService.LoadCanvas(fileName);
-
-                if (canvasDocument == null)
-                {
-                    _dialogService.ShowError("无法加载画布文件，文件可能已损坏", "打开失败");
-                    return;
-                }
-
-                // 4. 设置当前文件路径
-                _canvasStateService.SetCurrentFile(fileName);
-
-                // 5. 清空当前画布并加载新内容
-                _eventAggregator?.GetEvent<ClearCanvasRequestEvent>()?.Publish();
-
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    try
-                    {
-                        if (canvasDocument.RegionLayout != null)
-                        {
-                            CurrentRegionLayout = canvasDocument.RegionLayout;
-                            _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(canvasDocument.RegionLayout);
-                        }
-
-                        _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Publish(canvasDocument);
-                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"画布加载成功: {System.IO.Path.GetFileName(fileName)}");
-                        _eventAggregator?.GetEvent<CanvasLoadedEvent>()?.Publish(canvasDocument);
-                    }
-                    catch (Exception ex)
-                    {
-                        _dialogService.ShowError($"加载画布内容失败: {ex.Message}", "加载失败");
-                    }
-                }), System.Windows.Threading.DispatcherPriority.Normal);
-            }
-            catch (Exception ex)
-            {
-                _dialogService.ShowError($"打开文件失败: {ex.Message}", "打开失败");
-            }
-        }
-        private void ExecuteNewDocument()
-        {
-            try
-            {
-                if (_canvasStateService.HasUnsavedChanges)
-                {
-                    var result = _dialogService.ShowConfirmation(
-                        "当前画布有未保存的修改，是否先保存？",
-                        "新建画布");
-
-                    if (result)
-                    {
-                        ExecuteSave();
-                        if (_canvasStateService.HasUnsavedChanges)
-                        {
-                            return;
-                        }
-                    }
-                }
-
-                var (canvasWidth, canvasHeight) = GetCurrentCanvasSize();
-                var newCanvas = _canvasDataService.CreateNewCanvas(canvasWidth, canvasHeight);
-
-                CurrentRegionLayout = newCanvas.RegionLayout;
-
-                // 重置状态（清空当前文件路径）
-                _canvasStateService.Reset();
-
-                _eventAggregator?.GetEvent<ClearCanvasRequestEvent>()?.Publish();
-
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(newCanvas.RegionLayout);
-                    _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Publish(newCanvas);
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"新建画布创建成功 (尺寸: {canvasWidth:F0} x {canvasHeight:F0})");
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
-            catch (Exception ex)
-            {
-                _dialogService.ShowError($"创建新画布失败: {ex.Message}", "错误");
-            }
-        }
+        /// <summary>
+        /// 统一的保存功能 - 保存整个项目（包含画布和流程）
+        /// </summary>
         private void ExecuteSave()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("执行保存命令");
-                System.Diagnostics.Debug.WriteLine($"当前文件路径: {_canvasStateService.CurrentFilePath ?? "无"}");
+                Debug.WriteLine("执行统一保存命令");
+                Debug.WriteLine($"当前文件路径: {_canvasStateService.CurrentFilePath ?? "无"}");
+
+                // 获取当前完整项目数据
+                var currentProjectData = _projectDataService.GetCurrentProjectData();
+                if (currentProjectData == null)
+                {
+                    _dialogService.ShowError("无法获取当前项目数据", "保存失败");
+                    return;
+                }
 
                 // 如果有当前文件路径，直接保存；否则执行另存为
                 if (!string.IsNullOrEmpty(_canvasStateService.CurrentFilePath))
                 {
-                    // 直接保存到现有文件
-                    SaveToFile(_canvasStateService.CurrentFilePath);
+                    SaveProjectToFile(currentProjectData, _canvasStateService.CurrentFilePath);
                 }
                 else
                 {
-                    // 没有当前文件路径，执行另存为
-                    System.Diagnostics.Debug.WriteLine("没有当前文件路径，执行另存为");
                     ExecuteSaveAs();
                 }
             }
@@ -620,27 +530,34 @@ namespace MaxChemical.Shell.ViewModels
                 _dialogService.ShowError($"保存失败: {ex.Message}", "保存失败");
             }
         }
-        // 新增另存为方法
+
+        /// <summary>
+        /// 统一的另存为功能
+        /// </summary>
         private void ExecuteSaveAs()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("执行另存为命令");
+                Debug.WriteLine("执行统一另存为命令");
 
                 var fileName = _dialogService.ShowSaveFileDialog(
-                    "MaxChemical 画布文件|*.mcc|JSON 文件|*.json|所有文件|*.*",
-                    ".mcc");
+                    "MaxChemical 项目文件|*.mcp|JSON 文件|*.json|所有文件|*.*",
+                    ".mcp");
 
                 if (string.IsNullOrEmpty(fileName))
                 {
-                    System.Diagnostics.Debug.WriteLine("用户取消了另存为操作");
+                    Debug.WriteLine("用户取消了另存为操作");
                     return;
                 }
 
-                // 保存到指定文件
-                SaveToFile(fileName);
+                var currentProjectData = _projectDataService.GetCurrentProjectData();
+                if (currentProjectData == null)
+                {
+                    _dialogService.ShowError("无法获取当前项目数据", "另存为失败");
+                    return;
+                }
 
-                // 更新当前文件路径
+                SaveProjectToFile(currentProjectData, fileName);
                 _canvasStateService.SetCurrentFile(fileName);
             }
             catch (Exception ex)
@@ -649,41 +566,254 @@ namespace MaxChemical.Shell.ViewModels
             }
         }
 
-        // 提取公共保存逻辑
-        private void SaveToFile(string fileName)
+        /// <summary>
+        /// 保存项目到文件
+        /// </summary>
+        private void SaveProjectToFile(ProjectDocument projectData, string fileName)
         {
-            System.Diagnostics.Debug.WriteLine($"开始保存文件到: {fileName}");
+            Debug.WriteLine($"开始保存项目到: {fileName}");
 
-            var currentCanvasData = _canvasDataService.GetCurrentCanvasData();
+            // 设置项目名称
+            projectData.Name = System.IO.Path.GetFileNameWithoutExtension(fileName);
 
-            if (currentCanvasData == null)
-            {
-                _dialogService.ShowError("无法获取当前画布数据", "保存失败");
-                return;
-            }
-
-            // 设置文档名称
-            currentCanvasData.Name = System.IO.Path.GetFileNameWithoutExtension(fileName);
-
-            bool success = _canvasDataService.SaveCanvas(currentCanvasData, fileName);
+            bool success = _projectDataService.SaveProject(projectData, fileName);
 
             if (success)
             {
                 // 标记为已保存
                 _canvasStateService.MarkAsSaved();
 
-                _eventAggregator?.GetEvent<CanvasSavedEvent>()?.Publish(fileName);
+                _eventAggregator?.GetEvent<Modules.Designer.Event.ProjectSavedEvent>()?.Publish(fileName);
                 _eventAggregator?.GetEvent<FileSavedEvent>()?.Publish(fileName);
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"画布已保存到: {System.IO.Path.GetFileName(fileName)}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"项目已保存到: {System.IO.Path.GetFileName(fileName)}");
 
-                System.Diagnostics.Debug.WriteLine($"文件保存成功: {fileName}");
-                _dialogService.ShowInfo("画布保存成功", "保存");
+                Debug.WriteLine($"项目保存成功: {fileName}");
+                _dialogService.ShowInfo("项目保存成功", "保存");
             }
             else
             {
-                _dialogService.ShowError("画布保存失败", "保存");
+                _dialogService.ShowError("项目保存失败", "保存");
             }
         }
+
+        /// <summary>
+        /// 统一的打开功能
+        /// </summary>
+        private void ExecuteOpenFolder()
+        {
+            try
+            {
+                // 检查当前是否有未保存的修改
+                if (_canvasStateService.HasUnsavedChanges)
+                {
+                    var result = _dialogService.ShowConfirmation(
+                        "当前项目有未保存的修改，是否先保存？",
+                        "打开项目");
+
+                    if (result)
+                    {
+                        ExecuteSave();
+                        if (_canvasStateService.HasUnsavedChanges)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                // 显示打开文件对话框
+                var fileName = _dialogService.ShowOpenFileDialog(
+                    "MaxChemical 项目文件|*.mcp|JSON 文件|*.json|所有文件|*.*");
+
+                if (string.IsNullOrEmpty(fileName))
+                    return;
+
+                // 根据文件扩展名判断文件类型
+                var extension = System.IO.Path.GetExtension(fileName).ToLower();
+
+                if (extension == ".mcp")
+                {
+                    // 加载项目文件
+                    LoadProjectFile(fileName);
+                }
+               
+
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"打开文件失败: {ex.Message}", "打开失败");
+            }
+        }
+
+        /// <summary>
+        /// 加载项目文件
+        /// </summary>
+        private void LoadProjectFile(string fileName)
+        {
+            // 加载项目文档
+            var projectDocument = _projectDataService.LoadProject(fileName);
+
+            if (projectDocument == null)
+            {
+                _dialogService.ShowError("无法加载项目文件，文件可能已损坏", "打开失败");
+                return;
+            }
+
+            // 设置当前文件路径
+            _canvasStateService.SetCurrentFile(fileName);
+
+            // 清空当前内容并加载新项目
+            _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
+
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    _eventAggregator?.GetEvent<LoadProjectRequestEvent>()?.Publish(projectDocument);
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"项目加载成功: {System.IO.Path.GetFileName(fileName)}");
+                }
+                catch (Exception ex)
+                {
+                    _dialogService.ShowError($"加载项目内容失败: {ex.Message}", "加载失败");
+                }
+            }), System.Windows.Threading.DispatcherPriority.Normal);
+        }
+
+     
+
+        /// <summary>
+        /// 将画布文档转换为项目文档
+        /// </summary>
+        private ProjectDocument ConvertCanvasToProject(CanvasDocument canvasDocument, string fileName)
+        {
+            var projectDocument = new ProjectDocument
+            {
+                Name = System.IO.Path.GetFileNameWithoutExtension(fileName),
+                Description = "从画布文件转换而来",
+                CreatedTime = canvasDocument.CreatedTime,
+                LastModifiedTime = canvasDocument.LastModifiedTime
+            };
+
+            // 转换画布数据
+            projectDocument.CanvasDesign = new CanvasDesignData
+            {
+                Id = canvasDocument.Id,
+                Name = canvasDocument.Name,
+                CreatedTime = canvasDocument.CreatedTime,
+                LastModifiedTime = canvasDocument.LastModifiedTime,
+                RegionLayout = canvasDocument.RegionLayout,
+                Devices = canvasDocument.Devices,
+                Connections = canvasDocument.Connections,
+                CanvasWidth = canvasDocument.CanvasWidth,
+                CanvasHeight = canvasDocument.CanvasHeight
+            };
+
+            // 创建空的流程数据
+            projectDocument.FlowDesign = new FlowDesignData
+            {
+                Name = "流程设计",
+                CanvasWidth = 1200,
+                CanvasHeight = 800,
+                StartNodeX = (1200 - 231) / 2,
+                StartNodeY = 20
+            };
+
+            return projectDocument;
+        }
+
+        /// <summary>
+        /// 新建项目
+        /// </summary>
+        private void ExecuteNewDocument()
+        {
+            try
+            {
+                if (_canvasStateService.HasUnsavedChanges)
+                {
+                    var result = _dialogService.ShowConfirmation(
+                        "当前项目有未保存的修改，是否先保存？",
+                        "新建项目");
+
+                    if (result)
+                    {
+                        ExecuteSave();
+                        if (_canvasStateService.HasUnsavedChanges)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                // 获取当前画布尺寸（保留原有逻辑）
+                var (canvasWidth, canvasHeight) = GetCurrentCanvasSize();
+
+                // 创建新的画布数据（保留原有逻辑）
+                var newCanvas = _canvasDataService.CreateNewCanvas(canvasWidth, canvasHeight);
+
+                // 设置当前区域布局（保留原有逻辑）
+                CurrentRegionLayout = newCanvas.RegionLayout;
+
+                // 创建新项目，使用获取到的画布尺寸
+                var newProject = CreateNewProjectWithCanvasSize(canvasWidth, canvasHeight, newCanvas);
+
+                // 重置状态（清空当前文件路径）
+                _canvasStateService.Reset();
+
+                _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
+
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _eventAggregator?.GetEvent<NewProjectCreatedEvent>()?.Publish(newProject);
+                    _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(newCanvas.RegionLayout);
+                    _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Publish(newCanvas);
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("新建项目创建成功");
+                }), System.Windows.Threading.DispatcherPriority.Background);
+               
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"创建新项目失败: {ex.Message}", "错误");
+            }
+        }
+
+        /// <summary>
+        /// 创建带有指定画布尺寸的新项目
+        /// </summary>
+        private ProjectDocument CreateNewProjectWithCanvasSize(double canvasWidth, double canvasHeight, CanvasDocument newCanvas)
+        {
+            var newProject = new ProjectDocument
+            {
+                Name = $"新建项目_{DateTime.Now:HHmmss}",
+                CanvasDesign = new CanvasDesignData
+                {
+                    Id = newCanvas.Id,
+                    Name = newCanvas.Name,
+                    CreatedTime = newCanvas.CreatedTime,
+                    LastModifiedTime = newCanvas.LastModifiedTime,
+                    RegionLayout = newCanvas.RegionLayout,
+                    Devices = newCanvas.Devices,
+                    Connections = newCanvas.Connections,
+                    CanvasWidth = canvasWidth,
+                    CanvasHeight = canvasHeight
+                },
+                FlowDesign = new FlowDesignData
+                {
+                    Name = "流程设计",
+                    CanvasWidth = Math.Max(canvasWidth, 1200), // 流程画布至少1200宽
+                    CanvasHeight = Math.Max(canvasHeight, 800), // 流程画布至少800高
+                    StartNodeX = (Math.Max(canvasWidth, 1200) - 231) / 2,
+                    StartNodeY = 20
+                }
+            };
+
+            return newProject;
+        }
+
+
+    
+
+  
+
+        #endregion
         private void ExecuteGoBack()
         {
             try

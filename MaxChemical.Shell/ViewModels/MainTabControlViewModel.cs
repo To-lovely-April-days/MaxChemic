@@ -198,13 +198,33 @@ namespace MaxChemical.Shell.ViewModels
                 Debug.WriteLine($"[Command] 切换完成 - Process: {IsProcessDesignerSelected}, Flow: {IsFlowDesignerSelected}");
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("切换到流程设计器");
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    TriggerFlowDesignerUISync();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"切换到流程设计器失败: {ex.Message}");
             }
         }
+        /// <summary>
+        /// 触发流程设计器的UI同步
+        /// </summary>
+        private void TriggerFlowDesignerUISync()
+        {
+            try
+            {
+                Debug.WriteLine("触发流程设计器UI同步");
 
+                // 发布事件通知流程设计器同步UI
+                _eventAggregator?.GetEvent<FlowDesignerUIRefreshRequestEvent>()?.Publish();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"触发流程设计器UI同步失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 设置标签选择状态，只触发一次左侧面板切换
         /// </summary>

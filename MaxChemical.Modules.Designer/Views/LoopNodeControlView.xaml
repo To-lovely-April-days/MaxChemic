@@ -11,7 +11,7 @@
         <converters:LoopHeaderSummaryConverter x:Key="LoopHeaderSummaryConverter"/>
     </UserControl.Resources>
 
-    <StackPanel HorizontalAlignment="Center">
+    <StackPanel HorizontalAlignment="Center" Width="231" >
 
         <!-- 循环头部卡片 -->
         <Border x:Name="MainContainer"

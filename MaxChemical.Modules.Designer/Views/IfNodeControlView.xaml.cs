@@ -11,6 +11,7 @@ using MaxChemical.Modules.Designer.Events;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Logging;
 using DevicePlugins.Devices;
+using System.Windows.Threading;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -55,8 +56,33 @@ namespace MaxChemical.Modules.Designer.Views
             Loaded += OnLoaded;
             SizeChanged += OnSizeChanged;
             DataContextChanged += OnDataContextChanged;
+            IsVisibleChanged += OnIsVisibleChanged;
         }
+        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            try
+            {
+                if ((bool)e.NewValue == true) // 变为可见
+                {
+                    _logger.LogDebug("并行节点控件变为可见，延迟同步UI");
 
+                    // 延迟同步UI，确保布局完成
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (DataContext is CommandNode parallelNode && parallelNode.Children.Count > 0)
+                        {
+                            _logger.LogDebug($"可见性变化触发UI同步: {parallelNode.DisplayName}，子节点数: {parallelNode.Children.Count}");
+                            SyncChildrenToUI();
+                            
+                        }
+                    }), DispatcherPriority.Background);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理可见性变化失败");
+            }
+        }
         private void InitializeInsertionIndicator()
         {
             _insertionIndicator = new Border
@@ -77,7 +103,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private void SyncChildrenToUI()
+        public void SyncChildrenToUI()
         {
             if (DataContext is not CommandNode ifNode) return;
 

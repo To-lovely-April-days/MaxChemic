@@ -2353,6 +2353,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         return AreEqual(leftValue, rightValue);
 
                     case "NotEqual":
+                    case "NotEquals":
                         return !AreEqual(leftValue, rightValue);
 
                     case "GreaterThan":

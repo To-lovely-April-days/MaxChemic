@@ -39,7 +39,12 @@ public class GetCanvasSizeRequestEvent : PubSubEvent<Action<double, double>>
 public class DeviceDragStartedEvent : PubSubEvent<DeviceDragStartedEventArgs>
 {
 }
-
+/// <summary>
+/// 流程设计器UI刷新请求事件
+/// </summary>
+public class FlowDesignerUIRefreshRequestEvent : PubSubEvent
+{
+}
 public class DeviceDragStartedEventArgs
 {
     public IDevice Device { get; set; }
