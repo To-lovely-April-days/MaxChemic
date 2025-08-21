@@ -10,7 +10,7 @@
         <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
     </UserControl.Resources>
 
-    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Width="231">
 
         <Border x:Name="MainStepCard"
                 Width="231" Height="64"
