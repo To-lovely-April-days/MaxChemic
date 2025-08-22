@@ -95,17 +95,32 @@
                         <ContentPresenter Margin="0" 
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        <ControlTemplate.Triggers>
+                            <!-- 禁用状态 -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                            <!-- 鼠标悬停状态（仅在启用时生效） -->
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Opacity" Value="0.8"/>
+                            </MultiTrigger>
+                            <!-- 按下状态（仅在启用时生效） -->
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsPressed" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Opacity" Value="0.8"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Opacity" Value="0.6"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <!-- 分隔线样式 -->
@@ -278,16 +293,36 @@
                         Command="{Binding StartCommand}"
                         ToolTip="{Binding TooltipStart}">
                     <Border Background="Transparent" 
-                            BorderBrush="#6CB6FF" 
                             BorderThickness="1"
                             CornerRadius="10" 
                             Width="78" 
                             Height="32">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="#6CB6FF"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <StackPanel Orientation="Horizontal" 
                                     HorizontalAlignment="Center" 
                                     VerticalAlignment="Center">
                             <Grid Width="24" Height="24" Margin="7,0,0,0">
-                                <Ellipse Width="24" Height="23" Fill="#6CB6FF"/>
+                                <Ellipse Width="24" Height="23">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#6CB6FF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                    <Setter Property="Fill" Value="#CCCCCC"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
                                 <Path Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
                                       Fill="White" 
                                       Width="12" Height="12"
@@ -296,11 +331,21 @@
                                       Stretch="Uniform"/>
                             </Grid>
                             <TextBlock Text="{Binding ButtonStart}" 
-                                       Foreground="#4D4D4D" 
                                        FontSize="12" 
                                        FontWeight="Normal"
                                        VerticalAlignment="Center" 
-                                       Margin="7,0,12,0"/>
+                                       Margin="7,0,12,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#4D4D4D"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                <Setter Property="Foreground" Value="#999999"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </Button>
@@ -310,27 +355,57 @@
                         Command="{Binding PauseCommand}"
                         ToolTip="{Binding TooltipPause}">
                     <Border Background="Transparent" 
-                            BorderBrush="#FFB366" 
                             BorderThickness="1"
                             CornerRadius="10" 
                             Width="78" 
                             Height="32">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="#FFB366"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <StackPanel Orientation="Horizontal" 
                                     HorizontalAlignment="Center" 
                                     VerticalAlignment="Center">
                             <Grid Width="24" Height="24" Margin="7,0,0,0">
-                                <Ellipse Width="24" Height="23" Fill="#FFB366"/>
+                                <Ellipse Width="24" Height="23">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#FFB366"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                    <Setter Property="Fill" Value="#CCCCCC"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
                                 <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Rectangle Width="2" Height="12" Fill="White" Margin="-6,0,0,0"/>
                                     <Rectangle Width="2" Height="12" Fill="White" Margin="6,0,0,0"/>
                                 </Grid>
                             </Grid>
                             <TextBlock Text="{Binding ButtonPause}" 
-                                       Foreground="#4D4D4D" 
                                        FontSize="12" 
                                        FontWeight="Normal"
                                        VerticalAlignment="Center" 
-                                       Margin="7,0,12,0"/>
+                                       Margin="7,0,12,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#4D4D4D"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                <Setter Property="Foreground" Value="#999999"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </Button>
@@ -340,55 +415,115 @@
                         Command="{Binding StopCommand}"
                         ToolTip="{Binding TooltipStop}">
                     <Border Background="Transparent" 
-                            BorderBrush="#FF6B6B" 
                             BorderThickness="1"
                             CornerRadius="10" 
                             Width="78" 
                             Height="32">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <StackPanel Orientation="Horizontal" 
                                     HorizontalAlignment="Center" 
                                     VerticalAlignment="Center">
                             <Grid Width="24" Height="24" Margin="7,0,0,0">
-                                <Ellipse Width="24" Height="23" Fill="#FF6B6B"/>
+                                <Ellipse Width="24" Height="23">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#FF6B6B"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                    <Setter Property="Fill" Value="#CCCCCC"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
                                 <Rectangle Width="10" Height="10" 
                                            Fill="White" 
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Grid>
                             <TextBlock Text="{Binding ButtonStop}" 
-                                       Foreground="#4D4D4D" 
                                        FontSize="12" 
                                        FontWeight="Normal"
                                        VerticalAlignment="Center" 
-                                       Margin="7,0,12,0"/>
+                                       Margin="7,0,12,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#4D4D4D"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                <Setter Property="Foreground" Value="#999999"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </Button>
 
                 <!-- 状态按钮组 -->
                 <StackPanel Orientation="Horizontal" 
-                            VerticalAlignment="Center" 
-                            Margin="10,7,2,0">
+            VerticalAlignment="Center" 
+            Margin="10,7,2,0">
                     <Button Style="{StaticResource PlayControlButtonStyle}" 
-                            Command="{Binding StatusCommand}"
-                            ToolTip="{Binding TooltipSimulationMode}"
-                            Width="47" Height="23" Margin="0">
-                        <Border Background="#E5E5E5" 
-                                BorderBrush="#E5E5E5" 
-                                BorderThickness="1"
-                                CornerRadius="12" 
-                                Width="47" Height="23">
+            Command="{Binding StatusCommand}"
+            ToolTip="{Binding TooltipSimulationMode}"
+            Width="47" Height="23" Margin="0">
+                        <Border Background="{Binding SwitchBackgroundColor}" 
+                BorderBrush="{Binding SwitchBorderColor}" 
+                BorderThickness="1"
+                CornerRadius="12" 
+                Width="47" Height="23">
                             <Ellipse Width="19" Height="19" 
-                                     Fill="White" 
-                                     HorizontalAlignment="Left" VerticalAlignment="Center"
-                                     Margin="2,0,0,0"/>
+                     Fill="White" 
+                     VerticalAlignment="Center"
+                                     HorizontalAlignment="Left">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform X="2"/>
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSimulationMode}" Value="True">
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation 
+                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
+                                                To="26" Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation 
+                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
+                                                To="2" Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
                         </Border>
                     </Button>
                     <TextBlock Text="{Binding TextSimulationMode}" 
-                               Foreground="#666666" 
-                               FontSize="12" 
-                               FontWeight="Normal"
-                               VerticalAlignment="Center" 
-                               Margin="8,0,0,0"/>
+               Foreground="#4D4D4D" 
+               FontSize="13" 
+               FontWeight="Normal"
+               VerticalAlignment="Center" 
+               Margin="8,0,0,0"/>
                 </StackPanel>
 
             </StackPanel>

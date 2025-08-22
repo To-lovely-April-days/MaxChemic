@@ -16,5 +16,7 @@ namespace MaxChemical.Modules.Designer.Event
         public string DeviceName { get; set; }
         public string CommandName { get; set; }
         public DeviceParameters OutputParameters { get; set; }
+
+        public bool IsSimulationMode { get; set; }
     }
 }

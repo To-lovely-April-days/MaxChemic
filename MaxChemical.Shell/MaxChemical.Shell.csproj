@@ -79,6 +79,8 @@
 	  <None Remove="Resources\Icon\open.png" />
 	  <None Remove="Resources\Icon\openfile.png" />
 	  <None Remove="Resources\Icon\partition.png" />
+	  <None Remove="Resources\Icon\play.png" />
+	  <None Remove="Resources\Icon\play_disabled.png" />
 	  <None Remove="Resources\Icon\Pumps.png" />
 	  <None Remove="Resources\Icon\Reactors.png" />
 	  <None Remove="Resources\Icon\redo.png" />
@@ -86,6 +88,7 @@
 	  <None Remove="Resources\Icon\saveas.png" />
 	  <None Remove="Resources\Icon\savefile.png" />
 	  <None Remove="Resources\Icon\setting.png" />
+	  <None Remove="Resources\Icon\stop.png" />
 	  <None Remove="Resources\Icon\user.png" />
 	  <None Remove="Resources\Icon\zoom.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
@@ -217,6 +220,12 @@
 	  <EmbeddedResource Include="Resources\Icon\partition.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\play.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\play_disabled.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\Pumps.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -236,6 +245,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\setting.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\stop.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\user.png">

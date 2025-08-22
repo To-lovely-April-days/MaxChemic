@@ -44,6 +44,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private readonly List<Task> _backgroundTasks = new List<Task>();
         private readonly object _backgroundTasksLock = new object();
         private ICustomVariablePersistenceService _persistenceService;
+        // *** 新增：模拟模式状态跟踪 ***
+        private bool _currentSimulationMode = false;
         // 添加执行进度跟踪
         private class ExecutionProgress
         {
@@ -99,6 +101,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _deviceNameResolver = deviceNameResolver ?? throw new ArgumentNullException(nameof(deviceNameResolver));
             _persistenceService= persistenceService ?? throw new ArgumentNullException(nameof(persistenceService));
+            // *** 新增：订阅模拟模式相关事件 ***
+            SubscribeSimulationModeEvents();
             // 订阅上下文变量请求事件，用于变量管理器获取当前变量
             _eventAggregator.GetEvent<RequestContextVariablesEvent>().Subscribe(callback =>
             {
@@ -127,8 +131,137 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     callback?.Invoke(new Dictionary<string, object>());
                 }
             }, ThreadOption.PublisherThread, true);
+
+           
         }
-       
+        #region 新增：模拟模式支持
+
+        /// <summary>
+        /// 订阅模拟模式相关事件
+        /// </summary>
+        private void SubscribeSimulationModeEvents()
+        {
+            try
+            {
+                // 订阅模拟模式状态请求事件
+                _eventAggregator?.GetEvent<GetSimulationModeRequestEvent>()?.Subscribe(callback =>
+                {
+                    callback?.Invoke(_currentSimulationMode);
+                }, ThreadOption.PublisherThread, true);
+
+                // 订阅模拟模式变更事件
+                _eventAggregator?.GetEvent<DeviceSimulationModeChangedEvent>()?.Subscribe(OnSimulationModeChanged,
+                    ThreadOption.PublisherThread, true);
+
+                _logger.LogDebug("已订阅模拟模式相关事件");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "订阅模拟模式事件失败");
+            }
+        }
+
+        /// <summary>
+        /// 处理模拟模式变更事件
+        /// </summary>
+        private void OnSimulationModeChanged(DeviceSimulationModeEventArgs args)
+        {
+            try
+            {
+                _currentSimulationMode = args.IsSimulationMode;
+                _logger.LogInformation("流程执行引擎模拟模式已更新: {Mode}",
+                    _currentSimulationMode ? "模拟模式" : "实际模式");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理模拟模式变更失败");
+            }
+        }
+
+        /// <summary>
+        /// 获取当前模拟模式状态
+        /// </summary>
+        private bool GetCurrentSimulationMode()
+        {
+            bool isSimulationMode = _currentSimulationMode;
+
+            try
+            {
+                // 通过事件获取最新的模拟模式状态
+                var resetEvent = new ManualResetEventSlim(false);
+                bool latestMode = _currentSimulationMode;
+
+                _eventAggregator?.GetEvent<GetSimulationModeRequestEvent>()?.Publish((mode) =>
+                {
+                    latestMode = mode;
+                    resetEvent.Set();
+                });
+
+                // 等待500毫秒获取响应
+                if (resetEvent.Wait(500))
+                {
+                    isSimulationMode = latestMode;
+                    _currentSimulationMode = latestMode; // 同步本地状态
+                }
+
+                resetEvent.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "获取模拟模式状态失败，使用缓存状态: {Mode}", _currentSimulationMode);
+            }
+
+            _logger.LogDebug("当前模拟模式状态: {Mode}", isSimulationMode ? "模拟模式" : "实际模式");
+            return isSimulationMode;
+        }
+
+        /// <summary>
+        /// 设置设备的模拟模式
+        /// </summary>
+        private void ApplySimulationModeToDevices(List<RequiredDeviceInfo> requiredDevices, bool isSimulationMode)
+        {
+            try
+            {
+                // 获取画布设备列表
+                List<CanvasDeviceViewModel> canvasDevices = null;
+                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+                if (canvasDevices == null || !canvasDevices.Any())
+                {
+                    _logger.LogWarning("未找到画布设备，无法应用模拟模式");
+                    return;
+                }
+
+                int updatedCount = 0;
+                foreach (var deviceInfo in requiredDevices)
+                {
+                    var canvasDevice = canvasDevices.FirstOrDefault(d => d.DeviceId == deviceInfo.DeviceId);
+                    if (canvasDevice?.Device != null)
+                    {
+                        try
+                        {
+                            canvasDevice.Device.IsSimulationMode = isSimulationMode;
+                            updatedCount++;
+                            _logger.LogDebug("设备模拟模式已更新: {DeviceId} -> {Mode}",
+                                deviceInfo.DeviceId, isSimulationMode ? "模拟" : "实际");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "更新设备模拟模式失败: {DeviceId}", deviceInfo.DeviceId);
+                        }
+                    }
+                }
+
+                _logger.LogInformation("已更新 {Count} 个设备的模拟模式为: {Mode}",
+                    updatedCount, isSimulationMode ? "模拟模式" : "实际模式");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "批量应用设备模拟模式失败");
+            }
+        }
+
+        #endregion
         public async Task<FlowExecutionResult> ExecuteAsync(FlowDesignerViewModel flowViewModel, CancellationToken cancellationToken = default)
         {
             if (State != FlowExecutionState.Idle)
@@ -169,13 +302,20 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                 State = FlowExecutionState.Running;
                 _logger.LogInformation("开始执行流程，共 {Count} 个顶层节点", flowViewModel.CommandNodes.Count);
-
+                // 1. 流程结构验证
                 var validation = ValidateFlow(flowViewModel);
                 if (!validation.IsValid)
                 {
                     throw new InvalidOperationException($"流程验证失败: {string.Join(", ", validation.Errors)}");
                 }
-
+                // 2. *** 新增：设备连接验证 ***
+                _logger.LogInformation("开始验证流程中所有设备的连接状态...");
+                var deviceValidation = await ValidateDeviceConnectionsAsync(flowViewModel, _cancellationTokenSource.Token);
+                if (!deviceValidation.IsValid)
+                {
+                    throw new InvalidOperationException($"设备连接验证失败: {string.Join(", ", deviceValidation.Errors)}");
+                }
+                _logger.LogInformation("所有设备连接验证通过");
                 // 初始化进度跟踪
                 var totalNodes = CalculateTotalNodes(flowViewModel.CommandNodes);
                 _currentProgress = new ExecutionProgress
@@ -361,7 +501,231 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
             }
         }
+        #region 新增：设备连接验证
 
+        /// <summary>
+        /// 验证流程中所有设备的连接状态
+        /// </summary>
+        /// <summary>
+        /// 验证流程中所有设备的连接状态（支持模拟模式）
+        /// </summary>
+        private async Task<FlowValidationResult> ValidateDeviceConnectionsAsync(FlowDesignerViewModel flowViewModel, CancellationToken cancellationToken)
+        {
+            var result = new FlowValidationResult { IsValid = true };
+
+            try
+            {
+                // 1. 收集流程中所有用到的设备
+                var requiredDevices = CollectRequiredDevices(flowViewModel);
+
+                if (!requiredDevices.Any())
+                {
+                    _logger.LogInformation("流程中没有使用任何设备，跳过设备连接验证");
+                    return result;
+                }
+
+                _logger.LogInformation("流程需要 {Count} 个设备: {Devices}",
+                    requiredDevices.Count, string.Join(", ", requiredDevices.Select(d => $"{d.DeviceName}({d.DeviceId})")));
+
+                // 2. *** 新增：检查模拟模式状态 ***
+                bool isSimulationMode = GetCurrentSimulationMode();
+                _logger.LogInformation("当前运行模式: {Mode}", isSimulationMode ? "模拟模式" : "实际模式");
+
+                // 3. 获取画布设备列表
+                List<CanvasDeviceViewModel> canvasDevices = null;
+                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+                if (canvasDevices == null || !canvasDevices.Any())
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("未找到任何画布设备，无法执行流程");
+                    return result;
+                }
+
+                // 4. *** 新增：应用模拟模式到所有相关设备 ***
+                ApplySimulationModeToDevices(requiredDevices, isSimulationMode);
+
+                // 5. *** 修改：根据模拟模式决定验证策略 ***
+                if (isSimulationMode)
+                {
+                    _logger.LogInformation("模拟模式下，跳过实际设备连接验证");
+
+                    // 模拟模式下，确保所有设备都存在于画布上即可
+                    foreach (var requiredDevice in requiredDevices)
+                    {
+                        var canvasDevice = canvasDevices.FirstOrDefault(d => d.DeviceId == requiredDevice.DeviceId);
+                        if (canvasDevice?.Device == null)
+                        {
+                            result.IsValid = false;
+                            result.Errors.Add($"未在画布上找到设备: {requiredDevice.DeviceName} ({requiredDevice.DeviceId})");
+                        }
+                        else
+                        {
+                            _logger.LogInformation("模拟模式设备验证通过: {DeviceName} ({DeviceId})",
+                                requiredDevice.DeviceName, requiredDevice.DeviceId);
+                        }
+                    }
+
+                    return result;
+                }
+
+                // 6. 实际模式下的设备连接验证
+                _logger.LogInformation("实际模式下，执行设备连接验证");
+                var deviceValidationTasks = new List<Task<DeviceConnectionValidationResult>>();
+
+                foreach (var requiredDevice in requiredDevices)
+                {
+                    var canvasDevice = canvasDevices.FirstOrDefault(d => d.DeviceId == requiredDevice.DeviceId);
+                    if (canvasDevice?.Device == null)
+                    {
+                        result.IsValid = false;
+                        result.Errors.Add($"未在画布上找到设备: {requiredDevice.DeviceName} ({requiredDevice.DeviceId})");
+                        continue;
+                    }
+
+                    // 异步验证设备连接
+                    var task = ValidateSingleDeviceConnectionAsync(canvasDevice.Device, requiredDevice, cancellationToken);
+                    deviceValidationTasks.Add(task);
+                }
+
+                // 7. 等待所有设备验证完成
+                if (deviceValidationTasks.Any())
+                {
+                    var deviceResults = await Task.WhenAll(deviceValidationTasks);
+
+                    foreach (var deviceResult in deviceResults)
+                    {
+                        if (!deviceResult.IsConnected)
+                        {
+                            result.IsValid = false;
+                            result.Errors.Add($"设备连接失败: {deviceResult.DeviceName} - {deviceResult.ErrorMessage}");
+                        }
+                        else
+                        {
+                            _logger.LogInformation("设备连接验证通过: {DeviceName} ({DeviceId})",
+                                deviceResult.DeviceName, deviceResult.DeviceId);
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"设备连接验证异常: {ex.Message}");
+                _logger.LogError(ex, "设备连接验证过程中发生异常");
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 验证单个设备的连接状态
+        /// </summary>
+        private async Task<DeviceConnectionValidationResult> ValidateSingleDeviceConnectionAsync(
+             IDevice device, RequiredDeviceInfo deviceInfo, CancellationToken cancellationToken)
+        {
+            var result = new DeviceConnectionValidationResult
+            {
+                DeviceId = deviceInfo.DeviceId,
+                DeviceName = deviceInfo.DeviceName,
+                IsConnected = false
+            };
+
+            try
+            {
+                _logger.LogDebug("验证设备连接: {DeviceName} ({DeviceId}) - 模拟模式: {SimulationMode}",
+                    deviceInfo.DeviceName, deviceInfo.DeviceId, device.IsSimulationMode);
+
+                // 检查当前连接状态
+                if (device.IsConnected)
+                {
+                    // 已连接，验证连接是否有效
+                    _logger.LogDebug("设备已连接，验证连接有效性: {DeviceName}", deviceInfo.DeviceName);
+
+                    var isConnectionValid = await device.CheckConnectionAsync();
+                    if (isConnectionValid)
+                    {
+                        result.IsConnected = true;
+                        _logger.LogDebug("设备连接有效: {DeviceName}", deviceInfo.DeviceName);
+                        return result;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("设备连接无效，尝试重新连接: {DeviceName}", deviceInfo.DeviceName);
+                    }
+                }
+
+                // 尝试连接设备
+                _logger.LogInformation("正在连接设备: {DeviceName} ({DeviceId}) - 模式: {Mode}",
+                    deviceInfo.DeviceName, deviceInfo.DeviceId, device.IsSimulationMode ? "模拟" : "实际");
+
+                var connectResult = await device.ConnectAsync();
+                if (connectResult)
+                {
+                    result.IsConnected = true;
+                    _logger.LogInformation("设备连接成功: {DeviceName} ({DeviceId}) - 模式: {Mode}",
+                        deviceInfo.DeviceName, deviceInfo.DeviceId, device.IsSimulationMode ? "模拟" : "实际");
+                }
+                else
+                {
+                    result.ErrorMessage = "设备连接失败，无具体错误信息";
+                    _logger.LogError("设备连接失败: {DeviceName} ({DeviceId}) - 模式: {Mode}",
+                        deviceInfo.DeviceName, deviceInfo.DeviceId, device.IsSimulationMode ? "模拟" : "实际");
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                result.ErrorMessage = "连接验证被取消";
+                _logger.LogWarning("设备连接验证被取消: {DeviceName}", deviceInfo.DeviceName);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "设备连接验证异常: {DeviceName} ({DeviceId})",
+                    deviceInfo.DeviceName, deviceInfo.DeviceId);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 收集流程中所有需要的设备信息
+        /// </summary>
+        private List<RequiredDeviceInfo> CollectRequiredDevices(FlowDesignerViewModel flowViewModel)
+        {
+            var devices = new Dictionary<string, RequiredDeviceInfo>();
+            var allNodes = GetAllNodes(flowViewModel.CommandNodes);
+
+            foreach (var node in allNodes)
+            {
+                if (node.DeviceCommand != null && !string.IsNullOrEmpty(node.BoundDeviceId))
+                {
+                    if (!devices.ContainsKey(node.BoundDeviceId))
+                    {
+                        devices[node.BoundDeviceId] = new RequiredDeviceInfo
+                        {
+                            DeviceId = node.BoundDeviceId,
+                            DeviceName = node.BoundDeviceName ?? node.BoundDeviceId,
+                            Commands = new List<string>()
+                        };
+                    }
+
+                    // 记录使用的命令
+                    if (!string.IsNullOrEmpty(node.DeviceCommand.Name) &&
+                        !devices[node.BoundDeviceId].Commands.Contains(node.DeviceCommand.Name))
+                    {
+                        devices[node.BoundDeviceId].Commands.Add(node.DeviceCommand.Name);
+                    }
+                }
+            }
+
+            return devices.Values.ToList();
+        }
+
+        #endregion
         private async Task ExecuteNodeWithProgressAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             await ExecuteNodeAsync(node, context, cancellationToken);
@@ -536,7 +900,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             var targetCmd = targetDevice.Commands?.FirstOrDefault(c => c.Name == node.DeviceCommand.Name);
             if (targetCmd == null)
                 throw new InvalidOperationException($"设备 {targetDevice.Name} 不支持命令: {node.DeviceCommand.Name}");
-
+            // *** 新增：确保设备处于正确的模拟模式 ***
+            bool currentSimulationMode = GetCurrentSimulationMode();
+            if (targetDevice.IsSimulationMode != currentSimulationMode)
+            {
+                _logger.LogInformation("调整设备模拟模式: {DeviceId} {OldMode} -> {NewMode}",
+                    node.BoundDeviceId, targetDevice.IsSimulationMode ? "模拟" : "实际", currentSimulationMode ? "模拟" : "实际");
+                targetDevice.IsSimulationMode = currentSimulationMode;
+            }
             // 合并"模板参数 + 节点覆盖值"得到生效参数副本
             var inputParameters = BuildEffectiveParametersForNode(node, targetCmd);
 
@@ -587,7 +958,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         _eventAggregator.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(eventArgs);
                     }));
                 }
-
+                // 新增：发布监控卡片更新事件
+                PublishMonitoringCardUpdateEvent(node.BoundDeviceId, targetCmd.Name, resultParams);
 
                 _logger.LogInformation(
                     "执行设备命令完成: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} DurationMs={Duration} Output={Output}",
@@ -630,7 +1002,31 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 throw;
             }
         }
+        /// <summary>
+        /// 发布监控卡片更新事件
+        /// </summary>
+        private void PublishMonitoringCardUpdateEvent(string deviceId, string commandName, DeviceParameters outputParameters)
+        {
+            try
+            {
+                if (outputParameters?.Variables?.Any() == true)
+                {
+                    _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Publish(new MonitoringCardUpdateEventArgs
+                    {
+                        DeviceId = deviceId,
+                        CommandName = commandName,
+                        OutputParameters = outputParameters,
+                        UpdateTime = DateTime.Now
+                    });
 
+                    Debug.WriteLine($"发布监控卡片更新事件: 设备 {deviceId}, 命令 {commandName}, 参数数量 {outputParameters.Variables.Count}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "发布监控卡片更新事件失败");
+            }
+        }
         private async Task<object> ExecuteLogicCommandAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             switch (node.LogicCommand.CommandType)

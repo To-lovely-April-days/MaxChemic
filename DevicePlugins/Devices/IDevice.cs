@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using MaxChemical.Core;
 
 namespace DevicePlugins.Devices
@@ -53,5 +55,58 @@ namespace DevicePlugins.Devices
         /// 关闭设备
         /// </summary>
         void Shutdown();
+
+        /// <summary>
+        /// 连接状态
+        /// </summary>
+        DeviceConnectionStatus ConnectionStatus { get; }
+
+        /// <summary>
+        /// 是否已连接
+        /// </summary>
+        bool IsConnected { get; }
+
+        /// <summary>
+        /// 连接时间
+        /// </summary>
+        DateTime? ConnectedTime { get; }
+
+        /// <summary>
+        /// 最后心跳时间
+        /// </summary>
+        DateTime? LastHeartbeatTime { get; }
+
+        /// <summary>
+        /// 连接超时时间(秒)
+        /// </summary>
+        int ConnectionTimeout { get; set; }
+
+        /// <summary>
+        /// 连接状态变更事件
+        /// </summary>
+        event EventHandler<DeviceConnectionStatusChangedEventArgs> ConnectionStatusChanged;
+
+        /// <summary>
+        /// 连接设备
+        /// </summary>
+        /// <returns>连接结果</returns>
+        Task<bool> ConnectAsync();
+
+        /// <summary>
+        /// 断开设备连接
+        /// </summary>
+        /// <returns>断开结果</returns>
+        Task<bool> DisconnectAsync();
+
+        /// <summary>
+        /// 检查连接状态
+        /// </summary>
+        /// <returns>连接状态</returns>
+        Task<bool> CheckConnectionAsync();
+
+        /// <summary>
+        /// 是否为模拟模式
+        /// </summary>
+        bool IsSimulationMode { get; set; }
     }
 }

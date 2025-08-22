@@ -1,0 +1,141 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.MonitoringCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+
+    <Border Background="White" 
+            BorderBrush="#3498DB" 
+            BorderThickness="2" 
+            CornerRadius="8"
+            Margin="5"
+            Effect="{DynamicResource CardShadowEffect}">
+
+        <Border.Resources>
+            <DropShadowEffect x:Key="CardShadowEffect" 
+                            Color="Gray" 
+                            ShadowDepth="3" 
+                            BlurRadius="5" 
+                            Opacity="0.3"/>
+        </Border.Resources>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Border Grid.Row="0" 
+                    Background="#3498DB" 
+                    CornerRadius="6,6,0,0"
+                    Padding="8,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               x:Name="TitleText"
+                               Text="监控参数"
+                               Foreground="White"
+                               FontWeight="Bold"
+                               FontSize="11"
+                               VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="1"
+                            x:Name="CloseButton"
+                            Content="✕"
+                            Background="Transparent"
+                            Foreground="White"
+                            BorderThickness="0"
+                            FontSize="12"
+                            Width="20"
+                            Height="20"
+                            Cursor="Hand"
+                            Click="CloseButton_Click"
+                            ToolTip="关闭监控卡片"/>
+                </Grid>
+            </Border>
+
+            <!-- 参数列表 -->
+            <ScrollViewer Grid.Row="1" 
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Hidden"
+                          MaxHeight="200"
+                          Padding="8,4">
+                <ItemsControl x:Name="ParametersItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#F8F9FA" 
+                                    BorderBrush="#E9ECEF" 
+                                    BorderThickness="1" 
+                                    CornerRadius="4" 
+                                    Margin="0,2"
+                                    Padding="6,3">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Name}"
+                                               FontSize="10"
+                                               FontWeight="Medium"
+                                               Foreground="#2C3E50"
+                                               VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Value}"
+                                               FontSize="10"
+                                               FontWeight="Bold"
+                                               Foreground="#E74C3C"
+                                               VerticalAlignment="Center"
+                                               Margin="4,0,0,0"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- 状态栏 -->
+            <Border Grid.Row="2" 
+                    Background="#ECF0F1" 
+                    CornerRadius="0,0,6,6"
+                    Padding="8,3">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Ellipse Grid.Column="0"
+                             x:Name="StatusIndicator"
+                             Width="8"
+                             Height="8"
+                             Fill="#95A5A6"
+                             VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Column="1"
+                               x:Name="StatusText"
+                               Text="等待数据"
+                               FontSize="9"
+                               Foreground="#7F8C8D"
+                               VerticalAlignment="Center"
+                               Margin="6,0,0,0"/>
+
+                    <TextBlock Grid.Column="2"
+                               x:Name="UpdateTimeText"
+                               Text=""
+                               FontSize="9"
+                               Foreground="#7F8C8D"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

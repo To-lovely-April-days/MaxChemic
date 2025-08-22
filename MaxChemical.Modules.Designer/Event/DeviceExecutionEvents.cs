@@ -17,6 +17,8 @@ namespace MaxChemical.Modules.Designer.Event
         public string CommandName { get; set; }
         public bool IsSuccessful { get; set; }
         public string ErrorMessage { get; set; }
+
+        public bool IsSimulationMode { get; set; }
     }
 
     // 获取“设备Id -> 显示名(泵#2)”映射

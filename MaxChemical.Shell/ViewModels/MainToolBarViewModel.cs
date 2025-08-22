@@ -249,6 +249,51 @@ namespace MaxChemical.Shell.ViewModels
         }
         private double _zoomStep = 0.1; // 缩放步长
         private double _deviceZoomStep = 0.2; // 设备缩放步长
+
+
+        // 新增：模拟模式状态
+        private bool _isSimulationMode = false;
+
+        public bool IsSimulationMode
+        {
+            get => _isSimulationMode;
+            set
+            {
+                if (SetProperty(ref _isSimulationMode, value))
+                {
+                    // 状态改变时更新UI和通知设备
+                    OnSimulationModeChanged();
+                }
+            }
+        }
+
+        // 新增：开关动画状态
+        private double _switchPosition = 10; // 开关位置，2=左侧，26=右侧
+
+        public double SwitchPosition
+        {
+            get => _switchPosition;
+            set => SetProperty(ref _switchPosition, value);
+        }
+
+        // 新增：开关背景色
+        private string _switchBackgroundColor = "#E5E5E5";
+
+        public string SwitchBackgroundColor
+        {
+            get => _switchBackgroundColor;
+            set => SetProperty(ref _switchBackgroundColor, value);
+        }
+
+        // 新增：开关边框色
+        private string _switchBorderColor = "#E5E5E5";
+
+        public string SwitchBorderColor
+        {
+            get => _switchBorderColor;
+            set => SetProperty(ref _switchBorderColor, value);
+        }
+
         #region Commands
 
         public DelegateCommand OpenFolderCommand { get; private set; }
@@ -316,6 +361,7 @@ namespace MaxChemical.Shell.ViewModels
             ButtonPause = _localizationService.GetString("Button_Pause");
             ButtonStop = _localizationService.GetString("Button_Stop");
             TextSimulationMode = _localizationService.GetString("Text_SimulationMode");
+            UpdateSimulationModeText();
         }
         private void SubscribeExecutionEvents()
         {
@@ -350,14 +396,49 @@ namespace MaxChemical.Shell.ViewModels
                 };
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(statusMessage);
-
+                // *** 新增：更新工具提示文本 ***
+                UpdateExecutionTooltips(e.NewState);
                 System.Diagnostics.Debug.WriteLine($"执行引擎状态变化: {e.OldState} -> {e.NewState}");
                 System.Diagnostics.Debug.WriteLine($"Start按钮可用: {CanExecuteStart()}");
                 System.Diagnostics.Debug.WriteLine($"Pause按钮可用: {CanExecutePause()}");
                 System.Diagnostics.Debug.WriteLine($"Stop按钮可用: {CanExecuteStop()}");
             });
         }
+        /// <summary>
+        /// 根据执行状态更新按钮工具提示
+        /// </summary>
+        private void UpdateExecutionTooltips(FlowExecutionState state)
+        {
+            switch (state)
+            {
+                case FlowExecutionState.Idle:
+                case FlowExecutionState.Completed:
+                case FlowExecutionState.Stopped:
+                case FlowExecutionState.Error:
+                    TooltipStart = _localizationService.GetString("ToolTip_Start") ?? "开始执行流程";
+                    TooltipPause = _localizationService.GetString("ToolTip_Pause_Disabled") ?? "暂停（需要先开始执行）";
+                    TooltipStop = _localizationService.GetString("ToolTip_Stop_Disabled") ?? "停止（需要先开始执行）";
+                    break;
 
+                case FlowExecutionState.Running:
+                    TooltipStart = _localizationService.GetString("ToolTip_Start_Disabled") ?? "开始（流程正在执行中）";
+                    TooltipPause = _localizationService.GetString("ToolTip_Pause") ?? "暂停流程执行";
+                    TooltipStop = _localizationService.GetString("ToolTip_Stop") ?? "停止流程执行";
+                    break;
+
+                case FlowExecutionState.Paused:
+                    TooltipStart = _localizationService.GetString("ToolTip_Resume") ?? "恢复流程执行";
+                    TooltipPause = _localizationService.GetString("ToolTip_Pause_Disabled") ?? "暂停（流程已暂停）";
+                    TooltipStop = _localizationService.GetString("ToolTip_Stop") ?? "停止流程执行";
+                    break;
+
+                case FlowExecutionState.Stopping:
+                    TooltipStart = _localizationService.GetString("ToolTip_Start_Disabled") ?? "开始（流程正在停止中）";
+                    TooltipPause = _localizationService.GetString("ToolTip_Pause_Disabled") ?? "暂停（流程正在停止中）";
+                    TooltipStop = _localizationService.GetString("ToolTip_Stop_Disabled") ?? "停止（流程正在停止中）";
+                    break;
+            }
+        }
         private void OnNodeExecuting(object sender, NodeExecutionEventArgs e)
         {
             System.Windows.Application.Current?.Dispatcher.Invoke(() =>
@@ -412,6 +493,8 @@ namespace MaxChemical.Shell.ViewModels
             _eventAggregator.GetEvent<GetCurrentFilePathRequestEvent>().Subscribe(OnGetCurrentFilePathRequest);
             _eventAggregator.GetEvent<SetCurrentFilePathEvent>().Subscribe(OnSetCurrentFilePath);
 
+            _eventAggregator.GetEvent<GetSimulationModeRequestEvent>().Subscribe(OnGetSimulationModeRequest);
+
             _commandHistory.CanUndoRedoChanged += OnCanUndoRedoChanged;
         }
         private void OnCanUndoRedoChanged(bool canUndo, bool canRedo)
@@ -428,6 +511,7 @@ namespace MaxChemical.Shell.ViewModels
         private void OnLanguageChanged(string cultureName)
         {
             LoadLocalizedStrings();
+
         }
 
         private void OnCanvasModified()
@@ -444,6 +528,20 @@ namespace MaxChemical.Shell.ViewModels
         {
             _canvasStateService.SetCurrentFile(filePath);
             System.Diagnostics.Debug.WriteLine($"当前文件路径已更新: {filePath}");
+        }
+
+        // *** 新增：响应模拟模式状态请求 ***
+        private void OnGetSimulationModeRequest(Action<bool> callback)
+        {
+            try
+            {
+                callback?.Invoke(IsSimulationMode);
+                _logger.LogDebug("响应模拟模式状态请求: {Mode}", IsSimulationMode ? "模拟模式" : "实际模式");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "响应模拟模式状态请求失败");
+            }
         }
         private (double, double) GetCurrentCanvasSize()
         {
@@ -1202,7 +1300,105 @@ namespace MaxChemical.Shell.ViewModels
             }
         }
 
-        private void ExecuteStatus() => ShowMessage("ToolTip_SimulationMode");
+        private void ExecuteStatus()
+        {
+            try
+            {
+                // 切换模拟模式状态
+                IsSimulationMode = !IsSimulationMode;
+
+                var mode = IsSimulationMode ? "模拟模式" : "实际模式";
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已切换到{mode}");
+
+                _logger.LogInformation("设备运行模式切换: {Mode}", mode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "切换模拟模式失败");
+                _dialogService?.ShowError($"切换模拟模式失败: {ex.Message}", "错误");
+            }
+        }
+        /// <summary>
+        /// 模拟模式状态改变处理
+        /// </summary>
+        private void OnSimulationModeChanged()
+        {
+            try
+            {
+                // 更新开关UI状态
+                UpdateSwitchUIState();
+
+                // 通知所有设备切换模拟模式
+                NotifyDevicesSimulationModeChanged();
+
+                // 更新本地化文本
+                UpdateSimulationModeText();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理模拟模式状态改变失败");
+            }
+        }
+        /// <summary>
+        /// 更新开关UI状态
+        /// </summary>
+        private void UpdateSwitchUIState()
+        {
+            if (IsSimulationMode)
+            {
+                // 模拟模式：开关到右侧
+                SwitchPosition = 26;
+                SwitchBackgroundColor = "#66A1FF";
+                SwitchBorderColor = "#66A1FF";
+            }
+            else
+            {
+                // 实际模式：开关到左侧，灰色
+                SwitchPosition = 2;
+                SwitchBackgroundColor = "#E5E5E5";
+                SwitchBorderColor = "#E5E5E5";
+            }
+        }
+
+        /// <summary>
+        /// 通知所有设备切换模拟模式
+        /// </summary>
+        private void NotifyDevicesSimulationModeChanged()
+        {
+            try
+            {
+                // 发布设备模拟模式切换事件
+                _eventAggregator?.GetEvent<DeviceSimulationModeChangedEvent>()?.Publish(new DeviceSimulationModeEventArgs
+                {
+                    IsSimulationMode = IsSimulationMode,
+                    Timestamp = DateTime.Now
+                });
+
+                _logger.LogInformation("已通知所有设备切换模拟模式: {Mode}", IsSimulationMode ? "模拟" : "实际");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "通知设备切换模拟模式失败");
+            }
+        }
+
+        /// <summary>
+        /// 更新模拟模式文本
+        /// </summary>
+        private void UpdateSimulationModeText()
+        {
+            if (IsSimulationMode)
+            {
+                TextSimulationMode = _localizationService.GetString("Text_SimulationMode_On") ?? "模拟模式";
+                TooltipSimulationMode = _localizationService.GetString("ToolTip_SimulationMode_On") ?? "当前为模拟模式，点击切换到实际模式";
+            }
+            else
+            {
+                TextSimulationMode = _localizationService.GetString("Text_SimulationMode_Off") ?? "实际模式";
+                TooltipSimulationMode = _localizationService.GetString("ToolTip_SimulationMode_Off") ?? "当前为实际模式，点击切换到模拟模式";
+            }
+        }
+
         private FlowDesignerViewModel GetCurrentFlowDesigner()
         {
             FlowDesignerViewModel flowViewModel = null;

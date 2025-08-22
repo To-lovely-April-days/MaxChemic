@@ -149,38 +149,84 @@
 
                             <!-- 右侧：执行/停止按钮 + 状态点/耗时 -->
                             <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
-                                <!-- 执行/停止按钮 -->
+                                <!-- 执行/停止切换按钮 -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Width="24" Height="24" Margin="0,0,4,0"
-                                    Style="{StaticResource ToolButtonStyle}"
-                                    ToolTip="执行该命令"
-                                    Tag="{Binding}"
-                                    Click="DeviceNode_RunClick"
-                                    IsEnabled="{Binding HasDeviceBinding}">
-                                        <Path Data="M8,5.14V19.14L19,12.14L8,5.14Z" Fill="#4CAF50" Width="14" Height="14" Stretch="Uniform"/>
-                                    </Button>
-                                    <Button Width="24" Height="24"
-                                    Style="{StaticResource ToolButtonStyle}"
-                                    ToolTip="停止该命令"
-                                    Tag="{Binding}"
-                                    Click="DeviceNode_StopClick"
-                                    IsEnabled="{Binding IsManualExecuting}">
-                                        <Path Data="M6,6H18V18H6Z" Fill="#F44336" Width="12" Height="12" Stretch="Uniform"/>
+                Tag="{Binding}"
+                Click="DeviceNode_ExecuteToggleClick">
+
+                                        <!-- 只设置一次Style，移除重复的Style属性 -->
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource ToolButtonStyle}">
+                                                <!-- 默认状态：执行按钮 -->
+                                                <Setter Property="ToolTip" Value="执行该命令"/>
+                                                <Setter Property="IsEnabled" Value="{Binding HasDeviceBinding}"/>
+
+                                                <Style.Triggers>
+                                                    <!-- 正在执行状态：显示停止按钮 -->
+                                                    <DataTrigger Binding="{Binding IsManualExecuting}" Value="True">
+                                                        <Setter Property="ToolTip" Value="停止该命令"/>
+                                                        <Setter Property="IsEnabled" Value="True"/>
+                                                    </DataTrigger>
+
+                                                    <!-- 未绑定设备状态：禁用按钮 -->
+                                                    <DataTrigger Binding="{Binding HasDeviceBinding}" Value="False">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                        <Setter Property="ToolTip" Value="请先绑定设备"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+
+                                        <!-- 按钮内容：根据执行状态切换图片 -->
+                                        <Image Width="22" Height="22" Stretch="Uniform">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <!-- 默认：执行图标 -->
+                                                    <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/play.png"/>
+                                                    <Setter Property="Opacity" Value="1"/>
+
+                                                    <Style.Triggers>
+                                                        <!-- 正在执行：停止图标 -->
+                                                        <DataTrigger Binding="{Binding IsManualExecuting}" Value="True">
+                                                            <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/stop.png"/>
+                                                            <Setter Property="Opacity" Value="1"/>
+                                                        </DataTrigger>
+
+                                                        <!-- 未绑定设备：禁用状态，图标变灰 -->
+                                                        <DataTrigger Binding="{Binding HasDeviceBinding}" Value="False">
+                                                            <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/play_disabled.png"/>
+                                                            <Setter Property="Opacity" Value="0.5"/>
+                                                        </DataTrigger>
+
+                                                        <!-- 执行状态的优先级更高 -->
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsManualExecuting}" Value="True"/>
+                                                                <Condition Binding="{Binding HasDeviceBinding}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/stop.png"/>
+                                                            <Setter Property="Opacity" Value="1"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
                                     </Button>
                                 </StackPanel>
 
                                 <!-- 耗时 -->
                                 <TextBlock Text="{Binding ExecutionDurationText}"
-                                   FontSize="9"
-                                   Foreground="#666"
-                                   HorizontalAlignment="Right"
-                                   Visibility="{Binding ShowExecutionDuration, Converter={StaticResource BoolToVisibilityConverter}}"/>
+               FontSize="9"
+               Foreground="#666"
+               HorizontalAlignment="Right"
+               Visibility="{Binding ShowExecutionDuration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                                 <!-- 状态圆点 -->
                                 <Ellipse Width="8" Height="8"
-                                 Fill="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToBrushConverter}}"
-                                 HorizontalAlignment="Right"
-                                 Margin="0,2,0,0">
+             Fill="{Binding ExecutionStatus, Converter={StaticResource ExecutionStatusToBrushConverter}}"
+             HorizontalAlignment="Right"
+             Margin="0,2,0,0">
                                     <Ellipse.Style>
                                         <Style TargetType="Ellipse">
                                             <Setter Property="Visibility" Value="Collapsed"/>

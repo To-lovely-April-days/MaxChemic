@@ -27,14 +27,13 @@ namespace PeristalticPumps_CY
         private DateTime _startTime;
         private double _totalVolume = 0;
         private readonly object _stateLock = new object();
-
         // 高质量随机数生成器 - 线程安全
         private static readonly ThreadLocal<Random> ThreadLocalRandom = new ThreadLocal<Random>(
             () => new Random(Guid.NewGuid().GetHashCode()));
 
         // 状态变化模拟器
         private readonly SimulationEngine _simulationEngine;
-
+        private static readonly Random GlobalRandom = new Random();
         public PeristalticPumps_CY()
         {
             _logger = LogManager.GetLogger<PeristalticPumps_CY>();
@@ -55,14 +54,11 @@ namespace PeristalticPumps_CY
             ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumps_CY.png";
 
             // 添加设备参数
-            Parameters.Variables.Add(new StringParameter("COM Port", SerialPort.GetPortNames().FirstOrDefault())
+            Parameters.Variables.Add(new StringParameter("COM Port", "COM1")
             {
                 Options = new ObservableCollection<string>(SerialPort.GetPortNames()),
                 HelpText = "The COM Port that the device is connected to."
             });
-
-            Parameters.Variables.Add(new NumberParameter("Max Speed", 0, 10000, 5000, "Maximum speed in RPM"));
-            Parameters.Variables.Add(new NumberParameter("Max Pressure", 0, 1000, 500, "Maximum pressure in kPa"));
 
             InitializeCommands();
         }
@@ -115,8 +111,14 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取温度值", async delegate (DeviceParameters parameters)
                 {
-                    await Task.Delay(ThreadLocalRandom.Value.Next(200, 500));
+                    //await Task.Delay(ThreadLocalRandom.Value.Next(200, 500));
+                    int simulatedDelayMs;
+                    lock (GlobalRandom) // 简单加锁保证线程安全
+                    {
+                        simulatedDelayMs = GlobalRandom.Next(5000, 20000);
+                    }
 
+                    await Task.Delay(simulatedDelayMs);
                     bool useCalibration = parameters.GetValue<bool>("UseCalibration");
                     double offset = parameters.GetValue<double>("Offset");
 
@@ -189,7 +191,8 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取流量值", async delegate (DeviceParameters parameters)
                 {
-                    await Task.Delay(ThreadLocalRandom.Value.Next(300, 600));
+                    //await Task.Delay(ThreadLocalRandom.Value.Next(300, 600));
+
 
                     var unit = parameters.GetValue<FlowRateUnit>("Unit");
                     double avgTime = parameters.GetValue<double>("AveragingTime");
@@ -289,7 +292,7 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取压力值", async delegate (DeviceParameters parameters)
                 {
-                    await Task.Delay(ThreadLocalRandom.Value.Next(250, 550));
+                    //await Task.Delay(ThreadLocalRandom.Value.Next(250, 550));
 
                     var unit = parameters.GetValue<PressureUnit>("Unit");
                     bool isRelative = parameters.GetValue<bool>("RelativePressure");
@@ -539,51 +542,217 @@ namespace PeristalticPumps_CY
 
         public override void Initialize()
         {
-            base.Initialize();
-
-            string comPort = Parameters.GetValue<string>("COM Port");
+            InfoLog("开始初始化蠕动泵设备");
 
             try
             {
-                if (!string.IsNullOrEmpty(comPort))
+                // 调用基类初始化
+                base.Initialize();
+
+                // 初始化设备状态
+                lock (_stateLock)
                 {
-                    _serialPort = new SerialPort(comPort, 9600);
-                    _serialPort.Open();
-                    _logger.LogInformation($"Connected to {comPort}");
+                    _isRunning = false;
+                    _currentSpeed = 0;
+                    _currentFlowRate = 0;
+                    _currentPressure = 0;
+                    _currentTemperature = 25.0;
+                    _totalVolume = 0;
                 }
-                else
-                {
-                    _logger.LogWarning("No COM port specified, running in simulation mode");
-                }
+
+                InfoLog("蠕动泵设备初始化完成");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error connecting to {comPort}: {ex.Message}");
-                _logger.LogInformation("Running in simulation mode");
+                ErrorLog("设备初始化失败", ex);
+                throw;
             }
         }
 
         public override void Shutdown()
         {
-            base.Shutdown();
+            InfoLog("开始关闭蠕动泵设备");
 
-            lock (_stateLock)
+            try
             {
-                if (_isRunning)
+                // 先停止设备运行
+                lock (_stateLock)
                 {
-                    _isRunning = false;
-                    _currentSpeed = 0;
-                    _logger.LogInformation("Pump stopped during shutdown");
+                    if (_isRunning)
+                    {
+                        _isRunning = false;
+                        _currentSpeed = 0;
+                        InfoLog("设备运行已停止");
+                    }
+                }
+
+                // 调用基类关闭方法（会自动断开连接）
+                base.Shutdown();
+
+                // 释放资源
+                ThreadLocalRandom?.Dispose();
+
+                InfoLog("蠕动泵设备关闭完成");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("设备关闭失败", ex);
+                throw;
+            }
+        }
+
+        protected override async Task<bool> OnConnectAsync()
+        {
+            string comPort = Parameters.GetValue<string>("COM Port");
+            int baudRate = Parameters.GetValue<int>("BaudRate");
+            bool simulationMode = Parameters.GetValue<bool>("SimulationMode");
+
+            if (simulationMode)
+            {
+                IsSimulationMode = true;
+                InfoLog("以仿真模式连接");
+                await Task.Delay(1000); // 模拟连接延迟
+                return true;
+            }
+
+            try
+            {
+                if (string.IsNullOrEmpty(comPort))
+                {
+                    ErrorLog("未指定COM端口");
+                    return false;
+                }
+
+                InfoLog($"正在连接到 {comPort}，波特率: {baudRate}");
+
+                _serialPort = new SerialPort(comPort, baudRate)
+                {
+                    DataBits = 8,
+                    Parity = Parity.None,
+                    StopBits = StopBits.One,
+                    ReadTimeout = 5000,
+                    WriteTimeout = 5000
+                };
+
+                await Task.Run(() => _serialPort.Open());
+
+                // 发送测试命令验证连接
+                if (await TestConnection())
+                {
+                    IsSimulationMode = false;
+                    InfoLog($"成功连接到 {comPort}");
+                    return true;
+                }
+                else
+                {
+                    _serialPort?.Close();
+                    ErrorLog("设备连接测试失败");
+                    return false;
                 }
             }
-
-            if (_serialPort != null && _serialPort.IsOpen)
+            catch (Exception ex)
             {
-                _serialPort.Close();
-                _logger.LogInformation("Serial port closed");
+                ErrorLog($"连接失败: {ex.Message}");
+                _serialPort?.Close();
+                return false;
             }
+        }
+        protected override async Task<bool> OnDisconnectAsync()
+        {
+            try
+            {
+                // 如果设备正在运行，先停止
+                lock (_stateLock)
+                {
+                    if (_isRunning)
+                    {
+                        _isRunning = false;
+                        _currentSpeed = 0;
+                        _currentFlowRate = 0;
+                        InfoLog("设备已停止运行");
+                    }
+                }
 
-            ThreadLocalRandom?.Dispose();
+                if (_serialPort != null && _serialPort.IsOpen)
+                {
+                    await Task.Run(() =>
+                    {
+                        _serialPort.Close();
+                        _serialPort.Dispose();
+                    });
+                    InfoLog("串口连接已关闭");
+                }
+
+                IsSimulationMode = false;
+                InfoLog("设备连接已断开");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"断开连接时发生错误: {ex.Message}");
+                return false;
+            }
+        }
+
+        protected override async Task<bool> OnCheckConnectionAsync()
+        {
+            try
+            {
+                if (IsSimulationMode)
+                {
+                    // 仿真模式下随机模拟连接状态（95%概率正常）
+                    await Task.Delay(50);
+                    return ThreadLocalRandom.Value.NextDouble() > 0.05;
+                }
+
+                if (_serialPort == null || !_serialPort.IsOpen)
+                {
+                    return false;
+                }
+
+                // 发送心跳命令检查连接
+                return await TestConnection();
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"检查连接状态失败: {ex.Message}");
+                return false;
+            }
+        }
+        private async Task<bool> TestConnection()
+        {
+            try
+            {
+                if (IsSimulationMode)
+                {
+                    await Task.Delay(100);
+                    return true;
+                }
+
+                if (_serialPort == null || !_serialPort.IsOpen)
+                    return false;
+
+                // 发送状态查询命令（具体命令根据设备协议调整）
+                await Task.Run(() =>
+                {
+                    _serialPort.WriteLine("STATUS?");
+                    Thread.Sleep(100);
+
+                    // 简单检查是否有响应
+                    if (_serialPort.BytesToRead > 0)
+                    {
+                        _serialPort.ReadExisting();
+                        return true;
+                    }
+                    return false;
+                });
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // 统一包装命令执行，记录开始/结束/异常日志

@@ -55,32 +55,37 @@ namespace MaxChemical.Modules.Designer.Views
             _logger.LogDebug("FlowDesignerView 构造函数完成");
             _logger.LogDebug("初始 DataContext: {Type}", DataContext?.GetType().Name ?? "null");
         }
-        private async void DeviceNode_RunClick(object sender, RoutedEventArgs e)
+        private async void DeviceNode_ExecuteToggleClick(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement fe && fe.Tag is CommandNode node)
             {
                 try
                 {
-                    await _manualExecutor.StartAsync(node);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"执行失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
+                    // 根据当前执行状态决定执行什么操作
+                    if (node.IsManualExecuting)
+                    {
+                        // 当前正在执行，执行停止操作
+                        _logger.LogDebug("停止执行命令: {NodeName}", node.DisplayName);
+                        _manualExecutor.Stop(node.NodeId);
+                    }
+                    else
+                    {
+                        // 当前未执行，执行启动操作
+                        if (!node.HasDeviceBinding)
+                        {
+                            MessageBox.Show("请先绑定设备后再执行命令。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                            return;
+                        }
 
-        private void DeviceNode_StopClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is FrameworkElement fe && fe.Tag is CommandNode node)
-            {
-                try
-                {
-                    _manualExecutor.Stop(node.NodeId);
+                        _logger.LogDebug("开始执行命令: {NodeName}", node.DisplayName);
+                        await _manualExecutor.StartAsync(node);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"停止失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    string operation = node.IsManualExecuting ? "停止" : "执行";
+                    _logger.LogError(ex, "{Operation}命令失败: {NodeName}", operation, node.DisplayName);
+                    MessageBox.Show($"{operation}失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }

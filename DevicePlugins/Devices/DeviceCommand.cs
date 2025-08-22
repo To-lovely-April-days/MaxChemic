@@ -193,5 +193,7 @@ namespace DevicePlugins.Devices
         /// 执行时间
         /// </summary>
         public DateTime ExecutionTime { get; set; } = DateTime.Now;
+
+        public bool IsSimulationMode { get; set; }
     }
 }

@@ -81,6 +81,14 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
+        #region 私有字段 设备属性弹窗相关
+
+        private Window _devicePropertyWindow;
+        // 监控卡片字典 - DeviceId -> MonitoringCard
+        private readonly Dictionary<string, MonitoringCard> _monitoringCards = new();
+        // 保存每个设备的监控参数选择状态 - DeviceId -> 参数名列表
+        private readonly Dictionary<string, HashSet<string>> _deviceMonitoringSelections = new();
+        #endregion
         #region 构造函数和初始化
 
         public ProcessDesignerView(
@@ -190,6 +198,8 @@ namespace MaxChemical.Modules.Designer.Views
         {
             _eventAggregator?.GetEvent<DeviceExecutionStartedEvent>()?.Subscribe(OnDeviceExecutionStarted, Prism.Events.ThreadOption.UIThread);
             _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Subscribe(OnDeviceExecutionEnded, Prism.Events.ThreadOption.UIThread);
+            // 新增：订阅监控卡片更新事件
+            _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Subscribe(OnMonitoringCardUpdate, Prism.Events.ThreadOption.UIThread);
         }
 
         private void OnDeviceExecutionStarted(DeviceExecutionEventArgs e)
@@ -231,7 +241,25 @@ namespace MaxChemical.Modules.Designer.Views
                 element.BorderBrush = Brushes.DarkBlue;
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
-
+        /// <summary>
+        /// 监控卡片更新事件处理
+        /// </summary>
+        private void OnMonitoringCardUpdate(MonitoringCardUpdateEventArgs e)
+        {
+            try
+            {
+                if (_monitoringCards.TryGetValue(e.DeviceId, out var card))
+                {
+                    // 更新卡片参数值
+                    card.UpdateParameterValues(e.OutputParameters);
+                    Debug.WriteLine($"更新监控卡片数据: 设备 {e.DeviceId}, 命令 {e.CommandName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新监控卡片数据失败: {ex.Message}");
+            }
+        }
         private Storyboard CreatePulseStoryboard(Border element)
         {
             var brush = new SolidColorBrush(Colors.Orange);
@@ -1064,6 +1092,12 @@ namespace MaxChemical.Modules.Designer.Views
 
                 var deviceName = deviceToDelete.Device?.Name ?? "未知设备";
                 Debug.WriteLine($"找到要删除的设备: {deviceName}");
+
+                // 清除监控参数选择状态
+                ClearDeviceMonitoringSelections(deviceId);
+
+                // 移除监控卡片
+                RemoveMonitoringCard(deviceId);
 
                 // 使用命令删除设备支持撤销重做
                 var deleteCommand = new DeleteDeviceCommand(_viewModel, deviceToDelete, _connectionService);
@@ -2306,8 +2340,399 @@ namespace MaxChemical.Modules.Designer.Views
             deviceControl.MouseEnter += OnDeviceMouseEnter;
             deviceControl.MouseLeave += OnDeviceMouseLeave;
             deviceControl.MouseMove += OnDeviceMouseMove;
+            // 添加双击事件处理器
+            deviceControl.MouseLeftButtonDown += OnDeviceDoubleClick;
+        }
+        #region 设备属性弹窗相关
+
+        /// <summary>
+        /// 设备双击事件处理
+        /// </summary>
+        private void OnDeviceDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement deviceElement && deviceElement.Tag is string deviceId)
+            {
+                // 检查是否为双击
+                if (e.ClickCount == 2)
+                {
+                    Debug.WriteLine($"设备双击，显示属性弹窗: {deviceId}");
+
+                    // 阻止事件冒泡，避免触发拖拽
+                    e.Handled = true;
+
+                    // 显示设备属性弹窗
+                    ShowDevicePropertyDialog(deviceId);
+                }
+            }
         }
 
+        /// <summary>
+        /// 显示设备属性弹窗
+        /// </summary>
+        private void ShowDevicePropertyDialog(string deviceId)
+        {
+            try
+            {
+                // 查找设备数据
+                var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == deviceId);
+                if (canvasDevice == null)
+                {
+                    Debug.WriteLine($"未找到设备: {deviceId}");
+                    MessageBox.Show("未找到设备信息", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Debug.WriteLine($"显示设备属性弹窗: {canvasDevice.Device.Name}");
+
+                // 关闭之前的弹窗（如果存在）
+                if (_devicePropertyWindow != null)
+                {
+                    _devicePropertyWindow.Close();
+                    _devicePropertyWindow = null;
+                }
+
+                // 创建设备属性对话框
+                var devicePropertyDialog = new DevicePropertyDialog();
+
+                // 获取设备显示名称
+                var displayName = GetDeviceDisplayName(deviceId);
+
+                // 获取之前的监控参数选择状态
+                var previousSelections = GetDeviceMonitoringSelections(deviceId);
+
+                // 设置设备数据并恢复选择状态
+                devicePropertyDialog.SetDeviceData(canvasDevice, displayName);
+                devicePropertyDialog.RestoreMonitoringSelections(previousSelections);
+
+                // 订阅监控参数变化事件
+                devicePropertyDialog.MonitoringParametersChanged += OnMonitoringParametersChanged;
+
+                // 创建弹窗窗口
+                _devicePropertyWindow = new Window
+                {
+                    Title = "设备属性",
+                    Content = devicePropertyDialog,
+                    Width = 1200,
+                    Height = 700,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Owner = Window.GetWindow(this),
+                    ResizeMode = ResizeMode.NoResize,
+                    WindowStyle = WindowStyle.None,
+                    ShowInTaskbar = false
+                };
+
+                // 订阅弹窗事件
+                devicePropertyDialog.CloseRequested += (s, args) => CloseDevicePropertyWindow();
+                devicePropertyDialog.DialogResult += OnDevicePropertyDialogResult;
+
+                // 显示弹窗
+                _devicePropertyWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"显示设备属性弹窗失败: {ex.Message}");
+                MessageBox.Show($"无法显示设备属性：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        /// <summary>
+        /// 保存设备的监控参数选择状态
+        /// </summary>
+        private void SaveDeviceMonitoringSelections(string deviceId, List<ParameterBase> selectedParameters)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(deviceId) || selectedParameters == null)
+                    return;
+
+                var parameterNames = selectedParameters.Select(p => p.Name).ToHashSet();
+                _deviceMonitoringSelections[deviceId] = parameterNames;
+
+                Debug.WriteLine($"保存设备 {deviceId} 的监控参数选择: {string.Join(", ", parameterNames)}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"保存设备监控参数选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 获取设备的监控参数选择状态
+        /// </summary>
+        private HashSet<string> GetDeviceMonitoringSelections(string deviceId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(deviceId))
+                    return new HashSet<string>();
+
+                if (_deviceMonitoringSelections.TryGetValue(deviceId, out var selections))
+                {
+                    Debug.WriteLine($"获取设备 {deviceId} 的监控参数选择: {string.Join(", ", selections)}");
+                    return selections;
+                }
+
+                return new HashSet<string>();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取设备监控参数选择失败: {ex.Message}");
+                return new HashSet<string>();
+            }
+        }
+
+        /// <summary>
+        /// 清除设备的监控参数选择状态
+        /// </summary>
+        private void ClearDeviceMonitoringSelections(string deviceId)
+        {
+            try
+            {
+                if (_deviceMonitoringSelections.ContainsKey(deviceId))
+                {
+                    _deviceMonitoringSelections.Remove(deviceId);
+                    Debug.WriteLine($"清除设备 {deviceId} 的监控参数选择状态");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除设备监控参数选择状态失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 监控参数变化事件处理
+        /// </summary>
+        private void OnMonitoringParametersChanged(object sender, MonitoringParametersChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"监控参数变化: 设备 {e.DeviceName}, 参数数量: {e.SelectedParameters.Count}");
+
+                // 保存选择状态
+                SaveDeviceMonitoringSelections(e.DeviceId, e.SelectedParameters);
+
+                if (e.SelectedParameters.Any())
+                {
+                    // 创建或更新监控卡片
+                    CreateOrUpdateMonitoringCard(e.DeviceId, e.DeviceName, e.SelectedParameters);
+                }
+                else
+                {
+                    // 移除监控卡片
+                    RemoveMonitoringCard(e.DeviceId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理监控参数变化失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 创建或更新监控卡片
+        /// </summary>
+        private void CreateOrUpdateMonitoringCard(string deviceId, string deviceName, List<ParameterBase> parameters)
+        {
+            try
+            {
+                // 检查是否已存在监控卡片
+                if (_monitoringCards.TryGetValue(deviceId, out var existingCard))
+                {
+                    // 更新现有卡片
+                    existingCard.SetMonitoringParameters(deviceId, deviceName, parameters);
+                    Debug.WriteLine($"更新监控卡片: {deviceName}");
+                }
+                else
+                {
+                    // 创建新的监控卡片
+                    var monitoringCard = new MonitoringCard();
+                    monitoringCard.SetMonitoringParameters(deviceId, deviceName, parameters);
+
+                    // 订阅关闭事件
+                    monitoringCard.CloseRequested += (s, e) => RemoveMonitoringCard(deviceId);
+
+                    // 添加到字典
+                    _monitoringCards[deviceId] = monitoringCard;
+
+                    // 添加到画布
+                    AddMonitoringCardToCanvas(deviceId, monitoringCard);
+
+                    Debug.WriteLine($"创建监控卡片: {deviceName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建或更新监控卡片失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 将监控卡片添加到画布
+        /// </summary>
+        private void AddMonitoringCardToCanvas(string deviceId, MonitoringCard monitoringCard)
+        {
+            try
+            {
+                // 查找设备元素
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null)
+                {
+                    Debug.WriteLine($"未找到设备元素: {deviceId}");
+                    return;
+                }
+
+                // 计算卡片位置（设备右侧）
+                var deviceLeft = Canvas.GetLeft(deviceElement);
+                var deviceTop = Canvas.GetTop(deviceElement);
+                var deviceWidth = deviceElement.ActualWidth;
+
+                var cardLeft = deviceLeft + deviceWidth + 15; // 设备右侧15像素间距
+                var cardTop = deviceTop;
+
+                // 设置卡片位置
+                Canvas.SetLeft(monitoringCard, cardLeft);
+                Canvas.SetTop(monitoringCard, cardTop);
+                Canvas.SetZIndex(monitoringCard, 500); // 确保在设备之上
+
+                // 设置卡片标识
+                monitoringCard.Tag = $"MonitoringCard_{deviceId}";
+
+                // 添加到画布
+                DesignCanvas.Children.Add(monitoringCard);
+
+                Debug.WriteLine($"监控卡片已添加到画布: 位置({cardLeft:F0}, {cardTop:F0})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"添加监控卡片到画布失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 移除监控卡片
+        /// </summary>
+        private void RemoveMonitoringCard(string deviceId)
+        {
+            try
+            {
+                if (_monitoringCards.TryGetValue(deviceId, out var card))
+                {
+                    // 从画布移除
+                    DesignCanvas.Children.Remove(card);
+
+                    // 从字典移除
+                    _monitoringCards.Remove(deviceId);
+
+                    Debug.WriteLine($"移除监控卡片: {deviceId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"移除监控卡片失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 更新设备位置时同步更新监控卡片位置
+        /// </summary>
+        private void UpdateMonitoringCardPosition(string deviceId)
+        {
+            try
+            {
+                if (!_monitoringCards.TryGetValue(deviceId, out var card))
+                    return;
+
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null)
+                    return;
+
+                // 重新计算位置
+                var deviceLeft = Canvas.GetLeft(deviceElement);
+                var deviceTop = Canvas.GetTop(deviceElement);
+                var deviceWidth = deviceElement.ActualWidth;
+
+                var cardLeft = deviceLeft + deviceWidth + 15;
+                var cardTop = deviceTop;
+
+                // 更新卡片位置
+                Canvas.SetLeft(card, cardLeft);
+                Canvas.SetTop(card, cardTop);
+
+                Debug.WriteLine($"更新监控卡片位置: {deviceId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新监控卡片位置失败: {ex.Message}");
+            }
+        }
+      
+
+        /// <summary>
+        /// 获取设备显示名称
+        /// </summary>
+        private string GetDeviceDisplayName(string deviceId)
+        {
+            try
+            {
+                if (_deviceDisplayNames.TryGetValue(deviceId, out var displayName))
+                {
+                    return displayName;
+                }
+
+                // 如果没有找到显示名，返回设备原始名称
+                var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == deviceId);
+                return canvasDevice?.Device?.Name ?? "未知设备";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取设备显示名失败: {ex.Message}");
+                return "未知设备";
+            }
+        }
+
+        /// <summary>
+        /// 关闭设备属性弹窗
+        /// </summary>
+        private void CloseDevicePropertyWindow()
+        {
+            try
+            {
+                if (_devicePropertyWindow != null)
+                {
+                    _devicePropertyWindow.Close();
+                    _devicePropertyWindow = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"关闭设备属性弹窗失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 设备属性弹窗结果处理
+        /// </summary>
+        private void OnDevicePropertyDialogResult(object sender, bool result)
+        {
+            try
+            {
+                CloseDevicePropertyWindow();
+
+                if (result)
+                {
+                    Debug.WriteLine("设备属性已保存");
+                    // 标记画布已修改
+                    _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                }
+                else
+                {
+                    Debug.WriteLine("设备属性对话框已取消");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理设备属性弹窗结果失败: {ex.Message}");
+            }
+        }
+
+        #endregion
         /// <summary>
         /// 设备专用鼠标按下事件
         /// </summary>
@@ -2513,6 +2938,9 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 强制更新布局
                 deviceElement.UpdateLayout();
+
+                // 更新监控卡片位置
+                UpdateMonitoringCardPosition(deviceId);
 
                 // 延迟更新连接线
                 System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -2790,6 +3218,8 @@ namespace MaxChemical.Modules.Designer.Views
             element.MouseEnter -= OnDeviceMouseEnter;
             element.MouseLeave -= OnDeviceMouseLeave;
             element.MouseMove -= OnDeviceMouseMove;
+            // 移除双击事件处理器
+            element.MouseLeftButtonDown -= OnDeviceDoubleClick;
         }
 
         #endregion
@@ -3137,6 +3567,12 @@ namespace MaxChemical.Modules.Designer.Views
                 // 取消连接操作
                 CancelActiveConnectionOperations();
 
+                // 清空监控卡片
+                ClearAllMonitoringCards();
+
+                // 清空监控参数选择状态
+                _deviceMonitoringSelections.Clear();
+
                 // 清空数据模型
                 ClearViewModelData();
 
@@ -3156,6 +3592,7 @@ namespace MaxChemical.Modules.Designer.Views
                 DesignCanvas.UpdateLayout();
                 _deviceNameCounters.Clear();
                 _deviceDisplayNames.Clear();
+
                 Debug.WriteLine("画布清空完成");
             }
             catch (Exception ex)
@@ -3163,7 +3600,18 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"清空画布失败: {ex.Message}");
             }
         }
-
+        /// <summary>
+        /// 清空所有监控卡片
+        /// </summary>
+        private void ClearAllMonitoringCards()
+        {
+            var cardIds = _monitoringCards.Keys.ToList();
+            foreach (var deviceId in cardIds)
+            {
+                RemoveMonitoringCard(deviceId);
+            }
+            Debug.WriteLine("所有监控卡片已清空");
+        }
         /// <summary>
         /// 取消活动的连接操作
         /// </summary>
