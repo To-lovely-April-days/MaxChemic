@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
+using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Ports;
@@ -15,7 +16,7 @@ using MaxChemical.Logging;
 namespace PeristalticPumps_CY
 {
     [Export(typeof(IDevice))]
-    public class PeristalticPumps_CY : Device
+    public class PeristalticPumps_CY : Device, IControllableDevice
     {
         private SerialPort _serialPort;
         private readonly ILogService _logger;
@@ -27,17 +28,398 @@ namespace PeristalticPumps_CY
         private DateTime _startTime;
         private double _totalVolume = 0;
         private readonly object _stateLock = new object();
-        // 高质量随机数生成器 - 线程安全
-        private static readonly ThreadLocal<Random> ThreadLocalRandom = new ThreadLocal<Random>(
-            () => new Random(Guid.NewGuid().GetHashCode()));
 
-        // 状态变化模拟器
-        private readonly SimulationEngine _simulationEngine;
-        private static readonly Random GlobalRandom = new Random();
+        // *** 状态跟踪相关字段 ***
+        private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
+        private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
+        private readonly object _statesLock = new object();
+
+        #region IControllableDevice Implementation
+
+        public List<DeviceActiveState> ActiveStates
+        {
+            get
+            {
+                lock (_statesLock)
+                {
+                    return new List<DeviceActiveState>(_activeStates);
+                }
+            }
+        }
+
+        public event EventHandler<DeviceStateChangedEventArgs> StateChanged;
+
+        public virtual async Task<bool> PauseAllActiveStatesAsync()
+        {
+            lock (_statesLock)
+            {
+                if (!_activeStates.Any())
+                {
+                    InfoLog("蠕动泵没有活跃状态需要暂停");
+                    return true;
+                }
+
+                InfoLog($"暂停蠕动泵的 {_activeStates.Count} 个活跃状态");
+            }
+
+            var pauseTasks = new List<Task<bool>>();
+            DeviceActiveState[] statesToPause;
+
+            lock (_statesLock)
+            {
+                statesToPause = _activeStates.ToArray();
+            }
+
+            foreach (var state in statesToPause)
+            {
+                pauseTasks.Add(PauseStateAsync(state));
+            }
+
+            try
+            {
+                var results = await Task.WhenAll(pauseTasks);
+                bool allSuccess = results.All(r => r);
+
+                if (allSuccess)
+                {
+                    InfoLog("蠕动泵所有活跃状态已暂停");
+                }
+                else
+                {
+                    WarnLog("蠕动泵部分活跃状态暂停失败");
+                }
+
+                return allSuccess;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("蠕动泵暂停活跃状态异常", ex);
+                return false;
+            }
+        }
+
+        public virtual async Task<bool> ResumeAllPausedStatesAsync()
+        {
+            lock (_statesLock)
+            {
+                if (!_pausedStates.Any())
+                {
+                    InfoLog("蠕动泵没有暂停的状态需要恢复");
+                    return true;
+                }
+
+                InfoLog($"恢复蠕动泵的 {_pausedStates.Count} 个暂停的状态");
+            }
+
+            var resumeTasks = new List<Task<bool>>();
+            DeviceActiveState[] statesToResume;
+
+            lock (_statesLock)
+            {
+                statesToResume = _pausedStates.ToArray();
+            }
+
+            foreach (var state in statesToResume)
+            {
+                resumeTasks.Add(ResumeStateAsync(state));
+            }
+
+            try
+            {
+                var results = await Task.WhenAll(resumeTasks);
+                bool allSuccess = results.All(r => r);
+
+                if (allSuccess)
+                {
+                    InfoLog("蠕动泵所有暂停状态已恢复");
+                }
+                else
+                {
+                    WarnLog("蠕动泵部分暂停状态恢复失败");
+                }
+
+                return allSuccess;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("蠕动泵恢复暂停状态异常", ex);
+                return false;
+            }
+        }
+
+        public virtual async Task<bool> StopAllActiveStatesAsync()
+        {
+            lock (_statesLock)
+            {
+                if (!_activeStates.Any() && !_pausedStates.Any())
+                {
+                    InfoLog("蠕动泵没有活跃或暂停的状态需要停止");
+                    return true;
+                }
+
+                InfoLog($"停止蠕动泵的 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
+            }
+
+            var stopTasks = new List<Task<bool>>();
+            DeviceActiveState[] allStates;
+
+            lock (_statesLock)
+            {
+                allStates = _activeStates.Concat(_pausedStates).ToArray();
+            }
+
+            foreach (var state in allStates)
+            {
+                stopTasks.Add(StopStateAsync(state));
+            }
+
+            try
+            {
+                var results = await Task.WhenAll(stopTasks);
+                bool allSuccess = results.All(r => r);
+
+                // 清空所有状态
+                lock (_statesLock)
+                {
+                    _activeStates.Clear();
+                    _pausedStates.Clear();
+                }
+
+                if (allSuccess)
+                {
+                    InfoLog("蠕动泵所有状态已停止");
+                }
+                else
+                {
+                    WarnLog("蠕动泵部分状态停止失败");
+                }
+
+                return allSuccess;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("蠕动泵停止状态异常", ex);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region 状态管理内部方法
+
+        /// <summary>
+        /// 添加活跃状态
+        /// </summary>
+        protected void AddActiveState(string stateName, string activateCommand, string deactivateCommand,
+            string pauseCommand = null, string resumeCommand = null, object stateData = null)
+        {
+            lock (_statesLock)
+            {
+                // 检查是否已经存在相同状态
+                var existing = _activeStates.FirstOrDefault(s => s.StateName == stateName);
+                if (existing != null)
+                {
+                    WarnLog($"蠕动泵状态已存在，更新时间: {stateName}");
+                    existing.ActivatedTime = DateTime.Now;
+                    existing.StateData = stateData;
+                    return;
+                }
+
+                var newState = new DeviceActiveState
+                {
+                    StateName = stateName,
+                    ActivateCommand = activateCommand,
+                    DeactivateCommand = deactivateCommand,
+                    PauseCommand = pauseCommand,
+                    ResumeCommand = resumeCommand,
+                    ActivatedTime = DateTime.Now,
+                    IsPaused = false,
+                    StateData = stateData
+                };
+
+                _activeStates.Add(newState);
+                InfoLog($"蠕动泵添加活跃状态: {stateName}");
+            }
+
+            StateChanged?.Invoke(this, new DeviceStateChangedEventArgs
+            {
+                StateName = stateName,
+                IsActive = true,
+                Timestamp = DateTime.Now
+            });
+        }
+
+        /// <summary>
+        /// 移除活跃状态
+        /// </summary>
+        protected void RemoveActiveState(string stateName)
+        {
+            lock (_statesLock)
+            {
+                var state = _activeStates.FirstOrDefault(s => s.StateName == stateName);
+                if (state != null)
+                {
+                    _activeStates.Remove(state);
+                    InfoLog($"蠕动泵移除活跃状态: {stateName}");
+                }
+
+                // 同时从暂停状态中移除
+                var pausedState = _pausedStates.FirstOrDefault(s => s.StateName == stateName);
+                if (pausedState != null)
+                {
+                    _pausedStates.Remove(pausedState);
+                    InfoLog($"蠕动泵移除暂停状态: {stateName}");
+                }
+            }
+
+            StateChanged?.Invoke(this, new DeviceStateChangedEventArgs
+            {
+                StateName = stateName,
+                IsActive = false,
+                Timestamp = DateTime.Now
+            });
+        }
+
+        /// <summary>
+        /// 暂停单个状态
+        /// </summary>
+        private async Task<bool> PauseStateAsync(DeviceActiveState state)
+        {
+            try
+            {
+                InfoLog($"暂停蠕动泵状态: {state.StateName}");
+
+                // 执行暂停命令或停止命令
+                if (!string.IsNullOrEmpty(state.PauseCommand))
+                {
+                    await ExecuteDeviceCommandByNameAsync(state.PauseCommand);
+                }
+                else if (!string.IsNullOrEmpty(state.DeactivateCommand))
+                {
+                    await ExecuteDeviceCommandByNameAsync(state.DeactivateCommand);
+                }
+
+                // 移动到暂停状态列表
+                lock (_statesLock)
+                {
+                    _activeStates.Remove(state);
+                    state.IsPaused = true;
+                    _pausedStates.Add(state);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"蠕动泵暂停状态失败: {state.StateName}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 恢复单个状态
+        /// </summary>
+        private async Task<bool> ResumeStateAsync(DeviceActiveState state)
+        {
+            try
+            {
+                InfoLog($"恢复蠕动泵状态: {state.StateName}");
+
+                // 准备恢复参数
+                var resumeParams = new DeviceParameters();
+
+                // 如果有保存的状态数据，恢复参数
+                if (state.StateData is PumpStateData pumpData)
+                {
+                    resumeParams.Variables.Add(new NumberParameter("TargetSpeed", 0, 5000, pumpData.TargetSpeed, "目标转速(RPM)"));
+                    resumeParams.Variables.Add(new NumberParameter("RampTime", 0, 60, pumpData.RampTime, "加速时间(秒)"));
+                    resumeParams.Variables.Add(new EnumParameter("Direction", typeof(PumpDirection), pumpData.Direction, "泵送方向"));
+                    resumeParams.Variables.Add(new BooleanParameter("EnablePulseFree", pumpData.EnablePulseFree, "启用无脉动模式"));
+                }
+
+                // 执行恢复命令或重新激活命令
+                if (!string.IsNullOrEmpty(state.ResumeCommand))
+                {
+                    await ExecuteDeviceCommandByNameAsync(state.ResumeCommand, resumeParams);
+                }
+                else if (!string.IsNullOrEmpty(state.ActivateCommand))
+                {
+                    await ExecuteDeviceCommandByNameAsync(state.ActivateCommand, resumeParams);
+                }
+
+                // 移动回活跃状态列表
+                lock (_statesLock)
+                {
+                    _pausedStates.Remove(state);
+                    state.IsPaused = false;
+                    state.ActivatedTime = DateTime.Now;
+                    _activeStates.Add(state);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"蠕动泵恢复状态失败: {state.StateName}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 停止单个状态
+        /// </summary>
+        private async Task<bool> StopStateAsync(DeviceActiveState state)
+        {
+            try
+            {
+                InfoLog($"停止蠕动泵状态: {state.StateName}");
+
+                if (!string.IsNullOrEmpty(state.DeactivateCommand))
+                {
+                    await ExecuteDeviceCommandByNameAsync(state.DeactivateCommand);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"蠕动泵停止状态失败: {state.StateName}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 按名称执行设备命令
+        /// </summary>
+        private async Task ExecuteDeviceCommandByNameAsync(string commandName, DeviceParameters parameters = null)
+        {
+            var command = Commands?.FirstOrDefault(c => c.Name == commandName);
+            if (command?.Action != null)
+            {
+                var inputParams = parameters ?? new DeviceParameters();
+                await Task.Run(() => command.Action(inputParams));
+                InfoLog($"蠕动泵执行命令: {commandName}");
+            }
+            else
+            {
+                WarnLog($"蠕动泵未找到命令: {commandName}");
+            }
+        }
+
+        #endregion
+
+        // 蠕动泵状态数据类
+        private class PumpStateData
+        {
+            public double TargetSpeed { get; set; }
+            public double RampTime { get; set; }
+            public PumpDirection Direction { get; set; }
+            public bool EnablePulseFree { get; set; }
+        }
+
         public PeristalticPumps_CY()
         {
             _logger = LogManager.GetLogger<PeristalticPumps_CY>();
-            _simulationEngine = new SimulationEngine();
 
             Name = "YT600-1J";
             Manufacturer = "蠕动泵_YT600-1J＆KZ35-13-A";
@@ -83,53 +465,39 @@ namespace PeristalticPumps_CY
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter("Status", "PENDING", "执行状态")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("Temperature", -50, 200, 0, "当前温度")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Unit", "℃", "温度单位")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new StringParameter("Timestamp", "", "采集时间")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new BooleanParameter("IsWarning", false, "是否超温警告")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Message", "", "附加信息")
-                        {
-                            IsVisibleInVariableManager = false
-                        }
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Temperature", -50, 200, 0, "当前温度") { IsVisibleInVariableManager = true },
+                        new StringParameter("Unit", "℃", "温度单位") { IsVisibleInVariableManager = false },
+                        new StringParameter("Timestamp", "", "采集时间") { IsVisibleInVariableManager = false },
+                        new BooleanParameter("IsWarning", false, "是否超温警告") { IsVisibleInVariableManager = true },
+                        new StringParameter("Message", "", "附加信息") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("获取温度值", async delegate (DeviceParameters parameters)
                 {
-                    //await Task.Delay(ThreadLocalRandom.Value.Next(200, 500));
-                    int simulatedDelayMs;
-                    lock (GlobalRandom) // 简单加锁保证线程安全
-                    {
-                        simulatedDelayMs = GlobalRandom.Next(5000, 20000);
-                    }
+                    await Task.Delay(5000);
 
-                    await Task.Delay(simulatedDelayMs);
                     bool useCalibration = parameters.GetValue<bool>("UseCalibration");
                     double offset = parameters.GetValue<double>("Offset");
 
+                    // 简单的温度模拟
                     lock (_stateLock)
                     {
-                        _currentTemperature = _simulationEngine.UpdateTemperature(_currentTemperature, _isRunning);
+                        if (_isRunning)
+                        {
+                            _currentTemperature += new Random().NextDouble() * 2 - 1; // ±1度随机变化
+                            _currentTemperature = Math.Min(_currentTemperature, 85); // 限制最高温度
+                        }
+                        else
+                        {
+                            _currentTemperature += (25 - _currentTemperature) * 0.1; // 向25度回归
+                        }
                     }
 
                     double finalTemp = useCalibration ? _currentTemperature + offset : _currentTemperature;
                     bool isWarning = finalTemp > 80;
-
+                    byte[] data = System.Text.Encoding.GetEncoding("GBK").GetBytes("获取温度指令");
+                    _serialPort.Write(data, 0, data.Length);
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
@@ -163,39 +531,19 @@ namespace PeristalticPumps_CY
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter("Status", "PENDING", "执行状态")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("FlowRate", 0, 1000, 0, "当前流量")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Unit", "mL/min", "流量单位")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("TotalVolume", 0, 999999, 0, "累计流量(mL)")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new NumberParameter("CurrentSpeed", 0, 10000, 0, "当前转速(RPM)")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Timestamp", "", "采集时间")
-                        {
-                            IsVisibleInVariableManager = false
-                        }
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("FlowRate", 0, 1000, 0, "当前流量") { IsVisibleInVariableManager = true },
+                        new StringParameter("Unit", "mL/min", "流量单位") { IsVisibleInVariableManager = false },
+                        new NumberParameter("TotalVolume", 0, 999999, 0, "累计流量(mL)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentSpeed", 0, 10000, 0, "当前转速(RPM)") { IsVisibleInVariableManager = true },
+                        new StringParameter("Timestamp", "", "采集时间") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("获取流量值", async delegate (DeviceParameters parameters)
                 {
-                    //await Task.Delay(ThreadLocalRandom.Value.Next(300, 600));
-
+                    await Task.Delay(new Random().Next(100, 300));
 
                     var unit = parameters.GetValue<FlowRateUnit>("Unit");
-                    double avgTime = parameters.GetValue<double>("AveragingTime");
 
                     double currentFlowRate;
                     double totalVolume;
@@ -203,9 +551,19 @@ namespace PeristalticPumps_CY
 
                     lock (_stateLock)
                     {
-                        var flowData = _simulationEngine.UpdateFlowRate(_currentSpeed, _isRunning, _startTime);
-                        _currentFlowRate = flowData.FlowRate;
-                        _totalVolume = flowData.TotalVolume;
+                        if (_isRunning)
+                        {
+                            // 简单的流量计算：转速 * 0.085 mL/min/RPM
+                            _currentFlowRate = _currentSpeed * 0.085;
+
+                            // 累计体积
+                            var runTime = (DateTime.Now - _startTime).TotalMinutes;
+                            _totalVolume = _currentFlowRate * runTime;
+                        }
+                        else
+                        {
+                            _currentFlowRate = 0;
+                        }
 
                         currentFlowRate = _currentFlowRate;
                         totalVolume = _totalVolume;
@@ -260,61 +618,46 @@ namespace PeristalticPumps_CY
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter("Status", "PENDING", "执行状态")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("Pressure", -100, 1000, 0, "当前压力")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Unit", "kPa", "压力单位")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("MaxPressure", 0, 1000, 0, "最大压力记录")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("MinPressure", 0, 1000, 0, "最小压力记录")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new BooleanParameter("IsOverPressure", false, "是否超压")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Timestamp", "", "采集时间")
-                        {
-                            IsVisibleInVariableManager = false
-                        }
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Pressure", -100, 1000, 0, "当前压力") { IsVisibleInVariableManager = true },
+                        new StringParameter("Unit", "kPa", "压力单位") { IsVisibleInVariableManager = false },
+                        new BooleanParameter("IsOverPressure", false, "是否超压") { IsVisibleInVariableManager = true },
+                        new StringParameter("Timestamp", "", "采集时间") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("获取压力值", async delegate (DeviceParameters parameters)
                 {
-                    //await Task.Delay(ThreadLocalRandom.Value.Next(250, 550));
+                    await Task.Delay(new Random().Next(100, 300));
 
                     var unit = parameters.GetValue<PressureUnit>("Unit");
                     bool isRelative = parameters.GetValue<bool>("RelativePressure");
 
-                    double currentPressure;
+                    // 简单的压力模拟
                     lock (_stateLock)
                     {
-                        _currentPressure = _simulationEngine.UpdatePressure(_currentFlowRate, _isRunning, isRelative);
-                        currentPressure = _currentPressure;
+                        if (_isRunning)
+                        {
+                            var basePressure = isRelative ? 0 : 101.325;
+                            var flowPressure = _currentFlowRate * 0.8; // 流量产生的压力
+                            _currentPressure = basePressure + flowPressure + new Random().NextDouble() * 10 - 5; // ±5kPa噪声
+                        }
+                        else
+                        {
+                            _currentPressure = isRelative ? 0 : 101.325;
+                        }
                     }
 
                     // 单位转换
                     double displayPressure = unit switch
                     {
-                        PressureUnit.Bar => currentPressure / 100,
-                        PressureUnit.PSI => currentPressure * 0.145038,
-                        PressureUnit.MPa => currentPressure / 1000,
-                        _ => currentPressure
+                        PressureUnit.Bar => _currentPressure / 100,
+                        PressureUnit.PSI => _currentPressure * 0.145038,
+                        PressureUnit.MPa => _currentPressure / 1000,
+                        _ => _currentPressure
                     };
 
                     string unitStr = unit.ToString();
-                    bool isOverPressure = currentPressure > 500;
+                    bool isOverPressure = _currentPressure > 500;
 
                     return new DeviceParameters
                     {
@@ -323,8 +666,6 @@ namespace PeristalticPumps_CY
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
                             new NumberParameter("Pressure", -100, 1000, Math.Round(displayPressure, 2), "当前压力") { IsVisibleInVariableManager = true },
                             new StringParameter("Unit", unitStr, "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("MaxPressure", 0, 1000, Math.Round(displayPressure * 1.1, 2), "最大压力记录") { IsVisibleInVariableManager = false },
-                            new NumberParameter("MinPressure", 0, 1000, Math.Round(displayPressure * 0.9, 2), "最小压力记录") { IsVisibleInVariableManager = false },
                             new BooleanParameter("IsOverPressure", isOverPressure, "") { IsVisibleInVariableManager = true },
                             new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false }
                         }
@@ -332,7 +673,7 @@ namespace PeristalticPumps_CY
                 })
             });
 
-            // 4. 开启命令
+            // 4. 开启命令 - 带状态跟踪
             Commands.Add(new DeviceCommand
             {
                 Name = "开启",
@@ -352,30 +693,12 @@ namespace PeristalticPumps_CY
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter("Status", "PENDING", "执行状态")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new BooleanParameter("IsRunning", false, "运行状态")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new NumberParameter("ActualSpeed", 0, 10000, 0, "实际转速(RPM)")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Direction", "Forward", "运行方向")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new StringParameter("StartTime", "", "启动时间")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new StringParameter("Message", "", "状态信息")
-                        {
-                            IsVisibleInVariableManager = false
-                        }
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new BooleanParameter("IsRunning", false, "运行状态") { IsVisibleInVariableManager = true },
+                        new NumberParameter("ActualSpeed", 0, 10000, 0, "实际转速(RPM)") { IsVisibleInVariableManager = true },
+                        new StringParameter("Direction", "Forward", "运行方向") { IsVisibleInVariableManager = false },
+                        new StringParameter("StartTime", "", "启动时间") { IsVisibleInVariableManager = false },
+                        new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("开启", async delegate (DeviceParameters parameters)
@@ -385,6 +708,7 @@ namespace PeristalticPumps_CY
                     var direction = parameters.GetValue<PumpDirection>("Direction");
                     bool pulseFree = parameters.GetValue<bool>("EnablePulseFree");
 
+                    // 模拟加速时间
                     int simulatedRampTime = Math.Min((int)(rampTime * 1000), 5000);
                     await Task.Delay(simulatedRampTime);
 
@@ -392,14 +716,31 @@ namespace PeristalticPumps_CY
                     lock (_stateLock)
                     {
                         _isRunning = true;
-                        _currentSpeed = targetSpeed;
+                        _currentSpeed = targetSpeed * (0.95 + new Random().NextDouble() * 0.1); // 95-105%效率
                         _startTime = DateTime.Now;
                         _totalVolume = 0; // 重置累计流量
-
-                        actualSpeed = _simulationEngine.GetActualSpeed(targetSpeed);
-                        _currentSpeed = actualSpeed;
+                        actualSpeed = _currentSpeed;
                     }
 
+                    // *** 关键：添加活跃状态跟踪 ***
+                    var stateData = new PumpStateData
+                    {
+                        TargetSpeed = 500,
+                        RampTime = 20.0,
+                        Direction = direction,
+                        EnablePulseFree = true
+                    };
+
+                    AddActiveState(
+                        stateName: "PumpRunning",
+                        activateCommand: "开启",
+                        deactivateCommand: "关闭",
+                        pauseCommand: "关闭",    // 蠕动泵暂停时直接关闭
+                        resumeCommand: "开启",   // 恢复时重新开启
+                        stateData: stateData
+                    );
+                    byte[] data = System.Text.Encoding.GetEncoding("GBK").GetBytes("开启指令");
+                    _serialPort.Write(data, 0, data.Length);
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
@@ -415,7 +756,7 @@ namespace PeristalticPumps_CY
                 })
             });
 
-            // 5. 关闭命令
+            // 5. 关闭命令 - 带状态跟踪
             Commands.Add(new DeviceCommand
             {
                 Name = "关闭",
@@ -433,30 +774,12 @@ namespace PeristalticPumps_CY
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter("Status", "PENDING", "执行状态")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new BooleanParameter("IsRunning", true, "运行状态")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("StopTime", "", "停止时间")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("TotalRunTime", 0, 999999, 0, "总运行时间(分钟)")
-                        {
-                            IsVisibleInVariableManager = false
-                        },
-                        new NumberParameter("TotalVolume", 0, 999999, 0, "总泵送量(mL)")
-                        {
-                            IsVisibleInVariableManager = true
-                        },
-                        new StringParameter("Message", "", "状态信息")
-                        {
-                            IsVisibleInVariableManager = false
-                        }
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new BooleanParameter("IsRunning", true, "运行状态") { IsVisibleInVariableManager = true },
+                        new StringParameter("StopTime", "", "停止时间") { IsVisibleInVariableManager = false },
+                        new NumberParameter("TotalRunTime", 0, 999999, 0, "总运行时间(分钟)") { IsVisibleInVariableManager = false },
+                        new NumberParameter("TotalVolume", 0, 999999, 0, "总泵送量(mL)") { IsVisibleInVariableManager = true },
+                        new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("关闭", async delegate (DeviceParameters parameters)
@@ -477,6 +800,7 @@ namespace PeristalticPumps_CY
                         }
                     }
 
+                    // 模拟减速时间
                     if (!quickStop)
                     {
                         int simulatedDecelTime = Math.Min((int)(decelTime * 1000), 3000);
@@ -493,6 +817,10 @@ namespace PeristalticPumps_CY
                         _currentSpeed = 0;
                         _currentFlowRate = 0;
                     }
+                    byte[] data = System.Text.Encoding.GetEncoding("GBK").GetBytes("关闭指令");
+                    _serialPort.Write(data, 0, data.Length);
+                    // *** 关键：移除活跃状态跟踪 ***
+                    RemoveActiveState("PumpRunning");
 
                     return new DeviceParameters
                     {
@@ -532,24 +860,14 @@ namespace PeristalticPumps_CY
             Reverse
         }
 
-        public enum PumpMode
-        {
-            Continuous,
-            Timed,
-            Volume,
-            Intermittent
-        }
-
         public override void Initialize()
         {
             InfoLog("开始初始化蠕动泵设备");
 
             try
             {
-                // 调用基类初始化
                 base.Initialize();
 
-                // 初始化设备状态
                 lock (_stateLock)
                 {
                     _isRunning = false;
@@ -558,6 +876,13 @@ namespace PeristalticPumps_CY
                     _currentPressure = 0;
                     _currentTemperature = 25.0;
                     _totalVolume = 0;
+                }
+
+                // 清空状态跟踪
+                lock (_statesLock)
+                {
+                    _activeStates.Clear();
+                    _pausedStates.Clear();
                 }
 
                 InfoLog("蠕动泵设备初始化完成");
@@ -575,7 +900,10 @@ namespace PeristalticPumps_CY
 
             try
             {
-                // 先停止设备运行
+                // 停止所有活跃状态
+                var stopTask = StopAllActiveStatesAsync();
+                stopTask.Wait(TimeSpan.FromSeconds(5)); // 最多等待5秒
+
                 lock (_stateLock)
                 {
                     if (_isRunning)
@@ -586,11 +914,7 @@ namespace PeristalticPumps_CY
                     }
                 }
 
-                // 调用基类关闭方法（会自动断开连接）
                 base.Shutdown();
-
-                // 释放资源
-                ThreadLocalRandom?.Dispose();
 
                 InfoLog("蠕动泵设备关闭完成");
             }
@@ -603,15 +927,16 @@ namespace PeristalticPumps_CY
 
         protected override async Task<bool> OnConnectAsync()
         {
-            string comPort = Parameters.GetValue<string>("COM Port");
-            int baudRate = Parameters.GetValue<int>("BaudRate");
-            bool simulationMode = Parameters.GetValue<bool>("SimulationMode");
-
-            if (simulationMode)
+            if (ConnectionStatus==DeviceConnectionStatus.Connected)
             {
-                IsSimulationMode = true;
+                return true;
+            }
+            string comPort = Parameters.GetValue<string>("COM Port");
+            
+            if (IsSimulationMode)
+            {
                 InfoLog("以仿真模式连接");
-                await Task.Delay(1000); // 模拟连接延迟
+                await Task.Delay(1000);
                 return true;
             }
 
@@ -623,9 +948,9 @@ namespace PeristalticPumps_CY
                     return false;
                 }
 
-                InfoLog($"正在连接到 {comPort}，波特率: {baudRate}");
+                InfoLog($"正在连接到 {comPort}");
 
-                _serialPort = new SerialPort(comPort, baudRate)
+                _serialPort = new SerialPort(comPort, 9600)
                 {
                     DataBits = 8,
                     Parity = Parity.None,
@@ -636,10 +961,8 @@ namespace PeristalticPumps_CY
 
                 await Task.Run(() => _serialPort.Open());
 
-                // 发送测试命令验证连接
                 if (await TestConnection())
                 {
-                    IsSimulationMode = false;
                     InfoLog($"成功连接到 {comPort}");
                     return true;
                 }
@@ -657,11 +980,14 @@ namespace PeristalticPumps_CY
                 return false;
             }
         }
+
         protected override async Task<bool> OnDisconnectAsync()
         {
             try
             {
-                // 如果设备正在运行，先停止
+                // 断开前停止所有活跃状态
+                await StopAllActiveStatesAsync();
+
                 lock (_stateLock)
                 {
                     if (_isRunning)
@@ -683,7 +1009,6 @@ namespace PeristalticPumps_CY
                     InfoLog("串口连接已关闭");
                 }
 
-                IsSimulationMode = false;
                 InfoLog("设备连接已断开");
                 return true;
             }
@@ -700,9 +1025,8 @@ namespace PeristalticPumps_CY
             {
                 if (IsSimulationMode)
                 {
-                    // 仿真模式下随机模拟连接状态（95%概率正常）
                     await Task.Delay(50);
-                    return ThreadLocalRandom.Value.NextDouble() > 0.05;
+                    return new Random().NextDouble() > 0.05; // 95%概率正常
                 }
 
                 if (_serialPort == null || !_serialPort.IsOpen)
@@ -710,7 +1034,6 @@ namespace PeristalticPumps_CY
                     return false;
                 }
 
-                // 发送心跳命令检查连接
                 return await TestConnection();
             }
             catch (Exception ex)
@@ -719,6 +1042,7 @@ namespace PeristalticPumps_CY
                 return false;
             }
         }
+
         private async Task<bool> TestConnection()
         {
             try
@@ -732,20 +1056,18 @@ namespace PeristalticPumps_CY
                 if (_serialPort == null || !_serialPort.IsOpen)
                     return false;
 
-                // 发送状态查询命令（具体命令根据设备协议调整）
-                await Task.Run(() =>
-                {
-                    _serialPort.WriteLine("STATUS?");
-                    Thread.Sleep(100);
+                //await Task.Run(() =>
+                //{
+                //    _serialPort.WriteLine("STATUS?");
+                //    Thread.Sleep(100);
 
-                    // 简单检查是否有响应
-                    if (_serialPort.BytesToRead > 0)
-                    {
-                        _serialPort.ReadExisting();
-                        return true;
-                    }
-                    return false;
-                });
+                //    if (_serialPort.BytesToRead > 0)
+                //    {
+                //        _serialPort.ReadExisting();
+                //        return true;
+                //    }
+                //    return false;
+                //});
 
                 return true;
             }
@@ -755,7 +1077,6 @@ namespace PeristalticPumps_CY
             }
         }
 
-        // 统一包装命令执行，记录开始/结束/异常日志
         private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
             return (DeviceParameters parameters) =>
@@ -790,7 +1111,6 @@ namespace PeristalticPumps_CY
             };
         }
 
-        // 将参数格式化成易读的字符串
         private static string FormatParameters(DeviceParameters p)
         {
             if (p?.Variables == null || p.Variables.Count == 0) return "(none)";
@@ -825,195 +1145,6 @@ namespace PeristalticPumps_CY
             {
                 return np.Value?.ToString() ?? "0";
             }
-        }
-    }
-
-    /// <summary>
-    /// 模拟引擎 - 生成真实的物理模拟数据
-    /// </summary>
-    public class SimulationEngine
-    {
-        private static long _globalCounter = 0;
-        private readonly object _lock = new object();
-
-        // 噪声生成器
-        private readonly PerlinNoise _temperatureNoise;
-        private readonly PerlinNoise _flowRateNoise;
-        private readonly PerlinNoise _pressureNoise;
-
-        // 设备状态历史
-        private double _lastTemperature = 25.0;
-        private double _lastPressure = 101.325;
-        private double _accumulatedVolume = 0;
-        private DateTime _lastUpdateTime = DateTime.Now;
-
-        public SimulationEngine()
-        {
-            // 使用不同的种子确保各参数独立变化
-            var baseHash = Guid.NewGuid().GetHashCode();
-            _temperatureNoise = new PerlinNoise(baseHash);
-            _flowRateNoise = new PerlinNoise(baseHash + 1);
-            _pressureNoise = new PerlinNoise(baseHash + 2);
-        }
-
-        public double UpdateTemperature(double currentTemp, bool isRunning)
-        {
-            lock (_lock)
-            {
-                var time = GetUniqueTimeValue();
-                var noise = _temperatureNoise.Sample(time * 0.01) * 2; // ±2度噪声
-
-                if (isRunning)
-                {
-                    // 运行时温度上升，有一定惯性
-                    var targetTemp = 45 + _temperatureNoise.Sample(time * 0.005) * 10; // 35-55度目标范围
-                    _lastTemperature += (targetTemp - _lastTemperature) * 0.02 + noise * 0.5;
-                    _lastTemperature = Math.Min(_lastTemperature, 85); // 限制最高温度
-                }
-                else
-                {
-                    // 停机时向环境温度回归
-                    var ambientTemp = 22 + _temperatureNoise.Sample(time * 0.002) * 3; // 19-25度环境温度
-                    _lastTemperature += (ambientTemp - _lastTemperature) * 0.01 + noise * 0.3;
-                    _lastTemperature = Math.Max(_lastTemperature, 15); // 限制最低温度
-                }
-
-                return Math.Round(_lastTemperature, 2);
-            }
-        }
-
-        public (double FlowRate, double TotalVolume) UpdateFlowRate(double targetSpeed, bool isRunning, DateTime startTime)
-        {
-            lock (_lock)
-            {
-                var now = DateTime.Now;
-                var deltaTime = (now - _lastUpdateTime).TotalMinutes;
-                _lastUpdateTime = now;
-
-                if (!isRunning)
-                {
-                    return (0, _accumulatedVolume);
-                }
-
-                var time = GetUniqueTimeValue();
-                var noise = _flowRateNoise.Sample(time * 0.02) * 5; // ±5 mL/min 噪声
-
-                // 基于转速计算理论流量，加入脉动和磨损效应
-                var theoreticalFlow = targetSpeed * 0.085; // 假设每RPM产生0.085 mL/min
-                var pulsationFactor = 1 + Math.Sin(time * 0.1) * 0.05; // ±5% 脉动
-                var actualFlow = theoreticalFlow * pulsationFactor + noise;
-
-                // 累计体积计算
-                if (deltaTime > 0)
-                {
-                    _accumulatedVolume += actualFlow * deltaTime;
-                }
-
-                return (Math.Max(0, Math.Round(actualFlow, 3)), Math.Round(_accumulatedVolume, 2));
-            }
-        }
-
-        public double UpdatePressure(double currentFlowRate, bool isRunning, bool isRelativePressure)
-        {
-            lock (_lock)
-            {
-                var time = GetUniqueTimeValue();
-                var noise = _pressureNoise.Sample(time * 0.03) * 8; // ±8 kPa 噪声
-
-                if (!isRunning)
-                {
-                    _lastPressure = isRelativePressure ? 0 : 101.325 + noise * 0.1;
-                }
-                else
-                {
-                    // 压力与流量相关，模拟管路阻力
-                    var basePressure = isRelativePressure ? 0 : 101.325;
-                    var flowPressure = currentFlowRate * 0.8 + Math.Pow(currentFlowRate, 1.2) * 0.02; // 非线性阻力
-                    var systemPressure = basePressure + flowPressure;
-
-                    // 添加系统响应延迟
-                    _lastPressure += (systemPressure - _lastPressure) * 0.1 + noise;
-                }
-
-                return Math.Round(Math.Max(0, _lastPressure), 2);
-            }
-        }
-
-        public double GetActualSpeed(double targetSpeed)
-        {
-            var time = GetUniqueTimeValue();
-            var noise = _flowRateNoise.Sample(time * 0.05) * 15; // ±15 RPM 噪声
-            var efficiency = 0.96 + _flowRateNoise.Sample(time * 0.01) * 0.06; // 90-102% 效率
-
-            return Math.Max(0, Math.Round(targetSpeed * efficiency + noise, 1));
-        }
-
-        private double GetUniqueTimeValue()
-        {
-            // 生成永不重复的时间值
-            var counter = Interlocked.Increment(ref _globalCounter);
-            var ticks = DateTime.UtcNow.Ticks;
-            var threadId = Thread.CurrentThread.ManagedThreadId;
-
-            // 结合时间戳、计数器和线程ID生成唯一值
-            return (ticks / 10000.0) + counter * 0.001 + threadId * 0.0001;
-        }
-    }
-
-    /// <summary>
-    /// Perlin噪声生成器 - 生成自然的连续噪声
-    /// </summary>
-    public class PerlinNoise
-    {
-        private readonly int[] _permutation;
-        private readonly int[] _p;
-
-        public PerlinNoise(int seed = 0)
-        {
-            var random = new Random(seed);
-            _permutation = new int[256];
-
-            for (int i = 0; i < 256; i++)
-            {
-                _permutation[i] = i;
-            }
-
-            // Fisher-Yates shuffle
-            for (int i = 255; i > 0; i--)
-            {
-                int j = random.Next(i + 1);
-                (_permutation[i], _permutation[j]) = (_permutation[j], _permutation[i]);
-            }
-
-            _p = new int[512];
-            for (int i = 0; i < 512; i++)
-            {
-                _p[i] = _permutation[i % 256];
-            }
-        }
-
-        public double Sample(double x)
-        {
-            int X = (int)Math.Floor(x) & 255;
-            x -= Math.Floor(x);
-            double u = Fade(x);
-
-            return Lerp(u, Grad(_p[X], x), Grad(_p[X + 1], x - 1));
-        }
-
-        private static double Fade(double t)
-        {
-            return t * t * t * (t * (t * 6 - 15) + 10);
-        }
-
-        private static double Lerp(double t, double a, double b)
-        {
-            return a + t * (b - a);
-        }
-
-        private static double Grad(int hash, double x)
-        {
-            return (hash & 1) == 0 ? x : -x;
         }
     }
 }

@@ -22,6 +22,11 @@ namespace DevicePlugins.Devices
         private int _connectionTimeout = 30; // 默认30秒超时
         private bool _disposed = false;
         protected bool _isSimulationMode = false;
+
+        // 新增字段
+        private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
+        private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
+        private readonly object _statesLock = new object();
         /// <summary>
         /// 是否为模拟模式
         /// </summary>
@@ -551,6 +556,397 @@ namespace DevicePlugins.Devices
         protected virtual Task<bool> OnCheckConnectionAsync()
         {
             return Task.FromResult(true);
+        }
+
+        #endregion
+
+        #region IControllableDevice Implementation
+
+        public List<DeviceActiveState> ActiveStates
+        {
+            get
+            {
+                lock (_statesLock)
+                {
+                    return new List<DeviceActiveState>(_activeStates);
+                }
+            }
+        }
+
+        public event EventHandler<DeviceStateChangedEventArgs> StateChanged;
+
+        public virtual async Task<bool> PauseAllActiveStatesAsync()
+        {
+            lock (_statesLock)
+            {
+                if (!_activeStates.Any())
+                {
+                    InfoLog("没有活跃状态需要暂停");
+                    return true;
+                }
+
+                InfoLog($"暂停 {_activeStates.Count} 个活跃状态");
+            }
+
+            var pauseTasks = new List<Task<bool>>();
+            DeviceActiveState[] statesToPause;
+
+            lock (_statesLock)
+            {
+                statesToPause = _activeStates.ToArray();
+            }
+
+            foreach (var state in statesToPause)
+            {
+                pauseTasks.Add(PauseStateAsync(state));
+            }
+
+            try
+            {
+                var results = await Task.WhenAll(pauseTasks);
+                bool allSuccess = results.All(r => r);
+
+                if (allSuccess)
+                {
+                    InfoLog("所有活跃状态已暂停");
+                }
+                else
+                {
+                    WarnLog("部分活跃状态暂停失败");
+                }
+
+                return allSuccess;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("暂停活跃状态异常", ex);
+                return false;
+            }
+        }
+
+        public virtual async Task<bool> ResumeAllPausedStatesAsync()
+        {
+            lock (_statesLock)
+            {
+                if (!_pausedStates.Any())
+                {
+                    InfoLog("没有暂停的状态需要恢复");
+                    return true;
+                }
+
+                InfoLog($"恢复 {_pausedStates.Count} 个暂停的状态");
+            }
+
+            var resumeTasks = new List<Task<bool>>();
+            DeviceActiveState[] statesToResume;
+
+            lock (_statesLock)
+            {
+                statesToResume = _pausedStates.ToArray();
+            }
+
+            foreach (var state in statesToResume)
+            {
+                resumeTasks.Add(ResumeStateAsync(state));
+            }
+
+            try
+            {
+                var results = await Task.WhenAll(resumeTasks);
+                bool allSuccess = results.All(r => r);
+
+                if (allSuccess)
+                {
+                    InfoLog("所有暂停状态已恢复");
+                }
+                else
+                {
+                    WarnLog("部分暂停状态恢复失败");
+                }
+
+                return allSuccess;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("恢复暂停状态异常", ex);
+                return false;
+            }
+        }
+
+        public virtual async Task<bool> StopAllActiveStatesAsync()
+        {
+            lock (_statesLock)
+            {
+                if (!_activeStates.Any() && !_pausedStates.Any())
+                {
+                    InfoLog("没有活跃或暂停的状态需要停止");
+                    return true;
+                }
+
+                InfoLog($"停止 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
+            }
+
+            var stopTasks = new List<Task<bool>>();
+            DeviceActiveState[] allStates;
+
+            lock (_statesLock)
+            {
+                allStates = _activeStates.Concat(_pausedStates).ToArray();
+            }
+
+            foreach (var state in allStates)
+            {
+                stopTasks.Add(StopStateAsync(state));
+            }
+
+            try
+            {
+                var results = await Task.WhenAll(stopTasks);
+                bool allSuccess = results.All(r => r);
+
+                // 清空所有状态
+                lock (_statesLock)
+                {
+                    _activeStates.Clear();
+                    _pausedStates.Clear();
+                }
+
+                if (allSuccess)
+                {
+                    InfoLog("所有状态已停止");
+                }
+                else
+                {
+                    WarnLog("部分状态停止失败");
+                }
+
+                return allSuccess;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("停止状态异常", ex);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region 状态管理内部方法
+
+        /// <summary>
+        /// 添加活跃状态
+        /// </summary>
+        protected void AddActiveState(string stateName, string activateCommand, string deactivateCommand,
+            string pauseCommand = null, string resumeCommand = null, object stateData = null)
+        {
+            lock (_statesLock)
+            {
+                // 检查是否已经存在相同状态
+                var existing = _activeStates.FirstOrDefault(s => s.StateName == stateName);
+                if (existing != null)
+                {
+                    WarnLog($"状态已存在，更新时间: {stateName}");
+                    existing.ActivatedTime = DateTime.Now;
+                    existing.StateData = stateData;
+                    return;
+                }
+
+                var newState = new DeviceActiveState
+                {
+                    StateName = stateName,
+                    ActivateCommand = activateCommand,
+                    DeactivateCommand = deactivateCommand,
+                    PauseCommand = pauseCommand,
+                    ResumeCommand = resumeCommand,
+                    ActivatedTime = DateTime.Now,
+                    IsPaused = false,
+                    StateData = stateData
+                };
+
+                _activeStates.Add(newState);
+                InfoLog($"添加活跃状态: {stateName}");
+            }
+
+            StateChanged?.Invoke(this, new DeviceStateChangedEventArgs
+            {
+                StateName = stateName,
+                IsActive = true,
+                Timestamp = DateTime.Now
+            });
+        }
+
+        /// <summary>
+        /// 移除活跃状态
+        /// </summary>
+        protected void RemoveActiveState(string stateName)
+        {
+            lock (_statesLock)
+            {
+                var state = _activeStates.FirstOrDefault(s => s.StateName == stateName);
+                if (state != null)
+                {
+                    _activeStates.Remove(state);
+                    InfoLog($"移除活跃状态: {stateName}");
+                }
+
+                // 同时从暂停状态中移除
+                var pausedState = _pausedStates.FirstOrDefault(s => s.StateName == stateName);
+                if (pausedState != null)
+                {
+                    _pausedStates.Remove(pausedState);
+                    InfoLog($"移除暂停状态: {stateName}");
+                }
+            }
+
+            StateChanged?.Invoke(this, new DeviceStateChangedEventArgs
+            {
+                StateName = stateName,
+                IsActive = false,
+                Timestamp = DateTime.Now
+            });
+        }
+
+        /// <summary>
+        /// 暂停单个状态
+        /// </summary>
+        private async Task<bool> PauseStateAsync(DeviceActiveState state)
+        {
+            try
+            {
+                InfoLog($"暂停状态: {state.StateName}");
+
+                // 如果有专用的暂停命令，执行暂停命令
+                if (!string.IsNullOrEmpty(state.PauseCommand))
+                {
+                    var pauseCommand = Commands.FirstOrDefault(c => c.Name == state.PauseCommand);
+                    if (pauseCommand?.Action != null)
+                    {
+                        await Task.Run(() => pauseCommand.Action(new DeviceParameters()));
+                        InfoLog($"执行暂停命令: {state.StateName} - {state.PauseCommand}");
+                    }
+                    else
+                    {
+                        WarnLog($"未找到暂停命令: {state.PauseCommand}");
+                    }
+                }
+                // 如果没有暂停命令，执行停止命令
+                else if (!string.IsNullOrEmpty(state.DeactivateCommand))
+                {
+                    var stopCommand = Commands.FirstOrDefault(c => c.Name == state.DeactivateCommand);
+                    if (stopCommand?.Action != null)
+                    {
+                        await Task.Run(() => stopCommand.Action(new DeviceParameters()));
+                        InfoLog($"执行停止命令: {state.StateName} - {state.DeactivateCommand}");
+                    }
+                    else
+                    {
+                        WarnLog($"未找到停止命令: {state.DeactivateCommand}");
+                    }
+                }
+
+                // 移动到暂停状态列表
+                lock (_statesLock)
+                {
+                    _activeStates.Remove(state);
+                    state.IsPaused = true;
+                    _pausedStates.Add(state);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"暂停状态失败: {state.StateName}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 恢复单个状态
+        /// </summary>
+        private async Task<bool> ResumeStateAsync(DeviceActiveState state)
+        {
+            try
+            {
+                InfoLog($"恢复状态: {state.StateName}");
+
+                // 如果有专用的恢复命令，执行恢复命令
+                if (!string.IsNullOrEmpty(state.ResumeCommand))
+                {
+                    var resumeCommand = Commands.FirstOrDefault(c => c.Name == state.ResumeCommand);
+                    if (resumeCommand?.Action != null)
+                    {
+                        await Task.Run(() => resumeCommand.Action(new DeviceParameters()));
+                        InfoLog($"执行恢复命令: {state.StateName} - {state.ResumeCommand}");
+                    }
+                    else
+                    {
+                        WarnLog($"未找到恢复命令: {state.ResumeCommand}");
+                    }
+                }
+                // 如果没有恢复命令，重新执行激活命令
+                else if (!string.IsNullOrEmpty(state.ActivateCommand))
+                {
+                    var activateCommand = Commands.FirstOrDefault(c => c.Name == state.ActivateCommand);
+                    if (activateCommand?.Action != null)
+                    {
+                        await Task.Run(() => activateCommand.Action(new DeviceParameters()));
+                        InfoLog($"重新执行激活命令: {state.StateName} - {state.ActivateCommand}");
+                    }
+                    else
+                    {
+                        WarnLog($"未找到激活命令: {state.ActivateCommand}");
+                    }
+                }
+
+                // 移动回活跃状态列表
+                lock (_statesLock)
+                {
+                    _pausedStates.Remove(state);
+                    state.IsPaused = false;
+                    state.ActivatedTime = DateTime.Now; // 更新激活时间
+                    _activeStates.Add(state);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"恢复状态失败: {state.StateName}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 停止单个状态
+        /// </summary>
+        private async Task<bool> StopStateAsync(DeviceActiveState state)
+        {
+            try
+            {
+                InfoLog($"停止状态: {state.StateName}");
+
+                if (!string.IsNullOrEmpty(state.DeactivateCommand))
+                {
+                    var stopCommand = Commands.FirstOrDefault(c => c.Name == state.DeactivateCommand);
+                    if (stopCommand?.Action != null)
+                    {
+                        await Task.Run(() => stopCommand.Action(new DeviceParameters()));
+                        InfoLog($"执行停止命令: {state.StateName} - {state.DeactivateCommand}");
+                    }
+                    else
+                    {
+                        WarnLog($"未找到停止命令: {state.DeactivateCommand}");
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"停止状态失败: {state.StateName}", ex);
+                return false;
+            }
         }
 
         #endregion

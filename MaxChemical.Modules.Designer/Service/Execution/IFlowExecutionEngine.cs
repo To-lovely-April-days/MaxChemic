@@ -66,7 +66,9 @@ namespace MaxChemical.Modules.Designer.Service.Execution
     {
         Idle,
         Running,
+        Pausing,
         Paused,
+        Resuming,
         Stopping,
         Stopped,
         Completed,

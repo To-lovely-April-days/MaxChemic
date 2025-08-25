@@ -2341,34 +2341,133 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
         public async Task PauseAsync()
         {
-            if (State == FlowExecutionState.Running)
+            if (State != FlowExecutionState.Running)
+                return;
+
+            State = FlowExecutionState.Pausing;
+            _pauseEvent.Reset();
+
+            _logger.LogInformation("开始暂停流程，同时暂停所有设备的活跃状态");
+
+            // 获取所有可控制的设备
+            List<CanvasDeviceViewModel> canvasDevices = null;
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+            var controllableDevices = canvasDevices?
+                .Where(d => d.Device is IControllableDevice)
+                .Select(d => d.Device as IControllableDevice)
+                .Where(d => d.ActiveStates.Any())
+                .ToList() ?? new List<IControllableDevice>();
+
+            if (controllableDevices.Any())
             {
-                State = FlowExecutionState.Paused;
-                _pauseEvent.Reset();
-                _logger.LogInformation("流程执行已暂停");
+                _logger.LogInformation("找到 {Count} 个有活跃状态的设备需要暂停", controllableDevices.Count);
+
+                var pauseTasks = controllableDevices.Select(device => device.PauseAllActiveStatesAsync()).ToList();
+
+                try
+                {
+                    var results = await Task.WhenAll(pauseTasks);
+                    var successCount = results.Count(r => r);
+                    _logger.LogInformation("设备暂停完成: 成功 {Success}/{Total}", successCount, results.Length);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "暂停设备状态失败");
+                }
             }
+            else
+            {
+                _logger.LogInformation("没有设备有活跃状态需要暂停");
+            }
+
+            State = FlowExecutionState.Paused;
+            _logger.LogInformation("流程已暂停");
         }
 
         public async Task ResumeAsync()
         {
-            if (State == FlowExecutionState.Paused)
+            if (State != FlowExecutionState.Paused)
+                return;
+
+            State = FlowExecutionState.Resuming;
+
+            _logger.LogInformation("开始恢复流程，同时恢复所有设备的暂停状态");
+
+            // 获取所有可控制的设备
+            List<CanvasDeviceViewModel> canvasDevices = null;
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+            var controllableDevices = canvasDevices?
+                .Where(d => d.Device is IControllableDevice)
+                .Select(d => d.Device as IControllableDevice)
+                .ToList() ?? new List<IControllableDevice>();
+
+            if (controllableDevices.Any())
             {
-                State = FlowExecutionState.Running;
-                _pauseEvent.Set();
-                _logger.LogInformation("流程执行已恢复");
+                _logger.LogInformation("恢复 {Count} 个设备的暂停状态", controllableDevices.Count);
+
+                var resumeTasks = controllableDevices.Select(device => device.ResumeAllPausedStatesAsync()).ToList();
+
+                try
+                {
+                    var results = await Task.WhenAll(resumeTasks);
+                    var successCount = results.Count(r => r);
+                    _logger.LogInformation("设备恢复完成: 成功 {Success}/{Total}", successCount, results.Length);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "恢复设备状态失败");
+                }
             }
+
+            State = FlowExecutionState.Running;
+            _pauseEvent.Set();
+            _logger.LogInformation("流程已恢复");
         }
 
         public async Task StopAsync()
         {
-            if (State == FlowExecutionState.Running || State == FlowExecutionState.Paused)
+            if (State != FlowExecutionState.Running && State != FlowExecutionState.Paused)
+                return;
+
+            State = FlowExecutionState.Stopping;
+            _pauseEvent.Set();
+            _userInteractionPauseEvent.Set();
+
+            _logger.LogInformation("开始停止流程，同时停止所有设备的活跃状态");
+
+            // 获取所有可控制的设备
+            List<CanvasDeviceViewModel> canvasDevices = null;
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+            var controllableDevices = canvasDevices?
+                .Where(d => d.Device is IControllableDevice)
+                .Select(d => d.Device as IControllableDevice)
+                .ToList() ?? new List<IControllableDevice>();
+
+            if (controllableDevices.Any())
             {
-                State = FlowExecutionState.Stopping;
-                _pauseEvent.Set();
-                _userInteractionPauseEvent.Set(); // 确保用户交互不会阻塞停止
-                _cancellationTokenSource?.Cancel();
-                _logger.LogInformation("流程执行停止中...");
+                _logger.LogInformation("停止 {Count} 个设备的所有活跃状态", controllableDevices.Count);
+
+                var stopTasks = controllableDevices.Select(device => device.StopAllActiveStatesAsync()).ToList();
+
+                try
+                {
+                    // 给设备一定时间停止
+                    await Task.WhenAll(stopTasks).WaitAsync(TimeSpan.FromSeconds(10));
+                    _logger.LogInformation("所有设备状态已停止");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "停止设备状态失败");
+                }
             }
+
+            // 取消执行引擎
+            _cancellationTokenSource?.Cancel();
+
+            _logger.LogInformation("流程停止完成");
         }
         /// <summary>
         /// 解析操作数的值（可能是常量、变量引用或设备输出变量）

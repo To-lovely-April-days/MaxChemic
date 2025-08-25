@@ -1511,14 +1511,43 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private CanvasDeviceViewModel CreateCanvasDeviceViewModel(IDevice device, Point position)
         {
-            return new CanvasDeviceViewModel
+            try
             {
-                DeviceId = Guid.NewGuid().ToString(),
-                Device = device,
-                Position = position,
-                Width = 80,
-                Height = 60
-            };
+                Debug.WriteLine($"创建设备视图模型: {device.Name} 在位置 ({position.X:F1}, {position.Y:F1})");
+
+                // *** 关键修改：使用JSON深拷贝创建完全独立的设备实例 ***
+                var independentDevice = ReflectionDeviceDeepCopyService.DeepClone(device);
+
+                Debug.WriteLine($"设备深拷贝完成:");
+                Debug.WriteLine($"  原始设备哈希: {device.GetHashCode()}");
+                Debug.WriteLine($"  拷贝设备哈希: {independentDevice.GetHashCode()}");
+                Debug.WriteLine($"  原始参数哈希: {device.Parameters?.GetHashCode() ?? 0}");
+                Debug.WriteLine($"  拷贝参数哈希: {independentDevice.Parameters?.GetHashCode() ?? 0}");
+
+                var canvasDevice = new CanvasDeviceViewModel
+                {
+                    DeviceId = Guid.NewGuid().ToString(),
+                    Device = independentDevice, // ✅ 使用深拷贝的独立设备实例
+                    Position = position,
+                    Width = 80,
+                    Height = 60
+                };
+
+                Debug.WriteLine($"设备视图模型创建完成: ID={canvasDevice.DeviceId}");
+
+                return canvasDevice;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建设备视图模型失败: {ex.Message}");
+
+                // 记录详细错误信息
+                Debug.WriteLine($"设备类型: {device?.GetType()?.Name}");
+                Debug.WriteLine($"设备名称: {device?.Name}");
+                Debug.WriteLine($"异常详情: {ex}");
+
+                return null;
+            }
         }
 
         #endregion
@@ -3889,6 +3918,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 重建设备实例
             var device = _canvasDataService.RestoreDeviceFromData(deviceData);
+            var independentDevice = ReflectionDeviceDeepCopyService.DeepClone(device);
             if (device == null)
             {
                 Debug.WriteLine($"无法恢复设备: {deviceData.DeviceName}");
@@ -3899,7 +3929,7 @@ namespace MaxChemical.Modules.Designer.Views
             var canvasDeviceViewModel = new CanvasDeviceViewModel
             {
                 DeviceId = deviceData.DeviceId,
-                Device = device,
+                Device = independentDevice,
                 Position = new Point(deviceData.X, deviceData.Y),
                 Width = deviceData.Width > 0 ? deviceData.Width : 80,
                 Height = deviceData.Height > 0 ? deviceData.Height : 60
