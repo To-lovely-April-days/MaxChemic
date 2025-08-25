@@ -18,6 +18,7 @@ using MaxChemical.Modules.Designer.Service;
 using System.Windows;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Data.Services;
+using MaxChemical.Core;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -296,7 +297,9 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
 
             try
-            {
+            {   // *** 流程开始时通知所有设备 ***
+                await NotifyFlowStartedAsync(flowViewModel, startTime);
+
                 _statusService.SetCurrentFlowViewModel(flowViewModel);
                 _statusService.ResetAllExecutionStatus();
 
@@ -369,6 +372,16 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
                 State = FlowExecutionState.Completed;
+                // *** 流程完成时通知所有设备 ***
+                var completionContext = new FlowCompletionContext
+                {
+                    IsSuccessful = true,
+                    FlowName ="流程名称",
+                    CompletionTime = DateTime.Now,
+                    Duration = DateTime.Now - startTime
+                };
+                await NotifyFlowCompletedAsync(flowViewModel, completionContext);
+
                 _logger.LogInformation("流程执行完成，共执行 {Completed}/{Total} 个节点",
                     _currentProgress.CompletedNodes, _currentProgress.TotalNodes);
 
@@ -461,6 +474,20 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Error;
+
+                // *** 流程失败时通知所有设备 ***
+                var failureContext = new FlowFailureContext
+                {
+                    IsSuccessful = false,
+                    FlowName = "流程名称",
+                    CompletionTime = DateTime.Now,
+                    Duration = DateTime.Now - startTime,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
+
+                await NotifyFlowFailedAsync(flowViewModel, failureContext);
+
                 _logger.LogError(ex, "流程执行失败，已执行 {Completed}/{Total} 个节点",
                     _currentProgress?.CompletedNodes ?? 0, _currentProgress?.TotalNodes ?? 0);
 
@@ -501,6 +528,245 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
             }
         }
+
+        /// <summary>
+        /// 通知流程中绑定的设备流程开始
+        /// </summary>
+        private async Task NotifyFlowStartedAsync(FlowDesignerViewModel flowViewModel, DateTime startTime)
+        {
+            try
+            {
+                var devices = GetFlowBoundLifecycleAwareDevices(flowViewModel);
+
+                if (!devices.Any())
+                {
+                    _logger.LogInformation("没有设备需要通知流程开始");
+                    return;
+                }
+
+                var startContext = new FlowStartContext
+                {
+                    FlowName = "测试流程",
+                    StartTime = startTime,
+                    ExpectedNodeCount = CalculateTotalNodes(flowViewModel.CommandNodes),
+                    Properties = new Dictionary<string, object>
+                    {
+                        //["FlowId"] = flowViewModel.Id,
+                        //["BoundDeviceCount"] = devices.Count
+                    }
+                };
+
+                _logger.LogInformation("通知 {Count} 个绑定设备流程开始: {FlowName}", devices.Count, "测试流程");
+
+                var tasks = devices.Select(async device =>
+                {
+                    try
+                    {
+                        await device.OnFlowStartedAsync(startContext);
+                        _logger.LogDebug("设备流程开始通知成功: {DeviceType}", device.GetType().Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "设备流程开始通知失败: {DeviceType}", device.GetType().Name);
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+                _logger.LogInformation("流程开始通知完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "通知设备流程开始失败");
+            }
+        }
+
+        /// <summary>
+        /// 通知流程中绑定的设备流程完成
+        /// </summary>
+        private async Task NotifyFlowCompletedAsync(FlowDesignerViewModel flowViewModel, FlowCompletionContext context)
+        {
+            try
+            {
+                var devices = GetFlowBoundLifecycleAwareDevices(flowViewModel);
+
+                if (!devices.Any())
+                {
+                    _logger.LogInformation("没有设备需要通知流程完成");
+                    return;
+                }
+
+                // 添加额外的上下文信息
+                //context.Properties["FlowId"] = flowViewModel.Id;
+                context.Properties["BoundDeviceCount"] = devices.Count;
+
+                _logger.LogInformation("通知 {Count} 个绑定设备流程完成: {FlowName}", devices.Count, "测试流程");
+
+                var tasks = devices.Select(async device =>
+                {
+                    try
+                    {
+                        var success = await device.OnFlowCompletedAsync(context);
+                        _logger.LogDebug("设备流程完成通知{Result}: {DeviceType}",
+                            success ? "成功" : "失败", device.GetType().Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "设备流程完成通知失败: {DeviceType}", device.GetType().Name);
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+                _logger.LogInformation("流程完成通知完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "通知设备流程完成失败");
+            }
+        }
+
+
+        /// <summary>
+        /// 通知流程中绑定的设备流程失败
+        /// </summary>
+        private async Task NotifyFlowFailedAsync(FlowDesignerViewModel flowViewModel, FlowFailureContext context)
+        {
+            try
+            {
+                var devices = GetFlowBoundLifecycleAwareDevices(flowViewModel);
+
+                if (!devices.Any())
+                {
+                    _logger.LogInformation("没有设备需要通知流程失败");
+                    return;
+                }
+
+                // 添加额外的上下文信息
+                //context.Properties["FlowId"] = flowViewModel.Id;
+                context.Properties["BoundDeviceCount"] = devices.Count;
+
+                _logger.LogInformation("通知 {Count} 个绑定设备流程失败: {FlowName}", devices.Count, "测试流程");
+
+                var tasks = devices.Select(async device =>
+                {
+                    try
+                    {
+                        var success = await device.OnFlowFailedAsync(context);
+                        _logger.LogDebug("设备流程失败通知{Result}: {DeviceType}",
+                            success ? "成功" : "失败", device.GetType().Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "设备流程失败通知失败: {DeviceType}", device.GetType().Name);
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+                _logger.LogInformation("流程失败通知完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "通知设备流程失败失败");
+            }
+        }
+
+        /// <summary>
+        /// 获取所有支持流程生命周期的设备
+        /// </summary>
+        private List<IFlowLifecycleAware> GetAllFlowLifecycleAwareDevices()
+        {
+            List<CanvasDeviceViewModel> canvasDevices = null;
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+            return canvasDevices?
+                .Where(d => d.Device is IFlowLifecycleAware)
+                .Select(d => d.Device as IFlowLifecycleAware)
+                .ToList() ?? new List<IFlowLifecycleAware>();
+        }
+
+        /// <summary>
+        /// 获取当前流程中绑定的且支持流程生命周期的设备
+        /// </summary>
+        private List<IFlowLifecycleAware> GetFlowBoundLifecycleAwareDevices(FlowDesignerViewModel flowViewModel)
+        {
+            try
+            {
+                // 1. 收集流程中所有绑定的设备ID
+                var boundDeviceIds = CollectBoundDeviceIds(flowViewModel);
+
+                if (!boundDeviceIds.Any())
+                {
+                    _logger.LogInformation("流程中没有绑定任何设备");
+                    return new List<IFlowLifecycleAware>();
+                }
+
+                _logger.LogDebug("流程中绑定的设备: {DeviceIds}", string.Join(", ", boundDeviceIds));
+
+                // 2. 获取画布设备列表
+                List<CanvasDeviceViewModel> canvasDevices = null;
+                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+                if (canvasDevices == null || !canvasDevices.Any())
+                {
+                    _logger.LogWarning("画布上没有设备");
+                    return new List<IFlowLifecycleAware>();
+                }
+
+                // 3. 筛选出流程中绑定的且支持生命周期的设备
+                var lifecycleAwareDevices = canvasDevices
+                    .Where(d => boundDeviceIds.Contains(d.DeviceId) && d.Device is IFlowLifecycleAware)
+                    .Select(d => d.Device as IFlowLifecycleAware)
+                    .ToList();
+
+                _logger.LogInformation("找到 {Count} 个绑定的生命周期感知设备", lifecycleAwareDevices.Count);
+
+                return lifecycleAwareDevices;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "获取流程绑定的生命周期感知设备失败");
+                return new List<IFlowLifecycleAware>();
+            }
+        }
+
+        /// <summary>
+        /// 收集流程中所有绑定的设备ID
+        /// </summary>
+        private HashSet<string> CollectBoundDeviceIds(FlowDesignerViewModel flowViewModel)
+        {
+            var deviceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (flowViewModel?.CommandNodes == null)
+                return deviceIds;
+
+            // 递归收集所有节点（包括子节点）的绑定设备ID
+            CollectDeviceIdsFromNodes(flowViewModel.CommandNodes, deviceIds);
+
+            return deviceIds;
+        }
+
+        /// <summary>
+        /// 从节点集合中递归收集设备ID
+        /// </summary>
+        private void CollectDeviceIdsFromNodes(IEnumerable<CommandNode> nodes, HashSet<string> deviceIds)
+        {
+            foreach (var node in nodes)
+            {
+                // 只收集设备命令节点的绑定设备ID
+                if (node.DeviceCommand != null && !string.IsNullOrEmpty(node.BoundDeviceId))
+                {
+                    deviceIds.Add(node.BoundDeviceId);
+                    _logger.LogDebug("收集到设备绑定: 节点={NodeName}, 设备ID={DeviceId}",
+                        node.DisplayName, node.BoundDeviceId);
+                }
+
+                // 递归处理子节点
+                if (node.HasChildren)
+                {
+                    CollectDeviceIdsFromNodes(node.Children, deviceIds);
+                }
+            }
+        }
+
         #region 新增：设备连接验证
 
         /// <summary>

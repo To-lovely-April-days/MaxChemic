@@ -16,7 +16,7 @@ using MaxChemical.Logging;
 namespace PeristalticPumps_CY
 {
     [Export(typeof(IDevice))]
-    public class PeristalticPumps_CY : Device, IControllableDevice
+    public class PeristalticPumps_CY : Device, IControllableDevice, IFlowLifecycleAware
     {
         private SerialPort _serialPort;
         private readonly ILogService _logger;
@@ -205,6 +205,513 @@ namespace PeristalticPumps_CY
 
         #endregion
 
+        #region IFlowLifecycleAware Implementation
+
+        /// <summary>
+        /// 流程开始时的处理
+        /// </summary>
+        public virtual async Task<bool> OnFlowStartedAsync(FlowStartContext context)
+        {
+            try
+            {
+                InfoLog($"流程开始: {context.FlowName}, 预计节点数: {context.ExpectedNodeCount}");
+
+                // 1. 清空之前的状态
+                lock (_statesLock)
+                {
+                    _activeStates.Clear();
+                    _pausedStates.Clear();
+                }
+
+                // 2. 重置设备状态
+                lock (_stateLock)
+                {
+                    _totalVolume = 0;
+                    _startTime = DateTime.Now;
+                }
+
+                // 3. 检查设备连接状态
+                if (!IsConnected)
+                {
+                    WarnLog("设备未连接，但流程已开始");
+                }
+
+                // 4. 执行设备预热或初始化序列（如果需要）
+                await ExecutePreparationSequenceAsync();
+
+                InfoLog("设备已准备好执行流程");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("流程开始处理失败", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 流程完成时的处理 - 关键方法
+        /// </summary>
+        public virtual async Task<bool> OnFlowCompletedAsync(FlowCompletionContext context)
+        {
+            try
+            {
+                InfoLog($"流程完成处理开始: {context.FlowName}, 成功: {context.IsSuccessful}, 持续时间: {context.Duration}");
+
+                // 1. 停止所有活跃状态
+                InfoLog("停止所有活跃状态");
+                await StopAllActiveStatesAsync();
+
+                // 2. 执行设备特定的完成逻辑
+                await ExecuteCompletionSequenceAsync(context);
+
+                // 3. 记录统计信息
+                RecordFlowStatistics(context);
+
+                // 4. 清理和重置
+                await CleanupAfterFlowAsync();
+
+                InfoLog($"流程完成处理结束: {context.FlowName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("流程完成处理失败", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 流程失败时的处理
+        /// </summary>
+        public virtual async Task<bool> OnFlowFailedAsync(FlowFailureContext context)
+        {
+            try
+            {
+                ErrorLog($"流程失败处理: {context.FlowName}, 失败节点: {context.FailedNodeName}, 错误: {context.ErrorMessage}");
+
+                // 1. 紧急停止所有操作
+                await EmergencyStopAsync();
+
+                // 2. 记录失败信息
+                RecordFailureStatistics(context);
+
+                // 3. 清理状态
+                await CleanupAfterFlowAsync();
+
+                InfoLog("流程失败处理完成");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("流程失败处理异常", ex);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region 私有辅助方法
+
+        /// <summary>
+        /// 执行准备序列
+        /// </summary>
+        private async Task ExecutePreparationSequenceAsync()
+        {
+            try
+            {
+                InfoLog("执行设备准备序列");
+
+                // 1. 检查设备状态
+                if (IsSimulationMode)
+                {
+                    InfoLog("模拟模式：跳过硬件检查");
+                }
+                else
+                {
+                    // 实际模式下的硬件检查
+                    if (_serialPort?.IsOpen == true)
+                    {
+                        // 发送状态查询命令
+                        byte[] statusCmd = System.Text.Encoding.GetEncoding("GBK").GetBytes("STATUS?");
+                        _serialPort.Write(statusCmd, 0, statusCmd.Length);
+                        await Task.Delay(100);
+                    }
+                }
+
+                // 2. 初始化温度监控
+                lock (_stateLock)
+                {
+                    _currentTemperature = 25.0; // 初始室温
+                }
+
+                InfoLog("设备准备序列完成");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("设备准备序列失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 执行完成序列 - 核心业务逻辑
+        /// </summary>
+        private async Task ExecuteCompletionSequenceAsync(FlowCompletionContext context)
+        {
+            try
+            {
+                InfoLog("执行设备完成序列");
+
+                // 1. 如果泵还在运行，执行平滑停止
+                bool wasRunning = false;
+                lock (_stateLock)
+                {
+                    wasRunning = _isRunning;
+                }
+
+                if (wasRunning)
+                {
+                    InfoLog("检测到泵仍在运行，执行平滑停止序列");
+                    await ExecuteSmoothStopAsync();
+                }
+
+                // 2. 等待温度稳定
+                await WaitForTemperatureStabilizationAsync();
+
+                // 3. 执行清洗程序（如果需要）
+                if (context.IsSuccessful && ShouldExecuteCleaningCycle(context))
+                {
+                    await ExecuteCleaningCycleAsync();
+                }
+
+                // 4. 保存运行日志
+                await SaveOperationLogAsync(context);
+
+                InfoLog("设备完成序列执行完毕");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("设备完成序列失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 平滑停止泵
+        /// </summary>
+        private async Task ExecuteSmoothStopAsync()
+        {
+            try
+            {
+                InfoLog("开始平滑停止泵");
+
+                double currentSpeed;
+                lock (_stateLock)
+                {
+                    currentSpeed = _currentSpeed;
+                }
+
+                if (currentSpeed > 0)
+                {
+                    // 分10步降速到0
+                    var steps = 10;
+                    var stepSize = currentSpeed / steps;
+                    var stepDelay = 300; // 每步300ms
+
+                    for (int i = 0; i < steps; i++)
+                    {
+                        currentSpeed -= stepSize;
+                        lock (_stateLock)
+                        {
+                            _currentSpeed = Math.Max(0, currentSpeed);
+                            _currentFlowRate = _currentSpeed * 0.085;
+                        }
+
+                        InfoLog($"降速步骤 {i + 1}/{steps}: 当前转速 {_currentSpeed:F1} RPM");
+                        await Task.Delay(stepDelay);
+                    }
+
+                    // 确保完全停止
+                    lock (_stateLock)
+                    {
+                        _isRunning = false;
+                        _currentSpeed = 0;
+                        _currentFlowRate = 0;
+                    }
+
+                    // 发送硬件停止指令
+                    if (_serialPort?.IsOpen == true)
+                    {
+                        byte[] stopCmd = System.Text.Encoding.GetEncoding("GBK").GetBytes("STOP");
+                        _serialPort.Write(stopCmd, 0, stopCmd.Length);
+                    }
+
+                    InfoLog("平滑停止完成");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("平滑停止失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 等待温度稳定
+        /// </summary>
+        private async Task WaitForTemperatureStabilizationAsync()
+        {
+            try
+            {
+                InfoLog("等待温度稳定到室温");
+
+                var targetTemp = 25.0;
+                var tolerance = 2.0;
+                var maxWaitTime = TimeSpan.FromMinutes(5);
+                var startTime = DateTime.Now;
+
+                while (DateTime.Now - startTime < maxWaitTime)
+                {
+                    double currentTemp;
+                    lock (_stateLock)
+                    {
+                        currentTemp = _currentTemperature;
+                    }
+
+                    if (Math.Abs(currentTemp - targetTemp) <= tolerance)
+                    {
+                        InfoLog($"温度已稳定: {currentTemp:F1}°C");
+                        break;
+                    }
+
+                    // 模拟温度下降
+                    lock (_stateLock)
+                    {
+                        if (_currentTemperature > targetTemp)
+                        {
+                            _currentTemperature -= 0.5; // 每秒下降0.5度
+                        }
+                    }
+
+                    await Task.Delay(1000);
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("等待温度稳定失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 判断是否需要执行清洗循环
+        /// </summary>
+        private bool ShouldExecuteCleaningCycle(FlowCompletionContext context)
+        {
+            // 根据流程持续时间、累计流量等判断
+            var shouldClean = context.Duration.TotalMinutes > 30 || _totalVolume > 100;
+
+            if (shouldClean)
+            {
+                InfoLog($"需要清洗: 运行时间 {context.Duration.TotalMinutes:F1} 分钟, 累计流量 {_totalVolume:F1} mL");
+            }
+
+            return shouldClean;
+        }
+
+        /// <summary>
+        /// 执行清洗循环
+        /// </summary>
+        private async Task ExecuteCleaningCycleAsync()
+        {
+            try
+            {
+                InfoLog("开始执行清洗循环");
+
+                // 模拟清洗循环
+                var cleaningSteps = new[]
+                {
+                ("正向冲洗", 10.0, 30.0), // (名称, 流速mL/min, 持续时间秒)
+                ("反向冲洗", 15.0, 20.0),
+                ("最终冲洗", 5.0, 10.0)
+            };
+
+                foreach (var (name, flowRate, durationSeconds) in cleaningSteps)
+                {
+                    InfoLog($"执行 {name}: 流速 {flowRate} mL/min, 持续 {durationSeconds} 秒");
+
+                    // 模拟清洗步骤
+                    lock (_stateLock)
+                    {
+                        _isRunning = true;
+                        _currentSpeed = flowRate / 0.085;
+                        _currentFlowRate = flowRate;
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(durationSeconds));
+
+                    lock (_stateLock)
+                    {
+                        _isRunning = false;
+                        _currentSpeed = 0;
+                        _currentFlowRate = 0;
+                    }
+
+                    await Task.Delay(2000); // 步骤间停顿2秒
+                }
+
+                InfoLog("清洗循环执行完成");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("清洗循环执行失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 紧急停止
+        /// </summary>
+        private async Task EmergencyStopAsync()
+        {
+            try
+            {
+                InfoLog("执行紧急停止");
+
+                // 立即停止所有操作
+                lock (_stateLock)
+                {
+                    _isRunning = false;
+                    _currentSpeed = 0;
+                    _currentFlowRate = 0;
+                }
+
+                // 发送紧急停止指令
+                if (_serialPort?.IsOpen == true)
+                {
+                    byte[] emergencyStopCmd = System.Text.Encoding.GetEncoding("GBK").GetBytes("EMERGENCY_STOP");
+                    _serialPort.Write(emergencyStopCmd, 0, emergencyStopCmd.Length);
+                }
+
+                await Task.Delay(100);
+                InfoLog("紧急停止完成");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("紧急停止失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 记录流程统计信息
+        /// </summary>
+        private void RecordFlowStatistics(FlowCompletionContext context)
+        {
+            try
+            {
+                var stats = new
+                {
+                    FlowName = context.FlowName,
+                    Duration = context.Duration,
+                    IsSuccessful = context.IsSuccessful,
+                    TotalVolume = _totalVolume,
+                    AverageFlowRate = context.Duration.TotalMinutes > 0 ? _totalVolume / context.Duration.TotalMinutes : 0,
+                    MaxTemperature = _currentTemperature,
+                    CompletionTime = context.CompletionTime
+                };
+
+                InfoLog($"流程统计: {System.Text.Json.JsonSerializer.Serialize(stats)}");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("记录统计信息失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 记录失败统计信息
+        /// </summary>
+        private void RecordFailureStatistics(FlowFailureContext context)
+        {
+            try
+            {
+                var failureStats = new
+                {
+                    FlowName = context.FlowName,
+                    FailedNodeId = context.FailedNodeId,
+                    FailedNodeName = context.FailedNodeName,
+                    ErrorMessage = context.ErrorMessage,
+                    PartialVolume = _totalVolume,
+                    PartialDuration = context.Duration,
+                    FailureTime = context.CompletionTime
+                };
+
+                ErrorLog($"流程失败统计: {System.Text.Json.JsonSerializer.Serialize(failureStats)}");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("记录失败统计失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 流程后清理
+        /// </summary>
+        private async Task CleanupAfterFlowAsync()
+        {
+            try
+            {
+                InfoLog("执行流程后清理");
+
+                // 1. 清空所有状态
+                lock (_statesLock)
+                {
+                    _activeStates.Clear();
+                    _pausedStates.Clear();
+                }
+
+                // 2. 重置统计数据
+                lock (_stateLock)
+                {
+                    _totalVolume = 0;
+                }
+
+                // 3. 等待一段时间确保所有操作完成
+                await Task.Delay(1000);
+
+                InfoLog("流程后清理完成");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("流程后清理失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 保存操作日志
+        /// </summary>
+        private async Task SaveOperationLogAsync(FlowCompletionContext context)
+        {
+            try
+            {
+                // 这里可以保存到数据库或文件
+                var logEntry = new
+                {
+                    Timestamp = DateTime.Now,
+                    DeviceName = Name,
+                    FlowName = context.FlowName,
+                    Duration = context.Duration,
+                    IsSuccessful = context.IsSuccessful,
+                    TotalVolume = _totalVolume,
+                    Notes = "流程执行完成"
+                };
+
+                InfoLog($"操作日志: {System.Text.Json.JsonSerializer.Serialize(logEntry)}");
+                await Task.Delay(50); // 模拟保存时间
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("保存操作日志失败", ex);
+            }
+        }
+
+        #endregion
         #region 状态管理内部方法
 
         /// <summary>
@@ -733,8 +1240,8 @@ namespace PeristalticPumps_CY
 
                     AddActiveState(
                         stateName: "PumpRunning",
-                        activateCommand: "开启",
-                        deactivateCommand: "关闭",
+                        activateCommand: "开启", //激活命令 - 如何启动这个状态
+                        deactivateCommand: "关闭",  // 停止命令 - 如何完全停止这个状态
                         pauseCommand: "关闭",    // 蠕动泵暂停时直接关闭
                         resumeCommand: "开启",   // 恢复时重新开启
                         stateData: stateData
@@ -959,7 +1466,7 @@ namespace PeristalticPumps_CY
                     ReadTimeout = 5000,
                     WriteTimeout = 5000
                 };
-
+                
                 await Task.Run(() => _serialPort.Open());
 
                 if (await TestConnection())
@@ -1132,6 +1639,7 @@ namespace PeristalticPumps_CY
             return string.Join(", ", parts);
         }
 
+      
         private static string FormatNumber(NumberParameter np)
         {
             if (np.Value is double d)
