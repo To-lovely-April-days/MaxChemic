@@ -26,20 +26,20 @@ namespace MaxChemical.Modules.Designer.Views
         private string _deviceDisplayName;
         private bool _isInitializing = false;
         private bool _isDeviceConnected = false;
-        private string _currentCommandName = ""; // 当前选中的命令名
-                                                 // *** 新增：保存设备原始的模拟模式状态 ***
+        private string _currentCommandName = "";
         private bool _originalSimulationMode = false;
         private bool _hasModifiedSimulationMode = false;
-        // 修改为按"命令名#参数名"的组合保存选中状态
         private Dictionary<string, bool> _monitorParameterSelections = new Dictionary<string, bool>();
 
         public event EventHandler<MonitoringParametersChangedEventArgs> MonitoringParametersChanged;
+
         public DevicePropertyDialog()
         {
             InitializeComponent();
             InitializeConnectionState();
         }
-        #region *** 新增：模拟模式管理方法 ***
+
+        #region *** 模拟模式管理方法 ***
 
         /// <summary>
         /// 强制设备进入实际模式（用于设备属性对话框测试）
@@ -50,7 +50,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (_canvasDevice?.Device == null) return;
 
-                // 保存原始模拟模式状态
                 _originalSimulationMode = _canvasDevice.Device.IsSimulationMode;
 
                 if (_originalSimulationMode)
@@ -58,7 +57,6 @@ namespace MaxChemical.Modules.Designer.Views
                     Debug.WriteLine($"设备 {_canvasDevice.Device.Name} 当前为模拟模式，切换到实际模式进行测试");
                     _canvasDevice.Device.IsSimulationMode = false;
                     _hasModifiedSimulationMode = true;
-
                     Debug.WriteLine($"已将设备 {_canvasDevice.Device.Name} 临时切换到实际模式");
                 }
                 else
@@ -83,10 +81,8 @@ namespace MaxChemical.Modules.Designer.Views
                 if (_canvasDevice?.Device == null || !_hasModifiedSimulationMode) return;
 
                 Debug.WriteLine($"恢复设备 {_canvasDevice.Device.Name} 的原始模拟模式状态: {(_originalSimulationMode ? "模拟模式" : "实际模式")}");
-
                 _canvasDevice.Device.IsSimulationMode = _originalSimulationMode;
                 _hasModifiedSimulationMode = false;
-
                 Debug.WriteLine($"已恢复设备 {_canvasDevice.Device.Name} 的模拟模式状态");
             }
             catch (Exception ex)
@@ -118,6 +114,8 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
+        #region *** 核心状态管理方法 ***
+
         /// <summary>
         /// 生成唯一的参数键（命令名#参数名）
         /// </summary>
@@ -125,6 +123,241 @@ namespace MaxChemical.Modules.Designer.Views
         {
             return $"{commandName}#{parameterName}";
         }
+
+        /// <summary>
+        /// 恢复监控参数选择状态 - 最终修复版本，支持完整键名和参数名两种格式
+        /// </summary>
+        private bool _isRestoring = false;
+
+        public void RestoreMonitoringSelections(HashSet<string> selectedParameterKeys)
+        {
+            try
+            {
+                if (_isRestoring)
+                {
+                    Debug.WriteLine("正在恢复中，跳过重复调用");
+                    return;
+                }
+
+                if (selectedParameterKeys == null || selectedParameterKeys.Count == 0)
+                {
+                    Debug.WriteLine("没有需要恢复的监控参数选择状态");
+                    return;
+                }
+
+                _isRestoring = true;
+                Debug.WriteLine($"开始恢复监控参数选择状态: {string.Join(", ", selectedParameterKeys)}");
+
+                // *** 关键修复：判断传入的是参数名还是完整键名 ***
+                if (IsParameterKeysFormat(selectedParameterKeys))
+                {
+                    // 新格式：完整键名（命令名#参数名）
+                    RestoreFromCompleteKeys(selectedParameterKeys);
+                }
+                else
+                {
+                    // 旧格式：参数名（向后兼容，但有歧义）
+                    RestoreFromParameterNames(selectedParameterKeys);
+                }
+
+                // 为当前显示的命令恢复UI状态
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        RestoreCurrentCommandDisplayOnly();
+                    }
+                    finally
+                    {
+                        _isRestoring = false;
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+            catch (Exception ex)
+            {
+                _isRestoring = false;
+                Debug.WriteLine($"恢复监控参数选择状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 判断传入的是否为完整键名格式
+        /// </summary>
+        private bool IsParameterKeysFormat(HashSet<string> keys)
+        {
+            // 如果大部分键包含 # 分隔符，则认为是完整键名格式
+            int keyFormatCount = keys.Count(k => k.Contains("#"));
+            return keyFormatCount > keys.Count / 2;
+        }
+
+        /// <summary>
+        /// 从完整键名恢复状态 - 新方法，精确匹配
+        /// </summary>
+        private void RestoreFromCompleteKeys(HashSet<string> selectedParameterKeys)
+        {
+            try
+            {
+                Debug.WriteLine("使用完整键名格式恢复状态（精确匹配）");
+
+                // *** 关键修复：直接使用完整键名设置状态 ***
+                _monitorParameterSelections.Clear();
+
+                foreach (var key in selectedParameterKeys)
+                {
+                    _monitorParameterSelections[key] = true;
+                    Debug.WriteLine($"  设置选中状态: {key} = true");
+                }
+
+                // 确保所有未选中的参数也有明确状态
+                if (_canvasDevice?.Device?.Commands != null)
+                {
+                    foreach (var command in _canvasDevice.Device.Commands)
+                    {
+                        if (command.OutputParameters?.Variables?.Any() == true)
+                        {
+                            foreach (var param in command.OutputParameters.Variables)
+                            {
+                                var key = GenerateParameterKey(command.Name, param.Name);
+                                if (!_monitorParameterSelections.ContainsKey(key))
+                                {
+                                    _monitorParameterSelections[key] = false;
+                                    Debug.WriteLine($"  设置未选中状态: {key} = false");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Debug.WriteLine("完整键名格式恢复完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"从完整键名恢复状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 从参数名恢复状态 - 旧方法，向后兼容但有歧义
+        /// </summary>
+        private void RestoreFromParameterNames(HashSet<string> selectedParameterNames)
+        {
+            try
+            {
+                Debug.WriteLine("使用参数名格式恢复状态（向后兼容，可能有歧义）");
+                Debug.WriteLine("⚠️ 警告：使用参数名格式可能导致跨命令参数误选，建议升级到完整键名格式");
+
+                // *** 关键修复：不使用有问题的预处理方法 ***
+                // 这里应该让外部调用者提供正确的完整键名格式
+                Debug.WriteLine("建议外部调用者使用 GetAllSelectedParameterKeys() 获取完整键名格式");
+
+                // 暂时清空状态，避免误选
+                _monitorParameterSelections.Clear();
+
+                Debug.WriteLine("由于参数名格式有歧义，已清空所有状态以避免误选");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"从参数名恢复状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 只恢复当前显示命令的UI状态
+        /// </summary>
+        private void RestoreCurrentCommandDisplayOnly()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_currentCommandName) || _monitorParameterCheckBoxes.Count == 0)
+                {
+                    Debug.WriteLine("无需恢复当前命令的显示状态");
+                    return;
+                }
+
+                Debug.WriteLine($"*** 恢复当前命令 '{_currentCommandName}' 的显示状态 ***");
+
+                _isInitializing = true; // 阻止事件处理
+
+                int restoredCount = 0;
+                int uncheckedCount = 0;
+
+                foreach (var checkBox in _monitorParameterCheckBoxes)
+                {
+                    string parameterName = ExtractParameterNameFromCheckBox(checkBox);
+
+                    if (!string.IsNullOrEmpty(parameterName))
+                    {
+                        var key = GenerateParameterKey(_currentCommandName, parameterName);
+
+                        // *** 从内部状态字典获取状态 ***
+                        if (_monitorParameterSelections.TryGetValue(key, out bool shouldCheck))
+                        {
+                            checkBox.IsChecked = shouldCheck;
+
+                            if (shouldCheck)
+                            {
+                                restoredCount++;
+                                Debug.WriteLine($"  显示为选中: {key} = true");
+                            }
+                            else
+                            {
+                                uncheckedCount++;
+                                Debug.WriteLine($"  显示为未选中: {key} = false");
+                            }
+                        }
+                        else
+                        {
+                            // 默认未选中
+                            checkBox.IsChecked = false;
+                            uncheckedCount++;
+                            Debug.WriteLine($"  默认未选中: {key} = false (无状态)");
+                        }
+                    }
+                }
+
+                _isInitializing = false; // 恢复事件处理
+
+                Debug.WriteLine($"*** 当前命令显示恢复完成: 选中 {restoredCount} 个，未选中 {uncheckedCount} 个 ***");
+            }
+            catch (Exception ex)
+            {
+                _isInitializing = false;
+                Debug.WriteLine($"恢复当前命令显示状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 获取所有选中的参数键名 - 新方法，供外部调用
+        /// </summary>
+        public HashSet<string> GetAllSelectedParameterKeys()
+        {
+            try
+            {
+                // 先保存当前命令状态
+                if (!string.IsNullOrEmpty(_currentCommandName) && _monitorParameterCheckBoxes.Count > 0)
+                {
+                    SaveCurrentCommandSelections();
+                }
+
+                // 返回所有选中的参数键
+                var selectedKeys = _monitorParameterSelections
+                    .Where(kvp => kvp.Value)
+                    .Select(kvp => kvp.Key)
+                    .ToHashSet();
+
+                Debug.WriteLine($"获取所有选中参数键: {string.Join(", ", selectedKeys)}");
+                return selectedKeys;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取选中参数键失败: {ex.Message}");
+                return new HashSet<string>();
+            }
+        }
+
+        #endregion
+
+        #region *** 界面初始化和连接状态管理 ***
 
         /// <summary>
         /// 初始化连接状态
@@ -175,38 +408,372 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 保存当前监控参数的选中状态
+        /// 设置设备数据
         /// </summary>
-        private void SaveCurrentCommandSelections()
+        public void SetDeviceData(CanvasDeviceViewModel canvasDevice, string displayName = null)
         {
-            if (string.IsNullOrEmpty(_currentCommandName)) return;
+            Debug.WriteLine($"=== 开始设置设备数据: {canvasDevice?.Device?.Name} ===");
 
-            Debug.WriteLine($"正在保存命令 '{_currentCommandName}' 的选中状态...");
+            _isInitializing = true;
+            _canvasDevice = canvasDevice;
+            _deviceDisplayName = displayName;
+
+            // *** 关键修复：完全清理所有相关状态 ***
+            Debug.WriteLine("完全清理所有监控参数状态");
+            _monitorParameterSelections.Clear();
+
+            // 保存原始模拟模式状态
+            if (canvasDevice?.Device != null)
+            {
+                _originalSimulationMode = canvasDevice.Device.IsSimulationMode;
+                Debug.WriteLine($"设备 {canvasDevice.Device.Name} 原始模拟模式状态: {(_originalSimulationMode ? "模拟模式" : "实际模式")}");
+            }
+
+            if (canvasDevice?.Device != null)
+            {
+                LoadDeviceInformation(canvasDevice, displayName);
+                LoadDeviceCommands(canvasDevice.Device);
+                LoadDeviceParameters(canvasDevice.Device);
+
+                // 只选择第一个命令，不选中任何参数
+                SelectFirstCommandOnly();
+            }
+
+            _isInitializing = false;
+            Debug.WriteLine("设备数据设置完成，所有状态已清理");
+            Debug.WriteLine("=== 设备数据设置完成 ===\n");
+        }
+
+        #endregion
+
+        #region *** 命令和参数管理 ***
+
+        /// <summary>
+        /// 只选择第一个命令，不选中任何参数
+        /// </summary>
+        private void SelectFirstCommandOnly()
+        {
+            if (CommandListBox.Items.Count > 0)
+            {
+                var firstItem = CommandListBox.Items[0] as ListBoxItem;
+                if (firstItem != null && firstItem.IsEnabled)
+                {
+                    CommandListBox.SelectedIndex = 0;
+                    HandleCommandSelectionWithoutDefaultSelection(firstItem);
+                }
+            }
+            else
+            {
+                LoadEmptyState();
+            }
+        }
+
+        /// <summary>
+        /// 处理命令选择但不默认选中参数
+        /// </summary>
+        private void HandleCommandSelectionWithoutDefaultSelection(ListBoxItem selectedItem)
+        {
+            if (!selectedItem.IsEnabled) return;
+
+            var commandName = selectedItem.Content.ToString();
+            Debug.WriteLine($"\n*** 选择命令（无默认参数选中）: {commandName} ***");
+
+            if (selectedItem.Tag is DeviceCommand command)
+            {
+                _selectedCommand = command;
+                UpdateMonitorParametersForCommandWithoutDefaults(commandName, command);
+                LoadCommandInputParameters(command);
+                LoadCommandOutputParameters(command);
+                Debug.WriteLine($"选择了命令: {commandName}, 输入参数: {command.InputParameters?.Variables?.Count ?? 0}, 输出参数: {command.OutputParameters?.Variables?.Count ?? 0}");
+            }
+            else
+            {
+                _selectedCommand = null;
+                var foundCommand = FindCommandByName(commandName);
+                if (foundCommand != null)
+                {
+                    UpdateMonitorParametersForCommandWithoutDefaults(commandName, foundCommand);
+                    LoadCommandInputParameters(foundCommand);
+                    LoadCommandOutputParameters(foundCommand);
+                }
+                else
+                {
+                    LoadEmptyState();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 更新监控参数但不默认选中任何参数
+        /// </summary>
+        private void UpdateMonitorParametersForCommandWithoutDefaults(string commandName, DeviceCommand command = null)
+        {
+            Debug.WriteLine($"\n=== 开始更新命令 '{commandName}' 的监控参数（不显示参数值） ===");
+
+            // 先保存当前命令的选中状态
+            if (!string.IsNullOrEmpty(_currentCommandName) &&
+                _currentCommandName != commandName &&
+                _monitorParameterCheckBoxes.Count > 0)
+            {
+                Debug.WriteLine($"保存切换前的命令状态: {_currentCommandName}");
+                SaveCurrentCommandSelectionsBeforeSwitch();
+            }
+
+            // 更新当前命令名
+            _currentCommandName = commandName;
+            CommandText.Text = commandName;
+
+            // 清空当前显示
+            MonitorParametersPanel.Children.Clear();
+            _monitorParameterCheckBoxes.Clear();
+
+            List<ParameterBase> outputParameters = new List<ParameterBase>();
+
+            if (command?.OutputParameters?.Variables?.Any() == true)
+            {
+                outputParameters = command.OutputParameters.Variables.ToList();
+            }
+            else
+            {
+                var matchedCommand = FindCommandByName(commandName);
+                if (matchedCommand?.OutputParameters?.Variables?.Any() == true)
+                {
+                    outputParameters = matchedCommand.OutputParameters.Variables.ToList();
+                }
+            }
+
+            // 创建复选框时确保完全清洁的初始状态
+            _isInitializing = true; // 阻止事件处理
+
+            foreach (var param in outputParameters)
+            {
+                var checkBox = new CheckBox
+                {
+                    Content = param.Name, // 只显示参数名称，不显示值
+                    Style = (Style)FindResource("CheckBoxStyle"),
+                    Margin = new Thickness(8, 2, 12, 2),
+                    Tag = param,
+                    IsChecked = false // 强制初始状态为未选中
+                };
+
+                // 添加事件处理
+                checkBox.Checked += MonitorParameterCheckBox_CheckedChanged;
+                checkBox.Unchecked += MonitorParameterCheckBox_CheckedChanged;
+
+                MonitorParametersPanel.Children.Add(checkBox);
+                _monitorParameterCheckBoxes.Add(checkBox);
+
+                Debug.WriteLine($"  创建参数复选框: {param.Name} (仅显示名称)");
+            }
+
+            _isInitializing = false; // 恢复事件处理
+
+            // 延迟恢复状态
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                RestoreCommandSelectionsAfterSwitch(commandName);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            Debug.WriteLine($"=== 完成更新命令 '{commandName}' 的 {outputParameters.Count} 个监控参数（仅显示名称） ===\n");
+        }
+
+        /// <summary>
+        /// 在切换命令后恢复选择状态
+        /// </summary>
+        private void RestoreCommandSelectionsAfterSwitch(string commandName)
+        {
+            if (string.IsNullOrEmpty(commandName) || _monitorParameterCheckBoxes.Count == 0)
+            {
+                Debug.WriteLine("RestoreCommandSelectionsAfterSwitch: 没有需要恢复的状态");
+                return;
+            }
+
+            Debug.WriteLine($"*** 切换后恢复命令 '{commandName}' 的状态 ***");
+
+            _isInitializing = true; // 阻止事件处理
+
+            int restoredCount = 0;
+            int uncheckedCount = 0;
 
             foreach (var checkBox in _monitorParameterCheckBoxes)
             {
-                string parameterName = "";
+                try
+                {
+                    string parameterName = ExtractParameterNameFromCheckBox(checkBox);
 
+                    if (!string.IsNullOrEmpty(parameterName))
+                    {
+                        var key = GenerateParameterKey(commandName, parameterName);
+
+                        // *** 直接从状态字典获取状态 ***
+                        bool shouldCheck = _monitorParameterSelections.TryGetValue(key, out bool savedState) && savedState;
+
+                        checkBox.IsChecked = shouldCheck;
+
+                        if (shouldCheck)
+                        {
+                            restoredCount++;
+                            Debug.WriteLine($"  恢复为选中: {key} = true");
+                        }
+                        else
+                        {
+                            uncheckedCount++;
+                            Debug.WriteLine($"  恢复为未选中: {key} = false");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"恢复单个参数状态失败: {ex.Message}");
+                }
+            }
+
+            _isInitializing = false; // 恢复事件处理
+
+            Debug.WriteLine($"*** 切换后恢复完成: 选中 {restoredCount} 个，未选中 {uncheckedCount} 个 ***");
+        }
+
+        /// <summary>
+        /// 保存当前命令的选中状态
+        /// </summary>
+        private void SaveCurrentCommandSelections()
+        {
+            if (string.IsNullOrEmpty(_currentCommandName) || _monitorParameterCheckBoxes.Count == 0)
+            {
+                Debug.WriteLine("SaveCurrentCommandSelections: 没有需要保存的状态");
+                return;
+            }
+
+            Debug.WriteLine($"正在保存命令 '{_currentCommandName}' 的选中状态...");
+
+            int savedCount = 0;
+            foreach (var checkBox in _monitorParameterCheckBoxes)
+            {
+                try
+                {
+                    string parameterName = ExtractParameterNameFromCheckBox(checkBox);
+
+                    if (!string.IsNullOrEmpty(parameterName))
+                    {
+                        var key = GenerateParameterKey(_currentCommandName, parameterName);
+                        var isChecked = checkBox.IsChecked == true;
+                        _monitorParameterSelections[key] = isChecked;
+                        savedCount++;
+
+                        Debug.WriteLine($"  保存: {key} = {isChecked}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"保存单个参数失败: {ex.Message}");
+                }
+            }
+
+            Debug.WriteLine($"已保存命令 '{_currentCommandName}' 的 {savedCount} 个监控参数选中状态");
+        }
+
+        /// <summary>
+        /// 在切换命令前保存当前选择状态
+        /// </summary>
+        private void SaveCurrentCommandSelectionsBeforeSwitch()
+        {
+            if (string.IsNullOrEmpty(_currentCommandName) || _monitorParameterCheckBoxes.Count == 0)
+            {
+                Debug.WriteLine("没有需要保存的状态");
+                return;
+            }
+
+            Debug.WriteLine($"*** 切换前保存命令 '{_currentCommandName}' 的状态 ***");
+
+            int savedCount = 0;
+            foreach (var checkBox in _monitorParameterCheckBoxes)
+            {
+                try
+                {
+                    string parameterName = ExtractParameterNameFromCheckBox(checkBox);
+
+                    if (!string.IsNullOrEmpty(parameterName))
+                    {
+                        var key = GenerateParameterKey(_currentCommandName, parameterName);
+                        var isChecked = checkBox.IsChecked == true;
+
+                        _monitorParameterSelections[key] = isChecked;
+                        savedCount++;
+
+                        Debug.WriteLine($"  保存切换前状态: {key} = {isChecked}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"保存单个参数状态失败: {ex.Message}");
+                }
+            }
+
+            Debug.WriteLine($"*** 切换前保存完成，共保存 {savedCount} 个参数状态 ***");
+        }
+
+        /// <summary>
+        /// 监控参数复选框状态变化事件
+        /// </summary>
+        private void MonitorParameterCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing || _isRestoring)
+            {
+                Debug.WriteLine("初始化或恢复期间，忽略复选框状态变化");
+                return;
+            }
+
+            try
+            {
+                if (sender is CheckBox checkBox && !string.IsNullOrEmpty(_currentCommandName))
+                {
+                    string parameterName = ExtractParameterNameFromCheckBox(checkBox);
+
+                    if (!string.IsNullOrEmpty(parameterName))
+                    {
+                        var key = GenerateParameterKey(_currentCommandName, parameterName);
+                        var isChecked = checkBox.IsChecked == true;
+
+                        // 实时保存到字典
+                        _monitorParameterSelections[key] = isChecked;
+
+                        Debug.WriteLine($"用户操作状态变化: {key} = {isChecked}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"监控参数复选框状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region *** 工具方法 ***
+
+        /// <summary>
+        /// 从复选框提取参数名称
+        /// </summary>
+        private string ExtractParameterNameFromCheckBox(CheckBox checkBox)
+        {
+            try
+            {
                 if (checkBox.Tag is ParameterBase param)
                 {
-                    parameterName = param.Name;
+                    return param.Name;
                 }
                 else if (checkBox.Content != null)
                 {
                     var content = checkBox.Content.ToString();
-                    parameterName = ExtractParameterName(content);
-                }
-
-                if (!string.IsNullOrEmpty(parameterName))
-                {
-                    var key = GenerateParameterKey(_currentCommandName, parameterName);
-                    var isChecked = checkBox.IsChecked == true;
-                    _monitorParameterSelections[key] = isChecked;
-                    Debug.WriteLine($"  保存: {key} = {isChecked}");
+                    return ExtractParameterName(content);
                 }
             }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"提取参数名称失败: {ex.Message}");
+            }
 
-            Debug.WriteLine($"已保存命令 '{_currentCommandName}' 的 {_monitorParameterCheckBoxes.Count} 个监控参数选中状态");
+            return "";
         }
 
         /// <summary>
@@ -222,93 +789,15 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 恢复监控参数的选中状态
+        /// 根据命令名称查找对应的命令对象
         /// </summary>
-        private void RestoreCommandSelections(string commandName)
+        private DeviceCommand FindCommandByName(string commandName)
         {
-            if (string.IsNullOrEmpty(commandName)) return;
-
-            Debug.WriteLine($"正在恢复命令 '{commandName}' 的选中状态...");
-
-            foreach (var checkBox in _monitorParameterCheckBoxes)
+            if (_canvasDevice?.Device?.Commands?.Any() == true)
             {
-                string parameterName = "";
-
-                if (checkBox.Tag is ParameterBase param)
-                {
-                    parameterName = param.Name;
-                }
-                else if (checkBox.Content != null)
-                {
-                    var content = checkBox.Content.ToString();
-                    parameterName = ExtractParameterName(content);
-                }
-
-                if (!string.IsNullOrEmpty(parameterName))
-                {
-                    var key = GenerateParameterKey(commandName, parameterName);
-                    if (_monitorParameterSelections.ContainsKey(key))
-                    {
-                        var shouldCheck = _monitorParameterSelections[key];
-                        checkBox.IsChecked = shouldCheck;
-                        Debug.WriteLine($"  恢复: {key} = {shouldCheck}");
-                    }
-                    else
-                    {
-                        checkBox.IsChecked = false; // 默认不选中
-                        Debug.WriteLine($"  默认: {key} = false (无保存状态)");
-                    }
-                }
+                return _canvasDevice.Device.Commands.FirstOrDefault(c => c.Name == commandName);
             }
-
-            Debug.WriteLine($"已恢复命令 '{commandName}' 的 {_monitorParameterCheckBoxes.Count} 个监控参数选中状态");
-        }
-
-        /// <summary>
-        /// 设置设备数据
-        /// </summary>
-        public void SetDeviceData(CanvasDeviceViewModel canvasDevice, string displayName = null)
-        {
-            _isInitializing = true;
-            _canvasDevice = canvasDevice;
-            _deviceDisplayName = displayName;
-            // *** 新增：保存原始模拟模式状态 ***
-            if (canvasDevice?.Device != null)
-            {
-                _originalSimulationMode = canvasDevice.Device.IsSimulationMode;
-                Debug.WriteLine($"设备 {canvasDevice.Device.Name} 原始模拟模式状态: {(_originalSimulationMode ? "模拟模式" : "实际模式")}");
-            }
-            if (canvasDevice?.Device != null)
-            {
-                LoadDeviceInformation(canvasDevice, displayName);
-                LoadDeviceCommands(canvasDevice.Device);
-                LoadDeviceParameters(canvasDevice.Device);
-
-                // 默认选中第一个命令
-                SelectFirstCommand();
-            }
-
-            _isInitializing = false;
-        }
-
-        /// <summary>
-        /// 默认选中第一个命令
-        /// </summary>
-        private void SelectFirstCommand()
-        {
-            if (CommandListBox.Items.Count > 0)
-            {
-                var firstItem = CommandListBox.Items[0] as ListBoxItem;
-                if (firstItem != null && firstItem.IsEnabled)
-                {
-                    CommandListBox.SelectedIndex = 0;
-                    HandleCommandSelection(firstItem);
-                }
-            }
-            else
-            {
-                LoadEmptyState();
-            }
+            return null;
         }
 
         /// <summary>
@@ -323,6 +812,10 @@ namespace MaxChemical.Modules.Designer.Views
             CommandText.Text = "无可用命令";
             _currentCommandName = "";
         }
+
+        #endregion
+
+        #region *** 设备信息加载 ***
 
         /// <summary>
         /// 加载设备基本信息
@@ -407,282 +900,6 @@ namespace MaxChemical.Modules.Designer.Views
             var drawingImage = new DrawingImage(drawingGroup);
             DeviceImage.Source = drawingImage;
         }
-        /// <summary>
-        /// 恢复监控参数选择状态
-        /// </summary>
-        public void RestoreMonitoringSelections(HashSet<string> selectedParameterNames)
-        {
-            try
-            {
-                if (selectedParameterNames == null || selectedParameterNames.Count == 0)
-                {
-                    Debug.WriteLine("没有需要恢复的监控参数选择状态");
-                    return;
-                }
-
-                Debug.WriteLine($"开始恢复监控参数选择状态: {string.Join(", ", selectedParameterNames)}");
-
-                // 延迟执行恢复，确保UI已经加载完成
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    RestoreMonitoringSelectionsInternal(selectedParameterNames);
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"恢复监控参数选择状态失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 内部恢复监控参数选择状态方法
-        /// </summary>
-        private void RestoreMonitoringSelectionsInternal(HashSet<string> selectedParameterNames)
-        {
-            try
-            {
-                int restoredCount = 0;
-
-                foreach (var checkBox in _monitorParameterCheckBoxes)
-                {
-                    string parameterName = "";
-
-                    if (checkBox.Tag is ParameterBase param)
-                    {
-                        parameterName = param.Name;
-                    }
-                    else if (checkBox.Content != null)
-                    {
-                        var content = checkBox.Content.ToString();
-                        parameterName = ExtractParameterName(content);
-                    }
-
-                    if (!string.IsNullOrEmpty(parameterName) && selectedParameterNames.Contains(parameterName))
-                    {
-                        checkBox.IsChecked = true;
-                        restoredCount++;
-                        Debug.WriteLine($"恢复参数选择: {parameterName}");
-                    }
-                }
-
-                Debug.WriteLine($"监控参数选择状态恢复完成: 共恢复 {restoredCount} 个参数");
-
-                // 如果有恢复的参数，更新界面状态
-                if (restoredCount > 0)
-                {
-                    // 可以在这里添加一些UI反馈，比如高亮显示恢复的参数等
-                    UpdateMonitoringRestoreIndicator(restoredCount);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"内部恢复监控参数选择状态失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 更新监控参数恢复指示器
-        /// </summary>
-        private void UpdateMonitoringRestoreIndicator(int restoredCount)
-        {
-            try
-            {
-                // 可以在状态栏或者某个地方显示恢复信息
-                Debug.WriteLine($"已恢复 {restoredCount} 个监控参数的选择状态");
-
-                // 如果需要，可以在UI上显示一个临时提示
-                ShowMonitoringRestoreNotification(restoredCount);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新监控参数恢复指示器失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 显示监控参数恢复通知
-        /// </summary>
-        private void ShowMonitoringRestoreNotification(int restoredCount)
-        {
-            try
-            {
-                // 创建一个临时的通知元素（可选）
-                var notification = new Border
-                {
-                    Background = new SolidColorBrush(Color.FromArgb(200, 76, 175, 80)),
-                    CornerRadius = new CornerRadius(4),
-                    Padding = new Thickness(8, 4,8,4),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Top,
-                    Margin = new Thickness(0, 10, 0, 0)
-                };
-
-                var notificationText = new TextBlock
-                {
-                    Text = $"已恢复 {restoredCount} 个监控参数的选择",
-                    Foreground = Brushes.White,
-                    FontSize = 12,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
-
-                notification.Child = notificationText;
-
-                // 如果有合适的容器，可以临时显示这个通知
-                // 这里只是一个示例，实际使用时需要根据具体的UI结构来实现
-                Debug.WriteLine($"恢复通知: 已恢复 {restoredCount} 个监控参数的选择");
-
-                // 可以考虑使用 Toast 通知或者其他方式来显示
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"显示监控参数恢复通知失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 获取当前选中的监控参数名称列表（用于调试）
-        /// </summary>
-        public List<string> GetCurrentSelectedParameterNames()
-        {
-            try
-            {
-                var selectedNames = new List<string>();
-
-                foreach (var checkBox in _monitorParameterCheckBoxes)
-                {
-                    if (checkBox.IsChecked == true)
-                    {
-                        string parameterName = "";
-
-                        if (checkBox.Tag is ParameterBase param)
-                        {
-                            parameterName = param.Name;
-                        }
-                        else if (checkBox.Content != null)
-                        {
-                            var content = checkBox.Content.ToString();
-                            parameterName = ExtractParameterName(content);
-                        }
-
-                        if (!string.IsNullOrEmpty(parameterName))
-                        {
-                            selectedNames.Add(parameterName);
-                        }
-                    }
-                }
-
-                return selectedNames;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"获取当前选中的监控参数名称失败: {ex.Message}");
-                return new List<string>();
-            }
-        }
-
-        // 修改 UpdateMonitorParametersForCommand 方法，在切换命令后恢复选择状态
-        /// <summary>
-        /// 根据选中的命令更新监控参数 - 修改版本，支持跨命令恢复选择状态
-        /// </summary>
-        private void UpdateMonitorParametersForCommand(string commandName, DeviceCommand command = null)
-        {
-            Debug.WriteLine($"\n=== 开始更新命令 '{commandName}' 的监控参数 ===");
-
-            // 先保存当前命令的选中状态
-            if (!string.IsNullOrEmpty(_currentCommandName) && _currentCommandName != commandName)
-            {
-                SaveCurrentCommandSelections();
-            }
-
-            // 清空当前显示
-            MonitorParametersPanel.Children.Clear();
-            _monitorParameterCheckBoxes.Clear();
-
-            CommandText.Text = commandName;
-            _currentCommandName = commandName; // 更新当前命令名
-
-            List<ParameterBase> outputParameters = new List<ParameterBase>();
-
-            if (command?.OutputParameters?.Variables?.Any() == true)
-            {
-                outputParameters = command.OutputParameters.Variables.ToList();
-            }
-            else
-            {
-                var matchedCommand = FindCommandByName(commandName);
-                if (matchedCommand?.OutputParameters?.Variables?.Any() == true)
-                {
-                    outputParameters = matchedCommand.OutputParameters.Variables.ToList();
-                }
-            }
-
-            // 为每个输出参数创建复选框
-            foreach (var param in outputParameters)
-            {
-                var checkBox = new CheckBox
-                {
-                    Content = $"{param.Name} {param.Value ?? ""}",
-                    Style = (Style)FindResource("CheckBoxStyle"),
-                    Margin = new Thickness(8, 2, 12, 2),
-                    Tag = param
-                };
-
-                // 添加选中状态变化事件处理
-                checkBox.Checked += MonitorParameterCheckBox_CheckedChanged;
-                checkBox.Unchecked += MonitorParameterCheckBox_CheckedChanged;
-
-                MonitorParametersPanel.Children.Add(checkBox);
-                _monitorParameterCheckBoxes.Add(checkBox);
-            }
-
-            // 恢复当前命令的选中状态（命令级别的状态）
-            RestoreCommandSelections(commandName);
-
-            Debug.WriteLine($"=== 完成更新命令 '{commandName}' 的 {outputParameters.Count} 个监控参数 ===\n");
-        }
-
-        /// <summary>
-        /// 监控参数复选框状态变化事件
-        /// </summary>
-        private void MonitorParameterCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return; // 初始化期间不处理
-
-            if (sender is CheckBox checkBox && !string.IsNullOrEmpty(_currentCommandName))
-            {
-                string parameterName = "";
-
-                if (checkBox.Tag is ParameterBase param)
-                {
-                    parameterName = param.Name;
-                }
-                else if (checkBox.Content != null)
-                {
-                    var content = checkBox.Content.ToString();
-                    parameterName = ExtractParameterName(content);
-                }
-
-                if (!string.IsNullOrEmpty(parameterName))
-                {
-                    var key = GenerateParameterKey(_currentCommandName, parameterName);
-                    var isChecked = checkBox.IsChecked == true;
-                    _monitorParameterSelections[key] = isChecked;
-                    Debug.WriteLine($"实时更新: {key} = {isChecked}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// 根据命令名称查找对应的命令对象
-        /// </summary>
-        private DeviceCommand FindCommandByName(string commandName)
-        {
-            if (_canvasDevice?.Device?.Commands?.Any() == true)
-            {
-                return _canvasDevice.Device.Commands.FirstOrDefault(c => c.Name == commandName);
-            }
-            return null;
-        }
 
         /// <summary>
         /// 加载设备命令
@@ -741,23 +958,19 @@ namespace MaxChemical.Modules.Designer.Views
             if (!selectedItem.IsEnabled) return;
 
             var commandName = selectedItem.Content.ToString();
-
             Debug.WriteLine($"\n*** 切换到命令: {commandName} ***");
 
             if (selectedItem.Tag is DeviceCommand command)
             {
                 _selectedCommand = command;
-
                 UpdateMonitorParametersForCommand(commandName, command);
                 LoadCommandInputParameters(command);
                 LoadCommandOutputParameters(command);
-
                 Debug.WriteLine($"选择了命令: {commandName}, 输入参数: {command.InputParameters?.Variables?.Count ?? 0}, 输出参数: {command.OutputParameters?.Variables?.Count ?? 0}");
             }
             else
             {
                 _selectedCommand = null;
-
                 var foundCommand = FindCommandByName(commandName);
                 if (foundCommand != null)
                 {
@@ -767,7 +980,6 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    // 保存当前状态后清空
                     if (!string.IsNullOrEmpty(_currentCommandName))
                     {
                         SaveCurrentCommandSelections();
@@ -783,7 +995,76 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        // ... 其他方法保持不变 ...
+        /// <summary>
+        /// 根据选中的命令更新监控参数
+        /// </summary>
+        private void UpdateMonitorParametersForCommand(string commandName, DeviceCommand command = null)
+        {
+            Debug.WriteLine($"\n=== 开始更新命令 '{commandName}' 的监控参数（不显示参数值） ===");
+
+            // 在清空UI之前保存当前状态
+            if (!string.IsNullOrEmpty(_currentCommandName) &&
+                _currentCommandName != commandName &&
+                _monitorParameterCheckBoxes.Count > 0)
+            {
+                Debug.WriteLine($"保存切换前的命令状态: {_currentCommandName}");
+                SaveCurrentCommandSelectionsBeforeSwitch();
+            }
+
+            // 更新当前命令名
+            _currentCommandName = commandName;
+            CommandText.Text = commandName;
+
+            // 清空当前显示
+            MonitorParametersPanel.Children.Clear();
+            _monitorParameterCheckBoxes.Clear();
+
+            List<ParameterBase> outputParameters = new List<ParameterBase>();
+
+            if (command?.OutputParameters?.Variables?.Any() == true)
+            {
+                outputParameters = command.OutputParameters.Variables.ToList();
+            }
+            else
+            {
+                var matchedCommand = FindCommandByName(commandName);
+                if (matchedCommand?.OutputParameters?.Variables?.Any() == true)
+                {
+                    outputParameters = matchedCommand.OutputParameters.Variables.ToList();
+                }
+            }
+
+            // 为每个输出参数创建复选框
+            foreach (var param in outputParameters)
+            {
+                var checkBox = new CheckBox
+                {
+                    Content = param.Name, // 只显示参数名称，不显示值
+                    Style = (Style)FindResource("CheckBoxStyle"),
+                    Margin = new Thickness(8, 2, 12, 2),
+                    Tag = param
+                };
+
+                // 添加选中状态变化事件处理
+                checkBox.Checked += MonitorParameterCheckBox_CheckedChanged;
+                checkBox.Unchecked += MonitorParameterCheckBox_CheckedChanged;
+
+                MonitorParametersPanel.Children.Add(checkBox);
+                _monitorParameterCheckBoxes.Add(checkBox);
+            }
+
+            // 延迟恢复状态，确保UI完全创建后再恢复
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                RestoreCommandSelectionsAfterSwitch(commandName);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            Debug.WriteLine($"=== 完成更新命令 '{commandName}' 的 {outputParameters.Count} 个监控参数（仅显示名称） ===\n");
+        }
+
+        #endregion
+
+        #region *** 参数加载和显示 ***
 
         /// <summary>
         /// 加载命令输入参数
@@ -842,96 +1123,6 @@ namespace MaxChemical.Modules.Designer.Views
                     HorizontalAlignment = HorizontalAlignment.Center
                 };
                 OutputParametersPanel.Children.Add(noParamsText);
-            }
-        }
-
-        /// <summary>
-        /// 更新输出参数显示 - 执行命令后调用
-        /// </summary>
-        private void UpdateOutputParametersDisplay(DeviceCommandResult result = null)
-        {
-            try
-            {
-                if (result?.OutputParameters?.Variables?.Any() == true)
-                {
-                    UpdateOutputParametersFromResult(result.OutputParameters);
-                    UpdateMonitorParametersFromResult(result.OutputParameters);
-                }
-                else if (_selectedCommand?.OutputParameters?.Variables?.Any() == true)
-                {
-                    LoadCommandOutputParameters(_selectedCommand);
-                    UpdateMonitorParametersFromCommandParameters(_selectedCommand.OutputParameters);
-                }
-                else
-                {
-                    Debug.WriteLine("没有可用的输出参数进行更新");
-                }
-
-                Debug.WriteLine("输出参数显示已更新（使用实际执行结果）");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新输出参数显示失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 从实际命令执行结果更新输出参数显示
-        /// </summary>
-        private void UpdateOutputParametersFromResult(DeviceParameters outputParameters)
-        {
-            OutputParametersPanel.Children.Clear();
-
-            foreach (var param in outputParameters.Variables)
-            {
-                var parameterControl = CreateParameterDisplayControl(param);
-                OutputParametersPanel.Children.Add(parameterControl);
-            }
-
-            Debug.WriteLine($"已更新 {outputParameters.Variables.Count} 个实际输出参数");
-        }
-
-        /// <summary>
-        /// 从命令执行结果更新监控参数显示
-        /// </summary>
-        private void UpdateMonitorParametersFromResult(DeviceParameters outputParameters)
-        {
-            foreach (var checkBox in _monitorParameterCheckBoxes)
-            {
-                if (checkBox.Tag is ParameterBase originalParam)
-                {
-                    var updatedParam = outputParameters.Variables
-                        .FirstOrDefault(p => p.Name == originalParam.Name);
-
-                    if (updatedParam != null)
-                    {
-                        checkBox.Content = $"{updatedParam.Name} {updatedParam.Value ?? ""}";
-                        checkBox.Tag = updatedParam;
-                    }
-                }
-            }
-
-            Debug.WriteLine($"监控参数显示已从执行结果更新");
-        }
-
-        /// <summary>
-        /// 从命令参数更新监控参数显示
-        /// </summary>
-        private void UpdateMonitorParametersFromCommandParameters(DeviceParameters commandParameters)
-        {
-            foreach (var checkBox in _monitorParameterCheckBoxes)
-            {
-                if (checkBox.Tag is ParameterBase originalParam)
-                {
-                    var updatedParam = commandParameters.Variables
-                        .FirstOrDefault(p => p.Name == originalParam.Name);
-
-                    if (updatedParam != null)
-                    {
-                        checkBox.Content = $"{updatedParam.Name} {updatedParam.Value ?? ""}";
-                        checkBox.Tag = updatedParam;
-                    }
-                }
             }
         }
 
@@ -1101,22 +1292,214 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
+        /// 更新输出参数显示 - 执行命令后调用
+        /// </summary>
+        private void UpdateOutputParametersDisplay(DeviceCommandResult result = null)
+        {
+            try
+            {
+                if (result?.OutputParameters?.Variables?.Any() == true)
+                {
+                    UpdateOutputParametersFromResult(result.OutputParameters);
+                    UpdateMonitorParametersFromResult(result.OutputParameters);
+                }
+                else if (_selectedCommand?.OutputParameters?.Variables?.Any() == true)
+                {
+                    LoadCommandOutputParameters(_selectedCommand);
+                    UpdateMonitorParametersFromCommandParameters(_selectedCommand.OutputParameters);
+                }
+                else
+                {
+                    Debug.WriteLine("没有可用的输出参数进行更新");
+                }
+
+                Debug.WriteLine("输出参数显示已更新（使用实际执行结果）");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新输出参数显示失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 从实际命令执行结果更新输出参数显示
+        /// </summary>
+        private void UpdateOutputParametersFromResult(DeviceParameters outputParameters)
+        {
+            OutputParametersPanel.Children.Clear();
+
+            foreach (var param in outputParameters.Variables)
+            {
+                var parameterControl = CreateParameterDisplayControl(param);
+                OutputParametersPanel.Children.Add(parameterControl);
+            }
+
+            Debug.WriteLine($"已更新 {outputParameters.Variables.Count} 个实际输出参数");
+        }
+
+        /// <summary>
+        /// 从命令执行结果更新监控参数显示
+        /// </summary>
+        private void UpdateMonitorParametersFromResult(DeviceParameters outputParameters)
+        {
+            foreach (var checkBox in _monitorParameterCheckBoxes)
+            {
+                if (checkBox.Tag is ParameterBase originalParam)
+                {
+                    var updatedParam = outputParameters.Variables
+                        .FirstOrDefault(p => p.Name == originalParam.Name);
+
+                    if (updatedParam != null)
+                    {
+                        checkBox.Content = updatedParam.Name; // 只显示参数名称，不显示值
+                        checkBox.Tag = updatedParam;
+                    }
+                }
+            }
+
+            Debug.WriteLine($"监控参数显示已从执行结果更新（仅显示名称）");
+        }
+
+        /// <summary>
+        /// 从命令参数更新监控参数显示
+        /// </summary>
+        private void UpdateMonitorParametersFromCommandParameters(DeviceParameters commandParameters)
+        {
+            foreach (var checkBox in _monitorParameterCheckBoxes)
+            {
+                if (checkBox.Tag is ParameterBase originalParam)
+                {
+                    var updatedParam = commandParameters.Variables
+                        .FirstOrDefault(p => p.Name == originalParam.Name);
+
+                    if (updatedParam != null)
+                    {
+                        checkBox.Content = updatedParam.Name; // 只显示参数名称，不显示值
+                        checkBox.Tag = updatedParam;
+                    }
+                }
+            }
+        }
+
+        #endregion
+
+        #region *** 获取参数方法 ***
+
+        /// <summary>
         /// 获取当前选中的监控参数
         /// </summary>
         public List<ParameterBase> GetSelectedMonitorParameters()
         {
             var selectedParams = new List<ParameterBase>();
 
-            foreach (var checkBox in _monitorParameterCheckBoxes)
+            try
             {
-                if (checkBox.IsChecked == true && checkBox.Tag is ParameterBase param)
+                Debug.WriteLine("获取当前命令的选中参数");
+
+                // 先保存当前状态，确保最新的选择被包含
+                if (!string.IsNullOrEmpty(_currentCommandName) && _monitorParameterCheckBoxes.Count > 0)
                 {
-                    selectedParams.Add(param);
+                    SaveCurrentCommandSelections();
                 }
+
+                foreach (var checkBox in _monitorParameterCheckBoxes)
+                {
+                    if (checkBox.IsChecked == true && checkBox.Tag is ParameterBase param)
+                    {
+                        selectedParams.Add(param);
+                        Debug.WriteLine($"  当前命令选中参数: {param.Name}");
+                    }
+                }
+
+                Debug.WriteLine($"当前命令共 {selectedParams.Count} 个选中的监控参数");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取当前命令选中监控参数失败: {ex.Message}");
             }
 
             return selectedParams;
         }
+
+        /// <summary>
+        /// 获取所有命令的选中监控参数
+        /// </summary>
+        private List<ParameterBase> GetAllSelectedMonitorParameters()
+        {
+            var allSelectedParams = new List<ParameterBase>();
+
+            try
+            {
+                Debug.WriteLine("\n=== 开始收集所有命令的选中参数 ===");
+
+                // 先保存当前命令状态，确保最新的选择被包含
+                if (!string.IsNullOrEmpty(_currentCommandName) && _monitorParameterCheckBoxes.Count > 0)
+                {
+                    SaveCurrentCommandSelections();
+                }
+
+                // 从保存的状态字典中收集所有选中的参数
+                var selectedParametersByCommand = new Dictionary<string, HashSet<string>>();
+
+                // 整理选中的参数（按命令分组）
+                foreach (var kvp in _monitorParameterSelections)
+                {
+                    if (kvp.Value) // 只处理选中的参数
+                    {
+                        var parts = kvp.Key.Split('#');
+                        if (parts.Length == 2)
+                        {
+                            var commandName = parts[0];
+                            var parameterName = parts[1];
+
+                            if (!selectedParametersByCommand.ContainsKey(commandName))
+                            {
+                                selectedParametersByCommand[commandName] = new HashSet<string>();
+                            }
+                            selectedParametersByCommand[commandName].Add(parameterName);
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"找到 {selectedParametersByCommand.Count} 个命令有选中的参数");
+
+                // 从设备的命令中查找对应的参数对象
+                if (_canvasDevice?.Device?.Commands != null)
+                {
+                    foreach (var command in _canvasDevice.Device.Commands)
+                    {
+                        if (selectedParametersByCommand.TryGetValue(command.Name, out var selectedParamNames))
+                        {
+                            Debug.WriteLine($"处理命令 '{command.Name}' 的 {selectedParamNames.Count} 个选中参数");
+
+                            if (command.OutputParameters?.Variables != null)
+                            {
+                                foreach (var param in command.OutputParameters.Variables)
+                                {
+                                    if (selectedParamNames.Contains(param.Name))
+                                    {
+                                        allSelectedParams.Add(param);
+                                        Debug.WriteLine($"  添加参数: {command.Name}#{param.Name}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"=== 收集完成，总共 {allSelectedParams.Count} 个选中参数 ===\n");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取所有选中监控参数失败: {ex.Message}");
+            }
+
+            return allSelectedParams;
+        }
+
+        #endregion
+
+        #region *** 验证方法 ***
 
         /// <summary>
         /// 验证命令输入参数
@@ -1144,51 +1527,176 @@ namespace MaxChemical.Modules.Designer.Views
             return command.InputParameters.GetValidationErrors();
         }
 
-        #region 事件处理
-
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        { 
-            // *** 新增：关闭对话框前恢复原始模拟模式状态 ***
-            RestoreOriginalSimulationMode();
-
-            // 获取选中的监控参数
-            var selectedParams = GetSelectedMonitorParameters();
-
-            // 发布监控参数变化事件
-            if (selectedParams.Any())
+        /// <summary>
+        /// 调试方法：打印所有保存的选择状态
+        /// </summary>
+        private void PrintAllSavedSelections()
+        {
+            try
             {
-                var args = new MonitoringParametersChangedEventArgs
+                Debug.WriteLine("\n=== 所有保存的监控参数选择状态 ===");
+
+                var groupedSelections = _monitorParameterSelections
+                    .Where(kvp => kvp.Value) // 只显示选中的
+                    .GroupBy(kvp => kvp.Key.Split('#')[0]) // 按命令分组
+                    .ToList();
+
+                if (groupedSelections.Count == 0)
                 {
-                    DeviceId = _canvasDevice?.DeviceId,
-                    DeviceName = _deviceDisplayName ?? _canvasDevice?.Device?.Name,
-                    CommandName = _selectedCommand?.Name,
-                    SelectedParameters = selectedParams
-                };
+                    Debug.WriteLine("没有保存任何选中的参数");
+                }
+                else
+                {
+                    foreach (var group in groupedSelections)
+                    {
+                        var commandName = group.Key;
+                        var parameters = group.Select(kvp => kvp.Key.Split('#')[1]).ToList();
+                        Debug.WriteLine($"命令 '{commandName}': {parameters.Count} 个参数 [{string.Join(", ", parameters)}]");
+                    }
+                }
 
-                MonitoringParametersChanged?.Invoke(this, args);
+                Debug.WriteLine("=== 状态打印完成 ===\n");
             }
-
-            CloseRequested?.Invoke(this, EventArgs.Empty);
-            DialogResult?.Invoke(this, false);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"打印状态失败: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// 调试方法：显示当前选择状态详情
+        /// </summary>
+        public void DebugCurrentSelectionDetails()
+        {
+            try
+            {
+                Debug.WriteLine("\n=== 当前选择状态详情 ===");
+                Debug.WriteLine($"当前命令: {_currentCommandName}");
+
+                var selectedStates = _monitorParameterSelections.Where(kvp => kvp.Value).ToList();
+                var unselectedStates = _monitorParameterSelections.Where(kvp => !kvp.Value).ToList();
+
+                Debug.WriteLine($"选中状态 ({selectedStates.Count} 个):");
+                foreach (var state in selectedStates)
+                {
+                    Debug.WriteLine($"  {state.Key} = {state.Value}");
+                }
+
+                Debug.WriteLine($"未选中状态 ({unselectedStates.Count} 个):");
+                foreach (var state in unselectedStates)
+                {
+                    Debug.WriteLine($"  {state.Key} = {state.Value}");
+                }
+
+                Debug.WriteLine("=== 详情显示完成 ===\n");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"显示选择状态详情失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region *** 事件处理 ***
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 关闭前保存当前命令的状态
+                if (!string.IsNullOrEmpty(_currentCommandName) && _monitorParameterCheckBoxes.Count > 0)
+                {
+                    Debug.WriteLine("关闭前保存当前命令状态");
+                    SaveCurrentCommandSelections();
+                }
+
+                // 打印所有保存的状态（调试用）
+                PrintAllSavedSelections();
+
+                // 恢复原始模拟模式状态
+                RestoreOriginalSimulationMode();
+
+                // 获取所有命令的选中参数
+                var selectedParams = GetAllSelectedMonitorParameters();
+
+                // 发布监控参数变化事件
+                if (selectedParams.Count > 0)
+                {
+                    var args = new MonitoringParametersChangedEventArgs
+                    {
+                        DeviceId = _canvasDevice?.DeviceId,
+                        DeviceName = _deviceDisplayName ?? _canvasDevice?.Device?.Name,
+                        SelectedParameters = selectedParams
+                    };
+
+                    Debug.WriteLine($"发布监控参数变化事件: 设备 {args.DeviceName}, 参数数量 {selectedParams.Count}");
+                    MonitoringParametersChanged?.Invoke(this, args);
+                }
+                else
+                {
+                    Debug.WriteLine("没有选中的监控参数，不发布事件");
+                }
+
+                CloseRequested?.Invoke(this, EventArgs.Empty);
+                DialogResult?.Invoke(this, false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"关闭处理失败: {ex.Message}");
+                CloseRequested?.Invoke(this, EventArgs.Empty);
+                DialogResult?.Invoke(this, false);
+            }
+        }
 
         private void SelectAllButton_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var checkBox in _monitorParameterCheckBoxes)
+            try
             {
-                checkBox.IsChecked = true;
+                _isInitializing = true; // 暂时阻止事件处理
+
+                foreach (var checkBox in _monitorParameterCheckBoxes)
+                {
+                    checkBox.IsChecked = true;
+                }
+
+                _isInitializing = false; // 恢复事件处理
+
+                // 手动保存状态
+                SaveCurrentCommandSelections();
+
+                Debug.WriteLine($"已全选命令 '{_currentCommandName}' 的 {_monitorParameterCheckBoxes.Count} 个监控参数");
             }
-            Debug.WriteLine($"已全选命令 '{_currentCommandName}' 的 {_monitorParameterCheckBoxes.Count} 个监控参数");
+            catch (Exception ex)
+            {
+                _isInitializing = false;
+                Debug.WriteLine($"全选操作失败: {ex.Message}");
+            }
         }
 
         private void ClearAllButton_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var checkBox in _monitorParameterCheckBoxes)
+            try
             {
-                checkBox.IsChecked = false;
+                _isInitializing = true; // 暂时阻止事件处理
+
+                foreach (var checkBox in _monitorParameterCheckBoxes)
+                {
+                    checkBox.IsChecked = false;
+                }
+
+                _isInitializing = false; // 恢复事件处理
+
+                // 手动保存状态
+                SaveCurrentCommandSelections();
+
+                Debug.WriteLine($"已清除命令 '{_currentCommandName}' 的 {_monitorParameterCheckBoxes.Count} 个监控参数的选择");
             }
-            Debug.WriteLine($"已清除命令 '{_currentCommandName}' 的 {_monitorParameterCheckBoxes.Count} 个监控参数的选择");
+            catch (Exception ex)
+            {
+                _isInitializing = false;
+                Debug.WriteLine($"清除操作失败: {ex.Message}");
+            }
         }
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
@@ -1203,10 +1711,8 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"正在连接设备: {_canvasDevice.Device.Name} (强制使用实际模式)");
 
-                // *** 新增：强制设备进入实际模式 ***
+                // 强制设备进入实际模式
                 ForceDeviceToActualMode();
-
-                // *** 新增：再次确保设备处于实际模式 ***
                 EnsureDeviceInActualMode();
 
                 Debug.WriteLine($"设备 {_canvasDevice.Device.Name} 当前模拟模式状态: {(_canvasDevice.Device.IsSimulationMode ? "模拟模式" : "实际模式")}");
@@ -1289,7 +1795,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-
         private void ExecuteButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1301,7 +1806,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
                 }
 
-                // *** 新增：执行前确保设备处于实际模式 ***
+                // 执行前确保设备处于实际模式
                 EnsureDeviceInActualMode();
 
                 Debug.WriteLine($"执行命令（实际模式），设备模拟状态: {(_canvasDevice.Device.IsSimulationMode ? "模拟模式" : "实际模式")}");
@@ -1319,7 +1824,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Debug.WriteLine($"执行命令: {_selectedCommand.Name} (实际模式)");
                     Debug.WriteLine($"输入参数数量: {_selectedCommand.InputParameters?.Variables?.Count ?? 0}");
 
-                    // *** 重要：确认这是实际硬件操作 ***
+                    // 确认这是实际硬件操作
                     var confirmResult = MessageBox.Show(
                         $"即将执行命令 '{_selectedCommand.Name}'\n\n" +
                         "⚠️ 注意：此操作将直接控制真实硬件设备，可能会对设备状态产生实际影响。\n\n" +
@@ -1391,7 +1896,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-
         #endregion
     }
 
@@ -1399,7 +1903,6 @@ namespace MaxChemical.Modules.Designer.Views
     {
         public string DeviceId { get; set; }
         public string DeviceName { get; set; }
-        public string CommandName { get; set; }
         public List<ParameterBase> SelectedParameters { get; set; }
     }
 }

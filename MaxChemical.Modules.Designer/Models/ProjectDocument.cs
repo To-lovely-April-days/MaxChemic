@@ -50,6 +50,16 @@ namespace MaxChemical.Modules.Designer.Models
         public double CanvasZoom { get; set; } = 1.0;
         public CanvasScrollOffset ScrollOffset { get; set; } = new CanvasScrollOffset();
         public string SelectedDeviceId { get; set; }
+
+        /// <summary>
+        /// 设备监控参数选择状态 - DeviceId -> 参数名列表
+        /// </summary>
+        public Dictionary<string, HashSet<string>> DeviceMonitoringSelections { get; set; } = new Dictionary<string, HashSet<string>>();
+
+        /// <summary>
+        /// 设备监控卡片状态 - DeviceId -> 是否显示监控卡片
+        /// </summary>
+        public Dictionary<string, bool> DeviceMonitoringCardStates { get; set; } = new Dictionary<string, bool>();
     }
 
     /// <summary>

@@ -170,7 +170,522 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+        #region 监控参数状态管理的事件订阅
 
+        /// <summary>
+        /// 订阅监控参数状态相关事件
+        /// </summary>
+        private void SubscribeToMonitoringParameterEvents()
+        {
+            _eventAggregator?.GetEvent<GetDeviceMonitoringSelectionsRequestEvent>()?.Subscribe(OnGetDeviceMonitoringSelectionsRequest);
+            _eventAggregator?.GetEvent<GetMonitoringCardStatesRequestEvent>()?.Subscribe(OnGetMonitoringCardStatesRequest);
+            _eventAggregator?.GetEvent<RestoreDeviceMonitoringSelectionsEvent>()?.Subscribe(OnRestoreDeviceMonitoringSelections);
+            _eventAggregator?.GetEvent<RestoreMonitoringCardStatesEvent>()?.Subscribe(OnRestoreMonitoringCardStates);
+            _eventAggregator?.GetEvent<GetDeviceNameCountersRequestEvent>()?.Subscribe(OnGetDeviceNameCountersRequest);
+            _eventAggregator?.GetEvent<RestoreDeviceNameCountersEvent>()?.Subscribe(OnRestoreDeviceNameCounters);
+
+            // *** 新增：订阅设备显示名映射事件 ***
+            _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Subscribe(OnGetDeviceDisplayNamesRequest);
+            _eventAggregator?.GetEvent<RestoreDeviceDisplayNamesEvent>()?.Subscribe(OnRestoreDeviceDisplayNames);
+        }
+
+        /// <summary>
+        /// 响应获取设备监控参数选择状态请求
+        /// </summary>
+        private void OnGetDeviceMonitoringSelectionsRequest(Action<Dictionary<string, HashSet<string>>> callback)
+        {
+            try
+            {
+                // *** 关键修复：检查是否为完整键名格式，如果不是则转换 ***
+                var processedSelections = new Dictionary<string, HashSet<string>>();
+
+                foreach (var kvp in _deviceMonitoringSelections)
+                {
+                    var deviceId = kvp.Key;
+                    var selections = kvp.Value;
+
+                    // 检查选择是否为完整键名格式
+                    if (IsCompleteKeyFormat(selections))
+                    {
+                        // 已经是完整键名格式，直接使用
+                        processedSelections[deviceId] = new HashSet<string>(selections);
+                        Debug.WriteLine($"设备 {deviceId} 使用完整键名格式: {string.Join(", ", selections)}");
+                    }
+                    else
+                    {
+                        // 转换为完整键名格式
+                        var convertedKeys = ConvertToCompleteKeys(deviceId, selections);
+                        processedSelections[deviceId] = convertedKeys;
+                        Debug.WriteLine($"设备 {deviceId} 转换为完整键名格式: {string.Join(", ", convertedKeys)}");
+                    }
+                }
+
+                Debug.WriteLine($"返回设备监控参数选择状态: {processedSelections.Count} 个设备");
+                callback?.Invoke(processedSelections);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取设备监控参数选择状态失败: {ex.Message}");
+                callback?.Invoke(new Dictionary<string, HashSet<string>>());
+            }
+        }
+        /// <summary>
+        /// 检查选择是否为完整键名格式
+        /// </summary>
+        private bool IsCompleteKeyFormat(HashSet<string> selections)
+        {
+            if (selections.Count == 0) return true;
+
+            // 如果大部分选择包含 # 分隔符，则认为是完整键名格式
+            int completeKeyCount = selections.Count(s => s.Contains("#"));
+            return completeKeyCount > selections.Count / 2;
+        }
+
+        /// <summary>
+        /// 将参数名转换为完整键名格式
+        /// </summary>
+        private HashSet<string> ConvertToCompleteKeys(string deviceId, HashSet<string> parameterNames)
+        {
+            var completeKeys = new HashSet<string>();
+
+            try
+            {
+                // 查找设备
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d => d.DeviceId == deviceId);
+                if (canvasDevice?.Device?.Commands == null)
+                {
+                    Debug.WriteLine($"无法找到设备 {deviceId} 的命令信息");
+                    return completeKeys;
+                }
+
+                // 为每个参数名查找所在的命令
+                foreach (var parameterName in parameterNames)
+                {
+                    bool found = false;
+                    foreach (var command in canvasDevice.Device.Commands)
+                    {
+                        if (command.OutputParameters?.Variables?.Any(p => p.Name == parameterName) == true)
+                        {
+                            var completeKey = $"{command.Name}#{parameterName}";
+                            completeKeys.Add(completeKey);
+                            found = true;
+                            Debug.WriteLine($"转换参数: {parameterName} -> {completeKey}");
+                            break; // 找到第一个匹配的命令即可
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        Debug.WriteLine($"⚠️ 警告：参数 {parameterName} 在设备 {deviceId} 中未找到对应命令");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"转换完整键名失败: {ex.Message}");
+            }
+
+            return completeKeys;
+        }
+        /// <summary>
+        /// 响应获取监控卡片状态请求
+        /// </summary>
+        private void OnGetMonitoringCardStatesRequest(Action<Dictionary<string, bool>> callback)
+        {
+            try
+            {
+                var cardStates = new Dictionary<string, bool>();
+
+                foreach (var kvp in _monitoringCards)
+                {
+                    cardStates[kvp.Key] = true; // 存在监控卡片表示为true
+                }
+
+                Debug.WriteLine($"返回监控卡片状态: {cardStates.Count} 个设备有监控卡片");
+                callback?.Invoke(cardStates);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取监控卡片状态失败: {ex.Message}");
+                callback?.Invoke(new Dictionary<string, bool>());
+            }
+        }
+
+        /// <summary>
+        /// 恢复设备监控参数选择状态
+        /// </summary>
+        private void OnRestoreDeviceMonitoringSelections(Dictionary<string, HashSet<string>> selections)
+        {
+            try
+            {
+                if (selections == null || selections.Count == 0)
+                {
+                    Debug.WriteLine("没有需要恢复的监控参数选择状态");
+                    return;
+                }
+
+                Debug.WriteLine($"开始恢复 {selections.Count} 个设备的监控参数选择状态");
+
+                // 清空现有状态
+                _deviceMonitoringSelections.Clear();
+
+                // 恢复选择状态
+                foreach (var kvp in selections)
+                {
+                    if (kvp.Value != null && kvp.Value.Count > 0)
+                    {
+                        // *** 关键修复：支持完整键名格式恢复 ***
+                        _deviceMonitoringSelections[kvp.Key] = new HashSet<string>(kvp.Value);
+
+                        var formatType = IsCompleteKeyFormat(kvp.Value) ? "完整键名" : "参数名";
+                        Debug.WriteLine($"恢复设备 {kvp.Key} 的 {kvp.Value.Count} 个监控参数选择 ({formatType}格式)");
+                    }
+                }
+
+                Debug.WriteLine("设备监控参数选择状态恢复完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复设备监控参数选择状态失败: {ex.Message}");
+            }
+        }
+
+
+        /// <summary>
+        /// 恢复监控卡片状态
+        /// </summary>
+        private void OnRestoreMonitoringCardStates(Dictionary<string, bool> cardStates)
+        {
+            try
+            {
+                if (cardStates == null || cardStates.Count == 0)
+                {
+                    Debug.WriteLine("没有需要恢复的监控卡片状态");
+                    return;
+                }
+
+                Debug.WriteLine($"开始恢复 {cardStates.Count} 个设备的监控卡片状态");
+
+                // *** 关键修复：立即尝试恢复，然后设置延迟重试机制 ***
+                RestoreMonitoringCardsInternal(cardStates);
+
+                // 延迟重试恢复，确保设备元素完全加载
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Debug.WriteLine("延迟重试恢复监控卡片");
+                    RestoreMonitoringCardsInternal(cardStates);
+                }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                // 再次延迟重试，确保所有元素都已就绪
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Debug.WriteLine("最终重试恢复监控卡片");
+                    RestoreMonitoringCardsInternal(cardStates);
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复监控卡片状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 内部恢复监控卡片状态方法
+        /// </summary>
+        private void RestoreMonitoringCardsInternal(Dictionary<string, bool> cardStates)
+        {
+            try
+            {
+                int successCount = 0;
+                int failureCount = 0;
+
+                foreach (var kvp in cardStates)
+                {
+                    if (kvp.Value) // 需要显示监控卡片
+                    {
+                        var deviceId = kvp.Key;
+
+                        try
+                        {
+                            if (RestoreSingleMonitoringCard(deviceId))
+                            {
+                                successCount++;
+                            }
+                            else
+                            {
+                                failureCount++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"恢复设备 {deviceId} 的监控卡片失败: {ex.Message}");
+                            failureCount++;
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"监控卡片恢复完成: 成功 {successCount} 个，失败 {failureCount} 个");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"内部恢复监控卡片状态失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 恢复单个监控卡片 - 新方法
+        /// </summary>
+        private bool RestoreSingleMonitoringCard(string deviceId)
+        {
+            try
+            {
+                // 检查是否已经存在监控卡片
+                if (_monitoringCards.ContainsKey(deviceId))
+                {
+                    Debug.WriteLine($"设备 {deviceId} 的监控卡片已存在，跳过恢复");
+                    return true;
+                }
+
+                // 检查设备是否存在
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d => d.DeviceId == deviceId);
+                if (canvasDevice == null)
+                {
+                    Debug.WriteLine($"设备 {deviceId} 不存在，跳过监控卡片恢复");
+                    return false;
+                }
+
+                // 检查设备元素是否存在
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null)
+                {
+                    Debug.WriteLine($"设备 {deviceId} 的视觉元素不存在，跳过监控卡片恢复");
+                    return false;
+                }
+
+                // 获取监控参数选择状态
+                var selectedParameterKeys = GetDeviceMonitoringSelections(deviceId);
+                if (selectedParameterKeys.Count == 0)
+                {
+                    Debug.WriteLine($"设备 {deviceId} 没有选中的监控参数，跳过监控卡片恢复");
+                    return false;
+                }
+
+                // *** 关键修复：根据选择的键格式查找对应的参数 ***
+                var selectedParameters = FindParametersFromKeys(canvasDevice.Device, selectedParameterKeys);
+                if (selectedParameters.Count == 0)
+                {
+                    Debug.WriteLine($"设备 {deviceId} 的选中参数未找到对应的参数对象");
+                    return false;
+                }
+
+                // 创建监控卡片
+                var displayName = GetDeviceDisplayName(deviceId);
+                CreateOrUpdateMonitoringCard(deviceId, displayName, selectedParameters);
+
+                Debug.WriteLine($"成功恢复设备 {deviceId} 的监控卡片，包含 {selectedParameters.Count} 个参数");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复单个监控卡片失败: {ex.Message}");
+                return false;
+            }
+        }
+        /// <summary>
+        /// 根据键格式查找参数对象 - 新方法，支持完整键名和参数名两种格式
+        /// </summary>
+        private List<ParameterBase> FindParametersFromKeys(IDevice device, HashSet<string> parameterKeys)
+        {
+            var selectedParameters = new List<ParameterBase>();
+
+            try
+            {
+                if (device?.Commands?.Any() != true)
+                {
+                    Debug.WriteLine("设备没有命令，无法查找参数");
+                    return selectedParameters;
+                }
+
+                // 判断是完整键名格式还是参数名格式
+                bool isCompleteKeyFormat = IsCompleteKeyFormat(parameterKeys);
+                Debug.WriteLine($"参数键格式: {(isCompleteKeyFormat ? "完整键名" : "参数名")}");
+
+                if (isCompleteKeyFormat)
+                {
+                    // 完整键名格式：命令名#参数名
+                    selectedParameters = FindParametersFromCompleteKeys(device, parameterKeys);
+                }
+                else
+                {
+                    // 参数名格式：直接参数名
+                    selectedParameters = FindParametersFromParameterNames(device, parameterKeys);
+                }
+
+                Debug.WriteLine($"找到 {selectedParameters.Count} 个匹配的参数对象");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找参数对象失败: {ex.Message}");
+            }
+
+            return selectedParameters;
+        }
+        /// <summary>
+        /// 从完整键名查找参数对象
+        /// </summary>
+        private List<ParameterBase> FindParametersFromCompleteKeys(IDevice device, HashSet<string> completeKeys)
+        {
+            var selectedParameters = new List<ParameterBase>();
+
+            foreach (var key in completeKeys)
+            {
+                try
+                {
+                    var parts = key.Split('#');
+                    if (parts.Length != 2) continue;
+
+                    var commandName = parts[0];
+                    var parameterName = parts[1];
+
+                    var command = device.Commands.FirstOrDefault(c => c.Name == commandName);
+                    if (command?.OutputParameters?.Variables?.Any() == true)
+                    {
+                        var parameter = command.OutputParameters.Variables
+                            .FirstOrDefault(p => p.Name == parameterName);
+
+                        if (parameter != null)
+                        {
+                            // *** 关键修复：直接添加，不去重 ***
+                            selectedParameters.Add(parameter);
+                            Debug.WriteLine($"找到参数: {key}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"处理键名 {key} 失败: {ex.Message}");
+                }
+            }
+
+            Debug.WriteLine($"总共找到 {selectedParameters.Count} 个参数");
+            return selectedParameters;
+        }
+
+        /// <summary>
+        /// 从参数名查找参数对象
+        /// </summary>
+        private List<ParameterBase> FindParametersFromParameterNames(IDevice device, HashSet<string> parameterNames)
+        {
+            var selectedParameters = new List<ParameterBase>();
+
+            // *** 关键修复：遍历所有命令，找到所有匹配的参数 ***
+            foreach (var command in device.Commands)
+            {
+                if (command.OutputParameters?.Variables?.Any() == true)
+                {
+                    foreach (var param in command.OutputParameters.Variables)
+                    {
+                        if (parameterNames.Contains(param.Name))
+                        {
+                            selectedParameters.Add(param);
+                            Debug.WriteLine($"找到参数: {param.Name} (命令: {command.Name})");
+                        }
+                    }
+                }
+            }
+
+            Debug.WriteLine($"总共找到 {selectedParameters.Count} 个参数");
+            return selectedParameters;
+        }
+        /// <summary>
+        /// 根据参数名称查找设备的输出参数
+        /// </summary>
+        private List<ParameterBase> FindDeviceOutputParameters(IDevice device, HashSet<string> parameterNames)
+        {
+            var selectedParameters = new List<ParameterBase>();
+
+            try
+            {
+                if (device?.Commands?.Any() == true)
+                {
+                    foreach (var command in device.Commands)
+                    {
+                        if (command.OutputParameters?.Variables?.Any() == true)
+                        {
+                            foreach (var param in command.OutputParameters.Variables)
+                            {
+                                if (parameterNames.Contains(param.Name) &&
+                                    !selectedParameters.Any(p => p.Name == param.Name))
+                                {
+                                    selectedParameters.Add(param);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"找到 {selectedParameters.Count} 个匹配的输出参数");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找设备输出参数失败: {ex.Message}");
+            }
+
+            return selectedParameters;
+        }
+
+        /// <summary>
+        /// 响应获取设备名称计数器请求
+        /// </summary>
+        private void OnGetDeviceNameCountersRequest(Action<Dictionary<string, int>> callback)
+        {
+            try
+            {
+                // 返回一份拷贝
+                var copyCounters = new Dictionary<string, int>(_deviceNameCounters);
+                Debug.WriteLine($"返回设备名称计数器: {copyCounters.Count} 个类型");
+                callback?.Invoke(copyCounters);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取设备名称计数器失败: {ex.Message}");
+                callback?.Invoke(new Dictionary<string, int>());
+            }
+        }
+
+        /// <summary>
+        /// 恢复设备名称计数器
+        /// </summary>
+        private void OnRestoreDeviceNameCounters(Dictionary<string, int> counters)
+        {
+            try
+            {
+                if (counters == null || counters.Count == 0)
+                {
+                    Debug.WriteLine("没有需要恢复的设备名称计数器");
+                    return;
+                }
+
+                Debug.WriteLine($"开始恢复 {counters.Count} 个设备名称计数器");
+
+                // 清空现有计数器
+                _deviceNameCounters.Clear();
+
+                // 恢复计数器
+                foreach (var kvp in counters)
+                {
+                    _deviceNameCounters[kvp.Key] = kvp.Value;
+                    Debug.WriteLine($"恢复计数器: {kvp.Key} = {kvp.Value}");
+                }
+
+                Debug.WriteLine("设备名称计数器恢复完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复设备名称计数器失败: {ex.Message}");
+            }
+        }
+
+        #endregion
         #region 生命周期事件处理
 
         private void OnLoaded(object sender, RoutedEventArgs e)
@@ -192,7 +707,10 @@ namespace MaxChemical.Modules.Designer.Views
             // 订阅画布操作相关事件
             SubscribeToCanvasEvents();
             SubscribeToExecutionEvents();
-            SubscribeToDeviceDisplayNameRequest();
+         
+
+            // *** 新增：订阅监控参数状态事件 ***
+            SubscribeToMonitoringParameterEvents();
         }
         private void SubscribeToExecutionEvents()
         {
@@ -302,10 +820,7 @@ namespace MaxChemical.Modules.Designer.Views
             sb.Children.Add(opacityAnim);
             return sb;
         }
-        private void SubscribeToDeviceDisplayNameRequest()
-        {
-            _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Subscribe(OnGetDeviceDisplayNamesRequest);
-        }
+   
 
         private void OnGetDeviceDisplayNamesRequest(Action<Dictionary<string, string>> callback)
         {
@@ -313,11 +828,41 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 // 返回一份拷贝，避免外部修改
                 callback?.Invoke(new Dictionary<string, string>(_deviceDisplayNames));
+                Debug.WriteLine($"返回设备显示名映射: {_deviceDisplayNames.Count} 个设备");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"返回设备显示名映射失败: {ex.Message}");
                 callback?.Invoke(new Dictionary<string, string>());
+            }
+        }
+        private void OnRestoreDeviceDisplayNames(Dictionary<string, string> displayNames)
+        {
+            try
+            {
+                if (displayNames == null || displayNames.Count == 0)
+                {
+                    Debug.WriteLine("没有需要恢复的设备显示名映射");
+                    return;
+                }
+
+                Debug.WriteLine($"开始恢复 {displayNames.Count} 个设备的显示名映射");
+
+                // 清空现有映射
+                _deviceDisplayNames.Clear();
+
+                // 恢复映射
+                foreach (var kvp in displayNames)
+                {
+                    _deviceDisplayNames[kvp.Key] = kvp.Value;
+                    Debug.WriteLine($"恢复显示名映射: {kvp.Key} = {kvp.Value}");
+                }
+
+                Debug.WriteLine("设备显示名映射恢复完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复设备显示名映射失败: {ex.Message}");
             }
         }
         private string GetDisplayNameForNewDevice(IDevice device)
@@ -392,6 +937,14 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Unsubscribe(OnNewCanvasCreated);
             _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Unsubscribe(OnLoadCanvasRequest);
             _eventAggregator?.GetEvent<CanvasLoadedEvent>()?.Unsubscribe(OnCanvasLoaded);
+
+            // *** 新增：取消订阅监控参数状态事件 ***
+            _eventAggregator?.GetEvent<GetDeviceMonitoringSelectionsRequestEvent>()?.Unsubscribe(OnGetDeviceMonitoringSelectionsRequest);
+            _eventAggregator?.GetEvent<GetMonitoringCardStatesRequestEvent>()?.Unsubscribe(OnGetMonitoringCardStatesRequest);
+            _eventAggregator?.GetEvent<RestoreDeviceMonitoringSelectionsEvent>()?.Unsubscribe(OnRestoreDeviceMonitoringSelections);
+            _eventAggregator?.GetEvent<RestoreMonitoringCardStatesEvent>()?.Unsubscribe(OnRestoreMonitoringCardStates);
+            _eventAggregator?.GetEvent<GetDeviceNameCountersRequestEvent>()?.Unsubscribe(OnGetDeviceNameCountersRequest);
+            _eventAggregator?.GetEvent<RestoreDeviceNameCountersEvent>()?.Unsubscribe(OnRestoreDeviceNameCounters);
         }
 
         /// <summary>
@@ -2402,7 +2955,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 查找设备数据
                 var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == deviceId);
                 if (canvasDevice == null)
                 {
@@ -2413,7 +2965,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"显示设备属性弹窗: {canvasDevice.Device.Name}");
 
-                // 关闭之前的弹窗（如果存在）
+                // 关闭之前的弹窗
                 if (_devicePropertyWindow != null)
                 {
                     _devicePropertyWindow.Close();
@@ -2423,20 +2975,49 @@ namespace MaxChemical.Modules.Designer.Views
                 // 创建设备属性对话框
                 var devicePropertyDialog = new DevicePropertyDialog();
 
-                // 获取设备显示名称
+                // 获取设备显示名称和之前的选择状态
                 var displayName = GetDeviceDisplayName(deviceId);
-
-                // 获取之前的监控参数选择状态
                 var previousSelections = GetDeviceMonitoringSelections(deviceId);
 
-                // 设置设备数据并恢复选择状态
-                devicePropertyDialog.SetDeviceData(canvasDevice, displayName);
-                devicePropertyDialog.RestoreMonitoringSelections(previousSelections);
+                Debug.WriteLine($"设备 {deviceId} 的历史选择状态: {string.Join(", ", previousSelections)}");
 
-                // 订阅监控参数变化事件
+                // *** 关键修复：只设置一次数据和状态 ***
+
+                // 1. 先设置设备数据（这会清理所有状态）
+                devicePropertyDialog.SetDeviceData(canvasDevice, displayName);
+
+                // 2. 如果有历史选择状态，延迟恢复
+                if (previousSelections.Count > 0)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            Debug.WriteLine($"开始延迟恢复设备 {deviceId} 的监控参数状态");
+                            devicePropertyDialog.RestoreMonitoringSelections(previousSelections);
+
+                            // 可选：延迟调试当前状态
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                               
+                            }), System.Windows.Threading.DispatcherPriority.Background);
+
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"延迟恢复监控参数状态失败: {ex.Message}");
+                        }
+                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+                else
+                {
+                    Debug.WriteLine($"设备 {deviceId} 没有历史选择状态需要恢复");
+                }
+
+                // 订阅事件
                 devicePropertyDialog.MonitoringParametersChanged += OnMonitoringParametersChanged;
 
-                // 创建弹窗窗口
+                // 创建并显示弹窗
                 _devicePropertyWindow = new Window
                 {
                     Title = "设备属性",
@@ -2450,11 +3031,9 @@ namespace MaxChemical.Modules.Designer.Views
                     ShowInTaskbar = false
                 };
 
-                // 订阅弹窗事件
                 devicePropertyDialog.CloseRequested += (s, args) => CloseDevicePropertyWindow();
                 devicePropertyDialog.DialogResult += OnDevicePropertyDialogResult;
 
-                // 显示弹窗
                 _devicePropertyWindow.ShowDialog();
             }
             catch (Exception ex)
@@ -2464,27 +3043,6 @@ namespace MaxChemical.Modules.Designer.Views
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        /// <summary>
-        /// 保存设备的监控参数选择状态
-        /// </summary>
-        private void SaveDeviceMonitoringSelections(string deviceId, List<ParameterBase> selectedParameters)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(deviceId) || selectedParameters == null)
-                    return;
-
-                var parameterNames = selectedParameters.Select(p => p.Name).ToHashSet();
-                _deviceMonitoringSelections[deviceId] = parameterNames;
-
-                Debug.WriteLine($"保存设备 {deviceId} 的监控参数选择: {string.Join(", ", parameterNames)}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"保存设备监控参数选择失败: {ex.Message}");
-            }
-        }
-
         /// <summary>
         /// 获取设备的监控参数选择状态
         /// </summary>
@@ -2537,23 +3095,56 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"监控参数变化: 设备 {e.DeviceName}, 参数数量: {e.SelectedParameters.Count}");
 
-                // 保存选择状态
-                SaveDeviceMonitoringSelections(e.DeviceId, e.SelectedParameters);
+                // *** 关键修复：优先使用完整键名格式 ***
+                if (sender is DevicePropertyDialog dialog)
+                {
+                    var completeSelectionKeys = dialog.GetAllSelectedParameterKeys();
+                    SaveDeviceMonitoringSelectionsWithKeys(e.DeviceId, completeSelectionKeys);
+
+                    Debug.WriteLine($"保存完整键名格式: {string.Join(", ", completeSelectionKeys)}");
+                }
+                else
+                {
+                    // 向后兼容：从参数名转换为完整键名格式
+                    var parameterNames = e.SelectedParameters.Select(p => p.Name).ToHashSet();
+                    var convertedKeys = ConvertToCompleteKeys(e.DeviceId, parameterNames);
+                    _deviceMonitoringSelections[e.DeviceId] = convertedKeys;
+
+                    Debug.WriteLine($"从参数名转换为完整键名格式: {string.Join(", ", convertedKeys)}");
+                }
 
                 if (e.SelectedParameters.Any())
                 {
-                    // 创建或更新监控卡片
                     CreateOrUpdateMonitoringCard(e.DeviceId, e.DeviceName, e.SelectedParameters);
                 }
                 else
                 {
-                    // 移除监控卡片
                     RemoveMonitoringCard(e.DeviceId);
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"处理监控参数变化失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 新增：保存设备监控参数选择状态（使用完整键名）
+        /// </summary>
+        private void SaveDeviceMonitoringSelectionsWithKeys(string deviceId, HashSet<string> parameterKeys)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(deviceId) || parameterKeys == null)
+                    return;
+
+                _deviceMonitoringSelections[deviceId] = new HashSet<string>(parameterKeys);
+
+                Debug.WriteLine($"保存设备 {deviceId} 的完整监控参数选择键: {string.Join(", ", parameterKeys)}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"保存设备监控参数选择键失败: {ex.Message}");
             }
         }
         /// <summary>
@@ -3616,7 +4207,8 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 隐藏连接点
                 _connectionService?.HideAllConnectionPoints();
-
+                // *** 修改：清空设备相关状态 ***
+                ClearDeviceStates();
                 // 强制更新布局
                 DesignCanvas.UpdateLayout();
                 _deviceNameCounters.Clear();
@@ -3627,6 +4219,47 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"清空画布失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 清空所有监控相关状态
+        /// </summary>
+        private void ClearAllMonitoringStates()
+        {
+            try
+            {
+                // 清空监控卡片
+                ClearAllMonitoringCards();
+
+                // 清空监控参数选择状态
+                _deviceMonitoringSelections.Clear();
+
+                Debug.WriteLine("所有监控相关状态已清空");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清空监控相关状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清空设备相关状态
+        /// </summary>
+        private void ClearDeviceStates()
+        {
+            try
+            {
+                // 清空设备名称计数器
+                _deviceNameCounters.Clear();
+
+                // 清空设备显示名映射
+                _deviceDisplayNames.Clear();
+
+                Debug.WriteLine("设备相关状态已清空");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清空设备相关状态失败: {ex.Message}");
             }
         }
         /// <summary>
@@ -3925,6 +4558,16 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
+            // *** 关键修复：恢复设备显示名映射 ***
+            if (!string.IsNullOrEmpty(deviceData.DeviceName))
+            {
+                // 尝试生成合适的显示名
+                var baseName = deviceData.DeviceName;
+                var displayName = GenerateDisplayNameForRestoredDevice(baseName, deviceData.DeviceId);
+                _deviceDisplayNames[deviceData.DeviceId] = displayName;
+                Debug.WriteLine($"恢复设备显示名: {deviceData.DeviceId} -> {displayName}");
+            }
+
             // 创建CanvasDeviceViewModel
             var canvasDeviceViewModel = new CanvasDeviceViewModel
             {
@@ -3944,9 +4587,106 @@ namespace MaxChemical.Modules.Designer.Views
                 ScheduleDeviceScaleRestoration(deviceData.DeviceId, deviceData.ScaleX, deviceData.ScaleY);
             }
 
+            // *** 新增：延迟检查并恢复监控卡片 ***
+            ScheduleMonitoringCardRestoration(deviceData.DeviceId);
+
             Debug.WriteLine($"设备 {deviceData.DeviceName} 恢复成功");
         }
+        /// <summary>
+        /// 为恢复的设备生成显示名
+        /// </summary>
+        private string GenerateDisplayNameForRestoredDevice(string baseName, string deviceId)
+        {
+            try
+            {
+                // 如果已经有显示名映射，直接使用
+                if (_deviceDisplayNames.TryGetValue(deviceId, out var existingName))
+                {
+                    return existingName;
+                }
 
+                // 从已有映射中找出相同基础名的最大序号
+                int maxIndex = 0;
+                foreach (var kvp in _deviceDisplayNames.Values)
+                {
+                    if (kvp.StartsWith(baseName + "#"))
+                    {
+                        var parts = kvp.Split('#');
+                        if (parts.Length == 2 && int.TryParse(parts[1], out int index))
+                        {
+                            maxIndex = Math.Max(maxIndex, index);
+                        }
+                    }
+                }
+
+                // 更新计数器
+                _deviceNameCounters[baseName] = Math.Max(_deviceNameCounters.GetValueOrDefault(baseName, 0), maxIndex);
+
+                // 生成新的显示名
+                var newIndex = _deviceNameCounters[baseName] + 1;
+                _deviceNameCounters[baseName] = newIndex;
+
+                return $"{baseName}#{newIndex}";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"生成恢复设备显示名失败: {ex.Message}");
+                return baseName ?? "设备";
+            }
+        }
+
+        /// <summary>
+        /// 安排监控卡片恢复检查
+        /// </summary>
+        private void ScheduleMonitoringCardRestoration(string deviceId)
+        {
+            // 多次延迟检查，确保监控参数状态已经恢复
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                CheckAndRestoreMonitoringCard(deviceId);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                CheckAndRestoreMonitoringCard(deviceId);
+            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                CheckAndRestoreMonitoringCard(deviceId);
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+        /// <summary>
+        /// 检查并恢复监控卡片
+        /// </summary>
+        private void CheckAndRestoreMonitoringCard(string deviceId)
+        {
+            try
+            {
+                // 检查是否已经有监控卡片
+                if (_monitoringCards.ContainsKey(deviceId))
+                {
+                    Debug.WriteLine($"设备 {deviceId} 的监控卡片已存在");
+                    return;
+                }
+
+                // 检查是否有监控参数选择
+                var selectedKeys = GetDeviceMonitoringSelections(deviceId);
+                if (selectedKeys.Count == 0)
+                {
+                    Debug.WriteLine($"设备 {deviceId} 没有监控参数选择，跳过卡片创建");
+                    return;
+                }
+
+                // 尝试恢复监控卡片
+                var success = RestoreSingleMonitoringCard(deviceId);
+                Debug.WriteLine($"设备 {deviceId} 监控卡片恢复结果: {(success ? "成功" : "失败")}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"检查并恢复监控卡片失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 安排设备缩放恢复
         /// </summary>

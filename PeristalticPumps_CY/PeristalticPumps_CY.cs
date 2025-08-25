@@ -927,9 +927,10 @@ namespace PeristalticPumps_CY
 
         protected override async Task<bool> OnConnectAsync()
         {
-            if (ConnectionStatus==DeviceConnectionStatus.Connected)
+            if (_serialPort!=null)
             {
-                return true;
+                _serialPort.Close();
+                _serialPort.Dispose();
             }
             string comPort = Parameters.GetValue<string>("COM Port");
             

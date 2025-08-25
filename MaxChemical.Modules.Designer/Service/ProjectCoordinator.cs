@@ -93,6 +93,9 @@ namespace MaxChemical.Modules.Designer.Service
                 // 获取设备显示名映射
                 CollectDeviceDisplayNames(projectDocument.CanvasDesign);
 
+                // *** 新增：收集监控参数状态 ***
+                CollectMonitoringParameterStates(projectDocument.CanvasDesign);
+
                 // 获取画布状态信息
                 CollectCanvasState(projectDocument.CanvasDesign);
 
@@ -117,6 +120,7 @@ namespace MaxChemical.Modules.Designer.Service
                     if (displayNames != null)
                     {
                         canvasDesign.DeviceDisplayNames = new Dictionary<string, string>(displayNames);
+                        Debug.WriteLine($"收集到 {displayNames.Count} 个设备显示名映射");
                     }
                 });
 
@@ -126,15 +130,76 @@ namespace MaxChemical.Modules.Designer.Service
                     if (counters != null)
                     {
                         canvasDesign.DeviceNameCounters = new Dictionary<string, int>(counters);
+                        Debug.WriteLine($"收集到 {counters.Count} 个设备名称计数器");
                     }
                 });
 
-                Debug.WriteLine($"收集到 {canvasDesign.DeviceDisplayNames.Count} 个设备显示名映射");
+                Debug.WriteLine("设备显示名相关数据收集完成");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"收集设备显示名失败: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 收集监控参数状态
+        /// </summary>
+        private void CollectMonitoringParameterStates(CanvasDesignData canvasDesign)
+        {
+            try
+            {
+                Debug.WriteLine("开始收集监控参数状态");
+
+                // 收集设备监控参数选择状态
+                _eventAggregator?.GetEvent<GetDeviceMonitoringSelectionsRequestEvent>()?.Publish(selections =>
+                {
+                    if (selections != null && selections.Count > 0)
+                    {
+                        canvasDesign.DeviceMonitoringSelections = new Dictionary<string, HashSet<string>>();
+                        foreach (var kvp in selections)
+                        {
+                            canvasDesign.DeviceMonitoringSelections[kvp.Key] = new HashSet<string>(kvp.Value);
+                        }
+
+                        // *** 新增：记录格式类型 ***
+                        foreach (var kvp in selections)
+                        {
+                            var formatType = IsCompleteKeyFormat(kvp.Value) ? "完整键名" : "参数名";
+                            Debug.WriteLine($"收集设备 {kvp.Key} 的监控参数选择状态 ({formatType}格式): {kvp.Value.Count} 个");
+                        }
+
+                        Debug.WriteLine($"收集到 {selections.Count} 个设备的监控参数选择状态");
+                    }
+                });
+
+                // 收集监控卡片状态
+                _eventAggregator?.GetEvent<GetMonitoringCardStatesRequestEvent>()?.Publish(cardStates =>
+                {
+                    if (cardStates != null && cardStates.Count > 0)
+                    {
+                        canvasDesign.DeviceMonitoringCardStates = new Dictionary<string, bool>(cardStates);
+                        Debug.WriteLine($"收集到 {cardStates.Count} 个设备的监控卡片状态");
+                    }
+                });
+
+                Debug.WriteLine("监控参数状态收集完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"收集监控参数状态失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 检查是否为完整键名格式
+        /// </summary>
+        private bool IsCompleteKeyFormat(HashSet<string> selections)
+        {
+            if (selections.Count == 0) return true;
+
+            // 如果大部分选择包含 # 分隔符，则认为是完整键名格式
+            int completeKeyCount = selections.Count(s => s.Contains("#"));
+            return completeKeyCount > selections.Count / 2;
         }
 
         /// <summary>
@@ -284,6 +349,9 @@ namespace MaxChemical.Modules.Designer.Service
                 // 恢复设备显示名映射
                 RestoreDeviceDisplayNames(canvasDesign.DeviceDisplayNames, canvasDesign.DeviceNameCounters);
 
+                // *** 新增：恢复监控参数状态 ***
+                RestoreMonitoringParameterStates(canvasDesign);
+
                 // 发布加载画布请求
                 _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Publish(canvasDocument);
 
@@ -291,7 +359,6 @@ namespace MaxChemical.Modules.Designer.Service
                 if (canvasDesign.RegionLayout != null)
                 {
                     _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(canvasDesign.RegionLayout);
-                 
                     _eventAggregator?.GetEvent<RestoreRegionLayoutEvent>()?.Publish(canvasDesign.RegionLayout);
                 }
 
@@ -307,6 +374,84 @@ namespace MaxChemical.Modules.Designer.Service
             {
                 Debug.WriteLine($"加载画布设计失败: {ex.Message}");
             }
+        }
+        /// <summary>
+        /// 恢复监控参数状态
+        /// </summary>
+        private void RestoreMonitoringParameterStates(CanvasDesignData canvasDesign)
+        {
+            try
+            {
+                Debug.WriteLine("开始恢复监控参数状态");
+
+                // *** 步骤1：先恢复设备监控参数选择状态 ***
+                if (canvasDesign.DeviceMonitoringSelections != null && canvasDesign.DeviceMonitoringSelections.Count > 0)
+                {
+                    var processedSelections = ProcessMonitoringSelections(canvasDesign.DeviceMonitoringSelections);
+
+                    _eventAggregator?.GetEvent<RestoreDeviceMonitoringSelectionsEvent>()?.Publish(processedSelections);
+                    Debug.WriteLine($"发布恢复 {processedSelections.Count} 个设备的监控参数选择状态");
+                }
+
+                // *** 步骤2：延迟恢复监控卡片状态，确保选择状态已经恢复 ***
+                if (canvasDesign.DeviceMonitoringCardStates != null && canvasDesign.DeviceMonitoringCardStates.Count > 0)
+                {
+                    // 第一次延迟：等待选择状态恢复完成
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        Debug.WriteLine("第一次延迟恢复监控卡片状态");
+                        _eventAggregator?.GetEvent<RestoreMonitoringCardStatesEvent>()?.Publish(canvasDesign.DeviceMonitoringCardStates);
+                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+                    // 第二次延迟：确保设备元素完全创建
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        Debug.WriteLine("第二次延迟恢复监控卡片状态");
+                        _eventAggregator?.GetEvent<RestoreMonitoringCardStatesEvent>()?.Publish(canvasDesign.DeviceMonitoringCardStates);
+                    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                    // 第三次延迟：最终确保恢复
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        Debug.WriteLine("最终延迟恢复监控卡片状态");
+                        _eventAggregator?.GetEvent<RestoreMonitoringCardStatesEvent>()?.Publish(canvasDesign.DeviceMonitoringCardStates);
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
+
+                Debug.WriteLine("监控参数状态恢复发布完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复监控参数状态失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 处理监控参数选择状态，确保格式正确
+        /// </summary>
+        private Dictionary<string, HashSet<string>> ProcessMonitoringSelections(Dictionary<string, HashSet<string>> originalSelections)
+        {
+            var processedSelections = new Dictionary<string, HashSet<string>>();
+
+            foreach (var kvp in originalSelections)
+            {
+                var deviceId = kvp.Key;
+                var selections = kvp.Value;
+
+                if (IsCompleteKeyFormat(selections))
+                {
+                    // 已经是完整键名格式
+                    processedSelections[deviceId] = new HashSet<string>(selections);
+                    Debug.WriteLine($"设备 {deviceId} 已为完整键名格式: {string.Join(", ", selections)}");
+                }
+                else
+                {
+                    // 保持参数名格式，在恢复时由具体视图处理
+                    processedSelections[deviceId] = new HashSet<string>(selections);
+                    Debug.WriteLine($"设备 {deviceId} 为参数名格式，等待视图处理: {string.Join(", ", selections)}");
+                }
+            }
+
+            return processedSelections;
         }
 
         /// <summary>
