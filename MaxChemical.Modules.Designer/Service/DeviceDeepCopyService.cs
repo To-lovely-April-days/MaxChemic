@@ -1,12 +1,9 @@
 ﻿using DevicePlugins.Devices;
+using MaxChemical.Core;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-
 using System.Reflection;
 
-/// <summary>
-/// 反射优化的设备深拷贝服务 - 修复只读属性问题
-/// </summary>
 public class ReflectionDeviceDeepCopyService
 {
     public static IDevice DeepClone(IDevice originalDevice)
@@ -31,6 +28,9 @@ public class ReflectionDeviceDeepCopyService
 
             // 拷贝基本属性
             CopyBasicProperties(originalDevice, clonedDevice);
+
+            // *** 新增：特殊处理 AllowedRegions ***
+            CopyAllowedRegions(originalDevice, clonedDevice);
 
             // 拷贝参数内容（而不是替换整个Parameters对象）
             CopyParameterContents(originalDevice, clonedDevice);
@@ -63,6 +63,7 @@ public class ReflectionDeviceDeepCopyService
                 Debug.WriteLine($"设备实例创建成功: {deviceType.Name}");
                 Debug.WriteLine($"Parameters是否已初始化: {device.Parameters != null}");
                 Debug.WriteLine($"Parameters.Variables是否已初始化: {device.Parameters?.Variables != null}");
+                Debug.WriteLine($"AllowedRegions数量: {device.AllowedRegions?.Count ?? 0}");
 
                 return device;
             }
@@ -87,7 +88,8 @@ public class ReflectionDeviceDeepCopyService
 
             // 尝试拷贝其他可写属性
             var properties = target.GetType().GetProperties()
-                .Where(p => p.CanWrite && p.CanRead && p.Name != "Parameters");
+                .Where(p => p.CanWrite && p.CanRead)
+                .Where(p => !ShouldSkipProperty(p.Name));
 
             foreach (var prop in properties)
             {
@@ -109,6 +111,112 @@ public class ReflectionDeviceDeepCopyService
         catch (Exception ex)
         {
             Debug.WriteLine($"拷贝基本属性失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 判断是否应该跳过的属性
+    /// </summary>
+    private static bool ShouldSkipProperty(string propertyName)
+    {
+        var skipProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Parameters",           // 单独处理
+            "AllowedRegions",       // 单独处理
+            "AllowedRegion",        // 跳过单个区域属性（如果存在）
+            "Commands",             // 暂时跳过
+            "ConnectionStatus",     // 运行时状态
+            "IsConnected",          // 运行时状态
+            "ConnectedTime",        // 运行时状态
+            "LastHeartbeatTime",    // 运行时状态
+            "ActiveStates",         // 运行时状态
+            "Name",                 // 只读属性
+            "Manufacturer",         // 只读属性
+            "ImageLocation",        // 只读属性
+            "Category"              // 只读属性
+        };
+
+        return skipProperties.Contains(propertyName);
+    }
+
+    /// <summary>
+    /// 特殊处理 AllowedRegions 拷贝
+    /// </summary>
+    private static void CopyAllowedRegions(IDevice source, IDevice target)
+    {
+        try
+        {
+            Debug.WriteLine("开始拷贝 AllowedRegions");
+
+            if (source.AllowedRegions == null)
+            {
+                Debug.WriteLine("源设备的 AllowedRegions 为空");
+                return;
+            }
+
+            Debug.WriteLine($"源 AllowedRegions 包含 {source.AllowedRegions.Count} 个区域: [{string.Join(", ", source.AllowedRegions)}]");
+
+            // 获取目标设备的 AllowedRegions 属性
+            var targetType = target.GetType();
+            var allowedRegionsProperty = targetType.GetProperty("AllowedRegions");
+
+            if (allowedRegionsProperty == null)
+            {
+                Debug.WriteLine("无法找到 AllowedRegions 属性");
+                return;
+            }
+
+            Debug.WriteLine($"AllowedRegions 属性 CanWrite: {allowedRegionsProperty.CanWrite}");
+
+            if (allowedRegionsProperty.CanWrite)
+            {
+                // 创建新的列表并拷贝所有元素
+                var newAllowedRegions = new List<RegionType>(source.AllowedRegions);
+                allowedRegionsProperty.SetValue(target, newAllowedRegions);
+                Debug.WriteLine($"通过属性设置拷贝 AllowedRegions 成功");
+
+                // 立即验证设置是否成功
+                var verifyRegions = target.AllowedRegions;
+                Debug.WriteLine($"立即验证: 目标设备 AllowedRegions 现在有 {verifyRegions?.Count ?? 0} 个区域");
+                if (verifyRegions != null && verifyRegions.Count > 0)
+                {
+                    Debug.WriteLine($"立即验证内容: [{string.Join(", ", verifyRegions)}]");
+                }
+            }
+            else
+            {
+                // 如果属性是只读的，尝试通过现有列表的Clear/Add操作
+                var targetList = target.AllowedRegions;
+                if (targetList != null)
+                {
+                    Debug.WriteLine($"AllowedRegions 属性只读，使用Clear/Add方式");
+                    Debug.WriteLine($"目标列表清空前有 {targetList.Count} 个元素");
+
+                    targetList.Clear();
+                    Debug.WriteLine($"清空后数量: {targetList.Count}");
+
+                    foreach (var region in source.AllowedRegions)
+                    {
+                        targetList.Add(region);
+                        Debug.WriteLine($"添加区域: {region}，当前数量: {targetList.Count}");
+                    }
+
+                    Debug.WriteLine($"通过Clear/Add方式拷贝 AllowedRegions 完成，最终数量: {targetList.Count}");
+                    Debug.WriteLine($"最终内容: [{string.Join(", ", targetList)}]");
+                }
+                else
+                {
+                    Debug.WriteLine("目标设备的 AllowedRegions 列表为null，无法操作");
+                }
+            }
+
+            // 最终验证
+            Debug.WriteLine($"最终验证 - 源设备: {source.AllowedRegions?.Count ?? 0} 个区域, 目标设备: {target.AllowedRegions?.Count ?? 0} 个区域");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"拷贝 AllowedRegions 失败: {ex.Message}");
+            Debug.WriteLine($"异常堆栈: {ex.StackTrace}");
         }
     }
 

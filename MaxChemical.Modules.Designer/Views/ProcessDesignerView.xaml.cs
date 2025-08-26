@@ -2068,7 +2068,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"创建设备视图模型: {device.Name} 在位置 ({position.X:F1}, {position.Y:F1})");
 
-                // *** 关键修改：使用JSON深拷贝创建完全独立的设备实例 ***
+                // *** 关键修改：使用反射深拷贝创建完全独立的设备实例 ***
                 var independentDevice = ReflectionDeviceDeepCopyService.DeepClone(device);
 
                 Debug.WriteLine($"设备深拷贝完成:");
