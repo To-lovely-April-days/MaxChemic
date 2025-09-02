@@ -200,7 +200,17 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }, ThreadOption.PublisherThread, true);
             // 订阅项目名称更新事件
             _eventAggregator.GetEvent<ProjectNameUpdatedEvent>().Subscribe(OnProjectNameUpdated);
+            // 在应用程序启动时设置
+            DeviceConnectionConfig.UsePLCMode = true; // 启用PLC模式
 
+            // 配置PLC参数
+            DeviceConnectionConfig.PLCSettings = new PLCConnectionSettings
+            {
+                IpAddress = "192.168.28.34", // 您的PLC IP地址
+                Rack = 0,
+                Slot = 1,
+                ConnectionType = "S7-300" // 或者您使用的PLC型号
+            };
         }
         #region 新增：模拟模式支持
 
@@ -2110,76 +2120,6 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             return LoopType.FixedCount;
         }
 
-
-
-        /// <summary>
-        /// 评估循环条件
-        /// </summary>
-        private bool EvaluateLoopCondition(string condition, FlowExecutionContext context, CommandNode loopNode)
-        {
-            if (string.IsNullOrWhiteSpace(condition))
-                return false;
-
-            // 解析条件表达式（支持简单的比较运算）
-            // 例如: i < 10, count != 0, status == 'complete'
-
-            // 简单解析：查找操作符
-            string[] operators = { "<=", ">=", "!=", "==", "<", ">", "Contains", "StartsWith", "EndsWith" };
-            string foundOperator = null;
-            int operatorIndex = -1;
-
-            foreach (var op in operators)
-            {
-                var index = condition.IndexOf(op, StringComparison.OrdinalIgnoreCase);
-                if (index > 0)
-                {
-                    foundOperator = op;
-                    operatorIndex = index;
-                    break;
-                }
-            }
-
-            if (foundOperator != null && operatorIndex > 0)
-            {
-                var leftPart = condition.Substring(0, operatorIndex).Trim();
-                var rightPart = condition.Substring(operatorIndex + foundOperator.Length).Trim();
-
-                var leftValue = ResolveOperandValue(leftPart, context, loopNode);
-                var rightValue = ResolveOperandValue(rightPart, context, loopNode);
-
-                // 转换操作符格式
-                var operatorStr = foundOperator switch
-                {
-                    "==" => "Equal",
-                    "!=" => "NotEqual",
-                    ">" => "GreaterThan",
-                    ">=" => "GreaterThanOrEqual",
-                    "<" => "LessThan",
-                    "<=" => "LessThanOrEqual",
-                    _ => foundOperator
-                };
-
-                return EvaluateCondition(leftValue, operatorStr, rightValue);
-            }
-
-            // 如果没有操作符，尝试作为布尔值解析
-            var conditionValue = ResolveOperandValue(condition, context, loopNode);
-            if (conditionValue is bool boolValue)
-                return boolValue;
-
-            // 尝试转换为布尔值
-            if (conditionValue != null)
-            {
-                var strValue = conditionValue.ToString();
-                if (bool.TryParse(strValue, out var result))
-                    return result;
-
-                // 非空字符串视为true
-                return !string.IsNullOrWhiteSpace(strValue);
-            }
-
-            return false;
-        }
         private async Task<object> ExecuteParallelCommandAsync(CommandNode parallelNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
             _logger.LogDebug("执行并行命令: {NodeName}", parallelNode.DisplayName);

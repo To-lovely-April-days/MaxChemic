@@ -221,6 +221,7 @@ namespace PeristalticPumps_CY
         /// </summary>
         public virtual async Task<bool> OnFlowStartedAsync(FlowStartContext context)
         {
+            ComId = Parameters.GetValue<string>("COM Port");
             try
             {
                 InfoLog($"流程开始: {context.FlowName}, 预计节点数: {context.ExpectedNodeCount}");
@@ -362,217 +363,6 @@ namespace PeristalticPumps_CY
             }
         }
 
-        /// <summary>
-        /// 执行完成序列 - 核心业务逻辑
-        /// </summary>
-        private async Task ExecuteCompletionSequenceAsync(FlowCompletionContext context)
-        {
-            try
-            {
-                InfoLog("执行设备完成序列");
-
-                // 1. 如果泵还在运行，执行平滑停止
-                bool wasRunning = false;
-                lock (_stateLock)
-                {
-                    wasRunning = _isRunning;
-                }
-
-                if (wasRunning)
-                {
-                    InfoLog("检测到泵仍在运行，执行平滑停止序列");
-                    await ExecuteSmoothStopAsync();
-                }
-
-                // 2. 等待温度稳定
-                await WaitForTemperatureStabilizationAsync();
-
-                // 3. 执行清洗程序（如果需要）
-                if (context.IsSuccessful && ShouldExecuteCleaningCycle(context))
-                {
-                    await ExecuteCleaningCycleAsync();
-                }
-
-                // 4. 保存运行日志
-                await SaveOperationLogAsync(context);
-
-                InfoLog("设备完成序列执行完毕");
-            }
-            catch (Exception ex)
-            {
-                ErrorLog("设备完成序列失败", ex);
-            }
-        }
-
-        /// <summary>
-        /// 平滑停止泵
-        /// </summary>
-        private async Task ExecuteSmoothStopAsync()
-        {
-            try
-            {
-                InfoLog("开始平滑停止泵");
-
-                double currentSpeed;
-                lock (_stateLock)
-                {
-                    currentSpeed = _currentSpeed;
-                }
-
-                if (currentSpeed > 0)
-                {
-                    // 分10步降速到0
-                    var steps = 10;
-                    var stepSize = currentSpeed / steps;
-                    var stepDelay = 300; // 每步300ms
-
-                    for (int i = 0; i < steps; i++)
-                    {
-                        currentSpeed -= stepSize;
-                        lock (_stateLock)
-                        {
-                            _currentSpeed = Math.Max(0, currentSpeed);
-                            _currentFlowRate = _currentSpeed * 0.085;
-                        }
-
-                        InfoLog($"降速步骤 {i + 1}/{steps}: 当前转速 {_currentSpeed:F1} RPM");
-                        await Task.Delay(stepDelay);
-                    }
-
-                    // 确保完全停止
-                    lock (_stateLock)
-                    {
-                        _isRunning = false;
-                        _currentSpeed = 0;
-                        _currentFlowRate = 0;
-                    }
-
-                    // 发送硬件停止指令
-                    if (_serialPort?.IsOpen == true)
-                    {
-                        byte[] stopCmd = System.Text.Encoding.GetEncoding("GBK").GetBytes("STOP");
-                        _serialPort.Write(stopCmd, 0, stopCmd.Length);
-                    }
-
-                    InfoLog("平滑停止完成");
-                }
-            }
-            catch (Exception ex)
-            {
-                ErrorLog("平滑停止失败", ex);
-            }
-        }
-
-        /// <summary>
-        /// 等待温度稳定
-        /// </summary>
-        private async Task WaitForTemperatureStabilizationAsync()
-        {
-            try
-            {
-                InfoLog("等待温度稳定到室温");
-
-                var targetTemp = 25.0;
-                var tolerance = 2.0;
-                var maxWaitTime = TimeSpan.FromMinutes(5);
-                var startTime = DateTime.Now;
-
-                while (DateTime.Now - startTime < maxWaitTime)
-                {
-                    double currentTemp;
-                    lock (_stateLock)
-                    {
-                        currentTemp = _currentTemperature;
-                    }
-
-                    if (Math.Abs(currentTemp - targetTemp) <= tolerance)
-                    {
-                        InfoLog($"温度已稳定: {currentTemp:F1}°C");
-                        break;
-                    }
-
-                    // 模拟温度下降
-                    lock (_stateLock)
-                    {
-                        if (_currentTemperature > targetTemp)
-                        {
-                            _currentTemperature -= 0.5; // 每秒下降0.5度
-                        }
-                    }
-
-                    await Task.Delay(1000);
-                }
-            }
-            catch (Exception ex)
-            {
-                ErrorLog("等待温度稳定失败", ex);
-            }
-        }
-
-        /// <summary>
-        /// 判断是否需要执行清洗循环
-        /// </summary>
-        private bool ShouldExecuteCleaningCycle(FlowCompletionContext context)
-        {
-            // 根据流程持续时间、累计流量等判断
-            var shouldClean = context.Duration.TotalMinutes > 30 || _totalVolume > 100;
-
-            if (shouldClean)
-            {
-                InfoLog($"需要清洗: 运行时间 {context.Duration.TotalMinutes:F1} 分钟, 累计流量 {_totalVolume:F1} mL");
-            }
-
-            return shouldClean;
-        }
-
-        /// <summary>
-        /// 执行清洗循环
-        /// </summary>
-        private async Task ExecuteCleaningCycleAsync()
-        {
-            try
-            {
-                InfoLog("开始执行清洗循环");
-
-                // 模拟清洗循环
-                var cleaningSteps = new[]
-                {
-                ("正向冲洗", 10.0, 30.0), // (名称, 流速mL/min, 持续时间秒)
-                ("反向冲洗", 15.0, 20.0),
-                ("最终冲洗", 5.0, 10.0)
-            };
-
-                foreach (var (name, flowRate, durationSeconds) in cleaningSteps)
-                {
-                    InfoLog($"执行 {name}: 流速 {flowRate} mL/min, 持续 {durationSeconds} 秒");
-
-                    // 模拟清洗步骤
-                    lock (_stateLock)
-                    {
-                        _isRunning = true;
-                        _currentSpeed = flowRate / 0.085;
-                        _currentFlowRate = flowRate;
-                    }
-
-                    await Task.Delay(TimeSpan.FromSeconds(durationSeconds));
-
-                    lock (_stateLock)
-                    {
-                        _isRunning = false;
-                        _currentSpeed = 0;
-                        _currentFlowRate = 0;
-                    }
-
-                    await Task.Delay(2000); // 步骤间停顿2秒
-                }
-
-                InfoLog("清洗循环执行完成");
-            }
-            catch (Exception ex)
-            {
-                ErrorLog("清洗循环执行失败", ex);
-            }
-        }
 
         /// <summary>
         /// 紧急停止
@@ -683,41 +473,16 @@ namespace PeristalticPumps_CY
 
                 // 3. 等待一段时间确保所有操作完成
                 await Task.Delay(1000);
-                _serialPort.Close();
-                _serialPort.Dispose();
+                if (!DeviceConnectionConfig.UsePLCMode)
+                {
+                    _serialPort.Close();
+                    _serialPort.Dispose();
+                }
                 InfoLog("流程后清理完成");
             }
             catch (Exception ex)
             {
                 ErrorLog("流程后清理失败", ex);
-            }
-        }
-
-        /// <summary>
-        /// 保存操作日志
-        /// </summary>
-        private async Task SaveOperationLogAsync(FlowCompletionContext context)
-        {
-            try
-            {
-                // 这里可以保存到数据库或文件
-                var logEntry = new
-                {
-                    Timestamp = DateTime.Now,
-                    DeviceName = Name,
-                    FlowName = context.FlowName,
-                    Duration = context.Duration,
-                    IsSuccessful = context.IsSuccessful,
-                    TotalVolume = _totalVolume,
-                    Notes = "流程执行完成"
-                };
-
-                InfoLog($"操作日志: {System.Text.Json.JsonSerializer.Serialize(logEntry)}");
-                await Task.Delay(50); // 模拟保存时间
-            }
-            catch (Exception ex)
-            {
-                ErrorLog("保存操作日志失败", ex);
             }
         }
 
@@ -941,6 +706,9 @@ namespace PeristalticPumps_CY
             Name = "YT600-1J";
             Manufacturer = "蠕动泵_YT600-1J＆KZ35-13-A";
             Category = DeviceCategories.Pumps;
+            ComId = "COM1"; // 这个ID需要与PLC映射中的设备ID匹配
+                                   // 初始化连接管理器
+            ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
             AllowedRegions = new List<RegionType>()
             {
                 RegionType.Feed,
@@ -992,6 +760,8 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取温度值", async delegate (DeviceParameters parameters)
                 {
+                    
+
                     bool useCalibration = parameters.GetValue<bool>("UseCalibration");
                     double offset = parameters.GetValue<double>("Offset");
 
@@ -1000,13 +770,20 @@ namespace PeristalticPumps_CY
 
                     try
                     {
-                        // *** 使用线程安全的串口通信 ***
-                        rawResponse = await SendCommandAndWaitResponseAsync("获取温度指令", 5000);
-
-                        // *** 解析温度值 ***
-                        actualTemperature = ParseTemperatureFromResponse(rawResponse);
-
-                        InfoLog($"从设备获取到温度: {actualTemperature}°C");
+                        if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null)
+                        {
+                            await ConnectionManager.WriteAsync<double>(ComId, "设置温度值", offset);
+                            // PLC模式：从PLC读取温度
+                            actualTemperature = await ConnectionManager.ReadAsync<double>(ComId, "获取温度值");
+                            InfoLog($"从PLC获取到温度: {actualTemperature}°C");
+                        }
+                        else
+                        {
+                            // 串口模式：使用原有逻辑
+                            rawResponse = await SendCommandAndWaitResponseAsync("获取温度指令", 5000);
+                            actualTemperature = ParseTemperatureFromResponse(rawResponse);
+                            InfoLog($"从串口获取到温度: {actualTemperature}°C");
+                        }
 
                         // 更新内部状态
                         lock (_stateLock)
@@ -1042,21 +819,21 @@ namespace PeristalticPumps_CY
                     }
 
                     // 应用校准
-                    double finalTemp = useCalibration ? actualTemperature + offset : actualTemperature;
+                    double finalTemp = offset;
                     bool isWarning = finalTemp > 80;
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-        {
-            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-            new NumberParameter("Temperature", -50, 200, Math.Round(finalTemp, 2), "当前温度") { IsVisibleInVariableManager = true },
-            new StringParameter("Unit", "℃", "") { IsVisibleInVariableManager = false },
-            new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false },
-            new BooleanParameter("IsWarning", isWarning, "") { IsVisibleInVariableManager = true },
-            new StringParameter("Message", isWarning ? "温度过高警告！" : "温度正常", "") { IsVisibleInVariableManager = false },
-            new StringParameter("RawResponse", rawResponse, "原始响应数据") { IsVisibleInVariableManager = false }
-        }
+                {
+                    new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                    new NumberParameter("Temperature", -50, 200, Math.Round(finalTemp, 2), "当前温度") { IsVisibleInVariableManager = true },
+                    new StringParameter("Unit", "℃", "") { IsVisibleInVariableManager = false },
+                    new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false },
+                    new BooleanParameter("IsWarning", isWarning, "") { IsVisibleInVariableManager = true },
+                    new StringParameter("Message", isWarning ? "温度过高警告！" : "温度正常", "") { IsVisibleInVariableManager = false },
+                    new StringParameter("RawResponse", rawResponse, "原始响应数据") { IsVisibleInVariableManager = false }
+                }
                     };
                 })
             });
@@ -1836,7 +1613,7 @@ namespace PeristalticPumps_CY
                 _serialPort = null;
             }
 
-            string comPort = Parameters.GetValue<string>("COM Port");
+            string ?comPort = Parameters.GetValue<string>("COM Port");
 
             if (IsSimulationMode)
             {

@@ -29,7 +29,8 @@ namespace DevicePlugins.Devices
         private readonly object _statesLock = new object();
 
         // 添加连接管理器字段
-        protected IDeviceConnectionManager ConnectionManager { get; private set; }
+        protected IDeviceConnectionManager ConnectionManager { get;  set; }
+        protected string? ComId { get; set; }
         /// <summary>
         /// 是否为模拟模式
         /// </summary>
@@ -47,6 +48,19 @@ namespace DevicePlugins.Devices
         protected Device()
         {
             _logger = LogManager.GetLogger(GetType().Name);
+            // 初始化连接管理器
+            InitializeConnectionManager();
+        }
+        private void InitializeConnectionManager()
+        {
+            try
+            {
+                ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("初始化连接管理器失败", ex);
+            }
         }
 
         #region Properties
@@ -314,28 +328,26 @@ namespace DevicePlugins.Devices
             {
                 bool result;
 
-                if (IsSimulationMode)
+                if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null && !string.IsNullOrEmpty(ComId))
                 {
-                    // 模拟模式连接
-                    result = await OnConnectSimulationAsync();
+                    // PLC模式：通过连接管理器连接
+                    result = await ConnectionManager.ConnectAsync(ComId);
+                    InfoLog($"通过PLC连接管理器连接: {result}");
                 }
                 else
                 {
-                    // 实际模式连接
-                    result = await OnConnectAsync();
+                    // 直连模式：使用原有的连接逻辑
+                    if (IsSimulationMode)
+                    {
+                        result = await OnConnectSimulationAsync();
+                    }
+                    else
+                    {
+                        result = await OnConnectAsync();
+                    }
                 }
 
                 ConnectionStatus = result ? DeviceConnectionStatus.Connected : DeviceConnectionStatus.Error;
-
-                if (result)
-                {
-                    InfoLog($"设备连接成功 ({(IsSimulationMode ? "模拟模式" : "实际模式")})");
-                }
-                else
-                {
-                    ErrorLog($"设备连接失败 ({(IsSimulationMode ? "模拟模式" : "实际模式")})");
-                }
-
                 return result;
             }
             catch (Exception ex)
@@ -363,17 +375,26 @@ namespace DevicePlugins.Devices
             try
             {
                 bool result;
-
-                if (IsSimulationMode)
+                if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null && !string.IsNullOrEmpty(ComId))
                 {
-                    // 模拟模式断开
-                    result = await OnDisconnectSimulationAsync();
+                    // PLC模式：通过连接管理器连接
+                    result = await ConnectionManager.DisconnectAsync(ComId);
+                    InfoLog($"通过PLC连接管理器连接: {result}");
                 }
                 else
                 {
-                    // 实际模式断开
-                    result = await OnDisconnectAsync();
+                    if (IsSimulationMode)
+                    {
+                        // 模拟模式断开
+                        result = await OnDisconnectSimulationAsync();
+                    }
+                    else
+                    {
+                        // 实际模式断开
+                        result = await OnDisconnectAsync();
+                    }
                 }
+               
 
                 ConnectionStatus = DeviceConnectionStatus.Disconnected;
                 InfoLog("设备连接已断开");
@@ -398,25 +419,33 @@ namespace DevicePlugins.Devices
                     return false;
 
                 bool isAlive;
+                if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+                {
+                    // PLC模式：通过连接管理器连接
+                    isAlive = await ConnectionManager.CheckConnectionAsync(ComId);
+                    InfoLog($"通过PLC连接管理器连接: {isAlive}");
+                }else
+                {
+                    if (IsSimulationMode)
+                    {
+                        // 模拟模式检查
+                        isAlive = await OnCheckConnectionSimulationAsync();
+                    }
+                    else
+                    {
+                        // 实际模式检查
+                        isAlive = await OnCheckConnectionAsync();
+                    }
 
-                if (IsSimulationMode)
-                {
-                    // 模拟模式检查
-                    isAlive = await OnCheckConnectionSimulationAsync();
-                }
-                else
-                {
-                    // 实际模式检查
-                    isAlive = await OnCheckConnectionAsync();
-                }
+                    if (isAlive)
+                    {
+                        LastHeartbeatTime = DateTime.Now;
+                    }
+                    else
+                    {
+                        ConnectionStatus = DeviceConnectionStatus.Error;
+                    }
 
-                if (isAlive)
-                {
-                    LastHeartbeatTime = DateTime.Now;
-                }
-                else
-                {
-                    ConnectionStatus = DeviceConnectionStatus.Error;
                 }
 
                 return isAlive;

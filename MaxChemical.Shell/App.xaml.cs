@@ -20,6 +20,7 @@ using System.Windows.Input;
 using Prism.Events;
 using MaxChemical.Data.Services;
 using MaxChemical.Data.Repositories;
+using MaxChemical.Core;
 
 namespace MaxChemical.Shell;
 
@@ -198,6 +199,7 @@ public partial class App : PrismApplication
             // 启动变量持久化后台服务
             var persistenceService = Container.Resolve<IVariablePersistenceBackgroundService>();
             persistenceService.StartListening();
+
             _logger?.LogInformation("应用程序初始化完成");
         }
         catch (Exception ex)

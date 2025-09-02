@@ -13,11 +13,7 @@ namespace DevicePlugins.Devices
         Task<bool> DisconnectAsync(string deviceId);
         Task<bool> CheckConnectionAsync(string deviceId);
         bool IsConnected(string deviceId);
-
-        // PLC特有的方法
         Task<T> ReadAsync<T>(string deviceId, string address);
         Task<bool> WriteAsync<T>(string deviceId, string address, T value);
-
-        event EventHandler<DeviceConnectionStatusChangedEventArgs> ConnectionStatusChanged;
     }
 }
