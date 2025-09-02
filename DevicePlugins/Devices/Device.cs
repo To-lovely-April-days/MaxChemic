@@ -27,6 +27,9 @@ namespace DevicePlugins.Devices
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
+
+        // 添加连接管理器字段
+        protected IDeviceConnectionManager ConnectionManager { get; private set; }
         /// <summary>
         /// 是否为模拟模式
         /// </summary>
@@ -204,13 +207,13 @@ namespace DevicePlugins.Devices
                 case DeviceConnectionStatus.Connected:
                     ConnectedTime = DateTime.Now;
                     LastHeartbeatTime = DateTime.Now;
-                    StartHeartbeat();
+                    //StartHeartbeat();
                     break;
                 case DeviceConnectionStatus.Disconnected:
                 case DeviceConnectionStatus.Error:
                     ConnectedTime = null;
                     LastHeartbeatTime = null;
-                    StopHeartbeat();
+                    //StopHeartbeat();
                     break;
             }
         }

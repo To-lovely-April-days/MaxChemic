@@ -8,6 +8,7 @@ using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views;
+using MaxChemical.Shell.Views;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -19,7 +20,6 @@ namespace MaxChemical.Shell.ViewModels
     public class MainToolBarViewModel : BindableBase
     {
         private readonly ICommandHistory _commandHistory; // 新增
-
         // 新增属性
         private bool _canUndo;
         private bool _canRedo;
@@ -44,7 +44,7 @@ namespace MaxChemical.Shell.ViewModels
 
         private readonly IProjectDataService _projectDataService; // 替换为项目数据服务
         private readonly ProjectCoordinator _projectCoordinator; // 添加项目协调器
-
+        private readonly IProjectNameDialogProvider _projectNameDialogProvider;
         private RegionLayout _currentRegionLayout;
         private readonly ILogService _logger;
         private readonly IFlowExecutionEngine _flowExecutionEngine;
@@ -84,7 +84,8 @@ namespace MaxChemical.Shell.ViewModels
           ICanvasStateService canvasStateService,
           ICommandHistory commandHistory,
           IFlowExecutionEngine flowExecutionEngine,
-          ProjectCoordinator projectCoordinator) // 新增参数
+          ProjectCoordinator projectCoordinator,
+          IProjectNameDialogProvider projectNameDialogProvider) // 新增参数
         {
             _logger = new LogService().ForContext<MainToolBarViewModel>();
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
@@ -97,6 +98,7 @@ namespace MaxChemical.Shell.ViewModels
             _flowExecutionEngine = flowExecutionEngine ?? throw new ArgumentNullException(nameof(flowExecutionEngine));
             _projectCoordinator = projectCoordinator ?? throw new ArgumentNullException(nameof(projectCoordinator));
             _canvasDataService= canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
+            _projectNameDialogProvider = projectNameDialogProvider ?? throw new ArgumentNullException(nameof(projectNameDialogProvider));
             InitializeCommands();
             LoadLocalizedStrings();
             SubscribeEvents();
@@ -741,7 +743,30 @@ namespace MaxChemical.Shell.ViewModels
                 _dialogService.ShowError($"打开文件失败: {ex.Message}", "打开失败");
             }
         }
+        /// <summary>
+        /// 获取当前文件的显示名称
+        /// </summary>
+        private string GetCurrentFileName()
+        {
+            try
+            {
+                var currentFilePath = _canvasStateService.CurrentFilePath;
 
+                if (!string.IsNullOrEmpty(currentFilePath))
+                {
+                    // 返回不带扩展名的文件名
+                    return System.IO.Path.GetFileNameWithoutExtension(currentFilePath);
+                }
+
+                // 如果没有文件路径，返回默认名称
+                return "未命名流程";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "获取文件名失败，使用默认名称");
+                return "未命名流程";
+            }
+        }
         /// <summary>
         /// 加载项目文件
         /// </summary>
@@ -759,6 +784,9 @@ namespace MaxChemical.Shell.ViewModels
             // 设置当前文件路径
             _canvasStateService.SetCurrentFile(fileName);
 
+            // *** 新增：获取文件名并发布事件 ***
+            var projectName = System.IO.Path.GetFileNameWithoutExtension(fileName);
+
             // 清空当前内容并加载新项目
             _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
 
@@ -766,6 +794,9 @@ namespace MaxChemical.Shell.ViewModels
             {
                 try
                 {
+                    // *** 新增：发布项目名称更新事件 ***
+                    _eventAggregator?.GetEvent<ProjectNameUpdatedEvent>()?.Publish(projectName);
+
                     _eventAggregator?.GetEvent<LoadProjectRequestEvent>()?.Publish(projectDocument);
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"项目加载成功: {System.IO.Path.GetFileName(fileName)}");
                 }
@@ -840,31 +871,18 @@ namespace MaxChemical.Shell.ViewModels
                         }
                     }
                 }
-
-                // 获取当前画布尺寸（保留原有逻辑）
-                var (canvasWidth, canvasHeight) = GetCurrentCanvasSize();
-
-                // 创建新的画布数据（保留原有逻辑）
-                var newCanvas = _canvasDataService.CreateNewCanvas(canvasWidth, canvasHeight);
-
-                // 设置当前区域布局（保留原有逻辑）
-                CurrentRegionLayout = newCanvas.RegionLayout;
-
-                // 创建新项目，使用获取到的画布尺寸
-                var newProject = CreateNewProjectWithCanvasSize(canvasWidth, canvasHeight, newCanvas);
-
-                // 重置状态（清空当前文件路径）
-                _canvasStateService.Reset();
-
-                _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
-
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _eventAggregator?.GetEvent<NewProjectCreatedEvent>()?.Publish(newProject);
-                    _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(newCanvas.RegionLayout);
-                    _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Publish(newCanvas);
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("新建项目创建成功");
-                }), System.Windows.Threading.DispatcherPriority.Background);
+                // 使用项目名称对话框服务
+                _projectNameDialogProvider.ShowDialog(
+                    defaultName: $"新建项目_{DateTime.Now:yyyyMMdd_HHmmss}",
+                    onCompleted: (projectName) =>
+                    {
+                        if (!string.IsNullOrEmpty(projectName))
+                        {
+                            CreateNewProjectWithName(projectName);
+                        }
+                        // 如果projectName为null，表示用户取消了操作
+                    });
+                
                
             }
             catch (Exception ex)
@@ -872,7 +890,74 @@ namespace MaxChemical.Shell.ViewModels
                 _dialogService.ShowError($"创建新项目失败: {ex.Message}", "错误");
             }
         }
+        private void CreateNewProjectWithName(string projectName)
+        {
+            try
+            {
+                // 获取当前画布尺寸
+                var (canvasWidth, canvasHeight) = GetCurrentCanvasSize();
 
+                // 创建新的画布数据
+                var newCanvas = _canvasDataService.CreateNewCanvas(canvasWidth, canvasHeight);
+
+                // 设置当前区域布局
+                CurrentRegionLayout = newCanvas.RegionLayout;
+
+                // 使用用户输入的项目名称创建新项目
+                var newProject = CreateNewProjectWithCustomName(projectName, canvasWidth, canvasHeight, newCanvas);
+
+                // 重置状态
+                _canvasStateService.Reset();
+
+                _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
+
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    // 发布新项目名称
+                    _eventAggregator?.GetEvent<ProjectNameUpdatedEvent>()?.Publish(projectName);
+
+                    _eventAggregator?.GetEvent<NewProjectCreatedEvent>()?.Publish(newProject);
+                    _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(newCanvas.RegionLayout);
+                    _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Publish(newCanvas);
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"新建项目 '{projectName}' 创建成功");
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"创建项目失败: {ex.Message}", "错误");
+            }
+        }
+
+        private ProjectDocument CreateNewProjectWithCustomName(string projectName, double canvasWidth, double canvasHeight, CanvasDocument newCanvas)
+        {
+            var newProject = new ProjectDocument
+            {
+                Name = projectName, // 使用用户输入的名称
+                Description = $"项目创建于 {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                CanvasDesign = new CanvasDesignData
+                {
+                    Id = newCanvas.Id,
+                    Name = newCanvas.Name,
+                    CreatedTime = newCanvas.CreatedTime,
+                    LastModifiedTime = newCanvas.LastModifiedTime,
+                    RegionLayout = newCanvas.RegionLayout,
+                    Devices = newCanvas.Devices,
+                    Connections = newCanvas.Connections,
+                    CanvasWidth = canvasWidth,
+                    CanvasHeight = canvasHeight
+                },
+                FlowDesign = new FlowDesignData
+                {
+                    Name = "流程设计",
+                    CanvasWidth = Math.Max(canvasWidth, 1200),
+                    CanvasHeight = Math.Max(canvasHeight, 800),
+                    StartNodeX = (Math.Max(canvasWidth, 1200) - 231) / 2,
+                    StartNodeY = 20
+                }
+            };
+
+            return newProject;
+        }
         /// <summary>
         /// 创建带有指定画布尺寸的新项目
         /// </summary>

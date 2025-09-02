@@ -19,6 +19,7 @@ using MaxChemical.Modules.Designer.Services.Execution;
 using System.Windows.Input;
 using Prism.Events;
 using MaxChemical.Data.Services;
+using MaxChemical.Data.Repositories;
 
 namespace MaxChemical.Shell;
 
@@ -87,6 +88,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IDialogService, DialogService>();
         containerRegistry.RegisterSingleton<IProjectService, ProjectService>();
         containerRegistry.RegisterSingleton<IRegionSettingsDialogProvider, RegionSettingsDialogProvider>();
+        containerRegistry.RegisterSingleton<IProjectNameDialogProvider, ProjectNameDialogProvider>();
         containerRegistry.RegisterSingleton<IRegionOverlayService, RegionOverlayService>();
         containerRegistry.RegisterSingleton<IDragDropService, DragDropService>();
         containerRegistry.Register<IConnectionService, ConnectionService>();
@@ -103,6 +105,9 @@ public partial class App : PrismApplication
         // 注册新的项目数据服务
         containerRegistry.RegisterSingleton<IProjectDataService, ProjectDataService>();
         containerRegistry.RegisterSingleton<ProjectCoordinator>();
+
+
+
         // 注册Prism自己的日志服务
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
 
@@ -131,6 +136,13 @@ public partial class App : PrismApplication
             containerRegistry.RegisterSingleton<IDatabaseConfigService, DatabaseConfigService>();
             containerRegistry.RegisterSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();
         }
+
+        containerRegistry.RegisterSingleton<IDatabaseConnectionFactory, DatabaseConnectionFactory>();
+        containerRegistry.RegisterSingleton<IExperimentDataRepository, ExperimentDataRepository>();
+        containerRegistry.RegisterSingleton<IExperimentDataCollectionService, ExperimentDataCollectionService>();
+        containerRegistry.RegisterSingleton<IExcelExportService, ExcelExportService>();
+
+        containerRegistry.RegisterSingleton<IExperimentDataAdapter, ExperimentDataAdapter>();
     }
 
     protected override void OnExit(ExitEventArgs e)

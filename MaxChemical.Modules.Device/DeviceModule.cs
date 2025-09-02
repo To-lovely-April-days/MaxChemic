@@ -1,5 +1,7 @@
 ﻿using MaxChemical.Infrastructure.Constants;
 using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Modules.Device.ViewModels;
 using MaxChemical.Modules.Device.Views;
 using Prism.Ioc;
@@ -29,5 +31,7 @@ public class DeviceModule : IModule
         containerRegistry.Register<DeviceLibraryViewModel>();
         containerRegistry.Register<CommadLibraryView>();
         containerRegistry.Register<CommadLibraryViewModel>();
+     
+
     }
 }

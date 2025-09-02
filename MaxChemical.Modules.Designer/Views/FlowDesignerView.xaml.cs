@@ -30,8 +30,8 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly DesignerDragDropService _dragDropService;
         private readonly DragInsertPositionService _dragInsertService;
         private readonly ManualCommandExecutor _manualExecutor;
-
-        public FlowDesignerView(IEventAggregator eventAggregator)
+        private readonly IExperimentDataAdapter _experimentDataAdapter; // 新增：实验数据适配器
+        public FlowDesignerView(IEventAggregator eventAggregator,IExperimentDataAdapter experimentDataAdapter)
         {
             InitializeComponent();
 
@@ -40,7 +40,8 @@ namespace MaxChemical.Modules.Designer.Views
             _nodeManagementService = new NodeManagementService(_logger);
             _dragDropService = new DesignerDragDropService(_logger);
             _dragInsertService = new DragInsertPositionService(_logger);
-            _manualExecutor = new ManualCommandExecutor(eventAggregator);
+            _experimentDataAdapter = experimentDataAdapter;
+            _manualExecutor = new ManualCommandExecutor(eventAggregator, _experimentDataAdapter);
             // 初始化防抖定时器
             _sizeChangeDebounceTimer = new System.Windows.Threading.DispatcherTimer
             {

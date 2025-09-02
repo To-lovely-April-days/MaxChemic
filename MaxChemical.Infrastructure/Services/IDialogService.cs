@@ -18,6 +18,16 @@ public interface IRegionSettingsDialogProvider
 {
     bool? ShowDialog(RegionLayout currentLayout, Func<(double Width, double Height)> getCanvasSize, out RegionLayout result);
     void ShowWindow(RegionLayout currentLayout, Func<(double Width, double Height)> getDialogSize, Func<(double Width, double Height)> getCanvasSize, Action<RegionLayout> onCompleted = null);
+
+}
+public interface IProjectNameDialogProvider
+{
+    /// <summary>
+    /// 显示项目名称输入对话框
+    /// </summary>
+    /// <param name="defaultName">默认项目名称</param>
+    /// <param name="onCompleted">完成回调，参数为项目名称，null表示取消</param>
+    void ShowDialog(string defaultName = null, Action<string> onCompleted = null);
 }
 public class DialogService : IDialogService
 {

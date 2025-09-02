@@ -183,6 +183,7 @@
             <!--<controls:MainStatusBar Grid.Row="6" 
                                     Visibility="{Binding IsStatusBarVisible, Converter={StaticResource BoolToVisibilityConverter}}" 
                                     Grid.ColumnSpan="2"/>-->
+          
         </Grid>
     </Border>
 </Window>

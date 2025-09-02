@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Ports;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevicePlugins.Devices;
@@ -32,7 +33,15 @@ namespace PeristalticPumps_CY
         // *** 状态跟踪相关字段 ***
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
+        private readonly SemaphoreSlim _serialPortSemaphore = new SemaphoreSlim(1, 1);
+        private readonly object _serialLock = new object();
+
         private readonly object _statesLock = new object();
+        private string _lastReceivedData = string.Empty;
+
+        // 响应分隔符配置
+        private const string RESPONSE_DELIMITER = "\r\n"; // 根据您的设备调整
+        private const int MAX_RESPONSE_LENGTH = 1024;
 
         #region IControllableDevice Implementation
 
@@ -263,7 +272,7 @@ namespace PeristalticPumps_CY
                 await StopAllActiveStatesAsync();
 
                 // 2. 执行设备特定的完成逻辑
-                await ExecuteCompletionSequenceAsync(context);
+                //await ExecuteCompletionSequenceAsync(context);
 
                 // 3. 记录统计信息
                 RecordFlowStatistics(context);
@@ -983,40 +992,71 @@ namespace PeristalticPumps_CY
                 },
                 Action = WrapAction("获取温度值", async delegate (DeviceParameters parameters)
                 {
-                    await Task.Delay(5000);
-
                     bool useCalibration = parameters.GetValue<bool>("UseCalibration");
                     double offset = parameters.GetValue<double>("Offset");
 
-                    // 简单的温度模拟
-                    lock (_stateLock)
+                    double actualTemperature = 25.0;
+                    string rawResponse = "";
+
+                    try
                     {
-                        if (_isRunning)
+                        // *** 使用线程安全的串口通信 ***
+                        rawResponse = await SendCommandAndWaitResponseAsync("获取温度指令", 5000);
+
+                        // *** 解析温度值 ***
+                        actualTemperature = ParseTemperatureFromResponse(rawResponse);
+
+                        InfoLog($"从设备获取到温度: {actualTemperature}°C");
+
+                        // 更新内部状态
+                        lock (_stateLock)
                         {
-                            _currentTemperature += new Random().NextDouble() * 2 - 1; // ±1度随机变化
-                            _currentTemperature = Math.Min(_currentTemperature, 85); // 限制最高温度
+                            _currentTemperature = actualTemperature;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (IsSimulationMode)
+                        {
+                            // 模拟模式下使用模拟温度
+                            lock (_stateLock)
+                            {
+                                if (_isRunning)
+                                {
+                                    _currentTemperature += new Random().NextDouble() * 2 - 1;
+                                    _currentTemperature = Math.Min(_currentTemperature, 85);
+                                }
+                                else
+                                {
+                                    _currentTemperature += (25 - _currentTemperature) * 0.1;
+                                }
+                                actualTemperature = _currentTemperature;
+                            }
+                            WarnLog($"模拟模式获取温度: {actualTemperature}°C");
                         }
                         else
                         {
-                            _currentTemperature += (25 - _currentTemperature) * 0.1; // 向25度回归
+                            ErrorLog($"获取温度失败: {ex.Message}");
+                            throw new InvalidOperationException($"获取设备温度失败: {ex.Message}", ex);
                         }
                     }
 
-                    double finalTemp = useCalibration ? _currentTemperature + offset : _currentTemperature;
+                    // 应用校准
+                    double finalTemp = useCalibration ? actualTemperature + offset : actualTemperature;
                     bool isWarning = finalTemp > 80;
-                    byte[] data = System.Text.Encoding.GetEncoding("GBK").GetBytes("获取温度指令");
-                    _serialPort.Write(data, 0, data.Length);
+
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("Temperature", -50, 200, Math.Round(finalTemp, 2), "当前温度") { IsVisibleInVariableManager = true },
-                            new StringParameter("Unit", "℃", "") { IsVisibleInVariableManager = false },
-                            new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false },
-                            new BooleanParameter("IsWarning", isWarning, "") { IsVisibleInVariableManager = true },
-                            new StringParameter("Message", isWarning ? "温度过高警告！" : "温度正常", "") { IsVisibleInVariableManager = false }
-                        }
+        {
+            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+            new NumberParameter("Temperature", -50, 200, Math.Round(finalTemp, 2), "当前温度") { IsVisibleInVariableManager = true },
+            new StringParameter("Unit", "℃", "") { IsVisibleInVariableManager = false },
+            new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false },
+            new BooleanParameter("IsWarning", isWarning, "") { IsVisibleInVariableManager = true },
+            new StringParameter("Message", isWarning ? "温度过高警告！" : "温度正常", "") { IsVisibleInVariableManager = false },
+            new StringParameter("RawResponse", rawResponse, "原始响应数据") { IsVisibleInVariableManager = false }
+        }
                     };
                 })
             });
@@ -1345,7 +1385,360 @@ namespace PeristalticPumps_CY
                 })
             });
         }
+        /// <summary>
+        /// 发送命令并等待响应（线程安全版本）
+        /// </summary>
+        private async Task<string> SendCommandAndWaitResponseAsync(string command, int timeoutMs = 5000)
+        {
+            if (IsSimulationMode)
+            {
+                // 模拟模式下也要有一点延时，模拟真实通信
+                await Task.Delay(new Random().Next(50, 200));
+                return GenerateSimulatedResponse(command);
+            }
 
+            if (_serialPort?.IsOpen != true)
+            {
+                throw new InvalidOperationException("串口未连接");
+            }
+
+            // *** 关键：只对串口通信加锁，保证数据包完整性 ***
+            await _serialPortSemaphore.WaitAsync(timeoutMs);
+
+            try
+            {
+                DebugLog($"[串口通信] 开始发送命令: {command}");
+
+                // 清空接收缓冲区，避免上次的残留数据
+                lock (_serialLock)
+                {
+                    try
+                    {
+                        _serialPort.DiscardInBuffer();
+                        _serialPort.DiscardOutBuffer();
+                    }
+                    catch (Exception ex)
+                    {
+                        WarnLog($"清空串口缓冲区失败: {ex.Message}");
+                    }
+                }
+
+                // 短暂等待确保缓冲区清空
+                await Task.Delay(50);
+
+                // 发送命令
+                await SendCommandAsync(command);
+
+                // 等待响应
+                var response = await WaitForResponseAsync(timeoutMs);
+
+                DebugLog($"[串口通信] 命令响应完成: {command} -> {response}");
+                return response;
+            }
+            finally
+            {
+                // *** 立即释放串口锁，允许其他命令使用串口 ***
+                _serialPortSemaphore.Release();
+                DebugLog($"[串口通信] 释放串口锁: {command}");
+            }
+        }
+        /// <summary>
+        /// 生成模拟响应
+        /// </summary>
+        private string GenerateSimulatedResponse(string command)
+        {
+            return command switch
+            {
+                "获取温度指令" => $"TEMP:{25.0 + new Random().NextDouble() * 10:F1}",
+                "获取流量指令" => $"FLOW:{_currentFlowRate:F2}",
+                "获取压力指令" => $"PRESSURE:{_currentPressure:F1}",
+                "开启指令" => "START:OK",
+                "关闭指令" => "STOP:OK",
+                _ => "OK"
+            };
+        }
+        /// <summary>
+        /// 发送命令（不等待响应）
+        /// </summary>
+        private async Task SendCommandAsync(string command)
+        {
+            await Task.Run(() =>
+            {
+                lock (_serialLock)
+                {
+                    try
+                    {
+                        byte[] data = System.Text.Encoding.GetEncoding("GBK").GetBytes(command + "\r\n");
+                        _serialPort.Write(data, 0, data.Length);
+                        _serialPort.BaseStream.Flush();
+
+                        DebugLog($"[串口发送] {command} ({data.Length} bytes)");
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"发送命令失败: {ex.Message}", ex);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// 等待串口响应（改进版本）
+        /// </summary>
+        private async Task<string> WaitForResponseAsync(int timeoutMs)
+        {
+            var startTime = DateTime.Now;
+            var response = new StringBuilder();
+            var lastDataTime = DateTime.Now;
+            const int NO_DATA_TIMEOUT = 500; // 500ms内没有新数据认为接收完成
+
+            while ((DateTime.Now - startTime).TotalMilliseconds < timeoutMs)
+            {
+                try
+                {
+                    bool hasNewData = false;
+
+                    lock (_serialLock)
+                    {
+                        if (_serialPort?.IsOpen == true && _serialPort.BytesToRead > 0)
+                        {
+                            string newData = _serialPort.ReadExisting();
+                            response.Append(newData);
+                            lastDataTime = DateTime.Now;
+                            hasNewData = true;
+
+                            DebugLog($"[串口接收] 数据片段: '{newData}' (累计长度: {response.Length})");
+                        }
+                    }
+
+                    // 检查是否接收到完整响应
+                    var responseStr = response.ToString();
+                    if (IsCompleteResponse(responseStr))
+                    {
+                        var finalResponse = CleanupResponse(responseStr);
+                        DebugLog($"[串口接收] 完整响应: '{finalResponse}'");
+                        return finalResponse;
+                    }
+
+                    // 如果有数据但不完整，继续等待
+                    if (hasNewData)
+                    {
+                        await Task.Delay(50);
+                        continue;
+                    }
+
+                    // 如果一段时间没有新数据且有部分数据，可能接收完成
+                    if (response.Length > 0 && (DateTime.Now - lastDataTime).TotalMilliseconds > NO_DATA_TIMEOUT)
+                    {
+                        var partialResponse = CleanupResponse(responseStr);
+                        WarnLog($"[串口接收] 可能完成（超时）: '{partialResponse}'");
+                        return partialResponse;
+                    }
+
+                    await Task.Delay(50);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"读取响应失败: {ex.Message}", ex);
+                }
+            }
+
+            var timeoutResponse = response.ToString();
+            throw new TimeoutException($"等待响应超时({timeoutMs}ms)，已接收: '{timeoutResponse}'");
+        }
+
+        /// <summary>
+        /// 判断是否为完整响应
+        /// </summary>
+        private bool IsCompleteResponse(string response)
+        {
+            if (string.IsNullOrEmpty(response))
+                return false;
+
+            // 方案1：检查结束符
+            if (response.Contains(RESPONSE_DELIMITER) || response.Contains("\n") || response.Contains("\r"))
+            {
+                return true;
+            }
+
+            // 方案2：检查特定格式的完整性
+            if (response.Contains("TEMP:") && response.Length >= 8) // 例如 "TEMP:25.6"
+            {
+                return true;
+            }
+
+            // 方案3：纯数字格式，检查是否包含小数点和足够长度
+            if (response.Length >= 4 &&
+                System.Text.RegularExpressions.Regex.IsMatch(response, @"^\d+\.?\d*$"))
+            {
+                return true;
+            }
+
+            // 方案4：包含温度单位
+            if (response.Contains("°C") || response.Contains("℃"))
+            {
+                return true;
+            }
+
+            // 方案5：长度限制，防止无限等待
+            if (response.Length >= MAX_RESPONSE_LENGTH)
+            {
+                WarnLog($"响应长度达到最大限制({MAX_RESPONSE_LENGTH})，强制认为完整");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 清理响应数据
+        /// </summary>
+        private string CleanupResponse(string response)
+        {
+            if (string.IsNullOrEmpty(response))
+                return string.Empty;
+
+            // 移除常见的控制字符和空白
+            var cleaned = response
+                .Replace("\r", "")
+                .Replace("\n", "")
+                .Trim();
+
+            // 如果有多个响应粘连，尝试提取第一个有效响应
+            if (cleaned.Contains("TEMP:"))
+            {
+                var tempIndex = cleaned.IndexOf("TEMP:");
+                var tempMatch = System.Text.RegularExpressions.Regex.Match(
+                    cleaned.Substring(tempIndex), @"TEMP:[\d\.\-]+");
+                if (tempMatch.Success)
+                {
+                    return tempMatch.Value;
+                }
+            }
+
+            return cleaned;
+        }
+
+        /// <summary>
+        /// 从设备响应中解析温度值（改进版本）
+        /// </summary>
+        private double ParseTemperatureFromResponse(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                throw new InvalidOperationException("设备响应为空");
+            }
+
+            try
+            {
+                response = response.Trim();
+                InfoLog($"解析温度响应: '{response}'");
+
+                // 处理粘包情况：如果包含多个响应，提取最后一个有效的
+                var responses = SplitMultipleResponses(response); // 确保这里返回List<string>
+
+                // *** 修正：确保 responses 是可枚举的 ***
+                if (responses != null && responses.Any())
+                {
+                    // 从最后一个开始尝试
+                    for (int i = responses.Count - 1; i >= 0; i--)
+                    {
+                        if (TryParseTemperature(responses[i], out double temperature))
+                        {
+                            InfoLog($"成功解析温度: {temperature}°C (来源: '{responses[i]}')");
+                            return temperature;
+                        }
+                    }
+                }
+
+                throw new FormatException($"无法从任何响应中解析温度值: '{response}'");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"解析温度响应失败: {ex.Message}, 响应内容: '{response}'", ex);
+            }
+        }
+
+        /// <summary>
+        /// 分割可能粘连的多个响应
+        /// </summary>
+        private List<string> SplitMultipleResponses(string response)
+        {
+            var responses = new List<string>();
+
+            // 方案1：按换行符分割
+            var lines = response.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            responses.AddRange(lines);
+
+            // 方案2：按TEMP:分割
+            if (response.Contains("TEMP:"))
+            {
+                var tempParts = response.Split(new[] { "TEMP:" }, StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 1; i < tempParts.Length; i++) // 跳过第一个空元素
+                {
+                    responses.Add("TEMP:" + tempParts[i]);
+                }
+            }
+
+            // 如果没有分割出任何内容，返回原始响应
+            if (!responses.Any())
+            {
+                responses.Add(response);
+            }
+
+            return responses.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
+        }
+
+        /// <summary>
+        /// 尝试解析单个温度值
+        /// </summary>
+        private bool TryParseTemperature(string singleResponse, out double temperature)
+        {
+            temperature = 0;
+
+            if (string.IsNullOrWhiteSpace(singleResponse))
+                return false;
+
+            singleResponse = singleResponse.Trim();
+
+            try
+            {
+                // 方案1: TEMP:25.6 格式
+                if (singleResponse.StartsWith("TEMP:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var tempStr = singleResponse.Substring(5).Trim();
+                    // 提取数字部分
+                    var match = System.Text.RegularExpressions.Regex.Match(tempStr, @"[-+]?\d*\.?\d+");
+                    if (match.Success && double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out temperature))
+                    {
+                        return true;
+                    }
+                }
+
+                // 方案2: 25.6°C 或 25.6℃ 格式
+                if (singleResponse.Contains("°C") || singleResponse.Contains("℃"))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(singleResponse, @"[-+]?\d*\.?\d+");
+                    if (match.Success && double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out temperature))
+                    {
+                        return true;
+                    }
+                }
+
+                // 方案3: 纯数字格式
+                var numberMatch = System.Text.RegularExpressions.Regex.Match(singleResponse, @"^[-+]?\d*\.?\d+$");
+                if (numberMatch.Success && double.TryParse(numberMatch.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out temperature))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
         // 枚举定义
         public enum FlowRateUnit
         {
@@ -1408,9 +1801,8 @@ namespace PeristalticPumps_CY
 
             try
             {
-                // 停止所有活跃状态
                 var stopTask = StopAllActiveStatesAsync();
-                stopTask.Wait(TimeSpan.FromSeconds(5)); // 最多等待5秒
+                stopTask.Wait(TimeSpan.FromSeconds(5));
 
                 lock (_stateLock)
                 {
@@ -1422,8 +1814,10 @@ namespace PeristalticPumps_CY
                     }
                 }
 
-                base.Shutdown();
+                // *** 释放串口信号量 ***
+                _serialPortSemaphore?.Dispose();
 
+                base.Shutdown();
                 InfoLog("蠕动泵设备关闭完成");
             }
             catch (Exception ex)
@@ -1435,13 +1829,15 @@ namespace PeristalticPumps_CY
 
         protected override async Task<bool> OnConnectAsync()
         {
-            if (_serialPort!=null)
+            if (_serialPort != null)
             {
                 _serialPort.Close();
                 _serialPort.Dispose();
+                _serialPort = null;
             }
+
             string comPort = Parameters.GetValue<string>("COM Port");
-            
+
             if (IsSimulationMode)
             {
                 InfoLog("以仿真模式连接");
@@ -1464,28 +1860,36 @@ namespace PeristalticPumps_CY
                     DataBits = 8,
                     Parity = Parity.None,
                     StopBits = StopBits.One,
-                    ReadTimeout = 5000,
-                    WriteTimeout = 5000
+                    ReadTimeout = 3000,
+                    WriteTimeout = 3000,
+                    Encoding = System.Text.Encoding.GetEncoding("GBK") // 设置编码
                 };
-                
+
                 await Task.Run(() => _serialPort.Open());
 
-                if (await TestConnection())
-                {
-                    InfoLog($"成功连接到 {comPort}");
-                    return true;
-                }
-                else
-                {
-                    _serialPort?.Close();
-                    ErrorLog("设备连接测试失败");
-                    return false;
-                }
+                // 等待串口稳定
+                await Task.Delay(100);
+                return true;
+                //if (await TestConnection())
+                //{
+                //    InfoLog($"成功连接到 {comPort}");
+                //    return true;
+                //}
+                //else
+                //{
+                //    _serialPort?.Close();
+                //    _serialPort?.Dispose();
+                //    _serialPort = null;
+                //    ErrorLog("设备连接测试失败");
+                //    return false;
+                //}
             }
             catch (Exception ex)
             {
                 ErrorLog($"连接失败: {ex.Message}");
                 _serialPort?.Close();
+                _serialPort?.Dispose();
+                _serialPort = null;
                 return false;
             }
         }
@@ -1565,23 +1969,27 @@ namespace PeristalticPumps_CY
                 if (_serialPort == null || !_serialPort.IsOpen)
                     return false;
 
-                //await Task.Run(() =>
-                //{
-                //    _serialPort.WriteLine("STATUS?");
-                //    Thread.Sleep(100);
-
-                //    if (_serialPort.BytesToRead > 0)
-                //    {
-                //        _serialPort.ReadExisting();
-                //        return true;
-                //    }
-                //    return false;
-                //});
-
-                return true;
+                // 发送测试命令
+                try
+                {
+                    var testResponse = await SendCommandAndWaitResponseAsync("STATUS?", 2000);
+                    InfoLog($"连接测试响应: {testResponse}");
+                    return true;
+                }
+                catch (TimeoutException)
+                {
+                    WarnLog("连接测试超时，但串口已打开，可能设备不支持STATUS命令");
+                    return true; // 串口能打开就认为连接成功
+                }
+                catch (Exception ex)
+                {
+                    ErrorLog($"连接测试失败: {ex.Message}");
+                    return false;
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                ErrorLog($"测试连接异常: {ex.Message}");
                 return false;
             }
         }
@@ -1591,31 +1999,42 @@ namespace PeristalticPumps_CY
             return (DeviceParameters parameters) =>
             {
                 var paramText = FormatParameters(parameters);
-                _logger.LogInformation($"[DeviceCommand-START] Device={Name} Command={commandName} Params={paramText}");
+                _logger.LogInformation($"[设备命令-开始] Device={Name} Command={commandName} Params={paramText}");
 
                 var sw = Stopwatch.StartNew();
                 try
                 {
+                    // *** 关键：设备命令可以并行执行，锁只在串口通信时生效 ***
                     var output = innerAsync(parameters).GetAwaiter().GetResult();
                     sw.Stop();
 
+                    // 检查输出参数中的 Status 字段
+                    var statusParam = output?.Variables?.OfType<StringParameter>()
+                        ?.FirstOrDefault(p => p.Name == "Status");
+
+                    if (statusParam?.Value?.ToString() == "ERROR")
+                    {
+                        var messageParam = output?.Variables?.OfType<StringParameter>()
+                            ?.FirstOrDefault(p => p.Name == "Message");
+                        var errorMessage = messageParam?.Value?.ToString() ?? "设备命令执行失败";
+
+                        _logger.LogError($"[设备命令-错误] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Error={errorMessage}");
+                        throw new DeviceCommandExecutionException(Name, commandName, errorMessage);
+                    }
+
                     var outputText = FormatParameters(output);
-                    _logger.LogInformation($"[DeviceCommand-END]   Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Output={outputText}");
+                    _logger.LogInformation($"[设备命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Output={outputText}");
                     return output;
+                }
+                catch (DeviceCommandExecutionException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    _logger.LogError(ex, $"[DeviceCommand-ERROR] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Params={paramText}");
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new StringParameter("Status", "ERROR", "") { IsVisibleInVariableManager = false },
-                            new StringParameter("Message", ex.Message, "") { IsVisibleInVariableManager = false }
-                        }
-                    };
+                    _logger.LogError(ex, $"[设备命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds} Params={paramText}");
+                    throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
             };
         }

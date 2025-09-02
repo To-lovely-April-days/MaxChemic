@@ -1,5 +1,11 @@
-﻿using MaxChemical.Infrastructure.Events;
+﻿using MaxChemical.Data.Repositories;
+using MaxChemical.Data.Services;
+using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
+using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.ViewModels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -13,6 +19,10 @@ public class MainMenuBarViewModel : BindableBase
 {
     private readonly IEventAggregator _eventAggregator;
     private readonly ILocalizationService _localizationService;
+
+    private readonly IExperimentDataRepository _experimentRepository;
+    private readonly IExcelExportService _excelExportService;
+    private readonly ILogService _logger;
     private bool _isToolbarVisible = true;
     private bool _isStatusBarVisible = true;
     private bool _isPropertyPanelVisible = true;
@@ -43,11 +53,14 @@ public class MainMenuBarViewModel : BindableBase
     private string _menuCheckUpdate = string.Empty;
     private string _menuAbout = string.Empty;
 
-    public MainMenuBarViewModel(IEventAggregator eventAggregator, ILocalizationService localizationService)
+    public MainMenuBarViewModel(IEventAggregator eventAggregator, ILocalizationService localizationService,
+         IExperimentDataRepository experimentRepository, IExcelExportService excelExportService, ILogService logger)
     {
         _eventAggregator = eventAggregator;
         _localizationService = localizationService;
-
+        _experimentRepository = experimentRepository ?? throw new ArgumentNullException(nameof(experimentRepository));
+        _excelExportService = excelExportService ?? throw new ArgumentNullException(nameof(excelExportService));
+        _logger=logger.ForContext<MainMenuBarViewModel>();
         InitializeCommands();
         LoadLocalizedStrings();
         LoadRecentFiles();
@@ -456,10 +469,85 @@ public class MainMenuBarViewModel : BindableBase
     private void ExecuteExit() => Application.Current.Shutdown();
 
     // 历史实验命令实现
-    private void ExecuteViewHistory() => MessageBox.Show(_localizationService.GetString("Message_ViewHistory"), _localizationService.GetString("Message_Info"));
+    private void ExecuteViewHistory()
+    {
+        try
+        {
+            var historyViewModel = new ExperimentHistoryViewModel(_experimentRepository, _excelExportService, _logger);
+            var historyWindow = new Window
+            {
+                Title = "实验历史记录",
+                Content = new MaxChemical.Modules.Designer.Views.ExperimentHistoryView { DataContext = historyViewModel },
+                Width = 1200,
+                Height = 800,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+            historyWindow.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "打开实验历史记录失败");
+            MessageBox.Show($"打开实验历史记录失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
     private void ExecuteExportData() => MessageBox.Show(_localizationService.GetString("Message_ExportData"), _localizationService.GetString("Message_Info"));
-    private void ExecuteExperimentStats() => MessageBox.Show(_localizationService.GetString("Message_ExperimentStats"), _localizationService.GetString("Message_Info"));
-    private void ExecuteGenerateReport() => MessageBox.Show(_localizationService.GetString("Message_GenerateReport"), _localizationService.GetString("Message_Info"));
+    private void ExecuteExperimentStats()
+    {
+        try
+        {
+            var statsViewModel = new ExperimentStatisticsViewModel(_experimentRepository, _excelExportService, _logger);
+            var statsWindow = new Window
+            {
+                Title = "实验统计分析",
+                Content = new MaxChemical.Modules.Designer.Views.ExperimentStatisticsView { DataContext = statsViewModel },
+                Width = 1200,
+                Height = 800,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+            statsWindow.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "打开实验统计分析失败");
+            MessageBox.Show($"打开实验统计分析失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+    private async void ExecuteGenerateReport()
+    {
+        try
+        {
+            var saveDialog = new SaveFileDialog
+            {
+                Filter = "Excel文件 (*.xlsx)|*.xlsx",
+                FileName = $"设备参数变化记录_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx"
+            };
+
+            if (saveDialog.ShowDialog() == true)
+            {
+                // 默认导出最近30天的参数变化记录
+                var endDate = DateTime.Now;
+                var startDate = endDate.AddDays(-30);
+
+                var parameterChanges = await _experimentRepository.GetParameterChangesForExportAsync(startDate, endDate);
+
+                if (!parameterChanges.Any())
+                {
+                    MessageBox.Show("最近30天内没有参数变化记录", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                await _excelExportService.ExportParameterChangesAsync(parameterChanges, saveDialog.FileName);
+
+                MessageBox.Show($"导出完成！\n文件位置: {saveDialog.FileName}\n共导出 {parameterChanges.Count} 条参数变化记录", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{saveDialog.FileName}\"");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "导出参数变化数据失败");
+            MessageBox.Show($"导出参数变化数据失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
     private void ExecuteCompareExperiments() => MessageBox.Show("实验对比", _localizationService.GetString("Message_Info"));
     private void ExecuteClearHistory() => MessageBox.Show("清除历史记录", _localizationService.GetString("Message_Info"));
 

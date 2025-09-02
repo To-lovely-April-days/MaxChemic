@@ -164,4 +164,121 @@ namespace MaxChemical.Modules.Designer.Models
             }
         }
     }
+    public class ProjectNameDialogProvider : IProjectNameDialogProvider
+    {
+        private Window _currentWindow;
+
+        public void ShowDialog(string defaultName = null, Action<string> onCompleted = null)
+        {
+            // 如果已经有窗口打开，先关闭它
+            if (_currentWindow != null && _currentWindow.IsLoaded)
+            {
+                _currentWindow.Close();
+            }
+
+            // 设置对话框窗口尺寸
+            var dialogWidth = 450;
+            var dialogHeight = 300;
+
+            // 为阴影预留空间
+            var shadowMargin = 20;
+            var windowWidth = dialogWidth + shadowMargin * 2;
+            var windowHeight = dialogHeight + shadowMargin * 2;
+
+            _currentWindow = new Window
+            {
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize,
+                Width = windowWidth,
+                Height = windowHeight,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ShowInTaskbar = false,
+                Topmost = true,
+                AllowsTransparency = true,
+                Background = Brushes.Transparent
+            };
+
+            // 设置默认名称
+            var projectName = defaultName ?? $"新建项目_{DateTime.Now:yyyyMMdd_HHmmss}";
+
+            var control = new ProjectNameInputDialogControl(projectName);
+
+            // 设置控件边距来为阴影留出空间
+            control.Margin = new Thickness(shadowMargin);
+
+            // 处理完成事件
+            control.ViewModel.OnConfirmed += (name) =>
+            {
+                onCompleted?.Invoke(name);
+                _currentWindow.Close();
+            };
+
+            control.ViewModel.OnCancelled += () =>
+            {
+                onCompleted?.Invoke(null);
+                _currentWindow.Close();
+            };
+
+            _currentWindow.Closing += (sender, e) =>
+            {
+                _currentWindow = null;
+            };
+
+            // 支持拖拽移动窗口 - 使用修改后的方法名
+            var dragArea = control.GetDragArea();
+            dragArea.MouseLeftButtonDown += (s, e) =>
+            {
+                if (e.ChangedButton == MouseButton.Left)
+                {
+                    try
+                    {
+                        _currentWindow.DragMove();
+                    }
+                    catch
+                    {
+                        // 忽略异常
+                    }
+                }
+            };
+
+            // 支持键盘事件
+            _currentWindow.KeyDown += (s, e) =>
+            {
+                switch (e.Key)
+                {
+                    case Key.Enter:
+                        if (control.ViewModel.ConfirmCommand.CanExecute())
+                        {
+                            control.ViewModel.ConfirmCommand.Execute();
+                        }
+                        e.Handled = true;
+                        break;
+                    case Key.Escape:
+                        control.ViewModel.CancelCommand.Execute();
+                        e.Handled = true;
+                        break;
+                }
+            };
+
+            _currentWindow.Content = control;
+
+            // 设置窗口所有者
+            if (Application.Current.MainWindow != null && Application.Current.MainWindow.IsLoaded)
+            {
+                _currentWindow.Owner = Application.Current.MainWindow;
+            }
+
+            try
+            {
+                _currentWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                _currentWindow = null;
+                // 可以添加日志记录
+                System.Diagnostics.Debug.WriteLine($"显示项目名称输入对话框时出错: {ex.Message}");
+            }
+        }
+    }
+
 }

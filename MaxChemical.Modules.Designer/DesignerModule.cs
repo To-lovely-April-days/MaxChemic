@@ -25,7 +25,12 @@ public class DesignerModule : IModule
         // 注册视图类型
         containerRegistry.Register<ProcessDesignerView>();
         containerRegistry.Register<FlowDesignerView>();
-
+        containerRegistry.Register<ExperimentHistoryView>();
+        containerRegistry.Register<ExperimentHistoryViewModel>();
+        containerRegistry.Register<ExperimentStatisticsView>();
+        containerRegistry.Register<ExperimentStatisticsViewModel>();
+        containerRegistry.RegisterSingleton<ExperimentDetailWindow>();
+        containerRegistry.RegisterSingleton<ExperimentDetailWindowViewModel>();
 
     }
 }

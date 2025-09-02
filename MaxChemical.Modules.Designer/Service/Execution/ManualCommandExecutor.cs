@@ -12,6 +12,7 @@ using MaxChemical.Modules.Designer.ViewModels;
 using Prism.Events;
 using System.Diagnostics;
 using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Services;
 
 namespace MaxChemical.Modules.Designer.Service.Execution
 {
@@ -26,9 +27,12 @@ namespace MaxChemical.Modules.Designer.Service.Execution
         private readonly ConcurrentDictionary<string, bool> _originalDeviceSimulationModes = new();
         private bool _disposed = false;
 
-        public ManualCommandExecutor(IEventAggregator eventAggregator)
+        private readonly IExperimentDataAdapter _experimentDataAdapter; // 新增：实验数据适配器
+        public ManualCommandExecutor(IEventAggregator eventAggregator,
+              IExperimentDataAdapter experimentDataAdapter)
         {
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            _experimentDataAdapter = experimentDataAdapter ?? throw new ArgumentNullException(nameof(experimentDataAdapter));
             _logger = new LogService().ForContext<ManualCommandExecutor>();
 
             // *** 订阅模拟模式相关事件（与FlowExecutionEngine保持一致） ***
@@ -397,7 +401,20 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                         ExecutionTime = DateTime.Now,
                         IsSimulationMode = currentSimulationMode
                     };
-
+                    // *** 新增：记录手动执行的设备数据 ***
+                    var currentExperimentId = _experimentDataAdapter.GetCurrentExperimentId();
+                    if (!string.IsNullOrEmpty(currentExperimentId))
+                    {
+                        await _experimentDataAdapter.RecordDeviceDataAsync(
+                            currentExperimentId,
+                            node.BoundDeviceId,
+                            target.Name,
+                            cmd.Name,
+                            inputParameters,
+                            outputParams,
+                            node.NodeId,
+                            node.DisplayName);
+                    }
                     // 发布结果更新事件
                     _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
                     {

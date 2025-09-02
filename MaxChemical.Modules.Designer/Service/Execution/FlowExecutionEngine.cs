@@ -50,23 +50,80 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         // 添加执行进度跟踪
         private class ExecutionProgress
         {
-            public int TotalNodes { get; set; }
-            public int CompletedNodes { get; set; }
-            public object Lock { get; } = new object();
+            private volatile bool _disposed = false;
+            private readonly object _lock = new object();
+            private int _totalNodes;
+            private int _completedNodes;
+
+            public int TotalNodes
+            {
+                get
+                {
+                    lock (_lock)
+                    {
+                        return _disposed ? 0 : _totalNodes;
+                    }
+                }
+                set
+                {
+                    lock (_lock)
+                    {
+                        if (!_disposed)
+                            _totalNodes = value;
+                    }
+                }
+            }
+
+            public int CompletedNodes
+            {
+                get
+                {
+                    lock (_lock)
+                    {
+                        return _disposed ? 0 : _completedNodes;
+                    }
+                }
+            }
+
+            public object Lock => _lock;
 
             public void IncrementCompleted()
             {
-                lock (Lock)
+                lock (_lock)
                 {
-                    CompletedNodes++;
+                    if (!_disposed)
+                    {
+                        _completedNodes++;
+                    }
                 }
             }
 
             public double GetPercentage()
             {
-                lock (Lock)
+                lock (_lock)
                 {
-                    return TotalNodes > 0 ? (double)CompletedNodes / TotalNodes * 100 : 0;
+                    if (_disposed || _totalNodes <= 0)
+                        return 0;
+                    return (double)_completedNodes / _totalNodes * 100;
+                }
+            }
+
+            public void AddTotalNodes(int count)
+            {
+                lock (_lock)
+                {
+                    if (!_disposed)
+                    {
+                        _totalNodes += count;
+                    }
+                }
+            }
+
+            public void Dispose()
+            {
+                lock (_lock)
+                {
+                    _disposed = true;
                 }
             }
         }
@@ -94,14 +151,23 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         public event EventHandler<FlowExecutionErrorEventArgs> ExecutionError;
         public event EventHandler<FlowExecutionProgressEventArgs> ProgressChanged;
 
+        private readonly IExperimentDataAdapter _experimentDataAdapter; // 新增：实验数据适配器
+
+        private string _currentProjectName = "未命名流程";
+        private string? _currentExperimentId;
+
+
         public FlowExecutionEngine(INodeExecutionStatusService statusService, IEventAggregator eventAggregator,
-            IDeviceNameResolverService deviceNameResolver, ICustomVariablePersistenceService persistenceService)
+            IDeviceNameResolverService deviceNameResolver, ICustomVariablePersistenceService persistenceService,
+             IExperimentDataAdapter experimentDataAdapter)
         {
             _logger = _logger?.ForContext<FlowExecutionEngine>() ?? new LogService().ForContext<FlowExecutionEngine>();
             _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _deviceNameResolver = deviceNameResolver ?? throw new ArgumentNullException(nameof(deviceNameResolver));
             _persistenceService= persistenceService ?? throw new ArgumentNullException(nameof(persistenceService));
+
+            _experimentDataAdapter = experimentDataAdapter ?? throw new ArgumentNullException(nameof(experimentDataAdapter));
             // *** 新增：订阅模拟模式相关事件 ***
             SubscribeSimulationModeEvents();
             // 订阅上下文变量请求事件，用于变量管理器获取当前变量
@@ -132,8 +198,9 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     callback?.Invoke(new Dictionary<string, object>());
                 }
             }, ThreadOption.PublisherThread, true);
+            // 订阅项目名称更新事件
+            _eventAggregator.GetEvent<ProjectNameUpdatedEvent>().Subscribe(OnProjectNameUpdated);
 
-           
         }
         #region 新增：模拟模式支持
 
@@ -263,6 +330,16 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         }
 
         #endregion
+
+        /// <summary>
+        /// 项目名称更新处理
+        /// </summary>
+        private void OnProjectNameUpdated(string projectName)
+        {
+            _currentProjectName = projectName ?? "未命名流程";
+            _logger.LogDebug("项目名称已更新: {ProjectName}", _currentProjectName);
+        }
+
         public async Task<FlowExecutionResult> ExecuteAsync(FlowDesignerViewModel flowViewModel, CancellationToken cancellationToken = default)
         {
             if (State != FlowExecutionState.Idle)
@@ -297,7 +374,29 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
 
             try
-            {   // *** 流程开始时通知所有设备 ***
+            {  // 初始化进度跟踪
+                var totalNodes = CalculateTotalNodes(flowViewModel.CommandNodes);
+
+                // *** 新增：更新实验进度 ***
+                await _experimentDataAdapter.UpdateExperimentProgressAsync(_currentExperimentId, 0, totalNodes);
+
+                _currentProgress = new ExecutionProgress
+                {
+                    TotalNodes = totalNodes,
+                   
+
+                };
+
+                _logger.LogInformation("流程包含总节点数: {TotalNodes} (含嵌套节点)", totalNodes);
+
+                // *** 新增：开始实验记录 ***
+                _currentExperimentId = await _experimentDataAdapter.StartExperimentAsync(
+                     _currentProjectName,
+                     _currentSimulationMode,
+                    $"自动执行流程 - {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                    Environment.UserName,
+                    "自动执行");
+                // *** 流程开始时通知所有设备 ***
                 await NotifyFlowStartedAsync(flowViewModel, startTime);
 
                 _statusService.SetCurrentFlowViewModel(flowViewModel);
@@ -319,15 +418,10 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     throw new InvalidOperationException($"设备连接验证失败: {string.Join(", ", deviceValidation.Errors)}");
                 }
                 _logger.LogInformation("所有设备连接验证通过");
-                // 初始化进度跟踪
-                var totalNodes = CalculateTotalNodes(flowViewModel.CommandNodes);
-                _currentProgress = new ExecutionProgress
-                {
-                    TotalNodes = totalNodes,
-                    CompletedNodes = 0
-                };
+              
+           
 
-                _logger.LogInformation("流程包含总节点数: {TotalNodes} (含嵌套节点)", totalNodes);
+
 
                 // 执行所有顶层节点
                 foreach (var node in flowViewModel.CommandNodes)
@@ -370,8 +464,44 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     _logger.LogWarning("流程执行不完整: 预期 {Expected} 个节点，实际完成 {Actual} 个",
                         _currentProgress.TotalNodes, _currentProgress.CompletedNodes);
                 }
+                // *** 在执行完成前，最后一次确保进度同步 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId) && _currentProgress != null)
+                {
+                    await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                        _currentExperimentId,
+                        _currentProgress.CompletedNodes,
+                        _currentProgress.TotalNodes);
 
+                    _logger.LogInformation("最终实验进度: {Completed}/{Total} ({Percentage:F1}%)",
+                        _currentProgress.CompletedNodes, _currentProgress.TotalNodes, _currentProgress.GetPercentage());
+                }
                 State = FlowExecutionState.Completed;
+
+
+                // *** 新增：完成实验记录 ***
+                var finalProgress = _currentProgress; // 获取本地引用
+                if (!string.IsNullOrEmpty(_currentExperimentId) && finalProgress != null)
+                {
+                    try
+                    {
+                        await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                            _currentExperimentId,
+                            finalProgress.CompletedNodes,
+                            finalProgress.TotalNodes);
+                        // *** 添加这里：标记实验成功完成 ***
+                        await _experimentDataAdapter.CompleteExperimentAsync(
+                            _currentExperimentId,
+                            true,  // 成功完成
+                            "流程执行成功完成");
+                        _logger.LogInformation("最终实验进度: {Completed}/{Total} ({Percentage:F1}%)",
+                            finalProgress.CompletedNodes, finalProgress.TotalNodes, finalProgress.GetPercentage());
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "更新最终实验进度失败");
+                    }
+                }
+
                 // *** 流程完成时通知所有设备 ***
                 var completionContext = new FlowCompletionContext
                 {
@@ -402,8 +532,70 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     EndTime = DateTime.Now
                 };
             }
+            catch (OperationCanceledException) when (State == FlowExecutionState.Stopping)
+            {
+                // *** 新增：专门处理停止时的取消 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.CompleteExperimentAsync(_currentExperimentId, false, "流程被用户停止");
+                }
+
+                // 取消后台任务
+                Task[] tasksToCancel;
+                lock (_backgroundTasksLock)
+                {
+                    tasksToCancel = _backgroundTasks.ToArray();
+                }
+
+                if (tasksToCancel.Length > 0)
+                {
+                    _logger.LogInformation("取消 {Count} 个后台任务", tasksToCancel.Length);
+                    try
+                    {
+                        await Task.WhenAll(tasksToCancel).WaitAsync(TimeSpan.FromSeconds(3));
+                    }
+                    catch (TimeoutException)
+                    {
+                        _logger.LogWarning("部分后台任务未能及时取消");
+                    }
+                    catch
+                    {
+                        // 忽略取消导致的异常
+                    }
+                }
+
+                _statusService.ResetAllExecutionStatus();
+                State = FlowExecutionState.Stopped;
+                var stoppedProgress = _currentProgress;
+                _logger.LogInformation("流程因用户停止而取消，已执行 {Completed}/{Total} 个节点",
+                    stoppedProgress?.CompletedNodes ?? 0, stoppedProgress?.TotalNodes ?? 0);
+
+                _ = Task.Delay(1000).ContinueWith(_ =>
+                {
+                    if (State == FlowExecutionState.Stopped)
+                    {
+                        State = FlowExecutionState.Idle;
+                    }
+                });
+
+                return new FlowExecutionResult
+                {
+                    IsSuccessful = false,
+                    Duration = DateTime.Now - startTime,
+                    ErrorMessage = "流程被用户停止",
+                    TotalNodesExecuted = _currentProgress?.CompletedNodes ?? 0,
+                    StartTime = startTime,
+                    EndTime = DateTime.Now
+                };
+            }
             catch (OperationCanceledException)
             {
+                // *** 新增：记录取消 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.CompleteExperimentAsync(_currentExperimentId, false, "执行被取消");
+                }
+
                 // 取消后台任务
                 Task[] tasksToCancel;
                 lock (_backgroundTasksLock)
@@ -425,10 +617,10 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
                 _statusService.ResetAllExecutionStatus();
-
+                var cancelledProgress = _currentProgress;
                 State = FlowExecutionState.Stopped;
                 _logger.LogInformation("流程执行被取消，已执行 {Completed}/{Total} 个节点",
-                    _currentProgress?.CompletedNodes ?? 0, _currentProgress?.TotalNodes ?? 0);
+                    cancelledProgress?.CompletedNodes ?? 0, cancelledProgress?.TotalNodes ?? 0);
 
                 _ = Task.Delay(1000).ContinueWith(_ =>
                 {
@@ -450,6 +642,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
             catch (Exception ex)
             {
+                // *** 新增：记录失败 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.CompleteExperimentAsync(_currentExperimentId, false, ex.Message);
+                }
+
                 // 取消后台任务
                 _cancellationTokenSource?.Cancel();
 
@@ -474,7 +672,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _statusService.ResetAllExecutionStatus();
 
                 State = FlowExecutionState.Error;
-
+                var errorProgress = _currentProgress;
                 // *** 流程失败时通知所有设备 ***
                 var failureContext = new FlowFailureContext
                 {
@@ -489,7 +687,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 await NotifyFlowFailedAsync(flowViewModel, failureContext);
 
                 _logger.LogError(ex, "流程执行失败，已执行 {Completed}/{Total} 个节点",
-                    _currentProgress?.CompletedNodes ?? 0, _currentProgress?.TotalNodes ?? 0);
+                    errorProgress?.CompletedNodes ?? 0, errorProgress?.TotalNodes ?? 0);
 
                 ExecutionError?.Invoke(this, new FlowExecutionErrorEventArgs
                 {
@@ -520,8 +718,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             {
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
+                var progressToDispose = _currentProgress;
                 _currentProgress = null;
-
+                if (progressToDispose != null)
+                {
+                    try
+                    {
+                        progressToDispose.Dispose(); // 如果ExecutionProgress实现了IDisposable
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "清理进度对象失败");
+                    }
+                }
                 lock (_backgroundTasksLock)
                 {
                     _backgroundTasks.Clear();
@@ -996,20 +1205,54 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         {
             await ExecuteNodeAsync(node, context, cancellationToken);
 
-            // 更新进度
-            _currentProgress.IncrementCompleted();
-
-            // 发送进度事件
-            ProgressChanged?.Invoke(this, new FlowExecutionProgressEventArgs
+            var currentProgress = _currentProgress; // 获取本地引用
+            if (currentProgress != null)
             {
-                TotalNodes = _currentProgress.TotalNodes,
-                CompletedNodes = _currentProgress.CompletedNodes,
-                ProgressPercentage = _currentProgress.GetPercentage(),
-                CurrentNode = node
-            });
+                // 更新进度
+                currentProgress.IncrementCompleted();
 
-            _logger.LogDebug("节点执行进度: {Completed}/{Total} ({Percentage:F1}%)",
-                _currentProgress.CompletedNodes, _currentProgress.TotalNodes, _currentProgress.GetPercentage());
+                // 更新实验进度到数据库
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    try
+                    {
+                        await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                            _currentExperimentId,
+                            currentProgress.CompletedNodes,
+                            currentProgress.TotalNodes);
+
+                        _logger.LogDebug("实验进度已更新: {ExperimentId} - {Completed}/{Total}",
+                            _currentExperimentId, currentProgress.CompletedNodes, currentProgress.TotalNodes);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "更新实验进度失败");
+                    }
+                }
+
+                // 发送进度事件
+                try
+                {
+                    ProgressChanged?.Invoke(this, new FlowExecutionProgressEventArgs
+                    {
+                        TotalNodes = currentProgress.TotalNodes,
+                        CompletedNodes = currentProgress.CompletedNodes,
+                        ProgressPercentage = currentProgress.GetPercentage(),
+                        CurrentNode = node
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "发送进度事件失败");
+                }
+
+                _logger.LogDebug("节点执行进度: {Completed}/{Total} ({Percentage:F1}%)",
+                    currentProgress.CompletedNodes, currentProgress.TotalNodes, currentProgress.GetPercentage());
+            }
+            else
+            {
+                _logger.LogDebug("节点 {NodeName} 执行完成，但进度跟踪已被清理（流程可能已停止）", node.DisplayName);
+            }
         }
 
         /// <summary>
@@ -1044,12 +1287,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 {
                     result = await ExecuteLogicCommandAsync(node, context, cancellationToken);
                 }
-
-                executionArgs.EndTime = DateTime.Now;
+                var endTime = DateTime.Now;
+                executionArgs.EndTime = endTime;
                 executionArgs.IsSuccessful = true;
                 executionArgs.Result = result;
 
                 _statusService.CompleteNodeExecution(node.NodeId, true);
+
+                // *** 新增：记录节点执行 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.RecordNodeExecutionAsync(_currentExperimentId, node, startTime, endTime, true);
+                }
+
 
                 context.ExecutionHistory.Add(new NodeExecutionRecord
                 {
@@ -1066,11 +1316,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             }
             catch (Exception ex)
             {
-                executionArgs.EndTime = DateTime.Now;
+                var endTime = DateTime.Now;
+              
+                executionArgs.EndTime = endTime;
                 executionArgs.IsSuccessful = false;
                 executionArgs.ErrorMessage = ex.Message;
-
                 _statusService.CompleteNodeExecution(node.NodeId, false);
+
+                // *** 新增：记录节点执行失败 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.RecordNodeExecutionAsync(_currentExperimentId, node, startTime, endTime, false, ex.Message);
+                }
+
 
                 context.ExecutionHistory.Add(new NodeExecutionRecord
                 {
@@ -1194,7 +1452,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             {
                 // 在后台线程执行设备命令，避免阻塞
                 var resultParams = await Task.Run(() => targetCmd.Action?.Invoke(inputParameters), cancellationToken);
-
+              
                 sw.Stop();
 
                 // 保存执行结果到节点
@@ -1237,6 +1495,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     CommandName = targetCmd.Name,
                     IsSuccessful = true
                 });
+                // *** 新增：记录设备数据（实时记录所有数据） ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.RecordDeviceDataAsync(
+                        _currentExperimentId,
+                        node.BoundDeviceId,
+                        node.BoundDeviceName ?? targetDevice.Name,
+                        targetCmd.Name,
+                        inputParameters,
+                        resultParams,
+                        node.NodeId,
+                        node.DisplayName);
+                }
 
                 return resultParams;
             }
@@ -1452,7 +1723,17 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
                 _logger.LogDebug("进度总量调整: +{Extra} → Total={Total}", extraExecutions, _currentProgress.TotalNodes);
             }
-
+            // 预调整总节点数（避免进度超过100%）
+            if (loopCount > 1 && children.Count > 0)
+            {
+                var extraExecutions = (loopCount - 1) * CalculateTotalNodes(children);
+                var currentProgress = _currentProgress; // 获取本地引用
+                if (currentProgress != null)
+                {
+                    currentProgress.AddTotalNodes(extraExecutions);
+                    _logger.LogDebug("进度总量调整: +{Extra} → Total={Total}", extraExecutions, currentProgress.TotalNodes);
+                }
+            }
             for (int i = 0; i < loopCount; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1469,6 +1750,23 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     _pauseEvent.Wait(cancellationToken);
 
                     await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+
+                    // *** 新增：每个子节点完成后立即更新实验进度 ***
+                    var currentProgress = _currentProgress;
+                    if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
+                    {
+                        try
+                        {
+                            await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                                _currentExperimentId,
+                                currentProgress.CompletedNodes,
+                                currentProgress.TotalNodes);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "循环中更新实验进度失败");
+                        }
+                    }
                 }
 
                 // 循环间隔等待（最后一次循环不需要等待）
@@ -1529,6 +1827,23 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         cancellationToken.ThrowIfCancellationRequested();
                         _pauseEvent.Wait(cancellationToken);
                         await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+
+                        // *** 新增：立即更新实验进度 ***
+                        var currentProgress = _currentProgress;
+                        if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
+                        {
+                            try
+                            {
+                                await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                                    _currentExperimentId,
+                                    currentProgress.CompletedNodes,
+                                    currentProgress.TotalNodes);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Do-While循环中更新实验进度失败");
+                            }
+                        }
                     }
 
                     iteration++;
@@ -1585,6 +1900,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         cancellationToken.ThrowIfCancellationRequested();
                         _pauseEvent.Wait(cancellationToken);
                         await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
+                        // *** 新增：立即更新实验进度 ***
+                        if (!string.IsNullOrEmpty(_currentExperimentId))
+                        {
+                            await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                                _currentExperimentId,
+                                _currentProgress.CompletedNodes,
+                                _currentProgress.TotalNodes);
+                        }
                     }
 
                     iteration++;
@@ -1888,9 +2211,44 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogDebug("并行执行 {BranchCount} 个分支，最大并行数: {MaxParallel}，等待策略: {Strategy}，超时: {Timeout}s",
                     branchGroups.Count, maxParallel, waitStrategy, timeoutSeconds);
 
+                // *** 修改：创建更好的取消令牌链 ***
                 var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                // *** 新增：监听主取消令牌和停止状态 ***
+                var stopMonitorCts = new CancellationTokenSource();
+                var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken, linkedCts.Token, stopMonitorCts.Token);
+
                 var throttler = new SemaphoreSlim(maxParallel);
                 var branchTasks = new List<Task>();
+
+                // *** 新增：启动停止监控任务 ***
+                var stopMonitorTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        while (!combinedCts.Token.IsCancellationRequested)
+                        {
+                            // 检查流程是否被停止
+                            if (State == FlowExecutionState.Stopping)
+                            {
+                                _logger.LogInformation("检测到流程停止信号，取消所有并行分支");
+                                stopMonitorCts.Cancel();
+                                return;
+                            }
+
+                            await Task.Delay(100, combinedCts.Token);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // 正常取消，忽略
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "停止监控任务异常");
+                    }
+                }, combinedCts.Token);
 
                 foreach (var branchGroup in branchGroups)
                 {
@@ -1899,29 +2257,67 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                     var task = Task.Run(async () =>
                     {
-                        await throttler.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+                        await throttler.WaitAsync(combinedCts.Token).ConfigureAwait(false);
                         try
                         {
                             _logger.LogDebug("开始执行并行分支 {BranchIndex}，包含 {Count} 个节点", branchIndex, branchNodes.Count);
 
                             foreach (var childNode in branchNodes)
                             {
-                                linkedCts.Token.ThrowIfCancellationRequested();
+                                // *** 修改：优先检查取消 ***
+                                combinedCts.Token.ThrowIfCancellationRequested();
+
+                                // 检查流程状态
+                                if (State == FlowExecutionState.Stopping)
+                                {
+                                    _logger.LogInformation("并行分支 {BranchIndex} 检测到停止信号，退出执行", branchIndex);
+                                    return;
+                                }
 
                                 // *** 新增：检查用户交互暂停和常规暂停 ***
-                                _pauseEvent.Wait(linkedCts.Token);
-                                _userInteractionPauseEvent.Wait(linkedCts.Token);
+                                try
+                                {
+                                    _pauseEvent.Wait(combinedCts.Token);
+                                    _userInteractionPauseEvent.Wait(combinedCts.Token);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    _logger.LogDebug("并行分支 {BranchIndex} 在等待恢复时被取消", branchIndex);
+                                    return;
+                                }
 
-                                await ExecuteNodeWithProgressAsync(childNode, context, linkedCts.Token).ConfigureAwait(false);
+                                await ExecuteNodeWithProgressAsync(childNode, context, combinedCts.Token).ConfigureAwait(false);
+
+                                // *** 修改：增加异常处理的实验进度更新 ***
+                                var currentProgress = _currentProgress; // 获取本地引用
+                                if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
+                                {
+                                    try
+                                    {
+                                        await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                                            _currentExperimentId,
+                                            currentProgress.CompletedNodes,
+                                            currentProgress.TotalNodes);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, "并行分支更新实验进度失败");
+                                    }
+                                }
                             }
 
                             _logger.LogDebug("并行分支 {BranchIndex} 执行完成", branchIndex);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            _logger.LogInformation("并行分支 {BranchIndex} 被取消", branchIndex);
+                            throw; // 重新抛出以便上层处理
                         }
                         finally
                         {
                             throttler.Release();
                         }
-                    }, linkedCts.Token);
+                    }, combinedCts.Token);
 
                     branchTasks.Add(task);
                 }
@@ -1941,6 +2337,19 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     // 添加任务完成后的清理
                     _ = Task.WhenAll(branchTasks).ContinueWith(t =>
                     {
+                        // *** 新增：清理取消令牌 ***
+                        try
+                        {
+                            stopMonitorCts?.Cancel();
+                            stopMonitorCts?.Dispose();
+                            combinedCts?.Dispose();
+                            linkedCts?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "清理并行任务资源失败");
+                        }
+
                         lock (_backgroundTasksLock)
                         {
                             foreach (var task in branchTasks)
@@ -1953,6 +2362,10 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         {
                             _logger.LogError(t.Exception, "后台并行任务执行失败");
                         }
+                        else if (t.IsCanceled)
+                        {
+                            _logger.LogInformation("后台并行任务被取消");
+                        }
                         else
                         {
                             _logger.LogDebug("并行节点 {NodeName} 的后台任务全部完成", parallelNode.DisplayName);
@@ -1963,79 +2376,123 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
                 // WaitAll 或 WaitAny 策略
-                Task timeoutTask = null;
-                if (timeoutSeconds > 0)
+                try
                 {
-                    timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), linkedCts.Token);
-                }
+                    Task timeoutTask = null;
+                    if (timeoutSeconds > 0)
+                    {
+                        timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), combinedCts.Token);
+                    }
 
-                switch (waitStrategy)
-                {
-                    case ParallelWaitStrategy.WaitAll:
-                        {
-                            _logger.LogDebug("并行节点 {NodeName} 使用WaitAll策略，等待所有分支完成", parallelNode.DisplayName);
-
-                            var allTask = Task.WhenAll(branchTasks);
-                            if (timeoutTask != null)
+                    switch (waitStrategy)
+                    {
+                        case ParallelWaitStrategy.WaitAll:
                             {
-                                var completed = await Task.WhenAny(allTask, timeoutTask).ConfigureAwait(false);
-                                if (completed == timeoutTask)
+                                _logger.LogDebug("并行节点 {NodeName} 使用WaitAll策略，等待所有分支完成", parallelNode.DisplayName);
+
+                                var allTask = Task.WhenAll(branchTasks);
+
+                                if (timeoutTask != null)
                                 {
-                                    _logger.LogWarning("并行命令超时（WaitAll），TimeoutSeconds={Timeout}", timeoutSeconds);
-                                    linkedCts.Cancel(); // 取消未完成的任务
-                                    throw new TimeoutException($"并行命令等待全部分支超时（{timeoutSeconds}s）");
+                                    var completed = await Task.WhenAny(allTask, timeoutTask).ConfigureAwait(false);
+
+                                    // *** 修改：优先检查取消状态 ***
+                                    if (combinedCts.Token.IsCancellationRequested)
+                                    {
+                                        _logger.LogInformation("并行命令被取消（WaitAll）");
+                                        throw new OperationCanceledException("并行命令执行被取消", combinedCts.Token);
+                                    }
+
+                                    if (completed == timeoutTask && !combinedCts.Token.IsCancellationRequested)
+                                    {
+                                        _logger.LogWarning("并行命令超时（WaitAll），TimeoutSeconds={Timeout}", timeoutSeconds);
+                                        linkedCts.Cancel(); // 取消未完成的任务
+                                        throw new TimeoutException($"并行命令等待全部分支超时（{timeoutSeconds}s）");
+                                    }
                                 }
+
+                                await allTask.ConfigureAwait(false); // 传播异常
+                                break;
                             }
-                            await allTask.ConfigureAwait(false); // 传播异常
-                            break;
-                        }
 
-                    case ParallelWaitStrategy.WaitAny:
-                        {
-                            _logger.LogDebug("并行节点 {NodeName} 使用WaitAny策略，等待任一分支完成", parallelNode.DisplayName);
-
-                            if (branchTasks.Count == 0) return 0;
-                            var anyTask = Task.WhenAny(branchTasks);
-                            if (timeoutTask != null)
+                        case ParallelWaitStrategy.WaitAny:
                             {
-                                var completed = await Task.WhenAny(anyTask, timeoutTask).ConfigureAwait(false);
-                                if (completed == timeoutTask)
-                                {
-                                    _logger.LogWarning("并行命令超时（WaitAny），TimeoutSeconds={Timeout}", timeoutSeconds);
-                                    linkedCts.Cancel(); // 取消未完成的任务
-                                    throw new TimeoutException($"并行命令等待任一分支超时（{timeoutSeconds}s）");
-                                }
-                            }
-                            var firstCompleted = await anyTask.ConfigureAwait(false);
+                                _logger.LogDebug("并行节点 {NodeName} 使用WaitAny策略，等待任一分支完成", parallelNode.DisplayName);
 
-                            // WaitAny完成后，其他任务继续在后台执行
-                            var remainingTasks = branchTasks.Where(t => t != firstCompleted).ToList();
-                            if (remainingTasks.Count > 0)
-                            {
-                                _logger.LogDebug("WaitAny策略：首个分支已完成，{Count} 个分支继续在后台执行", remainingTasks.Count);
-                                lock (_backgroundTasksLock)
+                                if (branchTasks.Count == 0) return 0;
+
+                                var anyTask = Task.WhenAny(branchTasks);
+
+                                if (timeoutTask != null)
                                 {
-                                    _backgroundTasks.AddRange(remainingTasks);
+                                    var completed = await Task.WhenAny(anyTask, timeoutTask).ConfigureAwait(false);
+
+                                    // *** 修改：优先检查取消状态 ***
+                                    if (combinedCts.Token.IsCancellationRequested)
+                                    {
+                                        _logger.LogInformation("并行命令被取消（WaitAny）");
+                                        throw new OperationCanceledException("并行命令执行被取消", combinedCts.Token);
+                                    }
+
+                                    if (completed == timeoutTask && !combinedCts.Token.IsCancellationRequested)
+                                    {
+                                        _logger.LogWarning("并行命令超时（WaitAny），TimeoutSeconds={Timeout}", timeoutSeconds);
+                                        linkedCts.Cancel(); // 取消未完成的任务
+                                        throw new TimeoutException($"并行命令等待任一分支超时（{timeoutSeconds}s）");
+                                    }
                                 }
 
-                                // 清理后台任务
-                                _ = Task.WhenAll(remainingTasks).ContinueWith(t =>
+                                var firstCompleted = await anyTask.ConfigureAwait(false);
+
+                                // WaitAny完成后，其他任务继续在后台执行
+                                var remainingTasks = branchTasks.Where(t => t != firstCompleted).ToList();
+                                if (remainingTasks.Count > 0)
                                 {
+                                    _logger.LogDebug("WaitAny策略：首个分支已完成，{Count} 个分支继续在后台执行", remainingTasks.Count);
                                     lock (_backgroundTasksLock)
                                     {
-                                        foreach (var task in remainingTasks)
-                                        {
-                                            _backgroundTasks.Remove(task);
-                                        }
+                                        _backgroundTasks.AddRange(remainingTasks);
                                     }
-                                }, TaskContinuationOptions.ExecuteSynchronously);
-                            }
-                            break;
-                        }
-                }
 
-                _logger.LogDebug("并行命令执行完成: {NodeName}", parallelNode.DisplayName);
-                return branchGroups.Count;
+                                    // 清理后台任务
+                                    _ = Task.WhenAll(remainingTasks).ContinueWith(t =>
+                                    {
+                                        lock (_backgroundTasksLock)
+                                        {
+                                            foreach (var task in remainingTasks)
+                                            {
+                                                _backgroundTasks.Remove(task);
+                                            }
+                                        }
+                                    }, TaskContinuationOptions.ExecuteSynchronously);
+                                }
+                                break;
+                            }
+                    }
+
+                    _logger.LogDebug("并行命令执行完成: {NodeName}", parallelNode.DisplayName);
+                    return branchGroups.Count;
+                }
+                finally
+                {
+                    // *** 新增：确保资源清理 ***
+                    try
+                    {
+                        stopMonitorCts?.Cancel();
+                        stopMonitorCts?.Dispose();
+                        combinedCts?.Dispose();
+                        linkedCts?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "清理并行任务资源失败");
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || State == FlowExecutionState.Stopping)
+            {
+                _logger.LogInformation("并行命令被正常取消: {NodeName}", parallelNode.DisplayName);
+                throw;
             }
             catch (Exception ex)
             {
@@ -2396,6 +2853,17 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 // 设置变量到上下文中（使用实际的变量名）
                 context.SetVariable(actualVariableName, finalValue);
 
+                // *** 新增：记录变量变化 ***
+                if (!string.IsNullOrEmpty(_currentExperimentId))
+                {
+                    await _experimentDataAdapter.RecordVariableAsync(
+                        _currentExperimentId,
+                        actualVariableName,
+                        finalValue,
+                        variableType,
+                        setVarNode.NodeId);
+                }
+
                 // 发布变量更新事件（后台服务会处理持久化）
                 _eventAggregator?.GetEvent<VariableUpdatedEvent>()?.Publish(new VariableUpdatedEventArgs
                 {
@@ -2697,11 +3165,28 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             if (State != FlowExecutionState.Running && State != FlowExecutionState.Paused)
                 return;
 
+            var oldState = State;
             State = FlowExecutionState.Stopping;
+
+            // *** 修改：立即释放暂停事件，让并行任务能检测到停止状态 ***
             _pauseEvent.Set();
             _userInteractionPauseEvent.Set();
 
-            _logger.LogInformation("开始停止流程，同时停止所有设备的活跃状态");
+            _logger.LogInformation("开始停止流程，当前状态从 {OldState} 变更为 {NewState}", oldState, State);
+
+            // *** 新增：先取消执行引擎 ***
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+                _logger.LogDebug("已发送取消信号");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "发送取消信号失败");
+            }
+
+            // *** 修改：给并行任务一些时间响应取消信号 ***
+            await Task.Delay(500); // 给任务500ms时间响应取消
 
             // 获取所有可控制的设备
             List<CanvasDeviceViewModel> canvasDevices = null;
@@ -2730,8 +3215,31 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
             }
 
-            // 取消执行引擎
-            _cancellationTokenSource?.Cancel();
+            // *** 新增：等待后台任务完成或取消 ***
+            Task[] tasksToWait;
+            lock (_backgroundTasksLock)
+            {
+                tasksToWait = _backgroundTasks.ToArray();
+            }
+
+            if (tasksToWait.Length > 0)
+            {
+                _logger.LogInformation("等待 {Count} 个后台任务停止...", tasksToWait.Length);
+                try
+                {
+                    // 等待最多5秒让后台任务完成
+                    await Task.WhenAll(tasksToWait).WaitAsync(TimeSpan.FromSeconds(5));
+                    _logger.LogInformation("所有后台任务已停止");
+                }
+                catch (TimeoutException)
+                {
+                    _logger.LogWarning("部分后台任务未能在超时时间内停止");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "等待后台任务停止时发生异常");
+                }
+            }
 
             _logger.LogInformation("流程停止完成");
         }

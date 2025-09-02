@@ -41,7 +41,12 @@ namespace MaxChemical.Modules.Designer.Event
     public class ProjectLoadedEvent : PubSubEvent<ProjectDocument>
     {
     }
-
+    /// <summary>
+    /// 项目名称更新事件
+    /// </summary>
+    public class ProjectNameUpdatedEvent : PubSubEvent<string>
+    {
+    }
     /// <summary>
     /// 项目保存事件
     /// </summary>
