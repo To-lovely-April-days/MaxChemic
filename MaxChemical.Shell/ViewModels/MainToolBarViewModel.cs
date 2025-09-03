@@ -6,11 +6,14 @@ using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Service.Execution;
+using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Shell.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Prism.Commands;
 using Prism.Events;
+using Prism.Ioc;
 using Prism.Mvvm;
 using System.Diagnostics;
 using System.Windows;
@@ -19,6 +22,7 @@ namespace MaxChemical.Shell.ViewModels
 {
     public class MainToolBarViewModel : BindableBase
     {
+        private readonly IContainerProvider _container;
         private readonly ICommandHistory _commandHistory; // 新增
         // 新增属性
         private bool _canUndo;
@@ -45,6 +49,7 @@ namespace MaxChemical.Shell.ViewModels
         private readonly IProjectDataService _projectDataService; // 替换为项目数据服务
         private readonly ProjectCoordinator _projectCoordinator; // 添加项目协调器
         private readonly IProjectNameDialogProvider _projectNameDialogProvider;
+        private IParameterMonitoringService _parameterMonitoringService;
         private RegionLayout _currentRegionLayout;
         private readonly ILogService _logger;
         private readonly IFlowExecutionEngine _flowExecutionEngine;
@@ -75,6 +80,7 @@ namespace MaxChemical.Shell.ViewModels
         private string _textSimulationMode = string.Empty;
 
         public MainToolBarViewModel(
+            IContainerProvider container,
           IEventAggregator eventAggregator,
           IRegionSettingsDialogProvider regionSettingsDialogProvider,
           ILocalizationService localizationService,
@@ -87,6 +93,7 @@ namespace MaxChemical.Shell.ViewModels
           ProjectCoordinator projectCoordinator,
           IProjectNameDialogProvider projectNameDialogProvider) // 新增参数
         {
+            _container = container ?? throw new ArgumentNullException(nameof(container));
             _logger = new LogService().ForContext<MainToolBarViewModel>();
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _regionSettingsDialogProvider = regionSettingsDialogProvider ?? throw new ArgumentNullException(nameof(regionSettingsDialogProvider));
@@ -99,6 +106,7 @@ namespace MaxChemical.Shell.ViewModels
             _projectCoordinator = projectCoordinator ?? throw new ArgumentNullException(nameof(projectCoordinator));
             _canvasDataService= canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
             _projectNameDialogProvider = projectNameDialogProvider ?? throw new ArgumentNullException(nameof(projectNameDialogProvider));
+            _parameterMonitoringService= _container.Resolve<IParameterMonitoringService>();
             InitializeCommands();
             LoadLocalizedStrings();
             SubscribeEvents();
@@ -309,6 +317,8 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand RedoCommand { get; private set; }
         public DelegateCommand FitToViewCommand { get; private set; } // 新增自适应命令
         public DelegateCommand SettingsCommand { get; private set; }
+
+        public DelegateCommand SettingsChartCommand { get; private set; }
         public DelegateCommand StartCommand { get; private set; }
         public DelegateCommand PauseCommand { get; private set; }
         public DelegateCommand StopCommand { get; private set; }
@@ -331,6 +341,7 @@ namespace MaxChemical.Shell.ViewModels
             FitToViewCommand = new DelegateCommand(ExecuteFitToView); // 自适应功能
             DeleteCommand = new DelegateCommand(ExecuteDelete);
             SettingsCommand = new DelegateCommand(ExecuteSettings);
+            SettingsChartCommand = new DelegateCommand(ShowParameterMonitorChart);
             StartCommand = new DelegateCommand(ExecuteStart, CanExecuteStart);
             PauseCommand = new DelegateCommand(ExecutePause, CanExecutePause);
             StopCommand = new DelegateCommand(ExecuteStop, CanExecuteStop);
@@ -1546,7 +1557,46 @@ namespace MaxChemical.Shell.ViewModels
                 MessageBox.Show(errorMessage, errorTitle, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+        private void ShowParameterMonitorChart()
+        {
+            try
+            {
+               
+                var viewModel = new ParameterMonitorChartViewModel(_parameterMonitoringService, _eventAggregator);
+                var view = new ParameterMonitorChartView
+                {
+                    DataContext = viewModel
+                };
+                var window = new Window
+                {
+                    Title = "参数监控图表 - MaxChemical",
+                    Content = view,
+                    Width = 1400,
+                    Height = 900,
+                    MinWidth = 1000,
+                    MinHeight = 700,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                    Icon = Application.Current.MainWindow?.Icon
+                };
 
+                // 窗口关闭时清理资源
+                window.Closed += (s, e) =>
+                {
+                    viewModel?.Dispose();
+                    _logger.LogInformation("参数监控图表窗口已关闭");
+                };
+
+                window.Show();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("参数监控图表已打开");
+                _logger.LogInformation("参数监控图表窗口已创建并显示");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "创建参数监控图表窗口失败");
+                _dialogService?.ShowError($"打开参数监控图表失败: {ex.Message}", "错误");
+            }
+        }
         #endregion
     }
 }

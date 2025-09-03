@@ -264,7 +264,7 @@
                 <Rectangle Style="{StaticResource ToolBarSeparatorStyle}"/>
 
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
-                        Command="{Binding SettingsCommand}"
+                        Command="{Binding SettingsChartCommand}"
                         ToolTip="{Binding TooltipDataAnalysis}">
                     <Image Source="pack://siteoforigin:,,,/Resources/Icon/dataanalysis.png" 
                            Width="20" Height="20"

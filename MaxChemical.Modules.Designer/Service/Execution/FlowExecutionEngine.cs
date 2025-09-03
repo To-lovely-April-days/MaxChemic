@@ -19,6 +19,7 @@ using System.Windows;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Data.Services;
 using MaxChemical.Core;
+using System.Diagnostics.Tracing;
 
 namespace MaxChemical.Modules.Designer.Services.Execution
 {
@@ -137,11 +138,24 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             {
                 var oldState = _state;
                 _state = value;
-                StateChanged?.Invoke(this, new FlowExecutionStateChangedEventArgs
+                var eventArgs = new FlowExecutionStateChangedEventArgs
                 {
                     OldState = oldState,
                     NewState = value
-                });
+                };
+                // 发布到本地事件
+                StateChanged?.Invoke(this, eventArgs);
+
+                // 发布到全局事件聚合器
+                try
+                {
+                    _eventAggregator?.GetEvent<FlowExecutionStateChangedEvent>()?.Publish(eventArgs);
+                    _logger.LogDebug("已发布流程状态变更事件: {OldState} -> {NewState}", oldState, value);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "发布流程状态变更事件失败");
+                }
             }
         }
 

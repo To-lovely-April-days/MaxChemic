@@ -73,7 +73,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             public double ActualCanvasWidth { get; set; }
         }
-
+      
         public FlowDesignerViewModel(
        IDeviceManager deviceManager,
        IEventAggregator eventAggregator,
@@ -98,7 +98,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
             // 加载插件和订阅事件
             LoadLogicCommandPlugins();
             SubscribeToEvents();
-
             // 设置当前视图模型到状态服务
             executionStatusService?.SetCurrentFlowViewModel(this);
 

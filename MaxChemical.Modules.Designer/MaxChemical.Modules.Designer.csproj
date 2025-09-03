@@ -9,7 +9,7 @@
 	<ItemGroup>
 		<PackageReference Include="Prism.Wpf" Version="8.1.97" />
 		<PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
-		<PackageReference Include="OxyPlot.Wpf" Version="2.1.2" />
+		<PackageReference Include="System.Windows.Interactivity.WPF" Version="2.0.20525" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\MaxChemical.Data\MaxChemical.Data.csproj" />

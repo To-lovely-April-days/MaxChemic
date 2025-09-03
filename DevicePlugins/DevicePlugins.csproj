@@ -9,6 +9,7 @@
 	<ItemGroup>
 		<PackageReference Include="System.ComponentModel.Composition" Version="8.0.0" />
 		<PackageReference Include="System.IO.Ports" Version="8.0.0" />
+		<PackageReference Include="S7netplus" Version="0.20.0" />
 	</ItemGroup>
 
 	<ItemGroup>

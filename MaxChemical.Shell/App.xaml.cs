@@ -102,7 +102,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IFlowExecutionEngine, FlowExecutionEngine>();
         containerRegistry.RegisterSingleton<IDeviceNameResolverService, DeviceNameResolverService>();
         containerRegistry.RegisterSingleton<IVariablePersistenceBackgroundService, VariablePersistenceBackgroundService>();
-
+        containerRegistry.RegisterSingleton<IParameterMonitoringService, ParameterMonitoringService>();
         // 注册新的项目数据服务
         containerRegistry.RegisterSingleton<IProjectDataService, ProjectDataService>();
         containerRegistry.RegisterSingleton<ProjectCoordinator>();
@@ -144,6 +144,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IExcelExportService, ExcelExportService>();
 
         containerRegistry.RegisterSingleton<IExperimentDataAdapter, ExperimentDataAdapter>();
+
     }
 
     protected override void OnExit(ExitEventArgs e)
