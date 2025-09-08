@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Logging", "MaxC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Data", "MaxChemical.Data\MaxChemical.Data.csproj", "{F84FC2D7-56AF-4462-BC1C-26614F2C8256}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PeristalticPumps_ModbusTCP", "PeristalticPumps_ModbusTCP\PeristalticPumps_ModbusTCP.csproj", "{B4A30904-93F1-47E7-B764-547D734FCF03}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,10 @@ Global
 		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F84FC2D7-56AF-4462-BC1C-26614F2C8256}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4A30904-93F1-47E7-B764-547D734FCF03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4A30904-93F1-47E7-B764-547D734FCF03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4A30904-93F1-47E7-B764-547D734FCF03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4A30904-93F1-47E7-B764-547D734FCF03}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -90,6 +96,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{70B9E213-A83B-4CBB-82C5-7F7800221884} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{1957863C-98D5-44A3-A18A-0AADCACB3BF6} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{B4A30904-93F1-47E7-B764-547D734FCF03} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {72D8DB25-9C37-4F38-B4CF-213BB0AEEFF7}

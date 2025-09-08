@@ -322,17 +322,18 @@ namespace DevicePlugins.Devices
             }
 
             ConnectionStatus = DeviceConnectionStatus.Connecting;
-            InfoLog($"开始连接设备 ({(IsSimulationMode ? "模拟模式" : "实际模式")})");
+            InfoLog($"开始连接设备 ({GetConnectionModeDescription()})");
 
             try
             {
                 bool result;
 
-                if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+                if (DeviceConnectionConfig.CommunicationMode != CommunicationMode.Direct &&
+                    ConnectionManager != null && !string.IsNullOrEmpty(ComId))
                 {
-                    // PLC模式：通过连接管理器连接
+                    // 统一连接模式：通过连接管理器连接
                     result = await ConnectionManager.ConnectAsync(ComId);
-                    InfoLog($"通过PLC连接管理器连接: {result}");
+                    InfoLog($"通过{GetConnectionModeDescription()}连接: {result}");
                 }
                 else
                 {
@@ -357,7 +358,16 @@ namespace DevicePlugins.Devices
                 return false;
             }
         }
-
+        private string GetConnectionModeDescription()
+        {
+            return DeviceConnectionConfig.CommunicationMode switch
+            {
+                CommunicationMode.PLC => "PLC模式",
+                CommunicationMode.ModbusTcp => "ModbusTcp模式",
+                CommunicationMode.Direct => IsSimulationMode ? "模拟模式" : "直连模式",
+                _ => "未知模式"
+            };
+        }
         /// <summary>
         /// 断开设备连接
         /// </summary>

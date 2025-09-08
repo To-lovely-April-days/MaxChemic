@@ -1,4 +1,5 @@
-﻿using MaxChemical.Core;
+﻿// DeviceConnectionManagerFactory.cs
+using MaxChemical.Core;
 using System.Threading.Tasks;
 using System;
 
@@ -17,14 +18,13 @@ namespace DevicePlugins.Devices
                 {
                     if (_instance == null)
                     {
-                        if (DeviceConnectionConfig.UsePLCMode)
+                        _instance = DeviceConnectionConfig.CommunicationMode switch
                         {
-                            _instance = PLCConnectionManager.Instance;
-                        }
-                        else
-                        {
-                            _instance = new DirectConnectionManager();
-                        }
+                            CommunicationMode.PLC => PLCConnectionManager.Instance,
+                            CommunicationMode.ModbusTcp => ModbusTcpConnectionManager.Instance,
+                            //CommunicationMode.Direct => new DirectConnectionManager(),
+                            //_ => new DirectConnectionManager()
+                        };
                     }
                 }
             }
@@ -42,17 +42,17 @@ namespace DevicePlugins.Devices
                 _instance = null;
             }
         }
-    }
 
-    public class DirectConnectionManager : IDeviceConnectionManager
-    {
-        public Task<bool> ConnectAsync(string deviceId) => Task.FromResult(true);
-        public Task<bool> DisconnectAsync(string deviceId) => Task.FromResult(true);
-        public Task<bool> CheckConnectionAsync(string deviceId) => Task.FromResult(true);
-        public bool IsConnected(string deviceId) => true;
-        public Task<T> ReadAsync<T>(string deviceId, string address) =>
-            throw new NotSupportedException("直连模式不支持统一的读取操作");
-        public Task<bool> WriteAsync<T>(string deviceId, string address, T value) =>
-            throw new NotSupportedException("直连模式不支持统一的写入操作");
+        /// <summary>
+        /// 切换通信模式
+        /// </summary>
+        public static void SwitchCommunicationMode(CommunicationMode newMode)
+        {
+            if (DeviceConnectionConfig.CommunicationMode != newMode)
+            {
+                DeviceConnectionConfig.CommunicationMode = newMode;
+                Reset(); // 重置实例，下次获取时会创建新的管理器
+            }
+        }
     }
 }

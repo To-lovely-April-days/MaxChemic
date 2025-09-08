@@ -1,36 +1,104 @@
-﻿using System;
+﻿// DeviceConnectionConfig.cs
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MaxChemical.Core
 {
-    /// <summary>
-    /// 设备连接配置
-    /// </summary>
     public static class DeviceConnectionConfig
     {
         /// <summary>
-        /// 是否使用PLC模式
+        /// 通信模式
         /// </summary>
-        public static bool UsePLCMode { get; set; } = false;
+        public static CommunicationMode CommunicationMode { get; set; } = CommunicationMode.Direct;
 
         /// <summary>
-        /// PLC连接配置
+        /// PLC连接设置
         /// </summary>
         public static PLCConnectionSettings PLCSettings { get; set; } = new PLCConnectionSettings();
+
+        /// <summary>
+        /// ModbusTcp连接设置
+        /// </summary>
+        public static ModbusTcpConnectionSettings ModbusTcpSettings { get; set; } = new ModbusTcpConnectionSettings();
+
+        /// <summary>
+        /// 是否使用PLC模式（向后兼容）
+        /// </summary>
+        [Obsolete("请使用 CommunicationMode 属性")]
+        public static bool UsePLCMode
+        {
+            get => CommunicationMode == CommunicationMode.PLC;
+            set => CommunicationMode = value ? CommunicationMode.PLC : CommunicationMode.Direct;
+        }
     }
 
     /// <summary>
-    /// PLC连接设置
+    /// 通信模式枚举
     /// </summary>
+    public enum CommunicationMode
+    {
+        /// <summary>
+        /// 直连模式（每个设备独立连接）
+        /// </summary>
+        Direct = 0,
+
+        /// <summary>
+        /// PLC统一连接模式
+        /// </summary>
+        PLC = 1,
+
+        /// <summary>
+        /// ModbusTcp统一连接模式
+        /// </summary>
+        ModbusTcp = 2
+    }
+
+    /// <summary>
+    /// ModbusTcp连接设置
+    /// </summary>
+    public class ModbusTcpConnectionSettings
+    {
+        /// <summary>
+        /// Modbus服务器IP地址
+        /// </summary>
+        public string IpAddress { get; set; } = "192.168.1.100";
+
+        /// <summary>
+        /// Modbus服务器端口
+        /// </summary>
+        public int Port { get; set; } = 502;
+
+        /// <summary>
+        /// 连接超时时间（毫秒）
+        /// </summary>
+        public int ConnectTimeout { get; set; } = 3000;
+
+        /// <summary>
+        /// 读写超时时间（毫秒）
+        /// </summary>
+        public int ReadWriteTimeout { get; set; } = 1000;
+
+        /// <summary>
+        /// 是否启用重连
+        /// </summary>
+        public bool EnableReconnect { get; set; } = true;
+
+        /// <summary>
+        /// 重连间隔（毫秒）
+        /// </summary>
+        public int ReconnectInterval { get; set; } = 5000;
+
+        /// <summary>
+        /// 最大重连次数
+        /// </summary>
+        public int MaxReconnectAttempts { get; set; } = 3;
+    }
+
     public class PLCConnectionSettings
     {
-        public string IpAddress { get; set; } = "192.168.1.100";
+        public string IpAddress { get; set; } = "192.168.1.10";
         public int Rack { get; set; } = 0;
         public int Slot { get; set; } = 1;
-        public int ConnectionTimeout { get; set; } = 5000;
         public string ConnectionType { get; set; } = "S7-1500";
     }
 }
