@@ -2829,9 +2829,21 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var adjustedSize = GetAdjustedDeviceSize(canvasDevice.Device, canvasDevice.Width, canvasDevice.Height);
 
-            // NEW: 生成并缓存显示名（如 泵#2）
-            var displayName = GetDisplayNameForNewDevice(canvasDevice.Device);
-            _deviceDisplayNames[canvasDevice.DeviceId] = displayName;
+            // *** 关键修复：区分新建设备和恢复设备的显示名处理 ***
+            string displayName;
+            if (_deviceDisplayNames.TryGetValue(canvasDevice.DeviceId, out var existingDisplayName))
+            {
+                // 设备已有显示名（恢复场景），直接使用
+                displayName = existingDisplayName;
+                Debug.WriteLine($"使用已有显示名: {canvasDevice.DeviceId} -> {displayName}");
+            }
+            else
+            {
+                // 新建设备，生成并缓存显示名
+                displayName = GetDisplayNameForNewDevice(canvasDevice.Device);
+                _deviceDisplayNames[canvasDevice.DeviceId] = displayName;
+                Debug.WriteLine($"生成新显示名: {canvasDevice.DeviceId} -> {displayName}");
+            }
 
             var deviceControl = new Border
             {
@@ -2847,7 +2859,7 @@ namespace MaxChemical.Modules.Designer.Views
                 AllowDrop = false
             };
 
-            // NEW: 传 displayName，而不是 device.Name
+            // 传递正确的显示名
             deviceControl.Child = CreateDeviceContent(canvasDevice, adjustedSize, displayName);
 
             return deviceControl;
@@ -4558,14 +4570,20 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // *** 关键修复：恢复设备显示名映射 ***
-            if (!string.IsNullOrEmpty(deviceData.DeviceName))
+            // *** 关键修复：直接使用已恢复的显示名映射，不要重新生成 ***
+            string displayName;
+            if (_deviceDisplayNames.TryGetValue(deviceData.DeviceId, out var existingDisplayName))
             {
-                // 尝试生成合适的显示名
-                var baseName = deviceData.DeviceName;
-                var displayName = GenerateDisplayNameForRestoredDevice(baseName, deviceData.DeviceId);
+                // 使用已恢复的显示名
+                displayName = existingDisplayName;
+                Debug.WriteLine($"使用已恢复的显示名: {deviceData.DeviceId} -> {displayName}");
+            }
+            else
+            {
+                // 只有在没有恢复显示名的情况下才生成新的
+                displayName = deviceData.DeviceName ?? "未知设备";
                 _deviceDisplayNames[deviceData.DeviceId] = displayName;
-                Debug.WriteLine($"恢复设备显示名: {deviceData.DeviceId} -> {displayName}");
+                Debug.WriteLine($"使用原始设备名: {deviceData.DeviceId} -> {displayName}");
             }
 
             // 创建CanvasDeviceViewModel
@@ -4590,7 +4608,7 @@ namespace MaxChemical.Modules.Designer.Views
             // *** 新增：延迟检查并恢复监控卡片 ***
             ScheduleMonitoringCardRestoration(deviceData.DeviceId);
 
-            Debug.WriteLine($"设备 {deviceData.DeviceName} 恢复成功");
+            Debug.WriteLine($"设备 {deviceData.DeviceName} 恢复成功，显示名: {displayName}");
         }
         /// <summary>
         /// 为恢复的设备生成显示名

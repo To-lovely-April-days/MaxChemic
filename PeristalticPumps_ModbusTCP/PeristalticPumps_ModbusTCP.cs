@@ -335,7 +335,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetSpeed", 0, 5000, 1000, "目标泵速(RPM)")
+                        new NumberParameter("TargetSpeed", 0, 200, 100, "目标泵速(RPM)")
                     }
                 },
                 OutputParameters = new DeviceParameters
