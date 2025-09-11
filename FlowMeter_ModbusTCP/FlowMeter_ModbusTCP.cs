@@ -24,47 +24,47 @@ namespace FlowMeter_ModbusTCP
         private double _targetFlow = 0; // 基准流量设定值
         private readonly object _stateLock = new object();
 
-        // *** 高精度控制参数 ***
+        // *** 防超调优化的控制参数 ***
         private bool _autoControlEnabled = false;
         private Timer _controlTimer = null;
         private readonly object _controlLock = new object();
         private const int CONTROL_INTERVAL_MS = 20000;         // 20秒控制周期
-        private const double FLOW_TOLERANCE_PERCENT = 0.5;     // ±0.5%容差
-        private const double DEAD_ZONE_PERCENT = 0.2;          // ±0.2%死区
+        private const double FLOW_TOLERANCE_PERCENT = 0.8;     // ±0.8%容差 (放宽)
+        private const double DEAD_ZONE_PERCENT = 0.3;          // ±0.3%死区 (放宽)
+        private const double UPPER_PROTECTION_PERCENT = 0.5;   // 超过目标0.5%时强制保护
 
         private const double FLOW_TO_SPEED_RATIO = 1.0;
         private const int MAX_PUMP_SPEED = 100;
         private const int MAX_FLOW_RATE = 100;
 
-        // *** 高精度PID参数 ***
+        // *** 防超调的PID参数 ***
         private double _previousError = 0;
         private double _integralError = 0;
-        private const double KP = 0.8;
-        private const double KI = 0.05;
-        private const double KD = 0.08;
+        private const double KP = 1.0;   // 更保守的比例增益
+        private const double KI = 0.08;  // 更保守的积分增益
+        private const double KD = 0.12;  // 稍微增加微分增益以抑制超调
 
-        // *** 更严格的变化限制和滤波 ***
+        // *** 防超调的变化限制和滤波 ***
         private double _lastPumpSpeedOutput = 0;
-        private double _previousPumpSpeed = 0; // 记录上次泵速
-        private const double MAX_SPEED_CHANGE_PER_CYCLE = 2.0;
-        private const double SPEED_FILTER_FACTOR = 0.95;
+        private double _previousPumpSpeed = 0;
+        private const double MAX_SPEED_CHANGE_PER_CYCLE = 1.5;  // 降低最大变化
+        private const double SPEED_FILTER_FACTOR = 0.92;       // 稍微降低滤波系数
 
-        // *** 更严格的稳定性检测 ***
+        // *** 超调保护 ***
+        private bool _isOvershootMode = false;
+        private int _overshootProtectionCount = 0;
+
+        // *** 稳定性检测 ***
         private int _stableCount = 0;
         private const int STABLE_CYCLES_REQUIRED = 3;
 
         // *** 智能稳定性检测参数 ***
-        private readonly Queue<double> _flowHistory = new Queue<double>(); // 流量历史队列
-        private const int FLOW_HISTORY_SIZE = 10; // 保持最近10个读数
-        private const double STABILITY_THRESHOLD = 0.3; // 稳定性阈值0.3%
-        private const int MIN_STABLE_READINGS = 3; // 至少3次稳定读数
-        private const int MAX_MONITORING_TIME_MS = 30000; // 最大监测30秒
-        private const int FLOW_READING_INTERVAL_MS = 1000; // 每1秒读取一次流量
-
-        // *** 动态等待时间参数 ***
-        private const int MIN_STABILIZE_DELAY_MS = 3000;   // 最小等待3秒
-        private const int MAX_STABILIZE_DELAY_MS = 25000;  // 最大等待25秒
-        private const int BASE_STABILIZE_DELAY_MS = 8000;  // 基础等待8秒
+        private readonly Queue<double> _flowHistory = new Queue<double>();
+        private const int FLOW_HISTORY_SIZE = 10;
+        private const double STABILITY_THRESHOLD = 0.3;
+        private const int MIN_STABLE_READINGS = 3;
+        private const int MAX_MONITORING_TIME_MS = 30000;
+        private const int FLOW_READING_INTERVAL_MS = 1000;
 
         // *** 详细日志记录系统 ***
         private static readonly object _logFileLock = new object();
@@ -77,6 +77,413 @@ namespace FlowMeter_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
+
+        #region 防超调核心算法
+
+        /// <summary>
+        /// 防超调的PID控制算法
+        /// </summary>
+        private double CalculateAntiOvershootPumpSpeed(double targetFlow, double actualFlow, double currentError, double currentPumpSpeed)
+        {
+            try
+            {
+                double errorPercent = Math.Abs(currentError / targetFlow) * 100.0;
+
+                // 超调检测和处理
+                HandleOvershootDetection(actualFlow, targetFlow);
+
+                // 计算接近目标的程度，用于调整控制强度
+                double distanceToTarget = Math.Abs(actualFlow - targetFlow);
+                double approachFactor = CalculateApproachFactor(actualFlow, targetFlow);
+
+                AddCycleLog($"│ 防超调分析: 误差{errorPercent:F2}%, 接近系数{approachFactor:F2}, 超调模式{_isOvershootMode}");
+
+                // 自适应PID参数 - 防超调优化
+                double adaptiveKp = GetConservativeKp(errorPercent, actualFlow, targetFlow) * approachFactor;
+                double adaptiveKi = GetConservativeKi(errorPercent, actualFlow, targetFlow) * approachFactor;
+                double adaptiveKd = GetConservativeKd(errorPercent, actualFlow, targetFlow);
+
+                // PID计算
+                double proportional = adaptiveKp * currentError;
+
+                // 防超调的积分处理
+                _integralError += currentError;
+                ProcessIntegralWithOvershootProtection(actualFlow, targetFlow, currentError);
+
+                double integral = adaptiveKi * _integralError;
+                double derivative = adaptiveKd * (currentError - _previousError);
+                _previousError = currentError;
+
+                double pidOutput = proportional + integral + derivative;
+                double rawNewSpeed = currentPumpSpeed - pidOutput;
+
+                // 防超调的变化限制
+                double maxChange = GetConservativeMaxChange(errorPercent, actualFlow, targetFlow, approachFactor);
+                double speedChange = rawNewSpeed - currentPumpSpeed;
+
+                if (Math.Abs(speedChange) > maxChange)
+                {
+                    speedChange = Math.Sign(speedChange) * maxChange;
+                    rawNewSpeed = currentPumpSpeed + speedChange;
+                }
+
+                // 多层超调保护
+                rawNewSpeed = ApplyMultiLayerOvershootProtection(rawNewSpeed, currentPumpSpeed, actualFlow, targetFlow);
+
+                // 最终滤波
+                double filterFactor = GetAdaptiveFilterFactor(errorPercent, actualFlow, targetFlow);
+                double filteredSpeed = _lastPumpSpeedOutput * (1 - filterFactor) + rawNewSpeed * filterFactor;
+                double finalSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, filteredSpeed));
+
+                // 记录详细信息
+                LogAntiOvershootPIDDetails(targetFlow, actualFlow, currentError, proportional, integral, derivative,
+                    pidOutput, currentPumpSpeed, rawNewSpeed, speedChange, filteredSpeed, finalSpeed,
+                    adaptiveKp, adaptiveKi, adaptiveKd, approachFactor, maxChange, filterFactor);
+
+                return finalSpeed;
+            }
+            catch (Exception ex)
+            {
+                AddCycleLog($"[ERROR] 防超调PID计算异常: {ex.Message}");
+                return currentPumpSpeed;
+            }
+        }
+
+        /// <summary>
+        /// 计算接近系数 - 越接近目标越保守
+        /// </summary>
+        private double CalculateApproachFactor(double actualFlow, double targetFlow)
+        {
+            if (actualFlow <= 0 || targetFlow <= 0) return 1.0;
+
+            double flowRatio = actualFlow / targetFlow;
+
+            if (flowRatio >= 1.0) // 已经达到或超过目标
+            {
+                return 0.3; // 非常保守
+            }
+            else if (flowRatio >= 0.95) // 95%以上
+            {
+                double excess = (flowRatio - 0.95) / 0.05;
+                return 0.3 + (1.0 - excess) * 0.4; // 从0.7降到0.3
+            }
+            else if (flowRatio >= 0.85) // 85-95%
+            {
+                double progress = (flowRatio - 0.85) / 0.1;
+                return 0.7 + (1.0 - progress) * 0.2; // 从0.9降到0.7
+            }
+            else if (flowRatio >= 0.70) // 70-85%
+            {
+                return 0.9; // 稍微保守
+            }
+            else // 70%以下
+            {
+                return 1.0; // 正常响应
+            }
+        }
+
+        /// <summary>
+        /// 保守的Kp参数
+        /// </summary>
+        private double GetConservativeKp(double errorPercent, double actualFlow, double targetFlow)
+        {
+            double baseKp = KP;
+
+            // 超调保护模式
+            if (_isOvershootMode)
+            {
+                baseKp *= 0.4;
+                AddCycleLog($"│ 超调保护: Kp降低至{baseKp:F3}");
+                return baseKp;
+            }
+
+            // 根据当前流量位置调整
+            if (actualFlow > targetFlow)
+            {
+                baseKp *= 0.5; // 已经超过目标，非常保守
+                AddCycleLog($"│ 已超目标: Kp={baseKp:F3}");
+            }
+            else if (actualFlow > targetFlow * 0.95)
+            {
+                baseKp *= 0.7; // 非常接近目标
+                AddCycleLog($"│ 接近目标: Kp={baseKp:F3}");
+            }
+            else if (actualFlow > targetFlow * 0.85)
+            {
+                baseKp *= 0.85; // 比较接近目标
+            }
+
+            // 根据误差大小进一步调整
+            if (errorPercent > 20) return baseKp * 1.1;
+            if (errorPercent > 10) return baseKp;
+            if (errorPercent > 5) return baseKp * 0.8;
+            return baseKp * 0.6;
+        }
+
+        /// <summary>
+        /// 保守的Ki参数
+        /// </summary>
+        private double GetConservativeKi(double errorPercent, double actualFlow, double targetFlow)
+        {
+            double baseKi = KI;
+
+            if (_isOvershootMode || actualFlow > targetFlow)
+            {
+                return baseKi * 0.3; // 超调时大幅降低积分
+            }
+
+            if (actualFlow > targetFlow * 0.9)
+            {
+                return baseKi * 0.6; // 接近目标时降低积分
+            }
+
+            return baseKi;
+        }
+
+        /// <summary>
+        /// 保守的Kd参数
+        /// </summary>
+        private double GetConservativeKd(double errorPercent, double actualFlow, double targetFlow)
+        {
+            double baseKd = KD;
+
+            if (actualFlow > targetFlow * 0.85)
+            {
+                return baseKd * 1.5; // 接近目标时增强微分，抑制超调
+            }
+
+            return baseKd;
+        }
+
+        /// <summary>
+        /// 处理积分项的超调保护
+        /// </summary>
+        private void ProcessIntegralWithOvershootProtection(double actualFlow, double targetFlow, double currentError)
+        {
+            // 防超调的积分处理
+            if (actualFlow > targetFlow && currentError > 0)
+            {
+                // 如果已经超过目标且误差为正，不允许积分继续增加
+                _integralError = Math.Min(_integralError, 0);
+                AddCycleLog($"│ 积分保护: 超调时清除正向积分");
+            }
+
+            // 超调模式下的积分限制
+            double maxIntegral;
+            if (_isOvershootMode)
+            {
+                maxIntegral = 2.0; // 超调时严格限制积分
+            }
+            else if (actualFlow > targetFlow * 0.95)
+            {
+                maxIntegral = 3.0; // 接近目标时限制积分
+            }
+            else
+            {
+                maxIntegral = 5.0; // 正常积分限制
+            }
+
+            _integralError = Math.Max(-maxIntegral, Math.Min(maxIntegral, _integralError));
+        }
+
+        /// <summary>
+        /// 超调检测和处理
+        /// </summary>
+        private void HandleOvershootDetection(double actualFlow, double targetFlow)
+        {
+            double overshoot = actualFlow - targetFlow;
+            double overshootPercent = (overshoot / targetFlow) * 100;
+
+            if (overshootPercent > UPPER_PROTECTION_PERCENT)
+            {
+                if (!_isOvershootMode)
+                {
+                    AddCycleLog($"│ 🚨 检测到超调: {overshootPercent:F2}% (>{UPPER_PROTECTION_PERCENT}%)");
+                    _isOvershootMode = true;
+                    _overshootProtectionCount = 0;
+                }
+                _overshootProtectionCount++;
+
+                // 清除积分项，防止积分饱和
+                if (_integralError > 0)
+                {
+                    _integralError = 0;
+                    AddCycleLog($"│ 超调保护: 清除正向积分");
+                }
+            }
+            else if (_isOvershootMode && overshootPercent < -0.1) // 回到目标以下
+            {
+                _isOvershootMode = false;
+                _overshootProtectionCount = 0;
+                AddCycleLog($"│ ✅ 退出超调保护模式");
+            }
+        }
+
+        /// <summary>
+        /// 防超调的变化限制
+        /// </summary>
+        private double GetConservativeMaxChange(double errorPercent, double actualFlow, double targetFlow, double approachFactor)
+        {
+            double baseMaxChange = MAX_SPEED_CHANGE_PER_CYCLE;
+
+            // 超调保护模式
+            if (_isOvershootMode)
+            {
+                return 0.3; // 超调时最小变化
+            }
+
+            // 根据流量位置严格限制
+            if (actualFlow >= targetFlow)
+            {
+                return 0.5; // 超过目标时最多变化0.5RPM
+            }
+            else if (actualFlow > targetFlow * 0.98)
+            {
+                return 0.8; // 非常接近时最多0.8RPM
+            }
+            else if (actualFlow > targetFlow * 0.95)
+            {
+                return 1.0; // 很接近时最多1RPM
+            }
+            else if (actualFlow > targetFlow * 0.85)
+            {
+                return 1.2; // 比较接近时最多1.2RPM
+            }
+
+            // 根据误差调整
+            if (errorPercent > 30) return baseMaxChange * 1.2;
+            if (errorPercent > 15) return baseMaxChange;
+            return baseMaxChange * 0.8;
+        }
+
+        /// <summary>
+        /// 多层超调保护
+        /// </summary>
+        private double ApplyMultiLayerOvershootProtection(double proposedSpeed, double currentSpeed, double actualFlow, double targetFlow)
+        {
+            // 第一层：绝对禁止超调时增加泵速
+            if (actualFlow > targetFlow)
+            {
+                if (proposedSpeed > currentSpeed)
+                {
+                    double forcedReduction = Math.Max(0.2, (actualFlow - targetFlow) / targetFlow * 2.0);
+                    double newSpeed = Math.Max(0, currentSpeed - forcedReduction);
+                    AddCycleLog($"│ 超调保护1: 强制降速 {currentSpeed:F1}→{newSpeed:F1} RPM (降{forcedReduction:F1})");
+                    return newSpeed;
+                }
+            }
+
+            // 第二层：接近目标时限制大幅增加
+            else if (actualFlow > targetFlow * 0.95)
+            {
+                double speedIncrease = proposedSpeed - currentSpeed;
+                if (speedIncrease > 0.8)
+                {
+                    double limitedSpeed = currentSpeed + 0.8;
+                    AddCycleLog($"│ 超调保护2: 限制增速 {proposedSpeed:F1}→{limitedSpeed:F1} RPM");
+                    return limitedSpeed;
+                }
+            }
+
+            // 第三层：渐进式接近保护
+            else if (actualFlow > targetFlow * 0.85)
+            {
+                double speedIncrease = proposedSpeed - currentSpeed;
+                double maxAllowedIncrease = 1.2 * (targetFlow - actualFlow) / (targetFlow * 0.15);
+
+                if (speedIncrease > maxAllowedIncrease)
+                {
+                    double limitedSpeed = currentSpeed + maxAllowedIncrease;
+                    AddCycleLog($"│ 超调保护3: 渐进接近 {proposedSpeed:F1}→{limitedSpeed:F1} RPM");
+                    return limitedSpeed;
+                }
+            }
+
+            return proposedSpeed;
+        }
+
+        /// <summary>
+        /// 自适应滤波系数
+        /// </summary>
+        private double GetAdaptiveFilterFactor(double errorPercent, double actualFlow, double targetFlow)
+        {
+            if (_isOvershootMode || actualFlow > targetFlow)
+            {
+                return 0.98; // 超调时强烈滤波
+            }
+
+            if (actualFlow > targetFlow * 0.95)
+            {
+                return 0.95; // 接近目标时强滤波
+            }
+
+            if (errorPercent > 20) return 0.8;  // 大误差时快响应
+            if (errorPercent > 10) return 0.9;  // 中等误差
+            return SPEED_FILTER_FACTOR;         // 小误差时正常滤波
+        }
+
+        /// <summary>
+        /// 保守的初始泵速计算
+        /// </summary>
+        private double CalculateRequiredPumpSpeed(double targetFlow, double actualFlow = 0, double deviation = 0)
+        {
+            double baseSpeed;
+
+            if (_controlCycleCount == 0) // 首次启动
+            {
+                // 从目标的65%开始，确保不会一开始就接近目标
+                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.85;
+                WriteDetailedLog($"[保守启动] 目标流量={targetFlow:F2}g/min → 初始泵速={baseSpeed:F1}RPM (85%起步)");
+            }
+            else
+            {
+                // 后续启动也保守一些
+                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.75;
+            }
+
+            baseSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, baseSpeed));
+            return baseSpeed;
+        }
+
+        /// <summary>
+        /// 记录防超调PID详情
+        /// </summary>
+        private void LogAntiOvershootPIDDetails(double targetFlow, double actualFlow, double currentError,
+            double proportional, double integral, double derivative, double pidOutput,
+            double currentPumpSpeed, double rawNewSpeed, double speedChange,
+            double filteredSpeed, double finalSpeed, double adaptiveKp, double adaptiveKi, double adaptiveKd,
+            double approachFactor, double maxChange, double filterFactor)
+        {
+            AddCycleLog($"┌── 防超调PID详情 ──");
+            AddCycleLog($"│   目标流量: {targetFlow:F2} g/min");
+            AddCycleLog($"│   实际流量: {actualFlow:F2} g/min");
+            AddCycleLog($"│   流量误差: {currentError:F2} g/min");
+            AddCycleLog($"│   误差百分比: {Math.Abs(currentError / targetFlow) * 100:F3}%");
+            AddCycleLog($"│   ───");
+            AddCycleLog($"│   自适应Kp: {adaptiveKp:F3} (基础{KP})");
+            AddCycleLog($"│   自适应Ki: {adaptiveKi:F3} (基础{KI})");
+            AddCycleLog($"│   自适应Kd: {adaptiveKd:F3} (基础{KD})");
+            AddCycleLog($"│   接近系数: {approachFactor:F2}");
+            AddCycleLog($"│   ───");
+            AddCycleLog($"│   P项: {proportional:F3}");
+            AddCycleLog($"│   I项: {integral:F3} (累积={_integralError:F3})");
+            AddCycleLog($"│   D项: {derivative:F3}");
+            AddCycleLog($"│   PID输出: {pidOutput:F3}");
+            AddCycleLog($"│   ───");
+            AddCycleLog($"│   当前泵速: {currentPumpSpeed:F1} RPM");
+            AddCycleLog($"│   原始计算: {rawNewSpeed:F1} RPM");
+            AddCycleLog($"│   变化限制: {speedChange:F1} RPM (最大±{maxChange:F1})");
+            AddCycleLog($"│   滤波系数: {filterFactor:F2}");
+            AddCycleLog($"│   滤波输出: {filteredSpeed:F1} RPM");
+            AddCycleLog($"│   最终输出: {finalSpeed:F1} RPM");
+            if (_isOvershootMode)
+            {
+                AddCycleLog($"│   🚨 超调保护模式激活 (第{_overshootProtectionCount}次)");
+            }
+            AddCycleLog($"└──────────────");
+        }
+
+        #endregion
 
         #region 智能稳定性检测系统
 
@@ -220,13 +627,14 @@ namespace FlowMeter_ModbusTCP
                 {
                     lock (_stateLock)
                     {
-                        // 模拟更真实的流量响应
+                        // 模拟更真实的流量响应，增加防超调特性
                         var targetResponse = _lastPumpSpeedOutput * 0.95;
                         var random = new Random();
 
-                        // 模拟系统响应延迟和噪声
-                        _currentFlow = _currentFlow * 0.85 + targetResponse * 0.15;
-                        _currentFlow += (random.NextDouble() - 0.5) * 0.1; // 小噪声
+                        // 模拟系统响应延迟和噪声，增加惯性防止快速变化
+                        double responseRate = 0.12; // 降低响应速度，防止模拟超调
+                        _currentFlow = _currentFlow * (1 - responseRate) + targetResponse * responseRate;
+                        _currentFlow += (random.NextDouble() - 0.5) * 0.05; // 减小噪声
                         _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
 
                         return _currentFlow;
@@ -267,94 +675,397 @@ namespace FlowMeter_ModbusTCP
             return changeCount > 0 ? totalChange / changeCount : 0;
         }
 
+        #endregion
+
+        #region 智能自动控制逻辑 - 防超调版本
+
         /// <summary>
-        /// 根据泵速变化幅度和系统状态计算动态等待时间（备用方案）
+        /// 启动智能自动控制
         /// </summary>
-        private int CalculateDynamicStabilizeTime(double targetFlow)
+        private void StartAutoControl()
+        {
+            lock (_controlLock)
+            {
+                if (_autoControlEnabled)
+                {
+                    LogControlStateChange("智能自动控制已经在运行中");
+                    return;
+                }
+
+                _previousError = 0;
+                _integralError = 0;
+                _stableCount = 0;
+                _lastPumpSpeedOutput = 0;
+                _previousPumpSpeed = 0;
+                _controlCycleCount = 0;
+                _controlStartTime = DateTime.Now;
+                _flowHistory.Clear();
+                _isOvershootMode = false;
+                _overshootProtectionCount = 0;
+
+                _autoControlEnabled = true;
+                _controlTimer = new Timer(AutoControlCallback, null, CONTROL_INTERVAL_MS, CONTROL_INTERVAL_MS);
+
+                var startDetails = new
+                {
+                    间隔 = $"{CONTROL_INTERVAL_MS}ms",
+                    容差 = $"±{FLOW_TOLERANCE_PERCENT}%",
+                    死区 = $"±{DEAD_ZONE_PERCENT}%",
+                    超调保护 = $"±{UPPER_PROTECTION_PERCENT}%",
+                    PID参数 = $"Kp={KP}, Ki={KI}, Kd={KD}",
+                    智能检测 = $"阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数",
+                    目标流量 = $"{_targetFlow}g/min",
+                    防超调 = "启用"
+                };
+
+                LogControlStateChange("防超调智能流量控制启动", startDetails);
+
+                WriteDetailedLog("");
+                WriteDetailedLog("★".PadRight(100, '★'));
+                WriteDetailedLog($"防超调智能控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                WriteDetailedLog($"目标流量: {_targetFlow} g/min");
+                WriteDetailedLog($"控制参数: 间隔={CONTROL_INTERVAL_MS}ms, 容差=±{FLOW_TOLERANCE_PERCENT}%, 死区=±{DEAD_ZONE_PERCENT}%");
+                WriteDetailedLog($"超调保护: ±{UPPER_PROTECTION_PERCENT}% 阈值");
+                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (防超调优化)");
+                WriteDetailedLog($"智能检测: 阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数, 最大{MAX_MONITORING_TIME_MS / 1000}秒");
+                WriteDetailedLog("★".PadRight(100, '★'));
+                WriteDetailedLog("");
+            }
+        }
+
+        /// <summary>
+        /// 停止智能自动控制
+        /// </summary>
+        private void StopAutoControl()
+        {
+            lock (_controlLock)
+            {
+                if (!_autoControlEnabled)
+                {
+                    return;
+                }
+
+                _autoControlEnabled = false;
+                _controlTimer?.Dispose();
+                _controlTimer = null;
+
+                var duration = DateTime.Now - _controlStartTime;
+                var stopDetails = new
+                {
+                    运行时长 = $"{duration.TotalMinutes:F1}分钟",
+                    总周期数 = _controlCycleCount,
+                    平均周期间隔 = $"{duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms",
+                    超调保护次数 = _overshootProtectionCount,
+                    版本 = "防超调版本"
+                };
+
+                LogControlStateChange("防超调智能流量控制停止", stopDetails);
+
+                WriteDetailedLog("");
+                WriteDetailedLog("■".PadRight(100, '■'));
+                WriteDetailedLog($"防超调智能控制停止 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                WriteDetailedLog($"运行时长: {duration.TotalMinutes:F1}分钟");
+                WriteDetailedLog($"总控制周期: {_controlCycleCount}次");
+                WriteDetailedLog($"平均周期间隔: {duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms");
+                WriteDetailedLog($"超调保护触发: {_overshootProtectionCount}次");
+                WriteDetailedLog($"版本: 防超调智能控制系统");
+                WriteDetailedLog("■".PadRight(100, '■'));
+                WriteDetailedLog("");
+
+                _previousError = 0;
+                _integralError = 0;
+                _stableCount = 0;
+                _lastPumpSpeedOutput = 0;
+                _previousPumpSpeed = 0;
+                _flowHistory.Clear();
+                _isOvershootMode = false;
+                _overshootProtectionCount = 0;
+            }
+        }
+
+        /// <summary>
+        /// 智能自动控制回调
+        /// </summary>
+        private async void AutoControlCallback(object state)
         {
             try
             {
-                // 获取当前泵速（如果可能）
-                double currentPumpSpeed = _lastPumpSpeedOutput;
-                double expectedPumpSpeed = targetFlow * FLOW_TO_SPEED_RATIO;
-
-                // 计算泵速变化幅度
-                double speedChange = Math.Abs(expectedPumpSpeed - _previousPumpSpeed);
-                double speedChangePercent = _previousPumpSpeed > 0 ?
-                    (speedChange / _previousPumpSpeed) * 100 : 100;
-
-                // 基于变化幅度计算等待时间
-                int waitTime = BASE_STABILIZE_DELAY_MS;
-
-                if (speedChange > 15)
-                {
-                    // 大幅度变化：需要更长时间
-                    waitTime = (int)(BASE_STABILIZE_DELAY_MS * 2.5);
-                    AddCycleLog($"│ 大幅度泵速变化: {speedChange:F1} RPM (>{15})");
-                }
-                else if (speedChange > 8)
-                {
-                    // 中等变化
-                    waitTime = (int)(BASE_STABILIZE_DELAY_MS * 1.8);
-                    AddCycleLog($"│ 中等泵速变化: {speedChange:F1} RPM ({8}-{15})");
-                }
-                else if (speedChange > 3)
-                {
-                    // 小变化
-                    waitTime = (int)(BASE_STABILIZE_DELAY_MS * 1.3);
-                    AddCycleLog($"│ 小幅泵速变化: {speedChange:F1} RPM ({3}-{8})");
-                }
-                else if (speedChange > 1)
-                {
-                    // 微调
-                    waitTime = (int)(BASE_STABILIZE_DELAY_MS * 1.0);
-                    AddCycleLog($"│ 微调: {speedChange:F1} RPM ({1}-{3})");
-                }
-                else
-                {
-                    // 几乎无变化
-                    waitTime = MIN_STABILIZE_DELAY_MS;
-                    AddCycleLog($"│ 极小变化: {speedChange:F1} RPM (<{1})");
-                }
-
-                // 考虑当前误差大小进行调整
-                double currentFlow = 0;
-                lock (_stateLock)
-                {
-                    currentFlow = _currentFlow;
-                }
-
-                if (currentFlow > 0)
-                {
-                    double errorPercent = Math.Abs(currentFlow - targetFlow) / targetFlow * 100;
-                    if (errorPercent > 20)
-                    {
-                        waitTime = (int)(waitTime * 1.5); // 误差大时延长等待
-                        AddCycleLog($"│ 误差较大({errorPercent:F1}%)，延长等待时间");
-                    }
-                }
-
-                // 首次启动特殊处理
-                if (_controlCycleCount <= 1)
-                {
-                    waitTime = (int)(waitTime * 1.5);
-                    AddCycleLog($"│ 首次启动，延长等待时间");
-                }
-
-                // 限制在合理范围内
-                waitTime = Math.Max(MIN_STABILIZE_DELAY_MS, Math.Min(MAX_STABILIZE_DELAY_MS, waitTime));
-
-                AddCycleLog($"│ 上次泵速: {_previousPumpSpeed:F1} RPM");
-                AddCycleLog($"│ 预期泵速: {expectedPumpSpeed:F1} RPM");
-                AddCycleLog($"│ 速度变化: {speedChange:F1} RPM ({speedChangePercent:F1}%)");
-                AddCycleLog($"│ 最终等待: {waitTime}ms");
-
-                return waitTime;
+                await PerformAntiOvershootControlAsync();
             }
             catch (Exception ex)
             {
-                AddCycleLog($"│ 计算等待时间异常: {ex.Message}，使用默认值");
-                return BASE_STABILIZE_DELAY_MS;
+                WriteDetailedLog($"[ERROR] 防超调控制执行异常: {ex.Message}");
+                WriteDetailedLog($"[ERROR] 异常堆栈: {ex.StackTrace}");
+                ErrorLog("防超调控制执行异常", ex);
+            }
+        }
+
+        /// <summary>
+        /// 执行防超调智能控制逻辑
+        /// </summary>
+        private async Task PerformAntiOvershootControlAsync()
+        {
+            StartCycleLog();
+
+            double targetFlow;
+            bool controlEnabled;
+
+            lock (_controlLock)
+            {
+                controlEnabled = _autoControlEnabled;
+            }
+
+            if (!controlEnabled)
+            {
+                AddCycleLog("控制已禁用，跳过本周期");
+                EndCycleLog("控制已禁用");
+                return;
+            }
+
+            lock (_stateLock)
+            {
+                targetFlow = _targetFlow;
+            }
+
+            if (targetFlow <= 0)
+            {
+                AddCycleLog($"目标流量无效 ({targetFlow})，跳过本周期");
+                EndCycleLog("目标流量无效");
+                return;
+            }
+
+            AddCycleLog($"目标流量: {targetFlow:F2} g/min");
+
+            try
+            {
+                // *** 智能等待流量稳定 ***
+                AddCycleLog("┌── 步骤1: 智能等待流量稳定 ──");
+                var (finalFlow, stabilizeTime, readings) = await WaitForFlowStabilityAsync(targetFlow);
+                AddCycleLog($"│ 流量已稳定: {finalFlow:F2} g/min");
+                AddCycleLog($"│ 实际等待: {stabilizeTime:F1}秒");
+                AddCycleLog($"│ 监测次数: {readings}次");
+                AddCycleLog($"└─ 智能稳定检测完成");
+
+                double actualFlow = finalFlow;
+
+                // 2. 计算流量偏差
+                AddCycleLog("┌── 步骤2: 计算流量偏差 ──");
+                double flowError = actualFlow - targetFlow;
+                double errorPercent = Math.Abs(flowError / targetFlow) * 100.0;
+
+                AddCycleLog($"│ 流量误差: {flowError:F2} g/min");
+                AddCycleLog($"│ 误差百分比: {errorPercent:F3}%");
+                AddCycleLog($"│ 死区范围: ±{DEAD_ZONE_PERCENT}%");
+                AddCycleLog($"│ 容差范围: ±{FLOW_TOLERANCE_PERCENT}%");
+                AddCycleLog($"│ 超调保护: ±{UPPER_PROTECTION_PERCENT}%");
+
+                // 3. 防超调的死区控制
+                if (errorPercent <= DEAD_ZONE_PERCENT)
+                {
+                    _stableCount++;
+                    AddCycleLog($"│ ✅ 判断: 在死区内 ({errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%)");
+                    AddCycleLog($"│ 稳定计数: {_stableCount}");
+
+                    var oldIntegral = _integralError;
+                    _integralError *= 0.92; // 稍微强一点的衰减
+                    AddCycleLog($"│ 积分误差衰减: {oldIntegral:F3} → {_integralError:F3}");
+                    AddCycleLog($"│ 🎯 防超调死区稳定 - 保持当前泵速");
+
+                    EndCycleLog($"防超调死区稳定 (偏差{errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%) - 连续{_stableCount}次");
+                    return;
+                }
+
+                // 4. 防超调的容差控制
+                if (errorPercent <= FLOW_TOLERANCE_PERCENT)
+                {
+                    _stableCount++;
+                    AddCycleLog($"│ ✅ 判断: 在容差内 ({errorPercent:F3}% ≤ {FLOW_TOLERANCE_PERCENT}%)");
+                    AddCycleLog($"│ 稳定计数: {_stableCount}/{STABLE_CYCLES_REQUIRED}");
+
+                    if (_stableCount >= STABLE_CYCLES_REQUIRED)
+                    {
+                        AddCycleLog($"│ 🎯 达到连续稳定要求 ({_stableCount} ≥ {STABLE_CYCLES_REQUIRED})");
+                        _integralError = 0;
+                        AddCycleLog($"│ 积分误差已清零 - 系统防超调稳定");
+
+                        EndCycleLog($"防超调流量稳定 (连续{_stableCount}次在容差内)");
+                        return;
+                    }
+                    else
+                    {
+                        AddCycleLog($"│ ⏳ 需要连续{STABLE_CYCLES_REQUIRED}次稳定，当前{_stableCount}次");
+                    }
+                }
+                else
+                {
+                    AddCycleLog($"│ ⚠️ 判断: 超出容差 ({errorPercent:F3}% > {FLOW_TOLERANCE_PERCENT}%)");
+                    _stableCount = 0;
+                    AddCycleLog($"│ 稳定计数已重置: {_stableCount}");
+                }
+
+                AddCycleLog($"└─ 需要调整泵速");
+
+                // 5. 获取当前泵速
+                AddCycleLog("┌── 步骤3: 获取当前泵速 ──");
+                var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                double currentPumpSpeed;
+                try
+                {
+                    var pumpReadStart = DateTime.Now;
+                    currentPumpSpeed = await ConnectionManager.ReadAsync<double>(pumpDeviceId, "P0101泵速");
+                    var pumpReadDuration = DateTime.Now - pumpReadStart;
+                    AddCycleLog($"│ 读取成功: {currentPumpSpeed:F1} RPM (耗时: {pumpReadDuration.TotalMilliseconds:F0}ms)");
+                }
+                catch (Exception ex)
+                {
+                    currentPumpSpeed = _lastPumpSpeedOutput;
+                    AddCycleLog($"│ 读取失败，使用上次输出值: {currentPumpSpeed:F1} RPM");
+                    AddCycleLog($"│ 错误: {ex.Message}");
+                }
+                AddCycleLog($"└─ 当前泵速: {currentPumpSpeed:F1} RPM");
+
+                // 6. 防超调PID控制计算
+                AddCycleLog("┌── 步骤4: 防超调PID控制计算 ──");
+                double newPumpSpeed = CalculateAntiOvershootPumpSpeed(targetFlow, actualFlow, flowError, currentPumpSpeed);
+                AddCycleLog($"└─ 计算的新泵速: {newPumpSpeed:F1} RPM");
+
+                // 7. 设置新泵速
+                AddCycleLog("┌── 步骤5: 设置新泵速 ──");
+                var pumpSetStart = DateTime.Now;
+                bool adjustSuccess = await SetPumpSpeedAsync(pumpDeviceId, newPumpSpeed);
+                var pumpSetDuration = DateTime.Now - pumpSetStart;
+
+                if (adjustSuccess)
+                {
+                    _lastPumpSpeedOutput = newPumpSpeed;
+                    _previousPumpSpeed = newPumpSpeed;
+                    AddCycleLog($"│ ✅ 设置成功: {newPumpSpeed:F1} RPM (耗时: {pumpSetDuration.TotalMilliseconds:F0}ms)");
+                    AddCycleLog($"│ 泵速变化: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM");
+
+                    var summary = $"防超调调整: {currentPumpSpeed:F1}→{newPumpSpeed:F1}RPM, 流量偏差: {errorPercent:F3}%";
+                    if (_isOvershootMode)
+                    {
+                        summary += " [超调保护模式]";
+                    }
+                    EndCycleLog(summary);
+                }
+                else
+                {
+                    AddCycleLog($"│ ❌ 设置失败: {newPumpSpeed:F1} RPM");
+                    EndCycleLog($"泵速设置失败: {newPumpSpeed:F1} RPM");
+                }
+                AddCycleLog($"└─ 设置结果: {(adjustSuccess ? "成功" : "失败")}");
+            }
+            catch (Exception ex)
+            {
+                AddCycleLog($"[ERROR] 防超调控制异常: {ex.Message}");
+                EndCycleLog($"异常: {ex.Message}");
+                throw;
+            }
+        }
+
+        #endregion
+
+        #region 设备初始化和其他方法
+
+        public FlowMeter_ModbusTCP()
+        {
+            _logger = LogManager.GetLogger<FlowMeter_ModbusTCP>();
+
+            Name = "P0101流量计";
+            Manufacturer = "ModbusTCP流量计";
+            Category = DeviceCategories.Flowmeter;
+            ComId = "FT0101";
+
+            ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
+
+            AllowedRegions = new List<RegionType>()
+            {
+                RegionType.Feed,
+                RegionType.PreHeat,
+                RegionType.Reaction,
+                RegionType.Quench,
+                RegionType.PostProcess
+            };
+
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/D07-19BMassFlowMeter.png";
+
+            Parameters.Variables.Add(new StringParameter("DeviceId", "FT0101")
+            {
+                Options = new ObservableCollection<string>(new List<string>() { "FT0101", "FT0102", "FT0103" }),
+                HelpText = "ModbusTCP流量计设备ID"
+            });
+
+            Parameters.Variables.Add(new StringParameter("PumpDeviceId", "P0101")
+            {
+                Options = new ObservableCollection<string>(new List<string>() { "P0101", "P0111", "P0121" }),
+                HelpText = "关联的蠕动泵设备ID"
+            });
+
+            InitializeDetailedLogging();
+            InitializeCommands();
+        }
+
+        /// <summary>
+        /// 设置泵速
+        /// </summary>
+        private async Task<bool> SetPumpSpeedAsync(string pumpDeviceId, double speed)
+        {
+            try
+            {
+                var originalSpeed = speed;
+                speed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, speed));
+
+                if (Math.Abs(originalSpeed - speed) > 0.01)
+                {
+                    AddCycleLog($"│   泵速限制: {originalSpeed:F1} → {speed:F1} RPM");
+                }
+
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                {
+                    AddCycleLog($"│   设置基准模式...");
+                    await ConnectionManager.WriteAsync(pumpDeviceId, "P0101泵基准模式", true);
+
+                    AddCycleLog($"│   写入泵速: {speed:F1} RPM");
+                    var result = await ConnectionManager.WriteAsync<float>(pumpDeviceId, "P0101泵基准泵速", (float)speed);
+
+                    AddCycleLog($"│   ModbusTCP写入结果: {result}");
+                    return result;
+                }
+                else if (IsSimulationMode)
+                {
+                    AddCycleLog($"│   [模拟] 设置泵速: {speed:F1} RPM");
+
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(500);
+                        lock (_stateLock)
+                        {
+                            // 模拟更真实的系统响应，包含惯性和延迟
+                            var targetResponse = speed * 0.98;
+                            var oldCurrentFlow = _currentFlow;
+
+                            // 降低响应速度，模拟实际系统的惯性
+                            double responseRate = 0.25;
+                            _currentFlow = _currentFlow * (1 - responseRate) + targetResponse * responseRate;
+                            _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
+
+                            WriteDetailedLog($"[防超调模拟响应] 泵速={speed:F1}RPM → 目标响应={targetResponse:F2}g/min → 流量更新: {oldCurrentFlow:F2} → {_currentFlow:F2}g/min");
+                        }
+                    });
+
+                    return true;
+                }
+                else
+                {
+                    AddCycleLog($"│   错误: 设备未配置为ModbusTCP模式且非模拟模式");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                AddCycleLog($"│   [ERROR] 设置泵速异常: {ex.Message}");
+                return false;
             }
         }
 
@@ -376,16 +1087,17 @@ namespace FlowMeter_ModbusTCP
                 }
 
                 var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                _logFilePath = Path.Combine(logDir, $"FlowControl_Smart_{timestamp}.log");
+                _logFilePath = Path.Combine(logDir, $"FlowControl_AntiOvershoot_{timestamp}.log");
 
                 WriteDetailedLog("=".PadRight(100, '='));
-                WriteDetailedLog($"智能流量控制详细日志启动 - 超智能版本");
+                WriteDetailedLog($"防超调智能流量控制详细日志启动");
                 WriteDetailedLog($"设备: {Name} ({ComId})");
                 WriteDetailedLog($"日志文件: {_logFilePath}");
                 WriteDetailedLog($"启动时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
                 WriteDetailedLog($"智能稳定检测: 阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数");
                 WriteDetailedLog($"控制周期间隔: {CONTROL_INTERVAL_MS}ms");
-                WriteDetailedLog($"高精度控制: 容差±{FLOW_TOLERANCE_PERCENT}%, 死区±{DEAD_ZONE_PERCENT}%");
+                WriteDetailedLog($"防超调控制: 容差±{FLOW_TOLERANCE_PERCENT}%, 死区±{DEAD_ZONE_PERCENT}%, 保护±{UPPER_PROTECTION_PERCENT}%");
+                WriteDetailedLog($"防超调PID: Kp={KP}, Ki={KI}, Kd={KD}");
                 WriteDetailedLog("=".PadRight(100, '='));
                 WriteDetailedLog("");
             }
@@ -423,7 +1135,7 @@ namespace FlowMeter_ModbusTCP
         {
             _controlCycleCount++;
             _currentCycleLog.Clear();
-            _currentCycleLog.AppendLine($"┌─ 控制周期 #{_controlCycleCount} 开始 ─ {DateTime.Now:HH:mm:ss.fff} ────");
+            _currentCycleLog.AppendLine($"┌─ 防超调控制周期 #{_controlCycleCount} 开始 ─ {DateTime.Now:HH:mm:ss.fff} ────");
         }
 
         /// <summary>
@@ -440,37 +1152,10 @@ namespace FlowMeter_ModbusTCP
         private void EndCycleLog(string result)
         {
             _currentCycleLog.AppendLine($"│ 周期结果: {result}");
-            _currentCycleLog.AppendLine($"└─ 控制周期 #{_controlCycleCount} 结束 ─ {DateTime.Now:HH:mm:ss.fff} ────");
+            _currentCycleLog.AppendLine($"└─ 防超调控制周期 #{_controlCycleCount} 结束 ─ {DateTime.Now:HH:mm:ss.fff} ────");
             _currentCycleLog.AppendLine("");
 
             WriteDetailedLog(_currentCycleLog.ToString());
-        }
-
-        /// <summary>
-        /// 记录PID计算详情
-        /// </summary>
-        private void LogPIDDetails(double targetFlow, double actualFlow, double currentError,
-            double proportional, double integral, double derivative, double pidOutput,
-            double currentPumpSpeed, double rawNewSpeed, double speedChange,
-            double filteredSpeed, double finalSpeed)
-        {
-            AddCycleLog($"┌── PID计算详情 ──");
-            AddCycleLog($"│   目标流量: {targetFlow:F2} g/min");
-            AddCycleLog($"│   实际流量: {actualFlow:F2} g/min");
-            AddCycleLog($"│   流量误差: {currentError:F2} g/min");
-            AddCycleLog($"│   误差百分比: {Math.Abs(currentError / targetFlow) * 100:F3}%");
-            AddCycleLog($"│   ───");
-            AddCycleLog($"│   P项 (Kp={KP}): {proportional:F3}");
-            AddCycleLog($"│   I项 (Ki={KI}): {integral:F3} (累积误差={_integralError:F3})");
-            AddCycleLog($"│   D项 (Kd={KD}): {derivative:F3}");
-            AddCycleLog($"│   PID输出: {pidOutput:F3}");
-            AddCycleLog($"│   ───");
-            AddCycleLog($"│   当前泵速: {currentPumpSpeed:F1} RPM");
-            AddCycleLog($"│   原始计算: {rawNewSpeed:F1} RPM");
-            AddCycleLog($"│   变化限制: {speedChange:F1} RPM (最大±{MAX_SPEED_CHANGE_PER_CYCLE})");
-            AddCycleLog($"│   输出滤波: {filteredSpeed:F1} RPM (系数={SPEED_FILTER_FACTOR})");
-            AddCycleLog($"│   最终输出: {finalSpeed:F1} RPM");
-            AddCycleLog($"└──────────────");
         }
 
         /// <summary>
@@ -485,6 +1170,330 @@ namespace FlowMeter_ModbusTCP
             }
             WriteDetailedLog(message);
             InfoLog(message);
+        }
+
+        #endregion
+
+        #region 命令初始化
+
+        private void InitializeCommands()
+        {
+            // 1. 获取基准流量
+            Commands.Add(new DeviceCommand
+            {
+                Name = "获取基准流量",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
+                HelpText = "读取ModbusTCP地址40030获取基准流量",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, 0, "基准流量(g/min)") { IsVisibleInVariableManager = true }
+                    }
+                },
+                Action = WrapAction("获取基准流量", async delegate (DeviceParameters parameters)
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    double baseFlow = 0;
+
+                    try
+                    {
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            baseFlow = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
+                            InfoLog($"从ModbusTCP地址40030获取基准流量: {baseFlow} g/min");
+                        }
+                        else if (IsSimulationMode)
+                        {
+                            lock (_stateLock)
+                            {
+                                baseFlow = _currentFlow;
+                            }
+                            InfoLog($"模拟模式获取基准流量: {baseFlow} g/min");
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorLog($"获取基准流量失败: {ex.Message}");
+                        throw;
+                    }
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+                        {
+                            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, Math.Round(baseFlow, 2), "基准流量(g/min)") { IsVisibleInVariableManager = true }
+                        }
+                    };
+                })
+            });
+
+            // 2. 设置基准流量 - 防超调版本
+            Commands.Add(new DeviceCommand
+            {
+                Name = "设置基准流量",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/speed_set.png",
+                HelpText = "设置目标流量并启动防超调智能PID控制，绝对不会超过目标值",
+                InputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 50.0, "目标基准流量(g/min)"),
+                        new BooleanParameter("EnableAutoControl", true, "启用防超调智能控制")
+                    }
+                },
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
+                        new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
+                        new BooleanParameter("AutoControlStarted", false, "防超调控制已启动") { IsVisibleInVariableManager = true }
+                    }
+                },
+                Action = WrapAction("设置基准流量", async delegate (DeviceParameters parameters)
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    double targetFlow = parameters.GetValue<double>("TargetFlow");
+                    bool enableAutoControl = parameters.GetValue<bool>("EnableAutoControl");
+                    bool success = false;
+                    double calculatedSpeed = 0;
+                    bool autoControlStarted = false;
+
+                    targetFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, targetFlow));
+
+                    try
+                    {
+                        lock (_stateLock)
+                        {
+                            _targetFlow = targetFlow;
+                        }
+
+                        calculatedSpeed = CalculateRequiredPumpSpeed(targetFlow);
+                        InfoLog($"计算所需初始泵速: {calculatedSpeed} RPM (防超调保守设置: {targetFlow} g/min)");
+
+                        var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                        var pumpSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, calculatedSpeed);
+
+                        if (pumpSetSuccess)
+                        {
+                            InfoLog($"初始泵速设置成功: {calculatedSpeed} RPM");
+                            success = true;
+
+                            if (enableAutoControl && targetFlow > 0)
+                            {
+                                StartAutoControl();
+                                autoControlStarted = true;
+                                InfoLog($"防超调智能PID控制已启动 - 目标流量: {targetFlow} g/min, 容差: ±{FLOW_TOLERANCE_PERCENT}%, 死区: ±{DEAD_ZONE_PERCENT}%, 保护: ±{UPPER_PROTECTION_PERCENT}%");
+                            }
+                        }
+                        else
+                        {
+                            WarnLog($"初始泵速设置失败: {calculatedSpeed} RPM");
+                        }
+
+                        if (success && targetFlow > 0)
+                        {
+                            AddActiveState("FlowControlActive", "设置基准流量", "停止流量控制", stateData: targetFlow);
+                        }
+                        else if (success && targetFlow == 0)
+                        {
+                            StopAutoControl();
+                            RemoveActiveState("FlowControlActive");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorLog($"设置基准流量失败: {ex.Message}");
+                        throw;
+                    }
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+                        {
+                            new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
+                            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
+                            new BooleanParameter("AutoControlStarted", autoControlStarted, "防超调控制已启动") { IsVisibleInVariableManager = true }
+                        }
+                    };
+                })
+            });
+
+            // 3. 停止流量控制
+            Commands.Add(new DeviceCommand
+            {
+                Name = "停止流量控制",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/off.png",
+                HelpText = "停止防超调智能流量控制并设置泵速为0",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
+                    }
+                },
+                Action = WrapAction("停止流量控制", async delegate (DeviceParameters parameters)
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    bool success = false;
+
+                    try
+                    {
+                        StopAutoControl();
+                        InfoLog("防超调智能自动控制已停止");
+
+                        var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                        success = await SetPumpSpeedAsync(pumpDeviceId, 0);
+                        InfoLog($"泵速已设置为0 RPM，结果: {success}");
+
+                        lock (_stateLock)
+                        {
+                            _targetFlow = 0;
+                            _currentFlow = 0;
+                        }
+
+                        if (success)
+                        {
+                            RemoveActiveState("FlowControlActive");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorLog($"停止流量控制失败: {ex.Message}");
+                        throw;
+                    }
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+                        {
+                            new BooleanParameter("Success", success, "停止成功") { IsVisibleInVariableManager = true }
+                        }
+                    };
+                })
+            });
+
+            // 4. 获取控制状态 - 包含防超调信息
+            Commands.Add(new DeviceCommand
+            {
+                Name = "获取控制状态",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/status.png",
+                HelpText = "获取防超调智能流量控制系统当前状态",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new BooleanParameter("AutoControlEnabled", false, "防超调控制启用") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 0, "目标流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, 0, "当前流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, 0, "流量偏差(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("DeviationPercent", -100, 100, 0, "偏差百分比(%)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, 0, "当前泵速(RPM)") { IsVisibleInVariableManager = true },
+                        new BooleanParameter("OvershootMode", false, "超调保护模式") { IsVisibleInVariableManager = true },
+                        new StringParameter("ControlStatus", "", "控制状态") { IsVisibleInVariableManager = true }
+                    }
+                },
+                Action = WrapAction("获取控制状态", async delegate (DeviceParameters parameters)
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    bool autoControlEnabled = false;
+                    double targetFlow = 0;
+                    double currentFlow = 0;
+                    double flowDeviation = 0;
+                    double deviationPercent = 0;
+                    double currentPumpSpeed = 0;
+                    bool overshootMode = false;
+                    string controlStatus = "";
+
+                    try
+                    {
+                        lock (_controlLock)
+                        {
+                            autoControlEnabled = _autoControlEnabled;
+                        }
+
+                        lock (_stateLock)
+                        {
+                            targetFlow = _targetFlow;
+                            currentFlow = _currentFlow;
+                        }
+
+                        overshootMode = _isOvershootMode;
+
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            try
+                            {
+                                currentFlow = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
+                                lock (_stateLock)
+                                {
+                                    _currentFlow = currentFlow;
+                                }
+
+                                var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                                currentPumpSpeed = await ConnectionManager.ReadAsync<double>(pumpDeviceId, "P0101泵速");
+                            }
+                            catch (Exception ex)
+                            {
+                                WarnLog($"读取设备状态失败: {ex.Message}");
+                            }
+                        }
+                        else if (IsSimulationMode)
+                        {
+                            currentPumpSpeed = _lastPumpSpeedOutput;
+                        }
+
+                        flowDeviation = currentFlow - targetFlow;
+
+                        if (targetFlow > 0)
+                        {
+                            deviationPercent = (flowDeviation / targetFlow) * 100.0;
+                        }
+
+                        controlStatus = autoControlEnabled ?
+                            $"防超调PID控制中 (目标:{targetFlow:F1}g/min, 偏差:{deviationPercent:F3}%, 容差:±{FLOW_TOLERANCE_PERCENT}%, 死区:±{DEAD_ZONE_PERCENT}%, 保护:±{UPPER_PROTECTION_PERCENT}%)" :
+                            "手动模式";
+
+                        if (overshootMode)
+                        {
+                            controlStatus += " [超调保护激活]";
+                        }
+
+                        InfoLog($"防超调流量控制状态: 自动={autoControlEnabled}, 目标={targetFlow:F2}, 实际={currentFlow:F2}, " +
+                               $"偏差={deviationPercent:F3}%, 泵速={currentPumpSpeed:F1}, 超调保护={overshootMode}");
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorLog($"获取控制状态失败: {ex.Message}");
+                        controlStatus = $"状态获取失败: {ex.Message}";
+                    }
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+                        {
+                            new BooleanParameter("AutoControlEnabled", autoControlEnabled, "防超调控制启用") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, Math.Round(targetFlow, 3), "目标流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, Math.Round(currentFlow, 3), "当前流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, Math.Round(flowDeviation, 3), "流量偏差(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("DeviationPercent", -100, 100, Math.Round(deviationPercent, 3), "偏差百分比(%)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, Math.Round(currentPumpSpeed, 1), "当前泵速(RPM)") { IsVisibleInVariableManager = true },
+                            new BooleanParameter("OvershootMode", overshootMode, "超调保护模式") { IsVisibleInVariableManager = true },
+                            new StringParameter("ControlStatus", controlStatus, "控制状态") { IsVisibleInVariableManager = true }
+                        }
+                    };
+                })
+            });
         }
 
         #endregion
@@ -705,821 +1714,6 @@ namespace FlowMeter_ModbusTCP
 
         #endregion
 
-        public FlowMeter_ModbusTCP()
-        {
-            _logger = LogManager.GetLogger<FlowMeter_ModbusTCP>();
-
-            Name = "P0101流量计";
-            Manufacturer = "ModbusTCP流量计";
-            Category = DeviceCategories.Flowmeter;
-            ComId = "FT0101";
-
-            ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
-
-            AllowedRegions = new List<RegionType>()
-            {
-                RegionType.Feed,
-                RegionType.PreHeat,
-                RegionType.Reaction,
-                RegionType.Quench,
-                RegionType.PostProcess
-            };
-
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/D07-19BMassFlowMeter.png";
-
-            Parameters.Variables.Add(new StringParameter("DeviceId", "FT0101")
-            {
-                Options = new ObservableCollection<string>(new List<string>() { "FT0101", "FT0102", "FT0103" }),
-                HelpText = "ModbusTCP流量计设备ID"
-            });
-
-            Parameters.Variables.Add(new StringParameter("PumpDeviceId", "P0101")
-            {
-                Options = new ObservableCollection<string>(new List<string>() { "P0101", "P0111", "P0121" }),
-                HelpText = "关联的蠕动泵设备ID"
-            });
-
-            InitializeDetailedLogging();
-            InitializeCommands();
-        }
-
-        private void InitializeCommands()
-        {
-            // 1. 获取基准流量
-            Commands.Add(new DeviceCommand
-            {
-                Name = "获取基准流量",
-                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
-                HelpText = "读取ModbusTCP地址40030获取基准流量",
-                InputParameters = new DeviceParameters(),
-                OutputParameters = new DeviceParameters
-                {
-                    Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, 0, "基准流量(g/min)") { IsVisibleInVariableManager = true }
-                    }
-                },
-                Action = WrapAction("获取基准流量", async delegate (DeviceParameters parameters)
-                {
-                    ComId = Parameters.GetValue<string>("DeviceId");
-                    double baseFlow = 0;
-
-                    try
-                    {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                        {
-                            baseFlow = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
-                            InfoLog($"从ModbusTCP地址40030获取基准流量: {baseFlow} g/min");
-                        }
-                        else if (IsSimulationMode)
-                        {
-                            lock (_stateLock)
-                            {
-                                baseFlow = _currentFlow;
-                            }
-                            InfoLog($"模拟模式获取基准流量: {baseFlow} g/min");
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorLog($"获取基准流量失败: {ex.Message}");
-                        throw;
-                    }
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, Math.Round(baseFlow, 2), "基准流量(g/min)") { IsVisibleInVariableManager = true }
-                        }
-                    };
-                })
-            });
-
-            // 2. 设置基准流量
-            Commands.Add(new DeviceCommand
-            {
-                Name = "设置基准流量",
-                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/speed_set.png",
-                HelpText = "设置目标流量并启动智能PID控制，使用实时稳定性检测，精度±0.2%",
-                InputParameters = new DeviceParameters
-                {
-                    Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 50.0, "目标基准流量(g/min)"),
-                        new BooleanParameter("EnableAutoControl", true, "启用智能自动控制")
-                    }
-                },
-                OutputParameters = new DeviceParameters
-                {
-                    Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("AutoControlStarted", false, "智能控制已启动") { IsVisibleInVariableManager = true }
-                    }
-                },
-                Action = WrapAction("设置基准流量", async delegate (DeviceParameters parameters)
-                {
-                    ComId = Parameters.GetValue<string>("DeviceId");
-                    double targetFlow = parameters.GetValue<double>("TargetFlow");
-                    bool enableAutoControl = parameters.GetValue<bool>("EnableAutoControl");
-                    bool success = false;
-                    double calculatedSpeed = 0;
-                    bool autoControlStarted = false;
-
-                    targetFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, targetFlow));
-
-                    try
-                    {
-                        lock (_stateLock)
-                        {
-                            _targetFlow = targetFlow;
-                        }
-
-                        calculatedSpeed = CalculateRequiredPumpSpeed(targetFlow);
-                        InfoLog($"计算所需初始泵速: {calculatedSpeed} RPM (基于目标流量: {targetFlow} g/min)");
-
-                        var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
-                        var pumpSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, calculatedSpeed);
-
-                        if (pumpSetSuccess)
-                        {
-                            InfoLog($"初始泵速设置成功: {calculatedSpeed} RPM");
-                            success = true;
-
-                            if (enableAutoControl && targetFlow > 0)
-                            {
-                                StartAutoControl();
-                                autoControlStarted = true;
-                                InfoLog($"智能PID控制已启动 - 目标流量: {targetFlow} g/min, 容差: ±{FLOW_TOLERANCE_PERCENT}%, 死区: ±{DEAD_ZONE_PERCENT}%");
-                            }
-                        }
-                        else
-                        {
-                            WarnLog($"初始泵速设置失败: {calculatedSpeed} RPM");
-                        }
-
-                        if (success && targetFlow > 0)
-                        {
-                            AddActiveState("FlowControlActive", "设置基准流量", "停止流量控制", stateData: targetFlow);
-                        }
-                        else if (success && targetFlow == 0)
-                        {
-                            StopAutoControl();
-                            RemoveActiveState("FlowControlActive");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorLog($"设置基准流量失败: {ex.Message}");
-                        throw;
-                    }
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("AutoControlStarted", autoControlStarted, "智能控制已启动") { IsVisibleInVariableManager = true }
-                        }
-                    };
-                })
-            });
-
-            // 3. 停止流量控制
-            Commands.Add(new DeviceCommand
-            {
-                Name = "停止流量控制",
-                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/off.png",
-                HelpText = "停止智能流量控制并设置泵速为0",
-                InputParameters = new DeviceParameters(),
-                OutputParameters = new DeviceParameters
-                {
-                    Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
-                    }
-                },
-                Action = WrapAction("停止流量控制", async delegate (DeviceParameters parameters)
-                {
-                    ComId = Parameters.GetValue<string>("DeviceId");
-                    bool success = false;
-
-                    try
-                    {
-                        StopAutoControl();
-                        InfoLog("智能自动控制已停止");
-
-                        var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
-                        success = await SetPumpSpeedAsync(pumpDeviceId, 0);
-                        InfoLog($"泵速已设置为0 RPM，结果: {success}");
-
-                        lock (_stateLock)
-                        {
-                            _targetFlow = 0;
-                            _currentFlow = 0;
-                        }
-
-                        if (success)
-                        {
-                            RemoveActiveState("FlowControlActive");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorLog($"停止流量控制失败: {ex.Message}");
-                        throw;
-                    }
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("Success", success, "停止成功") { IsVisibleInVariableManager = true }
-                        }
-                    };
-                })
-            });
-
-            // 4. 获取控制状态
-            Commands.Add(new DeviceCommand
-            {
-                Name = "获取控制状态",
-                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/status.png",
-                HelpText = "获取智能流量控制系统当前状态",
-                InputParameters = new DeviceParameters(),
-                OutputParameters = new DeviceParameters
-                {
-                    Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("AutoControlEnabled", false, "智能控制启用") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 0, "目标流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, 0, "当前流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, 0, "流量偏差(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("DeviationPercent", -100, 100, 0, "偏差百分比(%)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, 0, "当前泵速(RPM)") { IsVisibleInVariableManager = true },
-                        new StringParameter("ControlStatus", "", "控制状态") { IsVisibleInVariableManager = true }
-                    }
-                },
-                Action = WrapAction("获取控制状态", async delegate (DeviceParameters parameters)
-                {
-                    ComId = Parameters.GetValue<string>("DeviceId");
-                    bool autoControlEnabled = false;
-                    double targetFlow = 0;
-                    double currentFlow = 0;
-                    double flowDeviation = 0;
-                    double deviationPercent = 0;
-                    double currentPumpSpeed = 0;
-                    string controlStatus = "";
-
-                    try
-                    {
-                        lock (_controlLock)
-                        {
-                            autoControlEnabled = _autoControlEnabled;
-                        }
-
-                        lock (_stateLock)
-                        {
-                            targetFlow = _targetFlow;
-                            currentFlow = _currentFlow;
-                        }
-
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                        {
-                            try
-                            {
-                                currentFlow = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
-                                lock (_stateLock)
-                                {
-                                    _currentFlow = currentFlow;
-                                }
-
-                                var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
-                                currentPumpSpeed = await ConnectionManager.ReadAsync<double>(pumpDeviceId, "P0101泵速");
-                            }
-                            catch (Exception ex)
-                            {
-                                WarnLog($"读取设备状态失败: {ex.Message}");
-                            }
-                        }
-                        else if (IsSimulationMode)
-                        {
-                            currentPumpSpeed = _lastPumpSpeedOutput;
-                        }
-
-                        flowDeviation = currentFlow - targetFlow;
-
-                        if (targetFlow > 0)
-                        {
-                            deviationPercent = (flowDeviation / targetFlow) * 100.0;
-                        }
-
-                        controlStatus = autoControlEnabled ?
-                            $"智能PID控制中 (目标:{targetFlow:F1}g/min, 偏差:{deviationPercent:F3}%, 容差:±{FLOW_TOLERANCE_PERCENT}%, 死区:±{DEAD_ZONE_PERCENT}%)" :
-                            "手动模式";
-
-                        InfoLog($"智能流量控制状态: 自动={autoControlEnabled}, 目标={targetFlow:F2}, 实际={currentFlow:F2}, " +
-                               $"偏差={deviationPercent:F3}%, 泵速={currentPumpSpeed:F1}");
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorLog($"获取控制状态失败: {ex.Message}");
-                        controlStatus = $"状态获取失败: {ex.Message}";
-                    }
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("AutoControlEnabled", autoControlEnabled, "智能控制启用") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, Math.Round(targetFlow, 3), "目标流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, Math.Round(currentFlow, 3), "当前流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, Math.Round(flowDeviation, 3), "流量偏差(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("DeviationPercent", -100, 100, Math.Round(deviationPercent, 3), "偏差百分比(%)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, Math.Round(currentPumpSpeed, 1), "当前泵速(RPM)") { IsVisibleInVariableManager = true },
-                            new StringParameter("ControlStatus", controlStatus, "控制状态") { IsVisibleInVariableManager = true }
-                        }
-                    };
-                })
-            });
-        }
-
-        #region 智能自动控制逻辑 - 超智能版本
-
-        /// <summary>
-        /// 启动智能自动控制
-        /// </summary>
-        private void StartAutoControl()
-        {
-            lock (_controlLock)
-            {
-                if (_autoControlEnabled)
-                {
-                    LogControlStateChange("智能自动控制已经在运行中");
-                    return;
-                }
-
-                _previousError = 0;
-                _integralError = 0;
-                _stableCount = 0;
-                _lastPumpSpeedOutput = 0;
-                _previousPumpSpeed = 0;
-                _controlCycleCount = 0;
-                _controlStartTime = DateTime.Now;
-                _flowHistory.Clear();
-
-                _autoControlEnabled = true;
-                _controlTimer = new Timer(AutoControlCallback, null, CONTROL_INTERVAL_MS, CONTROL_INTERVAL_MS);
-
-                var startDetails = new
-                {
-                    间隔 = $"{CONTROL_INTERVAL_MS}ms",
-                    容差 = $"±{FLOW_TOLERANCE_PERCENT}%",
-                    死区 = $"±{DEAD_ZONE_PERCENT}%",
-                    PID参数 = $"Kp={KP}, Ki={KI}, Kd={KD}",
-                    智能检测 = $"阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数",
-                    目标流量 = $"{_targetFlow}g/min"
-                };
-
-                LogControlStateChange("智能流量控制启动 (超智能版本)", startDetails);
-
-                WriteDetailedLog("");
-                WriteDetailedLog("★".PadRight(100, '★'));
-                WriteDetailedLog($"智能控制启动 (超智能版本) - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                WriteDetailedLog($"目标流量: {_targetFlow} g/min");
-                WriteDetailedLog($"控制参数: 间隔={CONTROL_INTERVAL_MS}ms, 容差=±{FLOW_TOLERANCE_PERCENT}%, 死区=±{DEAD_ZONE_PERCENT}%");
-                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD}");
-                WriteDetailedLog($"智能检测: 阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数, 最大{MAX_MONITORING_TIME_MS / 1000}秒");
-                WriteDetailedLog("★".PadRight(100, '★'));
-                WriteDetailedLog("");
-            }
-        }
-
-        /// <summary>
-        /// 停止智能自动控制
-        /// </summary>
-        private void StopAutoControl()
-        {
-            lock (_controlLock)
-            {
-                if (!_autoControlEnabled)
-                {
-                    return;
-                }
-
-                _autoControlEnabled = false;
-                _controlTimer?.Dispose();
-                _controlTimer = null;
-
-                var duration = DateTime.Now - _controlStartTime;
-                var stopDetails = new
-                {
-                    运行时长 = $"{duration.TotalMinutes:F1}分钟",
-                    总周期数 = _controlCycleCount,
-                    平均周期间隔 = $"{duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms",
-                    版本 = "超智能版本"
-                };
-
-                LogControlStateChange("智能流量控制停止", stopDetails);
-
-                WriteDetailedLog("");
-                WriteDetailedLog("■".PadRight(100, '■'));
-                WriteDetailedLog($"智能控制停止 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                WriteDetailedLog($"运行时长: {duration.TotalMinutes:F1}分钟");
-                WriteDetailedLog($"总控制周期: {_controlCycleCount}次");
-                WriteDetailedLog($"平均周期间隔: {duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms");
-                WriteDetailedLog($"版本: 超智能实时检测版本");
-                WriteDetailedLog("■".PadRight(100, '■'));
-                WriteDetailedLog("");
-
-                _previousError = 0;
-                _integralError = 0;
-                _stableCount = 0;
-                _lastPumpSpeedOutput = 0;
-                _previousPumpSpeed = 0;
-                _flowHistory.Clear();
-            }
-        }
-
-        /// <summary>
-        /// 智能自动控制回调
-        /// </summary>
-        private async void AutoControlCallback(object state)
-        {
-            try
-            {
-                await PerformSmartAutoControlAsync();
-            }
-            catch (Exception ex)
-            {
-                WriteDetailedLog($"[ERROR] 智能控制执行异常: {ex.Message}");
-                WriteDetailedLog($"[ERROR] 异常堆栈: {ex.StackTrace}");
-                ErrorLog("智能控制执行异常", ex);
-            }
-        }
-
-        /// <summary>
-        /// 执行智能自动控制逻辑 - 超智能版本
-        /// </summary>
-        private async Task PerformSmartAutoControlAsync()
-        {
-            StartCycleLog();
-
-            double targetFlow;
-            bool controlEnabled;
-
-            lock (_controlLock)
-            {
-                controlEnabled = _autoControlEnabled;
-            }
-
-            if (!controlEnabled)
-            {
-                AddCycleLog("控制已禁用，跳过本周期");
-                EndCycleLog("控制已禁用");
-                return;
-            }
-
-            lock (_stateLock)
-            {
-                targetFlow = _targetFlow;
-            }
-
-            if (targetFlow <= 0)
-            {
-                AddCycleLog($"目标流量无效 ({targetFlow})，跳过本周期");
-                EndCycleLog("目标流量无效");
-                return;
-            }
-
-            AddCycleLog($"目标流量: {targetFlow:F2} g/min");
-
-            try
-            {
-                // *** 智能等待流量稳定 ***
-                AddCycleLog("┌── 步骤1: 智能等待流量稳定 ──");
-                var (finalFlow, stabilizeTime, readings) = await WaitForFlowStabilityAsync(targetFlow);
-                AddCycleLog($"│ 流量已稳定: {finalFlow:F2} g/min");
-                AddCycleLog($"│ 实际等待: {stabilizeTime:F1}秒");
-                AddCycleLog($"│ 监测次数: {readings}次");
-                AddCycleLog($"└─ 智能稳定检测完成");
-
-                // 直接使用检测到的稳定流量
-                double actualFlow = finalFlow;
-
-                // 3. 计算流量偏差
-                AddCycleLog("┌── 步骤2: 计算流量偏差 ──");
-                double flowError = actualFlow - targetFlow;
-                double errorPercent = Math.Abs(flowError / targetFlow) * 100.0;
-
-                AddCycleLog($"│ 流量误差: {flowError:F2} g/min");
-                AddCycleLog($"│ 误差百分比: {errorPercent:F3}%");
-                AddCycleLog($"│ 死区范围: ±{DEAD_ZONE_PERCENT}%");
-                AddCycleLog($"│ 容差范围: ±{FLOW_TOLERANCE_PERCENT}%");
-
-                // 4. 高精度死区控制
-                if (errorPercent <= DEAD_ZONE_PERCENT)
-                {
-                    _stableCount++;
-                    AddCycleLog($"│ ✅ 判断: 在死区内 ({errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%)");
-                    AddCycleLog($"│ 稳定计数: {_stableCount}");
-
-                    var oldIntegral = _integralError;
-                    _integralError *= 0.9;
-                    AddCycleLog($"│ 积分误差衰减: {oldIntegral:F3} → {_integralError:F3}");
-                    AddCycleLog($"│ 🎯 高精度死区稳定 - 保持当前泵速");
-
-                    EndCycleLog($"高精度死区稳定 (偏差{errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%) - 连续{_stableCount}次");
-                    return;
-                }
-
-                // 5. 高精度容差控制
-                if (errorPercent <= FLOW_TOLERANCE_PERCENT)
-                {
-                    _stableCount++;
-                    AddCycleLog($"│ ✅ 判断: 在容差内 ({errorPercent:F3}% ≤ {FLOW_TOLERANCE_PERCENT}%)");
-                    AddCycleLog($"│ 稳定计数: {_stableCount}/{STABLE_CYCLES_REQUIRED}");
-
-                    if (_stableCount >= STABLE_CYCLES_REQUIRED)
-                    {
-                        AddCycleLog($"│ 🎯 达到连续稳定要求 ({_stableCount} ≥ {STABLE_CYCLES_REQUIRED})");
-                        _integralError = 0;
-                        AddCycleLog($"│ 积分误差已清零 - 系统高精度稳定");
-
-                        EndCycleLog($"高精度流量稳定 (连续{_stableCount}次在容差内)");
-                        return;
-                    }
-                    else
-                    {
-                        AddCycleLog($"│ ⏳ 需要连续{STABLE_CYCLES_REQUIRED}次稳定，当前{_stableCount}次");
-                    }
-                }
-                else
-                {
-                    AddCycleLog($"│ ⚠️ 判断: 超出容差 ({errorPercent:F3}% > {FLOW_TOLERANCE_PERCENT}%)");
-                    _stableCount = 0;
-                    AddCycleLog($"│ 稳定计数已重置: {_stableCount}");
-                }
-
-                AddCycleLog($"└─ 需要调整泵速");
-
-                // 6. 获取当前泵速
-                AddCycleLog("┌── 步骤3: 获取当前泵速 ──");
-                var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
-                double currentPumpSpeed;
-                try
-                {
-                    var pumpReadStart = DateTime.Now;
-                    currentPumpSpeed = await ConnectionManager.ReadAsync<double>(pumpDeviceId, "P0101泵速");
-                    var pumpReadDuration = DateTime.Now - pumpReadStart;
-                    AddCycleLog($"│ 读取成功: {currentPumpSpeed:F1} RPM (耗时: {pumpReadDuration.TotalMilliseconds:F0}ms)");
-                }
-                catch (Exception ex)
-                {
-                    currentPumpSpeed = _lastPumpSpeedOutput;
-                    AddCycleLog($"│ 读取失败，使用上次输出值: {currentPumpSpeed:F1} RPM");
-                    AddCycleLog($"│ 错误: {ex.Message}");
-                }
-                AddCycleLog($"└─ 当前泵速: {currentPumpSpeed:F1} RPM");
-
-                // 7. 高精度PID控制计算
-                AddCycleLog("┌── 步骤4: 高精度PID控制计算 ──");
-                double newPumpSpeed;
-
-                if (Math.Abs(errorPercent) < 1.0) // 高精度精细调整
-                {
-                    AddCycleLog($"│ 模式: 高精度精细调整 (误差{errorPercent:F3}% < 1%)");
-                    newPumpSpeed = CalculateHighPrecisionFineAdjustment(targetFlow, actualFlow, flowError, currentPumpSpeed);
-                }
-                else
-                {
-                    AddCycleLog($"│ 模式: 高精度PID控制 (误差{errorPercent:F3}% ≥ 1%)");
-                    newPumpSpeed = CalculateHighPrecisionPIDPumpSpeed(targetFlow, actualFlow, flowError, currentPumpSpeed);
-                }
-
-                // *** 高精度稳定性保护 ***
-                if (Math.Abs(flowError) > targetFlow * 0.3) // 误差超过30%时
-                {
-                    AddCycleLog($"│ ⚠️ 误差过大({errorPercent:F1}% > 30%)，启用高精度保护模式");
-
-                    // 使用更保守的调整
-                    double conservativeAdjustment = Math.Sign(flowError) * Math.Min(1.0, Math.Abs(flowError) * 0.05);
-                    newPumpSpeed = currentPumpSpeed - conservativeAdjustment;
-                    newPumpSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, newPumpSpeed));
-
-                    AddCycleLog($"│ 高精度保护模式调整: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM (变化: {conservativeAdjustment:F1})");
-                }
-                AddCycleLog($"└─ 计算的新泵速: {newPumpSpeed:F1} RPM");
-
-                // 8. 设置新泵速
-                AddCycleLog("┌── 步骤5: 设置新泵速 ──");
-                var pumpSetStart = DateTime.Now;
-                bool adjustSuccess = await SetPumpSpeedAsync(pumpDeviceId, newPumpSpeed);
-                var pumpSetDuration = DateTime.Now - pumpSetStart;
-
-                if (adjustSuccess)
-                {
-                    _lastPumpSpeedOutput = newPumpSpeed;
-                    _previousPumpSpeed = newPumpSpeed; // 更新历史泵速
-                    AddCycleLog($"│ ✅ 设置成功: {newPumpSpeed:F1} RPM (耗时: {pumpSetDuration.TotalMilliseconds:F0}ms)");
-                    AddCycleLog($"│ 泵速变化: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM");
-
-                    var summary = $"智能调整: {currentPumpSpeed:F1}→{newPumpSpeed:F1}RPM, 流量偏差: {errorPercent:F3}%";
-                    EndCycleLog(summary);
-                }
-                else
-                {
-                    AddCycleLog($"│ ❌ 设置失败: {newPumpSpeed:F1} RPM");
-                    EndCycleLog($"泵速设置失败: {newPumpSpeed:F1} RPM");
-                }
-                AddCycleLog($"└─ 设置结果: {(adjustSuccess ? "成功" : "失败")}");
-            }
-            catch (Exception ex)
-            {
-                AddCycleLog($"[ERROR] 智能控制异常: {ex.Message}");
-                EndCycleLog($"异常: {ex.Message}");
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// 高精度精细调整PID计算
-        /// </summary>
-        private double CalculateHighPrecisionFineAdjustment(double targetFlow, double actualFlow, double currentError, double currentPumpSpeed)
-        {
-            // 使用更保守的高精度参数
-            double fineKp = KP * 0.15; // 更小的比例增益 0.12
-            double fineKi = KI * 0.2;  // 更小的积分增益 0.01
-            double fineKd = KD * 0.15; // 更小的微分增益 0.012
-
-            AddCycleLog($"│ 高精度精细参数: Kp={fineKp:F3}, Ki={fineKi:F3}, Kd={fineKd:F3}");
-
-            // 计算PID输出
-            double proportional = fineKp * currentError;
-            _integralError += currentError;
-            _integralError = Math.Max(-2, Math.Min(2, _integralError)); // 更小的积分限制
-            double integral = fineKi * _integralError;
-            double derivative = fineKd * (currentError - _previousError);
-            _previousError = currentError;
-
-            double pidOutput = proportional + integral + derivative;
-            double rawNewSpeed = currentPumpSpeed - pidOutput;
-
-            // 更小的变化限制
-            double speedChange = rawNewSpeed - currentPumpSpeed;
-            if (Math.Abs(speedChange) > 0.5) // 限制为0.5 RPM
-            {
-                speedChange = Math.Sign(speedChange) * 0.5;
-                rawNewSpeed = currentPumpSpeed + speedChange;
-            }
-
-            double newPumpSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, rawNewSpeed));
-
-            AddCycleLog($"│ 高精度PID: P={proportional:F3}, I={integral:F3}, D={derivative:F3}");
-            AddCycleLog($"│ 高精度调整: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM (变化: {speedChange:F1})");
-
-            return newPumpSpeed;
-        }
-
-        /// <summary>
-        /// 高精度PID控制算法
-        /// </summary>
-        private double CalculateHighPrecisionPIDPumpSpeed(double targetFlow, double actualFlow, double currentError, double currentPumpSpeed)
-        {
-            try
-            {
-                // 高精度PID控制计算
-                double proportional = KP * currentError;
-
-                var oldIntegralError = _integralError;
-                _integralError += currentError;
-
-                // 更严格的积分限幅
-                double maxIntegral = 5.0; // 从15降低到5
-                _integralError = Math.Max(-maxIntegral, Math.Min(maxIntegral, _integralError));
-
-                // 更强的积分衰减
-                if (Math.Abs(currentError) < targetFlow * 0.002) // 从0.05降低到0.002
-                {
-                    _integralError *= 0.95; // 更强的衰减
-                }
-
-                double integral = KI * _integralError;
-                double derivative = KD * (currentError - _previousError);
-                _previousError = currentError;
-
-                double pidOutput = proportional + integral + derivative;
-                double rawNewSpeed = currentPumpSpeed - pidOutput;
-
-                // 限制变化幅度
-                double speedChange = rawNewSpeed - currentPumpSpeed;
-                if (Math.Abs(speedChange) > MAX_SPEED_CHANGE_PER_CYCLE)
-                {
-                    speedChange = Math.Sign(speedChange) * MAX_SPEED_CHANGE_PER_CYCLE;
-                    rawNewSpeed = currentPumpSpeed + speedChange;
-                }
-
-                // 更强的输出滤波
-                double filteredSpeed = _lastPumpSpeedOutput * (1 - SPEED_FILTER_FACTOR) + rawNewSpeed * SPEED_FILTER_FACTOR;
-                double finalSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, filteredSpeed));
-
-                // 记录详细的PID计算过程
-                LogPIDDetails(targetFlow, actualFlow, currentError, proportional, integral, derivative,
-                    pidOutput, currentPumpSpeed, rawNewSpeed, speedChange, filteredSpeed, finalSpeed);
-
-                return finalSpeed;
-            }
-            catch (Exception ex)
-            {
-                AddCycleLog($"[ERROR] 高精度PID计算异常: {ex.Message}");
-                return currentPumpSpeed;
-            }
-        }
-
-        /// <summary>
-        /// 计算所需泵速
-        /// </summary>
-        private double CalculateRequiredPumpSpeed(double targetFlow, double actualFlow = 0, double deviation = 0)
-        {
-            // 更保守的初始设置，为目标的80%，让系统缓慢接近
-            double baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.8;
-            baseSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, baseSpeed));
-
-            WriteDetailedLog($"[初始泵速计算] 目标流量={targetFlow:F2}g/min → 基础泵速={baseSpeed:F1}RPM (比例={FLOW_TO_SPEED_RATIO * 0.8:F1}, 保守启动)");
-
-            return baseSpeed;
-        }
-
-        /// <summary>
-        /// 设置泵速
-        /// </summary>
-        private async Task<bool> SetPumpSpeedAsync(string pumpDeviceId, double speed)
-        {
-            try
-            {
-                var originalSpeed = speed;
-                speed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, speed));
-
-                if (Math.Abs(originalSpeed - speed) > 0.01)
-                {
-                    AddCycleLog($"│   泵速限制: {originalSpeed:F1} → {speed:F1} RPM");
-                }
-
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                {
-                    AddCycleLog($"│   设置基准模式...");
-                    await ConnectionManager.WriteAsync(pumpDeviceId, "P0101泵基准模式", true);
-
-                    AddCycleLog($"│   写入泵速: {speed:F1} RPM");
-                    var result = await ConnectionManager.WriteAsync<float>(pumpDeviceId, "P0101泵基准泵速", (float)speed);
-
-                    AddCycleLog($"│   ModbusTCP写入结果: {result}");
-                    return result;
-                }
-                else if (IsSimulationMode)
-                {
-                    AddCycleLog($"│   [模拟] 设置泵速: {speed:F1} RPM");
-
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(500); // 0.5秒响应延迟
-                        lock (_stateLock)
-                        {
-                            var targetResponse = speed * 0.98; // 更精确的响应
-                            var oldCurrentFlow = _currentFlow;
-                            _currentFlow = _currentFlow * 0.7 + targetResponse * 0.3;
-                            _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
-
-                            WriteDetailedLog($"[智能模拟响应] 泵速={speed:F1}RPM → 目标响应={targetResponse:F2}g/min → 流量更新: {oldCurrentFlow:F2} → {_currentFlow:F2}g/min");
-                        }
-                    });
-
-                    return true;
-                }
-                else
-                {
-                    AddCycleLog($"│   错误: 设备未配置为ModbusTCP模式且非模拟模式");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                AddCycleLog($"│   [ERROR] 设置泵速异常: {ex.Message}");
-                return false;
-            }
-        }
-
-        #endregion
-
         #region 状态管理内部方法
 
         protected void AddActiveState(string stateName, string activateCommand, string deactivateCommand,
@@ -1625,7 +1819,7 @@ namespace FlowMeter_ModbusTCP
                     if (state.StateData is double flow)
                     {
                         resumeParams.Variables.Add(new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, flow, "目标流量"));
-                        resumeParams.Variables.Add(new BooleanParameter("EnableAutoControl", true, "启用智能自动控制"));
+                        resumeParams.Variables.Add(new BooleanParameter("EnableAutoControl", true, "启用防超调智能控制"));
                     }
                     await ExecuteDeviceCommandByNameAsync(state.ResumeCommand, resumeParams);
                 }
@@ -1688,7 +1882,7 @@ namespace FlowMeter_ModbusTCP
 
         public override void Initialize()
         {
-            WriteDetailedLog($"[Initialize] 开始初始化ModbusTCP流量计设备 (超智能版本)");
+            WriteDetailedLog($"[Initialize] 开始初始化ModbusTCP流量计设备 (防超调版本)");
 
             try
             {
@@ -1712,9 +1906,11 @@ namespace FlowMeter_ModbusTCP
                 }
 
                 _flowHistory.Clear();
+                _isOvershootMode = false;
+                _overshootProtectionCount = 0;
 
-                WriteDetailedLog($"[Initialize] ModbusTCP流量计设备初始化完成 (超智能版本)");
-                InfoLog("ModbusTCP流量计设备初始化完成 (超智能版本)");
+                WriteDetailedLog($"[Initialize] ModbusTCP流量计设备初始化完成 (防超调版本)");
+                InfoLog("ModbusTCP流量计设备初始化完成 (防超调版本)");
             }
             catch (Exception ex)
             {
@@ -1742,6 +1938,7 @@ namespace FlowMeter_ModbusTCP
                 }
 
                 _flowHistory.Clear();
+                _isOvershootMode = false;
 
                 base.Shutdown();
                 WriteDetailedLog($"[Shutdown] ModbusTCP流量计设备关闭完成");

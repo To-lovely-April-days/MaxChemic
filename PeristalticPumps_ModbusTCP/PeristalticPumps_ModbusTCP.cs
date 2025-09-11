@@ -286,6 +286,14 @@ namespace PeristalticPumps_ModbusTCP
                 },
                 Action = WrapAction("启动泵", async delegate (DeviceParameters parameters)
                 {
+                    AddActiveState(
+                    stateName: "PumpRunning",
+                    activateCommand: "启动泵", //激活命令 - 如何启动这个状态
+                    deactivateCommand: "停止泵",  // 停止命令 - 如何完全停止这个状态
+                    pauseCommand: "停止泵",    // 蠕动泵暂停时直接关闭
+                    resumeCommand: "启动泵"   // 恢复时重新开启
+                );
+
                     ComId = Parameters.GetValue<string>("DeviceId");
                     bool success = false;
 
@@ -312,10 +320,10 @@ namespace PeristalticPumps_ModbusTCP
                         }
 
                         // *** 移除活跃状态 ***
-                        if (success)
-                        {
-                            RemoveActiveState("PumpRunning");
-                        }
+                        //if (success)
+                        //{
+                        //    RemoveActiveState("PumpRunning");
+                        //}
                     }
                     catch (Exception ex)
                     {
