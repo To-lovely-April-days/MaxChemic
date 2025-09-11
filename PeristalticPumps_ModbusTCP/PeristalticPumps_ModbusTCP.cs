@@ -270,6 +270,68 @@ namespace PeristalticPumps_ModbusTCP
 
         private void InitializeCommands()
         {
+            //启动泵 - 写入40018设置为true
+            Commands.Add(new DeviceCommand
+            {
+                Name = "启动泵",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/open.png",
+                HelpText = "启动柱塞泵（设置泵速为0）",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new BooleanParameter("Success", false, "启动成功") { IsVisibleInVariableManager = true }
+                    }
+                },
+                Action = WrapAction("启动泵", async delegate (DeviceParameters parameters)
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    bool success = false;
+
+                    try
+                    {
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            success = await ConnectionManager.WriteAsync(ComId, "P0101启动",true);
+                            InfoLog($"启动蠕动泵（ModbusTCP地址400018设置为1）, 结果: {success}");
+                        }
+                        else if (IsSimulationMode)
+                        {
+                            lock (_stateLock)
+                            {
+                                _currentSpeed = 0;
+                                _isRunning = false;
+                            }
+                            success = true;
+                            InfoLog("模拟模式启动蠕动泵");
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
+                        }
+
+                        // *** 移除活跃状态 ***
+                        if (success)
+                        {
+                            RemoveActiveState("PumpRunning");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorLog($"启动蠕动泵失败: {ex.Message}");
+                        throw;
+                    }
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+                        {
+                            new BooleanParameter("Success", success, "启动蠕动成功") { IsVisibleInVariableManager = true }
+                        }
+                    };
+                })
+            });
             // 1. 获取泵速 - 读取40001
             Commands.Add(new DeviceCommand
             {
@@ -335,7 +397,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetSpeed", 0, 200, 100, "目标泵速(RPM)")
+                        new NumberParameter("TargetSpeed", 0, 200, 50, "目标泵速(RPM)")
                     }
                 },
                 OutputParameters = new DeviceParameters
@@ -356,7 +418,10 @@ namespace PeristalticPumps_ModbusTCP
                     {
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
-                            success = await ConnectionManager.WriteAsync(ComId, "P0101泵速", targetSpeed);
+                            //1泵基准
+                            success = await ConnectionManager.WriteAsync(ComId, "P0101泵基准模式",true);
+                            InfoLog($"向ModbusTCP地址40001设置泵基准: {true}, 结果: {success}");
+                            success = await ConnectionManager.WriteAsync(ComId, "P0101泵基准泵速", targetSpeed);
                             InfoLog($"向ModbusTCP地址40001设置泵速: {targetSpeed} RPM, 结果: {success}");
                         }
                         else if (IsSimulationMode)
@@ -405,7 +470,7 @@ namespace PeristalticPumps_ModbusTCP
                 })
             });
 
-            // 3. 停止泵 - 写入40001设置为0
+            // 3. 停止泵 - 写入40018设置为false
             Commands.Add(new DeviceCommand
             {
                 Name = "停止泵",
@@ -428,8 +493,8 @@ namespace PeristalticPumps_ModbusTCP
                     {
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
-                            success = await ConnectionManager.WriteAsync(ComId, "P0101泵速", 0.0);
-                            InfoLog($"停止蠕动泵（ModbusTCP地址40001设置为0）, 结果: {success}");
+                            success = await ConnectionManager.WriteAsync(ComId, "P0101停止", false);
+                            InfoLog($"停止蠕动泵（ModbusTCP地址400018设置为0）, 结果: {success}");
                         }
                         else if (IsSimulationMode)
                         {

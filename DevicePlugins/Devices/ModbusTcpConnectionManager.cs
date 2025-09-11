@@ -1,11 +1,11 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using MaxChemical.Logging;
 using MaxChemical.Core;
-using System.Text;
 using System.Linq;
 using NModbus;
 
@@ -32,42 +32,208 @@ namespace DevicePlugins.Devices
         }
 
         private readonly ILogService _logger;
-        private readonly SemaphoreSlim _modbusLock = new SemaphoreSlim(1, 1);
-        private readonly Dictionary<string, DeviceConnectionStatus> _deviceStatuses;
-        private readonly Dictionary<string, ModbusDeviceMapping> _deviceMappings;
+        private readonly ConcurrentDictionary<string, DeviceConnectionStatus> _deviceStatuses;
+        private readonly ConcurrentDictionary<string, ModbusDeviceMapping> _deviceMappings;
 
-        // *** 使用 NModbus 库 ***
-        private TcpClient _tcpClient;
-        private IModbusMaster _modbusMaster;
-        private bool _isConnected = false;
-        private Timer _heartbeatTimer;
-        private DateTime _lastHeartbeat = DateTime.Now;
+        // *** 简化为每次操作都创建新连接，避免连接池污染 ***
+        private readonly SemaphoreSlim _globalLock = new SemaphoreSlim(3, 3); // 限制并发数
+
+        // *** 连接配置 ***
+        private const int CONNECTION_TIMEOUT_MS = 3000;    // 缩短连接超时
+        private const int OPERATION_TIMEOUT_MS = 2000;     // 缩短操作超时
+        private const int MAX_RETRY_COUNT = 2;             // 减少重试次数
+        private const int RETRY_DELAY_MS = 300;            // 重试延迟
 
         public ModbusTcpConnectionManager()
         {
             _logger = LogManager.GetLogger<ModbusTcpConnectionManager>();
-            _deviceStatuses = new Dictionary<string, DeviceConnectionStatus>();
-            _deviceMappings = new Dictionary<string, ModbusDeviceMapping>();
+            _deviceStatuses = new ConcurrentDictionary<string, DeviceConnectionStatus>();
+            _deviceMappings = new ConcurrentDictionary<string, ModbusDeviceMapping>();
 
             LoadDeviceMappings();
-            StartHeartbeat();
         }
+
+        #region 简化的连接管理 - 每次创建新连接
+
+        /// <summary>
+        /// 创建一次性连接包装器
+        /// </summary>
+        private class DisposableConnection : IDisposable
+        {
+            private readonly TcpClient _tcpClient;
+            private readonly IModbusMaster _modbusMaster;
+            private readonly ILogService _logger;
+            private bool _disposed = false;
+
+            public DisposableConnection(TcpClient tcpClient, IModbusMaster modbusMaster, ILogService logger)
+            {
+                _tcpClient = tcpClient;
+                _modbusMaster = modbusMaster;
+                _logger = logger;
+            }
+
+            public IModbusMaster ModbusMaster => _modbusMaster;
+
+            public bool IsValid()
+            {
+                try
+                {
+                    return !_disposed && _tcpClient?.Connected == true && _modbusMaster != null;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+
+                try
+                {
+                    _modbusMaster?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"释放ModbusMaster时出错: {ex.Message}");
+                }
+
+                try
+                {
+                    _tcpClient?.Close();
+                    _tcpClient?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"释放TcpClient时出错: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 创建新的ModbusTCP连接 - 每次都是全新的
+        /// </summary>
+        private async Task<DisposableConnection> CreateConnectionAsync()
+        {
+            var tcpClient = new TcpClient();
+            try
+            {
+                // *** 优化TCP设置 ***
+                tcpClient.NoDelay = true;
+                tcpClient.ReceiveTimeout = OPERATION_TIMEOUT_MS;
+                tcpClient.SendTimeout = OPERATION_TIMEOUT_MS;
+                tcpClient.LingerState = new LingerOption(false, 0); // 不等待，立即关闭
+
+                var settings = DeviceConnectionConfig.ModbusTcpSettings;
+
+                _logger.LogDebug($"创建新连接到 {settings.IpAddress}:{settings.Port}");
+
+                await tcpClient.ConnectAsync(settings.IpAddress, settings.Port)
+                    .WaitAsync(TimeSpan.FromMilliseconds(CONNECTION_TIMEOUT_MS));
+
+                // *** 创建ModbusMaster ***
+                var modbusMaster = CreateModbusMaster(tcpClient);
+
+                _logger.LogDebug("新ModbusTCP连接创建成功");
+                return new DisposableConnection(tcpClient, modbusMaster, _logger);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"创建ModbusTCP连接失败: {ex.Message}");
+                tcpClient?.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 兼容性创建ModbusMaster
+        /// </summary>
+        private IModbusMaster CreateModbusMaster(TcpClient tcpClient)
+        {
+            var factory = new ModbusFactory();
+            IModbusMaster modbusMaster = null;
+
+            try
+            {
+                // 尝试新版本API
+                modbusMaster = factory.CreateMaster(tcpClient);
+                _logger.LogDebug("使用新版本NModbus API创建ModbusMaster成功");
+            }
+            catch (Exception ex1)
+            {
+                _logger.LogDebug($"新版本API失败: {ex1.Message}，尝试NetworkStream方式");
+
+                //try
+                //{
+                //    var stream = tcpClient.GetStream();
+                //    modbusMaster = factory.CreateMaster(stream);
+                //    _logger.LogDebug("使用NetworkStream创建ModbusMaster成功");
+                //}
+                //catch (Exception ex2)
+                //{
+                //    throw new NotSupportedException($"无法创建ModbusMaster。新版本错误: {ex1.Message}, NetworkStream错误: {ex2.Message}");
+                //}
+            }
+
+            // *** 设置更短的超时时间 ***
+            SetModbusMasterTimeouts(modbusMaster);
+
+            return modbusMaster;
+        }
+
+        /// <summary>
+        /// 设置ModbusMaster超时参数
+        /// </summary>
+        private void SetModbusMasterTimeouts(IModbusMaster modbusMaster)
+        {
+            try
+            {
+                var transportProperty = modbusMaster.GetType().GetProperty("Transport");
+                if (transportProperty != null)
+                {
+                    var transport = transportProperty.GetValue(modbusMaster);
+                    if (transport != null)
+                    {
+                        // 设置更短的超时时间
+                        var readTimeoutProperty = transport.GetType().GetProperty("ReadTimeout");
+                        if (readTimeoutProperty?.CanWrite == true)
+                        {
+                            readTimeoutProperty.SetValue(transport, OPERATION_TIMEOUT_MS);
+                        }
+
+                        var writeTimeoutProperty = transport.GetType().GetProperty("WriteTimeout");
+                        if (writeTimeoutProperty?.CanWrite == true)
+                        {
+                            writeTimeoutProperty.SetValue(transport, OPERATION_TIMEOUT_MS);
+                        }
+
+                        // *** 禁用重试，快速失败 ***
+                        var retriesProperty = transport.GetType().GetProperty("Retries");
+                        if (retriesProperty?.CanWrite == true)
+                        {
+                            retriesProperty.SetValue(transport, 0);
+                        }
+
+                        _logger.LogDebug($"ModbusMaster超时参数设置成功: ReadTimeout={OPERATION_TIMEOUT_MS}, WriteTimeout={OPERATION_TIMEOUT_MS}, Retries=0");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"设置ModbusMaster超时参数失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region 公共接口实现
 
         public async Task<bool> ConnectAsync(string deviceId)
         {
-            await _modbusLock.WaitAsync();
             try
             {
-                if (!_isConnected)
-                {
-                    var success = await ConnectToModbusServerAsync();
-                    if (!success)
-                    {
-                        _logger.LogError("ModbusTcp服务器连接失败");
-                        return false;
-                    }
-                }
-
                 _deviceStatuses[deviceId] = DeviceConnectionStatus.Connected;
                 _logger.LogInformation("设备通过ModbusTcp连接成功: {DeviceId}", deviceId);
                 return true;
@@ -77,119 +243,53 @@ namespace DevicePlugins.Devices
                 _logger.LogError(ex, "ModbusTcp设备连接失败: {DeviceId}", deviceId);
                 return false;
             }
-            finally
-            {
-                _modbusLock.Release();
-            }
         }
 
         public async Task<bool> DisconnectAsync(string deviceId)
         {
-            await _modbusLock.WaitAsync();
             try
             {
                 _deviceStatuses[deviceId] = DeviceConnectionStatus.Disconnected;
                 _logger.LogInformation("设备已断开ModbusTcp连接: {DeviceId}", deviceId);
                 return true;
             }
-            finally
+            catch (Exception ex)
             {
-                _modbusLock.Release();
+                _logger.LogError(ex, "断开ModbusTcp设备失败: {DeviceId}", deviceId);
+                return false;
             }
         }
 
         public async Task<bool> CheckConnectionAsync(string deviceId)
         {
-            await _modbusLock.WaitAsync();
-            try
-            {
-                if (!_isConnected || _tcpClient == null || !_tcpClient.Connected)
-                {
-                    _logger.LogWarning("ModbusTcp连接已断开，尝试重连");
-                    return await ConnectToModbusServerAsync();
-                }
-
-                // 发送心跳包检查连接
-                return await SendHeartbeatAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "检查ModbusTcp连接失败");
-                return false;
-            }
-            finally
-            {
-                _modbusLock.Release();
-            }
+            return await Task.FromResult(IsConnected(deviceId));
         }
 
         public bool IsConnected(string deviceId)
         {
             return _deviceStatuses.GetValueOrDefault(deviceId, DeviceConnectionStatus.Disconnected)
-                   == DeviceConnectionStatus.Connected && _isConnected;
+                   == DeviceConnectionStatus.Connected;
         }
 
         public async Task<T> ReadAsync<T>(string deviceId, string address)
         {
-            await _modbusLock.WaitAsync();
-            try
+            return await ExecuteWithRetryAsync(deviceId, address, async (modbusMaster, mapping, addr) =>
             {
-                if (!_isConnected || _modbusMaster == null)
-                    throw new InvalidOperationException("ModbusTcp未连接");
-
-                if (!_deviceMappings.TryGetValue(deviceId, out var mapping))
-                {
-                    throw new InvalidOperationException($"设备 {deviceId} 没有配置Modbus地址映射");
-                }
-
-                if (!mapping.CommandAddresses.TryGetValue(address, out var modbusAddress))
-                {
-                    throw new InvalidOperationException($"设备 {deviceId} 的命令 {address} 没有配置Modbus地址");
-                }
-
-                var addressInfo = ParseModbusAddress(modbusAddress);
-                var result = await ReadModbusDataAsync<T>(addressInfo, deviceId, address);
-
-                _logger.LogInformation("ModbusTcp读取成功: 设备={DeviceId} 命令={Address} 地址={ModbusAddress} 值={Value}",
-                    deviceId, address, modbusAddress, result);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "ModbusTcp读取失败: 设备={DeviceId} 命令={Address}", deviceId, address);
-                throw;
-            }
-            finally
-            {
-                _modbusLock.Release();
-            }
+                var addressInfo = ParseModbusAddress(addr);
+                return await ReadModbusDataAsync<T>(modbusMaster, addressInfo, deviceId, address);
+            });
         }
 
         public async Task<bool> WriteAsync<T>(string deviceId, string address, T value)
         {
-            await _modbusLock.WaitAsync();
             try
             {
-                if (!_isConnected || _modbusMaster == null)
-                    return false;
-
-                if (!_deviceMappings.TryGetValue(deviceId, out var mapping))
+                await ExecuteWithRetryAsync(deviceId, address, async (modbusMaster, mapping, addr) =>
                 {
-                    _logger.LogError("设备 {DeviceId} 没有配置Modbus地址映射", deviceId);
-                    return false;
-                }
-
-                if (!mapping.CommandAddresses.TryGetValue(address, out var modbusAddress))
-                {
-                    _logger.LogError("设备 {DeviceId} 的命令 {Address} 没有配置Modbus地址", deviceId, address);
-                    return false;
-                }
-
-                var addressInfo = ParseModbusAddress(modbusAddress);
-                await WriteModbusDataAsync(addressInfo, value, deviceId, address);
-
-                _logger.LogInformation("ModbusTcp写入成功: 设备={DeviceId} 命令={Address} 地址={ModbusAddress} 值={Value}",
-                    deviceId, address, modbusAddress, value);
+                    var addressInfo = ParseModbusAddress(addr);
+                    await WriteModbusDataAsync(modbusMaster, addressInfo, value, deviceId, address);
+                    return true;
+                });
                 return true;
             }
             catch (Exception ex)
@@ -197,126 +297,142 @@ namespace DevicePlugins.Devices
                 _logger.LogError(ex, "ModbusTcp写入失败: 设备={DeviceId} 命令={Address} 值={Value}", deviceId, address, value);
                 return false;
             }
-            finally
-            {
-                _modbusLock.Release();
-            }
         }
 
-        #region 私有方法
+        #endregion
+
+        #region 核心执行逻辑
 
         /// <summary>
-        /// *** 使用 NModbus 库连接服务器 ***
+        /// 带重试机制的执行操作 - 每次创建新连接
         /// </summary>
-        private async Task<bool> ConnectToModbusServerAsync()
+        private async Task<TResult> ExecuteWithRetryAsync<TResult>(
+            string deviceId,
+            string address,
+            Func<IModbusMaster, ModbusDeviceMapping, string, Task<TResult>> operation)
         {
-            try
+            if (!_deviceMappings.TryGetValue(deviceId, out var mapping))
             {
-                var settings = DeviceConnectionConfig.ModbusTcpSettings;
-
-                // 释放旧连接
-                _modbusMaster?.Dispose();
-                _tcpClient?.Close();
-
-                _logger.LogInformation("正在连接ModbusTcp服务器: {IP}:{Port}", settings.IpAddress, settings.Port);
-
-                // 创建 TCP 连接
-                _tcpClient = new TcpClient();
-                await _tcpClient.ConnectAsync(settings.IpAddress, settings.Port)
-                    .WaitAsync(TimeSpan.FromMilliseconds(settings.ConnectTimeout));
-
-                // 创建 Modbus Master
-                var factory = new ModbusFactory();
-                _modbusMaster = factory.CreateMaster(_tcpClient);
-                _modbusMaster.Transport.ReadTimeout = settings.ReadWriteTimeout;
-                _modbusMaster.Transport.WriteTimeout = settings.ReadWriteTimeout;
-
-                _isConnected = true;
-                _lastHeartbeat = DateTime.Now;
-
-                _logger.LogInformation("ModbusTcp服务器连接成功: {IP}:{Port}", settings.IpAddress, settings.Port);
-                return true;
+                throw new InvalidOperationException($"设备 {deviceId} 没有配置Modbus地址映射");
             }
-            catch (Exception ex)
+
+            if (!mapping.CommandAddresses.TryGetValue(address, out var modbusAddress))
             {
-                _logger.LogError(ex, "连接ModbusTcp服务器失败");
-                _isConnected = false;
-                return false;
+                throw new InvalidOperationException($"设备 {deviceId} 的命令 {address} 没有配置Modbus地址");
             }
-        }
 
-        /// <summary>
-        /// *** 使用 NModbus 库发送心跳 ***
-        /// </summary>
-        private async Task<bool> SendHeartbeatAsync()
-        {
-            try
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MAX_RETRY_COUNT; attempt++)
             {
-                if (_modbusMaster == null) return false;
+                // *** 等待全局并发限制 ***
+                await _globalLock.WaitAsync(CONNECTION_TIMEOUT_MS);
 
-                _logger.LogDebug("【ModbusTCP心跳】发送心跳包");
-
-                // 读取第一个保持寄存器作为心跳
-                var registers = await Task.Run(() => _modbusMaster.ReadHoldingRegisters(1, 0, 1));
-
-                _logger.LogDebug("【ModbusTCP心跳】心跳响应: {Response}", string.Join(" ", registers.Select(r => r.ToString("X4"))));
-
-                _lastHeartbeat = DateTime.Now;
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "ModbusTcp心跳检查失败");
-                return false;
-            }
-        }
-
-        private void StartHeartbeat()
-        {
-            _heartbeatTimer = new Timer(async _ =>
-            {
-                if (_isConnected && (DateTime.Now - _lastHeartbeat).TotalSeconds > 30)
+                try
                 {
-                    await CheckConnectionAsync("");
+                    // *** 每次都创建全新连接 ***
+                    using var connection = await CreateConnectionAsync();
+
+                    if (!connection.IsValid())
+                    {
+                        throw new InvalidOperationException("创建的连接无效");
+                    }
+
+                    var result = await operation(connection.ModbusMaster, mapping, modbusAddress);
+
+                    _logger.LogDebug("ModbusTCP操作成功: {DeviceId}.{Address} (尝试 {Attempt}/{MaxRetry})",
+                        deviceId, address, attempt, MAX_RETRY_COUNT);
+
+                    return result;
+
+                    // *** using语句自动释放连接 ***
                 }
-            }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+                catch (Exception ex)
+                {
+                    lastException = ex;
+
+                    bool isConnectionError = IsConnectionError(ex);
+                    string errorType = isConnectionError ? "连接错误" : "操作错误";
+
+                    _logger.LogWarning("ModbusTCP操作失败: {DeviceId}.{Address} (尝试 {Attempt}/{MaxRetry}) [{ErrorType}] - {Error}",
+                        deviceId, address, attempt, MAX_RETRY_COUNT, errorType, ex.Message);
+
+                    if (attempt == MAX_RETRY_COUNT)
+                    {
+                        break;
+                    }
+
+                    // *** 重试前短暂等待 ***
+                    await Task.Delay(RETRY_DELAY_MS);
+                }
+                finally
+                {
+                    _globalLock.Release();
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"ModbusTCP操作失败，已重试{MAX_RETRY_COUNT}次: {deviceId}.{address} - {lastException?.Message}",
+                lastException);
         }
 
         /// <summary>
-        /// *** 使用 NModbus 库读取数据 ***
+        /// 判断是否为连接错误
         /// </summary>
-        private async Task<T> ReadModbusDataAsync<T>(ModbusAddressInfo addressInfo, string deviceId = "", string command = "")
+        private bool IsConnectionError(Exception ex)
+        {
+            return ex is SocketException ||
+                   ex is System.IO.IOException ||
+                   ex.Message.Contains("连接") ||
+                   ex.Message.Contains("connection") ||
+                   ex.Message.Contains("transport") ||
+                   ex.Message.Contains("Unable to write") ||
+                   ex.Message.Contains("Unable to read") ||
+                   ex.Message.Contains("Read resulted in 0 bytes") ||
+                   ex.Message.Contains("已建立的连接");
+        }
+
+        #endregion
+
+        #region ModbusTCP数据操作
+
+        /// <summary>
+        /// 读取ModbusTCP数据
+        /// </summary>
+        private async Task<T> ReadModbusDataAsync<T>(IModbusMaster modbusMaster, ModbusAddressInfo addressInfo, string deviceId = "", string command = "")
         {
             try
             {
-                _logger.LogInformation("【ModbusTCP读取】设备={DeviceId} 命令={Command} 地址类型={RegisterType} 地址={Address} 从站ID={SlaveId} 数据类型={DataType}",
-                    deviceId, command, addressInfo.RegisterType, addressInfo.Address, addressInfo.SlaveId, typeof(T).Name);
+                _logger.LogDebug("【ModbusTCP读取】设备={DeviceId} 命令={Command} 地址类型={RegisterType} 地址={Address} 从站ID={SlaveId}",
+                    deviceId, command, addressInfo.RegisterType, addressInfo.Address, addressInfo.SlaveId);
 
                 object result = null;
+
+                // *** 添加操作前连接验证 ***
+                if (modbusMaster == null)
+                {
+                    throw new InvalidOperationException("ModbusMaster为null");
+                }
 
                 switch (addressInfo.RegisterType)
                 {
                     case ModbusRegisterType.Coil:
-                        var coils = await Task.Run(() => _modbusMaster.ReadCoils(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
-                        _logger.LogInformation("【ModbusTCP读取】线圈原始数据: {Data}", string.Join(" ", coils.Select(c => c ? "1" : "0")));
+                        var coils = await Task.Run(() => modbusMaster.ReadCoils(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
                         result = coils[0];
                         break;
 
                     case ModbusRegisterType.DiscreteInput:
-                        var inputs = await Task.Run(() => _modbusMaster.ReadInputs(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
-                        _logger.LogInformation("【ModbusTCP读取】离散输入原始数据: {Data}", string.Join(" ", inputs.Select(i => i ? "1" : "0")));
+                        var inputs = await Task.Run(() => modbusMaster.ReadInputs(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
                         result = inputs[0];
                         break;
 
                     case ModbusRegisterType.InputRegister:
-                        var inputRegisters = await Task.Run(() => _modbusMaster.ReadInputRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
-                        _logger.LogInformation("【ModbusTCP读取】输入寄存器原始数据: {Data}", string.Join(" ", inputRegisters.Select(r => r.ToString("X4"))));
+                        var inputRegisters = await Task.Run(() => modbusMaster.ReadInputRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
                         result = ConvertRegistersToValue<T>(inputRegisters);
                         break;
 
                     case ModbusRegisterType.HoldingRegister:
-                        var holdingRegisters = await Task.Run(() => _modbusMaster.ReadHoldingRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
-                        _logger.LogInformation("【ModbusTCP读取】保持寄存器原始数据: {Data}", string.Join(" ", holdingRegisters.Select(r => r.ToString("X4"))));
+                        var holdingRegisters = await Task.Run(() => modbusMaster.ReadHoldingRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
                         result = ConvertRegistersToValue<T>(holdingRegisters);
                         break;
 
@@ -324,19 +440,9 @@ namespace DevicePlugins.Devices
                         throw new NotSupportedException($"不支持的寄存器类型: {addressInfo.RegisterType}");
                 }
 
-                // 类型转换
-                if (result is T directResult)
-                {
-                    _logger.LogInformation("【ModbusTCP读取结果】设备={DeviceId} 命令={Command} 值={Value}", deviceId, command, directResult);
-                    return directResult;
-                }
-                else
-                {
-                    var convertedResult = (T)Convert.ChangeType(result, typeof(T));
-                    _logger.LogInformation("【ModbusTCP读取结果】设备={DeviceId} 命令={Command} 原始值={RawValue} 转换后={ConvertedValue}",
-                        deviceId, command, result, convertedResult);
-                    return convertedResult;
-                }
+                var convertedResult = (T)Convert.ChangeType(result, typeof(T));
+                _logger.LogDebug("【ModbusTCP读取成功】设备={DeviceId} 命令={Command} 值={Value}", deviceId, command, convertedResult);
+                return convertedResult;
             }
             catch (Exception ex)
             {
@@ -346,37 +452,38 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// *** 使用 NModbus 库写入数据 ***
+        /// 写入ModbusTCP数据
         /// </summary>
-        private async Task WriteModbusDataAsync<T>(ModbusAddressInfo addressInfo, T value, string deviceId = "", string command = "")
+        private async Task WriteModbusDataAsync<T>(IModbusMaster modbusMaster, ModbusAddressInfo addressInfo, T value, string deviceId = "", string command = "")
         {
             try
             {
-                _logger.LogInformation("【ModbusTCP写入】设备={DeviceId} 命令={Command} 地址类型={RegisterType} 地址={Address} 从站ID={SlaveId} 值={Value} 数据类型={DataType}",
-                    deviceId, command, addressInfo.RegisterType, addressInfo.Address, addressInfo.SlaveId, value, typeof(T).Name);
+                _logger.LogDebug("【ModbusTCP写入】设备={DeviceId} 命令={Command} 地址={Address} 值={Value}",
+                    deviceId, command, addressInfo.Address, value);
+
+                // *** 添加操作前连接验证 ***
+                if (modbusMaster == null)
+                {
+                    throw new InvalidOperationException("ModbusMaster为null");
+                }
 
                 switch (addressInfo.RegisterType)
                 {
                     case ModbusRegisterType.Coil:
                         var coilValue = Convert.ToBoolean(value);
-                        await Task.Run(() => _modbusMaster.WriteSingleCoil(addressInfo.SlaveId, (ushort)addressInfo.Address, coilValue));
-                        _logger.LogInformation("【ModbusTCP写入】线圈写入: 地址={Address} 值={Value}", addressInfo.Address, coilValue);
+                        await Task.Run(() => modbusMaster.WriteSingleCoil(addressInfo.SlaveId, (ushort)addressInfo.Address, coilValue));
                         break;
 
                     case ModbusRegisterType.HoldingRegister:
                         var registers = ConvertValueToRegisters(value);
-                        _logger.LogInformation("【ModbusTCP写入】转换为寄存器: {Registers}", string.Join(" ", registers.Select(r => r.ToString("X4"))));
 
                         if (registers.Length == 1)
                         {
-                            await Task.Run(() => _modbusMaster.WriteSingleRegister(addressInfo.SlaveId, (ushort)addressInfo.Address, registers[0]));
-                            _logger.LogInformation("【ModbusTCP写入】单个寄存器写入: 地址={Address} 值={Value:X4}", addressInfo.Address, registers[0]);
+                            await Task.Run(() => modbusMaster.WriteSingleRegister(addressInfo.SlaveId, (ushort)addressInfo.Address, registers[0]));
                         }
                         else
                         {
-                            await Task.Run(() => _modbusMaster.WriteMultipleRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, registers));
-                            _logger.LogInformation("【ModbusTCP写入】多个寄存器写入: 地址={Address} 数量={Count} 值={Values}",
-                                addressInfo.Address, registers.Length, string.Join(" ", registers.Select(r => r.ToString("X4"))));
+                            await Task.Run(() => modbusMaster.WriteMultipleRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, registers));
                         }
                         break;
 
@@ -384,7 +491,7 @@ namespace DevicePlugins.Devices
                         throw new NotSupportedException($"不支持写入的寄存器类型: {addressInfo.RegisterType}");
                 }
 
-                _logger.LogInformation("【ModbusTCP写入成功】设备={DeviceId} 命令={Command}", deviceId, command);
+                _logger.LogDebug("【ModbusTCP写入成功】设备={DeviceId} 命令={Command}", deviceId, command);
             }
             catch (Exception ex)
             {
@@ -393,9 +500,10 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 获取数据类型所需的寄存器数量
-        /// </summary>
+        #endregion
+
+        #region 辅助方法（保持不变）
+
         private ushort GetRegisterCount<T>()
         {
             return typeof(T) switch
@@ -403,201 +511,106 @@ namespace DevicePlugins.Devices
                 Type t when t == typeof(bool) => 1,
                 Type t when t == typeof(short) || t == typeof(ushort) => 1,
                 Type t when t == typeof(int) || t == typeof(uint) || t == typeof(float) => 2,
-                // *** 修复：double统一按float处理，使用2个寄存器 ***
-                Type t when t == typeof(double) => 2, // 改为2，而不是4
+                Type t when t == typeof(double) => 2,
                 Type t when t == typeof(long) || t == typeof(ulong) => 4,
                 _ => 1
             };
         }
 
-        /// <summary>
-        /// 将寄存器数据转换为指定类型的值
-        /// </summary>
         private T ConvertRegistersToValue<T>(ushort[] registers)
         {
-            _logger.LogDebug("【数据转换】寄存器转值: 类型={Type} 寄存器={Registers}",
-                typeof(T).Name, string.Join(" ", registers.Select(r => r.ToString("X4"))));
-
             if (typeof(T) == typeof(bool))
             {
-                var result = registers[0] != 0;
-                _logger.LogDebug("【数据转换】bool值: {Value}", result);
-                return (T)(object)result;
+                return (T)(object)(registers[0] != 0);
             }
             else if (typeof(T) == typeof(short))
             {
-                var result = (short)registers[0];
-                _logger.LogDebug("【数据转换】short值: {Value}", result);
-                return (T)(object)result;
+                return (T)(object)(short)registers[0];
             }
             else if (typeof(T) == typeof(ushort))
             {
-                var result = registers[0];
-                _logger.LogDebug("【数据转换】ushort值: {Value}", result);
-                return (T)(object)result;
+                return (T)(object)registers[0];
             }
             else if (typeof(T) == typeof(int))
             {
                 var result = (registers[0] << 16) | registers[1];
-                _logger.LogDebug("【数据转换】int值: {Value}", result);
                 return (T)(object)result;
             }
             else if (typeof(T) == typeof(uint))
             {
                 var result = (uint)((registers[0] << 16) | registers[1]);
-                _logger.LogDebug("【数据转换】uint值: {Value}", result);
                 return (T)(object)result;
             }
             else if (typeof(T) == typeof(float))
             {
-                // *** 修复：正确的float字节序转换 ***
                 var bytes = new byte[4];
-                bytes[0] = (byte)(registers[1] & 0xFF);        // 低字节
-                bytes[1] = (byte)(registers[1] >> 8);          // 高字节
-                bytes[2] = (byte)(registers[0] & 0xFF);        // 低字节 
-                bytes[3] = (byte)(registers[0] >> 8);          // 高字节
+                bytes[0] = (byte)(registers[1] & 0xFF);
+                bytes[1] = (byte)(registers[1] >> 8);
+                bytes[2] = (byte)(registers[0] & 0xFF);
+                bytes[3] = (byte)(registers[0] >> 8);
                 var result = BitConverter.ToSingle(bytes, 0);
-                _logger.LogDebug("【数据转换】float值: 寄存器={Registers} 字节={Bytes} 结果={Value}",
-                    string.Join(" ", registers.Select(r => r.ToString("X4"))),
-                    string.Join(" ", bytes.Select(b => b.ToString("X2"))), result);
                 return (T)(object)result;
             }
             else if (typeof(T) == typeof(double))
             {
-                // *** 修复：double按float处理，使用相同的转换逻辑 ***
                 if (registers.Length < 2)
                 {
                     throw new ArgumentException($"double转换需要至少2个寄存器，实际{registers.Length}个");
                 }
 
                 var bytes = new byte[4];
-                bytes[0] = (byte)(registers[1] & 0xFF);        // 低字节
-                bytes[1] = (byte)(registers[1] >> 8);          // 高字节
-                bytes[2] = (byte)(registers[0] & 0xFF);        // 低字节 
-                bytes[3] = (byte)(registers[0] >> 8);          // 高字节
+                bytes[0] = (byte)(registers[1] & 0xFF);
+                bytes[1] = (byte)(registers[1] >> 8);
+                bytes[2] = (byte)(registers[0] & 0xFF);
+                bytes[3] = (byte)(registers[0] >> 8);
                 var floatResult = BitConverter.ToSingle(bytes, 0);
                 var result = (double)floatResult;
-                _logger.LogDebug("【数据转换】double值(按float处理): 寄存器={Registers} 字节={Bytes} float={FloatValue} double={DoubleValue}",
-                    string.Join(" ", registers.Select(r => r.ToString("X4"))),
-                    string.Join(" ", bytes.Select(b => b.ToString("X2"))), floatResult, result);
-                return (T)(object)result;
-            }
-            else if (typeof(T) == typeof(long))
-            {
-                if (registers.Length < 4)
-                {
-                    throw new ArgumentException($"long转换需要4个寄存器，实际{registers.Length}个");
-                }
-                var result = ((long)registers[0] << 48) | ((long)registers[1] << 32) | ((long)registers[2] << 16) | registers[3];
-                _logger.LogDebug("【数据转换】long值: {Value}", result);
-                return (T)(object)result;
-            }
-            else if (typeof(T) == typeof(ulong))
-            {
-                if (registers.Length < 4)
-                {
-                    throw new ArgumentException($"ulong转换需要4个寄存器，实际{registers.Length}个");
-                }
-                var result = ((ulong)registers[0] << 48) | ((ulong)registers[1] << 32) | ((ulong)registers[2] << 16) | registers[3];
-                _logger.LogDebug("【数据转换】ulong值: {Value}", result);
                 return (T)(object)result;
             }
 
             throw new NotSupportedException($"不支持的数据类型转换: {typeof(T)}");
         }
 
-
-        /// <summary>
-        /// 将值转换为寄存器数据
-        /// </summary>
         private ushort[] ConvertValueToRegisters<T>(T value)
         {
-            _logger.LogDebug("【数据转换】值转寄存器: 类型={Type} 值={Value}", typeof(T).Name, value);
-
             if (value is bool boolValue)
             {
-                var result = new ushort[] { (ushort)(boolValue ? 1 : 0) };
-                _logger.LogDebug("【数据转换】bool寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
+                return new ushort[] { (ushort)(boolValue ? 1 : 0) };
             }
             else if (value is short shortValue)
             {
-                var result = new ushort[] { (ushort)shortValue };
-                _logger.LogDebug("【数据转换】short寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
+                return new ushort[] { (ushort)shortValue };
             }
             else if (value is ushort ushortValue)
             {
-                var result = new ushort[] { ushortValue };
-                _logger.LogDebug("【数据转换】ushort寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
+                return new ushort[] { ushortValue };
             }
             else if (value is int intValue)
             {
-                var result = new ushort[] { (ushort)(intValue >> 16), (ushort)(intValue & 0xFFFF) };
-                _logger.LogDebug("【数据转换】int寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
+                return new ushort[] { (ushort)(intValue >> 16), (ushort)(intValue & 0xFFFF) };
             }
             else if (value is uint uintValue)
             {
-                var result = new ushort[] { (ushort)(uintValue >> 16), (ushort)(uintValue & 0xFFFF) };
-                _logger.LogDebug("【数据转换】uint寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
+                return new ushort[] { (ushort)(uintValue >> 16), (ushort)(uintValue & 0xFFFF) };
             }
             else if (value is float floatValue)
             {
                 var bytes = BitConverter.GetBytes(floatValue);
-                // *** 修复：正确的字节序转换 ***
-                var result = new ushort[]
+                return new ushort[]
                 {
-            (ushort)((bytes[3] << 8) | bytes[2]),  // 高位寄存器
-            (ushort)((bytes[1] << 8) | bytes[0])   // 低位寄存器
+                    (ushort)((bytes[3] << 8) | bytes[2]),
+                    (ushort)((bytes[1] << 8) | bytes[0])
                 };
-                _logger.LogDebug("【数据转换】float寄存器: 值={Value} 字节={Bytes} 寄存器={Registers}",
-                    floatValue,
-                    string.Join(" ", bytes.Select(b => b.ToString("X2"))),
-                    string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
             }
             else if (value is double doubleValue)
             {
-                // *** 修复：double转换为float处理，保持一致性 ***
                 var floatVal = (float)doubleValue;
                 var bytes = BitConverter.GetBytes(floatVal);
-                var result = new ushort[]
+                return new ushort[]
                 {
-            (ushort)((bytes[3] << 8) | bytes[2]),  // 高位寄存器
-            (ushort)((bytes[1] << 8) | bytes[0])   // 低位寄存器
+                    (ushort)((bytes[3] << 8) | bytes[2]),
+                    (ushort)((bytes[1] << 8) | bytes[0])
                 };
-                _logger.LogDebug("【数据转换】double->float寄存器: {DoubleValue} -> {FloatValue} 字节={Bytes} 寄存器={Registers}",
-                    doubleValue, floatVal,
-                    string.Join(" ", bytes.Select(b => b.ToString("X2"))),
-                    string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
-            }
-            else if (value is long longValue)
-            {
-                var result = new ushort[]
-                {
-            (ushort)(longValue >> 48),
-            (ushort)((longValue >> 32) & 0xFFFF),
-            (ushort)((longValue >> 16) & 0xFFFF),
-            (ushort)(longValue & 0xFFFF)
-                };
-                _logger.LogDebug("【数据转换】long寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
-            }
-            else if (value is ulong ulongValue)
-            {
-                var result = new ushort[]
-                {
-            (ushort)(ulongValue >> 48),
-            (ushort)((ulongValue >> 32) & 0xFFFF),
-            (ushort)((ulongValue >> 16) & 0xFFFF),
-            (ushort)(ulongValue & 0xFFFF)
-                };
-                _logger.LogDebug("【数据转换】ulong寄存器: {Registers}", string.Join(" ", result.Select(r => r.ToString("X4"))));
-                return result;
             }
 
             throw new NotSupportedException($"不支持的数据类型转换: {typeof(T)}，值: {value}");
@@ -605,7 +618,6 @@ namespace DevicePlugins.Devices
 
         private ModbusAddressInfo ParseModbusAddress(string address)
         {
-            // 解析格式: "40001" (保持寄存器) 或 "10001" (线圈) 等
             if (int.TryParse(address, out var fullAddress))
             {
                 var registerType = fullAddress switch
@@ -630,7 +642,7 @@ namespace DevicePlugins.Devices
                 {
                     Address = actualAddress,
                     RegisterType = registerType,
-                    SlaveId = 1 // 默认从站ID
+                    SlaveId = 1
                 };
             }
 
@@ -639,8 +651,7 @@ namespace DevicePlugins.Devices
 
         private void LoadDeviceMappings()
         {
-            // P0101蠕动泵设备映射
-            _deviceMappings.Add("P0101", new ModbusDeviceMapping
+            _deviceMappings.TryAdd("P0101", new ModbusDeviceMapping
             {
                 ComId = "P0101",
                 SlaveId = 1,
@@ -652,7 +663,21 @@ namespace DevicePlugins.Devices
                     ["P0101出口温度上限报警"] = "40005",
                     ["P0101出口压力"] = "40006",
                     ["P0101出口温度"] = "40008",
-                    ["P0101出口流量"] = "40010"
+                    ["P0101出口流量"] = "40010",
+                    ["P0101停止"] = "40018",
+                    ["P0101启动"] = "40018",
+                    ["P0101泵基准模式"]= "40020",
+                    ["P0101泵基准泵速"] = "40024",
+                }
+            });
+
+            _deviceMappings.TryAdd("FT0101", new ModbusDeviceMapping
+            {
+                ComId = "FT0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["_FT0101_g_m"] = "40030"
                 }
             });
 
@@ -665,22 +690,17 @@ namespace DevicePlugins.Devices
         {
             try
             {
-                _heartbeatTimer?.Dispose();
-                _modbusMaster?.Dispose();
-                _tcpClient?.Close();
-                _modbusLock?.Dispose();
-                _logger.LogInformation("ModbusTcp连接资源已释放");
+                _globalLock?.Dispose();
+                _logger.LogInformation("ModbusTcp连接管理器已释放");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "释放ModbusTcp连接资源失败");
+                _logger.LogError(ex, "释放ModbusTcp连接管理器失败");
             }
         }
     }
 
-    /// <summary>
-    /// Modbus地址信息
-    /// </summary>
+    // 其他类定义保持不变...
     public class ModbusAddressInfo
     {
         public int Address { get; set; }
@@ -688,20 +708,14 @@ namespace DevicePlugins.Devices
         public byte SlaveId { get; set; } = 1;
     }
 
-    /// <summary>
-    /// Modbus寄存器类型
-    /// </summary>
     public enum ModbusRegisterType
     {
-        Coil = 1,           // 线圈 (00001-09999)
-        DiscreteInput = 2,  // 离散输入 (10001-19999)
-        InputRegister = 3,  // 输入寄存器 (30001-39999)
-        HoldingRegister = 4 // 保持寄存器 (40001-49999)
+        Coil = 1,
+        DiscreteInput = 2,
+        InputRegister = 3,
+        HoldingRegister = 4
     }
 
-    /// <summary>
-    /// Modbus设备映射
-    /// </summary>
     public class ModbusDeviceMapping
     {
         public string ComId { get; set; }

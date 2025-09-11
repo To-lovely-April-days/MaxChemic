@@ -215,12 +215,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             // 订阅项目名称更新事件
             _eventAggregator.GetEvent<ProjectNameUpdatedEvent>().Subscribe(OnProjectNameUpdated);
             //// 在应用程序启动时设置
-            //DeviceConnectionConfig.UsePLCMode = true; // 启用PLC模式
+            DeviceConnectionConfig.CommunicationMode = CommunicationMode.PLC; // 启用PLC模式
 
-            //// 配置PLC参数
+            // 配置PLC参数
             //DeviceConnectionConfig.PLCSettings = new PLCConnectionSettings
             //{
-            //    IpAddress = "192.168.28.34", // 您的PLC IP地址
+            //    IpAddress = "192.168.2.190", // 您的PLC IP地址
             //    Rack = 0,
             //    Slot = 1,
             //    ConnectionType = "S7-300" // 或者您使用的PLC型号
@@ -228,7 +228,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             DeviceConnectionConfig.CommunicationMode = CommunicationMode.ModbusTcp;
             DeviceConnectionConfig.ModbusTcpSettings = new ModbusTcpConnectionSettings
             {
-                IpAddress = "192.168.2.192",
+                IpAddress = "192.168.2.190",//192.168.2.190
                 Port = 502,
                 ConnectTimeout = 3000,
                 ReadWriteTimeout = 1000,

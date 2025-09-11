@@ -56,8 +56,10 @@
 	  <None Remove="Resources\CommadIcon\setvariables.png" />
 	  <None Remove="Resources\CommadIcon\speed.png" />
 	  <None Remove="Resources\CommadIcon\speed_set.png" />
+	  <None Remove="Resources\CommadIcon\status.png" />
 	  <None Remove="Resources\CommadIcon\wait.png" />
 	  <None Remove="Resources\CommadIcon\waitif.png" />
+	  <None Remove="Resources\DeviceIcon\D07-19BMassFlowMeter.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
@@ -148,6 +150,9 @@
 	  <EmbeddedResource Include="Resources\CommadIcon\speed_set.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\status.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\temperature.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -155,6 +160,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\waitif.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\D07-19BMassFlowMeter.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\PeristalticPumps_CY.png">
