@@ -29,26 +29,26 @@ namespace FlowMeter_ModbusTCP
         private Timer _controlTimer = null;
         private readonly object _controlLock = new object();
         private const int CONTROL_INTERVAL_MS = 20000;         // 20秒控制周期
-        private const double FLOW_TOLERANCE_PERCENT = 0.8;     // ±0.8%容差 (放宽)
-        private const double DEAD_ZONE_PERCENT = 0.3;          // ±0.3%死区 (放宽)
+        private const double FLOW_TOLERANCE_PERCENT = 0.8;     // ±0.8%容差
+        private const double DEAD_ZONE_PERCENT = 0.3;          // ±0.3%死区
         private const double UPPER_PROTECTION_PERCENT = 0.5;   // 超过目标0.5%时强制保护
 
         private const double FLOW_TO_SPEED_RATIO = 1.0;
         private const int MAX_PUMP_SPEED = 100;
         private const int MAX_FLOW_RATE = 100;
 
-        // *** 防超调的PID参数 ***
+        // *** 优化后的PID参数 ***
         private double _previousError = 0;
         private double _integralError = 0;
-        private const double KP = 1.0;   // 更保守的比例增益
-        private const double KI = 0.08;  // 更保守的积分增益
-        private const double KD = 0.12;  // 稍微增加微分增益以抑制超调
+        private const double KP = 1.8;   // 提高比例增益
+        private const double KI = 0.15;  // 提高积分增益
+        private const double KD = 0.12;  // 微分增益
 
-        // *** 防超调的变化限制和滤波 ***
+        // *** 优化后的变化限制和滤波 ***
         private double _lastPumpSpeedOutput = 0;
         private double _previousPumpSpeed = 0;
-        private const double MAX_SPEED_CHANGE_PER_CYCLE = 1.5;  // 降低最大变化
-        private const double SPEED_FILTER_FACTOR = 0.92;       // 稍微降低滤波系数
+        private const double MAX_SPEED_CHANGE_PER_CYCLE = 1.8;  // 提高最大变化
+        private const double SPEED_FILTER_FACTOR = 0.85;       // 降低滤波系数，提高响应
 
         // *** 超调保护 ***
         private bool _isOvershootMode = false;
@@ -58,13 +58,12 @@ namespace FlowMeter_ModbusTCP
         private int _stableCount = 0;
         private const int STABLE_CYCLES_REQUIRED = 3;
 
-        // *** 智能稳定性检测参数 ***
-        private readonly Queue<double> _flowHistory = new Queue<double>();
-        private const int FLOW_HISTORY_SIZE = 10;
-        private const double STABILITY_THRESHOLD = 0.3;
+        // *** 简化的三档动态等待时间参数 ***
+        private const int LOW_SPEED_WAIT_MS = 55000;    // 低速(0-10 RPM): 35秒
+        private const int MID_SPEED_WAIT_MS = 35000;    // 中速(10-20 RPM): 20秒
+        private const int HIGH_SPEED_WAIT_MS = 12000;   // 高速(20+ RPM): 12秒
+        private const double STABILITY_THRESHOLD = 3.0; // 稳定判断阈值3%
         private const int MIN_STABLE_READINGS = 3;
-        private const int MAX_MONITORING_TIME_MS = 30000;
-        private const int FLOW_READING_INTERVAL_MS = 1000;
 
         // *** 详细日志记录系统 ***
         private static readonly object _logFileLock = new object();
@@ -77,6 +76,113 @@ namespace FlowMeter_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
+
+        #region 简化的三档动态等待策略
+
+        /// <summary>
+        /// 根据泵速选择等待档位
+        /// </summary>
+        private (int waitTimeMs, string speedLevel) GetWaitTimeByPumpSpeed(double pumpSpeed)
+        {
+            if (pumpSpeed <= 10)
+            {
+                return (LOW_SPEED_WAIT_MS, "低速");
+            }
+            else if (pumpSpeed <= 20)
+            {
+                return (MID_SPEED_WAIT_MS, "中速");
+            }
+            else
+            {
+                return (HIGH_SPEED_WAIT_MS, "高速");
+            }
+        }
+
+        /// <summary>
+        /// 智能三档等待流量稳定
+        /// </summary>
+        private async Task<(double stableFlow, double waitTimeSeconds, int readingCount)>
+            SmartWaitForStability(double targetFlow, double currentPumpSpeed)
+        {
+            var (waitTimeMs, speedLevel) = GetWaitTimeByPumpSpeed(currentPumpSpeed);
+
+            AddCycleLog($"│ 开始智能稳定检测");
+            AddCycleLog($"│ 目标流量: {targetFlow:F2} g/min");
+            AddCycleLog($"│ 当前泵速: {currentPumpSpeed:F1} RPM ({speedLevel})");
+            AddCycleLog($"│ 等待策略: {waitTimeMs / 1000}秒");
+
+            // 预等待时间（给液体传输的基础时间）
+            int preWaitMs = Math.Max(3000, waitTimeMs / 4);
+            AddCycleLog($"│ 预等待传输: {preWaitMs / 1000}秒");
+            await Task.Delay(preWaitMs);
+
+            var startTime = DateTime.Now;
+            int readingCount = 0;
+            double lastFlow = 0;
+            Queue<double> recentFlows = new Queue<double>();
+
+            try
+            {
+                // 剩余时间内监测稳定性
+                int remainingWaitMs = waitTimeMs - preWaitMs;
+                while ((DateTime.Now - startTime).TotalMilliseconds < remainingWaitMs)
+                {
+                    double currentFlow = await ReadCurrentFlowAsync();
+                    readingCount++;
+                    recentFlows.Enqueue(currentFlow);
+
+                    if (recentFlows.Count > 5) recentFlows.Dequeue();
+
+                    var elapsedSeconds = (DateTime.Now - startTime).TotalSeconds;
+                    AddCycleLog($"│ 读数#{readingCount}: {currentFlow:F2} g/min (已等待{elapsedSeconds:F1}s)");
+
+                    // 检查是否提前稳定
+                    if (recentFlows.Count >= MIN_STABLE_READINGS && readingCount >= MIN_STABLE_READINGS)
+                    {
+                        var recent = recentFlows.TakeLast(MIN_STABLE_READINGS).ToArray();
+                        double maxValue = recent.Max();
+                        double minValue = recent.Min();
+                        double avgFlow = recent.Average();
+
+                        if (avgFlow > 0)
+                        {
+                            double variation = (maxValue - minValue) / avgFlow * 100;
+
+                            if (variation < STABILITY_THRESHOLD)
+                            {
+                                var actualWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
+                                AddCycleLog($"│ ✅ 提前稳定! 变化率{variation:F2}% < {STABILITY_THRESHOLD}%");
+                                AddCycleLog($"│ 稳定流量: {avgFlow:F2} g/min");
+                                AddCycleLog($"│ 实际等待: {actualWaitTime:F1}秒 (预设{waitTimeMs / 1000}秒)");
+                                return (avgFlow, actualWaitTime, readingCount);
+                            }
+                        }
+                    }
+
+                    lastFlow = currentFlow;
+
+                    // 检测间隔：高速更频繁
+                    int checkInterval = speedLevel == "高速" ? 800 : (speedLevel == "中速" ? 1200 : 1800);
+                    await Task.Delay(checkInterval);
+                }
+
+                // 完整等待后返回
+                var totalWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
+                double finalFlow = recentFlows.Count > 0 ? recentFlows.Average() : lastFlow;
+
+                AddCycleLog($"│ ⏰ 完成{speedLevel}等待 {totalWaitTime:F1}秒");
+                AddCycleLog($"│ 最终流量: {finalFlow:F2} g/min");
+                return (finalFlow, totalWaitTime, readingCount);
+            }
+            catch (Exception ex)
+            {
+                AddCycleLog($"│ ❌ 智能检测异常: {ex.Message}");
+                var errorWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
+                return (lastFlow, errorWaitTime, readingCount);
+            }
+        }
+
+        #endregion
 
         #region 防超调核心算法
 
@@ -93,7 +199,6 @@ namespace FlowMeter_ModbusTCP
                 HandleOvershootDetection(actualFlow, targetFlow);
 
                 // 计算接近目标的程度，用于调整控制强度
-                double distanceToTarget = Math.Abs(actualFlow - targetFlow);
                 double approachFactor = CalculateApproachFactor(actualFlow, targetFlow);
 
                 AddCycleLog($"│ 防超调分析: 误差{errorPercent:F2}%, 接近系数{approachFactor:F2}, 超调模式{_isOvershootMode}");
@@ -115,7 +220,7 @@ namespace FlowMeter_ModbusTCP
                 _previousError = currentError;
 
                 double pidOutput = proportional + integral + derivative;
-                double rawNewSpeed = currentPumpSpeed - pidOutput;
+                double rawNewSpeed = currentPumpSpeed + pidOutput; // 修正：应该是加
 
                 // 防超调的变化限制
                 double maxChange = GetConservativeMaxChange(errorPercent, actualFlow, targetFlow, approachFactor);
@@ -261,11 +366,11 @@ namespace FlowMeter_ModbusTCP
         private void ProcessIntegralWithOvershootProtection(double actualFlow, double targetFlow, double currentError)
         {
             // 防超调的积分处理
-            if (actualFlow > targetFlow && currentError > 0)
+            if (actualFlow > targetFlow && currentError < 0) // 修正：超调时误差应该是负数
             {
-                // 如果已经超过目标且误差为正，不允许积分继续增加
-                _integralError = Math.Min(_integralError, 0);
-                AddCycleLog($"│ 积分保护: 超调时清除正向积分");
+                // 如果已经超过目标且误差为负，不允许积分继续增加
+                _integralError = Math.Max(_integralError, 0);
+                AddCycleLog($"│ 积分保护: 超调时清除负向积分");
             }
 
             // 超调模式下的积分限制
@@ -305,10 +410,10 @@ namespace FlowMeter_ModbusTCP
                 _overshootProtectionCount++;
 
                 // 清除积分项，防止积分饱和
-                if (_integralError > 0)
+                if (_integralError < 0) // 修正：超调时应该清除负向积分
                 {
                     _integralError = 0;
-                    AddCycleLog($"│ 超调保护: 清除正向积分");
+                    AddCycleLog($"│ 超调保护: 清除负向积分");
                 }
             }
             else if (_isOvershootMode && overshootPercent < -0.1) // 回到目标以下
@@ -423,7 +528,7 @@ namespace FlowMeter_ModbusTCP
         }
 
         /// <summary>
-        /// 保守的初始泵速计算
+        /// 优化的初始泵速计算 - 95%起步
         /// </summary>
         private double CalculateRequiredPumpSpeed(double targetFlow, double actualFlow = 0, double deviation = 0)
         {
@@ -431,14 +536,14 @@ namespace FlowMeter_ModbusTCP
 
             if (_controlCycleCount == 0) // 首次启动
             {
-                // 从目标的65%开始，确保不会一开始就接近目标
-                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.85;
-                WriteDetailedLog($"[保守启动] 目标流量={targetFlow:F2}g/min → 初始泵速={baseSpeed:F1}RPM (85%起步)");
+                // 98%积极起步，利用1:1关系
+                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.98;
+                WriteDetailedLog($"[积极起步] 目标流量={targetFlow:F2}g/min → 初始泵速={baseSpeed:F1}RPM (98%积极起步)");
             }
             else
             {
-                // 后续启动也保守一些
-                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.75;
+                // 后续启动保持积极
+                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.95;
             }
 
             baseSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, baseSpeed));
@@ -485,198 +590,6 @@ namespace FlowMeter_ModbusTCP
 
         #endregion
 
-        #region 智能稳定性检测系统
-
-        /// <summary>
-        /// 智能等待流量稳定 - 实时监测变化率
-        /// </summary>
-        private async Task<(double stableFlow, double waitTimeSeconds, int readingCount)> WaitForFlowStabilityAsync(double targetFlow)
-        {
-            var startTime = DateTime.Now;
-            int readingCount = 0;
-            double lastFlow = 0;
-            bool hasValidReading = false;
-
-            _flowHistory.Clear();
-
-            AddCycleLog($"│ 开始智能稳定检测 (目标: {targetFlow:F2} g/min)");
-            AddCycleLog($"│ 检测参数: 阈值±{STABILITY_THRESHOLD}%, 需要{MIN_STABLE_READINGS}次稳定, 最大{MAX_MONITORING_TIME_MS / 1000}秒");
-
-            try
-            {
-                while ((DateTime.Now - startTime).TotalMilliseconds < MAX_MONITORING_TIME_MS)
-                {
-                    // 读取当前流量
-                    double currentFlow = await ReadCurrentFlowAsync();
-                    readingCount++;
-
-                    // 记录流量历史
-                    _flowHistory.Enqueue(currentFlow);
-                    if (_flowHistory.Count > FLOW_HISTORY_SIZE)
-                    {
-                        _flowHistory.Dequeue();
-                    }
-
-                    // 计算变化率和趋势
-                    var (isStable, changeRate, trend) = AnalyzeFlowStability(currentFlow, targetFlow);
-
-                    AddCycleLog($"│ 读数#{readingCount}: {currentFlow:F2} g/min, 变化率: {changeRate:F3}%/s, 趋势: {trend}");
-
-                    // 检查是否稳定
-                    if (isStable && _flowHistory.Count >= MIN_STABLE_READINGS)
-                    {
-                        var avgFlow = _flowHistory.Average();
-                        var waitTime = (DateTime.Now - startTime).TotalSeconds;
-
-                        AddCycleLog($"│ ✅ 检测到流量稳定!");
-                        AddCycleLog($"│ 平均流量: {avgFlow:F2} g/min (最近{_flowHistory.Count}次读数)");
-                        AddCycleLog($"│ 稳定时间: {waitTime:F1}秒");
-
-                        return (avgFlow, waitTime, readingCount);
-                    }
-
-                    // 异常情况检测
-                    if (currentFlow < 0 || currentFlow > MAX_FLOW_RATE * 1.5)
-                    {
-                        AddCycleLog($"│ ⚠️ 异常读数: {currentFlow:F2} g/min");
-                        continue;
-                    }
-
-                    // 系统响应超时检测
-                    if (readingCount > 5 && hasValidReading)
-                    {
-                        var avgRecentChange = CalculateRecentChangeRate();
-                        if (Math.Abs(avgRecentChange) < 0.1 && Math.Abs(currentFlow - targetFlow) > targetFlow * 0.1)
-                        {
-                            AddCycleLog($"│ 🔍 系统可能卡住，平均变化率: {avgRecentChange:F3}%/s");
-                        }
-                    }
-
-                    lastFlow = currentFlow;
-                    hasValidReading = true;
-
-                    // 间隔等待
-                    await Task.Delay(FLOW_READING_INTERVAL_MS);
-                }
-
-                // 超时处理
-                var timeoutFlow = _flowHistory.Count > 0 ? _flowHistory.Average() : lastFlow;
-                var totalWaitTime = (DateTime.Now - startTime).TotalSeconds;
-
-                AddCycleLog($"│ ⏰ 监测超时 ({totalWaitTime:F1}秒)");
-                AddCycleLog($"│ 使用最后平均值: {timeoutFlow:F2} g/min");
-
-                return (timeoutFlow, totalWaitTime, readingCount);
-            }
-            catch (Exception ex)
-            {
-                AddCycleLog($"│ ❌ 智能检测异常: {ex.Message}");
-                var errorWaitTime = (DateTime.Now - startTime).TotalSeconds;
-                return (lastFlow, errorWaitTime, readingCount);
-            }
-        }
-
-        /// <summary>
-        /// 分析流量稳定性
-        /// </summary>
-        private (bool isStable, double changeRate, string trend) AnalyzeFlowStability(double currentFlow, double targetFlow)
-        {
-            if (_flowHistory.Count < 3)
-                return (false, 0, "数据不足");
-
-            var recentFlows = _flowHistory.TakeLast(3).ToArray();
-
-            // 计算变化率 (每秒变化百分比)
-            double maxChange = 0;
-            for (int i = 1; i < recentFlows.Length; i++)
-            {
-                if (recentFlows[i - 1] > 0)
-                {
-                    double change = Math.Abs(recentFlows[i] - recentFlows[i - 1]) / recentFlows[i - 1] * 100;
-                    maxChange = Math.Max(maxChange, change);
-                }
-            }
-
-            // 计算趋势
-            string trend = "稳定";
-            if (recentFlows.Length >= 3)
-            {
-                if (recentFlows[2] > recentFlows[0] * 1.02) trend = "上升";
-                else if (recentFlows[2] < recentFlows[0] * 0.98) trend = "下降";
-            }
-
-            // 判断是否稳定
-            bool isStable = maxChange < STABILITY_THRESHOLD &&
-                           recentFlows.All(f => Math.Abs(f - currentFlow) / Math.Max(currentFlow, 0.1) * 100 < STABILITY_THRESHOLD);
-
-            return (isStable, maxChange, trend);
-        }
-
-        /// <summary>
-        /// 读取当前流量
-        /// </summary>
-        private async Task<double> ReadCurrentFlowAsync()
-        {
-            try
-            {
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                {
-                    return await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
-                }
-                else if (IsSimulationMode)
-                {
-                    lock (_stateLock)
-                    {
-                        // 模拟更真实的流量响应，增加防超调特性
-                        var targetResponse = _lastPumpSpeedOutput * 0.95;
-                        var random = new Random();
-
-                        // 模拟系统响应延迟和噪声，增加惯性防止快速变化
-                        double responseRate = 0.12; // 降低响应速度，防止模拟超调
-                        _currentFlow = _currentFlow * (1 - responseRate) + targetResponse * responseRate;
-                        _currentFlow += (random.NextDouble() - 0.5) * 0.05; // 减小噪声
-                        _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
-
-                        return _currentFlow;
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException("设备未配置为有效的通信模式");
-                }
-            }
-            catch (Exception ex)
-            {
-                AddCycleLog($"│ 读取流量失败: {ex.Message}");
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// 计算最近变化率
-        /// </summary>
-        private double CalculateRecentChangeRate()
-        {
-            if (_flowHistory.Count < 3) return 0;
-
-            var recent = _flowHistory.TakeLast(3).ToArray();
-            double totalChange = 0;
-            int changeCount = 0;
-
-            for (int i = 1; i < recent.Length; i++)
-            {
-                if (recent[i - 1] > 0)
-                {
-                    totalChange += Math.Abs(recent[i] - recent[i - 1]) / recent[i - 1] * 100;
-                    changeCount++;
-                }
-            }
-
-            return changeCount > 0 ? totalChange / changeCount : 0;
-        }
-
-        #endregion
-
         #region 智能自动控制逻辑 - 防超调版本
 
         /// <summary>
@@ -699,7 +612,6 @@ namespace FlowMeter_ModbusTCP
                 _previousPumpSpeed = 0;
                 _controlCycleCount = 0;
                 _controlStartTime = DateTime.Now;
-                _flowHistory.Clear();
                 _isOvershootMode = false;
                 _overshootProtectionCount = 0;
 
@@ -713,7 +625,7 @@ namespace FlowMeter_ModbusTCP
                     死区 = $"±{DEAD_ZONE_PERCENT}%",
                     超调保护 = $"±{UPPER_PROTECTION_PERCENT}%",
                     PID参数 = $"Kp={KP}, Ki={KI}, Kd={KD}",
-                    智能检测 = $"阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数",
+                    智能检测 = $"三档动态等待",
                     目标流量 = $"{_targetFlow}g/min",
                     防超调 = "启用"
                 };
@@ -726,8 +638,8 @@ namespace FlowMeter_ModbusTCP
                 WriteDetailedLog($"目标流量: {_targetFlow} g/min");
                 WriteDetailedLog($"控制参数: 间隔={CONTROL_INTERVAL_MS}ms, 容差=±{FLOW_TOLERANCE_PERCENT}%, 死区=±{DEAD_ZONE_PERCENT}%");
                 WriteDetailedLog($"超调保护: ±{UPPER_PROTECTION_PERCENT}% 阈值");
-                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (防超调优化)");
-                WriteDetailedLog($"智能检测: 阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数, 最大{MAX_MONITORING_TIME_MS / 1000}秒");
+                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (优化版本)");
+                WriteDetailedLog($"智能检测: 三档动态等待 (低速{LOW_SPEED_WAIT_MS / 1000}s, 中速{MID_SPEED_WAIT_MS / 1000}s, 高速{HIGH_SPEED_WAIT_MS / 1000}s)");
                 WriteDetailedLog("★".PadRight(100, '★'));
                 WriteDetailedLog("");
             }
@@ -756,7 +668,7 @@ namespace FlowMeter_ModbusTCP
                     总周期数 = _controlCycleCount,
                     平均周期间隔 = $"{duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms",
                     超调保护次数 = _overshootProtectionCount,
-                    版本 = "防超调版本"
+                    版本 = "三档动态等待版本"
                 };
 
                 LogControlStateChange("防超调智能流量控制停止", stopDetails);
@@ -768,7 +680,7 @@ namespace FlowMeter_ModbusTCP
                 WriteDetailedLog($"总控制周期: {_controlCycleCount}次");
                 WriteDetailedLog($"平均周期间隔: {duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms");
                 WriteDetailedLog($"超调保护触发: {_overshootProtectionCount}次");
-                WriteDetailedLog($"版本: 防超调智能控制系统");
+                WriteDetailedLog($"版本: 三档动态等待智能控制系统");
                 WriteDetailedLog("■".PadRight(100, '■'));
                 WriteDetailedLog("");
 
@@ -777,7 +689,6 @@ namespace FlowMeter_ModbusTCP
                 _stableCount = 0;
                 _lastPumpSpeedOutput = 0;
                 _previousPumpSpeed = 0;
-                _flowHistory.Clear();
                 _isOvershootMode = false;
                 _overshootProtectionCount = 0;
             }
@@ -803,6 +714,7 @@ namespace FlowMeter_ModbusTCP
         /// <summary>
         /// 执行防超调智能控制逻辑
         /// </summary>
+
         private async Task PerformAntiOvershootControlAsync()
         {
             StartCycleLog();
@@ -838,9 +750,70 @@ namespace FlowMeter_ModbusTCP
 
             try
             {
-                // *** 智能等待流量稳定 ***
-                AddCycleLog("┌── 步骤1: 智能等待流量稳定 ──");
-                var (finalFlow, stabilizeTime, readings) = await WaitForFlowStabilityAsync(targetFlow);
+                // *** 获取当前泵速用于智能等待 ***
+                var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                double currentPumpSpeed = _lastPumpSpeedOutput;
+
+                if (currentPumpSpeed <= 0)
+                {
+                    try
+                    {
+                        currentPumpSpeed = await ConnectionManager.ReadAsync<double>(pumpDeviceId, "P0101泵速");
+                        AddCycleLog($"│ 读取当前泵速: {currentPumpSpeed:F1} RPM");
+                    }
+                    catch (Exception ex)
+                    {
+                        currentPumpSpeed = targetFlow * 0.98; // 改为98%默认值
+                        AddCycleLog($"│ 泵速读取失败，使用默认值: {currentPumpSpeed:F1} RPM");
+                    }
+                }
+                else
+                {
+                    AddCycleLog($"│ 使用上次泵速: {currentPumpSpeed:F1} RPM");
+                }
+
+                // *** 判断是否首次设置 ***
+                bool isFirstSetup = (_controlCycleCount == 1);
+
+                if (isFirstSetup)
+                {
+                    // *** 首次设置：直接使用98%积极起步，跳过PID计算 ***
+                    double firstSetupSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.98;
+                    firstSetupSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, firstSetupSpeed));
+
+                    AddCycleLog("┌── 首次积极起步策略 ──");
+                    AddCycleLog($"│ 🚀 首次设置使用98%积极起步");
+                    AddCycleLog($"│ 计算泵速: {targetFlow:F2} × 0.98 = {firstSetupSpeed:F1} RPM");
+                    AddCycleLog($"│ 跳过PID计算，直接设置泵速");
+                    AddCycleLog($"└─ 首次起步泵速: {firstSetupSpeed:F1} RPM");
+
+                    // 直接设置泵速
+                    AddCycleLog("┌── 步骤: 设置首次起步泵速 ──");
+                    var firstSetStart = DateTime.Now;
+                    bool firstSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, firstSetupSpeed);
+                    var firstSetDuration = DateTime.Now - firstSetStart;
+
+                    if (firstSetSuccess)
+                    {
+                        _lastPumpSpeedOutput = firstSetupSpeed;
+                        _previousPumpSpeed = firstSetupSpeed;
+                        AddCycleLog($"│ ✅ 首次设置成功: {firstSetupSpeed:F1} RPM (耗时: {firstSetDuration.TotalMilliseconds:F0}ms)");
+                        EndCycleLog($"首次98%积极起步: {firstSetupSpeed:F1} RPM");
+                    }
+                    else
+                    {
+                        AddCycleLog($"│ ❌ 首次设置失败: {firstSetupSpeed:F1} RPM");
+                        EndCycleLog($"首次泵速设置失败: {firstSetupSpeed:F1} RPM");
+                    }
+                    AddCycleLog($"└─ 首次设置结果: {(firstSetSuccess ? "成功" : "失败")}");
+                    return;
+                }
+
+                // *** 非首次设置：正常PID控制流程 ***
+
+                // *** 智能三档等待流量稳定 ***
+                AddCycleLog("┌── 步骤1: 智能三档等待流量稳定 ──");
+                var (finalFlow, stabilizeTime, readings) = await SmartWaitForStability(targetFlow, currentPumpSpeed);
                 AddCycleLog($"│ 流量已稳定: {finalFlow:F2} g/min");
                 AddCycleLog($"│ 实际等待: {stabilizeTime:F1}秒");
                 AddCycleLog($"│ 监测次数: {readings}次");
@@ -850,7 +823,7 @@ namespace FlowMeter_ModbusTCP
 
                 // 2. 计算流量偏差
                 AddCycleLog("┌── 步骤2: 计算流量偏差 ──");
-                double flowError = actualFlow - targetFlow;
+                double flowError = targetFlow - actualFlow;
                 double errorPercent = Math.Abs(flowError / targetFlow) * 100.0;
 
                 AddCycleLog($"│ 流量误差: {flowError:F2} g/min");
@@ -867,7 +840,7 @@ namespace FlowMeter_ModbusTCP
                     AddCycleLog($"│ 稳定计数: {_stableCount}");
 
                     var oldIntegral = _integralError;
-                    _integralError *= 0.92; // 稍微强一点的衰减
+                    _integralError *= 0.92;
                     AddCycleLog($"│ 积分误差衰减: {oldIntegral:F3} → {_integralError:F3}");
                     AddCycleLog($"│ 🎯 防超调死区稳定 - 保持当前泵速");
 
@@ -907,8 +880,6 @@ namespace FlowMeter_ModbusTCP
 
                 // 5. 获取当前泵速
                 AddCycleLog("┌── 步骤3: 获取当前泵速 ──");
-                var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
-                double currentPumpSpeed;
                 try
                 {
                     var pumpReadStart = DateTime.Now;
@@ -963,7 +934,6 @@ namespace FlowMeter_ModbusTCP
                 throw;
             }
         }
-
         #endregion
 
         #region 设备初始化和其他方法
@@ -972,7 +942,7 @@ namespace FlowMeter_ModbusTCP
         {
             _logger = LogManager.GetLogger<FlowMeter_ModbusTCP>();
 
-            Name = "P0101流量计";
+            Name = "流量计";
             Manufacturer = "ModbusTCP流量计";
             Category = DeviceCategories.Flowmeter;
             ComId = "FT0101";
@@ -1069,6 +1039,46 @@ namespace FlowMeter_ModbusTCP
             }
         }
 
+        /// <summary>
+        /// 读取当前流量
+        /// </summary>
+        private async Task<double> ReadCurrentFlowAsync()
+        {
+            try
+            {
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                {
+                    return await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
+                }
+                else if (IsSimulationMode)
+                {
+                    lock (_stateLock)
+                    {
+                        // 模拟更真实的流量响应，增加防超调特性
+                        var targetResponse = _lastPumpSpeedOutput * 0.95;
+                        var random = new Random();
+
+                        // 模拟系统响应延迟和噪声，增加惯性防止快速变化
+                        double responseRate = 0.12; // 降低响应速度，防止模拟超调
+                        _currentFlow = _currentFlow * (1 - responseRate) + targetResponse * responseRate;
+                        _currentFlow += (random.NextDouble() - 0.5) * 0.05; // 减小噪声
+                        _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
+
+                        return _currentFlow;
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("设备未配置为有效的通信模式");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddCycleLog($"│ 读取流量失败: {ex.Message}");
+                throw;
+            }
+        }
+
         #endregion
 
         #region 详细日志记录系统
@@ -1094,10 +1104,10 @@ namespace FlowMeter_ModbusTCP
                 WriteDetailedLog($"设备: {Name} ({ComId})");
                 WriteDetailedLog($"日志文件: {_logFilePath}");
                 WriteDetailedLog($"启动时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                WriteDetailedLog($"智能稳定检测: 阈值±{STABILITY_THRESHOLD}%, 最小{MIN_STABLE_READINGS}次读数");
+                WriteDetailedLog($"智能稳定检测: 三档动态等待 (低速{LOW_SPEED_WAIT_MS / 1000}s, 中速{MID_SPEED_WAIT_MS / 1000}s, 高速{HIGH_SPEED_WAIT_MS / 1000}s)");
                 WriteDetailedLog($"控制周期间隔: {CONTROL_INTERVAL_MS}ms");
                 WriteDetailedLog($"防超调控制: 容差±{FLOW_TOLERANCE_PERCENT}%, 死区±{DEAD_ZONE_PERCENT}%, 保护±{UPPER_PROTECTION_PERCENT}%");
-                WriteDetailedLog($"防超调PID: Kp={KP}, Ki={KI}, Kd={KD}");
+                WriteDetailedLog($"优化PID: Kp={KP}, Ki={KI}, Kd={KD}");
                 WriteDetailedLog("=".PadRight(100, '='));
                 WriteDetailedLog("");
             }
@@ -1233,12 +1243,12 @@ namespace FlowMeter_ModbusTCP
                 })
             });
 
-            // 2. 设置基准流量 - 防超调版本
+            // 2. 设置基准流量 - 优化版本
             Commands.Add(new DeviceCommand
             {
                 Name = "设置基准流量",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/speed_set.png",
-                HelpText = "设置目标流量并启动防超调智能PID控制，绝对不会超过目标值",
+                HelpText = "设置目标流量并启动优化的防超调智能PID控制，95%起步策略",
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
@@ -1276,7 +1286,7 @@ namespace FlowMeter_ModbusTCP
                         }
 
                         calculatedSpeed = CalculateRequiredPumpSpeed(targetFlow);
-                        InfoLog($"计算所需初始泵速: {calculatedSpeed} RPM (防超调保守设置: {targetFlow} g/min)");
+                        InfoLog($"计算所需初始泵速: {calculatedSpeed} RPM (优化95%设置: {targetFlow} g/min)");
 
                         var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
                         var pumpSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, calculatedSpeed);
@@ -1290,7 +1300,7 @@ namespace FlowMeter_ModbusTCP
                             {
                                 StartAutoControl();
                                 autoControlStarted = true;
-                                InfoLog($"防超调智能PID控制已启动 - 目标流量: {targetFlow} g/min, 容差: ±{FLOW_TOLERANCE_PERCENT}%, 死区: ±{DEAD_ZONE_PERCENT}%, 保护: ±{UPPER_PROTECTION_PERCENT}%");
+                                InfoLog($"优化防超调智能PID控制已启动 - 目标流量: {targetFlow} g/min, 三档动态等待策略");
                             }
                         }
                         else
@@ -1382,12 +1392,12 @@ namespace FlowMeter_ModbusTCP
                 })
             });
 
-            // 4. 获取控制状态 - 包含防超调信息
+            // 4. 获取控制状态 - 包含三档等待信息
             Commands.Add(new DeviceCommand
             {
                 Name = "获取控制状态",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/status.png",
-                HelpText = "获取防超调智能流量控制系统当前状态",
+                HelpText = "获取优化防超调智能流量控制系统当前状态",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
@@ -1460,8 +1470,9 @@ namespace FlowMeter_ModbusTCP
                             deviationPercent = (flowDeviation / targetFlow) * 100.0;
                         }
 
+                        var (waitTime, speedLevel) = GetWaitTimeByPumpSpeed(currentPumpSpeed);
                         controlStatus = autoControlEnabled ?
-                            $"防超调PID控制中 (目标:{targetFlow:F1}g/min, 偏差:{deviationPercent:F3}%, 容差:±{FLOW_TOLERANCE_PERCENT}%, 死区:±{DEAD_ZONE_PERCENT}%, 保护:±{UPPER_PROTECTION_PERCENT}%)" :
+                            $"优化PID控制中 (目标:{targetFlow:F1}g/min, 偏差:{deviationPercent:F3}%, {speedLevel}档{waitTime / 1000}s等待)" :
                             "手动模式";
 
                         if (overshootMode)
@@ -1470,7 +1481,7 @@ namespace FlowMeter_ModbusTCP
                         }
 
                         InfoLog($"防超调流量控制状态: 自动={autoControlEnabled}, 目标={targetFlow:F2}, 实际={currentFlow:F2}, " +
-                               $"偏差={deviationPercent:F3}%, 泵速={currentPumpSpeed:F1}, 超调保护={overshootMode}");
+                               $"偏差={deviationPercent:F3}%, 泵速={currentPumpSpeed:F1}({speedLevel}), 超调保护={overshootMode}");
                     }
                     catch (Exception ex)
                     {
@@ -1882,7 +1893,7 @@ namespace FlowMeter_ModbusTCP
 
         public override void Initialize()
         {
-            WriteDetailedLog($"[Initialize] 开始初始化ModbusTCP流量计设备 (防超调版本)");
+            WriteDetailedLog($"[Initialize] 开始初始化ModbusTCP流量计设备 (优化版本)");
 
             try
             {
@@ -1905,12 +1916,11 @@ namespace FlowMeter_ModbusTCP
                     _pausedStates.Clear();
                 }
 
-                _flowHistory.Clear();
                 _isOvershootMode = false;
                 _overshootProtectionCount = 0;
 
-                WriteDetailedLog($"[Initialize] ModbusTCP流量计设备初始化完成 (防超调版本)");
-                InfoLog("ModbusTCP流量计设备初始化完成 (防超调版本)");
+                WriteDetailedLog($"[Initialize] ModbusTCP流量计设备初始化完成 (优化版本)");
+                InfoLog("ModbusTCP流量计设备初始化完成 (优化版本)");
             }
             catch (Exception ex)
             {
@@ -1937,7 +1947,6 @@ namespace FlowMeter_ModbusTCP
                     _targetFlow = 0;
                 }
 
-                _flowHistory.Clear();
                 _isOvershootMode = false;
 
                 base.Shutdown();
