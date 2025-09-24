@@ -49,7 +49,22 @@ namespace DevicePlugins.Devices
             }
             return default(T);
         }
-
+        public T? GetNullableValue<T>(string name) where T : struct
+        {
+            var variable = Variables.FirstOrDefault(v => v.Name == name);
+            if (variable?.Value != null)
+            {
+                try
+                {
+                    return (T)Convert.ChangeType(variable.Value, typeof(T));
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            return null;
+        }
         /// <summary>
         /// 设置参数值
         /// </summary>

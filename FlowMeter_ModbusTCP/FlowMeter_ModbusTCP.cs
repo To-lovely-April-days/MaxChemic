@@ -24,6 +24,13 @@ namespace FlowMeter_ModbusTCP
         private double _targetFlow = 0; // 基准流量设定值
         private readonly object _stateLock = new object();
 
+        // *** 密度相关参数 ***
+        private double _currentDensity = 1.0; // 当前液体密度，默认水的密度
+        private readonly object _densityLock = new object();
+        private const double DEFAULT_WATER_DENSITY = 1.0; // 水的密度
+        private const double MIN_DENSITY = 0.1; // 最小密度限制
+        private const double MAX_DENSITY = 2.0; // 最大密度限制
+
         // *** 防超调优化的控制参数 ***
         private bool _autoControlEnabled = false;
         private Timer _controlTimer = null;
@@ -59,8 +66,8 @@ namespace FlowMeter_ModbusTCP
         private const int STABLE_CYCLES_REQUIRED = 3;
 
         // *** 简化的三档动态等待时间参数 ***
-        private const int LOW_SPEED_WAIT_MS = 55000;    // 低速(0-10 RPM): 35秒
-        private const int MID_SPEED_WAIT_MS = 35000;    // 中速(10-20 RPM): 20秒
+        private const int LOW_SPEED_WAIT_MS = 55000;    // 低速(0-10 RPM): 55秒
+        private const int MID_SPEED_WAIT_MS = 35000;    // 中速(10-20 RPM): 35秒
         private const int HIGH_SPEED_WAIT_MS = 12000;   // 高速(20+ RPM): 12秒
         private const double STABILITY_THRESHOLD = 3.0; // 稳定判断阈值3%
         private const int MIN_STABLE_READINGS = 3;
@@ -184,46 +191,58 @@ namespace FlowMeter_ModbusTCP
 
         #endregion
 
-        #region 防超调核心算法
+        #region 防超调核心算法 - 密度修正版本
 
         /// <summary>
-        /// 防超调的PID控制算法
+        /// 考虑密度的防超调PID控制算法
         /// </summary>
-        private double CalculateAntiOvershootPumpSpeed(double targetFlow, double actualFlow, double currentError, double currentPumpSpeed)
+        private double CalculateAntiOvershootPumpSpeed(double targetMassFlow, double actualMassFlow,
+            double currentError, double currentPumpSpeed, double density)
         {
             try
             {
-                double errorPercent = Math.Abs(currentError / targetFlow) * 100.0;
+                // 将质量流量转换为体积流量进行控制计算
+                double targetVolumeFlow = targetMassFlow / density;
+                double actualVolumeFlow = actualMassFlow / density;
+                double volumeError = targetVolumeFlow - actualVolumeFlow;
 
-                // 超调检测和处理
-                HandleOvershootDetection(actualFlow, targetFlow);
+                double errorPercent = Math.Abs(volumeError / targetVolumeFlow) * 100.0;
+
+                AddCycleLog($"│ 密度修正分析:");
+                AddCycleLog($"│   液体密度: {density:F2} g/cm³");
+                AddCycleLog($"│   质量流量: 目标{targetMassFlow:F2} → 实际{actualMassFlow:F2} g/min");
+                AddCycleLog($"│   体积流量: 目标{targetVolumeFlow:F2} → 实际{actualVolumeFlow:F2} cm³/min");
+                AddCycleLog($"│   体积误差: {volumeError:F2} cm³/min ({errorPercent:F2}%)");
+
+                // 超调检测和处理 - 基于体积流量
+                HandleOvershootDetection(actualVolumeFlow, targetVolumeFlow);
 
                 // 计算接近目标的程度，用于调整控制强度
-                double approachFactor = CalculateApproachFactor(actualFlow, targetFlow);
+                double approachFactor = CalculateApproachFactor(actualVolumeFlow, targetVolumeFlow);
 
-                AddCycleLog($"│ 防超调分析: 误差{errorPercent:F2}%, 接近系数{approachFactor:F2}, 超调模式{_isOvershootMode}");
+                AddCycleLog($"│ 防超调分析: 体积误差{errorPercent:F2}%, 接近系数{approachFactor:F2}, 超调模式{_isOvershootMode}");
 
                 // 自适应PID参数 - 防超调优化
-                double adaptiveKp = GetConservativeKp(errorPercent, actualFlow, targetFlow) * approachFactor;
-                double adaptiveKi = GetConservativeKi(errorPercent, actualFlow, targetFlow) * approachFactor;
-                double adaptiveKd = GetConservativeKd(errorPercent, actualFlow, targetFlow);
+                double adaptiveKp = GetConservativeKp(errorPercent, actualVolumeFlow, targetVolumeFlow) * approachFactor;
+                double adaptiveKi = GetConservativeKi(errorPercent, actualVolumeFlow, targetVolumeFlow) * approachFactor;
+                double adaptiveKd = GetConservativeKd(errorPercent, actualVolumeFlow, targetVolumeFlow);
 
-                // PID计算
-                double proportional = adaptiveKp * currentError;
+                // PID计算 - 基于体积流量误差
+                double proportional = adaptiveKp * volumeError;
 
                 // 防超调的积分处理
-                _integralError += currentError;
-                ProcessIntegralWithOvershootProtection(actualFlow, targetFlow, currentError);
+                _integralError += volumeError;
+                ProcessIntegralWithOvershootProtection(actualVolumeFlow, targetVolumeFlow, volumeError);
 
                 double integral = adaptiveKi * _integralError;
-                double derivative = adaptiveKd * (currentError - _previousError);
-                _previousError = currentError;
+                double derivative = adaptiveKd * (volumeError - _previousError);
+                _previousError = volumeError;
 
                 double pidOutput = proportional + integral + derivative;
-                double rawNewSpeed = currentPumpSpeed + pidOutput; // 修正：应该是加
+                double rawNewSpeed = currentPumpSpeed + pidOutput;
 
                 // 防超调的变化限制
-                double maxChange = GetConservativeMaxChange(errorPercent, actualFlow, targetFlow, approachFactor);
+                double maxChange = GetConservativeMaxChange(errorPercent, actualVolumeFlow, targetVolumeFlow, approachFactor);
                 double speedChange = rawNewSpeed - currentPumpSpeed;
 
                 if (Math.Abs(speedChange) > maxChange)
@@ -232,24 +251,24 @@ namespace FlowMeter_ModbusTCP
                     rawNewSpeed = currentPumpSpeed + speedChange;
                 }
 
-                // 多层超调保护
-                rawNewSpeed = ApplyMultiLayerOvershootProtection(rawNewSpeed, currentPumpSpeed, actualFlow, targetFlow);
+                // 多层超调保护 - 基于体积流量
+                rawNewSpeed = ApplyMultiLayerOvershootProtection(rawNewSpeed, currentPumpSpeed, actualVolumeFlow, targetVolumeFlow);
 
                 // 最终滤波
-                double filterFactor = GetAdaptiveFilterFactor(errorPercent, actualFlow, targetFlow);
+                double filterFactor = GetAdaptiveFilterFactor(errorPercent, actualVolumeFlow, targetVolumeFlow);
                 double filteredSpeed = _lastPumpSpeedOutput * (1 - filterFactor) + rawNewSpeed * filterFactor;
                 double finalSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, filteredSpeed));
 
                 // 记录详细信息
-                LogAntiOvershootPIDDetails(targetFlow, actualFlow, currentError, proportional, integral, derivative,
+                LogAntiOvershootPIDDetails(targetMassFlow, actualMassFlow, currentError, proportional, integral, derivative,
                     pidOutput, currentPumpSpeed, rawNewSpeed, speedChange, filteredSpeed, finalSpeed,
-                    adaptiveKp, adaptiveKi, adaptiveKd, approachFactor, maxChange, filterFactor);
+                    adaptiveKp, adaptiveKi, adaptiveKd, approachFactor, maxChange, filterFactor, density);
 
                 return finalSpeed;
             }
             catch (Exception ex)
             {
-                AddCycleLog($"[ERROR] 防超调PID计算异常: {ex.Message}");
+                AddCycleLog($"[ERROR] 密度修正防超调PID计算异常: {ex.Message}");
                 return currentPumpSpeed;
             }
         }
@@ -366,7 +385,7 @@ namespace FlowMeter_ModbusTCP
         private void ProcessIntegralWithOvershootProtection(double actualFlow, double targetFlow, double currentError)
         {
             // 防超调的积分处理
-            if (actualFlow > targetFlow && currentError < 0) // 修正：超调时误差应该是负数
+            if (actualFlow > targetFlow && currentError < 0)
             {
                 // 如果已经超过目标且误差为负，不允许积分继续增加
                 _integralError = Math.Max(_integralError, 0);
@@ -410,7 +429,7 @@ namespace FlowMeter_ModbusTCP
                 _overshootProtectionCount++;
 
                 // 清除积分项，防止积分饱和
-                if (_integralError < 0) // 修正：超调时应该清除负向积分
+                if (_integralError < 0)
                 {
                     _integralError = 0;
                     AddCycleLog($"│ 超调保护: 清除负向积分");
@@ -528,22 +547,27 @@ namespace FlowMeter_ModbusTCP
         }
 
         /// <summary>
-        /// 优化的初始泵速计算 - 95%起步
+        /// 根据密度优化的泵速计算 - 98%起步
         /// </summary>
-        private double CalculateRequiredPumpSpeed(double targetFlow, double actualFlow = 0, double deviation = 0)
+        private double CalculateRequiredPumpSpeed(double targetMassFlow, double density, double actualFlow = 0, double deviation = 0)
         {
             double baseSpeed;
 
             if (_controlCycleCount == 0) // 首次启动
             {
-                // 98%积极起步，利用1:1关系
-                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.98;
-                WriteDetailedLog($"[积极起步] 目标流量={targetFlow:F2}g/min → 初始泵速={baseSpeed:F1}RPM (98%积极起步)");
+                // 计算体积流量：质量流量 / 密度
+                double requiredVolumeFlow = targetMassFlow / density;
+                // 98%积极起步，基于体积流量
+                baseSpeed = requiredVolumeFlow * FLOW_TO_SPEED_RATIO * 0.98;
+
+                WriteDetailedLog($"[密度修正积极起步] 目标质量流量={targetMassFlow:F2}g/min, 密度={density:F2}g/cm³");
+                WriteDetailedLog($"[密度修正积极起步] 所需体积流量={requiredVolumeFlow:F2}cm³/min → 初始泵速={baseSpeed:F1}RPM (98%积极起步)");
             }
             else
             {
                 // 后续启动保持积极
-                baseSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.95;
+                double requiredVolumeFlow = targetMassFlow / density;
+                baseSpeed = requiredVolumeFlow * FLOW_TO_SPEED_RATIO * 0.95;
             }
 
             baseSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, baseSpeed));
@@ -551,19 +575,24 @@ namespace FlowMeter_ModbusTCP
         }
 
         /// <summary>
-        /// 记录防超调PID详情
+        /// 记录密度修正防超调PID详情
         /// </summary>
-        private void LogAntiOvershootPIDDetails(double targetFlow, double actualFlow, double currentError,
+        private void LogAntiOvershootPIDDetails(double targetMassFlow, double actualMassFlow, double currentError,
             double proportional, double integral, double derivative, double pidOutput,
             double currentPumpSpeed, double rawNewSpeed, double speedChange,
             double filteredSpeed, double finalSpeed, double adaptiveKp, double adaptiveKi, double adaptiveKd,
-            double approachFactor, double maxChange, double filterFactor)
+            double approachFactor, double maxChange, double filterFactor, double density)
         {
-            AddCycleLog($"┌── 防超调PID详情 ──");
-            AddCycleLog($"│   目标流量: {targetFlow:F2} g/min");
-            AddCycleLog($"│   实际流量: {actualFlow:F2} g/min");
-            AddCycleLog($"│   流量误差: {currentError:F2} g/min");
-            AddCycleLog($"│   误差百分比: {Math.Abs(currentError / targetFlow) * 100:F3}%");
+            double targetVolumeFlow = targetMassFlow / density;
+            double actualVolumeFlow = actualMassFlow / density;
+            double volumeError = targetVolumeFlow - actualVolumeFlow;
+
+            AddCycleLog($"┌── 密度修正防超调PID详情 ──");
+            AddCycleLog($"│   液体密度: {density:F2} g/cm³");
+            AddCycleLog($"│   质量流量: 目标{targetMassFlow:F2} → 实际{actualMassFlow:F2} g/min");
+            AddCycleLog($"│   体积流量: 目标{targetVolumeFlow:F2} → 实际{actualVolumeFlow:F2} cm³/min");
+            AddCycleLog($"│   体积误差: {volumeError:F2} cm³/min");
+            AddCycleLog($"│   误差百分比: {Math.Abs(volumeError / targetVolumeFlow) * 100:F3}%");
             AddCycleLog($"│   ───");
             AddCycleLog($"│   自适应Kp: {adaptiveKp:F3} (基础{KP})");
             AddCycleLog($"│   自适应Ki: {adaptiveKi:F3} (基础{KI})");
@@ -590,7 +619,7 @@ namespace FlowMeter_ModbusTCP
 
         #endregion
 
-        #region 智能自动控制逻辑 - 防超调版本
+        #region 智能自动控制逻辑 - 密度修正防超调版本
 
         /// <summary>
         /// 启动智能自动控制
@@ -618,6 +647,12 @@ namespace FlowMeter_ModbusTCP
                 _autoControlEnabled = true;
                 _controlTimer = new Timer(AutoControlCallback, null, CONTROL_INTERVAL_MS, CONTROL_INTERVAL_MS);
 
+                double currentDensity;
+                lock (_densityLock)
+                {
+                    currentDensity = _currentDensity;
+                }
+
                 var startDetails = new
                 {
                     间隔 = $"{CONTROL_INTERVAL_MS}ms",
@@ -627,18 +662,21 @@ namespace FlowMeter_ModbusTCP
                     PID参数 = $"Kp={KP}, Ki={KI}, Kd={KD}",
                     智能检测 = $"三档动态等待",
                     目标流量 = $"{_targetFlow}g/min",
-                    防超调 = "启用"
+                    液体密度 = $"{currentDensity}g/cm³",
+                    防超调 = "启用",
+                    密度修正 = "启用"
                 };
 
-                LogControlStateChange("防超调智能流量控制启动", startDetails);
+                LogControlStateChange("密度修正防超调智能流量控制启动", startDetails);
 
                 WriteDetailedLog("");
                 WriteDetailedLog("★".PadRight(100, '★'));
-                WriteDetailedLog($"防超调智能控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                WriteDetailedLog($"密度修正防超调智能控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
                 WriteDetailedLog($"目标流量: {_targetFlow} g/min");
+                WriteDetailedLog($"液体密度: {currentDensity} g/cm³");
                 WriteDetailedLog($"控制参数: 间隔={CONTROL_INTERVAL_MS}ms, 容差=±{FLOW_TOLERANCE_PERCENT}%, 死区=±{DEAD_ZONE_PERCENT}%");
                 WriteDetailedLog($"超调保护: ±{UPPER_PROTECTION_PERCENT}% 阈值");
-                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (优化版本)");
+                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (密度修正版本)");
                 WriteDetailedLog($"智能检测: 三档动态等待 (低速{LOW_SPEED_WAIT_MS / 1000}s, 中速{MID_SPEED_WAIT_MS / 1000}s, 高速{HIGH_SPEED_WAIT_MS / 1000}s)");
                 WriteDetailedLog("★".PadRight(100, '★'));
                 WriteDetailedLog("");
@@ -668,19 +706,19 @@ namespace FlowMeter_ModbusTCP
                     总周期数 = _controlCycleCount,
                     平均周期间隔 = $"{duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms",
                     超调保护次数 = _overshootProtectionCount,
-                    版本 = "三档动态等待版本"
+                    版本 = "密度修正三档动态等待版本"
                 };
 
-                LogControlStateChange("防超调智能流量控制停止", stopDetails);
+                LogControlStateChange("密度修正防超调智能流量控制停止", stopDetails);
 
                 WriteDetailedLog("");
                 WriteDetailedLog("■".PadRight(100, '■'));
-                WriteDetailedLog($"防超调智能控制停止 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                WriteDetailedLog($"密度修正防超调智能控制停止 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
                 WriteDetailedLog($"运行时长: {duration.TotalMinutes:F1}分钟");
                 WriteDetailedLog($"总控制周期: {_controlCycleCount}次");
                 WriteDetailedLog($"平均周期间隔: {duration.TotalMilliseconds / Math.Max(_controlCycleCount, 1):F0}ms");
                 WriteDetailedLog($"超调保护触发: {_overshootProtectionCount}次");
-                WriteDetailedLog($"版本: 三档动态等待智能控制系统");
+                WriteDetailedLog($"版本: 密度修正三档动态等待智能控制系统");
                 WriteDetailedLog("■".PadRight(100, '■'));
                 WriteDetailedLog("");
 
@@ -705,21 +743,21 @@ namespace FlowMeter_ModbusTCP
             }
             catch (Exception ex)
             {
-                WriteDetailedLog($"[ERROR] 防超调控制执行异常: {ex.Message}");
+                WriteDetailedLog($"[ERROR] 密度修正防超调控制执行异常: {ex.Message}");
                 WriteDetailedLog($"[ERROR] 异常堆栈: {ex.StackTrace}");
-                ErrorLog("防超调控制执行异常", ex);
+                ErrorLog("密度修正防超调控制执行异常", ex);
             }
         }
 
         /// <summary>
-        /// 执行防超调智能控制逻辑
+        /// 执行密度修正防超调智能控制逻辑
         /// </summary>
-
         private async Task PerformAntiOvershootControlAsync()
         {
             StartCycleLog();
 
             double targetFlow;
+            double currentDensity;
             bool controlEnabled;
 
             lock (_controlLock)
@@ -739,6 +777,11 @@ namespace FlowMeter_ModbusTCP
                 targetFlow = _targetFlow;
             }
 
+            lock (_densityLock)
+            {
+                currentDensity = _currentDensity;
+            }
+
             if (targetFlow <= 0)
             {
                 AddCycleLog($"目标流量无效 ({targetFlow})，跳过本周期");
@@ -746,7 +789,8 @@ namespace FlowMeter_ModbusTCP
                 return;
             }
 
-            AddCycleLog($"目标流量: {targetFlow:F2} g/min");
+            AddCycleLog($"目标质量流量: {targetFlow:F2} g/min");
+            AddCycleLog($"液体密度: {currentDensity:F2} g/cm³");
 
             try
             {
@@ -763,8 +807,9 @@ namespace FlowMeter_ModbusTCP
                     }
                     catch (Exception ex)
                     {
-                        currentPumpSpeed = targetFlow * 0.98; // 改为98%默认值
-                        AddCycleLog($"│ 泵速读取失败，使用默认值: {currentPumpSpeed:F1} RPM");
+                        // 使用密度修正的默认值
+                        currentPumpSpeed = (targetFlow / currentDensity) * 0.98;
+                        AddCycleLog($"│ 泵速读取失败，使用密度修正默认值: {currentPumpSpeed:F1} RPM");
                     }
                 }
                 else
@@ -777,18 +822,22 @@ namespace FlowMeter_ModbusTCP
 
                 if (isFirstSetup)
                 {
-                    // *** 首次设置：直接使用98%积极起步，跳过PID计算 ***
-                    double firstSetupSpeed = targetFlow * FLOW_TO_SPEED_RATIO * 0.98;
+                    // *** 首次设置：使用密度修正的98%积极起步 ***
+                    double requiredVolumeFlow = targetFlow / currentDensity;
+                    double firstSetupSpeed = requiredVolumeFlow * FLOW_TO_SPEED_RATIO * 0.98;
                     firstSetupSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, firstSetupSpeed));
 
-                    AddCycleLog("┌── 首次积极起步策略 ──");
-                    AddCycleLog($"│ 🚀 首次设置使用98%积极起步");
-                    AddCycleLog($"│ 计算泵速: {targetFlow:F2} × 0.98 = {firstSetupSpeed:F1} RPM");
+                    AddCycleLog("┌── 密度修正首次积极起步策略 ──");
+                    AddCycleLog($"│ 🚀 首次设置使用密度修正98%积极起步");
+                    AddCycleLog($"│ 目标质量流量: {targetFlow:F2} g/min");
+                    AddCycleLog($"│ 液体密度: {currentDensity:F2} g/cm³");
+                    AddCycleLog($"│ 所需体积流量: {requiredVolumeFlow:F2} cm³/min");
+                    AddCycleLog($"│ 计算泵速: {requiredVolumeFlow:F2} × 0.98 = {firstSetupSpeed:F1} RPM");
                     AddCycleLog($"│ 跳过PID计算，直接设置泵速");
-                    AddCycleLog($"└─ 首次起步泵速: {firstSetupSpeed:F1} RPM");
+                    AddCycleLog($"└─ 密度修正首次起步泵速: {firstSetupSpeed:F1} RPM");
 
                     // 直接设置泵速
-                    AddCycleLog("┌── 步骤: 设置首次起步泵速 ──");
+                    AddCycleLog("┌── 步骤: 设置密度修正首次起步泵速 ──");
                     var firstSetStart = DateTime.Now;
                     bool firstSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, firstSetupSpeed);
                     var firstSetDuration = DateTime.Now - firstSetStart;
@@ -797,36 +846,42 @@ namespace FlowMeter_ModbusTCP
                     {
                         _lastPumpSpeedOutput = firstSetupSpeed;
                         _previousPumpSpeed = firstSetupSpeed;
-                        AddCycleLog($"│ ✅ 首次设置成功: {firstSetupSpeed:F1} RPM (耗时: {firstSetDuration.TotalMilliseconds:F0}ms)");
-                        EndCycleLog($"首次98%积极起步: {firstSetupSpeed:F1} RPM");
+                        AddCycleLog($"│ ✅ 密度修正首次设置成功: {firstSetupSpeed:F1} RPM (耗时: {firstSetDuration.TotalMilliseconds:F0}ms)");
+                        EndCycleLog($"密度修正首次98%积极起步: {firstSetupSpeed:F1} RPM (密度{currentDensity:F2})");
                     }
                     else
                     {
-                        AddCycleLog($"│ ❌ 首次设置失败: {firstSetupSpeed:F1} RPM");
-                        EndCycleLog($"首次泵速设置失败: {firstSetupSpeed:F1} RPM");
+                        AddCycleLog($"│ ❌ 密度修正首次设置失败: {firstSetupSpeed:F1} RPM");
+                        EndCycleLog($"密度修正首次泵速设置失败: {firstSetupSpeed:F1} RPM");
                     }
-                    AddCycleLog($"└─ 首次设置结果: {(firstSetSuccess ? "成功" : "失败")}");
+                    AddCycleLog($"└─ 密度修正首次设置结果: {(firstSetSuccess ? "成功" : "失败")}");
                     return;
                 }
 
-                // *** 非首次设置：正常PID控制流程 ***
+                // *** 非首次设置：正常密度修正PID控制流程 ***
 
                 // *** 智能三档等待流量稳定 ***
                 AddCycleLog("┌── 步骤1: 智能三档等待流量稳定 ──");
                 var (finalFlow, stabilizeTime, readings) = await SmartWaitForStability(targetFlow, currentPumpSpeed);
-                AddCycleLog($"│ 流量已稳定: {finalFlow:F2} g/min");
+                AddCycleLog($"│ 质量流量已稳定: {finalFlow:F2} g/min");
                 AddCycleLog($"│ 实际等待: {stabilizeTime:F1}秒");
                 AddCycleLog($"│ 监测次数: {readings}次");
                 AddCycleLog($"└─ 智能稳定检测完成");
 
                 double actualFlow = finalFlow;
 
-                // 2. 计算流量偏差
-                AddCycleLog("┌── 步骤2: 计算流量偏差 ──");
-                double flowError = targetFlow - actualFlow;
-                double errorPercent = Math.Abs(flowError / targetFlow) * 100.0;
+                // 2. 计算流量偏差 - 基于质量流量
+                AddCycleLog("┌── 步骤2: 计算质量流量偏差 ──");
+                double massFlowError = targetFlow - actualFlow;
+                double errorPercent = Math.Abs(massFlowError / targetFlow) * 100.0;
 
-                AddCycleLog($"│ 流量误差: {flowError:F2} g/min");
+                // 同时计算体积流量信息用于显示
+                double targetVolumeFlow = targetFlow / currentDensity;
+                double actualVolumeFlow = actualFlow / currentDensity;
+                double volumeFlowError = targetVolumeFlow - actualVolumeFlow;
+
+                AddCycleLog($"│ 质量流量误差: {massFlowError:F2} g/min");
+                AddCycleLog($"│ 体积流量误差: {volumeFlowError:F2} cm³/min");
                 AddCycleLog($"│ 误差百分比: {errorPercent:F3}%");
                 AddCycleLog($"│ 死区范围: ±{DEAD_ZONE_PERCENT}%");
                 AddCycleLog($"│ 容差范围: ±{FLOW_TOLERANCE_PERCENT}%");
@@ -842,9 +897,9 @@ namespace FlowMeter_ModbusTCP
                     var oldIntegral = _integralError;
                     _integralError *= 0.92;
                     AddCycleLog($"│ 积分误差衰减: {oldIntegral:F3} → {_integralError:F3}");
-                    AddCycleLog($"│ 🎯 防超调死区稳定 - 保持当前泵速");
+                    AddCycleLog($"│ 🎯 密度修正防超调死区稳定 - 保持当前泵速");
 
-                    EndCycleLog($"防超调死区稳定 (偏差{errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%) - 连续{_stableCount}次");
+                    EndCycleLog($"密度修正防超调死区稳定 (偏差{errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%, 密度{currentDensity:F2}) - 连续{_stableCount}次");
                     return;
                 }
 
@@ -859,9 +914,9 @@ namespace FlowMeter_ModbusTCP
                     {
                         AddCycleLog($"│ 🎯 达到连续稳定要求 ({_stableCount} ≥ {STABLE_CYCLES_REQUIRED})");
                         _integralError = 0;
-                        AddCycleLog($"│ 积分误差已清零 - 系统防超调稳定");
+                        AddCycleLog($"│ 积分误差已清零 - 密度修正系统防超调稳定");
 
-                        EndCycleLog($"防超调流量稳定 (连续{_stableCount}次在容差内)");
+                        EndCycleLog($"密度修正防超调流量稳定 (连续{_stableCount}次在容差内, 密度{currentDensity:F2})");
                         return;
                     }
                     else
@@ -895,9 +950,9 @@ namespace FlowMeter_ModbusTCP
                 }
                 AddCycleLog($"└─ 当前泵速: {currentPumpSpeed:F1} RPM");
 
-                // 6. 防超调PID控制计算
-                AddCycleLog("┌── 步骤4: 防超调PID控制计算 ──");
-                double newPumpSpeed = CalculateAntiOvershootPumpSpeed(targetFlow, actualFlow, flowError, currentPumpSpeed);
+                // 6. 密度修正防超调PID控制计算
+                AddCycleLog("┌── 步骤4: 密度修正防超调PID控制计算 ──");
+                double newPumpSpeed = CalculateAntiOvershootPumpSpeed(targetFlow, actualFlow, massFlowError, currentPumpSpeed, currentDensity);
                 AddCycleLog($"└─ 计算的新泵速: {newPumpSpeed:F1} RPM");
 
                 // 7. 设置新泵速
@@ -913,7 +968,7 @@ namespace FlowMeter_ModbusTCP
                     AddCycleLog($"│ ✅ 设置成功: {newPumpSpeed:F1} RPM (耗时: {pumpSetDuration.TotalMilliseconds:F0}ms)");
                     AddCycleLog($"│ 泵速变化: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM");
 
-                    var summary = $"防超调调整: {currentPumpSpeed:F1}→{newPumpSpeed:F1}RPM, 流量偏差: {errorPercent:F3}%";
+                    var summary = $"密度修正防超调调整: {currentPumpSpeed:F1}→{newPumpSpeed:F1}RPM, 流量偏差: {errorPercent:F3}%, 密度: {currentDensity:F2}";
                     if (_isOvershootMode)
                     {
                         summary += " [超调保护模式]";
@@ -923,13 +978,13 @@ namespace FlowMeter_ModbusTCP
                 else
                 {
                     AddCycleLog($"│ ❌ 设置失败: {newPumpSpeed:F1} RPM");
-                    EndCycleLog($"泵速设置失败: {newPumpSpeed:F1} RPM");
+                    EndCycleLog($"密度修正泵速设置失败: {newPumpSpeed:F1} RPM");
                 }
                 AddCycleLog($"└─ 设置结果: {(adjustSuccess ? "成功" : "失败")}");
             }
             catch (Exception ex)
             {
-                AddCycleLog($"[ERROR] 防超调控制异常: {ex.Message}");
+                AddCycleLog($"[ERROR] 密度修正防超调控制异常: {ex.Message}");
                 EndCycleLog($"异常: {ex.Message}");
                 throw;
             }
@@ -1011,16 +1066,23 @@ namespace FlowMeter_ModbusTCP
                         await Task.Delay(500);
                         lock (_stateLock)
                         {
-                            // 模拟更真实的系统响应，包含惯性和延迟
-                            var targetResponse = speed * 0.98;
+                            double currentDensity;
+                            lock (_densityLock)
+                            {
+                                currentDensity = _currentDensity;
+                            }
+
+                            // 模拟更真实的系统响应，包含密度影响、惯性和延迟
+                            var targetVolumeResponse = speed * 0.98; // 体积流量响应
+                            var targetMassResponse = targetVolumeResponse * currentDensity; // 质量流量响应
                             var oldCurrentFlow = _currentFlow;
 
                             // 降低响应速度，模拟实际系统的惯性
                             double responseRate = 0.25;
-                            _currentFlow = _currentFlow * (1 - responseRate) + targetResponse * responseRate;
+                            _currentFlow = _currentFlow * (1 - responseRate) + targetMassResponse * responseRate;
                             _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
 
-                            WriteDetailedLog($"[防超调模拟响应] 泵速={speed:F1}RPM → 目标响应={targetResponse:F2}g/min → 流量更新: {oldCurrentFlow:F2} → {_currentFlow:F2}g/min");
+                            WriteDetailedLog($"[密度修正防超调模拟响应] 泵速={speed:F1}RPM → 体积响应={targetVolumeResponse:F2}cm³/min → 密度={currentDensity:F2}g/cm³ → 质量响应={targetMassResponse:F2}g/min → 流量更新: {oldCurrentFlow:F2} → {_currentFlow:F2}g/min");
                         }
                     });
 
@@ -1054,13 +1116,20 @@ namespace FlowMeter_ModbusTCP
                 {
                     lock (_stateLock)
                     {
-                        // 模拟更真实的流量响应，增加防超调特性
-                        var targetResponse = _lastPumpSpeedOutput * 0.95;
+                        double currentDensity;
+                        lock (_densityLock)
+                        {
+                            currentDensity = _currentDensity;
+                        }
+
+                        // 模拟更真实的流量响应，增加防超调特性和密度影响
+                        var targetVolumeResponse = _lastPumpSpeedOutput * 0.95;
+                        var targetMassResponse = targetVolumeResponse * currentDensity;
                         var random = new Random();
 
                         // 模拟系统响应延迟和噪声，增加惯性防止快速变化
                         double responseRate = 0.12; // 降低响应速度，防止模拟超调
-                        _currentFlow = _currentFlow * (1 - responseRate) + targetResponse * responseRate;
+                        _currentFlow = _currentFlow * (1 - responseRate) + targetMassResponse * responseRate;
                         _currentFlow += (random.NextDouble() - 0.5) * 0.05; // 减小噪声
                         _currentFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, _currentFlow));
 
@@ -1097,10 +1166,10 @@ namespace FlowMeter_ModbusTCP
                 }
 
                 var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                _logFilePath = Path.Combine(logDir, $"FlowControl_AntiOvershoot_{timestamp}.log");
+                _logFilePath = Path.Combine(logDir, $"FlowControl_DensityCorrection_AntiOvershoot_{timestamp}.log");
 
                 WriteDetailedLog("=".PadRight(100, '='));
-                WriteDetailedLog($"防超调智能流量控制详细日志启动");
+                WriteDetailedLog($"密度修正防超调智能流量控制详细日志启动");
                 WriteDetailedLog($"设备: {Name} ({ComId})");
                 WriteDetailedLog($"日志文件: {_logFilePath}");
                 WriteDetailedLog($"启动时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
@@ -1108,6 +1177,7 @@ namespace FlowMeter_ModbusTCP
                 WriteDetailedLog($"控制周期间隔: {CONTROL_INTERVAL_MS}ms");
                 WriteDetailedLog($"防超调控制: 容差±{FLOW_TOLERANCE_PERCENT}%, 死区±{DEAD_ZONE_PERCENT}%, 保护±{UPPER_PROTECTION_PERCENT}%");
                 WriteDetailedLog($"优化PID: Kp={KP}, Ki={KI}, Kd={KD}");
+                WriteDetailedLog($"密度范围: {MIN_DENSITY}-{MAX_DENSITY} g/cm³, 默认: {DEFAULT_WATER_DENSITY} g/cm³");
                 WriteDetailedLog("=".PadRight(100, '='));
                 WriteDetailedLog("");
             }
@@ -1145,7 +1215,7 @@ namespace FlowMeter_ModbusTCP
         {
             _controlCycleCount++;
             _currentCycleLog.Clear();
-            _currentCycleLog.AppendLine($"┌─ 防超调控制周期 #{_controlCycleCount} 开始 ─ {DateTime.Now:HH:mm:ss.fff} ────");
+            _currentCycleLog.AppendLine($"┌─ 密度修正防超调控制周期 #{_controlCycleCount} 开始 ─ {DateTime.Now:HH:mm:ss.fff} ────");
         }
 
         /// <summary>
@@ -1162,7 +1232,7 @@ namespace FlowMeter_ModbusTCP
         private void EndCycleLog(string result)
         {
             _currentCycleLog.AppendLine($"│ 周期结果: {result}");
-            _currentCycleLog.AppendLine($"└─ 防超调控制周期 #{_controlCycleCount} 结束 ─ {DateTime.Now:HH:mm:ss.fff} ────");
+            _currentCycleLog.AppendLine($"└─ 密度修正防超调控制周期 #{_controlCycleCount} 结束 ─ {DateTime.Now:HH:mm:ss.fff} ────");
             _currentCycleLog.AppendLine("");
 
             WriteDetailedLog(_currentCycleLog.ToString());
@@ -1193,26 +1263,33 @@ namespace FlowMeter_ModbusTCP
             {
                 Name = "获取基准流量",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
-                HelpText = "读取ModbusTCP地址40030获取基准流量",
+                HelpText = "读取ModbusTCP地址40030获取基准质量流量",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, 0, "基准流量(g/min)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, 0, "基准质量流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, 0, "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true }
                     }
                 },
                 Action = WrapAction("获取基准流量", async delegate (DeviceParameters parameters)
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
                     double baseFlow = 0;
+                    double currentDensity;
+
+                    lock (_densityLock)
+                    {
+                        currentDensity = _currentDensity;
+                    }
 
                     try
                     {
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
                             baseFlow = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
-                            InfoLog($"从ModbusTCP地址40030获取基准流量: {baseFlow} g/min");
+                            InfoLog($"从ModbusTCP地址40030获取基准质量流量: {baseFlow} g/min (密度: {currentDensity} g/cm³)");
                         }
                         else if (IsSimulationMode)
                         {
@@ -1220,7 +1297,7 @@ namespace FlowMeter_ModbusTCP
                             {
                                 baseFlow = _currentFlow;
                             }
-                            InfoLog($"模拟模式获取基准流量: {baseFlow} g/min");
+                            InfoLog($"模拟模式获取基准质量流量: {baseFlow} g/min (密度: {currentDensity} g/cm³)");
                         }
                         else
                         {
@@ -1237,24 +1314,29 @@ namespace FlowMeter_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, Math.Round(baseFlow, 2), "基准流量(g/min)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, Math.Round(baseFlow, 2), "基准质量流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, Math.Round(currentDensity, 2), "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true }
                         }
                     };
                 })
             });
 
-            // 2. 设置基准流量 - 优化版本
+            // 2. 设置基准流量 - 密度修正版本
             Commands.Add(new DeviceCommand
             {
                 Name = "设置基准流量",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/speed_set.png",
-                HelpText = "设置目标流量并启动优化的防超调智能PID控制，95%起步策略",
+                HelpText = "设置目标质量流量和液体密度，启动密度修正的防超调智能PID控制",
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 50.0, "目标基准流量(g/min)"),
-                        new BooleanParameter("EnableAutoControl", true, "启用防超调智能控制")
+                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 50.0, "目标质量流量(g/min)"),
+                        new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, DEFAULT_WATER_DENSITY, "液体密度(g/cm³)")
+                        {
+                            HelpText = "输入液体密度：水=1.0，导热油通常0.8-0.9，其他液体请查阅资料"
+                        },
+                        new BooleanParameter("EnableAutoControl", true, "启用密度修正防超调智能控制")
                     }
                 },
                 OutputParameters = new DeviceParameters
@@ -1262,65 +1344,86 @@ namespace FlowMeter_ModbusTCP
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
                         new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("AutoControlStarted", false, "防超调控制已启动") { IsVisibleInVariableManager = true }
+                        new BooleanParameter("AutoControlStarted", false, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
                     }
                 },
                 Action = WrapAction("设置基准流量", async delegate (DeviceParameters parameters)
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
                     double targetFlow = parameters.GetValue<double>("TargetFlow");
+                    double density = parameters.GetValue<double>("Density");
                     bool enableAutoControl = parameters.GetValue<bool>("EnableAutoControl");
                     bool success = false;
                     double calculatedSpeed = 0;
+                    double requiredVolumeFlow = 0;
                     bool autoControlStarted = false;
 
+                    // 参数验证和限制
                     targetFlow = Math.Max(0, Math.Min(MAX_FLOW_RATE, targetFlow));
+                    density = Math.Max(MIN_DENSITY, Math.Min(MAX_DENSITY, density));
 
                     try
                     {
+                        // 设置目标流量和密度
                         lock (_stateLock)
                         {
                             _targetFlow = targetFlow;
                         }
 
-                        calculatedSpeed = CalculateRequiredPumpSpeed(targetFlow);
-                        InfoLog($"计算所需初始泵速: {calculatedSpeed} RPM (优化95%设置: {targetFlow} g/min)");
-
-                        var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
-                        var pumpSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, calculatedSpeed);
-
-                        if (pumpSetSuccess)
+                        lock (_densityLock)
                         {
-                            InfoLog($"初始泵速设置成功: {calculatedSpeed} RPM");
-                            success = true;
+                            _currentDensity = density;
+                        }
 
-                            if (enableAutoControl && targetFlow > 0)
+                        // 计算所需体积流量和泵速
+                        if (targetFlow > 0)
+                        {
+                            requiredVolumeFlow = targetFlow / density;
+                            calculatedSpeed = CalculateRequiredPumpSpeed(targetFlow, density);
+
+                            InfoLog($"密度修正计算: 目标质量流量={targetFlow}g/min, 密度={density}g/cm³ → 所需体积流量={requiredVolumeFlow:F2}cm³/min → 初始泵速={calculatedSpeed}RPM");
+
+                            var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                            var pumpSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, calculatedSpeed);
+
+                            if (pumpSetSuccess)
                             {
-                                StartAutoControl();
-                                autoControlStarted = true;
-                                InfoLog($"优化防超调智能PID控制已启动 - 目标流量: {targetFlow} g/min, 三档动态等待策略");
+                                InfoLog($"密度修正初始泵速设置成功: {calculatedSpeed} RPM");
+                                success = true;
+
+                                if (enableAutoControl)
+                                {
+                                    StartAutoControl();
+                                    autoControlStarted = true;
+                                    InfoLog($"密度修正防超调智能PID控制已启动 - 目标质量流量: {targetFlow} g/min, 密度: {density} g/cm³, 三档动态等待策略");
+                                }
+                            }
+                            else
+                            {
+                                WarnLog($"密度修正初始泵速设置失败: {calculatedSpeed} RPM");
+                            }
+
+                            if (success)
+                            {
+                                AddActiveState("FlowControlActive", "设置基准流量", "停止流量控制", stateData: new { targetFlow, density });
                             }
                         }
                         else
                         {
-                            WarnLog($"初始泵速设置失败: {calculatedSpeed} RPM");
-                        }
-
-                        if (success && targetFlow > 0)
-                        {
-                            AddActiveState("FlowControlActive", "设置基准流量", "停止流量控制", stateData: targetFlow);
-                        }
-                        else if (success && targetFlow == 0)
-                        {
+                            // 目标流量为0，停止控制
                             StopAutoControl();
                             RemoveActiveState("FlowControlActive");
+                            success = true;
+                            InfoLog("目标流量设置为0，密度修正流量控制已停止");
                         }
                     }
                     catch (Exception ex)
                     {
-                        ErrorLog($"设置基准流量失败: {ex.Message}");
+                        ErrorLog($"设置密度修正基准流量失败: {ex.Message}");
                         throw;
                     }
 
@@ -1329,9 +1432,11 @@ namespace FlowMeter_ModbusTCP
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, density, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(requiredVolumeFlow, 2), "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
                             new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("AutoControlStarted", autoControlStarted, "防超调控制已启动") { IsVisibleInVariableManager = true }
+                            new BooleanParameter("AutoControlStarted", autoControlStarted, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
                         }
                     };
                 })
@@ -1342,7 +1447,7 @@ namespace FlowMeter_ModbusTCP
             {
                 Name = "停止流量控制",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/off.png",
-                HelpText = "停止防超调智能流量控制并设置泵速为0",
+                HelpText = "停止密度修正防超调智能流量控制并设置泵速为0",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
@@ -1359,7 +1464,7 @@ namespace FlowMeter_ModbusTCP
                     try
                     {
                         StopAutoControl();
-                        InfoLog("防超调智能自动控制已停止");
+                        InfoLog("密度修正防超调智能自动控制已停止");
 
                         var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
                         success = await SetPumpSpeedAsync(pumpDeviceId, 0);
@@ -1378,7 +1483,7 @@ namespace FlowMeter_ModbusTCP
                     }
                     catch (Exception ex)
                     {
-                        ErrorLog($"停止流量控制失败: {ex.Message}");
+                        ErrorLog($"停止密度修正流量控制失败: {ex.Message}");
                         throw;
                     }
 
@@ -1392,22 +1497,25 @@ namespace FlowMeter_ModbusTCP
                 })
             });
 
-            // 4. 获取控制状态 - 包含三档等待信息
+            // 4. 获取控制状态 - 包含密度信息
             Commands.Add(new DeviceCommand
             {
                 Name = "获取控制状态",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/status.png",
-                HelpText = "获取优化防超调智能流量控制系统当前状态",
+                HelpText = "获取密度修正防超调智能流量控制系统当前状态",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new BooleanParameter("AutoControlEnabled", false, "防超调控制启用") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 0, "目标流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, 0, "当前流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, 0, "流量偏差(g/min)") { IsVisibleInVariableManager = true },
+                        new BooleanParameter("AutoControlEnabled", false, "密度修正防超调控制启用") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 0, "目标质量流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, 0, "当前质量流量(g/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, 0, "质量流量偏差(g/min)") { IsVisibleInVariableManager = true },
                         new NumberParameter("DeviationPercent", -100, 100, 0, "偏差百分比(%)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, 0, "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TargetVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "目标体积流量(cm³/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "当前体积流量(cm³/min)") { IsVisibleInVariableManager = true },
                         new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, 0, "当前泵速(RPM)") { IsVisibleInVariableManager = true },
                         new BooleanParameter("OvershootMode", false, "超调保护模式") { IsVisibleInVariableManager = true },
                         new StringParameter("ControlStatus", "", "控制状态") { IsVisibleInVariableManager = true }
@@ -1421,6 +1529,9 @@ namespace FlowMeter_ModbusTCP
                     double currentFlow = 0;
                     double flowDeviation = 0;
                     double deviationPercent = 0;
+                    double currentDensity = 0;
+                    double targetVolumeFlow = 0;
+                    double currentVolumeFlow = 0;
                     double currentPumpSpeed = 0;
                     bool overshootMode = false;
                     string controlStatus = "";
@@ -1438,7 +1549,19 @@ namespace FlowMeter_ModbusTCP
                             currentFlow = _currentFlow;
                         }
 
+                        lock (_densityLock)
+                        {
+                            currentDensity = _currentDensity;
+                        }
+
                         overshootMode = _isOvershootMode;
+
+                        // 计算体积流量
+                        if (currentDensity > 0)
+                        {
+                            targetVolumeFlow = targetFlow / currentDensity;
+                            currentVolumeFlow = currentFlow / currentDensity;
+                        }
 
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
@@ -1448,6 +1571,12 @@ namespace FlowMeter_ModbusTCP
                                 lock (_stateLock)
                                 {
                                     _currentFlow = currentFlow;
+                                }
+
+                                // 重新计算体积流量
+                                if (currentDensity > 0)
+                                {
+                                    currentVolumeFlow = currentFlow / currentDensity;
                                 }
 
                                 var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
@@ -1472,7 +1601,7 @@ namespace FlowMeter_ModbusTCP
 
                         var (waitTime, speedLevel) = GetWaitTimeByPumpSpeed(currentPumpSpeed);
                         controlStatus = autoControlEnabled ?
-                            $"优化PID控制中 (目标:{targetFlow:F1}g/min, 偏差:{deviationPercent:F3}%, {speedLevel}档{waitTime / 1000}s等待)" :
+                            $"密度修正PID控制中 (目标:{targetFlow:F1}g/min, 密度:{currentDensity:F2}g/cm³, 偏差:{deviationPercent:F3}%, {speedLevel}档{waitTime / 1000}s等待)" :
                             "手动模式";
 
                         if (overshootMode)
@@ -1480,12 +1609,12 @@ namespace FlowMeter_ModbusTCP
                             controlStatus += " [超调保护激活]";
                         }
 
-                        InfoLog($"防超调流量控制状态: 自动={autoControlEnabled}, 目标={targetFlow:F2}, 实际={currentFlow:F2}, " +
-                               $"偏差={deviationPercent:F3}%, 泵速={currentPumpSpeed:F1}({speedLevel}), 超调保护={overshootMode}");
+                        InfoLog($"密度修正防超调流量控制状态: 自动={autoControlEnabled}, 目标={targetFlow:F2}g/min, 实际={currentFlow:F2}g/min, " +
+                               $"偏差={deviationPercent:F3}%, 密度={currentDensity:F2}g/cm³, 体积流量={currentVolumeFlow:F2}cm³/min, 泵速={currentPumpSpeed:F1}RPM({speedLevel}), 超调保护={overshootMode}");
                     }
                     catch (Exception ex)
                     {
-                        ErrorLog($"获取控制状态失败: {ex.Message}");
+                        ErrorLog($"获取密度修正控制状态失败: {ex.Message}");
                         controlStatus = $"状态获取失败: {ex.Message}";
                     }
 
@@ -1493,14 +1622,108 @@ namespace FlowMeter_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new BooleanParameter("AutoControlEnabled", autoControlEnabled, "防超调控制启用") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, Math.Round(targetFlow, 3), "目标流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, Math.Round(currentFlow, 3), "当前流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, Math.Round(flowDeviation, 3), "流量偏差(g/min)") { IsVisibleInVariableManager = true },
+                            new BooleanParameter("AutoControlEnabled", autoControlEnabled, "密度修正防超调控制启用") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, Math.Round(targetFlow, 3), "目标质量流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, Math.Round(currentFlow, 3), "当前质量流量(g/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, Math.Round(flowDeviation, 3), "质量流量偏差(g/min)") { IsVisibleInVariableManager = true },
                             new NumberParameter("DeviationPercent", -100, 100, Math.Round(deviationPercent, 3), "偏差百分比(%)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, Math.Round(currentDensity, 2), "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TargetVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(targetVolumeFlow, 2), "目标体积流量(cm³/min)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("CurrentVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(currentVolumeFlow, 2), "当前体积流量(cm³/min)") { IsVisibleInVariableManager = true },
                             new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, Math.Round(currentPumpSpeed, 1), "当前泵速(RPM)") { IsVisibleInVariableManager = true },
                             new BooleanParameter("OvershootMode", overshootMode, "超调保护模式") { IsVisibleInVariableManager = true },
                             new StringParameter("ControlStatus", controlStatus, "控制状态") { IsVisibleInVariableManager = true }
+                        }
+                    };
+                })
+            });
+
+            // 5. 设置液体密度命令
+            Commands.Add(new DeviceCommand
+            {
+                Name = "设置液体密度",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/density.png",
+                HelpText = "单独设置液体密度参数，用于不同液体的切换",
+                InputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, DEFAULT_WATER_DENSITY, "液体密度(g/cm³)")
+                        {
+                            HelpText = "常见液体密度：水=1.0，乙醇=0.789，导热油=0.8-0.9，甘油=1.26"
+                        }
+                    }
+                },
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+                    {
+                        new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
+                        new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, 0, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
+                    }
+                },
+                Action = WrapAction("设置液体密度", async delegate (DeviceParameters parameters)
+                {
+                    double newDensity = parameters.GetValue<double>("Density");
+                    double previousDensity;
+                    bool success = false;
+
+                    // 参数验证和限制
+                    newDensity = Math.Max(MIN_DENSITY, Math.Min(MAX_DENSITY, newDensity));
+
+                    try
+                    {
+                        lock (_densityLock)
+                        {
+                            previousDensity = _currentDensity;
+                            _currentDensity = newDensity;
+                        }
+
+                        success = true;
+                        InfoLog($"液体密度已更新: {previousDensity:F2} → {newDensity:F2} g/cm³");
+
+                        // 如果控制正在运行，记录密度变化对控制的影响
+                        bool isControlActive;
+                        lock (_controlLock)
+                        {
+                            isControlActive = _autoControlEnabled;
+                        }
+
+                        if (isControlActive)
+                        {
+                            double targetFlow;
+                            lock (_stateLock)
+                            {
+                                targetFlow = _targetFlow;
+                            }
+
+                            if (targetFlow > 0)
+                            {
+                                double oldVolumeFlow = targetFlow / previousDensity;
+                                double newVolumeFlow = targetFlow / newDensity;
+                                InfoLog($"密度变化影响分析: 目标质量流量{targetFlow}g/min → 体积流量需求 {oldVolumeFlow:F2}→{newVolumeFlow:F2}cm³/min");
+                                WarnLog("密度已变化，建议观察控制系统响应，必要时重新设置基准流量");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorLog($"设置液体密度失败: {ex.Message}");
+                        lock (_densityLock)
+                        {
+                            previousDensity = _currentDensity; // 获取当前值作为previous
+                        }
+                        throw;
+                    }
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+                        {
+                            new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
+                            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, newDensity, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, previousDensity, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
                         }
                     };
                 })
@@ -1530,10 +1753,10 @@ namespace FlowMeter_ModbusTCP
             {
                 if (!_activeStates.Any())
                 {
-                    InfoLog("ModbusTCP流量计没有活跃状态需要暂停");
+                    InfoLog("密度修正ModbusTCP流量计没有活跃状态需要暂停");
                     return true;
                 }
-                InfoLog($"暂停ModbusTCP流量计的 {_activeStates.Count} 个活跃状态");
+                InfoLog($"暂停密度修正ModbusTCP流量计的 {_activeStates.Count} 个活跃状态");
             }
 
             StopAutoControl();
@@ -1555,12 +1778,12 @@ namespace FlowMeter_ModbusTCP
             {
                 var results = await Task.WhenAll(pauseTasks);
                 bool allSuccess = results.All(r => r);
-                InfoLog(allSuccess ? "ModbusTCP流量计所有活跃状态已暂停" : "ModbusTCP流量计部分活跃状态暂停失败");
+                InfoLog(allSuccess ? "密度修正ModbusTCP流量计所有活跃状态已暂停" : "密度修正ModbusTCP流量计部分活跃状态暂停失败");
                 return allSuccess;
             }
             catch (Exception ex)
             {
-                ErrorLog("ModbusTCP流量计暂停活跃状态异常", ex);
+                ErrorLog("密度修正ModbusTCP流量计暂停活跃状态异常", ex);
                 return false;
             }
         }
@@ -1571,10 +1794,10 @@ namespace FlowMeter_ModbusTCP
             {
                 if (!_pausedStates.Any())
                 {
-                    InfoLog("ModbusTCP流量计没有暂停的状态需要恢复");
+                    InfoLog("密度修正ModbusTCP流量计没有暂停的状态需要恢复");
                     return true;
                 }
-                InfoLog($"恢复ModbusTCP流量计的 {_pausedStates.Count} 个暂停的状态");
+                InfoLog($"恢复密度修正ModbusTCP流量计的 {_pausedStates.Count} 个暂停的状态");
             }
 
             var resumeTasks = new List<Task<bool>>();
@@ -1600,12 +1823,12 @@ namespace FlowMeter_ModbusTCP
                     StartAutoControl();
                 }
 
-                InfoLog(allSuccess ? "ModbusTCP流量计所有暂停状态已恢复" : "ModbusTCP流量计部分暂停状态恢复失败");
+                InfoLog(allSuccess ? "密度修正ModbusTCP流量计所有暂停状态已恢复" : "密度修正ModbusTCP流量计部分暂停状态恢复失败");
                 return allSuccess;
             }
             catch (Exception ex)
             {
-                ErrorLog("ModbusTCP流量计恢复暂停状态异常", ex);
+                ErrorLog("密度修正ModbusTCP流量计恢复暂停状态异常", ex);
                 return false;
             }
         }
@@ -1616,10 +1839,10 @@ namespace FlowMeter_ModbusTCP
             {
                 if (!_activeStates.Any() && !_pausedStates.Any())
                 {
-                    InfoLog("ModbusTCP流量计没有活跃或暂停的状态需要停止");
+                    InfoLog("密度修正ModbusTCP流量计没有活跃或暂停的状态需要停止");
                     return true;
                 }
-                InfoLog($"停止ModbusTCP流量计的 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
+                InfoLog($"停止密度修正ModbusTCP流量计的 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
             }
 
             StopAutoControl();
@@ -1648,12 +1871,12 @@ namespace FlowMeter_ModbusTCP
                     _pausedStates.Clear();
                 }
 
-                InfoLog(allSuccess ? "ModbusTCP流量计所有状态已停止" : "ModbusTCP流量计部分状态停止失败");
+                InfoLog(allSuccess ? "密度修正ModbusTCP流量计所有状态已停止" : "密度修正ModbusTCP流量计部分状态停止失败");
                 return allSuccess;
             }
             catch (Exception ex)
             {
-                ErrorLog("ModbusTCP流量计停止状态异常", ex);
+                ErrorLog("密度修正ModbusTCP流量计停止状态异常", ex);
                 return false;
             }
         }
@@ -1666,7 +1889,7 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                InfoLog($"ModbusTCP流量计流程开始: {context.FlowName}");
+                InfoLog($"密度修正ModbusTCP流量计流程开始: {context.FlowName}");
 
                 lock (_statesLock)
                 {
@@ -1676,15 +1899,15 @@ namespace FlowMeter_ModbusTCP
 
                 if (!IsConnected)
                 {
-                    WarnLog("ModbusTCP流量计设备未连接，但流程已开始");
+                    WarnLog("密度修正ModbusTCP流量计设备未连接，但流程已开始");
                 }
 
-                InfoLog("ModbusTCP流量计设备已准备好执行流程");
+                InfoLog("密度修正ModbusTCP流量计设备已准备好执行流程");
                 return true;
             }
             catch (Exception ex)
             {
-                ErrorLog("ModbusTCP流量计流程开始处理失败", ex);
+                ErrorLog("密度修正ModbusTCP流量计流程开始处理失败", ex);
                 return false;
             }
         }
@@ -1693,15 +1916,15 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                InfoLog($"ModbusTCP流量计流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
+                InfoLog($"密度修正ModbusTCP流量计流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
                 StopAutoControl();
                 await StopAllActiveStatesAsync();
-                InfoLog("ModbusTCP流量计流程完成处理结束");
+                InfoLog("密度修正ModbusTCP流量计流程完成处理结束");
                 return true;
             }
             catch (Exception ex)
             {
-                ErrorLog("ModbusTCP流量计流程完成处理失败", ex);
+                ErrorLog("密度修正ModbusTCP流量计流程完成处理失败", ex);
                 return false;
             }
         }
@@ -1710,15 +1933,15 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                ErrorLog($"ModbusTCP流量计流程失败: {context.FlowName}, 错误: {context.ErrorMessage}");
+                ErrorLog($"密度修正ModbusTCP流量计流程失败: {context.FlowName}, 错误: {context.ErrorMessage}");
                 StopAutoControl();
                 await StopAllActiveStatesAsync();
-                InfoLog("ModbusTCP流量计流程失败处理完成");
+                InfoLog("密度修正ModbusTCP流量计流程失败处理完成");
                 return true;
             }
             catch (Exception ex)
             {
-                ErrorLog("ModbusTCP流量计流程失败处理异常", ex);
+                ErrorLog("密度修正ModbusTCP流量计流程失败处理异常", ex);
                 return false;
             }
         }
@@ -1753,7 +1976,7 @@ namespace FlowMeter_ModbusTCP
                 };
 
                 _activeStates.Add(newState);
-                InfoLog($"ModbusTCP流量计添加活跃状态: {stateName}");
+                InfoLog($"密度修正ModbusTCP流量计添加活跃状态: {stateName}");
             }
 
             StateChanged?.Invoke(this, new DeviceStateChangedEventArgs
@@ -1772,14 +1995,14 @@ namespace FlowMeter_ModbusTCP
                 if (state != null)
                 {
                     _activeStates.Remove(state);
-                    InfoLog($"ModbusTCP流量计移除活跃状态: {stateName}");
+                    InfoLog($"密度修正ModbusTCP流量计移除活跃状态: {stateName}");
                 }
 
                 var pausedState = _pausedStates.FirstOrDefault(s => s.StateName == stateName);
                 if (pausedState != null)
                 {
                     _pausedStates.Remove(pausedState);
-                    InfoLog($"ModbusTCP流量计移除暂停状态: {stateName}");
+                    InfoLog($"密度修正ModbusTCP流量计移除暂停状态: {stateName}");
                 }
             }
 
@@ -1795,7 +2018,7 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                InfoLog($"暂停ModbusTCP流量计状态: {state.StateName}");
+                InfoLog($"暂停密度修正ModbusTCP流量计状态: {state.StateName}");
 
                 if (!string.IsNullOrEmpty(state.PauseCommand))
                 {
@@ -1813,7 +2036,7 @@ namespace FlowMeter_ModbusTCP
             }
             catch (Exception ex)
             {
-                ErrorLog($"ModbusTCP流量计暂停状态失败: {state.StateName}", ex);
+                ErrorLog($"密度修正ModbusTCP流量计暂停状态失败: {state.StateName}", ex);
                 return false;
             }
         }
@@ -1822,15 +2045,42 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                InfoLog($"恢复ModbusTCP流量计状态: {state.StateName}");
+                InfoLog($"恢复密度修正ModbusTCP流量计状态: {state.StateName}");
 
                 if (!string.IsNullOrEmpty(state.ResumeCommand))
                 {
                     var resumeParams = new DeviceParameters();
-                    if (state.StateData is double flow)
+                    if (state.StateData != null)
                     {
-                        resumeParams.Variables.Add(new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, flow, "目标流量"));
-                        resumeParams.Variables.Add(new BooleanParameter("EnableAutoControl", true, "启用防超调智能控制"));
+                        // 处理包含密度信息的状态数据
+                        if (state.StateData is double flow)
+                        {
+                            resumeParams.Variables.Add(new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, flow, "目标流量"));
+                            double currentDensity;
+                            lock (_densityLock)
+                            {
+                                currentDensity = _currentDensity;
+                            }
+                            resumeParams.Variables.Add(new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, currentDensity, "液体密度"));
+                            resumeParams.Variables.Add(new BooleanParameter("EnableAutoControl", true, "启用密度修正防超调智能控制"));
+                        }
+                        else if (state.StateData.GetType().GetProperty("targetFlow") != null)
+                        {
+                            // 处理匿名对象包含targetFlow和density
+                            var data = state.StateData;
+                            var targetFlowProp = data.GetType().GetProperty("targetFlow");
+                            var densityProp = data.GetType().GetProperty("density");
+
+                            if (targetFlowProp != null && densityProp != null)
+                            {
+                                var targetFlow = (double)targetFlowProp.GetValue(data);
+                                var density = (double)densityProp.GetValue(data);
+
+                                resumeParams.Variables.Add(new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, targetFlow, "目标流量"));
+                                resumeParams.Variables.Add(new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, density, "液体密度"));
+                                resumeParams.Variables.Add(new BooleanParameter("EnableAutoControl", true, "启用密度修正防超调智能控制"));
+                            }
+                        }
                     }
                     await ExecuteDeviceCommandByNameAsync(state.ResumeCommand, resumeParams);
                 }
@@ -1847,7 +2097,7 @@ namespace FlowMeter_ModbusTCP
             }
             catch (Exception ex)
             {
-                ErrorLog($"ModbusTCP流量计恢复状态失败: {state.StateName}", ex);
+                ErrorLog($"密度修正ModbusTCP流量计恢复状态失败: {state.StateName}", ex);
                 return false;
             }
         }
@@ -1856,7 +2106,7 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                InfoLog($"停止ModbusTCP流量计状态: {state.StateName}");
+                InfoLog($"停止密度修正ModbusTCP流量计状态: {state.StateName}");
 
                 if (!string.IsNullOrEmpty(state.DeactivateCommand))
                 {
@@ -1867,7 +2117,7 @@ namespace FlowMeter_ModbusTCP
             }
             catch (Exception ex)
             {
-                ErrorLog($"ModbusTCP流量计停止状态失败: {state.StateName}", ex);
+                ErrorLog($"密度修正ModbusTCP流量计停止状态失败: {state.StateName}", ex);
                 return false;
             }
         }
@@ -1879,11 +2129,11 @@ namespace FlowMeter_ModbusTCP
             {
                 var inputParams = parameters ?? new DeviceParameters();
                 await Task.Run(() => command.Action(inputParams));
-                InfoLog($"ModbusTCP流量计执行命令: {commandName}");
+                InfoLog($"密度修正ModbusTCP流量计执行命令: {commandName}");
             }
             else
             {
-                WarnLog($"ModbusTCP流量计未找到命令: {commandName}");
+                WarnLog($"密度修正ModbusTCP流量计未找到命令: {commandName}");
             }
         }
 
@@ -1893,7 +2143,7 @@ namespace FlowMeter_ModbusTCP
 
         public override void Initialize()
         {
-            WriteDetailedLog($"[Initialize] 开始初始化ModbusTCP流量计设备 (优化版本)");
+            WriteDetailedLog($"[Initialize] 开始初始化密度修正ModbusTCP流量计设备");
 
             try
             {
@@ -1903,6 +2153,11 @@ namespace FlowMeter_ModbusTCP
                 {
                     _currentFlow = 0;
                     _targetFlow = 0;
+                }
+
+                lock (_densityLock)
+                {
+                    _currentDensity = DEFAULT_WATER_DENSITY;
                 }
 
                 lock (_controlLock)
@@ -1919,20 +2174,20 @@ namespace FlowMeter_ModbusTCP
                 _isOvershootMode = false;
                 _overshootProtectionCount = 0;
 
-                WriteDetailedLog($"[Initialize] ModbusTCP流量计设备初始化完成 (优化版本)");
-                InfoLog("ModbusTCP流量计设备初始化完成 (优化版本)");
+                WriteDetailedLog($"[Initialize] 密度修正ModbusTCP流量计设备初始化完成");
+                InfoLog("密度修正ModbusTCP流量计设备初始化完成");
             }
             catch (Exception ex)
             {
-                WriteDetailedLog($"[Initialize ERROR] ModbusTCP流量计设备初始化失败: {ex.Message}");
-                ErrorLog("ModbusTCP流量计设备初始化失败", ex);
+                WriteDetailedLog($"[Initialize ERROR] 密度修正ModbusTCP流量计设备初始化失败: {ex.Message}");
+                ErrorLog("密度修正ModbusTCP流量计设备初始化失败", ex);
                 throw;
             }
         }
 
         public override void Shutdown()
         {
-            WriteDetailedLog($"[Shutdown] 开始关闭ModbusTCP流量计设备");
+            WriteDetailedLog($"[Shutdown] 开始关闭密度修正ModbusTCP流量计设备");
 
             try
             {
@@ -1947,32 +2202,37 @@ namespace FlowMeter_ModbusTCP
                     _targetFlow = 0;
                 }
 
+                lock (_densityLock)
+                {
+                    _currentDensity = DEFAULT_WATER_DENSITY;
+                }
+
                 _isOvershootMode = false;
 
                 base.Shutdown();
-                WriteDetailedLog($"[Shutdown] ModbusTCP流量计设备关闭完成");
-                InfoLog("ModbusTCP流量计设备关闭完成");
+                WriteDetailedLog($"[Shutdown] 密度修正ModbusTCP流量计设备关闭完成");
+                InfoLog("密度修正ModbusTCP流量计设备关闭完成");
             }
             catch (Exception ex)
             {
-                WriteDetailedLog($"[Shutdown ERROR] ModbusTCP流量计设备关闭失败: {ex.Message}");
-                ErrorLog("ModbusTCP流量计设备关闭失败", ex);
+                WriteDetailedLog($"[Shutdown ERROR] 密度修正ModbusTCP流量计设备关闭失败: {ex.Message}");
+                ErrorLog("密度修正ModbusTCP流量计设备关闭失败", ex);
                 throw;
             }
         }
 
         protected override async Task<bool> OnConnectAsync()
         {
-            WriteDetailedLog($"[OnConnect] ModbusTCP流量计连接");
-            InfoLog("ModbusTCP流量计连接");
+            WriteDetailedLog($"[OnConnect] 密度修正ModbusTCP流量计连接");
+            InfoLog("密度修正ModbusTCP流量计连接");
             await Task.Delay(100);
             return true;
         }
 
         protected override async Task<bool> OnDisconnectAsync()
         {
-            WriteDetailedLog($"[OnDisconnect] ModbusTCP流量计断开连接");
-            InfoLog("ModbusTCP流量计断开连接");
+            WriteDetailedLog($"[OnDisconnect] 密度修正ModbusTCP流量计断开连接");
+            InfoLog("密度修正ModbusTCP流量计断开连接");
             StopAutoControl();
             await StopAllActiveStatesAsync();
             await Task.Delay(100);
@@ -1992,7 +2252,7 @@ namespace FlowMeter_ModbusTCP
             return (DeviceParameters parameters) =>
             {
                 WriteDetailedLog($"[Command] 开始执行命令: {commandName}");
-                _logger.LogInformation($"[ModbusTCP流量计命令-开始] Device={Name} Command={commandName}");
+                _logger.LogInformation($"[密度修正ModbusTCP流量计命令-开始] Device={Name} Command={commandName}");
 
                 var sw = Stopwatch.StartNew();
                 try
@@ -2001,14 +2261,14 @@ namespace FlowMeter_ModbusTCP
                     sw.Stop();
 
                     WriteDetailedLog($"[Command] 命令执行完成: {commandName} (耗时: {sw.ElapsedMilliseconds}ms)");
-                    _logger.LogInformation($"[ModbusTCP流量计命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogInformation($"[密度修正ModbusTCP流量计命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     return output;
                 }
                 catch (Exception ex)
                 {
                     sw.Stop();
                     WriteDetailedLog($"[Command ERROR] 命令执行异常: {commandName} (耗时: {sw.ElapsedMilliseconds}ms) - {ex.Message}");
-                    _logger.LogError(ex, $"[ModbusTCP流量计命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogError(ex, $"[密度修正ModbusTCP流量计命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
             };

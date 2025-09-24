@@ -44,25 +44,41 @@
 
 	<ItemGroup>
 	  <None Remove="appsettings.json" />
+	  <None Remove="Resources\CommadIcon\all_data.png" />
 	  <None Remove="Resources\CommadIcon\Bezel-lessDelay.png" />
 	  <None Remove="Resources\CommadIcon\Bezel-lessIF.png" />
 	  <None Remove="Resources\CommadIcon\Bezel-lessLoop.png" />
 	  <None Remove="Resources\CommadIcon\Bezel-lessParallel.png" />
+	  <None Remove="Resources\CommadIcon\circulation_start.png" />
+	  <None Remove="Resources\CommadIcon\close_all.png" />
 	  <None Remove="Resources\CommadIcon\control.png" />
+	  <None Remove="Resources\CommadIcon\cooling_start.png" />
+	  <None Remove="Resources\CommadIcon\Cumulative.png" />
 	  <None Remove="Resources\CommadIcon\flowrate.png" />
+	  <None Remove="Resources\CommadIcon\heating_start.png" />
+	  <None Remove="Resources\CommadIcon\heat_exchanger_data.png" />
 	  <None Remove="Resources\CommadIcon\loop.png" />
 	  <None Remove="Resources\CommadIcon\Parallel.png" />
 	  <None Remove="Resources\CommadIcon\pressure.png" />
+	  <None Remove="Resources\CommadIcon\pressure_read.png" />
+	  <None Remove="Resources\CommadIcon\scale_all.png" />
 	  <None Remove="Resources\CommadIcon\setvariables.png" />
 	  <None Remove="Resources\CommadIcon\speed.png" />
 	  <None Remove="Resources\CommadIcon\speed_set.png" />
 	  <None Remove="Resources\CommadIcon\status.png" />
+	  <None Remove="Resources\CommadIcon\temp_set.png" />
 	  <None Remove="Resources\CommadIcon\wait.png" />
 	  <None Remove="Resources\CommadIcon\waitif.png" />
+	  <None Remove="Resources\CommadIcon\weight.png" />
 	  <None Remove="Resources\DeviceIcon\D07-19BMassFlowMeter.png" />
+	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
+	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
+	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
+	  <None Remove="Resources\DeviceIcon\ProportionalReliefValve.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
+	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
 	  <None Remove="Resources\Icon\app.ico" />
 	  <None Remove="Resources\Icon\Canvasscaling.png" />
 	  <None Remove="Resources\Icon\close.png" />
@@ -104,6 +120,9 @@
 	  <EmbeddedResource Include="appsettings.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\all_data.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessDelay.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -123,10 +142,28 @@
 	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessParallel.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\circulation_start.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\close_all.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\control.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\cooling_start.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\cumulative.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\flowrate.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\heating_start.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\heat_exchanger_data.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\if.png">
@@ -139,6 +176,15 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\pressure.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\pressure_read.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\scale_all.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\temp_read.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\setvariables.png">
@@ -156,13 +202,28 @@
 	  <EmbeddedResource Include="Resources\CommadIcon\temperature.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\temp_set.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\wait.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\waitif.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\weight.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\D07-19BMassFlowMeter.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\ErlenmeyerFlasks.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\HeatExchanger.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\MicroReactor.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\PeristalticPumps_CY.png">
@@ -171,7 +232,22 @@
 	  <EmbeddedResource Include="Resources\DeviceIcon\Pistonpumps.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\PressureReducingValve.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\ProportionalReliefValve.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SampleReactor.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\Scale.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\TemperatureCirculator.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\app.ico">
@@ -294,6 +370,12 @@
 	  <EmbeddedResource Include="Resources\CommadIcon\off.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="Resources\CommadIcon\temp_set.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 </Project>

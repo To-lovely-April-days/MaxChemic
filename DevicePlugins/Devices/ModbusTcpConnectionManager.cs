@@ -234,9 +234,16 @@ namespace DevicePlugins.Devices
         {
             try
             {
-                _deviceStatuses[deviceId] = DeviceConnectionStatus.Connected;
-                _logger.LogInformation("设备通过ModbusTcp连接成功: {DeviceId}", deviceId);
-                return true;
+                using var connection = await CreateConnectionAsync();
+                if (connection != null && connection.IsValid())
+                {
+                    _deviceStatuses[deviceId] = DeviceConnectionStatus.Connected;
+                    _logger.LogInformation("设备通过ModbusTcp连接成功: {DeviceId}", deviceId);
+                    connection.Dispose();
+                    return true;
+                }
+                return false;
+
             }
             catch (Exception ex)
             {
@@ -273,11 +280,24 @@ namespace DevicePlugins.Devices
 
         public async Task<T> ReadAsync<T>(string deviceId, string address)
         {
-            return await ExecuteWithRetryAsync(deviceId, address, async (modbusMaster, mapping, addr) =>
+            try
             {
-                var addressInfo = ParseModbusAddress(addr);
-                return await ReadModbusDataAsync<T>(modbusMaster, addressInfo, deviceId, address);
-            });
+                return await ExecuteWithRetryAsync(deviceId, address, async (modbusMaster, mapping, addr) =>
+                {
+                    var addressInfo = ParseModbusAddress(addr);
+                    return await ReadModbusDataAsync<T>(modbusMaster, addressInfo, deviceId, address);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ModbusTcp读取失败: 设备={DeviceId} 命令={Address}", deviceId, address);
+                // *** 根据业务需求决定是重新抛出异常还是返回默认值 ***
+                // 选项1: 重新抛出异常让上层处理
+                throw;
+
+                // 选项2: 返回默认值（如果业务逻辑允许）
+                // return default(T);
+            }
         }
 
         public async Task<bool> WriteAsync<T>(string deviceId, string address, T value)
@@ -295,7 +315,7 @@ namespace DevicePlugins.Devices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ModbusTcp写入失败: 设备={DeviceId} 命令={Address} 值={Value}", deviceId, address, value);
-                return false;
+                throw;
             }
         }
 
@@ -670,7 +690,44 @@ namespace DevicePlugins.Devices
                     ["P0101泵基准泵速"] = "40024",
                 }
             });
-
+            _deviceMappings.TryAdd("P0111", new ModbusDeviceMapping
+            {
+                ComId = "P0111",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["P0101泵速"] = "40039",
+                    ["P0101出口泄压压力_上限报警"] = "40041",
+                    ["P0101出口预警压力"] = "40042",
+                    ["P0101出口温度上限报警"] = "40043",
+                    ["P0101出口压力"] = "40044",
+                    ["P0101出口温度"] = "40046",
+                    ["P0101出口流量"] = "40048",
+                    ["P0101停止"] = "40056",
+                    ["P0101启动"] = "40056",
+                    ["P0101泵基准模式"] = "40058",
+                    ["P0101泵基准泵速"] = "40062",
+                }
+            });
+            _deviceMappings.TryAdd("P0121", new ModbusDeviceMapping
+            {
+                ComId = "P0121",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["P0101泵速"] = "40077",
+                    ["P0101出口泄压压力_上限报警"] = "40079",
+                    ["P0101出口预警压力"] = "40080",
+                    ["P0101出口温度上限报警"] = "40081",
+                    ["P0101出口压力"] = "40082",
+                    ["P0101出口温度"] = "40084",
+                    ["P0101出口流量"] = "40086",
+                    ["P0101停止"] = "40094",
+                    ["P0101启动"] = "40094",
+                    ["P0101泵基准模式"] = "40096",
+                    ["P0101泵基准泵速"] = "40100",
+                }
+            });
             _deviceMappings.TryAdd("FT0101", new ModbusDeviceMapping
             {
                 ComId = "FT0101",
@@ -680,7 +737,206 @@ namespace DevicePlugins.Devices
                     ["_FT0101_g_m"] = "40030"
                 }
             });
+            _deviceMappings.TryAdd("FT0102", new ModbusDeviceMapping
+            {
+                ComId = "FT0102",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["_FT0102_g_m"] = "40068"
+                }
+            });
+            _deviceMappings.TryAdd("FT0103", new ModbusDeviceMapping
+            {
+                ComId = "FT0102",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["_FT0102_g_m"] = "40106"
+                }
+            });
+            // *** 添加电磁阀映射 - 8个独立设备 ***
+            _deviceMappings.TryAdd("SV0101", new ModbusDeviceMapping
+            {
+                ComId = "SV0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0101手动启停"] = "40016"
+                }
+            });
 
+            _deviceMappings.TryAdd("SV0102", new ModbusDeviceMapping
+            {
+                ComId = "SV0102",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0102手动启停"] = "40017"
+                }
+            });
+
+            _deviceMappings.TryAdd("SV0111", new ModbusDeviceMapping
+            {
+                ComId = "SV0111",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0111手动启停"] = "40054"
+                }
+            });
+
+            _deviceMappings.TryAdd("SV0112", new ModbusDeviceMapping
+            {
+                ComId = "SV0112",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0112手动启停"] = "40055"
+                }
+            });
+
+            _deviceMappings.TryAdd("SV0121", new ModbusDeviceMapping
+            {
+                ComId = "SV0121",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0121手动启停"] = "40092"
+                }
+            });
+
+            _deviceMappings.TryAdd("SV0122", new ModbusDeviceMapping
+            {
+                ComId = "SV0122",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0122手动启停"] = "40093"
+                }
+            });
+
+            _deviceMappings.TryAdd("SV0113", new ModbusDeviceMapping
+            {
+                ComId = "SV0113",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0113手动启停"] = "40131"
+                }
+            });
+
+            _deviceMappings.TryAdd("SV0114", new ModbusDeviceMapping
+            {
+                ComId = "SV0114",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["SV0114手动启停"] = "40135"
+                }
+            });
+            // *** 添加天平映射 - 三个独立设备 ***
+            _deviceMappings.TryAdd("S0101", new ModbusDeviceMapping
+            {
+                ComId = "S0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["_S0101_g"] = "40012",
+                    ["_S0101_Add_g"] = "40014"
+                }
+            });
+
+            _deviceMappings.TryAdd("S0111", new ModbusDeviceMapping
+            {
+                ComId = "S0111",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["_S0111_g"] = "40050",
+                    ["_S0111_Add_g"] = "40052"
+                }
+            });
+
+            _deviceMappings.TryAdd("S0121", new ModbusDeviceMapping
+            {
+                ComId = "S0121",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["_S0121_g"] = "40088",
+                    ["_S0121_Add_g"] = "40090"
+                }
+            });
+
+            // *** 添加高低温设备映射 - 两个独立设备 *** 
+            _deviceMappings.TryAdd("R0101", new ModbusDeviceMapping
+            {
+                ComId = "R0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["TT1001_℃"] = "40118",
+                    ["TT1002_℃"] = "40120",
+                    ["TT1003_℃"] = "40122",
+                    ["PT0112_Mpa"] = "40124",
+                    ["TT0112_℃"] = "40126",
+                }
+            });
+            _deviceMappings.TryAdd("R0201", new ModbusDeviceMapping
+            {
+                ComId = "R0201",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["TT1001_℃"] = "40140",
+                    ["TT1002_℃"] = "40142",
+                    ["TT1003_℃"] = "0000",
+                    ["PT0112_Mpa"] = "40144",
+                    ["TT0112_℃"] = "40146",
+                }
+            });
+            // *** 添加换热器设备映射 - 两个独立设备 ***
+            _deviceMappings.TryAdd("H0101", new ModbusDeviceMapping
+            {
+                ComId = "H0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["PT0113_Mpa"] = "40136",
+                    ["TT0113_℃"] = "40138"
+                }
+            });
+            // *** 添加高低温循环器设备映射 - 两个独立设备 ***
+            _deviceMappings.TryAdd("TC0101", new ModbusDeviceMapping
+            {
+                ComId = "TC0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    // 循环器1
+                    ["YY_SV_Set_1"] = "40153",
+                    ["YY_PV_Real_2"] = "40155",
+                    ["YY_Cycle_1"] = "40157",
+                    ["YY_Heat_1"] = "40158",
+                    ["YY_Cool_1"] = "40159"
+                }
+            });
+
+            _deviceMappings.TryAdd("TC0201", new ModbusDeviceMapping
+            {
+                ComId = "TC0201",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    // 循环器2
+                    ["YY_SV_Set_2"] = "40160",
+                    ["YY_PV_Real_4"] = "40162",
+                    ["YY_Cycle_2"] = "40164",
+                    ["YY_Heat_2"] = "40165",
+                    ["YY_Cool_2"] = "40166"
+                }
+            });
             _logger.LogInformation("已加载 {Count} 个设备的ModbusTcp地址映射", _deviceMappings.Count);
         }
 

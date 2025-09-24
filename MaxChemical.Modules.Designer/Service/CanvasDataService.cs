@@ -31,8 +31,7 @@ namespace MaxChemical.Modules.Designer.Service
                 var allDevices = _deviceManager.GetAllDevices();
                 var deviceTemplate = allDevices.FirstOrDefault(d =>
                     d.GetType().Name == deviceData.DeviceType ||
-                    d.Name == deviceData.DeviceName ||
-                    d.Category == deviceData.Category);
+                    d.Name == deviceData.DeviceName );
 
                 if (deviceTemplate == null)
                 {

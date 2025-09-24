@@ -215,7 +215,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             // 订阅项目名称更新事件
             _eventAggregator.GetEvent<ProjectNameUpdatedEvent>().Subscribe(OnProjectNameUpdated);
             //// 在应用程序启动时设置
-            DeviceConnectionConfig.CommunicationMode = CommunicationMode.PLC; // 启用PLC模式
+            //DeviceConnectionConfig.CommunicationMode = CommunicationMode.PLC; // 启用PLC模式
 
             // 配置PLC参数
             //DeviceConnectionConfig.PLCSettings = new PLCConnectionSettings
@@ -1490,6 +1490,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 var resultParams = await Task.Run(() => targetCmd.Action?.Invoke(inputParameters), cancellationToken);
               
                 sw.Stop();
+
+             
 
                 // 保存执行结果到节点
                 node.LastExecutionResult = new DeviceCommandResult
