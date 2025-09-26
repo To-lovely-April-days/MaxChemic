@@ -66,12 +66,14 @@ namespace FlowMeter_ModbusTCP
         private const int STABLE_CYCLES_REQUIRED = 3;
 
         // *** 简化的三档动态等待时间参数 ***
-        private const int LOW_SPEED_WAIT_MS = 55000;    // 低速(0-10 RPM): 55秒
-        private const int MID_SPEED_WAIT_MS = 35000;    // 中速(10-20 RPM): 35秒
-        private const int HIGH_SPEED_WAIT_MS = 12000;   // 高速(20+ RPM): 12秒
-        private const double STABILITY_THRESHOLD = 3.0; // 稳定判断阈值3%
-        private const int MIN_STABLE_READINGS = 3;
+        private const int LOW_SPEED_WAIT_MS = 70000;    // 低速: 70秒 (原55秒)
+        private const int MID_SPEED_WAIT_MS = 50000;    // 中速: 50秒 (原35秒)  
+        private const int HIGH_SPEED_WAIT_MS = 25000;   // 高速: 25秒 (原12秒) - 关键改进
+        private const double STABILITY_THRESHOLD = 2.0; // 降低到2% (原3%)，更严格
+        private const int MIN_STABLE_READINGS = 4;      // 增加到4次 (原3次)
 
+        // 新增：最小等待时间，无论如何都要等待
+        private const int MIN_WAIT_TIME_MS = 15000;     // 最少等待15秒
         // *** 详细日志记录系统 ***
         private static readonly object _logFileLock = new object();
         private string _logFilePath;
@@ -106,21 +108,26 @@ namespace FlowMeter_ModbusTCP
         }
 
         /// <summary>
-        /// 智能三档等待流量稳定
+        /// 智能三档等待流量稳定 - 改进版本
         /// </summary>
         private async Task<(double stableFlow, double waitTimeSeconds, int readingCount)>
-            SmartWaitForStability(double targetFlow, double currentPumpSpeed)
+            SmartWaitForStability(double targetFlow, double currentPumpSpeed, double speedChange = 0)
         {
-            var (waitTimeMs, speedLevel) = GetWaitTimeByPumpSpeed(currentPumpSpeed);
+            var (baseWaitTimeMs, speedLevel) = GetWaitTimeByPumpSpeed(currentPumpSpeed);
+
+            // 根据泵速变化幅度动态调整等待时间
+            int adaptiveWaitTimeMs = GetAdaptiveWaitTime(baseWaitTimeMs, speedChange);
 
             AddCycleLog($"│ 开始智能稳定检测");
             AddCycleLog($"│ 目标流量: {targetFlow:F2} g/min");
             AddCycleLog($"│ 当前泵速: {currentPumpSpeed:F1} RPM ({speedLevel})");
-            AddCycleLog($"│ 等待策略: {waitTimeMs / 1000}秒");
+            AddCycleLog($"│ 泵速变化: {speedChange:F1} RPM");
+            AddCycleLog($"│ 基础等待: {baseWaitTimeMs / 1000}秒");
+            AddCycleLog($"│ 自适应等待: {adaptiveWaitTimeMs / 1000}秒");
 
-            // 预等待时间（给液体传输的基础时间）
-            int preWaitMs = Math.Max(3000, waitTimeMs / 4);
-            AddCycleLog($"│ 预等待传输: {preWaitMs / 1000}秒");
+            // 强制最小等待时间
+            int preWaitMs = Math.Max(MIN_WAIT_TIME_MS, adaptiveWaitTimeMs / 3);
+            AddCycleLog($"│ 强制最小等待: {preWaitMs / 1000}秒");
             await Task.Delay(preWaitMs);
 
             var startTime = DateTime.Now;
@@ -131,20 +138,23 @@ namespace FlowMeter_ModbusTCP
             try
             {
                 // 剩余时间内监测稳定性
-                int remainingWaitMs = waitTimeMs - preWaitMs;
+                int remainingWaitMs = adaptiveWaitTimeMs - preWaitMs;
+                int consecutiveStableCount = 0; // 连续稳定次数
+
                 while ((DateTime.Now - startTime).TotalMilliseconds < remainingWaitMs)
                 {
                     double currentFlow = await ReadCurrentFlowAsync();
                     readingCount++;
                     recentFlows.Enqueue(currentFlow);
 
-                    if (recentFlows.Count > 5) recentFlows.Dequeue();
+                    if (recentFlows.Count > 6) recentFlows.Dequeue(); // 增加历史数据
 
-                    var elapsedSeconds = (DateTime.Now - startTime).TotalSeconds;
+                    var elapsedSeconds = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
                     AddCycleLog($"│ 读数#{readingCount}: {currentFlow:F2} g/min (已等待{elapsedSeconds:F1}s)");
 
-                    // 检查是否提前稳定
-                    if (recentFlows.Count >= MIN_STABLE_READINGS && readingCount >= MIN_STABLE_READINGS)
+                    // 更严格的稳定检测
+                    if (recentFlows.Count >= MIN_STABLE_READINGS &&
+                        elapsedSeconds >= MIN_WAIT_TIME_MS / 1000.0) // 确保最小等待时间
                     {
                         var recent = recentFlows.TakeLast(MIN_STABLE_READINGS).ToArray();
                         double maxValue = recent.Max();
@@ -155,21 +165,34 @@ namespace FlowMeter_ModbusTCP
                         {
                             double variation = (maxValue - minValue) / avgFlow * 100;
 
+                            // 连续稳定检测
                             if (variation < STABILITY_THRESHOLD)
                             {
-                                var actualWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
-                                AddCycleLog($"│ ✅ 提前稳定! 变化率{variation:F2}% < {STABILITY_THRESHOLD}%");
-                                AddCycleLog($"│ 稳定流量: {avgFlow:F2} g/min");
-                                AddCycleLog($"│ 实际等待: {actualWaitTime:F1}秒 (预设{waitTimeMs / 1000}秒)");
-                                return (avgFlow, actualWaitTime, readingCount);
+                                consecutiveStableCount++;
+                                AddCycleLog($"│ 稳定检测: 变化率{variation:F2}% < {STABILITY_THRESHOLD}% (连续{consecutiveStableCount}次)");
+
+                                // 需要连续多次稳定才认为真正稳定
+                                int requiredConsecutiveStable = speedLevel == "高速" ? 3 : 2;
+                                if (consecutiveStableCount >= requiredConsecutiveStable)
+                                {
+                                    AddCycleLog($"│ ✅ 连续{consecutiveStableCount}次稳定! 变化率{variation:F2}% < {STABILITY_THRESHOLD}%");
+                                    AddCycleLog($"│ 稳定流量: {avgFlow:F2} g/min");
+                                    AddCycleLog($"│ 实际等待: {elapsedSeconds:F1}秒 (预设{adaptiveWaitTimeMs / 1000}秒)");
+                                    return (avgFlow, elapsedSeconds, readingCount);
+                                }
+                            }
+                            else
+                            {
+                                consecutiveStableCount = 0; // 重置连续稳定计数
+                                AddCycleLog($"│ 不稳定: 变化率{variation:F2}% > {STABILITY_THRESHOLD}% (重置计数)");
                             }
                         }
                     }
 
                     lastFlow = currentFlow;
 
-                    // 检测间隔：高速更频繁
-                    int checkInterval = speedLevel == "高速" ? 800 : (speedLevel == "中速" ? 1200 : 1800);
+                    // 检测间隔：根据速度档位调整
+                    int checkInterval = speedLevel == "高速" ? 1000 : (speedLevel == "中速" ? 1500 : 2000);
                     await Task.Delay(checkInterval);
                 }
 
@@ -177,7 +200,7 @@ namespace FlowMeter_ModbusTCP
                 var totalWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
                 double finalFlow = recentFlows.Count > 0 ? recentFlows.Average() : lastFlow;
 
-                AddCycleLog($"│ ⏰ 完成{speedLevel}等待 {totalWaitTime:F1}秒");
+                AddCycleLog($"│ ⏰ 完成{speedLevel}自适应等待 {totalWaitTime:F1}秒");
                 AddCycleLog($"│ 最终流量: {finalFlow:F2} g/min");
                 return (finalFlow, totalWaitTime, readingCount);
             }
@@ -187,6 +210,34 @@ namespace FlowMeter_ModbusTCP
                 var errorWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
                 return (lastFlow, errorWaitTime, readingCount);
             }
+        }
+
+        /// <summary>
+        /// 根据泵速变化幅度自适应调整等待时间
+        /// </summary>
+        private int GetAdaptiveWaitTime(int baseWaitTimeMs, double speedChange)
+        {
+            double changeMultiplier = 1.0;
+
+            // 根据泵速变化幅度调整
+            double absChange = Math.Abs(speedChange);
+            if (absChange > 2.0)
+            {
+                changeMultiplier = 1.8; // 大变化：增加80%等待时间
+                AddCycleLog($"│ 大泵速变化({absChange:F1}RPM)：延长等待时间80%");
+            }
+            else if (absChange > 1.0)
+            {
+                changeMultiplier = 1.4; // 中等变化：增加40%等待时间
+                AddCycleLog($"│ 中等泵速变化({absChange:F1}RPM)：延长等待时间40%");
+            }
+            else if (absChange > 0.5)
+            {
+                changeMultiplier = 1.2; // 小变化：增加20%等待时间
+                AddCycleLog($"│ 小泵速变化({absChange:F1}RPM)：延长等待时间20%");
+            }
+
+            return (int)(baseWaitTimeMs * changeMultiplier);
         }
 
         #endregion
@@ -748,7 +799,7 @@ namespace FlowMeter_ModbusTCP
                 ErrorLog("密度修正防超调控制执行异常", ex);
             }
         }
-
+        private double _lastTargetFlow = 0; // 类成员变量
         /// <summary>
         /// 执行密度修正防超调智能控制逻辑
         /// </summary>
@@ -759,6 +810,7 @@ namespace FlowMeter_ModbusTCP
             double targetFlow;
             double currentDensity;
             bool controlEnabled;
+            bool isTargetChanged = false;
 
             lock (_controlLock)
             {
@@ -775,8 +827,21 @@ namespace FlowMeter_ModbusTCP
             lock (_stateLock)
             {
                 targetFlow = _targetFlow;
+                // 检测目标流量是否改变
+                if (Math.Abs(targetFlow - _lastTargetFlow) > 0.01)
+                {
+                    isTargetChanged = true;
+                    AddCycleLog($"🔄 检测到目标流量切换: {_lastTargetFlow:F2} → {targetFlow:F2} g/min");
+                    _lastTargetFlow = targetFlow;
+                }
             }
 
+            // 如果目标改变，重置控制状态
+            if (isTargetChanged)
+            {
+                ResetControlState();
+                AddCycleLog($"🔄 目标流量切换，重置控制状态");
+            }
             lock (_densityLock)
             {
                 currentDensity = _currentDensity;
@@ -818,10 +883,12 @@ namespace FlowMeter_ModbusTCP
                 }
 
                 // *** 判断是否首次设置 ***
-                bool isFirstSetup = (_controlCycleCount == 1);
+                bool isFirstSetup = (_controlCycleCount == 1) || isTargetChanged;
 
                 if (isFirstSetup)
                 {
+                    string reason = _controlCycleCount == 1 ? "系统首次启动" : "目标流量切换";
+                    AddCycleLog($"┌── 密度修正积极起步策略 ({reason}) ──");
                     // *** 首次设置：使用密度修正的98%积极起步 ***
                     double requiredVolumeFlow = targetFlow / currentDensity;
                     double firstSetupSpeed = requiredVolumeFlow * FLOW_TO_SPEED_RATIO * 0.98;
@@ -862,7 +929,24 @@ namespace FlowMeter_ModbusTCP
 
                 // *** 智能三档等待流量稳定 ***
                 AddCycleLog("┌── 步骤1: 智能三档等待流量稳定 ──");
-                var (finalFlow, stabilizeTime, readings) = await SmartWaitForStability(targetFlow, currentPumpSpeed);
+                // 在步骤1之前，记录泵速变化
+                double previousPumpSpeed = currentPumpSpeed;
+                double speedChange = 0;
+
+                if (_controlCycleCount > 1)
+                {
+                    speedChange = currentPumpSpeed - _previousPumpSpeed;
+                    AddCycleLog($"│ 上次泵速变化: {_previousPumpSpeed:F1} → {currentPumpSpeed:F1} RPM (变化{speedChange:F1})");
+                }
+
+                // 修改智能等待调用
+                var (finalFlow, stabilizeTime, readings) = await SmartWaitForStability(targetFlow, currentPumpSpeed, speedChange);
+
+                // 记录泵速供下次使用
+                _previousPumpSpeed = currentPumpSpeed;
+
+
+
                 AddCycleLog($"│ 质量流量已稳定: {finalFlow:F2} g/min");
                 AddCycleLog($"│ 实际等待: {stabilizeTime:F1}秒");
                 AddCycleLog($"│ 监测次数: {readings}次");
@@ -934,12 +1018,21 @@ namespace FlowMeter_ModbusTCP
                 AddCycleLog($"└─ 需要调整泵速");
 
                 // 5. 获取当前泵速
-                AddCycleLog("┌── 步骤3: 获取当前泵速 ──");
+                 currentPumpSpeed = 0;
                 try
                 {
                     var pumpReadStart = DateTime.Now;
                     currentPumpSpeed = await ConnectionManager.ReadAsync<double>(pumpDeviceId, "P0101泵速");
                     var pumpReadDuration = DateTime.Now - pumpReadStart;
+
+                    // 合理性检查
+                    if (isTargetChanged && Math.Abs(currentPumpSpeed - _lastPumpSpeedOutput) > 10)
+                    {
+                        AddCycleLog($"│ ⚠️ 检测到泵速异常变化: 上次输出{_lastPumpSpeedOutput:F1} → 当前读取{currentPumpSpeed:F1} RPM");
+                        AddCycleLog($"│ 目标流量刚切换，使用上次输出值作为起点");
+                        currentPumpSpeed = _lastPumpSpeedOutput;
+                    }
+
                     AddCycleLog($"│ 读取成功: {currentPumpSpeed:F1} RPM (耗时: {pumpReadDuration.TotalMilliseconds:F0}ms)");
                 }
                 catch (Exception ex)
@@ -949,7 +1042,6 @@ namespace FlowMeter_ModbusTCP
                     AddCycleLog($"│ 错误: {ex.Message}");
                 }
                 AddCycleLog($"└─ 当前泵速: {currentPumpSpeed:F1} RPM");
-
                 // 6. 密度修正防超调PID控制计算
                 AddCycleLog("┌── 步骤4: 密度修正防超调PID控制计算 ──");
                 double newPumpSpeed = CalculateAntiOvershootPumpSpeed(targetFlow, actualFlow, massFlowError, currentPumpSpeed, currentDensity);
@@ -989,6 +1081,22 @@ namespace FlowMeter_ModbusTCP
                 throw;
             }
         }
+        /// <summary>
+        /// 重置控制状态 - 用于目标流量切换时
+        /// </summary>
+        private void ResetControlState()
+        {
+            _previousError = 0;
+            _integralError = 0;
+            _stableCount = 0;
+            _lastPumpSpeedOutput = 0;
+            _previousPumpSpeed = 0;
+            _isOvershootMode = false;
+            _overshootProtectionCount = 0;
+
+            AddCycleLog($"│ 重置项目: PID积分={_integralError}, 稳定计数={_stableCount}, 超调保护={_isOvershootMode}");
+        }
+
         #endregion
 
         #region 设备初始化和其他方法

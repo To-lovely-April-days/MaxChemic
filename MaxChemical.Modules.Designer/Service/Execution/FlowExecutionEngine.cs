@@ -2083,7 +2083,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         /// </summary>
         private static string ReadOperatorString(object val)
         {
-            // 支持 ComparisonOperator 枚举或字符串（含符号）
+            // 1. 如果是枚举，直接映射
             if (val is ComparisonOperator op)
             {
                 return op switch
@@ -2100,9 +2100,11 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 };
             }
 
+            // 2. 转为字符串
             var s = val?.ToString() ?? "Equal";
-            // 兼容符号写法
-            return s switch
+
+            // 3. 先处理符号
+            s = s switch
             {
                 "==" => "Equal",
                 "!=" => "NotEqual",
@@ -2112,6 +2114,26 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 "<=" => "LessThanOrEqual",
                 _ => s
             };
+
+            // 4. 如果还不是标准名称，尝试解析为整数（枚举索引）
+            if (!IsStandardOperatorName(s))
+            {
+                if (int.TryParse(s, out int index) && Enum.IsDefined(typeof(ComparisonOperator), index))
+                {
+                    var opFromIndex = (ComparisonOperator)index;
+                    return ReadOperatorString(opFromIndex); // 递归调用，复用逻辑
+                }
+            }
+
+            // 5. 如果无法识别，返回原值或默认
+            return IsStandardOperatorName(s) ? s : "Equal";
+        }
+
+        // 辅助方法：判断是否是有效的操作符名称
+        private static bool IsStandardOperatorName(string name)
+        {
+            return name is "Equal" or "NotEqual" or "GreaterThan" or "GreaterThanOrEqual"
+                or "LessThan" or "LessThanOrEqual" or "Contains" or "NotContains";
         }
 
         /// <summary>

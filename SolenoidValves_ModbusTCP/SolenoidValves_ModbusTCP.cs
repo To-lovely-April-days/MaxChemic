@@ -200,7 +200,7 @@ namespace SolenoidValves_ModbusTCP
             try
             {
                 InfoLog($"ModbusTCP电磁阀流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
-                await StopAllActiveStatesAsync();
+                //await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP电磁阀流程完成处理结束");
                 return true;
             }
@@ -259,7 +259,11 @@ namespace SolenoidValves_ModbusTCP
         }),
                 HelpText = "ModbusTCP电磁阀设备ID"
             });
-
+            // *** 新增：控制逻辑参数 ***
+            Parameters.Variables.Add(new BooleanParameter("IsLogicReversed", false)
+            {
+                HelpText = "控制逻辑是否反向 (false: true=开/false=关, true: false=开/true=关)"
+            });
             InitializeCommands();
         }
 
@@ -289,15 +293,21 @@ namespace SolenoidValves_ModbusTCP
                     try
                     {
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                        {
-                            success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", true);
-                            InfoLog($"打开电磁阀 {valveId}, 结果: {success}");
+                        { 
+                            // *** 使用转换后的控制值 ***
+                            bool controlValue = true;
+                            if (Parameters.GetValue<bool>("IsLogicReversed"))
+                            {
+                                controlValue = false;
+                            }
+                            success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", controlValue);
+                            InfoLog($"打开电磁阀 {valveId}, 发送值: {controlValue}, 结果: {success}");
                         }
                         else if (IsSimulationMode)
                         {
                             lock (_stateLock)
                             {
-                                _valveStates[valveId] = true;
+                                _valveStates[valveId] = true; // 模拟模式下直接存储逻辑状态
                             }
                             success = true;
                             InfoLog($"模拟模式打开电磁阀: {valveId}");
@@ -307,15 +317,15 @@ namespace SolenoidValves_ModbusTCP
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
 
-                        // *** 状态跟踪 - 添加活跃状态 ***
+                        // 状态跟踪逻辑保持不变
                         if (success)
                         {
                             AddActiveState(
                                 stateName: $"ValveOpen_{valveId}",
                                 activateCommand: "打开电磁阀",
                                 deactivateCommand: "关闭电磁阀",
-                                pauseCommand: "关闭电磁阀",    // 暂停时关闭
-                                resumeCommand: "打开电磁阀",   // 恢复时重新打开
+                                pauseCommand: "关闭电磁阀",
+                                resumeCommand: "打开电磁阀",
                                 stateData: valveId
                             );
                         }
@@ -324,16 +334,15 @@ namespace SolenoidValves_ModbusTCP
                     {
                         ErrorLog($"打开电磁阀失败: {valveId} - {ex.Message}");
                         success = false;
-                        // 不重新抛出异常，返回失败结果
                     }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                {
-                    new BooleanParameter("Success", success, "打开成功") { IsVisibleInVariableManager = true },
-                    new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
-                }
+        {
+            new BooleanParameter("Success", success, "打开成功") { IsVisibleInVariableManager = true },
+            new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
+        }
                     };
                 })
             });
@@ -363,14 +372,20 @@ namespace SolenoidValves_ModbusTCP
                     {
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
-                            success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", false);
-                            InfoLog($"关闭电磁阀 {valveId}, 结果: {success}");
+                            // *** 使用转换后的控制值 ***
+                            bool controlValue = false;
+                            if (Parameters.GetValue<bool>("IsLogicReversed"))
+                            {
+                                controlValue = true;
+                            }
+                            success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", controlValue);
+                            InfoLog($"关闭电磁阀 {valveId}, 发送值: {controlValue}, 结果: {success}");
                         }
                         else if (IsSimulationMode)
                         {
                             lock (_stateLock)
                             {
-                                _valveStates[valveId] = false;
+                                _valveStates[valveId] = false; // 模拟模式下直接存储逻辑状态
                             }
                             success = true;
                             InfoLog($"模拟模式关闭电磁阀: {valveId}");
@@ -380,7 +395,7 @@ namespace SolenoidValves_ModbusTCP
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
 
-                        // *** 移除活跃状态 ***
+                        // 移除活跃状态逻辑保持不变
                         if (success)
                         {
                             RemoveActiveState($"ValveOpen_{valveId}");
@@ -390,16 +405,15 @@ namespace SolenoidValves_ModbusTCP
                     {
                         ErrorLog($"关闭电磁阀失败: {valveId} - {ex.Message}");
                         success = false;
-                        // 不重新抛出异常，返回失败结果
                     }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                {
-                    new BooleanParameter("Success", success, "关闭成功") { IsVisibleInVariableManager = true },
-                    new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
-                }
+        {
+            new BooleanParameter("Success", success, "关闭成功") { IsVisibleInVariableManager = true },
+            new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
+        }
                     };
                 })
             });
@@ -432,15 +446,22 @@ namespace SolenoidValves_ModbusTCP
                     {
                         if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
-                            valveState = await ConnectionManager.ReadAsync<bool>(ComId, $"{valveId}手动启停");
-                            InfoLog($"读取电磁阀 {valveId} 状态: {valveState}");
+                            bool deviceValue = await ConnectionManager.ReadAsync<bool>(ComId, $"{valveId}手动启停");
+                            // *** 使用转换后的状态值 ***
+
+                            if (Parameters.GetValue<bool>("IsLogicReversed"))
+                            {
+                                deviceValue=!deviceValue;
+                            }
+                            valveState = deviceValue;
+                            InfoLog($"读取电磁阀 {valveId} 原始值: {deviceValue}, 转换后状态: {valveState}");
                             success = true;
                         }
                         else if (IsSimulationMode)
                         {
                             lock (_stateLock)
                             {
-                                _valveStates.TryGetValue(valveId, out valveState);
+                                _valveStates.TryGetValue(valveId, out valveState); // 模拟模式下直接使用逻辑状态
                             }
                             InfoLog($"模拟模式读取电磁阀 {valveId} 状态: {valveState}");
                             success = true;
@@ -461,12 +482,12 @@ namespace SolenoidValves_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                {
-                    new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true },
-                    new BooleanParameter("ValveState", valveState, "电磁阀状态") { IsVisibleInVariableManager = true },
-                    new StringParameter("StateDescription", stateDescription, "状态描述") { IsVisibleInVariableManager = true },
-                    new BooleanParameter("Success", success, "读取成功") { IsVisibleInVariableManager = true }
-                }
+        {
+            new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true },
+            new BooleanParameter("ValveState", valveState, "电磁阀状态") { IsVisibleInVariableManager = true },
+            new StringParameter("StateDescription", stateDescription, "状态描述") { IsVisibleInVariableManager = true },
+            new BooleanParameter("Success", success, "读取成功") { IsVisibleInVariableManager = true }
+        }
                     };
                 })
             });

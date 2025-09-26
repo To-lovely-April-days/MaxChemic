@@ -743,7 +743,7 @@ namespace DevicePlugins.Devices
                 SlaveId = 1,
                 CommandAddresses = new Dictionary<string, string>
                 {
-                    ["_FT0102_g_m"] = "40068"
+                    ["_FT0101_g_m"] = "40068"
                 }
             });
             _deviceMappings.TryAdd("FT0103", new ModbusDeviceMapping
@@ -752,7 +752,7 @@ namespace DevicePlugins.Devices
                 SlaveId = 1,
                 CommandAddresses = new Dictionary<string, string>
                 {
-                    ["_FT0102_g_m"] = "40106"
+                    ["_FT0101_g_m"] = "40106"
                 }
             });
             // *** 添加电磁阀映射 - 8个独立设备 ***
