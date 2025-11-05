@@ -827,7 +827,7 @@ namespace PeristalticPumps_CY
                         Variables = new ObservableCollection<ParameterBase>
                 {
                     new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                    new NumberParameter("Temperature", -50, 200, Math.Round(finalTemp, 2), "当前温度") { IsVisibleInVariableManager = true },
+                    new NumberParameter("Temperature", -50, 200, Math.Round(_currentTemperature, 2), "当前温度") { IsVisibleInVariableManager = true },
                     new StringParameter("Unit", "℃", "") { IsVisibleInVariableManager = false },
                     new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false },
                     new BooleanParameter("IsWarning", isWarning, "") { IsVisibleInVariableManager = true },
