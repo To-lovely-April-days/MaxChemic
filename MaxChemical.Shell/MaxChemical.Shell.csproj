@@ -77,6 +77,7 @@
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
 	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
 	  <None Remove="Resources\DeviceIcon\ProportionalReliefValve.png" />
+	  <None Remove="Resources\DeviceIcon\RoboticArm.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
 	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
 	  <None Remove="Resources\Icon\app.ico" />
@@ -236,6 +237,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\ProportionalReliefValve.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\RoboticArm.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SampleReactor.png">

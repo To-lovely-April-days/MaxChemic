@@ -347,7 +347,7 @@ namespace MicroReactor_ModbusTCP
                         _controlLogger.LogInfo("开始按顺序启动循环器功能");
 
                         await EnsureCirculatorCycleRunning(circulatorId);
-                        await Task.Delay(1000);
+                        await Task.Delay(3000);
 
                         if (!IsSimulationMode)
                         {
@@ -813,8 +813,9 @@ namespace MicroReactor_ModbusTCP
                 double newTemp = currentTemp + tempChange;
 
                 // 添加小幅随机波动（模拟传感器噪声和环境干扰）
-                newTemp += (random.NextDouble() - 0.5) * 0.15;
+                newTemp += (random.NextDouble() - 0.5) * 0.3; // 增加波动
 
+                _deviceData[actualKey] = newTemp;
                 return newTemp;
             }
             else
@@ -878,11 +879,6 @@ namespace MicroReactor_ModbusTCP
                 }
                 else
                 {
-                    // 设置温度为室温
-                    string tempSetCommand = GetCirculatorTempSetCommand(circulatorId);
-                    await ConnectionManager.WriteAsync(circulatorId, tempSetCommand, 25.0);
-                    await Task.Delay(500);
-
                     // 停止加热、制冷、循环功能
                     await ConnectionManager.WriteAsync(circulatorId, GetCirculatorHeatingCommand(circulatorId), false);
                     await Task.Delay(300);
@@ -1100,28 +1096,61 @@ namespace MicroReactor_ModbusTCP
         public double FineAdjustStep { get; set; } = 0.5;
         public double ApproachPercentage { get; set; } = 0.98;
         public int MinStabilityDataPoints { get; set; } = 8;
-        public double StabilityStdDevThreshold { get; set; } = 0.2;
-        public double StabilityRangeThreshold { get; set; } = 0.5;
+        public double StabilityStdDevThreshold { get; set; } = 0.15;
+        public double StabilityRangeThreshold { get; set; } = 0.4;
+
+        // 新增配置
+        public TimeSpan MinWaitAfterAdjustment { get; set; } = TimeSpan.FromSeconds(30);
+        public double StagnantThreshold { get; set; } = 0.3;
+        public int MinDataPointsForStagnantCheck { get; set; } = 5;
     }
 
     #endregion
 
-    #region 控制阶段枚举
+    #region 控制阶段枚举（重构）
 
     public enum ControlPhase
     {
         Initializing,           // 初始化
-        FastApproaching,        // 快速接近（98%）
-        WaitingForStability,    // 等待稳定
-        CheckingTarget,         // 检查目标
-        FineAdjusting,          // 精确调节
+        SettingCirculator,      // 设置循环器温度
+        WaitingForEffect,       // 等待温度生效
+        CollectingData,         // 收集稳定性数据
+        CheckingStability,      // 检查稳定性
+        CheckingTarget,         // 检查目标达成
+        FineAdjusting,          // 精确微调
         Stable,                 // 已稳定
         Stopped                 // 已停止
     }
 
     #endregion
 
-    #region 智能温度控制器类
+    #region 稳定性检查结果类
+
+    public class StabilityResult
+    {
+        public bool IsStable { get; set; }
+        public double StandardDeviation { get; set; }
+        public double TemperatureRange { get; set; }
+        public bool StdDevOK { get; set; }
+        public bool RangeOK { get; set; }
+        public bool TrendOK { get; set; }
+        public bool RecentPointsOK { get; set; }
+        public bool TimeOK { get; set; }
+        public string Details { get; set; }
+
+        public static StabilityResult InsufficientData()
+        {
+            return new StabilityResult
+            {
+                IsStable = false,
+                Details = "数据点不足"
+            };
+        }
+    }
+
+    #endregion
+
+    #region 智能温度控制器类（重构）
 
     public class IntelligentTemperatureController
     {
@@ -1146,7 +1175,7 @@ namespace MicroReactor_ModbusTCP
         private readonly object _stateLock = new object();
         private int _controlCycleCount = 0;
         private double _lastSentCirculatorTemp = double.NaN;
-        private DateTime _lastControlTime = DateTime.MinValue;
+        private DateTime _lastCirculatorAdjustTime = DateTime.MinValue;
 
         // 温度数据收集
         private readonly ConcurrentQueue<(DateTime time, double temp)> _tempHistory = new ConcurrentQueue<(DateTime, double)>();
@@ -1198,7 +1227,7 @@ namespace MicroReactor_ModbusTCP
 
             _logger.LogInformation($"智能温度控制器启动: {_deviceId}_{_sensorName}, 目标温度: {_config.TargetTemperature}℃");
             _controlLogger.LogInfo($"智能温度控制器启动 {_sensorName}",
-                $"目标温度: {_config.TargetTemperature}℃, 98%策略: {_config.ApproachPercentage:P0}");
+                $"目标温度: {_config.TargetTemperature}℃, 98%策略开始");
         }
 
         public async Task StopAsync()
@@ -1223,7 +1252,7 @@ namespace MicroReactor_ModbusTCP
             _isRunning = false;
             _currentPhase = ControlPhase.Stopped;
 
-            // 🔧 完全停止循环器控制
+            // 完全停止循环器控制
             await StopCirculatorControlAsync();
 
             int totalCycles;
@@ -1232,108 +1261,11 @@ namespace MicroReactor_ModbusTCP
                 totalCycles = _controlCycleCount;
             }
 
-            // 🔧 更新稳定性状态为未稳定
+            // 更新稳定性状态为未稳定
             UpdateStabilityStatus(false);
 
             _logger.LogInformation($"智能温度控制器停止: {_deviceId}_{_sensorName}");
             _controlLogger.LogInfo($"智能温度控制器停止 {_sensorName}", $"总控制周期: {totalCycles}");
-        }
-
-        /// <summary>
-        /// 完全停止循环器控制
-        /// </summary>
-        private async Task StopCirculatorControlAsync()
-        {
-            try
-            {
-                if (_isSimulationMode)
-                {
-                    _controlLogger.LogInfo($"模拟模式：{_sensorName}控制器完全停止循环器");
-                    return;
-                }
-
-                _controlLogger.LogInfo($"开始完全停止循环器{_circulatorDeviceId}...");
-
-                // 1. 首先设置温度为室温
-                string tempSetCommand = GetCirculatorTempSetCommand();
-                bool tempSetResult = await _connectionManager.WriteAsync(_circulatorDeviceId, tempSetCommand, 25.0);
-
-                if (tempSetResult)
-                {
-                    _controlLogger.LogInfo($"✅ 循环器温度已设置为室温: 25.0℃");
-                }
-                else
-                {
-                    _controlLogger.LogError($"❌ 设置循环器温度为室温失败");
-                }
-
-                await Task.Delay(500); // 等待温度设置生效
-
-                // 2. 停止加热功能
-                string heatCommand = GetCirculatorHeatingCommand();
-                bool heatStopResult = await _connectionManager.WriteAsync(_circulatorDeviceId, heatCommand, false);
-
-                if (heatStopResult)
-                {
-                    _controlLogger.LogInfo($"✅ 循环器加热功能已停止: {heatCommand} = false");
-                }
-                else
-                {
-                    _controlLogger.LogError($"❌ 停止循环器加热功能失败: {heatCommand}");
-                }
-
-                await Task.Delay(300);
-
-                // 3. 停止制冷功能
-                string coolCommand = GetCirculatorCoolingCommand();
-                bool coolStopResult = await _connectionManager.WriteAsync(_circulatorDeviceId, coolCommand, false);
-
-                if (coolStopResult)
-                {
-                    _controlLogger.LogInfo($"✅ 循环器制冷功能已停止: {coolCommand} = false");
-                }
-                else
-                {
-                    _controlLogger.LogError($"❌ 停止循环器制冷功能失败: {coolCommand}");
-                }
-
-                await Task.Delay(300);
-
-                // 4. 最后停止循环功能
-                string cycleCommand = GetCirculatorCycleCommand();
-                bool cycleStopResult = await _connectionManager.WriteAsync(_circulatorDeviceId, cycleCommand, false);
-
-                if (cycleStopResult)
-                {
-                    _controlLogger.LogInfo($"✅ 循环器循环功能已停止: {cycleCommand} = false");
-                }
-                else
-                {
-                    _controlLogger.LogError($"❌ 停止循环器循环功能失败: {cycleCommand}");
-                }
-
-                // 5. 总结停止结果
-                bool allStopped = tempSetResult && heatStopResult && coolStopResult && cycleStopResult;
-
-                if (allStopped)
-                {
-                    _controlLogger.LogSuccess($"🎉 循环器{_circulatorDeviceId}已完全停止",
-                        $"温度设为25℃，循环+加热+制冷功能全部关闭");
-                }
-                else
-                {
-                    _controlLogger.LogWarning($"⚠️ 循环器{_circulatorDeviceId}部分功能停止失败",
-                        $"温度设置:{(tempSetResult ? "成功" : "失败")}, " +
-                        $"加热停止:{(heatStopResult ? "成功" : "失败")}, " +
-                        $"制冷停止:{(coolStopResult ? "成功" : "失败")}, " +
-                        $"循环停止:{(cycleStopResult ? "成功" : "失败")}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _controlLogger.LogError($"完全停止循环器控制异常: {_circulatorDeviceId}", ex);
-                _logger.LogError(ex, $"完全停止循环器控制异常: {_deviceId}_{_sensorName}");
-            }
         }
 
         public async Task PauseAsync()
@@ -1358,15 +1290,20 @@ namespace MicroReactor_ModbusTCP
                 {
                     case ControlPhase.Initializing:
                         return "初始化中...";
-                    case ControlPhase.FastApproaching:
-                        return $"98%快速接近目标";
-                    case ControlPhase.WaitingForStability:
-                        int dataPoints = _stabilityCheckData.Count;
-                        return $"等待稳定 ({dataPoints}/{_config.MinStabilityDataPoints}点)";
+                    case ControlPhase.SettingCirculator:
+                        return "设置循环器温度";
+                    case ControlPhase.WaitingForEffect:
+                        var waitTime = (DateTime.Now - _lastCirculatorAdjustTime).TotalSeconds;
+                        var requiredWait = _config.MinWaitAfterAdjustment.TotalSeconds;
+                        return $"⏳ 等待温度生效 ({waitTime:F0}/{requiredWait}秒)";
+                    case ControlPhase.CollectingData:
+                        return $"📊 收集数据 ({_stabilityCheckData.Count}/{_config.MinStabilityDataPoints}点)";
+                    case ControlPhase.CheckingStability:
+                        return "🔍 检查稳定性";
                     case ControlPhase.CheckingTarget:
-                        return "检查目标达成";
+                        return "🎯 检查目标达成";
                     case ControlPhase.FineAdjusting:
-                        return "精确微调中";
+                        return "🔧 精确微调中";
                     case ControlPhase.Stable:
                         return "✅ 已稳定达标";
                     case ControlPhase.Stopped:
@@ -1412,7 +1349,7 @@ namespace MicroReactor_ModbusTCP
                 currentCycle = _controlCycleCount;
             }
 
-            // 1. 读取当前温度
+            // 1. 读取当前物料温度
             double currentTemp = await ReadCurrentTemperatureAsync();
             double tempError = currentTemp - _config.TargetTemperature;
             var now = DateTime.Now;
@@ -1421,11 +1358,11 @@ namespace MicroReactor_ModbusTCP
             UpdateTemperatureHistory(now, currentTemp);
 
             // 3. 记录温度读取
-            if (currentCycle % 5 == 0)  // 每5个周期记录一次详细信息
+            if (currentCycle % 5 == 0)
             {
                 _controlLogger.LogTemperatureReading(_sensorName, currentTemp, _config.TargetTemperature, tempError);
                 _controlLogger.LogDebug($"智能控制状态 {_sensorName}",
-                    $"阶段: {_currentPhase}, 周期#{currentCycle}, 当前: {currentTemp:F2}℃, 偏差: {tempError:F2}℃");
+                    $"阶段: {_currentPhase}, 周期#{currentCycle}, 物料温度: {currentTemp:F2}℃, 偏差: {tempError:F2}℃");
             }
 
             // 4. 根据当前阶段执行相应逻辑
@@ -1435,12 +1372,16 @@ namespace MicroReactor_ModbusTCP
                     await HandleInitializingPhase(currentTemp, now);
                     break;
 
-                case ControlPhase.FastApproaching:
-                    await HandleFastApproachingPhase(currentTemp, tempError, now);
+                case ControlPhase.WaitingForEffect:
+                    await HandleWaitingForEffectPhase(currentTemp, now);
                     break;
 
-                case ControlPhase.WaitingForStability:
-                    await HandleWaitingForStabilityPhase(currentTemp, tempError, now);
+                case ControlPhase.CollectingData:
+                    await HandleCollectingDataPhase(currentTemp, now);
+                    break;
+
+                case ControlPhase.CheckingStability:
+                    await HandleCheckingStabilityPhase(currentTemp, now);
                     break;
 
                 case ControlPhase.CheckingTarget:
@@ -1457,10 +1398,13 @@ namespace MicroReactor_ModbusTCP
             }
         }
 
+        /// <summary>
+        /// 阶段1: 初始化 - 设置循环器温度到98%接近位置
+        /// </summary>
         private async Task HandleInitializingPhase(double currentTemp, DateTime now)
         {
             _controlLogger.LogInfo($"🚀 开始智能控制 {_sensorName}",
-                $"当前: {currentTemp:F2}℃ → 目标: {_config.TargetTemperature:F2}℃");
+                $"物料当前: {currentTemp:F2}℃ → 目标: {_config.TargetTemperature:F2}℃");
 
             // 计算98%接近温度
             double targetCirculatorTemp = Calculate98PercentApproachTemperature(currentTemp);
@@ -1470,13 +1414,8 @@ namespace MicroReactor_ModbusTCP
 
             if (success)
             {
-                _currentPhase = ControlPhase.FastApproaching;
-                _lastSentCirculatorTemp = targetCirculatorTemp;
-                _lastControlTime = now;
-
-                // 清空稳定性检查数据
-                _stabilityCheckData.Clear();
-                _stabilityCheckStartTime = DateTime.MinValue;
+                _currentPhase = ControlPhase.WaitingForEffect;
+                _lastCirculatorAdjustTime = now;
 
                 _controlLogger.LogSuccess($"🎯 启动98%快速接近 {_sensorName}",
                     $"循环器设定: {targetCirculatorTemp:F1}℃");
@@ -1487,52 +1426,44 @@ namespace MicroReactor_ModbusTCP
             }
         }
 
-        private async Task HandleFastApproachingPhase(double currentTemp, double tempError, DateTime now)
+        /// <summary>
+        /// 阶段2: 等待温度生效 - 等待足够时间让热传递发生
+        /// </summary>
+        private async Task HandleWaitingForEffectPhase(double currentTemp, DateTime now)
         {
-            // 检查是否已经接近目标温度（在容差的3倍范围内）
-            if (Math.Abs(tempError) <= _config.Tolerance * 3)
+            var timeSinceAdjust = now - _lastCirculatorAdjustTime;
+
+            if (timeSinceAdjust >= _config.MinWaitAfterAdjustment)
             {
-                _currentPhase = ControlPhase.WaitingForStability;
-                _stabilityCheckStartTime = now;
+                // 等待时间够了，开始收集稳定性数据
+                _currentPhase = ControlPhase.CollectingData;
                 _stabilityCheckData.Clear();
+                _stabilityCheckStartTime = now;
 
-                _controlLogger.LogSuccess($"📍 快速接近完成 {_sensorName}",
-                    $"当前: {currentTemp:F2}℃, 偏差: {tempError:F2}℃, 开始稳定性检测");
+                _controlLogger.LogInfo($"⏰ 温度生效等待完成 {_sensorName}",
+                    $"等待时间: {timeSinceAdjust.TotalSeconds:F0}秒, 开始收集稳定性数据");
             }
-            else
-            {
-                // 如果偏差仍然很大，可能需要调整循环器温度
-                double timeSinceLastControl = (now - _lastControlTime).TotalSeconds;
-                if (timeSinceLastControl > 15) // 15秒后重新评估
-                {
-                    double newTargetCirculatorTemp = Calculate98PercentApproachTemperature(currentTemp);
-                    double tempDiff = Math.Abs(newTargetCirculatorTemp - _lastSentCirculatorTemp);
-
-                    if (tempDiff >= 2.0) // 温度差异超过2℃才调整
-                    {
-                        bool success = await SetCirculatorTemperatureAsync(newTargetCirculatorTemp);
-                        if (success)
-                        {
-                            _lastSentCirculatorTemp = newTargetCirculatorTemp;
-                            _lastControlTime = now;
-
-                            _controlLogger.LogInfo($"🔄 调整快速接近温度 {_sensorName}",
-                                $"循环器调整为: {newTargetCirculatorTemp:F1}℃");
-                        }
-                    }
-                }
-            }
+            // 在等待期间只记录温度，不做任何调整
         }
 
-        private async Task HandleWaitingForStabilityPhase(double currentTemp, double tempError, DateTime now)
+        /// <summary>
+        /// 阶段3: 收集稳定性数据 - 收集足够的数据点用于稳定性分析
+        /// </summary>
+        private async Task HandleCollectingDataPhase(double currentTemp, DateTime now)
         {
             // 收集稳定性检查数据
-            _stabilityCheckData.Add(currentTemp);
+            lock (_stabilityCheckData)
+            {
+                _stabilityCheckData.Add(currentTemp);
+            }
 
             // 限制数据点数量
             if (_stabilityCheckData.Count > _config.MinStabilityDataPoints * 2)
             {
-                _stabilityCheckData.RemoveAt(0);
+                lock (_stabilityCheckData)
+                {
+                    _stabilityCheckData.RemoveAt(0);
+                }
             }
 
             // 检查是否有足够的数据点进行稳定性分析
@@ -1542,27 +1473,42 @@ namespace MicroReactor_ModbusTCP
 
                 if (timeElapsed >= _config.StabilityTime.TotalSeconds)
                 {
-                    bool isStable = IsTemperatureStable();
-
-                    if (isStable)
-                    {
-                        _currentPhase = ControlPhase.CheckingTarget;
-                        _controlLogger.LogSuccess($"✅ 温度已稳定 {_sensorName}",
-                            $"标准差: {CalculateStandardDeviation(_stabilityCheckData):F3}℃, " +
-                            $"范围: {(_stabilityCheckData.Max() - _stabilityCheckData.Min()):F2}℃");
-                    }
-                    else
-                    {
-                        // 重新开始稳定性检测
-                        _stabilityCheckStartTime = now;
-                        _stabilityCheckData.Clear();
-                        _controlLogger.LogWarning($"⏳ 温度未稳定，重新检测 {_sensorName}",
-                            $"标准差: {CalculateStandardDeviation(_stabilityCheckData):F3}℃");
-                    }
+                    _currentPhase = ControlPhase.CheckingStability;
+                    _controlLogger.LogInfo($"📊 数据收集完成 {_sensorName}",
+                        $"收集了 {_stabilityCheckData.Count} 个数据点, 时长: {timeElapsed:F0}秒");
                 }
             }
         }
 
+        /// <summary>
+        /// 阶段4: 检查稳定性 - 分析收集的数据判断是否稳定
+        /// </summary>
+        private async Task HandleCheckingStabilityPhase(double currentTemp, DateTime now)
+        {
+            var stabilityResult = CheckTemperatureStability();
+
+            if (stabilityResult.IsStable)
+            {
+                _currentPhase = ControlPhase.CheckingTarget;
+                _controlLogger.LogSuccess($"✅ 物料温度已稳定 {_sensorName}", stabilityResult.Details);
+            }
+            else
+            {
+                // 未稳定，重新收集数据
+                _currentPhase = ControlPhase.CollectingData;
+                _stabilityCheckStartTime = now;
+                lock (_stabilityCheckData)
+                {
+                    _stabilityCheckData.Clear();
+                }
+
+                _controlLogger.LogWarning($"⏳ 物料温度未稳定,重新收集数据 {_sensorName}", stabilityResult.Details);
+            }
+        }
+
+        /// <summary>
+        /// 阶段5: 检查目标 - 判断稳定的温度是否在目标范围内
+        /// </summary>
         private async Task HandleCheckingTargetPhase(double currentTemp, double tempError, DateTime now)
         {
             if (Math.Abs(tempError) <= _config.Tolerance)
@@ -1572,46 +1518,41 @@ namespace MicroReactor_ModbusTCP
                 UpdateStabilityStatus(true);
 
                 _controlLogger.LogSuccess($"🎉 达到目标温度 {_sensorName}",
-                    $"当前: {currentTemp:F2}℃, 目标: {_config.TargetTemperature:F2}℃, 偏差: {tempError:F2}℃");
+                    $"物料温度: {currentTemp:F2}℃, 目标: {_config.TargetTemperature:F2}℃, 偏差: {tempError:F2}℃");
             }
             else
             {
                 // 需要微调
                 _currentPhase = ControlPhase.FineAdjusting;
-                _controlLogger.LogInfo($"🔧 开始精确微调 {_sensorName}",
-                    $"偏差: {tempError:F2}℃, 步长: {_config.FineAdjustStep}℃");
+                _controlLogger.LogInfo($"🔧 需要精确微调 {_sensorName}",
+                    $"物料偏差: {tempError:F2}℃, 超出容差: ±{_config.Tolerance}℃");
             }
         }
 
+        /// <summary>
+        /// 阶段6: 精确微调 - 小步长调整循环器温度
+        /// </summary>
         private async Task HandleFineAdjustingPhase(double currentTemp, double tempError, DateTime now)
         {
             // 计算微调后的循环器温度
-            double adjustedCirculatorTemp = CalculateFineAdjustTemperature(currentTemp, tempError);
+            double adjustedCirculatorTemp = CalculateFineAdjustCirculatorTemp(currentTemp, tempError);
 
-            // 只有当调整幅度足够大时才发送
-            double tempDiff = Math.Abs(adjustedCirculatorTemp - _lastSentCirculatorTemp);
-            double timeSinceLastControl = (now - _lastControlTime).TotalSeconds;
+            bool success = await SetCirculatorTemperatureAsync(adjustedCirculatorTemp);
 
-            if (tempDiff >= 0.5 || timeSinceLastControl > 20) // 0.5℃差异或20秒间隔
+            if (success)
             {
-                bool success = await SetCirculatorTemperatureAsync(adjustedCirculatorTemp);
+                // 调整后重新进入等待温度生效阶段
+                _currentPhase = ControlPhase.WaitingForEffect;
+                _lastCirculatorAdjustTime = now;
 
-                if (success)
-                {
-                    _lastSentCirculatorTemp = adjustedCirculatorTemp;
-                    _lastControlTime = now;
-
-                    // 重新开始稳定性检测
-                    _currentPhase = ControlPhase.WaitingForStability;
-                    _stabilityCheckStartTime = now;
-                    _stabilityCheckData.Clear();
-
-                    _controlLogger.LogInfo($"🎛️ 精确微调 {_sensorName}",
-                        $"循环器调整为: {adjustedCirculatorTemp:F1}℃, 偏差: {tempError:F2}℃");
-                }
+                _controlLogger.LogInfo($"🎛️ 精确微调循环器 {_sensorName}",
+                    $"循环器: {adjustedCirculatorTemp:F1}℃, 物料偏差: {tempError:F2}℃");
             }
         }
 
+        /// <summary>
+        /// 阶段7: 稳定状态 - 监控物料温度，防止失控
+        /// </summary>
         private async Task HandleStablePhase(double currentTemp, double tempError, DateTime now)
         {
             // 检查是否仍然稳定
@@ -1622,7 +1563,7 @@ namespace MicroReactor_ModbusTCP
                 UpdateStabilityStatus(false);
 
                 _controlLogger.LogWarning($"⚠️ 失去稳定状态 {_sensorName}",
-                    $"偏差: {tempError:F2}℃ > 容差: ±{_config.Tolerance * 1.5:F2}℃");
+                    $"物料偏差: {tempError:F2}℃ > 容差: ±{_config.Tolerance * 1.5:F2}℃");
             }
             else
             {
@@ -1631,101 +1572,207 @@ namespace MicroReactor_ModbusTCP
             }
         }
 
-        private double Calculate98PercentApproachTemperature(double currentTemp)
+        /// <summary>
+        /// 🔧 修正后的98%计算逻辑
+        /// </summary>
+        private double Calculate98PercentApproachTemperature(double currentMaterialTemp)
         {
-            // 计算到目标温度98%的循环器温度
-            double tempDiff = _config.TargetTemperature - currentTemp;
-            double approachTemp = currentTemp + (tempDiff * _config.ApproachPercentage);
+            double tempDifference = _config.TargetTemperature - currentMaterialTemp;
 
-            // 循环器温度需要更激进一些来推动实际温度达到98%
-            double circulatorOffset;
-
-            if (Math.Abs(tempDiff) > 20)
+            if (Math.Abs(tempDifference) <= 1.0)
             {
-                circulatorOffset = tempDiff * 0.7; // 大温差时较激进
-            }
-            else if (Math.Abs(tempDiff) > 10)
-            {
-                circulatorOffset = tempDiff * 0.8; // 中等温差
-            }
-            else
-            {
-                circulatorOffset = tempDiff * 0.9; // 小温差时较保守
+                // 已经很接近，循环器温度 = 目标温度
+                return _config.TargetTemperature;
             }
 
-            double circulatorTemp = _config.TargetTemperature + circulatorOffset;
+            // 98%接近：循环器温度 = 当前物料温度 + 98% * 温差
+            double circulatorTemp = currentMaterialTemp + (tempDifference * _config.ApproachPercentage);
 
-            // 限制循环器温度范围
-            double maxOffset = Math.Min(40, Math.Abs(tempDiff) * 1.5);
-            circulatorTemp = Math.Max(_config.TargetTemperature - maxOffset,
-                             Math.Min(_config.TargetTemperature + maxOffset, circulatorTemp));
+            _controlLogger.LogInfo($"98%计算 {_sensorName}",
+                $"物料: {currentMaterialTemp:F1}℃, 目标: {_config.TargetTemperature:F1}℃, 温差: {tempDifference:F1}℃, 循环器: {circulatorTemp:F1}℃");
 
             return circulatorTemp;
         }
 
-        private double CalculateFineAdjustTemperature(double currentTemp, double tempError)
+        /// <summary>
+        /// 🔧 改进的微调计算
+        /// </summary>
+        private double CalculateFineAdjustCirculatorTemp(double currentTemp, double tempError)
         {
-            // 微调算法：根据偏差大小决定调整幅度
             double adjustStep = _config.FineAdjustStep;
 
             // 根据偏差大小动态调整步长
-            if (Math.Abs(tempError) > _config.Tolerance * 3)
+            if (Math.Abs(tempError) > 2.0)
+                adjustStep = 1.0;
+            else if (Math.Abs(tempError) > 1.0)
+                adjustStep = 0.5;
+            else
+                adjustStep = 0.3;
+
+            double newCirculatorTemp;
+
+            if (tempError < 0)
             {
-                adjustStep *= 2.0; // 偏差较大时步长加倍
+                // 物料温度低于目标，需要升温
+                newCirculatorTemp = _config.TargetTemperature + adjustStep;
             }
-            else if (Math.Abs(tempError) < _config.Tolerance * 0.5)
+            else
             {
-                adjustStep *= 0.5; // 偏差很小时步长减半
+                // 物料温度高于目标，需要降温
+                newCirculatorTemp = _config.TargetTemperature - adjustStep;
             }
 
-            // 计算调整方向和幅度
-            double adjustment = Math.Sign(tempError) * adjustStep;
-            double newCirculatorTemp = _lastSentCirculatorTemp + adjustment;
+            _controlLogger.LogInfo($"微调计算 {_sensorName}",
+                $"物料偏差: {tempError:F2}℃, 步长: {adjustStep:F1}℃, 新循环器温度: {newCirculatorTemp:F1}℃");
 
-            // 限制调整范围
-            double maxCirculatorTemp = _config.TargetTemperature + 30;
-            double minCirculatorTemp = _config.TargetTemperature - 30;
-
-            return Math.Max(minCirculatorTemp, Math.Min(maxCirculatorTemp, newCirculatorTemp));
+            return newCirculatorTemp;
         }
 
-        private bool IsTemperatureStable()
+        /// <summary>
+        /// 🔧 改进的稳定性检查
+        /// </summary>
+        private StabilityResult CheckTemperatureStability()
         {
-            if (_stabilityCheckData.Count < _config.MinStabilityDataPoints)
-                return false;
+            lock (_stabilityCheckData)
+            {
+                if (_stabilityCheckData.Count < _config.MinStabilityDataPoints)
+                {
+                    return StabilityResult.InsufficientData();
+                }
 
-            // 计算标准差
-            double stdDev = CalculateStandardDeviation(_stabilityCheckData);
+                var result = new StabilityResult();
 
-            // 计算温度范围
-            double range = _stabilityCheckData.Max() - _stabilityCheckData.Min();
+                // 1. 计算标准差
+                result.StandardDeviation = CalculateStandardDeviation(_stabilityCheckData);
+                result.StdDevOK = result.StandardDeviation <= _config.StabilityStdDevThreshold;
 
-            // 稳定性判断：标准差小于阈值且温度范围小于阈值
-            bool isStableByStdDev = stdDev <= _config.StabilityStdDevThreshold;
-            bool isStableByRange = range <= _config.StabilityRangeThreshold;
+                // 2. 计算温度范围
+                result.TemperatureRange = _stabilityCheckData.Max() - _stabilityCheckData.Min();
+                result.RangeOK = result.TemperatureRange <= _config.StabilityRangeThreshold;
 
-            return isStableByStdDev && isStableByRange;
+                // 3. 趋势检查
+                result.TrendOK = CheckTemperatureTrend(_stabilityCheckData);
+
+                // 4. 近期点稳定性
+                result.RecentPointsOK = CheckRecentPointsStability(_stabilityCheckData);
+
+                // 5. 时间要求（已在上层检查）
+                result.TimeOK = true;
+
+                // 6. 综合判断
+                result.IsStable = result.StdDevOK && result.RangeOK && result.TrendOK && result.RecentPointsOK;
+
+                result.Details = $"标准差:{result.StandardDeviation:F3}℃(≤{_config.StabilityStdDevThreshold}) " +
+                               $"范围:{result.TemperatureRange:F2}℃(≤{_config.StabilityRangeThreshold}) " +
+                               $"趋势:{(result.TrendOK ? "✓" : "✗")} " +
+                               $"近期点:{(result.RecentPointsOK ? "✓" : "✗")}";
+
+                return result;
+            }
+        }
+
+        private bool CheckTemperatureTrend(List<double> data)
+        {
+            if (data.Count < 6) return true;
+
+            var recentData = data.TakeLast(6).ToList();
+            double slope = CalculateSlope(recentData);
+
+            // 斜率绝对值 < 0.05℃/读数 认为无明显趋势
+            return Math.Abs(slope) < 0.05;
+        }
+
+        private bool CheckRecentPointsStability(List<double> data)
+        {
+            if (data.Count < 4) return false;
+
+            var recentPoints = data.TakeLast(4).ToList();
+
+            // ✅ 正确逻辑：检查最近4个点之间的波动
+            double recentRange = recentPoints.Max() - recentPoints.Min();
+            bool smallFluctuation = recentRange <= 0.2; // 最近4个点波动 ≤ 0.2℃
+
+            // 额外检查：避免单调趋势（持续上升或下降）
+            bool noMonotonicTrend = true;
+            if (recentPoints.Count >= 4)
+            {
+                // 检查是否严格单调
+                bool isIncreasing = true;
+                bool isDecreasing = true;
+
+                for (int i = 1; i < recentPoints.Count; i++)
+                {
+                    if (recentPoints[i] <= recentPoints[i - 1]) isIncreasing = false;
+                    if (recentPoints[i] >= recentPoints[i - 1]) isDecreasing = false;
+                }
+
+                noMonotonicTrend = !(isIncreasing || isDecreasing);
+            }
+
+            return smallFluctuation && noMonotonicTrend;
+        }
+
+        private double CalculateSlope(List<double> data)
+        {
+            if (data.Count < 2) return 0;
+
+            double n = data.Count;
+            double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+            for (int i = 0; i < data.Count; i++)
+            {
+                sumX += i;
+                sumY += data[i];
+                sumXY += i * data[i];
+                sumX2 += i * i;
+            }
+
+            // 线性回归斜率计算
+            double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            return slope;
         }
 
         private double CalculateStandardDeviation(List<double> values)
         {
-            if (values.Count < 2)
-                return double.MaxValue;
+            if (values == null || values.Count < 2)
+                return 999.0;
 
-            double mean = values.Average();
-            double sumOfSquares = values.Sum(x => Math.Pow(x - mean, 2));
-            return Math.Sqrt(sumOfSquares / (values.Count - 1));
+            try
+            {
+                double mean = values.Average();
+                double sumOfSquares = values.Sum(x => Math.Pow(x - mean, 2));
+                double variance = sumOfSquares / (values.Count - 1);
+
+                if (double.IsNaN(variance) || double.IsInfinity(variance))
+                    return 999.0;
+
+                double stdDev = Math.Sqrt(variance);
+
+                if (double.IsNaN(stdDev) || double.IsInfinity(stdDev))
+                    return 999.0;
+
+                return stdDev;
+            }
+            catch
+            {
+                return 999.0;
+            }
         }
 
+        /// <summary>
+        /// 设置循环器温度
+        /// </summary>
         private async Task<bool> SetCirculatorTemperatureAsync(double temperature)
         {
             try
             {
                 if (_isSimulationMode)
                 {
-                    // 在模拟模式下更新循环器温度
+                    // 模拟模式下保存循环器温度
                     string circulatorKey = $"{_deviceId}_{_sensorName}_CirculatorTemp";
                     _deviceData[circulatorKey] = temperature;
+
+                    _lastSentCirculatorTemp = temperature;
                     return true;
                 }
 
@@ -1734,6 +1781,7 @@ namespace MicroReactor_ModbusTCP
 
                 if (result)
                 {
+                    _lastSentCirculatorTemp = temperature;
                     _controlLogger.LogInfo($"设置循环器温度成功 {_sensorName}",
                         $"循环器{_circulatorDeviceId}: {temperature:F1}℃");
                 }
@@ -1751,6 +1799,9 @@ namespace MicroReactor_ModbusTCP
             }
         }
 
+        /// <summary>
+        /// 读取物料当前温度
+        /// </summary>
         private async Task<double> ReadCurrentTemperatureAsync()
         {
             if (_isSimulationMode)
@@ -1775,10 +1826,71 @@ namespace MicroReactor_ModbusTCP
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"读取温度传感器失败: {_deviceId}_{_sensorName}");
-                    _controlLogger.LogError($"读取温度传感器失败 {_sensorName}", ex);
-                    return _config.TargetTemperature;
+                    _logger.LogError(ex, $"读取物料温度传感器失败: {_deviceId}_{_sensorName}");
+                    _controlLogger.LogError($"读取物料温度传感器失败 {_sensorName}", ex);
+
+                    // 返回上次读取的温度
+                    if (_tempHistory.TryPeek(out var lastReading))
+                    {
+                        _controlLogger.LogWarning($"使用上次读取的温度: {lastReading.temp:F2}℃");
+                        return lastReading.temp;
+                    }
+
+                    throw new Exception($"无法读取物料温度且没有历史数据: {_sensorName}");
                 }
+            }
+        }
+
+        private async Task StopCirculatorControlAsync()
+        {
+            try
+            {
+                if (_isSimulationMode)
+                {
+                    _controlLogger.LogInfo($"模拟模式：{_sensorName}控制器完全停止循环器");
+                    return;
+                }
+
+                _controlLogger.LogInfo($"开始完全停止循环器{_circulatorDeviceId}...");
+
+                // 停止加热功能
+                string heatCommand = GetCirculatorHeatingCommand();
+                bool heatStopResult = await _connectionManager.WriteAsync(_circulatorDeviceId, heatCommand, false);
+
+                if (heatStopResult)
+                {
+                    _controlLogger.LogInfo($"✅ 循环器加热功能已停止: {heatCommand} = false");
+                }
+
+                await Task.Delay(300);
+
+                // 停止制冷功能
+                string coolCommand = GetCirculatorCoolingCommand();
+                bool coolStopResult = await _connectionManager.WriteAsync(_circulatorDeviceId, coolCommand, false);
+
+                if (coolStopResult)
+                {
+                    _controlLogger.LogInfo($"✅ 循环器制冷功能已停止: {coolCommand} = false");
+                }
+
+                await Task.Delay(300);
+
+                // 停止循环功能
+                string cycleCommand = GetCirculatorCycleCommand();
+                bool cycleStopResult = await _connectionManager.WriteAsync(_circulatorDeviceId, cycleCommand, false);
+
+                if (cycleStopResult)
+                {
+                    _controlLogger.LogInfo($"✅ 循环器循环功能已停止: {cycleCommand} = false");
+                }
+
+                _controlLogger.LogSuccess($"🎉 循环器{_circulatorDeviceId}已完全停止",
+                    $"温度设为25℃，循环+加热+制冷功能全部关闭");
+            }
+            catch (Exception ex)
+            {
+                _controlLogger.LogError($"完全停止循环器控制异常: {_circulatorDeviceId}", ex);
+                _logger.LogError(ex, $"完全停止循环器控制异常: {_deviceId}_{_sensorName}");
             }
         }
 
@@ -1817,11 +1929,11 @@ namespace MicroReactor_ModbusTCP
             // 记录稳定性状态变化
             if (!wasStable && isStable)
             {
-                _controlLogger.LogSuccess($"{_sensorName}达到稳定状态");
+                _controlLogger.LogSuccess($"{_sensorName}物料温度达到稳定状态");
             }
             else if (wasStable && !isStable)
             {
-                _controlLogger.LogWarning($"{_sensorName}失去稳定状态");
+                _controlLogger.LogWarning($"{_sensorName}物料温度失去稳定状态");
             }
 
             // 检查系统整体稳定性
@@ -1893,11 +2005,12 @@ namespace MicroReactor_ModbusTCP
 
                     // 写入日志文件头信息
                     _logWriter.WriteLine("=".PadRight(80, '='));
-                    _logWriter.WriteLine($"智能温度控制系统日志");
+                    _logWriter.WriteLine($"智能温度控制系统日志 (改进版)");
                     _logWriter.WriteLine($"流程名称: {flowName}");
                     _logWriter.WriteLine($"开始时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
                     _logWriter.WriteLine($"日志文件: {fileName}");
-                    _logWriter.WriteLine($"控制策略: 98%快速接近 → 稳定性检测 → 精确微调");
+                    _logWriter.WriteLine($"控制策略: 98%快速接近 → 等待生效 → 稳定性检测 → 精确微调");
+                    _logWriter.WriteLine($"核心改进: 每次调整循环器后等待30秒，避免频繁调整");
                     _logWriter.WriteLine("=".PadRight(80, '='));
                     _logWriter.WriteLine();
                 }
@@ -1915,28 +2028,32 @@ namespace MicroReactor_ModbusTCP
 
         public void LogControllerStart(string sensorName, double targetTemp, double tolerance, int interval)
         {
-            WriteLog("INFO", $"📊 启动{sensorName}智能控制器", $"目标温度: {targetTemp}℃, 容差: ±{tolerance}℃, 间隔: {interval}秒");
+            WriteLog("INFO", $"📊 启动{sensorName}智能控制器",
+                $"目标温度: {targetTemp}℃, 容差: ±{tolerance}℃, 间隔: {interval}秒");
         }
 
         public void LogTemperatureReading(string sensorName, double actualTemp, double targetTemp, double error)
         {
-            WriteLog("DATA", $"🌡️ 温度读取 {sensorName}", $"实际: {actualTemp:F2}℃, 目标: {targetTemp:F2}℃, 偏差: {error:F2}℃");
+            WriteLog("DATA", $"🌡️ 温度读取 {sensorName}",
+                $"物料温度: {actualTemp:F2}℃, 目标: {targetTemp:F2}℃, 偏差: {error:F2}℃");
         }
 
         public void LogCirculatorControl(string circulatorId, double targetTemp, string reason)
         {
-            WriteLog("CONTROL", $"🎛️ 循环器控制 {circulatorId}", $"设定温度: {targetTemp:F1}℃, 原因: {reason}");
+            WriteLog("CONTROL", $"🎛️ 循环器控制 {circulatorId}",
+                $"设定温度: {targetTemp:F1}℃, 原因: {reason}");
         }
 
         public void LogStabilityCheck(string sensorName, bool isStable, string details)
         {
             string emoji = isStable ? "✅" : "⏳";
-            WriteLog("STABILITY", $"{emoji} {sensorName}稳定性检查", $"稳定: {(isStable ? "是" : "否")}, 详情: {details}");
+            WriteLog("STABILITY", $"{emoji} {sensorName}稳定性检查",
+                $"稳定: {(isStable ? "是" : "否")}, 详情: {details}");
         }
 
         public void LogSystemStable()
         {
-            WriteLog("SUCCESS", "🎉 系统整体稳定", "所有温度传感器已达到稳定状态，可以开始进料反应");
+            WriteLog("SUCCESS", "🎉 系统整体稳定", "所有物料温度已达到稳定状态,可以开始进料反应");
         }
 
         public void LogWarning(string message, string details = "")

@@ -69,5 +69,6 @@
         /// 在线检测
         /// </summary>
         public const string InlineDetection = "InlineDetection";
+
     }
 }
