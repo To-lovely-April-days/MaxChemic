@@ -106,8 +106,7 @@ public partial class App : PrismApplication
         // 注册新的项目数据服务
         containerRegistry.RegisterSingleton<IProjectDataService, ProjectDataService>();
         containerRegistry.RegisterSingleton<ProjectCoordinator>();
-
-
+       
 
         // 注册Prism自己的日志服务
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));

@@ -544,8 +544,37 @@
                 <Setter Property="CornerRadius" Value="8,8,0,0"/>
             </Style>
 
-        
 
+
+            <!-- ✅ 全局阴影效果定义 -->
+
+            <!-- 标准阴影 - 用于卡片、面板 -->
+            <DropShadowEffect x:Key="StandardShadow"
+                              Color="#000000"
+                              ShadowDepth="0"
+                              BlurRadius="12"
+                              Opacity="0.15"/>
+
+            <!-- 轻微阴影 - 用于悬停效果 -->
+            <DropShadowEffect x:Key="LightShadow"
+                              Color="#000000"
+                              ShadowDepth="0"
+                              BlurRadius="8"
+                              Opacity="0.08"/>
+
+            <!-- 深度阴影 - 用于弹窗、强调元素 -->
+            <DropShadowEffect x:Key="DeepShadow"
+                              Color="#000000"
+                              ShadowDepth="2"
+                              BlurRadius="16"
+                              Opacity="0.25"/>
+
+            <!-- 悬浮阴影 - 用于按钮悬停 -->
+            <DropShadowEffect x:Key="ElevatedShadow"
+                              Color="#000000"
+                              ShadowDepth="4"
+                              BlurRadius="20"
+                              Opacity="0.2"/>
         </ResourceDictionary>
     </Application.Resources>
 </prism:PrismApplication>
