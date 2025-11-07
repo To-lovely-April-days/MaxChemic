@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:prism="http://prismlibrary.com/"
+             xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
              prism:ViewModelLocator.AutoWireViewModel="True"
              Background="White">
 
@@ -9,6 +10,12 @@
             BorderBrush="#E0E0E0">
 
         <Grid>
+            <!-- 🔥 新增：管道工具箱浮动在右侧 -->
+            <local:PipeToolboxPanel x:Name="PipeToolbox"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    Margin="0,20,20,0"
+                                    Panel.ZIndex="1000"/>
 
             <!-- 🔥 添加滚动查看器包装设计画布 -->
             <ScrollViewer x:Name="CanvasScrollViewer"
@@ -35,7 +42,7 @@
                         VerticalAlignment="Center"
                         IsHitTestVisible="False"
                         Visibility="Collapsed">
-            
+
                 <TextBlock Text="工艺设计器" 
                            FontSize="32" 
                            FontWeight="Light" 

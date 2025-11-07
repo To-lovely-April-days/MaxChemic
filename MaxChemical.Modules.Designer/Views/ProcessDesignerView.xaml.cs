@@ -5,18 +5,19 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Infrastructure.Events;
+using MaxChemical.Modules.Designer.Commands;
+using MaxChemical.Modules.Designer.Event;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
-using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.Views.Controls;
 using Prism.Events;
-using System.Windows.Media.Imaging;
-using MaxChemical.Modules.Designer.Event;
-using MaxChemical.Modules.Designer.Service;
-using MaxChemical.Modules.Designer.Commands;
-using System.Windows.Media.Animation;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -35,6 +36,7 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly ICanvasDataService _canvasDataService;
         private readonly ICommandHistory _commandHistory;
         private ProcessDesignerViewModel _viewModel;
+        private readonly IPipeConnectionService _pipeConnectionService;
         // A. 设备显示名管理
         private readonly Dictionary<string, int> _deviceNameCounters = new();      // 基础名 -> 累计序号
         private readonly Dictionary<string, string> _deviceDisplayNames = new();    // DeviceId -> 显示名（泵#2）
@@ -55,6 +57,10 @@ namespace MaxChemical.Modules.Designer.Views
         private string _currentDraggingDeviceId = null;    // 当前被拖拽的设备ID
         private const double DragThreshold = 5.0;          // 拖拽触发阈值
 
+
+        private bool _isDraggingPipe = false;           // 是否正在拖拽管道
+        private StraightPipeControl _currentDraggingPipe = null; // 当前拖拽的管道
+        private PipeAnchorPosition? _draggingAnchor = null;      // 当前拖拽的锚点
         #endregion
 
         #region 私有字段 外部拖放防重复处理
@@ -97,7 +103,8 @@ namespace MaxChemical.Modules.Designer.Views
             IDragDropService dragDropService,
             IConnectionService connectionService,
             ICanvasDataService canvasDataService,
-            ICommandHistory commandHistory)
+            ICommandHistory commandHistory,
+            IPipeConnectionService pipeConnectionService)
         {
             // 依赖注入验证
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
@@ -106,6 +113,7 @@ namespace MaxChemical.Modules.Designer.Views
             _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
             _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
+            _pipeConnectionService = pipeConnectionService ?? throw new ArgumentNullException(nameof(pipeConnectionService));
 
             // 配置连接服务
             ConfigureConnectionService();
@@ -120,11 +128,21 @@ namespace MaxChemical.Modules.Designer.Views
             // 配置鼠标和键盘事件
             ConfigureMouseAndKeyboardEvents();
 
+            // 配置管道连接服务
+            ConfigurePipeConnectionService();
             // 配置生命周期事件
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
+           
         }
-
+        /// <summary>
+        /// 配置管道连接服务
+        /// </summary>
+        private void ConfigurePipeConnectionService()
+        {
+            _pipeConnectionService.GetCanvasFunc = () => DesignCanvas;
+            _pipeConnectionService.FindDeviceElementFunc = FindDeviceElementInCanvas;
+        }
         /// <summary>
         /// 配置连接服务的委托和事件
         /// </summary>
@@ -711,6 +729,9 @@ namespace MaxChemical.Modules.Designer.Views
 
             // *** 新增：订阅监控参数状态事件 ***
             SubscribeToMonitoringParameterEvents();
+
+            // ✅ 新增:订阅管道工具箱事件
+            SubscribeToPipeToolboxEvents();
         }
         private void SubscribeToExecutionEvents()
         {
@@ -880,8 +901,30 @@ namespace MaxChemical.Modules.Designer.Views
             UnsubscribeFromCanvasEvents();
             UnsubscribeFromConnectionService();
             UnsubscribeFromKeyboardEvents();
+            UnsubscribeFromPipeToolboxEvents(); // ✅ 新增
+        }
+        /// <summary>
+        /// 订阅管道工具箱事件
+        /// </summary>
+        private void SubscribeToPipeToolboxEvents()
+        {
+            if (PipeToolbox != null)
+            {
+                PipeToolbox.PipeDragStarted += OnPipeDragStarted;
+                Debug.WriteLine("管道工具箱事件已订阅");
+            }
         }
 
+        /// <summary>
+        /// 取消订阅管道工具箱事件
+        /// </summary>
+        private void UnsubscribeFromPipeToolboxEvents()
+        {
+            if (PipeToolbox != null)
+            {
+                PipeToolbox.PipeDragStarted -= OnPipeDragStarted;
+            }
+        }
         /// <summary>
         /// 订阅ViewModel相关事件
         /// </summary>
@@ -1770,129 +1813,129 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 外部拖放事件处理 从设备库到画布
 
-        private void OnDragEnter(object sender, DragEventArgs e)
-        {
-            Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
+        //private void OnDragEnter(object sender, DragEventArgs e)
+        //{
+        //    Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
 
-            // 如果正在进行内部拖拽则忽略外部拖放
-            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-            {
-                Debug.WriteLine("忽略外部拖拽，内部拖拽进行中");
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
+        //    // 如果正在进行内部拖拽则忽略外部拖放
+        //    if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+        //    {
+        //        Debug.WriteLine("忽略外部拖拽，内部拖拽进行中");
+        //        e.Effects = DragDropEffects.None;
+        //        e.Handled = true;
+        //        return;
+        //    }
 
-            // 处理设备拖拽
-            if (e.Data.GetDataPresent("Device"))
-            {
-                var device = e.Data.GetData("Device") as IDevice;
-                var position = e.GetPosition(DesignCanvas);
-                Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
+        //    // 处理设备拖拽
+        //    if (e.Data.GetDataPresent("Device"))
+        //    {
+        //        var device = e.Data.GetData("Device") as IDevice;
+        //        var position = e.GetPosition(DesignCanvas);
+        //        Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
 
-                // 检查设备是否可以放置在当前区域
-                if (IsValidRegionForDevice(device, position))
-                {
-                    e.Effects = DragDropEffects.Copy;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
-                }
-                else
-                {
-                    e.Effects = DragDropEffects.None;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
-                }
-            }
-            else
-            {
-                e.Effects = DragDropEffects.None;
-            }
+        //        // 检查设备是否可以放置在当前区域
+        //        if (IsValidRegionForDevice(device, position))
+        //        {
+        //            e.Effects = DragDropEffects.Copy;
+        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
+        //        }
+        //        else
+        //        {
+        //            e.Effects = DragDropEffects.None;
+        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
+        //        }
+        //    }
+        //    else
+        //    {
+        //        e.Effects = DragDropEffects.None;
+        //    }
 
-            e.Handled = true;
-        }
+        //    e.Handled = true;
+        //}
 
-        private void OnDragOver(object sender, DragEventArgs e)
-        {
-            // 如果正在进行内部拖拽则拒绝外部拖放
-            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-            {
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
+        //private void OnDragOver(object sender, DragEventArgs e)
+        //{
+        //    // 如果正在进行内部拖拽则拒绝外部拖放
+        //    if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+        //    {
+        //        e.Effects = DragDropEffects.None;
+        //        e.Handled = true;
+        //        return;
+        //    }
 
-            // 实时检查拖拽位置是否有效
-            if (e.Data.GetDataPresent("Device"))
-            {
-                var device = e.Data.GetData("Device") as IDevice;
-                var position = e.GetPosition(DesignCanvas);
+        //    // 实时检查拖拽位置是否有效
+        //    if (e.Data.GetDataPresent("Device"))
+        //    {
+        //        var device = e.Data.GetData("Device") as IDevice;
+        //        var position = e.GetPosition(DesignCanvas);
 
-                if (IsValidRegionForDevice(device, position))
-                {
-                    e.Effects = DragDropEffects.Copy;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
-                }
-                else
-                {
-                    e.Effects = DragDropEffects.None;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
-                }
-            }
+        //        if (IsValidRegionForDevice(device, position))
+        //        {
+        //            e.Effects = DragDropEffects.Copy;
+        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
+        //        }
+        //        else
+        //        {
+        //            e.Effects = DragDropEffects.None;
+        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
+        //        }
+        //    }
 
-            e.Handled = true;
-        }
+        //    e.Handled = true;
+        //}
 
-        private void OnDragLeave(object sender, DragEventArgs e)
-        {
-            Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
+        //private void OnDragLeave(object sender, DragEventArgs e)
+        //{
+        //    Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
 
-            // 如果正在进行内部拖拽则忽略
-            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-            {
-                Debug.WriteLine("忽略外部拖拽离开，内部拖拽进行中");
-                e.Handled = true;
-                return;
-            }
+        //    // 如果正在进行内部拖拽则忽略
+        //    if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+        //    {
+        //        Debug.WriteLine("忽略外部拖拽离开，内部拖拽进行中");
+        //        e.Handled = true;
+        //        return;
+        //    }
 
-            // 恢复画布背景
-            DesignCanvas.Background = Brushes.White;
+        //    // 恢复画布背景
+        //    DesignCanvas.Background = Brushes.White;
 
-            if (e.Data.GetDataPresent("Device"))
-            {
-                var device = e.Data.GetData("Device") as IDevice;
-                Debug.WriteLine($"外部设备拖拽离开: {device?.Name}");
-            }
+        //    if (e.Data.GetDataPresent("Device"))
+        //    {
+        //        var device = e.Data.GetData("Device") as IDevice;
+        //        Debug.WriteLine($"外部设备拖拽离开: {device?.Name}");
+        //    }
 
-            e.Handled = true;
-        }
+        //    e.Handled = true;
+        //}
 
-        private void OnDrop(object sender, DragEventArgs e)
-        {
-            Debug.WriteLine($"外部拖放: 内部拖拽={_isInternalDragging}, 正在处理={_isProcessingDrop}");
+        //private void OnDrop(object sender, DragEventArgs e)
+        //{
+        //    Debug.WriteLine($"外部拖放: 内部拖拽={_isInternalDragging}, 正在处理={_isProcessingDrop}");
 
-            // 恢复画布背景
-            DesignCanvas.Background = Brushes.White;
+        //    // 恢复画布背景
+        //    DesignCanvas.Background = Brushes.White;
 
-            // 检查是否应该忽略此拖放事件
-            if (ShouldIgnoreDropEvent())
-            {
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
+        //    // 检查是否应该忽略此拖放事件
+        //    if (ShouldIgnoreDropEvent())
+        //    {
+        //        e.Effects = DragDropEffects.None;
+        //        e.Handled = true;
+        //        return;
+        //    }
 
-            // 验证拖放数据
-            if (!ValidateDropData(e, out var device, out var dropPosition))
-            {
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
+        //    // 验证拖放数据
+        //    if (!ValidateDropData(e, out var device, out var dropPosition))
+        //    {
+        //        e.Effects = DragDropEffects.None;
+        //        e.Handled = true;
+        //        return;
+        //    }
 
-            // 处理设备拖放
-            ProcessDeviceDrop(device, dropPosition);
-            e.Effects = DragDropEffects.Copy;
-            e.Handled = true;
-        }
+        //    // 处理设备拖放
+        //    ProcessDeviceDrop(device, dropPosition);
+        //    e.Effects = DragDropEffects.Copy;
+        //    e.Handled = true;
+        //}
 
         /// <summary>
         /// 检查是否应该忽略拖放事件
@@ -5332,6 +5375,946 @@ namespace MaxChemical.Modules.Designer.Views
             return FindParent<T>(parent);
         }
 
+        #endregion
+
+        #region 管道拖拽相关
+
+        /// <summary>
+        /// 管道拖拽开始事件
+        /// </summary>
+        private void OnPipeDragStarted(object sender, PipeDragStartEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管道拖拽开始: {e.PipeType}");
+                // 这里主要是标记,实际拖拽由 OnDragEnter/OnDrop 处理
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道拖拽开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 修改 OnDragEnter 支持管道拖拽
+        /// </summary>
+        private void OnDragEnter(object sender, DragEventArgs e)
+        {
+            Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
+
+            // 如果正在进行内部拖拽则忽略外部拖放
+            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+            {
+                Debug.WriteLine("忽略外部拖拽,内部拖拽进行中");
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            // ✅ 新增:处理管道拖拽
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
+                Debug.WriteLine($"管道拖拽进入: {pipeData?.PipeType}");
+                e.Effects = DragDropEffects.Copy;
+                DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 255, 120)); // 绿色提示
+                e.Handled = true;
+                return;
+            }
+
+            // 处理设备拖拽
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                var position = e.GetPosition(DesignCanvas);
+                Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
+
+                if (IsValidRegionForDevice(device, position))
+                {
+                    e.Effects = DragDropEffects.Copy;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
+                }
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// 修改 OnDragOver 支持管道拖拽
+        /// </summary>
+        private void OnDragOver(object sender, DragEventArgs e)
+        {
+            // 如果正在进行内部拖拽则拒绝外部拖放
+            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            // ✅ 新增:处理管道拖拽
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+                return;
+            }
+
+            // 实时检查拖拽位置是否有效
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                var position = e.GetPosition(DesignCanvas);
+
+                if (IsValidRegionForDevice(device, position))
+                {
+                    e.Effects = DragDropEffects.Copy;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
+                }
+            }
+
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// 修改 OnDragLeave 支持管道拖拽
+        /// </summary>
+        private void OnDragLeave(object sender, DragEventArgs e)
+        {
+            Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
+
+            // 如果正在进行内部拖拽则忽略
+            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+            {
+                Debug.WriteLine("忽略外部拖拽离开,内部拖拽进行中");
+                e.Handled = true;
+                return;
+            }
+
+            // 恢复画布背景
+            DesignCanvas.Background = Brushes.White;
+
+            // ✅ 新增:处理管道拖拽离开
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
+                Debug.WriteLine($"管道拖拽离开: {pipeData?.PipeType}");
+            }
+
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                Debug.WriteLine($"外部设备拖拽离开: {device?.Name}");
+            }
+
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// 修改 OnDrop 支持管道拖拽
+        /// </summary>
+        private void OnDrop(object sender, DragEventArgs e)
+        {
+            Debug.WriteLine($"外部拖放: 内部拖拽={_isInternalDragging}, 正在处理={_isProcessingDrop}");
+
+            // 恢复画布背景
+            DesignCanvas.Background = Brushes.White;
+
+            // 检查是否应该忽略此拖放事件
+            if (ShouldIgnoreDropEvent())
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            // ✅ 修复:处理管道拖放 - 使用不同的变量名
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
+                var pipeDropPosition = e.GetPosition(DesignCanvas); // ✅ 改名为 pipeDropPosition
+
+                ProcessPipeDrop(pipeData, pipeDropPosition);
+
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+                return;
+            }
+
+            // 验证拖放数据 - 这里使用 dropPosition 变量
+            if (!ValidateDropData(e, out var device, out var dropPosition))
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            // 处理设备拖放
+            ProcessDeviceDrop(device, dropPosition);
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// 处理管道拖放
+        /// </summary>
+        private void ProcessPipeDrop(PipeDragData pipeData, Point dropPosition)
+        {
+            _isProcessingDrop = true;
+            _lastDropTime = DateTime.Now;
+
+            try
+            {
+                Debug.WriteLine($"放置管道: {pipeData.PipeType} 在位置 ({dropPosition.X:F0}, {dropPosition.Y:F0})");
+
+                CreatePipeFromToolbox(pipeData, dropPosition);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理管道拖放失败: {ex.Message}");
+            }
+            finally
+            {
+                // 延迟重置处理标志
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _isProcessingDrop = false;
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+        }
+
+
+        /// <summary>
+        /// 从工具箱创建管道
+        /// </summary>
+        private void CreatePipeFromToolbox(PipeDragData pipeData, Point position)
+        {
+            try
+            {
+                switch (pipeData.PipeType)
+                {
+                    case PipeType.Straight:
+                        CreateStraightPipe(position);
+                        break;
+
+                    case PipeType.Elbow:
+                        CreateElbowPipe(position);
+                        break;
+
+                    // ✅ 新增：Z 形管道创建
+                    case PipeType.ZShape:
+                        CreateZShapePipe(position);
+                        break;
+
+                    default:
+                        Debug.WriteLine($"不支持的管道类型: {pipeData.PipeType}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建管道失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 创建直管道
+        /// </summary>
+        private void CreateStraightPipe(Point position)
+        {
+            var pipe = new StraightPipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                PipeLength = 80,
+                PipeWidth = 8
+            };
+
+            // 订阅直管道拖动事件
+            pipe.PipeDragStarted += OnPipeDragStarted;
+            pipe.PipeDragging += OnPipeDragging;
+            pipe.PipeDragCompleted += OnPipeDragCompleted;
+
+            // 订阅直管道调整大小事件
+            pipe.PipeResizeStarted += OnPipeResizeStarted;
+            pipe.PipeResizing += OnPipeResizing;
+            pipe.PipeResizeCompleted += OnPipeResizeCompleted;
+
+            // ✅ 新增：订阅直管道旋转事件（拖动锚点方式）
+            pipe.PipeRotateStarted += OnPipeRotateStarted;
+            pipe.PipeRotating += OnPipeRotating;
+            pipe.PipeRotateCompleted += OnPipeRotateCompleted;
+
+            // 添加到画布
+            _pipeConnectionService.AddPipeToCanvas(pipe, position);
+
+            Debug.WriteLine($"直管道已创建: {pipe.PipeId}");
+        }
+
+        /// <summary>
+        /// 创建弯管道
+        /// </summary>
+        private void CreateElbowPipe(Point position)
+        {
+            var pipe = new ElbowPipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                HorizontalLength = 35,
+                VerticalLength = 42,  // ✅ 垂直段更长
+                PipeWidth = 8
+            };
+
+            // 订阅弯管道拖动事件
+            pipe.PipeDragStarted += OnElbowPipeDragStarted;
+            pipe.PipeDragging += OnElbowPipeDragging;
+            pipe.PipeDragCompleted += OnElbowPipeDragCompleted;
+
+            // 订阅弯管道调整大小事件
+            pipe.PipeResizeStarted += OnElbowPipeResizeStarted;
+            pipe.PipeResizing += OnElbowPipeResizing;
+            pipe.PipeResizeCompleted += OnElbowPipeResizeCompleted;
+
+            // ✅ 订阅弯管道旋转事件
+            pipe.PipeRotateStarted += OnElbowPipeRotateStarted;
+            pipe.PipeRotating += OnElbowPipeRotating;
+            pipe.PipeRotateCompleted += OnElbowPipeRotateCompleted;
+
+            // 添加到画布
+            _pipeConnectionService.AddPipeToCanvas(pipe, position);
+
+            Debug.WriteLine($"弯管道已创建: {pipe.PipeId}");
+        }
+
+        /// <summary>
+        /// 创建 Z 形管道
+        /// </summary>
+        private void CreateZShapePipe(Point position)
+        {
+            var pipe = new ZShapePipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                TopHorizontalLength = 20,     // 上方水平段长度
+                BottomHorizontalLength = 20,  // 下方水平段长度
+                VerticalOffset = 40,          // 垂直偏移
+                PipeWidth = 8                 // ✅ 改为 8，与直管和弯管保持一致
+            };
+
+            // 订阅 Z 形管道拖动事件
+            pipe.PipeDragStarted += OnZShapePipeDragStarted;
+            pipe.PipeDragging += OnZShapePipeDragging;
+            pipe.PipeDragCompleted += OnZShapePipeDragCompleted;
+
+            // 订阅 Z 形管道调整大小事件
+            pipe.PipeResizeStarted += OnZShapePipeResizeStarted;
+            pipe.PipeResizing += OnZShapePipeResizing;
+            pipe.PipeResizeCompleted += OnZShapePipeResizeCompleted;
+
+            // 订阅 Z 形管道旋转事件
+            pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
+            pipe.PipeRotating += OnZShapePipeRotating;
+            pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
+
+            // 添加到画布
+            _pipeConnectionService.AddPipeToCanvas(pipe, position);
+
+            Debug.WriteLine($"Z形管道已创建: {pipe.PipeId}");
+        }
+
+        #region ✅ 新增:管道整体拖动事件处理
+
+        /// <summary>
+        /// 管道拖动开始
+        /// </summary>
+        private void OnPipeDragStarted(object sender, PipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管道拖动开始: {e.PipeId}");
+
+                // 可以在这里添加拖动开始的逻辑,比如:
+                // - 断开所有连接
+                // - 显示拖动提示
+                // - 记录原始连接状态以便撤销
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动管道...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管道拖动中
+        /// </summary>
+        private void OnPipeDragging(object sender, PipeDragEventArgs e)
+        {
+            try
+            {
+                // 实时更新管道连接线(如果有的话)
+                // TODO: 如果需要在拖动时实时更新连接线,可以在这里实现
+
+                // Debug.WriteLine($"管道拖动中: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管道拖动完成
+        /// </summary>
+        private void OnPipeDragCompleted(object sender, PipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管道拖动完成: {e.PipeId}");
+                Debug.WriteLine($"  起始位置: ({e.StartPosition.X:F0}, {e.StartPosition.Y:F0})");
+                Debug.WriteLine($"  最终位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道移动完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+        #region ✅ 新增:管道调整大小事件处理
+
+        /// <summary>
+        /// 管道调整大小开始
+        /// </summary>
+        private void OnPipeResizeStarted(object sender, PipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管道调整大小开始: {e.PipeId}, 锚点: {e.AnchorPosition}");
+                Debug.WriteLine($"原始尺寸: {e.OriginalSize.Width:F0} x {e.OriginalSize.Height:F0}");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"调整管道大小 ({e.AnchorPosition})...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道调整大小开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管道调整大小中
+        /// </summary>
+        private void OnPipeResizing(object sender, PipeResizeEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"管道尺寸: {e.CurrentSize.Width:F0} x {e.CurrentSize.Height:F0}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道调整大小处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管道调整大小完成
+        /// </summary>
+        private void OnPipeResizeCompleted(object sender, PipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管道调整大小完成: {e.PipeId}");
+                Debug.WriteLine($"原始尺寸: {e.OriginalSize.Width:F0} x {e.OriginalSize.Height:F0}");
+                Debug.WriteLine($"最终尺寸: {e.CurrentSize.Width:F0} x {e.CurrentSize.Height:F0}");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"管道尺寸已调整为 {e.CurrentSize.Width:F0} x {e.CurrentSize.Height:F0}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道调整大小完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+        #region ✅ 弯管道整体拖动事件处理
+
+        /// <summary>
+        /// 弯管道拖动开始
+        /// </summary>
+        private void OnElbowPipeDragStarted(object sender, ElbowPipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"弯管道拖动开始: {e.PipeId}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动弯管道...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 弯管道拖动中
+        /// </summary>
+        private void OnElbowPipeDragging(object sender, ElbowPipeDragEventArgs e)
+        {
+            try
+            {
+                // 实时更新管道连接线(如果有的话)
+                // Debug.WriteLine($"弯管道拖动中: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 弯管道拖动完成
+        /// </summary>
+        private void OnElbowPipeDragCompleted(object sender, ElbowPipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"弯管道拖动完成: {e.PipeId}");
+                Debug.WriteLine($"  起始位置: ({e.StartPosition.X:F0}, {e.StartPosition.Y:F0})");
+                Debug.WriteLine($"  最终位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("弯管道移动完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+        #region ✅ 弯管道调整大小事件处理
+
+        /// <summary>
+        /// 弯管道调整大小开始
+        /// </summary>
+        private void OnElbowPipeResizeStarted(object sender, ElbowPipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"弯管道调整大小开始: {e.PipeId}, 锚点: {e.AnchorPosition}");
+                Debug.WriteLine($"原始尺寸: H={e.OriginalSize.HorizontalLength:F0}, " +
+                               $"V={e.OriginalSize.VerticalLength:F0}, " +
+                               $"W={e.OriginalSize.PipeWidth:F0}");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"调整弯管道大小 ({e.AnchorPosition})...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道调整大小开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 弯管道调整大小中
+        /// </summary>
+        private void OnElbowPipeResizing(object sender, ElbowPipeResizeEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏
+                string sizeInfo = e.AnchorPosition switch
+                {
+                    ElbowAnchorPosition.Left or ElbowAnchorPosition.Top =>
+                        $"臂长: H={e.CurrentSize.HorizontalLength:F0}, V={e.CurrentSize.VerticalLength:F0}",
+                    ElbowAnchorPosition.HorizontalWidth or ElbowAnchorPosition.VerticalWidth =>
+                        $"管道宽度: {e.CurrentSize.PipeWidth:F0}",
+                    _ => $"H={e.CurrentSize.HorizontalLength:F0}, V={e.CurrentSize.VerticalLength:F0}, W={e.CurrentSize.PipeWidth:F0}"
+                };
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(sizeInfo);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道调整大小处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 弯管道调整大小完成
+        /// </summary>
+        private void OnElbowPipeResizeCompleted(object sender, ElbowPipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"弯管道调整大小完成: {e.PipeId}");
+                Debug.WriteLine($"原始尺寸: H={e.OriginalSize.HorizontalLength:F0}, " +
+                               $"V={e.OriginalSize.VerticalLength:F0}, " +
+                               $"W={e.OriginalSize.PipeWidth:F0}");
+                Debug.WriteLine($"最终尺寸: H={e.CurrentSize.HorizontalLength:F0}, " +
+                               $"V={e.CurrentSize.VerticalLength:F0}, " +
+                               $"W={e.CurrentSize.PipeWidth:F0}");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"弯管道已调整: H={e.CurrentSize.HorizontalLength:F0}, " +
+                    $"V={e.CurrentSize.VerticalLength:F0}, " +
+                    $"W={e.CurrentSize.PipeWidth:F0}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道调整大小完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+        #region ✅ 直管道旋转事件处理（拖动锚点方式）
+
+        /// <summary>
+        /// 直管道旋转开始
+        /// </summary>
+        private void OnPipeRotateStarted(object sender, PipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"直管道旋转开始: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转直管道... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"直管道旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 直管道旋转中
+        /// </summary>
+        private void OnPipeRotating(object sender, PipeRotateEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏显示当前角度
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"直管道旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 直管道旋转完成
+        /// </summary>
+        private void OnPipeRotateCompleted(object sender, PipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"直管道旋转完成: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+                Debug.WriteLine($"旋转增量: {(e.CurrentAngle - e.OriginalAngle):F1}°");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"直管道已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"直管道旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+        #region ✅ 弯管道旋转事件处理
+
+        /// <summary>
+        /// 弯管道旋转开始
+        /// </summary>
+        private void OnElbowPipeRotateStarted(object sender, ElbowPipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"弯管道旋转开始: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转弯管道... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 弯管道旋转中
+        /// </summary>
+        private void OnElbowPipeRotating(object sender, ElbowPipeRotateEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏显示当前角度
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 弯管道旋转完成
+        /// </summary>
+        private void OnElbowPipeRotateCompleted(object sender, ElbowPipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"弯管道旋转完成: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"弯管道已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"弯管道旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+        #region ✅ Z形管道拖动事件处理
+
+        /// <summary>
+        /// Z形管道拖动开始
+        /// </summary>
+        private void OnZShapePipeDragStarted(object sender, ZPipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"Z形管道拖动开始: {e.PipeId}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动Z形管道...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Z形管道拖动中
+        /// </summary>
+        private void OnZShapePipeDragging(object sender, ZPipeDragEventArgs e)
+        {
+            try
+            {
+                // 实时更新管道连接线(如果有的话)
+                // Debug.WriteLine($"Z形管道拖动中: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Z形管道拖动完成
+        /// </summary>
+        private void OnZShapePipeDragCompleted(object sender, ZPipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"Z形管道拖动完成: {e.PipeId}");
+                Debug.WriteLine($"  起始位置: ({e.StartPosition.X:F0}, {e.StartPosition.Y:F0})");
+                Debug.WriteLine($"  最终位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("Z形管道移动完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region ✅ Z形管道调整大小事件处理
+
+        /// <summary>
+        /// Z形管道调整大小开始
+        /// </summary>
+        private void OnZShapePipeResizeStarted(object sender, ZPipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"Z形管道调整大小开始: {e.PipeId}, 锚点: {e.AnchorPosition}");
+                Debug.WriteLine($"原始尺寸: 上={e.OriginalSize.TopHorizontalLength:F0}, " +
+                               $"下={e.OriginalSize.BottomHorizontalLength:F0}, " +
+                               $"垂直偏移={e.OriginalSize.VerticalOffset:F0}, " +
+                               $"宽度={e.OriginalSize.PipeWidth:F0}");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"调整Z形管道大小 ({e.AnchorPosition})...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道调整大小开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Z形管道调整大小中
+        /// </summary>
+        private void OnZShapePipeResizing(object sender, ZPipeResizeEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏
+                string sizeInfo = e.AnchorPosition switch
+                {
+                    ZAnchorPosition.TopLength => $"上方长度: {e.CurrentSize.TopHorizontalLength:F0}",
+                    ZAnchorPosition.BottomLength => $"下方长度: {e.CurrentSize.BottomHorizontalLength:F0}",
+                    ZAnchorPosition.VerticalOffset => $"垂直偏移: {e.CurrentSize.VerticalOffset:F0}",
+                    ZAnchorPosition.PipeWidth => $"管道宽度: {e.CurrentSize.PipeWidth:F0}",
+                    _ => $"上={e.CurrentSize.TopHorizontalLength:F0}, 下={e.CurrentSize.BottomHorizontalLength:F0}"
+                };
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(sizeInfo);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道调整大小处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Z形管道调整大小完成
+        /// </summary>
+        private void OnZShapePipeResizeCompleted(object sender, ZPipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"Z形管道调整大小完成: {e.PipeId}");
+                Debug.WriteLine($"最终尺寸: 上={e.CurrentSize.TopHorizontalLength:F0}, " +
+                               $"下={e.CurrentSize.BottomHorizontalLength:F0}, " +
+                               $"垂直偏移={e.CurrentSize.VerticalOffset:F0}, " +
+                               $"宽度={e.CurrentSize.PipeWidth:F0}");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"Z形管道已调整: 上={e.CurrentSize.TopHorizontalLength:F0}, " +
+                    $"下={e.CurrentSize.BottomHorizontalLength:F0}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道调整大小完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region ✅ Z形管道旋转事件处理
+
+        /// <summary>
+        /// Z形管道旋转开始
+        /// </summary>
+        private void OnZShapePipeRotateStarted(object sender, ZPipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"Z形管道旋转开始: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转Z形管道... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Z形管道旋转中
+        /// </summary>
+        private void OnZShapePipeRotating(object sender, ZPipeRotateEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏显示当前角度
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Z形管道旋转完成
+        /// </summary>
+        private void OnZShapePipeRotateCompleted(object sender, ZPipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"Z形管道旋转完成: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"Z形管道已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Z形管道旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
         #endregion
     }
 }
