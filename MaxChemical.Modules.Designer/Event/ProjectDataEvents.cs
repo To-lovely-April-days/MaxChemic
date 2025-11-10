@@ -160,4 +160,18 @@ namespace MaxChemical.Modules.Designer.Event
     public class DeleteSelectedPipeEvent : PubSubEvent<string>
     {
     }
+
+    /// <summary>
+    /// 请求收集管道数据事件
+    /// </summary>
+    public class CollectPipeDataRequestEvent : PubSubEvent<Action<List<CanvasPipeData>>>
+    {
+    }
+
+    /// <summary>
+    /// 请求恢复管道数据事件
+    /// </summary>
+    public class RestorePipeDataRequestEvent : PubSubEvent<List<CanvasPipeData>>
+    {
+    }
 }

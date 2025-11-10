@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using Prism.Events;
 
 namespace MaxChemical.Modules.Designer.Event
@@ -27,5 +28,16 @@ namespace MaxChemical.Modules.Designer.Event
     /// </summary>
     public class RestoreMonitoringCardStatesEvent : PubSubEvent<Dictionary<string, bool>> { }
 
-
+    /// <summary>
+    /// 获取监控卡片位置请求事件
+    /// </summary>
+    public class GetMonitoringCardPositionsRequestEvent : PubSubEvent<Action<Dictionary<string, Point>>>
+    {
+    }
+    /// <summary>
+    /// 恢复监控卡片位置事件
+    /// </summary>
+    public class RestoreMonitoringCardPositionsEvent : PubSubEvent<Dictionary<string, Point>>
+    {
+    }
 }

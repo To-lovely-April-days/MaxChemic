@@ -11,6 +11,7 @@ namespace MaxChemical.Modules.Designer.Models
     /// <summary>
     /// 画布文档模型
     /// </summary>
+    [Serializable]
     public class CanvasDocument
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -20,6 +21,12 @@ namespace MaxChemical.Modules.Designer.Models
         public RegionLayout RegionLayout { get; set; }
         public List<CanvasDeviceData> Devices { get; set; } = new List<CanvasDeviceData>();
         public List<ConnectionData> Connections { get; set; } = new List<ConnectionData>();
+
+        /// <summary>
+        /// ✅ 新增：管道数据
+        /// </summary>
+        public List<CanvasPipeData> Pipes { get; set; } = new List<CanvasPipeData>();
+
         public double CanvasWidth { get; set; } = 1200;
         public double CanvasHeight { get; set; } = 800;
     }
@@ -27,6 +34,7 @@ namespace MaxChemical.Modules.Designer.Models
     /// <summary>
     /// 画布设备数据
     /// </summary>
+    [Serializable]
     public class CanvasDeviceData
     {
         public string DeviceId { get; set; }
@@ -37,15 +45,18 @@ namespace MaxChemical.Modules.Designer.Models
         public double Y { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
-        //设备缩放
+
+        // 设备缩放
         public double ScaleX { get; set; } = 1.0;
         public double ScaleY { get; set; } = 1.0;
+
         public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
     }
 
     /// <summary>
     /// 连接数据
     /// </summary>
+    [Serializable]
     public class ConnectionData
     {
         public string ConnectionId { get; set; }
@@ -54,5 +65,85 @@ namespace MaxChemical.Modules.Designer.Models
         public string StartDirection { get; set; }
         public string EndDirection { get; set; }
         public List<Point> PathPoints { get; set; } = new List<Point>();
+    }
+
+    /// <summary>
+    /// ✅ 新增：画布管道数据（用于序列化保存）
+    /// </summary>
+    [Serializable]
+    public class CanvasPipeData
+    {
+        /// <summary>
+        /// 管道唯一标识符
+        /// </summary>
+        public string PipeId { get; set; }
+
+        /// <summary>
+        /// 管道类型："Straight" / "Elbow" / "ZShape"
+        /// </summary>
+        public string PipeType { get; set; }
+
+        /// <summary>
+        /// X 坐标（左上角）
+        /// </summary>
+        public double X { get; set; }
+
+        /// <summary>
+        /// Y 坐标（左上角）
+        /// </summary>
+        public double Y { get; set; }
+
+        /// <summary>
+        /// Z-Index 层级
+        /// </summary>
+        public int ZIndex { get; set; }
+
+        /// <summary>
+        /// 管道宽度（所有类型通用）
+        /// </summary>
+        public double PipeWidth { get; set; }
+
+        /// <summary>
+        /// 旋转角度（所有类型通用）
+        /// </summary>
+        public double RotationAngle { get; set; }
+
+        // ============ 直管道专用属性 ============
+        /// <summary>
+        /// 直管道长度
+        /// </summary>
+        public double? PipeLength { get; set; }
+
+        // ============ 弯管道专用属性 ============
+        /// <summary>
+        /// 弯管道水平长度
+        /// </summary>
+        public double? HorizontalLength { get; set; }
+
+        /// <summary>
+        /// 弯管道垂直长度
+        /// </summary>
+        public double? VerticalLength { get; set; }
+
+        // ============ Z形管道专用属性 ============
+        /// <summary>
+        /// Z形管道顶部水平长度
+        /// </summary>
+        public double? TopHorizontalLength { get; set; }
+
+        /// <summary>
+        /// Z形管道底部水平长度
+        /// </summary>
+        public double? BottomHorizontalLength { get; set; }
+
+        /// <summary>
+        /// Z形管道垂直偏移
+        /// </summary>
+        public double? VerticalOffset { get; set; }
+
+        public override string ToString()
+        {
+            return $"Pipe[{PipeType}] ID:{PipeId} at ({X:F0},{Y:F0})";
+        }
     }
 }

@@ -194,6 +194,8 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+
+
         #region 构造函数和初始化
 
         public ProcessDesignerView(
@@ -305,6 +307,10 @@ namespace MaxChemical.Modules.Designer.Views
             // *** 新增：订阅设备显示名映射事件 ***
             _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Subscribe(OnGetDeviceDisplayNamesRequest);
             _eventAggregator?.GetEvent<RestoreDeviceDisplayNamesEvent>()?.Subscribe(OnRestoreDeviceDisplayNames);
+
+            // ✅ 新增：订阅监控卡片位置事件
+            _eventAggregator?.GetEvent<GetMonitoringCardPositionsRequestEvent>()?.Subscribe(OnGetMonitoringCardPositionsRequest);
+            _eventAggregator?.GetEvent<RestoreMonitoringCardPositionsEvent>()?.Subscribe(OnRestoreMonitoringCardPositions);
         }
 
         /// <summary>
@@ -1089,7 +1095,9 @@ namespace MaxChemical.Modules.Designer.Views
 
             // ✅ 新增：订阅删除选中管道事件
             _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Subscribe(OnDeleteSelectedPipe);
-
+            // ✅ 新增：订阅管道数据收集和恢复事件
+            _eventAggregator?.GetEvent<CollectPipeDataRequestEvent>()?.Subscribe(OnCollectPipeDataRequest);
+          
         }
 
         /// <summary>
@@ -1114,6 +1122,14 @@ namespace MaxChemical.Modules.Designer.Views
             // ✅ 新增：取消订阅
             _eventAggregator?.GetEvent<GetSelectedPipeRequestEvent>()?.Unsubscribe(OnGetSelectedPipeRequest);
             _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Unsubscribe(OnDeleteSelectedPipe);
+
+            // ✅ 新增：取消订阅
+            _eventAggregator?.GetEvent<CollectPipeDataRequestEvent>()?.Unsubscribe(OnCollectPipeDataRequest);
+          
+
+            // ✅ 新增：取消订阅监控卡片位置事件
+            _eventAggregator?.GetEvent<GetMonitoringCardPositionsRequestEvent>()?.Unsubscribe(OnGetMonitoringCardPositionsRequest);
+            _eventAggregator?.GetEvent<RestoreMonitoringCardPositionsEvent>()?.Unsubscribe(OnRestoreMonitoringCardPositions);
         }
         /// <summary>
         /// 响应获取选中管道请求
@@ -3417,7 +3433,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         /// <summary>
-        /// 将监控卡片添加到画布
+        /// 将监控卡片添加到画布（支持位置恢复）
         /// </summary>
         private void AddMonitoringCardToCanvas(string deviceId, MonitoringCard monitoringCard)
         {
@@ -3431,18 +3447,31 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
                 }
 
-                // 计算卡片位置（设备右侧）
-                var deviceLeft = Canvas.GetLeft(deviceElement);
-                var deviceTop = Canvas.GetTop(deviceElement);
-                var deviceWidth = deviceElement.ActualWidth;
+                double cardLeft, cardTop;
 
-                var cardLeft = deviceLeft + deviceWidth + 15; // 设备右侧15像素间距
-                var cardTop = deviceTop;
+                // ✅ 优先使用保存的位置
+                if (_monitoringCardPositions.TryGetValue(deviceId, out var savedPosition))
+                {
+                    cardLeft = savedPosition.X;
+                    cardTop = savedPosition.Y;
+                    Debug.WriteLine($"使用保存的位置: {deviceId} at ({cardLeft:F0}, {cardTop:F0})");
+                }
+                else
+                {
+                    // ✅ 使用默认位置（设备右侧）
+                    var deviceLeft = Canvas.GetLeft(deviceElement);
+                    var deviceTop = Canvas.GetTop(deviceElement);
+                    var deviceWidth = deviceElement.ActualWidth;
+
+                    cardLeft = deviceLeft + deviceWidth + 15;
+                    cardTop = deviceTop;
+                    Debug.WriteLine($"使用默认位置: {deviceId} at ({cardLeft:F0}, {cardTop:F0})");
+                }
 
                 // 设置卡片位置
                 Canvas.SetLeft(monitoringCard, cardLeft);
                 Canvas.SetTop(monitoringCard, cardTop);
-                Canvas.SetZIndex(monitoringCard, 500); // 确保在设备之上
+                Canvas.SetZIndex(monitoringCard, 500);
 
                 // 设置卡片标识
                 monitoringCard.Tag = $"MonitoringCard_{deviceId}";
@@ -4408,34 +4437,74 @@ namespace MaxChemical.Modules.Designer.Views
         #region 画布数据操作相关
 
         /// <summary>
-        /// 清空画布请求处理
+        /// 清空画布请求处理（完整版）
         /// </summary>
         private void OnClearCanvasRequest()
         {
             try
             {
-                Debug.WriteLine("开始清空画布");
+                Debug.WriteLine("========== 开始清空画布 ==========");
 
-                // 取消连接操作
+                // ✅ 1. 取消所有活动操作
                 CancelActiveConnectionOperations();
 
-                // 清空监控卡片
-                ClearAllMonitoringCards();
+                // ✅ 2. 清空监控相关
+                ClearAllMonitoringStates();
 
-                // 清空监控参数选择状态
-                _deviceMonitoringSelections.Clear();
+                // ✅ 3. 清空设备相关状态
+                ClearDeviceStates();
 
-                // ✅ 新增：清空管道
+                // ✅ 4. 清空管道
                 ClearAllPipes();
 
-                // 清空数据模型
+                // ✅ 5. 强制清空画布视觉元素（先清视图）
+                ClearCanvasVisualElements();
+
+                // ✅ 6. 清空数据模型（后清数据）
                 ClearViewModelData();
 
-                // ... 其他清空逻辑
+                // ✅ 7. 清空连接服务
+                ClearConnectionService();
+
+                // ✅ 8. 清空选择状态
+                ClearDeviceSelection();
+                ClearPipeSelection();
+
+                // ✅ 9. 重置画布状态
+                ResetCanvasState();
+
+                Debug.WriteLine("========== 画布清空完成 ==========");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("画布已清空");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"清空画布失败: {ex.Message}");
+                Debug.WriteLine($"❌ 清空画布失败: {ex.Message}");
+            }
+        }
+
+     
+        /// <summary>
+        /// 重置画布状态
+        /// </summary>
+        private void ResetCanvasState()
+        {
+            try
+            {
+                // 重置缩放
+                if (_canvasScaleTransform != null)
+                {
+                    _canvasScaleTransform.ScaleX = 1.0;
+                    _canvasScaleTransform.ScaleY = 1.0;
+                }
+
+                // 强制更新布局
+                DesignCanvas.UpdateLayout();
+
+                Debug.WriteLine("画布状态已重置");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"重置画布状态失败: {ex.Message}");
             }
         }
 
@@ -4573,18 +4642,59 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void ClearCanvasVisualElements()
         {
-            var elementsToRemove = DesignCanvas.Children
-                .OfType<Border>()
-                .Where(border => border.Tag != null && !string.IsNullOrEmpty(border.Tag.ToString()))
-                .ToList();
-
-            Debug.WriteLine($"从画布直接移除 {elementsToRemove.Count} 个设备元素");
-
-            foreach (var element in elementsToRemove)
+            try
             {
-                DesignCanvas.Children.Remove(element);
+                Debug.WriteLine("---------- 清空画布视觉元素 ----------");
+
+                // 收集所有需要删除的元素
+                var elementsToRemove = new List<UIElement>();
+
+                foreach (UIElement child in DesignCanvas.Children)
+                {
+                    // 设备元素
+                    if (child is Border border && !string.IsNullOrEmpty(border.Tag as string))
+                    {
+                        elementsToRemove.Add(child);
+                    }
+                    // 管道元素
+                    else if (child is StraightPipeControl ||
+                             child is ElbowPipeControl ||
+                             child is ZShapePipeControl)
+                    {
+                        elementsToRemove.Add(child);
+                    }
+                    // 连接线（Path）
+                    else if (child is System.Windows.Shapes.Path)
+                    {
+                        elementsToRemove.Add(child);
+                    }
+                    // 监控卡片
+                    else if (child is MonitoringCard)
+                    {
+                        elementsToRemove.Add(child);
+                    }
+                }
+
+                Debug.WriteLine($"找到 {elementsToRemove.Count} 个元素需要清除");
+
+                // 批量移除
+                foreach (var element in elementsToRemove)
+                {
+                    DesignCanvas.Children.Remove(element);
+                }
+
+                // 强制清空（双重保险）
+                DesignCanvas.Children.Clear();
+
+                Debug.WriteLine($"清除后画布子元素数量: {DesignCanvas.Children.Count}");
+                Debug.WriteLine("---------- 画布视觉元素清空完成 ----------");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 清空画布视觉元素失败: {ex.Message}");
             }
         }
+
 
         /// <summary>
         /// 获取当前画布数据请求处理
@@ -4707,24 +4817,22 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 加载画布请求处理
+        /// 加载画布请求处理 - 优化版
         /// </summary>
         private void OnLoadCanvasRequest(CanvasDocument canvasDocument)
         {
             try
             {
-                Debug.WriteLine($"开始加载画布: {canvasDocument.Name}");
+                Debug.WriteLine($"========== 开始加载画布: {canvasDocument.Name} ==========");
                 Debug.WriteLine($"设备数量: {canvasDocument.Devices?.Count ?? 0}");
                 Debug.WriteLine($"连接数量: {canvasDocument.Connections?.Count ?? 0}");
+                Debug.WriteLine($"管道数量: {canvasDocument.Pipes?.Count ?? 0}");
 
                 // 更新画布尺寸
                 UpdateCanvasSize(canvasDocument);
 
-                // 恢复设备
-                RestoreDevices(canvasDocument.Devices);
-
-                // 延迟恢复连接确保设备元素已创建
-                ScheduleConnectionRestoration(canvasDocument.Connections);
+                // ✅ 使用异步分批加载
+                LoadCanvasContentAsync(canvasDocument);
             }
             catch (Exception ex)
             {
@@ -4732,6 +4840,297 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        /// <summary>
+        /// ✅ 新增：异步分批加载画布内容
+        /// </summary>
+        private async void LoadCanvasContentAsync(CanvasDocument canvasDocument)
+        {
+            try
+            {
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                // 步骤1：分批恢复设备
+                await RestoreDevicesBatchAsync(canvasDocument.Devices);
+                Debug.WriteLine($"设备恢复耗时: {stopwatch.ElapsedMilliseconds}ms");
+
+                // 步骤2：强制更新布局
+                DesignCanvas.UpdateLayout();
+                await System.Threading.Tasks.Task.Delay(10); // 给UI线程喘息时间
+
+                // 步骤3：分批恢复管道
+                if (canvasDocument.Pipes != null && canvasDocument.Pipes.Count > 0)
+                {
+                    stopwatch.Restart();
+                    await RestorePipesBatchAsync(canvasDocument.Pipes);
+                    Debug.WriteLine($"管道恢复耗时: {stopwatch.ElapsedMilliseconds}ms");
+
+                    DesignCanvas.UpdateLayout();
+                    await System.Threading.Tasks.Task.Delay(10);
+                }
+
+                // 步骤4：延迟恢复连接
+                //ScheduleConnectionRestoration(canvasDocument.Connections);
+
+                Debug.WriteLine("========== 画布加载完成 ==========");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"异步加载画布内容失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：分批恢复设备
+        /// </summary>
+        private async System.Threading.Tasks.Task RestoreDevicesBatchAsync(List<CanvasDeviceData> deviceDataList)
+        {
+            if (deviceDataList == null || !deviceDataList.Any())
+            {
+                Debug.WriteLine("没有设备需要恢复");
+                return;
+            }
+
+            Debug.WriteLine($"开始分批恢复 {deviceDataList.Count} 个设备");
+
+            const int batchSize = 10; // 每批处理10个设备
+            int totalBatches = (int)Math.Ceiling(deviceDataList.Count / (double)batchSize);
+
+            for (int i = 0; i < totalBatches; i++)
+            {
+                var batch = deviceDataList.Skip(i * batchSize).Take(batchSize).ToList();
+
+                // 在UI线程上恢复这批设备
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var deviceData in batch)
+                    {
+                        try
+                        {
+                            RestoreSingleDevice(deviceData);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"恢复设备 {deviceData.DeviceName} 失败: {ex.Message}");
+                        }
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Background);
+
+                // ✅ 更新进度
+                var progress = (i + 1) * 100 / totalBatches;
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"正在加载设备... {progress}%");
+
+                // ✅ 每批之间让出UI线程
+                if (i < totalBatches - 1)
+                {
+                    await System.Threading.Tasks.Task.Delay(1);
+                }
+            }
+
+            Debug.WriteLine($"设备恢复完成，当前设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
+        }
+
+        /// <summary>
+        /// ✅ 新增：分批恢复管道
+        /// </summary>
+        private async System.Threading.Tasks.Task RestorePipesBatchAsync(List<CanvasPipeData> pipesData)
+        {
+            if (pipesData == null || !pipesData.Any())
+            {
+                Debug.WriteLine("没有管道数据需要恢复");
+                return;
+            }
+
+            Debug.WriteLine($"开始分批恢复 {pipesData.Count} 个管道");
+
+            // 清空现有管道
+            ClearExistingPipesBeforeRestore(pipesData);
+
+            const int batchSize = 20; // 每批处理20个管道（管道比设备简单，可以多处理一些）
+            int totalBatches = (int)Math.Ceiling(pipesData.Count / (double)batchSize);
+            int successCount = 0;
+
+            for (int i = 0; i < totalBatches; i++)
+            {
+                var batch = pipesData.Skip(i * batchSize).Take(batchSize).ToList();
+
+                // 在UI线程上恢复这批管道
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var pipeData in batch)
+                    {
+                        try
+                        {
+                            if (RestoreSinglePipeSync(pipeData))
+                            {
+                                successCount++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"恢复管道 {pipeData.PipeId} 失败: {ex.Message}");
+                        }
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Background);
+
+                // ✅ 更新进度
+                var progress = (i + 1) * 100 / totalBatches;
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"正在加载管道... {progress}%");
+
+                // ✅ 每批之间让出UI线程
+                if (i < totalBatches - 1)
+                {
+                    await System.Threading.Tasks.Task.Delay(1);
+                }
+            }
+
+            Debug.WriteLine($"管道恢复完成: 成功 {successCount}/{pipesData.Count}");
+        }
+
+        /// <summary>
+        /// ✅ 新增:同步恢复管道
+        /// </summary>
+        private void RestorePipesSync(List<CanvasPipeData> pipesData)
+        {
+            if (pipesData == null || !pipesData.Any())
+            {
+                Debug.WriteLine("没有管道数据需要恢复");
+                return;
+            }
+
+            try
+            {
+                Debug.WriteLine($"========== 同步恢复 {pipesData.Count} 个管道 ==========");
+
+                // 清空现有管道,避免重复
+                ClearExistingPipesBeforeRestore(pipesData);
+
+                // 同步批量恢复管道
+                int successCount = 0;
+                foreach (var pipeData in pipesData)
+                {
+                    try
+                    {
+                        if (RestoreSinglePipeSync(pipeData))
+                        {
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"恢复管道 {pipeData.PipeId} 失败: {ex.Message}");
+                    }
+                }
+
+                Debug.WriteLine($"========== 管道同步恢复完成: 成功 {successCount}/{pipesData.Count} ==========");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 同步恢复管道数据失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 同步恢复单个管道 - 优化版
+        /// </summary>
+        private bool RestoreSinglePipeSync(CanvasPipeData pipeData)
+        {
+            try
+            {
+                // 检查是否已存在
+                if (_pipes.ContainsKey(pipeData.PipeId))
+                {
+                    return false;
+                }
+
+                FrameworkElement pipeControl = null;
+
+                // 根据类型创建管道控件
+                switch (pipeData.PipeType)
+                {
+                    case "Straight":
+                        pipeControl = CreateRestoredStraightPipe(pipeData);
+                        break;
+                    case "Elbow":
+                        pipeControl = CreateRestoredElbowPipe(pipeData);
+                        break;
+                    case "ZShape":
+                        pipeControl = CreateRestoredZShapePipe(pipeData);
+                        break;
+                    default:
+                        return false;
+                }
+
+                if (pipeControl != null)
+                {
+                    // 设置位置和层级
+                    Canvas.SetLeft(pipeControl, pipeData.X);
+                    Canvas.SetTop(pipeControl, pipeData.Y);
+                    Panel.SetZIndex(pipeControl, pipeData.ZIndex);
+
+                    // 添加到画布
+                    DesignCanvas.Children.Add(pipeControl);
+
+                    // ✅ 移除：不需要每个管道都强制更新布局
+                    // pipeControl.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    // pipeControl.Arrange(new Rect(new Point(pipeData.X, pipeData.Y), pipeControl.DesiredSize));
+                    // pipeControl.UpdateLayout();
+
+                    // 添加到管道字典
+                    _pipes[pipeData.PipeId] = pipeControl;
+
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 恢复管道失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增:清空已存在的相同管道ID,避免重复创建
+        /// </summary>
+        private void ClearExistingPipesBeforeRestore(List<CanvasPipeData> pipesData)
+        {
+            var pipeIdsToRestore = pipesData.Select(p => p.PipeId).ToHashSet();
+
+            // 查找画布上已存在的相同ID管道
+            var existingPipes = DesignCanvas.Children
+                .OfType<FrameworkElement>()
+                .Where(e =>
+                {
+                    if (e is StraightPipeControl sp && pipeIdsToRestore.Contains(sp.PipeId))
+                        return true;
+                    if (e is ElbowPipeControl ep && pipeIdsToRestore.Contains(ep.PipeId))
+                        return true;
+                    if (e is ZShapePipeControl zp && pipeIdsToRestore.Contains(zp.PipeId))
+                        return true;
+                    return false;
+                })
+                .ToList();
+
+            foreach (var existingPipe in existingPipes)
+            {
+                DesignCanvas.Children.Remove(existingPipe);
+
+                string pipeId = null;
+                if (existingPipe is StraightPipeControl sp) pipeId = sp.PipeId;
+                else if (existingPipe is ElbowPipeControl ep) pipeId = ep.PipeId;
+                else if (existingPipe is ZShapePipeControl zp) pipeId = zp.PipeId;
+
+                if (!string.IsNullOrEmpty(pipeId) && _pipes.ContainsKey(pipeId))
+                {
+                    _pipes.Remove(pipeId);
+                }
+
+                Debug.WriteLine($"清除已存在的管道: {pipeId}");
+            }
+        }
         /// <summary>
         /// 更新画布尺寸
         /// </summary>
@@ -4747,19 +5146,19 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 安排连接恢复
         /// </summary>
-        private void ScheduleConnectionRestoration(List<ConnectionData> connectionDataList)
-        {
-            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                DesignCanvas.UpdateLayout();
+        //private void ScheduleConnectionRestoration(List<ConnectionData> connectionDataList)
+        //{
+        //    System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+        //    {
+        //        DesignCanvas.UpdateLayout();
 
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    RestoreConnections(connectionDataList);
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
+        //        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+        //        {
+        //            RestoreConnections(connectionDataList);
+        //        }), System.Windows.Threading.DispatcherPriority.Loaded);
 
-            }), System.Windows.Threading.DispatcherPriority.Render);
-        }
+        //    }), System.Windows.Threading.DispatcherPriority.Render);
+        //}
 
         /// <summary>
         /// 恢复设备
@@ -4790,60 +5189,62 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 恢复单个设备
+        /// 恢复单个设备 - 优化版
         /// </summary>
         private void RestoreSingleDevice(CanvasDeviceData deviceData)
         {
-            Debug.WriteLine($"恢复设备: {deviceData.DeviceName} ID: {deviceData.DeviceId}");
-
-            // 重建设备实例
-            var device = _canvasDataService.RestoreDeviceFromData(deviceData);
-            var independentDevice = ReflectionDeviceDeepCopyService.DeepClone(device);
-            if (device == null)
+            try
             {
-                Debug.WriteLine($"无法恢复设备: {deviceData.DeviceName}");
-                return;
+                // ✅ 简化日志输出
+                // Debug.WriteLine($"恢复设备: {deviceData.DeviceName}");
+
+                // 重建设备实例
+                var device = _canvasDataService.RestoreDeviceFromData(deviceData);
+                if (device == null)
+                {
+                    Debug.WriteLine($"⚠️ 无法恢复设备: {deviceData.DeviceName}");
+                    return;
+                }
+
+                var independentDevice = ReflectionDeviceDeepCopyService.DeepClone(device);
+
+                // 获取显示名
+                string displayName;
+                if (_deviceDisplayNames.TryGetValue(deviceData.DeviceId, out var existingDisplayName))
+                {
+                    displayName = existingDisplayName;
+                }
+                else
+                {
+                    displayName = deviceData.DeviceName ?? "未知设备";
+                    _deviceDisplayNames[deviceData.DeviceId] = displayName;
+                }
+
+                // 创建CanvasDeviceViewModel
+                var canvasDeviceViewModel = new CanvasDeviceViewModel
+                {
+                    DeviceId = deviceData.DeviceId,
+                    Device = independentDevice,
+                    Position = new Point(deviceData.X, deviceData.Y),
+                    Width = deviceData.Width > 0 ? deviceData.Width : 80,
+                    Height = deviceData.Height > 0 ? deviceData.Height : 60
+                };
+
+                // ✅ 直接添加到ViewModel，不触发事件
+                _viewModel?.CanvasDevices.Add(canvasDeviceViewModel);
+
+                // ✅ 延迟恢复缩放和监控卡片（在所有设备加载完后统一处理）
+                if (deviceData.ScaleX != 1.0 || deviceData.ScaleY != 1.0)
+                {
+                    ScheduleDeviceScaleRestoration(deviceData.DeviceId, deviceData.ScaleX, deviceData.ScaleY);
+                }
+
+                ScheduleMonitoringCardRestoration(deviceData.DeviceId);
             }
-
-            // *** 关键修复：直接使用已恢复的显示名映射，不要重新生成 ***
-            string displayName;
-            if (_deviceDisplayNames.TryGetValue(deviceData.DeviceId, out var existingDisplayName))
+            catch (Exception ex)
             {
-                // 使用已恢复的显示名
-                displayName = existingDisplayName;
-                Debug.WriteLine($"使用已恢复的显示名: {deviceData.DeviceId} -> {displayName}");
+                Debug.WriteLine($"❌ 恢复设备失败: {ex.Message}");
             }
-            else
-            {
-                // 只有在没有恢复显示名的情况下才生成新的
-                displayName = deviceData.DeviceName ?? "未知设备";
-                _deviceDisplayNames[deviceData.DeviceId] = displayName;
-                Debug.WriteLine($"使用原始设备名: {deviceData.DeviceId} -> {displayName}");
-            }
-
-            // 创建CanvasDeviceViewModel
-            var canvasDeviceViewModel = new CanvasDeviceViewModel
-            {
-                DeviceId = deviceData.DeviceId,
-                Device = independentDevice,
-                Position = new Point(deviceData.X, deviceData.Y),
-                Width = deviceData.Width > 0 ? deviceData.Width : 80,
-                Height = deviceData.Height > 0 ? deviceData.Height : 60
-            };
-
-            // 添加到ViewModel
-            _viewModel?.CanvasDevices.Add(canvasDeviceViewModel);
-
-            // 延迟恢复缩放信息
-            if (deviceData.ScaleX != 1.0 || deviceData.ScaleY != 1.0)
-            {
-                ScheduleDeviceScaleRestoration(deviceData.DeviceId, deviceData.ScaleX, deviceData.ScaleY);
-            }
-
-            // *** 新增：延迟检查并恢复监控卡片 ***
-            ScheduleMonitoringCardRestoration(deviceData.DeviceId);
-
-            Debug.WriteLine($"设备 {deviceData.DeviceName} 恢复成功，显示名: {displayName}");
         }
         /// <summary>
         /// 为恢复的设备生成显示名
@@ -5155,6 +5556,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"画布加载完成: {canvasDocument.Name}");
                 Debug.WriteLine($"最终设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
                 Debug.WriteLine($"最终连接数量: {_connectionService?.Connections?.Count ?? 0}");
+                Debug.WriteLine($"最终管道数量: {_pipes.Count}"); // ✅ 新增
 
                 // 确保连接服务状态正确
                 EnsureConnectionServiceState();
@@ -5164,6 +5566,9 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 最终确定连接引用
                 ScheduleFinalConnectionUpdate();
+
+                // ✅ 新增：最终确认管道状态
+                ScheduleFinalPipeValidation();
 
                 // 更新区域覆盖服务上下文
                 UpdateRegionOverlayContext();
@@ -5175,7 +5580,46 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"画布加载完成处理失败: {ex.Message}");
             }
         }
+        /// <summary>
+        /// ✅ 新增：安排最终管道验证
+        /// </summary>
+        private void ScheduleFinalPipeValidation()
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ValidatePipesState();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
 
+        /// <summary>
+        /// ✅ 新增：验证管道状态
+        /// </summary>
+        private void ValidatePipesState()
+        {
+            try
+            {
+                Debug.WriteLine("========== 最终验证管道状态 ==========");
+
+                // 检查画布上的管道数量
+                var pipesInCanvas = DesignCanvas.Children
+                    .OfType<FrameworkElement>()
+                    .Count(e => e is StraightPipeControl || e is ElbowPipeControl || e is ZShapePipeControl);
+
+                Debug.WriteLine($"画布上管道数量: {pipesInCanvas}");
+                Debug.WriteLine($"管道字典数量: {_pipes.Count}");
+
+                if (pipesInCanvas != _pipes.Count)
+                {
+                    Debug.WriteLine($"⚠️ 警告：管道数量不匹配");
+                }
+
+                Debug.WriteLine("========== 管道状态验证完成 ==========");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"验证管道状态失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 确保连接服务状态正确
         /// </summary>
@@ -6825,6 +7269,249 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+        #endregion
+
+        #region 管道数据保存和恢复
+
+        /// <summary>
+        /// 响应收集管道数据请求
+        /// </summary>
+        private void OnCollectPipeDataRequest(Action<List<CanvasPipeData>> callback)
+        {
+            var pipeDataList = new List<CanvasPipeData>();
+
+            try
+            {
+                Debug.WriteLine("========== 开始收集管道数据 ==========");
+
+                // 遍历画布上的所有管道控件
+                foreach (var child in DesignCanvas.Children)
+                {
+                    CanvasPipeData pipeData = null;
+
+                    // 处理直管道
+                    if (child is StraightPipeControl straightPipe)
+                    {
+                        var left = Canvas.GetLeft(straightPipe);
+                        var top = Canvas.GetTop(straightPipe);
+
+                        pipeData = new CanvasPipeData
+                        {
+                            PipeId = straightPipe.PipeId,
+                            PipeType = "Straight",
+                            X = double.IsNaN(left) ? 0 : left,
+                            Y = double.IsNaN(top) ? 0 : top,
+                            ZIndex = Panel.GetZIndex(straightPipe),
+                            PipeWidth = straightPipe.PipeWidth,
+                            RotationAngle = straightPipe.RotationAngle,
+                            PipeLength = straightPipe.PipeLength
+                        };
+
+                        Debug.WriteLine($"收集直管道: {straightPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                    }
+                    // 处理弯管道
+                    else if (child is ElbowPipeControl elbowPipe)
+                    {
+                        var left = Canvas.GetLeft(elbowPipe);
+                        var top = Canvas.GetTop(elbowPipe);
+
+                        pipeData = new CanvasPipeData
+                        {
+                            PipeId = elbowPipe.PipeId,
+                            PipeType = "Elbow",
+                            X = double.IsNaN(left) ? 0 : left,
+                            Y = double.IsNaN(top) ? 0 : top,
+                            ZIndex = Panel.GetZIndex(elbowPipe),
+                            PipeWidth = elbowPipe.PipeWidth,
+                            RotationAngle = elbowPipe.RotationAngle,
+                            HorizontalLength = elbowPipe.HorizontalLength,
+                            VerticalLength = elbowPipe.VerticalLength
+                        };
+
+                        Debug.WriteLine($"收集弯管道: {elbowPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                    }
+                    // 处理Z形管道
+                    else if (child is ZShapePipeControl zPipe)
+                    {
+                        var left = Canvas.GetLeft(zPipe);
+                        var top = Canvas.GetTop(zPipe);
+
+                        pipeData = new CanvasPipeData
+                        {
+                            PipeId = zPipe.PipeId,
+                            PipeType = "ZShape",
+                            X = double.IsNaN(left) ? 0 : left,
+                            Y = double.IsNaN(top) ? 0 : top,
+                            ZIndex = Panel.GetZIndex(zPipe),
+                            PipeWidth = zPipe.PipeWidth,
+                            RotationAngle = zPipe.RotationAngle,
+                            TopHorizontalLength = zPipe.TopHorizontalLength,
+                            BottomHorizontalLength = zPipe.BottomHorizontalLength,
+                            VerticalOffset = zPipe.VerticalOffset
+                        };
+
+                        Debug.WriteLine($"收集Z形管道: {zPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                    }
+
+                    if (pipeData != null)
+                    {
+                        pipeDataList.Add(pipeData);
+                    }
+                }
+
+                Debug.WriteLine($"========== 收集了 {pipeDataList.Count} 个管道 ==========");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 收集管道数据失败: {ex.Message}");
+            }
+
+            callback?.Invoke(pipeDataList);
+        }
+
+      
+     
+   
+
+        /// <summary>
+        /// 创建恢复的直管道
+        /// </summary>
+        private StraightPipeControl CreateRestoredStraightPipe(CanvasPipeData pipeData)
+        {
+            var pipe = new StraightPipeControl
+            {
+                PipeId = pipeData.PipeId,
+                PipeLength = pipeData.PipeLength ?? 80,
+                PipeWidth = pipeData.PipeWidth,
+                RotationAngle = pipeData.RotationAngle,
+                IsSelected = false
+            };
+
+            // 订阅事件
+            SubscribeStraightPipeEvents(pipe);
+
+            return pipe;
+        }
+
+        /// <summary>
+        /// 创建恢复的弯管道
+        /// </summary>
+        private ElbowPipeControl CreateRestoredElbowPipe(CanvasPipeData pipeData)
+        {
+            var pipe = new ElbowPipeControl
+            {
+                PipeId = pipeData.PipeId,
+                HorizontalLength = pipeData.HorizontalLength ?? 35,
+                VerticalLength = pipeData.VerticalLength ?? 42,
+                PipeWidth = pipeData.PipeWidth,
+                RotationAngle = pipeData.RotationAngle,
+                IsSelected = false
+            };
+
+            // 订阅事件
+            SubscribeElbowPipeEvents(pipe);
+
+            return pipe;
+        }
+
+        /// <summary>
+        /// 创建恢复的Z形管道
+        /// </summary>
+        private ZShapePipeControl CreateRestoredZShapePipe(CanvasPipeData pipeData)
+        {
+            var pipe = new ZShapePipeControl
+            {
+                PipeId = pipeData.PipeId,
+                TopHorizontalLength = pipeData.TopHorizontalLength ?? 20,
+                BottomHorizontalLength = pipeData.BottomHorizontalLength ?? 20,
+                VerticalOffset = pipeData.VerticalOffset ?? 40,
+                PipeWidth = pipeData.PipeWidth,
+                RotationAngle = pipeData.RotationAngle,
+                IsSelected = false
+            };
+
+            // 订阅事件
+            SubscribeZShapePipeEvents(pipe);
+
+            return pipe;
+        }
+
+        #endregion
+
+
+
+        #region 监控卡片位置管理
+
+        /// <summary>
+        /// 监控卡片位置字典 - DeviceId -> Position
+        /// </summary>
+        private readonly Dictionary<string, Point> _monitoringCardPositions = new();
+
+        /// <summary>
+        /// 获取监控卡片位置
+        /// </summary>
+        private void OnGetMonitoringCardPositionsRequest(Action<Dictionary<string, Point>> callback)
+        {
+            try
+            {
+                var positions = new Dictionary<string, Point>();
+
+                foreach (var kvp in _monitoringCards)
+                {
+                    var deviceId = kvp.Key;
+                    var card = kvp.Value;
+
+                    var left = Canvas.GetLeft(card);
+                    var top = Canvas.GetTop(card);
+
+                    if (!double.IsNaN(left) && !double.IsNaN(top))
+                    {
+                        positions[deviceId] = new Point(left, top);
+                        Debug.WriteLine($"保存监控卡片位置: {deviceId} at ({left:F0}, {top:F0})");
+                    }
+                }
+
+                Debug.WriteLine($"返回 {positions.Count} 个监控卡片位置");
+                callback?.Invoke(positions);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取监控卡片位置失败: {ex.Message}");
+                callback?.Invoke(new Dictionary<string, Point>());
+            }
+        }
+
+        /// <summary>
+        /// 恢复监控卡片位置
+        /// </summary>
+        private void OnRestoreMonitoringCardPositions(Dictionary<string, Point> positions)
+        {
+            try
+            {
+                if (positions == null || positions.Count == 0)
+                {
+                    Debug.WriteLine("没有需要恢复的监控卡片位置");
+                    return;
+                }
+
+                Debug.WriteLine($"开始恢复 {positions.Count} 个监控卡片位置");
+
+                // 保存到字典，延迟使用
+                _monitoringCardPositions.Clear();
+                foreach (var kvp in positions)
+                {
+                    _monitoringCardPositions[kvp.Key] = kvp.Value;
+                    Debug.WriteLine($"记录监控卡片位置: {kvp.Key} at ({kvp.Value.X:F0}, {kvp.Value.Y:F0})");
+                }
+
+                Debug.WriteLine("监控卡片位置恢复完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复监控卡片位置失败: {ex.Message}");
+            }
+        }
+
         #endregion
     }
 }

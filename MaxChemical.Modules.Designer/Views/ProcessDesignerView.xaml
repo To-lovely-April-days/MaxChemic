@@ -29,10 +29,20 @@
                           Style="{StaticResource ThinScrollViewerStyle}">
 
                 <!-- 设计画布 -->
-                <Canvas x:Name="DesignCanvas" 
-                        Background="White"
-                        ClipToBounds="False">
-                    <!-- 这里将放置工艺设计元素 -->
+                <Canvas x:Name="DesignCanvas"
+                Background="White"
+                ClipToBounds="True"
+                RenderOptions.BitmapScalingMode="LowQuality"
+                RenderOptions.EdgeMode="Aliased"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True">
+
+                    <!-- ✅ 关键优化：启用画布级别缓存 -->
+                    <Canvas.CacheMode>
+                        <BitmapCache EnableClearType="False" 
+                             RenderAtScale="1" 
+                             SnapsToDevicePixels="True"/>
+                    </Canvas.CacheMode>
                 </Canvas>
 
             </ScrollViewer>

@@ -28,9 +28,8 @@ namespace MaxChemical.Modules.Designer.Models
         // 项目级别的全局配置
         public Dictionary<string, object> GlobalProperties { get; set; } = new Dictionary<string, object>();
     }
-
     /// <summary>
-    /// 画布设计数据（基于现有CanvasDocument）
+    /// 画布设计数据（基于现有CanvasDocument)
     /// </summary>
     public class CanvasDesignData
     {
@@ -41,6 +40,10 @@ namespace MaxChemical.Modules.Designer.Models
         public RegionLayout RegionLayout { get; set; }
         public List<CanvasDeviceData> Devices { get; set; } = new List<CanvasDeviceData>();
         public List<ConnectionData> Connections { get; set; } = new List<ConnectionData>();
+
+        // ✅ 新增：管道数据集合
+        public List<CanvasPipeData> Pipes { get; set; } = new List<CanvasPipeData>();
+
         public double CanvasWidth { get; set; } = 1200;
         public double CanvasHeight { get; set; } = 800;
 
@@ -60,6 +63,11 @@ namespace MaxChemical.Modules.Designer.Models
         /// 设备监控卡片状态 - DeviceId -> 是否显示监控卡片
         /// </summary>
         public Dictionary<string, bool> DeviceMonitoringCardStates { get; set; } = new Dictionary<string, bool>();
+
+        /// <summary>
+        /// 监控卡片位置数据 - DeviceId -> (X, Y)
+        /// </summary>
+        public Dictionary<string, Point> MonitoringCardPositions { get; set; } = new Dictionary<string, Point>();
     }
 
     /// <summary>

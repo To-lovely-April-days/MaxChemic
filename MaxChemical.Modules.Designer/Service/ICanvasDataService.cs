@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Modules.Designer.Models;
@@ -41,6 +42,7 @@ namespace MaxChemical.Modules.Designer.Service
         /// </summary>
         IDevice RestoreDeviceFromData(CanvasDeviceData deviceData);
 
-
+        // ✅ 新增：恢复管道方法
+        FrameworkElement RestorePipeFromData(CanvasPipeData pipeData);
     }
 }
