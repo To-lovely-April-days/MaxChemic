@@ -9,10 +9,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
 {
-    public partial class ElbowPipeControl : UserControl
+    public partial class ElbowPipeControl : UserControl, IPipeSnapPoints
     {
         // 事件定义
         public event EventHandler<ElbowPipeDragEventArgs> PipeDragStarted;
@@ -1028,6 +1029,95 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 SelectionBorder.Visibility = Visibility.Collapsed;
             }
         }
+
+
+        #region IPipeSnapPoints 实现
+
+        /// <summary>
+        /// 获取弯管的两个法兰吸附点
+        /// </summary>
+        public List<PipeSnapPoint> GetSnapPoints()
+        {
+            var snapPoints = new List<PipeSnapPoint>();
+
+            var parent = this.Parent as Canvas;
+            if (parent == null) return snapPoints;
+
+            var pipeLeft = Canvas.GetLeft(this);
+            var pipeTop = Canvas.GetTop(this);
+            if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+            if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+            // 管道中心点
+            Point center = new Point(
+                pipeLeft + this.ActualWidth / 2,
+                pipeTop + this.ActualHeight / 2
+            );
+
+            double radians = _rotationAngle * Math.PI / 180.0;
+
+            // ✅ 左侧法兰位置（水平段入口）
+            // 左法兰在 Canvas.Left=2, 法兰宽度=6
+            // 从 XAML 可以看到: Canvas.Left="2" Canvas.Top="30"
+            double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
+            double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
+
+            Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
+            Point leftFlangeWorld = RotatePoint(leftFlangeLocal, radians);
+
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    center.X + leftFlangeWorld.X,
+                    center.Y + leftFlangeWorld.Y
+                ),
+                Direction = GetSnapDirectionFromAngle(radians + Math.PI), // 向左
+                Description = $"弯管水平法兰 (水平:{_horizontalLength:F0})"
+            });
+
+            // ✅ 顶部法兰位置（垂直段出口）
+            // 顶部法兰在 Canvas.Left="46", Canvas.Top="2"
+            double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - this.ActualWidth / 2;
+            double topFlangeY = 2 - this.ActualHeight / 2;  // 相对于中心
+
+            Point topFlangeLocal = new Point(topFlangeX, topFlangeY);
+            Point topFlangeWorld = RotatePoint(topFlangeLocal, radians);
+
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    center.X + topFlangeWorld.X,
+                    center.Y + topFlangeWorld.Y
+                ),
+                Direction = GetSnapDirectionFromAngle(radians - Math.PI / 2), // 向上
+                Description = $"弯管垂直法兰 (垂直:{_verticalLength:F0})"
+            });
+
+            return snapPoints;
+        }
+
+        private Point RotatePoint(Point localPoint, double radians)
+        {
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+
+            return new Point(
+                localPoint.X * cos - localPoint.Y * sin,
+                localPoint.X * sin + localPoint.Y * cos
+            );
+        }
+
+        private SnapDirection GetSnapDirectionFromAngle(double radians)
+        {
+            double degrees = (radians * 180 / Math.PI + 360) % 360;
+
+            if (degrees >= 315 || degrees < 45) return SnapDirection.Right;
+            if (degrees >= 45 && degrees < 135) return SnapDirection.Down;
+            if (degrees >= 135 && degrees < 225) return SnapDirection.Left;
+            return SnapDirection.Up;
+        }
+
+        #endregion
     }
 
     #region 事件参数类

@@ -6,10 +6,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
 {
-    public partial class StraightPipeControl : UserControl
+    public partial class StraightPipeControl : UserControl, IPipeSnapPoints
     {
         // 事件定义
         public event EventHandler<PipeDragEventArgs> PipeDragStarted;
@@ -749,6 +750,107 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 default:
                     return new Point();
             }
+        }
+
+        #endregion
+
+        #region IPipeSnapPoints 实现
+
+        /// <summary>
+        /// 获取直管的两个法兰吸附点
+        /// </summary>
+        public List<PipeSnapPoint> GetSnapPoints()
+        {
+            var snapPoints = new List<PipeSnapPoint>();
+
+            var parent = this.Parent as Canvas;
+            if (parent == null) return snapPoints;
+
+            // 获取管道在画布上的位置
+            var pipeLeft = Canvas.GetLeft(this);
+            var pipeTop = Canvas.GetTop(this);
+            if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+            if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+            // 管道中心点
+            Point center = new Point(
+                pipeLeft + this.ActualWidth / 2,
+                pipeTop + this.ActualHeight / 2
+            );
+
+            // 考虑旋转角度
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+
+            // ✅ 左侧法兰的位置（在本地坐标系中）
+            // 左法兰在 Canvas.Left=2, Canvas.Top=11, 法兰宽度=6
+            // 法兰外侧边缘位置 = 2（法兰左边）
+            double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
+            double leftFlangeY = 0;  // 水平管道，法兰在中心高度
+
+            Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
+            Point leftFlangeWorld = RotatePoint(leftFlangeLocal, radians);
+
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    center.X + leftFlangeWorld.X,
+                    center.Y + leftFlangeWorld.Y
+                ),
+                Direction = GetSnapDirectionFromAngle(radians + Math.PI), // 向左连接
+                Description = $"直管左法兰 (长度:{_pipeLength:F0})"
+            });
+
+            // ✅ 右侧法兰的位置
+            // 右法兰在 Canvas.Left=88（对于默认96宽度），法兰宽度=6
+            // 法兰外侧边缘位置 = 94（法兰右边）
+            double rightFlangeX = (this.ActualWidth - 2) - this.ActualWidth / 2;  // 相对于中心
+            double rightFlangeY = 0;
+
+            Point rightFlangeLocal = new Point(rightFlangeX, rightFlangeY);
+            Point rightFlangeWorld = RotatePoint(rightFlangeLocal, radians);
+
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    center.X + rightFlangeWorld.X,
+                    center.Y + rightFlangeWorld.Y
+                ),
+                Direction = GetSnapDirectionFromAngle(radians), // 向右连接
+                Description = $"直管右法兰 (长度:{_pipeLength:F0})"
+            });
+
+            return snapPoints;
+        }
+
+        /// <summary>
+        /// 旋转点（从局部坐标到世界坐标偏移）
+        /// </summary>
+        private Point RotatePoint(Point localPoint, double radians)
+        {
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+
+            return new Point(
+                localPoint.X * cos - localPoint.Y * sin,
+                localPoint.X * sin + localPoint.Y * cos
+            );
+        }
+
+        /// <summary>
+        /// 根据弧度角度获取吸附方向
+        /// </summary>
+        private SnapDirection GetSnapDirectionFromAngle(double radians)
+        {
+            // 转换为 0-360 度
+            double degrees = (radians * 180 / Math.PI + 360) % 360;
+
+            // 按照 45° 分区判断方向
+            if (degrees >= 315 || degrees < 45) return SnapDirection.Right;
+            if (degrees >= 45 && degrees < 135) return SnapDirection.Down;
+            if (degrees >= 135 && degrees < 225) return SnapDirection.Left;
+            return SnapDirection.Up;
         }
 
         #endregion

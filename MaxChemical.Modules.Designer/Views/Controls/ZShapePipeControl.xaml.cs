@@ -6,13 +6,14 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
 {
     /// <summary>
     /// Z形管道控件
     /// </summary>
-    public partial class ZShapePipeControl : UserControl, INotifyPropertyChanged
+    public partial class ZShapePipeControl : UserControl, INotifyPropertyChanged, IPipeSnapPoints
     {
         #region 事件定义
 
@@ -999,6 +1000,92 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public void SetSelected(bool selected)
         {
             IsSelected = selected;
+        }
+
+        #endregion
+
+        #region IPipeSnapPoints 实现
+
+        /// <summary>
+        /// 获取Z形管道的两个法兰吸附点
+        /// </summary>
+        public List<PipeSnapPoint> GetSnapPoints()
+        {
+            var snapPoints = new List<PipeSnapPoint>();
+
+            var parent = this.Parent as Canvas;
+            if (parent == null) return snapPoints;
+
+            var pipeLeft = Canvas.GetLeft(this);
+            var pipeTop = Canvas.GetTop(this);
+            if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+            if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+            Point center = new Point(
+                pipeLeft + this.ActualWidth / 2,
+                pipeTop + this.ActualHeight / 2
+            );
+
+            double radians = _rotationAngle * Math.PI / 180.0;
+
+            // ✅ 左上法兰位置（上方水平段入口）
+            // 左法兰在 Canvas.Left="2", Canvas.Top="16"
+            double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
+            double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
+
+            Point leftTopLocal = new Point(leftFlangeX, leftFlangeY);
+            Point leftTopWorld = RotatePoint(leftTopLocal, radians);
+
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    center.X + leftTopWorld.X,
+                    center.Y + leftTopWorld.Y
+                ),
+                Direction = GetSnapDirectionFromAngle(radians + Math.PI), // 向左
+                Description = $"Z形管道左上法兰 (上段:{_topHorizontalLength:F0})"
+            });
+
+            // ✅ 右下法兰位置（下方水平段出口）
+            // 右法兰 Canvas.Left="158", Canvas.Top="106"
+            double rightFlangeX = Canvas.GetLeft(RightFlangeGroup) + RightFlangeGroup.Width - this.ActualWidth / 2;
+            double rightFlangeY = Canvas.GetTop(RightFlangeGroup) + RightFlangeGroup.Height / 2 - this.ActualHeight / 2;
+
+            Point rightBottomLocal = new Point(rightFlangeX, rightFlangeY);
+            Point rightBottomWorld = RotatePoint(rightBottomLocal, radians);
+
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    center.X + rightBottomWorld.X,
+                    center.Y + rightBottomWorld.Y
+                ),
+                Direction = GetSnapDirectionFromAngle(radians), // 向右
+                Description = $"Z形管道右下法兰 (下段:{_bottomHorizontalLength:F0})"
+            });
+
+            return snapPoints;
+        }
+
+        private Point RotatePoint(Point localPoint, double radians)
+        {
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+
+            return new Point(
+                localPoint.X * cos - localPoint.Y * sin,
+                localPoint.X * sin + localPoint.Y * cos
+            );
+        }
+
+        private SnapDirection GetSnapDirectionFromAngle(double radians)
+        {
+            double degrees = (radians * 180 / Math.PI + 360) % 360;
+
+            if (degrees >= 315 || degrees < 45) return SnapDirection.Right;
+            if (degrees >= 45 && degrees < 135) return SnapDirection.Down;
+            if (degrees >= 135 && degrees < 225) return SnapDirection.Left;
+            return SnapDirection.Up;
         }
 
         #endregion

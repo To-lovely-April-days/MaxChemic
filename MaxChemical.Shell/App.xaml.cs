@@ -111,7 +111,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IPipeConnectionService, PipeConnectionService>();
         // 注册Prism自己的日志服务
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
-
+        containerRegistry.RegisterSingleton<IPipeSnapService, PipeSnapService>();
         // 从Host服务中注册数据库相关服务到Prism容器
         if (_host != null)
         {

@@ -95,6 +95,11 @@ namespace MaxChemical.Modules.Designer.Views
         // 保存每个设备的监控参数选择状态 - DeviceId -> 参数名列表
         private readonly Dictionary<string, HashSet<string>> _deviceMonitoringSelections = new();
         #endregion
+
+        private readonly IPipeSnapService _pipeSnapService;
+        private bool _isPipeSnapping = false; // 是否正在吸附
+        private SnapResult _currentSnapResult = null; // 当前吸附结果
+        private PipeSnapSolution _currentSnapSolution = null; // 当前吸附方案
         #region 构造函数和初始化
 
         public ProcessDesignerView(
@@ -104,7 +109,8 @@ namespace MaxChemical.Modules.Designer.Views
             IConnectionService connectionService,
             ICanvasDataService canvasDataService,
             ICommandHistory commandHistory,
-            IPipeConnectionService pipeConnectionService)
+            IPipeConnectionService pipeConnectionService,
+            IPipeSnapService pipeSnapService)
         {
             // 依赖注入验证
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
@@ -114,7 +120,7 @@ namespace MaxChemical.Modules.Designer.Views
             _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _pipeConnectionService = pipeConnectionService ?? throw new ArgumentNullException(nameof(pipeConnectionService));
-
+            _pipeSnapService = pipeSnapService ?? throw new ArgumentNullException(nameof(pipeSnapService));
             // 配置连接服务
             ConfigureConnectionService();
 
@@ -732,6 +738,8 @@ namespace MaxChemical.Modules.Designer.Views
 
             // ✅ 新增:订阅管道工具箱事件
             SubscribeToPipeToolboxEvents();
+            //初始化吸附服务
+            _pipeSnapService.Initialize(DesignCanvas);
         }
         private void SubscribeToExecutionEvents()
         {
@@ -4867,7 +4875,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             // 解析连接方向
-            var startDirection = ParseConnectionDirection(connectionData.StartDirection, ConnectionDirection.Right);
+            var startDirection = ParseConnectionDirection(connectionData.StartDirection,ConnectionDirection.Right);
             var endDirection = ParseConnectionDirection(connectionData.EndDirection, ConnectionDirection.Left);
 
             // 检查连接是否已存在
@@ -4885,7 +4893,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 解析连接方向
         /// </summary>
-        private ConnectionDirection ParseConnectionDirection(string direction, ConnectionDirection defaultDirection)
+        private ConnectionDirection ParseConnectionDirection(string direction,ConnectionDirection defaultDirection)
         {
             if (Enum.TryParse<ConnectionDirection>(direction, out var parsedDirection))
             {
@@ -4919,7 +4927,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 创建新连接
         /// </summary>
-        private void CreateNewConnection(ConnectionData connectionData, ConnectionDirection startDirection, ConnectionDirection endDirection, FrameworkElement startElement, FrameworkElement endElement)
+        private void CreateNewConnection(ConnectionData connectionData,ConnectionDirection startDirection, ConnectionDirection endDirection, FrameworkElement startElement, FrameworkElement endElement)
         {
             var connection = _connectionService.CreateConnection(
                 connectionData.StartDeviceId,
@@ -5764,16 +5772,49 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 实时更新管道连接线(如果有的话)
-                // TODO: 如果需要在拖动时实时更新连接线,可以在这里实现
+                var pipe = sender as StraightPipeControl;
+                if (pipe == null) return;
 
-                // Debug.WriteLine($"管道拖动中: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+                // 获取管道当前中心位置
+                var pipeLeft = Canvas.GetLeft(pipe);
+                var pipeTop = Canvas.GetTop(pipe);
+                if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+                if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+                var currentCenter = new Point(
+                    pipeLeft + pipe.ActualWidth / 2,
+                    pipeTop + pipe.ActualHeight / 2
+                );
+
+                // ✅ 使用新的双端点吸附检测
+                var snapSolution = _pipeSnapService.FindBestSnapSolution(
+                    pipe,
+                    currentCenter,
+                    pipe.PipeId);
+
+                _currentSnapSolution = snapSolution;
+
+                if (snapSolution != null && snapSolution.HasSnap)
+                {
+                    // 显示所有吸附指示器
+                    _pipeSnapService.ShowSnapIndicators(snapSolution.EndPointSnaps);
+
+                    _isPipeSnapping = true;
+
+                    Debug.WriteLine($"✅ 管道有 {snapSolution.EndPointSnaps.Count} 个端点可吸附");
+                }
+                else
+                {
+                    _pipeSnapService.HideSnapIndicator();
+                    _isPipeSnapping = false;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"管道拖动处理失败: {ex.Message}");
             }
         }
+
 
         /// <summary>
         /// 管道拖动完成
@@ -5782,14 +5823,41 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                Debug.WriteLine($"管道拖动完成: {e.PipeId}");
-                Debug.WriteLine($"  起始位置: ({e.StartPosition.X:F0}, {e.StartPosition.Y:F0})");
-                Debug.WriteLine($"  最终位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+                var pipe = sender as StraightPipeControl;
+                if (pipe == null) return;
+
+                // ✅ 如果有吸附方案，应用吸附
+                if (_currentSnapSolution != null && _currentSnapSolution.HasSnap)
+                {
+                    var newCenter = _currentSnapSolution.NewCenterPosition;
+
+                    // 计算新的左上角位置
+                    var newLeft = newCenter.X - pipe.ActualWidth / 2;
+                    var newTop = newCenter.Y - pipe.ActualHeight / 2;
+
+                    Canvas.SetLeft(pipe, newLeft);
+                    Canvas.SetTop(pipe, newTop);
+
+                    Debug.WriteLine($"✅ 管道已吸附到位置: 中心({newCenter.X:F0}, {newCenter.Y:F0})");
+
+                    // 显示吸附成功的消息
+                    var snapTypes = string.Join(", ",
+                        _currentSnapSolution.EndPointSnaps.Select(s => s.SnapTarget.Type));
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"管道已吸附到: {snapTypes}");
+                }
+
+                // 隐藏吸附指示器
+                _pipeSnapService.HideSnapIndicator();
+                _isPipeSnapping = false;
+                _currentSnapSolution = null;
 
                 // 标记画布已修改
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道移动完成");
+
+                Debug.WriteLine($"管道拖动完成: {pipe.PipeId}");
             }
             catch (Exception ex)
             {
@@ -5885,8 +5953,38 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 实时更新管道连接线(如果有的话)
-                // Debug.WriteLine($"弯管道拖动中: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+                var pipe = sender as ElbowPipeControl;
+                if (pipe == null) return;
+
+                var pipeLeft = Canvas.GetLeft(pipe);
+                var pipeTop = Canvas.GetTop(pipe);
+                if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+                if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+                var currentCenter = new Point(
+                    pipeLeft + pipe.ActualWidth / 2,
+                    pipeTop + pipe.ActualHeight / 2
+                );
+
+                var snapSolution = _pipeSnapService.FindBestSnapSolution(
+                    pipe,
+                    currentCenter,
+                    pipe.PipeId);
+
+                _currentSnapSolution = snapSolution;
+
+                if (snapSolution != null && snapSolution.HasSnap)
+                {
+                    _pipeSnapService.ShowSnapIndicators(snapSolution.EndPointSnaps);
+                    _isPipeSnapping = true;
+
+                    Debug.WriteLine($"✅ 弯管道有 {snapSolution.EndPointSnaps.Count} 个端点可吸附");
+                }
+                else
+                {
+                    _pipeSnapService.HideSnapIndicator();
+                    _isPipeSnapping = false;
+                }
             }
             catch (Exception ex)
             {
@@ -5901,11 +5999,31 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                Debug.WriteLine($"弯管道拖动完成: {e.PipeId}");
-                Debug.WriteLine($"  起始位置: ({e.StartPosition.X:F0}, {e.StartPosition.Y:F0})");
-                Debug.WriteLine($"  最终位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+                var pipe = sender as ElbowPipeControl;
+                if (pipe == null) return;
 
-                // 标记画布已修改
+                if (_currentSnapSolution != null && _currentSnapSolution.HasSnap)
+                {
+                    var newCenter = _currentSnapSolution.NewCenterPosition;
+                    var newLeft = newCenter.X - pipe.ActualWidth / 2;
+                    var newTop = newCenter.Y - pipe.ActualHeight / 2;
+
+                    Canvas.SetLeft(pipe, newLeft);
+                    Canvas.SetTop(pipe, newTop);
+
+                    Debug.WriteLine($"✅ 弯管道已吸附到位置: 中心({newCenter.X:F0}, {newCenter.Y:F0})");
+
+                    var snapTypes = string.Join(", ",
+                        _currentSnapSolution.EndPointSnaps.Select(s => s.SnapTarget.Type));
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"弯管道已吸附到: {snapTypes}");
+                }
+
+                _pipeSnapService.HideSnapIndicator();
+                _isPipeSnapping = false;
+                _currentSnapSolution = null;
+
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("弯管道移动完成");
             }
@@ -6144,14 +6262,43 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 实时更新管道连接线(如果有的话)
-                // Debug.WriteLine($"Z形管道拖动中: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+                var pipe = sender as ZShapePipeControl;
+                if (pipe == null) return;
+
+                var pipeLeft = Canvas.GetLeft(pipe);
+                var pipeTop = Canvas.GetTop(pipe);
+                if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+                if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+                var currentCenter = new Point(
+                    pipeLeft + pipe.ActualWidth / 2,
+                    pipeTop + pipe.ActualHeight / 2
+                );
+
+                var snapSolution = _pipeSnapService.FindBestSnapSolution(
+                    pipe,
+                    currentCenter,
+                    pipe.PipeId);
+
+                _currentSnapSolution = snapSolution;
+
+                if (snapSolution != null && snapSolution.HasSnap)
+                {
+                    _pipeSnapService.ShowSnapIndicators(snapSolution.EndPointSnaps);
+                    _isPipeSnapping = true;
+                }
+                else
+                {
+                    _pipeSnapService.HideSnapIndicator();
+                    _isPipeSnapping = false;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Z形管道拖动处理失败: {ex.Message}");
             }
         }
+
 
         /// <summary>
         /// Z形管道拖动完成
@@ -6160,11 +6307,29 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                Debug.WriteLine($"Z形管道拖动完成: {e.PipeId}");
-                Debug.WriteLine($"  起始位置: ({e.StartPosition.X:F0}, {e.StartPosition.Y:F0})");
-                Debug.WriteLine($"  最终位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+                var pipe = sender as ZShapePipeControl;
+                if (pipe == null) return;
 
-                // 标记画布已修改
+                if (_currentSnapSolution != null && _currentSnapSolution.HasSnap)
+                {
+                    var newCenter = _currentSnapSolution.NewCenterPosition;
+                    var newLeft = newCenter.X - pipe.ActualWidth / 2;
+                    var newTop = newCenter.Y - pipe.ActualHeight / 2;
+
+                    Canvas.SetLeft(pipe, newLeft);
+                    Canvas.SetTop(pipe, newTop);
+
+                    var snapTypes = string.Join(", ",
+                        _currentSnapSolution.EndPointSnaps.Select(s => s.SnapTarget.Type));
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"Z形管道已吸附到: {snapTypes}");
+                }
+
+                _pipeSnapService.HideSnapIndicator();
+                _isPipeSnapping = false;
+                _currentSnapSolution = null;
+
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("Z形管道移动完成");
             }
