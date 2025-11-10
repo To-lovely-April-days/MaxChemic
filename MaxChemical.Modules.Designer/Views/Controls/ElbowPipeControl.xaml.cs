@@ -1,6 +1,5 @@
-﻿// ElbowPipeControl.xaml.cs - 完整修复版
-
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
@@ -15,7 +14,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 {
     public partial class ElbowPipeControl : UserControl, IPipeSnapPoints
     {
-        // 事件定义
+        #region 事件定义
+
         public event EventHandler<ElbowPipeDragEventArgs> PipeDragStarted;
         public event EventHandler<ElbowPipeDragEventArgs> PipeDragging;
         public event EventHandler<ElbowPipeDragEventArgs> PipeDragCompleted;
@@ -29,8 +29,49 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ElbowPipeEventArgs> PipeDeleted;
         public event EventHandler<ElbowPipeEventArgs> ShowPipeProperties;
 
+        // ✅ 新增：管道选中事件
+        public event EventHandler<string> PipeSelected;
+        public event EventHandler<string> PipeDeselected;
+
+        #endregion
+
+        #region ✅ IsSelected 依赖属性
+
+        /// <summary>
+        /// 是否选中的依赖属性
+        /// </summary>
+        public static readonly DependencyProperty IsSelectedProperty =
+            DependencyProperty.Register(
+                nameof(IsSelected),
+                typeof(bool),
+                typeof(ElbowPipeControl),
+                new PropertyMetadata(false, OnIsSelectedChanged));
+
+        /// <summary>
+        /// 是否选中
+        /// </summary>
+        public bool IsSelected
+        {
+            get => (bool)GetValue(IsSelectedProperty);
+            set => SetValue(IsSelectedProperty, value);
+        }
+
+        /// <summary>
+        /// 选中状态变化回调
+        /// </summary>
+        private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl control)
+            {
+                control.UpdateSelectionVisual((bool)e.NewValue);
+            }
+        }
+
+        #endregion
+
+        #region 字段
+
         public string PipeId { get; set; }
-        public bool IsSelected { get; set; }
 
         private bool _isDraggingPipe = false;
         private bool _isResizing = false;
@@ -40,8 +81,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private Point _originalPosition;
         private ElbowPipeSize _originalSize;
         private double _originalRotation = 0;
-
-        // ✅ 新增：记录调整大小时的固定点
         private Point _fixedPoint;
 
         private const double MinArmLength = 30;
@@ -58,6 +97,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private TransformGroup _transformGroup;
         private ScaleTransform _flipTransform;
         private DispatcherTimer _rotationLabelTimer;
+
+        #endregion
+
+        #region 属性
 
         public double HorizontalLength
         {
@@ -100,6 +143,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
+        #endregion
+
+        #region 构造函数
+
         public ElbowPipeControl()
         {
             InitializeComponent();
@@ -128,10 +175,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _rotationLabelTimer.Stop();
                 };
 
-                // ✅ 修复1: 整个控件的鼠标事件用于锚点显示/隐藏
                 this.MouseEnter += OnPipeMouseEnter;
                 this.MouseLeave += OnPipeMouseLeave;
-
                 this.MouseDown += OnControlMouseDown;
                 this.MouseMove += OnControlMouseMove;
                 this.MouseUp += OnControlMouseUp;
@@ -145,11 +190,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
-        #region ✅ 修复1: 锚点显示控制
+        #endregion
 
-        /// <summary>
-        /// 鼠标进入管道区域，显示锚点
-        /// </summary>
+        #region 锚点显示控制
+
         private void OnPipeMouseEnter(object sender, MouseEventArgs e)
         {
             if (!_isResizing && !_isDraggingPipe && !_isRotating)
@@ -158,9 +202,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// 鼠标离开管道区域，隐藏锚点
-        /// </summary>
         private void OnPipeMouseLeave(object sender, MouseEventArgs e)
         {
             if (!_isResizing && !_isRotating && !IsSelected)
@@ -169,9 +210,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// 显示所有锚点
-        /// </summary>
         private void ShowAllAnchors()
         {
             LeftAnchor.Opacity = 0.6;
@@ -182,9 +220,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchorLine.Opacity = 0.6;
         }
 
-        /// <summary>
-        /// 隐藏所有锚点
-        /// </summary>
         private void HideAllAnchors()
         {
             LeftAnchor.Opacity = 0;
@@ -193,6 +228,29 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             VerticalWidthAnchor.Opacity = 0;
             RotateAnchor.Opacity = 0;
             RotateAnchorLine.Opacity = 0;
+        }
+
+        /// <summary>
+        /// ✅ 更新选中视觉效果（取消选中时完全恢复原样）
+        /// </summary>
+        private void UpdateSelectionVisual(bool isSelected)
+        {
+            if (isSelected)
+            {
+                // ========== 选中时：只显示选择边框和锚点 ==========
+                SelectionBorder.Visibility = Visibility.Visible;
+                ShowAllAnchors();
+            }
+            else
+            {
+                // ========== ✅ 取消选中时：完全恢复原始状态 ==========
+                SelectionBorder.Visibility = Visibility.Collapsed;
+
+                if (!this.IsMouseOver && !_isResizing && !_isRotating)
+                {
+                    HideAllAnchors();
+                }
+            }
         }
 
         #endregion
@@ -317,6 +375,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
+        #region 锚点事件设置
+
         private void SetupAnchorEvents()
         {
             LeftAnchor.MouseEnter += OnAnchorMouseEnter;
@@ -339,6 +399,33 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchor.MouseLeave += OnRotateAnchorMouseLeave;
             RotateAnchor.MouseDown += OnRotateAnchorMouseDown;
         }
+
+        private void OnAnchorMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (sender is Ellipse anchor) anchor.Opacity = 1.0;
+        }
+
+        private void OnAnchorMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (sender is Ellipse anchor && !_isResizing) anchor.Opacity = 0.6;
+        }
+
+        private void OnRotateAnchorMouseEnter(object sender, MouseEventArgs e)
+        {
+            RotateAnchor.Opacity = 1.0;
+            RotateAnchorLine.Opacity = 1.0;
+        }
+
+        private void OnRotateAnchorMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (!_isRotating)
+            {
+                RotateAnchor.Opacity = 0.6;
+                RotateAnchorLine.Opacity = 0.6;
+            }
+        }
+
+        #endregion
 
         #region 管道几何更新
 
@@ -572,6 +659,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
+                // ✅ 新增：通知画布管道被选中
+                PipeSelected?.Invoke(this, this.PipeId);
+
+                // ✅ 设置选中状态
+                this.IsSelected = true;
+
                 _isDraggingPipe = true;
                 var parent = this.Parent as Canvas;
                 if (parent != null)
@@ -649,17 +742,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                    source == RotateAnchor;
         }
 
-        private void OnAnchorMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (sender is Ellipse anchor) anchor.Opacity = 1.0;
-        }
-
-        private void OnAnchorMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (sender is Ellipse anchor && !_isResizing) anchor.Opacity = 0.6;
-        }
-
-        #region ✅ 修复2&3: 锚点调整大小（保持固定端不动 + 旋转后方向正确）
+        #region 锚点调整大小
 
         private void OnAnchorMouseDown(ElbowAnchorPosition position, MouseButtonEventArgs e)
         {
@@ -681,7 +764,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
 
-                    // ✅ 关键：计算固定点的世界坐标
                     _fixedPoint = CalculateElbowFixedPoint(position);
 
                     Debug.WriteLine($"开始调整弯管大小: 锚点={position}, 固定点=({_fixedPoint.X:F1}, {_fixedPoint.Y:F1})");
@@ -697,9 +779,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// 计算弯管调整时的固定点（弯角的对角位置）
-        /// </summary>
         private Point CalculateElbowFixedPoint(ElbowAnchorPosition draggedAnchor)
         {
             var parent = this.Parent as Canvas;
@@ -710,7 +789,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            // 弯管中心点（旋转中心）
             Point center = new Point(
                 pipeLeft + this.ActualWidth / 2,
                 pipeTop + this.ActualHeight / 2
@@ -720,14 +798,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // 弯管的关键点在本地坐标系中的位置
-            // 本地坐标系：原点在控件中心，X轴向右，Y轴向下
             Point localFixed = new Point();
 
             switch (draggedAnchor)
             {
                 case ElbowAnchorPosition.Left:
-                    // 拖动左端（水平臂），固定点在弯角
                     localFixed = new Point(
                         this.Width / 2 - 10 - _pipeWidth / 2,
                         this.Height / 2 - 10 - _pipeWidth / 2
@@ -735,7 +810,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     break;
 
                 case ElbowAnchorPosition.Top:
-                    // 拖动顶端（垂直臂），固定点在弯角
                     localFixed = new Point(
                         this.Width / 2 - 10 - _pipeWidth / 2,
                         this.Height / 2 - 10 - _pipeWidth / 2
@@ -744,12 +818,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 case ElbowAnchorPosition.HorizontalWidth:
                 case ElbowAnchorPosition.VerticalWidth:
-                    // 调整宽度时，固定点在控件中心
                     localFixed = new Point(0, 0);
                     break;
             }
 
-            // 旋转本地坐标到世界坐标
             Point worldFixed = new Point(
                 localFixed.X * cos - localFixed.Y * sin,
                 localFixed.X * sin + localFixed.Y * cos
@@ -798,12 +870,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             });
         }
 
-        /// <summary>
-        /// 从左端调整水平臂长度
-        /// </summary>
         private void ResizeHorizontalArmFromLeft(Point currentMousePosition)
         {
-            // 计算鼠标到固定点的向量
             double deltaX = currentMousePosition.X - _fixedPoint.X;
             double deltaY = currentMousePosition.Y - _fixedPoint.Y;
 
@@ -811,16 +879,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // 投影到水平臂方向（旋转后的X轴）
             double projectedLength = deltaX * cos + deltaY * sin;
 
-            // 新的水平臂长度（取绝对值，因为可能反向）
             double newLength = Math.Abs(projectedLength);
             newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newLength));
 
             _horizontalLength = newLength;
 
-            // ✅ 关键：重新计算控件位置，使弯角固定
             RecalculatePositionForElbow();
 
             UpdatePipeGeometry();
@@ -828,9 +893,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Debug.WriteLine($"调整水平臂: {newLength:F1}px");
         }
 
-        /// <summary>
-        /// 从顶端调整垂直臂长度
-        /// </summary>
         private void ResizeVerticalArmFromTop(Point currentMousePosition)
         {
             double deltaX = currentMousePosition.X - _fixedPoint.X;
@@ -840,7 +902,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // 投影到垂直臂方向（旋转后的Y轴）
             double projectedLength = -deltaX * sin + deltaY * cos;
 
             double newLength = Math.Abs(projectedLength);
@@ -855,9 +916,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Debug.WriteLine($"调整垂直臂: {newLength:F1}px");
         }
 
-        /// <summary>
-        /// 调整管道宽度
-        /// </summary>
         private void ResizePipeWidthFromAnchor(Point currentMousePosition)
         {
             double deltaX = currentMousePosition.X - _dragStartPoint.X;
@@ -869,14 +927,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double newWidth = _originalSize.PipeWidth + delta * 0.5;
             newWidth = Math.Max(MinPipeWidth, Math.Min(MaxPipeWidth, newWidth));
 
-            // 计算宽度变化的比例
             double widthRatio = newWidth / _originalSize.PipeWidth;
 
-            // 按比例调整水平和垂直臂的长度，保持整体协调
             double newHorizontalLength = _originalSize.HorizontalLength * widthRatio;
             double newVerticalLength = _originalSize.VerticalLength * widthRatio;
 
-            // 确保长度在合理范围内
             newHorizontalLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newHorizontalLength));
             newVerticalLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newVerticalLength));
 
@@ -889,38 +944,30 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Debug.WriteLine($"协调调整 - 宽度: {newWidth:F1}px, 水平: {newHorizontalLength:F1}px, 垂直: {newVerticalLength:F1}px, 比例: {widthRatio:F2}");
         }
 
-        /// <summary>
-        /// 重新计算弯管位置，使弯角保持固定
-        /// </summary>
         private void RecalculatePositionForElbow()
         {
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // 弯角在新尺寸下的本地坐标偏移
             Point elbowLocalOffset = new Point(
                 this.Width / 2 - 10 - _pipeWidth / 2,
                 this.Height / 2 - 10 - _pipeWidth / 2
             );
 
-            // 旋转到世界坐标
             Point elbowWorldOffset = new Point(
                 elbowLocalOffset.X * cos - elbowLocalOffset.Y * sin,
                 elbowLocalOffset.X * sin + elbowLocalOffset.Y * cos
             );
 
-            // 新的中心点 = 固定点 - 弯角偏移
             Point newCenter = new Point(
                 _fixedPoint.X - elbowWorldOffset.X,
                 _fixedPoint.Y - elbowWorldOffset.Y
             );
 
-            // 更新后需要立即更新几何，以获取正确的 ActualWidth/Height
             this.Width = _horizontalLength + 20;
             this.Height = _verticalLength + 20;
 
-            // 设置新位置（左上角）
             Canvas.SetLeft(this, newCenter.X - this.Width / 2);
             Canvas.SetTop(this, newCenter.Y - this.Height / 2);
         }
@@ -946,21 +993,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
-
-        private void OnRotateAnchorMouseEnter(object sender, MouseEventArgs e)
-        {
-            RotateAnchor.Opacity = 1.0;
-            RotateAnchorLine.Opacity = 1.0;
-        }
-
-        private void OnRotateAnchorMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (!_isRotating)
-            {
-                RotateAnchor.Opacity = 0.6;
-                RotateAnchorLine.Opacity = 0.6;
-            }
-        }
 
         private void OnRotateAnchorMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -1018,24 +1050,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public void SetSelected(bool selected)
         {
             IsSelected = selected;
-            if (selected)
-            {
-                ShowAllAnchors();
-                SelectionBorder.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                HideAllAnchors();
-                SelectionBorder.Visibility = Visibility.Collapsed;
-            }
         }
-
 
         #region IPipeSnapPoints 实现
 
-        /// <summary>
-        /// 获取弯管的两个法兰吸附点
-        /// </summary>
         public List<PipeSnapPoint> GetSnapPoints()
         {
             var snapPoints = new List<PipeSnapPoint>();
@@ -1048,7 +1066,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            // 管道中心点
             Point center = new Point(
                 pipeLeft + this.ActualWidth / 2,
                 pipeTop + this.ActualHeight / 2
@@ -1056,10 +1073,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // ✅ 左侧法兰位置（水平段入口）
-            // 左法兰在 Canvas.Left=2, 法兰宽度=6
-            // 从 XAML 可以看到: Canvas.Left="2" Canvas.Top="30"
-            double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
+            double leftFlangeX = 2 - this.ActualWidth / 2;
             double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
             Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
@@ -1071,14 +1085,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     center.X + leftFlangeWorld.X,
                     center.Y + leftFlangeWorld.Y
                 ),
-                Direction = GetSnapDirectionFromAngle(radians + Math.PI), // 向左
+                Direction = GetSnapDirectionFromAngle(radians + Math.PI),
                 Description = $"弯管水平法兰 (水平:{_horizontalLength:F0})"
             });
 
-            // ✅ 顶部法兰位置（垂直段出口）
-            // 顶部法兰在 Canvas.Left="46", Canvas.Top="2"
             double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - this.ActualWidth / 2;
-            double topFlangeY = 2 - this.ActualHeight / 2;  // 相对于中心
+            double topFlangeY = 2 - this.ActualHeight / 2;
 
             Point topFlangeLocal = new Point(topFlangeX, topFlangeY);
             Point topFlangeWorld = RotatePoint(topFlangeLocal, radians);
@@ -1089,7 +1101,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     center.X + topFlangeWorld.X,
                     center.Y + topFlangeWorld.Y
                 ),
-                Direction = GetSnapDirectionFromAngle(radians - Math.PI / 2), // 向上
+                Direction = GetSnapDirectionFromAngle(radians - Math.PI / 2),
                 Description = $"弯管垂直法兰 (垂直:{_verticalLength:F0})"
             });
 

@@ -146,4 +146,18 @@ namespace MaxChemical.Modules.Designer.Event
     public class SelectDeviceEvent : PubSubEvent<string>
     {
     }
+
+    /// <summary>
+    /// 获取选中管道请求事件
+    /// </summary>
+    public class GetSelectedPipeRequestEvent : PubSubEvent<Action<string>>
+    {
+    }
+
+    /// <summary>
+    /// 删除选中管道事件
+    /// </summary>
+    public class DeleteSelectedPipeEvent : PubSubEvent<string>
+    {
+    }
 }

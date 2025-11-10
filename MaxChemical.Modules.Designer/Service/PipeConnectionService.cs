@@ -8,7 +8,7 @@ using System.Windows.Controls;
 using MaxChemical.Modules.Designer.Views.Controls;
 using MaxChemical.Modules.Designer.Models;
 
-namespace MaxChemical.Modules.Designer.Services
+namespace MaxChemical.Modules.Designer.Service
 {
     public interface IPipeConnectionService
     {

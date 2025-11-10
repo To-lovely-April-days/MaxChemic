@@ -1059,7 +1059,28 @@ namespace MaxChemical.Shell.ViewModels
             {
                 System.Diagnostics.Debug.WriteLine("执行删除命令");
 
-                // 获取当前选中的设备
+                // ✅ 1. 优先检查是否有选中的管道
+                var selectedPipeId = GetCurrentSelectedPipe();
+
+                if (!string.IsNullOrEmpty(selectedPipeId))
+                {
+                    // 有选中管道，删除管道
+                    System.Diagnostics.Debug.WriteLine($"删除选中管道: {selectedPipeId}");
+
+                    var result = _dialogService.ShowConfirmation(
+                        "确定要删除选中的管道吗？",
+                        "删除确认");
+
+                    if (result)
+                    {
+                        // 发布删除管道事件
+                        _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Publish(selectedPipeId);
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道已删除");
+                    }
+                    return; // ✅ 删除管道后直接返回
+                }
+
+                // ✅ 2. 检查是否有选中的设备
                 var selectedDeviceId = GetCurrentSelectedDevice();
 
                 if (!string.IsNullOrEmpty(selectedDeviceId))
@@ -1067,22 +1088,20 @@ namespace MaxChemical.Shell.ViewModels
                     // 有选中设备，删除设备及其连接
                     System.Diagnostics.Debug.WriteLine($"删除选中设备: {selectedDeviceId}");
 
-                    // 显示确认对话框
                     var result = _dialogService.ShowConfirmation(
                         $"确定要删除选中的设备吗？\n\n此操作将同时删除与该设备相关的所有连接线。",
                         "删除确认");
 
                     if (result)
                     {
-                        // 发布删除设备事件
                         _eventAggregator?.GetEvent<DeleteSelectedDeviceEvent>()?.Publish(selectedDeviceId);
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("设备已删除");
                     }
                 }
                 else
                 {
-                    // 没有选中设备，尝试删除选中的连接线
-                    System.Diagnostics.Debug.WriteLine("没有选中设备，尝试删除选中的连接线");
+                    // ✅ 3. 没有选中设备和管道，尝试删除选中的连接线
+                    System.Diagnostics.Debug.WriteLine("没有选中设备或管道，尝试删除选中的连接线");
                     _eventAggregator?.GetEvent<DeleteSelectedConnectionsEvent>()?.Publish();
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("已删除选中的连接线");
                 }
@@ -1092,6 +1111,38 @@ namespace MaxChemical.Shell.ViewModels
                 System.Diagnostics.Debug.WriteLine($"删除操作失败: {ex.Message}");
                 _dialogService?.ShowError($"删除操作失败: {ex.Message}", "删除失败");
             }
+        }
+
+        /// <summary>
+        /// 获取当前选中的管道
+        /// </summary>
+        private string GetCurrentSelectedPipe()
+        {
+            string selectedPipeId = null;
+            var waitHandle = new ManualResetEventSlim(false);
+
+            try
+            {
+                _eventAggregator?.GetEvent<GetSelectedPipeRequestEvent>()?.Publish((pipeId) =>
+                {
+                    selectedPipeId = pipeId;
+                    waitHandle.Set();
+                });
+
+                // 等待500毫秒，如果没有响应就认为没有选中管道
+                waitHandle.Wait(500);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"获取选中管道失败: {ex.Message}");
+            }
+            finally
+            {
+                waitHandle.Dispose();
+            }
+
+            System.Diagnostics.Debug.WriteLine($"当前选中管道: {selectedPipeId ?? "无"}");
+            return selectedPipeId;
         }
         #region Zoom Command Implementations
 
@@ -1587,6 +1638,7 @@ namespace MaxChemical.Shell.ViewModels
                 };
 
                 window.Show();
+
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("参数监控图表已打开");
                 _logger.LogInformation("参数监控图表窗口已创建并显示");

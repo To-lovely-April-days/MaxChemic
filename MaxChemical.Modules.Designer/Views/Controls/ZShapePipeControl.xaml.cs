@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,6 +28,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ZPipeRotateEventArgs> PipeRotateStarted;
         public event EventHandler<ZPipeRotateEventArgs> PipeRotating;
         public event EventHandler<ZPipeRotateEventArgs> PipeRotateCompleted;
+
+        // ✅ 新增：管道选中事件
+        public event EventHandler<string> PipeSelected;
+        public event EventHandler<string> PipeDeselected;
 
         #endregion
 
@@ -60,24 +65,44 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
+        #region ✅ IsSelected 依赖属性
+
+        /// <summary>
+        /// 是否选中的依赖属性
+        /// </summary>
+        public static readonly DependencyProperty IsSelectedProperty =
+            DependencyProperty.Register(
+                nameof(IsSelected),
+                typeof(bool),
+                typeof(ZShapePipeControl),
+                new PropertyMetadata(false, OnIsSelectedChanged));
+
+        /// <summary>
+        /// 是否选中
+        /// </summary>
+        public bool IsSelected
+        {
+            get => (bool)GetValue(IsSelectedProperty);
+            set => SetValue(IsSelectedProperty, value);
+        }
+
+        /// <summary>
+        /// 选中状态变化回调
+        /// </summary>
+        private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ZShapePipeControl control)
+            {
+                control.UpdateSelectionVisual((bool)e.NewValue);
+                control.OnPropertyChanged(nameof(IsSelected));
+            }
+        }
+
+        #endregion
+
         #region 属性
 
         public string PipeId { get; set; }
-
-        private bool _isSelected;
-        public bool IsSelected
-        {
-            get => _isSelected;
-            set
-            {
-                if (_isSelected != value)
-                {
-                    _isSelected = value;
-                    UpdateSelectionVisual();
-                    OnPropertyChanged(nameof(IsSelected));
-                }
-            }
-        }
 
         public double TopHorizontalLength
         {
@@ -238,16 +263,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchorLine.Opacity = 0;
         }
 
-        private void UpdateSelectionVisual()
+        /// <summary>
+        /// ✅ 更新选中视觉效果（取消选中时完全恢复原样）
+        /// </summary>
+        private void UpdateSelectionVisual(bool isSelected)
         {
-            if (IsSelected)
+            if (isSelected)
             {
+                // ========== 选中时：只显示选择边框和锚点 ==========
                 SelectionBorder.Visibility = Visibility.Visible;
                 ShowAllAnchors();
             }
             else
             {
+                // ========== ✅ 取消选中时：完全恢复原始状态 ==========
                 SelectionBorder.Visibility = Visibility.Collapsed;
+
                 if (!this.IsMouseOver && !_isResizing && !_isRotating)
                 {
                     HideAllAnchors();
@@ -350,6 +381,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     return;
                 }
 
+                // ✅ 新增：通知画布管道被选中
+                PipeSelected?.Invoke(this, this.PipeId);
+
+                // ✅ 设置选中状态
+                this.IsSelected = true;
+
                 _isDraggingPipe = true;
                 _dragStartPoint = e.GetPosition(this.Parent as UIElement);
                 _originalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
@@ -420,7 +457,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnControlMouseLeave(object sender, MouseEventArgs e)
         {
-            // 如果鼠标离开控件但仍在拖拽，不做处理
+            // 如果鼠标离开控件但仍在拖拽,不做处理
         }
 
         #endregion
@@ -576,7 +613,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 double newAngle = _originalRotation + deltaAngle;
 
-                // 如果按住 Shift 键，以 15 度为步进
+                // 如果按住 Shift 键,以 15 度为步进
                 if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
                 {
                     newAngle = Math.Round(newAngle / 15) * 15;
@@ -1029,7 +1066,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double radians = _rotationAngle * Math.PI / 180.0;
 
             // ✅ 左上法兰位置（上方水平段入口）
-            // 左法兰在 Canvas.Left="2", Canvas.Top="16"
             double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
             double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
@@ -1047,7 +1083,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             });
 
             // ✅ 右下法兰位置（下方水平段出口）
-            // 右法兰 Canvas.Left="158", Canvas.Top="106"
             double rightFlangeX = Canvas.GetLeft(RightFlangeGroup) + RightFlangeGroup.Width - this.ActualWidth / 2;
             double rightFlangeY = Canvas.GetTop(RightFlangeGroup) + RightFlangeGroup.Height / 2 - this.ActualHeight / 2;
 

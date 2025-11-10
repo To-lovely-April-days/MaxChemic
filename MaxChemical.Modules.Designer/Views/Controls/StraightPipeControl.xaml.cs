@@ -23,8 +23,118 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<PipeRotateEventArgs> PipeRotating;
         public event EventHandler<PipeRotateEventArgs> PipeRotateCompleted;
 
+        // ✅ 新增：管道选中事件
+        public event EventHandler<string> PipeSelected;
+        public event EventHandler<string> PipeDeselected;
         public string PipeId { get; set; }
-        public bool IsSelected { get; set; }
+
+        #region ✅ IsSelected 依赖属性
+
+        /// <summary>
+        /// 是否选中的依赖属性
+        /// </summary>
+        public static readonly DependencyProperty IsSelectedProperty =
+            DependencyProperty.Register(
+                nameof(IsSelected),
+                typeof(bool),
+                typeof(StraightPipeControl),
+                new PropertyMetadata(false, OnIsSelectedChanged));
+
+        /// <summary>
+        /// 是否选中
+        /// </summary>
+        public bool IsSelected
+        {
+            get => (bool)GetValue(IsSelectedProperty);
+            set => SetValue(IsSelectedProperty, value);
+        }
+
+        /// <summary>
+        /// 选中状态变化回调
+        /// </summary>
+        private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is StraightPipeControl control)
+            {
+                control.UpdateSelectionVisual((bool)e.NewValue);
+            }
+        }
+
+        /// <summary>
+        /// ✅ 修复：更新选中视觉效果
+        /// </summary>
+        private void UpdateSelectionVisual(bool isSelected)
+        {
+            if (isSelected)
+            {
+                // ========== 选中时 ==========
+                var orangeBrush = new SolidColorBrush(Colors.Orange);
+                var glowEffect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Orange,
+                    BlurRadius = 10,
+                    ShadowDepth = 0,
+                    Opacity = 0.8
+                };
+
+                if (MainPipe != null)
+                {
+                    MainPipe.Stroke = orangeBrush;
+                    MainPipe.StrokeThickness = 2;
+                    MainPipe.Effect = glowEffect;
+                }
+
+                if (TopEdgeLine != null)
+                {
+                    TopEdgeLine.Stroke = orangeBrush;
+                    TopEdgeLine.StrokeThickness = 2;
+                }
+
+                if (BottomEdgeLine != null)
+                {
+                    BottomEdgeLine.Stroke = orangeBrush;
+                    BottomEdgeLine.StrokeThickness = 2;
+                }
+
+                SelectionBorder.Visibility = Visibility.Visible;
+                ShowAllAnchors();
+            }
+            else
+            {
+                // ========== ✅ 取消选中时：恢复原始样式 ==========
+
+                // ✅ 关键：移除管道主体的 Stroke
+                if (MainPipe != null)
+                {
+                    MainPipe.Stroke = null;
+                    MainPipe.StrokeThickness = 0;
+                    MainPipe.Effect = null;
+                }
+
+                // ✅ 恢复边缘线的原始颜色
+                if (TopEdgeLine != null)
+                {
+                    TopEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(60, 60, 60));
+                    TopEdgeLine.StrokeThickness = 1;
+                }
+
+                if (BottomEdgeLine != null)
+                {
+                    BottomEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(40, 40, 40));
+                    BottomEdgeLine.StrokeThickness = 1;
+                }
+
+                SelectionBorder.Visibility = Visibility.Collapsed;
+
+                if (!this.IsMouseOver && !_isResizing && !_isRotating)
+                {
+                    HideAllAnchors();
+                }
+            }
+        }
+
+        #endregion
+
 
         private bool _isDraggingPipe = false;
         private bool _isResizing = false;
@@ -320,6 +430,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
+                // ✅ 新增：通知画布管道被选中
+                PipeSelected?.Invoke(this, this.PipeId);
+
+                // ✅ 设置选中状态
+                this.IsSelected = true;
+
                 _isDraggingPipe = true;
                 var parent = this.Parent as Canvas;
                 if (parent != null)

@@ -100,6 +100,100 @@ namespace MaxChemical.Modules.Designer.Views
         private bool _isPipeSnapping = false; // 是否正在吸附
         private SnapResult _currentSnapResult = null; // 当前吸附结果
         private PipeSnapSolution _currentSnapSolution = null; // 当前吸附方案
+
+
+        #region 私有字段 管道管理
+
+        // 管道集合
+        private readonly Dictionary<string, FrameworkElement> _pipes = new();
+
+        // 选中的管道
+        private string _selectedPipeId = null;
+        private FrameworkElement _selectedPipeElement = null;
+
+        // 管道拖拽原始位置（用于撤销）
+        private Point _pipeOriginalPosition;
+
+        #endregion
+
+        #region 管道选择和删除
+
+        /// <summary>
+        /// 取消管道选择
+        /// </summary>
+        private void ClearPipeSelection()
+        {
+            if (_selectedPipeElement != null)
+            {
+                RemovePipeSelectionVisual(_selectedPipeElement);
+                _selectedPipeId = null;
+                _selectedPipeElement = null;
+            }
+        }
+
+
+        /// <summary>
+        /// 移除管道选中视觉反馈
+        /// </summary>
+        private void RemovePipeSelectionVisual(FrameworkElement pipe)
+        {
+            if (pipe is StraightPipeControl straightPipe)
+            {
+                straightPipe.IsSelected = false;
+            }
+            else if (pipe is ElbowPipeControl elbowPipe)
+            {
+                elbowPipe.IsSelected = false;
+            }
+            else if (pipe is ZShapePipeControl zPipe)
+            {
+                zPipe.IsSelected = false;
+            }
+        }
+
+        /// <summary>
+        /// 删除选中的管道
+        /// </summary>
+        private void DeleteSelectedPipe()
+        {
+            if (string.IsNullOrEmpty(_selectedPipeId) || _selectedPipeElement == null)
+            {
+                Debug.WriteLine("没有选中的管道可删除");
+                return;
+            }
+
+            try
+            {
+                Debug.WriteLine($"删除选中的管道: {_selectedPipeId}");
+
+                // 使用命令删除管道
+                var deleteCommand = new DeletePipeCommand(
+                    DesignCanvas,
+                    _selectedPipeElement,
+                    _pipeConnectionService);
+
+                _commandHistory.ExecuteCommand(deleteCommand);
+
+                // 从管道集合中移除
+                _pipes.Remove(_selectedPipeId);
+
+                // 清除选择
+                _selectedPipeId = null;
+                _selectedPipeElement = null;
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道已删除");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"删除管道失败: {ex.Message}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"删除管道失败: {ex.Message}");
+            }
+        }
+
+        #endregion
         #region 构造函数和初始化
 
         public ProcessDesignerView(
@@ -918,7 +1012,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (PipeToolbox != null)
             {
-                PipeToolbox.PipeDragStarted += OnPipeDragStarted;
+                PipeToolbox.PipeDragStarted += OnToolboxPipeDragStarted; // ✅ 改名
                 Debug.WriteLine("管道工具箱事件已订阅");
             }
         }
@@ -930,7 +1024,23 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (PipeToolbox != null)
             {
-                PipeToolbox.PipeDragStarted -= OnPipeDragStarted;
+                PipeToolbox.PipeDragStarted -= OnToolboxPipeDragStarted; // ✅ 改名
+            }
+        }
+
+        /// <summary>
+        /// 工具箱管道拖拽开始事件（与画布上管道的拖拽事件分开）
+        /// </summary>
+        private void OnToolboxPipeDragStarted(object sender, PipeDragStartEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"工具箱管道拖拽开始: {e.PipeType}");
+                // 这里主要是标记，实际拖拽由 OnDragEnter/OnDrop 处理
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"工具箱管道拖拽开始处理失败: {ex.Message}");
             }
         }
         /// <summary>
@@ -974,7 +1084,11 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Subscribe(OnNewCanvasCreated);
             _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Subscribe(OnLoadCanvasRequest);
             _eventAggregator?.GetEvent<CanvasLoadedEvent>()?.Subscribe(OnCanvasLoaded);
+            // ✅ 新增：订阅获取选中管道请求事件
+            _eventAggregator?.GetEvent<GetSelectedPipeRequestEvent>()?.Subscribe(OnGetSelectedPipeRequest);
 
+            // ✅ 新增：订阅删除选中管道事件
+            _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Subscribe(OnDeleteSelectedPipe);
 
         }
 
@@ -996,8 +1110,59 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<RestoreMonitoringCardStatesEvent>()?.Unsubscribe(OnRestoreMonitoringCardStates);
             _eventAggregator?.GetEvent<GetDeviceNameCountersRequestEvent>()?.Unsubscribe(OnGetDeviceNameCountersRequest);
             _eventAggregator?.GetEvent<RestoreDeviceNameCountersEvent>()?.Unsubscribe(OnRestoreDeviceNameCounters);
+
+            // ✅ 新增：取消订阅
+            _eventAggregator?.GetEvent<GetSelectedPipeRequestEvent>()?.Unsubscribe(OnGetSelectedPipeRequest);
+            _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Unsubscribe(OnDeleteSelectedPipe);
+        }
+        /// <summary>
+        /// 响应获取选中管道请求
+        /// </summary>
+        private void OnGetSelectedPipeRequest(Action<string> callback)
+        {
+            try
+            {
+                callback?.Invoke(_selectedPipeId);
+                Debug.WriteLine($"返回当前选中管道: {_selectedPipeId ?? "无"}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"返回选中管道失败: {ex.Message}");
+                callback?.Invoke(null);
+            }
         }
 
+        /// <summary>
+        /// 响应删除选中管道事件
+        /// </summary>
+        private void OnDeleteSelectedPipe(string pipeId)
+        {
+            try
+            {
+                Debug.WriteLine($"收到删除管道请求: {pipeId}");
+
+                if (string.IsNullOrEmpty(pipeId))
+                {
+                    Debug.WriteLine("管道ID为空，取消删除");
+                    return;
+                }
+
+                // ✅ 调用已有的删除方法
+                if (pipeId == _selectedPipeId)
+                {
+                    DeleteSelectedPipe();
+                }
+                else
+                {
+                    Debug.WriteLine("管道ID不匹配当前选中的管道");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"删除管道失败: {ex.Message}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"删除管道失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 订阅缩放相关事件
         /// </summary>
@@ -1148,9 +1313,15 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"通过Delete键删除选中设备: {_selectedDeviceId}");
                 OnDeleteSelectedDevice(_selectedDeviceId);
             }
+            else if (!string.IsNullOrEmpty(_selectedPipeId))
+            {
+                // ✅ 新增：有选中管道时删除管道
+                Debug.WriteLine($"通过Delete键删除选中管道: {_selectedPipeId}");
+                DeleteSelectedPipe();
+            }
             else
             {
-                // 没有选中设备时删除选中的连接
+                // 没有选中设备或管道时删除选中的连接线
                 Debug.WriteLine("通过Delete键删除选中的连接线");
                 OnDeleteSelectedConnections();
             }
@@ -2162,24 +2333,20 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 确保开始新操作前状态清洁
-                if (_isInternalDragging || _isMouseDown)
-                {
-                    Debug.WriteLine("检测到异常拖拽状态，先清理");
-                    CleanupDragState();
-                }
-
                 if (e.LeftButton == MouseButtonState.Pressed)
                 {
+                    var clickPosition = e.GetPosition(DesignCanvas);
                     var hitElement = e.OriginalSource as FrameworkElement;
-                    var deviceControl = FindDeviceControl(hitElement);
 
+                    // ✅ 只处理设备和空白区域
+                    var deviceControl = FindDeviceControl(hitElement);
                     if (deviceControl?.Tag is string deviceId)
                     {
                         HandleDeviceMouseDown(deviceControl, deviceId, e);
                     }
                     else
                     {
+                        // ⚠️ 点击空白区域时，清除所有选择
                         HandleCanvasEmptyAreaClick();
                     }
                 }
@@ -2190,6 +2357,7 @@ namespace MaxChemical.Modules.Designer.Views
                 CleanupDragState();
             }
         }
+
 
         /// <summary>
         /// 处理设备上的鼠标按下
@@ -2253,6 +2421,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void HandleCanvasEmptyAreaClick()
         {
             OnDeviceDeselected();
+            ClearPipeSelection(); // ✅ 新增：清除管道选择
             CleanupDragState();
             this.Focus();
         }
@@ -4256,32 +4425,47 @@ namespace MaxChemical.Modules.Designer.Views
                 // 清空监控参数选择状态
                 _deviceMonitoringSelections.Clear();
 
+                // ✅ 新增：清空管道
+                ClearAllPipes();
+
                 // 清空数据模型
                 ClearViewModelData();
 
-                // 清空连接服务
-                ClearConnectionService();
-
-                // 清空视觉元素
-                ClearCanvasVisualElements();
-
-                // 清空区域覆盖层
-                _regionOverlayService?.ClearRegionOverlay(DesignCanvas);
-
-                // 隐藏连接点
-                _connectionService?.HideAllConnectionPoints();
-                // *** 修改：清空设备相关状态 ***
-                ClearDeviceStates();
-                // 强制更新布局
-                DesignCanvas.UpdateLayout();
-                _deviceNameCounters.Clear();
-                _deviceDisplayNames.Clear();
-
-                Debug.WriteLine("画布清空完成");
+                // ... 其他清空逻辑
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"清空画布失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清空所有管道
+        /// </summary>
+        private void ClearAllPipes()
+        {
+            try
+            {
+                var pipeElements = DesignCanvas.Children
+                    .OfType<FrameworkElement>()
+                    .Where(e => e is StraightPipeControl ||
+                               e is ElbowPipeControl ||
+                               e is ZShapePipeControl)
+                    .ToList();
+
+                foreach (var pipe in pipeElements)
+                {
+                    DesignCanvas.Children.Remove(pipe);
+                }
+
+                _pipes.Clear();
+                ClearPipeSelection();
+
+                Debug.WriteLine($"清空了 {pipeElements.Count} 个管道");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清空管道失败: {ex.Message}");
             }
         }
         /// <summary>
@@ -5388,18 +5572,29 @@ namespace MaxChemical.Modules.Designer.Views
         #region 管道拖拽相关
 
         /// <summary>
-        /// 管道拖拽开始事件
+        /// 管道拖动开始
         /// </summary>
-        private void OnPipeDragStarted(object sender, PipeDragStartEventArgs e)
+        private void OnPipeDragStarted(object sender, PipeDragEventArgs e)
         {
             try
             {
-                Debug.WriteLine($"管道拖拽开始: {e.PipeType}");
-                // 这里主要是标记,实际拖拽由 OnDragEnter/OnDrop 处理
+                var pipe = sender as StraightPipeControl;
+                if (pipe == null) return;
+
+                // ✅ 记录原始位置用于撤销
+                var left = Canvas.GetLeft(pipe);
+                var top = Canvas.GetTop(pipe);
+                _pipeOriginalPosition = new Point(
+                    double.IsNaN(left) ? 0 : left,
+                    double.IsNaN(top) ? 0 : top);
+
+                Debug.WriteLine($"管道拖动开始: {e.PipeId}, 原始位置: ({_pipeOriginalPosition.X:F0}, {_pipeOriginalPosition.Y:F0})");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动管道...");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"管道拖拽开始处理失败: {ex.Message}");
+                Debug.WriteLine($"管道拖动开始处理失败: {ex.Message}");
             }
         }
 
@@ -5640,7 +5835,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 创建直管道
+        /// 创建直管道 - 使用命令模式
         /// </summary>
         private void CreateStraightPipe(Point position)
         {
@@ -5651,29 +5846,129 @@ namespace MaxChemical.Modules.Designer.Views
                 PipeWidth = 8
             };
 
-            // 订阅直管道拖动事件
-            pipe.PipeDragStarted += OnPipeDragStarted;
-            pipe.PipeDragging += OnPipeDragging;
-            pipe.PipeDragCompleted += OnPipeDragCompleted;
+            // 订阅事件
+            SubscribeStraightPipeEvents(pipe);
 
-            // 订阅直管道调整大小事件
-            pipe.PipeResizeStarted += OnPipeResizeStarted;
-            pipe.PipeResizing += OnPipeResizing;
-            pipe.PipeResizeCompleted += OnPipeResizeCompleted;
+            // ✅ 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "直管道",
+                _pipeConnectionService);
 
-            // ✅ 新增：订阅直管道旋转事件（拖动锚点方式）
-            pipe.PipeRotateStarted += OnPipeRotateStarted;
-            pipe.PipeRotating += OnPipeRotating;
-            pipe.PipeRotateCompleted += OnPipeRotateCompleted;
+            _commandHistory.ExecuteCommand(addCommand);
 
-            // 添加到画布
-            _pipeConnectionService.AddPipeToCanvas(pipe, position);
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
             Debug.WriteLine($"直管道已创建: {pipe.PipeId}");
         }
+        /// <summary>
+        /// 订阅直管道事件
+        /// </summary>
+        private void SubscribeStraightPipeEvents(StraightPipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnPipeDragStarted;
+            pipe.PipeDragging += OnPipeDragging;
+            pipe.PipeDragCompleted += OnPipeDragCompleted;
+            pipe.PipeResizeStarted += OnPipeResizeStarted;
+            pipe.PipeResizing += OnPipeResizing;
+            pipe.PipeResizeCompleted += OnPipeResizeCompleted;
+            pipe.PipeRotateStarted += OnPipeRotateStarted;
+            pipe.PipeRotating += OnPipeRotating;
+            pipe.PipeRotateCompleted += OnPipeRotateCompleted;
+            // ✅ 订阅管道选中事件（新增）
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
 
         /// <summary>
-        /// 创建弯管道
+        /// 管道控件通知画布：我被选中了
+        /// </summary>
+        private void OnPipeSelectedFromControl(object sender, string pipeId)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 画布收到管道选中通知 ==========");
+                Debug.WriteLine($"PipeId: {pipeId}");
+                Debug.WriteLine($"Sender: {sender?.GetType().Name}");
+                Debug.WriteLine($"=========================================");
+
+                var pipeElement = sender as FrameworkElement;
+                if (pipeElement == null)
+                {
+                    Debug.WriteLine("⚠️ 警告：发送者不是 FrameworkElement");
+                    return;
+                }
+
+                // ✅ 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(pipeId);
+
+                // ✅ 记录选中状态
+                _selectedPipeId = pipeId;
+                _selectedPipeElement = pipeElement;
+
+                Debug.WriteLine($"✅ 画布已确认管道选中: {pipeId}");
+
+                // 更新状态栏
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中管道: {pipeId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理管道选中通知失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管道控件通知画布：我被取消选中了
+        /// </summary>
+        private void OnPipeDeselectedFromControl(object sender, string pipeId)
+        {
+            try
+            {
+                Debug.WriteLine($"画布收到管道取消选中通知: {pipeId}");
+
+                if (_selectedPipeId == pipeId)
+                {
+                    _selectedPipeId = null;
+                    _selectedPipeElement = null;
+                    Debug.WriteLine("画布已清除管道选择");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理管道取消选中通知失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清除除指定管道外的所有管道选择
+        /// </summary>
+        private void ClearAllPipeSelectionsExcept(string exceptPipeId)
+        {
+            foreach (var child in DesignCanvas.Children)
+            {
+                if (child is StraightPipeControl straightPipe && straightPipe.PipeId != exceptPipeId)
+                {
+                    straightPipe.IsSelected = false;
+                }
+                else if (child is ElbowPipeControl elbowPipe && elbowPipe.PipeId != exceptPipeId)
+                {
+                    elbowPipe.IsSelected = false;
+                }
+                else if (child is ZShapePipeControl zPipe && zPipe.PipeId != exceptPipeId)
+                {
+                    zPipe.IsSelected = false;
+                }
+            }
+        }
+        /// <summary>
+        /// 创建弯管道 - 使用命令模式
         /// </summary>
         private void CreateElbowPipe(Point position)
         {
@@ -5681,89 +5976,111 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 PipeId = Guid.NewGuid().ToString(),
                 HorizontalLength = 35,
-                VerticalLength = 42,  // ✅ 垂直段更长
+                VerticalLength = 42,
                 PipeWidth = 8
             };
 
-            // 订阅弯管道拖动事件
-            pipe.PipeDragStarted += OnElbowPipeDragStarted;
-            pipe.PipeDragging += OnElbowPipeDragging;
-            pipe.PipeDragCompleted += OnElbowPipeDragCompleted;
+            // 订阅事件
+            SubscribeElbowPipeEvents(pipe);
 
-            // 订阅弯管道调整大小事件
-            pipe.PipeResizeStarted += OnElbowPipeResizeStarted;
-            pipe.PipeResizing += OnElbowPipeResizing;
-            pipe.PipeResizeCompleted += OnElbowPipeResizeCompleted;
+            // ✅ 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "弯管道",
+                _pipeConnectionService);
 
-            // ✅ 订阅弯管道旋转事件
-            pipe.PipeRotateStarted += OnElbowPipeRotateStarted;
-            pipe.PipeRotating += OnElbowPipeRotating;
-            pipe.PipeRotateCompleted += OnElbowPipeRotateCompleted;
+            _commandHistory.ExecuteCommand(addCommand);
 
-            // 添加到画布
-            _pipeConnectionService.AddPipeToCanvas(pipe, position);
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
             Debug.WriteLine($"弯管道已创建: {pipe.PipeId}");
         }
 
         /// <summary>
-        /// 创建 Z 形管道
+        /// 订阅弯管道事件
+        /// </summary>
+        private void SubscribeElbowPipeEvents(ElbowPipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnElbowPipeDragStarted;
+            pipe.PipeDragging += OnElbowPipeDragging;
+            pipe.PipeDragCompleted += OnElbowPipeDragCompleted;
+            pipe.PipeResizeStarted += OnElbowPipeResizeStarted;
+            pipe.PipeResizing += OnElbowPipeResizing;
+            pipe.PipeResizeCompleted += OnElbowPipeResizeCompleted;
+            pipe.PipeRotateStarted += OnElbowPipeRotateStarted;
+            pipe.PipeRotating += OnElbowPipeRotating;
+            pipe.PipeRotateCompleted += OnElbowPipeRotateCompleted;
+            // ✅ 订阅选中事件
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
+
+
+
+        /// <summary>
+        /// 创建Z形管道 - 使用命令模式
         /// </summary>
         private void CreateZShapePipe(Point position)
         {
             var pipe = new ZShapePipeControl
             {
                 PipeId = Guid.NewGuid().ToString(),
-                TopHorizontalLength = 20,     // 上方水平段长度
-                BottomHorizontalLength = 20,  // 下方水平段长度
-                VerticalOffset = 40,          // 垂直偏移
-                PipeWidth = 8                 // ✅ 改为 8，与直管和弯管保持一致
+                TopHorizontalLength = 20,
+                BottomHorizontalLength = 20,
+                VerticalOffset = 40,
+                PipeWidth = 8
             };
 
-            // 订阅 Z 形管道拖动事件
-            pipe.PipeDragStarted += OnZShapePipeDragStarted;
-            pipe.PipeDragging += OnZShapePipeDragging;
-            pipe.PipeDragCompleted += OnZShapePipeDragCompleted;
+            // 订阅事件
+            SubscribeZShapePipeEvents(pipe);
 
-            // 订阅 Z 形管道调整大小事件
-            pipe.PipeResizeStarted += OnZShapePipeResizeStarted;
-            pipe.PipeResizing += OnZShapePipeResizing;
-            pipe.PipeResizeCompleted += OnZShapePipeResizeCompleted;
+            // ✅ 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "Z形管道",
+                _pipeConnectionService);
 
-            // 订阅 Z 形管道旋转事件
-            pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
-            pipe.PipeRotating += OnZShapePipeRotating;
-            pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
+            _commandHistory.ExecuteCommand(addCommand);
 
-            // 添加到画布
-            _pipeConnectionService.AddPipeToCanvas(pipe, position);
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
             Debug.WriteLine($"Z形管道已创建: {pipe.PipeId}");
         }
 
+        /// <summary>
+        /// 订阅Z形管道事件
+        /// </summary>
+        private void SubscribeZShapePipeEvents(ZShapePipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnZShapePipeDragStarted;
+            pipe.PipeDragging += OnZShapePipeDragging;
+            pipe.PipeDragCompleted += OnZShapePipeDragCompleted;
+            pipe.PipeResizeStarted += OnZShapePipeResizeStarted;
+            pipe.PipeResizing += OnZShapePipeResizing;
+            pipe.PipeResizeCompleted += OnZShapePipeResizeCompleted;
+            pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
+            pipe.PipeRotating += OnZShapePipeRotating;
+            pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
+            // ✅ 订阅选中事件
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
+
         #region ✅ 新增:管道整体拖动事件处理
 
-        /// <summary>
-        /// 管道拖动开始
-        /// </summary>
-        private void OnPipeDragStarted(object sender, PipeDragEventArgs e)
-        {
-            try
-            {
-                Debug.WriteLine($"管道拖动开始: {e.PipeId}");
-
-                // 可以在这里添加拖动开始的逻辑,比如:
-                // - 断开所有连接
-                // - 显示拖动提示
-                // - 记录原始连接状态以便撤销
-
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动管道...");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"管道拖动开始处理失败: {ex.Message}");
-            }
-        }
+      
 
         /// <summary>
         /// 管道拖动中
@@ -5826,26 +6143,54 @@ namespace MaxChemical.Modules.Designer.Views
                 var pipe = sender as StraightPipeControl;
                 if (pipe == null) return;
 
+                // 获取当前位置
+                var currentLeft = Canvas.GetLeft(pipe);
+                var currentTop = Canvas.GetTop(pipe);
+                if (double.IsNaN(currentLeft)) currentLeft = 0;
+                if (double.IsNaN(currentTop)) currentTop = 0;
+
+                var currentPosition = new Point(currentLeft, currentTop);
+
                 // ✅ 如果有吸附方案，应用吸附
                 if (_currentSnapSolution != null && _currentSnapSolution.HasSnap)
                 {
                     var newCenter = _currentSnapSolution.NewCenterPosition;
-
-                    // 计算新的左上角位置
                     var newLeft = newCenter.X - pipe.ActualWidth / 2;
                     var newTop = newCenter.Y - pipe.ActualHeight / 2;
 
-                    Canvas.SetLeft(pipe, newLeft);
-                    Canvas.SetTop(pipe, newTop);
+                    var newPosition = new Point(newLeft, newTop);
 
-                    Debug.WriteLine($"✅ 管道已吸附到位置: 中心({newCenter.X:F0}, {newCenter.Y:F0})");
+                    // ✅ 如果位置发生了变化，创建移动命令
+                    if (Math.Abs(currentPosition.X - newPosition.X) > 1 ||
+                        Math.Abs(currentPosition.Y - newPosition.Y) > 1)
+                    {
+                        var moveCommand = new MovePipeCommand(
+                            pipe,
+                            _pipeOriginalPosition,
+                            newPosition);
 
-                    // 显示吸附成功的消息
+                        _commandHistory.ExecuteCommand(moveCommand);
+                    }
+
                     var snapTypes = string.Join(", ",
                         _currentSnapSolution.EndPointSnaps.Select(s => s.SnapTarget.Type));
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                         $"管道已吸附到: {snapTypes}");
+                }
+                else
+                {
+                    // ✅ 没有吸附，但位置可能已经改变，创建移动命令
+                    if (Math.Abs(currentPosition.X - _pipeOriginalPosition.X) > 1 ||
+                        Math.Abs(currentPosition.Y - _pipeOriginalPosition.Y) > 1)
+                    {
+                        var moveCommand = new MovePipeCommand(
+                            pipe,
+                            _pipeOriginalPosition,
+                            currentPosition);
+
+                        _commandHistory.ExecuteCommand(moveCommand);
+                    }
                 }
 
                 // 隐藏吸附指示器
