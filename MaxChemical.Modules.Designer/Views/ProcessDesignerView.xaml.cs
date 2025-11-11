@@ -185,6 +185,13 @@ namespace MaxChemical.Modules.Designer.Views
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道已删除");
+
+                // ✅ 新增：管道删除完成，标记四叉树需要重建
+                if (_pipeSnapService is PipeSnapService snapService)
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("管道删除完成，已标记四叉树需要重建");
+                }
             }
             catch (Exception ex)
             {
@@ -195,6 +202,21 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
+        #region 私有字段 节流相关
+
+        private DateTime _lastMouseMoveTime = DateTime.MinValue;
+        private Point _lastMousePosition = new Point();
+        private const double MouseMoveThrottleMs = 16; // ~60FPS
+        private const double MouseMoveMinDistance = 2.0; // 最小移动距离（像素）
+
+        #endregion
+
+        #region 私有字段 布局更新优化
+
+        private System.Windows.Threading.DispatcherTimer _layoutUpdateTimer;
+        private bool _needsLayoutUpdate = false;
+
+        #endregion
 
         #region 构造函数和初始化
 
@@ -222,6 +244,8 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 初始化界面组件
             InitializeComponent();
+            // ✅ 新增：初始化布局更新定时器
+            InitializeLayoutUpdateTimer();
             Debug.WriteLine("ProcessDesignerView 构造函数被调用");
 
             // 配置拖放功能
@@ -840,6 +864,8 @@ namespace MaxChemical.Modules.Designer.Views
             SubscribeToPipeToolboxEvents();
             //初始化吸附服务
             _pipeSnapService.Initialize(DesignCanvas);
+            // ✅ 新增：标记四叉树需要初始化
+            (_pipeSnapService as PipeSnapService)?.MarkQuadTreeDirty();
         }
         private void SubscribeToExecutionEvents()
         {
@@ -1010,6 +1036,9 @@ namespace MaxChemical.Modules.Designer.Views
             UnsubscribeFromConnectionService();
             UnsubscribeFromKeyboardEvents();
             UnsubscribeFromPipeToolboxEvents(); // ✅ 新增
+
+            // ✅ 新增：停止布局更新定时器
+            _layoutUpdateTimer?.Stop();
         }
         /// <summary>
         /// 订阅管道工具箱事件
@@ -1417,7 +1446,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
                 // 更新区域覆盖上下文
-                UpdateRegionOverlayContext();
+                //UpdateRegionOverlayContext();
             }
         }
 
@@ -1589,8 +1618,10 @@ namespace MaxChemical.Modules.Designer.Views
                 deviceScale.ScaleY = scaleY;
                 deviceElement.RenderTransformOrigin = new Point(0.5, 0.5);
 
-                // 强制更新布局
-                deviceElement.UpdateLayout();
+                // ❌ 删除：deviceElement.UpdateLayout();
+
+                // ✅ 新增：调度延迟布局更新
+                ScheduleLayoutUpdate();
 
                 Debug.WriteLine($"ApplyDeviceScale: 设备 {deviceId} 缩放应用完成: {scaleX:F2}x{scaleY:F2}");
 
@@ -1911,7 +1942,12 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 发布删除完成事件
                 PublishDeviceDeletedEvent(deviceId, deviceName);
-
+                // ✅ 新增：设备删除完成，标记四叉树需要重建
+                if (_pipeSnapService is PipeSnapService snapService)
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("设备删除完成，已标记四叉树需要重建");
+                }
                 Debug.WriteLine($"设备删除完成: {deviceName}");
             }
             catch (Exception ex)
@@ -2481,20 +2517,36 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void OnCanvasMouseMove(object sender, MouseEventArgs e)
         {
-            // 优先处理连接模式的鼠标移动
+            var currentPosition = e.GetPosition(DesignCanvas);
+
+            // ✅ 优先处理连接模式（无需节流）
             if (_connectionService?.IsConnectionMode == true)
             {
-                var mousePosition = e.GetPosition(DesignCanvas);
-                _connectionService.UpdateMousePosition(mousePosition);
+                _connectionService.UpdateMousePosition(currentPosition);
                 e.Handled = true;
                 return;
             }
 
-            // 处理设备拖拽
+            // ✅ 优先处理拖拽状态（无需节流）
             if (_isMouseDown && _mouseDownElement != null && e.LeftButton == MouseButtonState.Pressed)
             {
                 ProcessDeviceDragging(e);
+                return; // ⚠️ 重要：拖拽处理后直接返回，不受节流影响
             }
+
+            // ✅ 只对非拖拽的鼠标移动进行节流
+            var currentTime = DateTime.Now;
+            var timeDelta = (currentTime - _lastMouseMoveTime).TotalMilliseconds;
+            var distance = Math.Sqrt(Math.Pow(currentPosition.X - _lastMousePosition.X, 2) +
+                                     Math.Pow(currentPosition.Y - _lastMousePosition.Y, 2));
+
+            if (timeDelta < MouseMoveThrottleMs && distance < MouseMoveMinDistance)
+            {
+                return; // 只对普通鼠标移动节流
+            }
+
+            _lastMouseMoveTime = currentTime;
+            _lastMousePosition = currentPosition;
         }
 
         /// <summary>
@@ -2524,9 +2576,19 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private bool ShouldStartDragging(Point currentPoint)
         {
+            // ✅ 直接计算距离，不依赖 _lastMousePosition
             double dx = currentPoint.X - _dragStartPoint.X;
             double dy = currentPoint.Y - _dragStartPoint.Y;
-            return Math.Sqrt(dx * dx + dy * dy) > DragThreshold;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+
+            bool shouldStart = distance > DragThreshold;
+
+            if (shouldStart)
+            {
+                Debug.WriteLine($"拖拽启动: 移动距离 {distance:F1} > 阈值 {DragThreshold}");
+            }
+
+            return shouldStart;
         }
 
         /// <summary>
@@ -2575,11 +2637,14 @@ namespace MaxChemical.Modules.Designer.Views
             Canvas.SetTop(_mouseDownElement, boundedTop);
             _mouseDownElement.Opacity = 0.8;
 
-            // 更新连接线
-            ForceUpdateConnections(_currentDraggingDeviceId);
+            // ❌ 删除：ForceUpdateConnections(_currentDraggingDeviceId);
+            // ❌ 删除：_mouseDownElement.UpdateLayout();
 
             UpdateDragVisualFeedback(_mouseDownElement, true);
             _dragStartPoint = currentPoint;
+
+            // ✅ 新增：调度延迟布局更新
+            ScheduleLayoutUpdate();
         }
 
         /// <summary>
@@ -2670,6 +2735,13 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             DesignCanvas.AllowDrop = true;
+
+            // ✅ 新增：设备拖拽完成，标记四叉树需要重建
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                snapService.MarkQuadTreeDirty();
+                Debug.WriteLine("设备拖拽完成，已标记四叉树需要重建");
+            }
         }
 
         /// <summary>
@@ -2954,7 +3026,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             // 更新区域覆盖上下文
-            UpdateRegionOverlayContext();
+           // UpdateRegionOverlayContext();
 
             try
             {
@@ -2975,7 +3047,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                UpdateDeviceConnections(deviceId);
+                //UpdateDeviceConnections(deviceId);
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
@@ -3043,7 +3115,7 @@ namespace MaxChemical.Modules.Designer.Views
             AttachDeviceEventHandlers(deviceControl);
 
             // 更新连接引用
-            UpdateDeviceConnectionReferences(canvasDevice.DeviceId, deviceControl);
+            //UpdateDeviceConnectionReferences(canvasDevice.DeviceId, deviceControl);
 
             Debug.WriteLine($"设备视觉元素创建完成: {canvasDevice.Device.Name}, ID: {canvasDevice.DeviceId}");
         }
@@ -3817,8 +3889,10 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"设备 {deviceId} 视觉位置已更新到: ({elementLeft:F1}, {elementTop:F1})");
 
-                // 强制更新布局
-                deviceElement.UpdateLayout();
+                // ❌ 删除：deviceElement.UpdateLayout();
+
+                // ✅ 新增：调度延迟布局更新
+                ScheduleLayoutUpdate();
 
                 // 更新监控卡片位置
                 UpdateMonitoringCardPosition(deviceId);
@@ -3842,11 +3916,28 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (sender is FrameworkElement deviceElement && deviceElement.Tag is string deviceId)
             {
-                // 只处理当前拖拽设备的鼠标移动
+                var currentPosition = e.GetPosition(DesignCanvas);
+
+                // ✅ 如果是拖拽状态，立即处理，不节流
                 if (_isMouseDown && _currentDraggingDeviceId == deviceId && e.LeftButton == MouseButtonState.Pressed)
                 {
                     HandleDeviceMouseMove(deviceElement, e);
+                    return; // ⚠️ 重要：直接返回，不受节流影响
                 }
+
+                // ✅ 只对非拖拽的鼠标移动进行节流
+                var currentTime = DateTime.Now;
+                var timeDelta = (currentTime - _lastMouseMoveTime).TotalMilliseconds;
+                var distance = Math.Sqrt(Math.Pow(currentPosition.X - _lastMousePosition.X, 2) +
+                                         Math.Pow(currentPosition.Y - _lastMousePosition.Y, 2));
+
+                if (timeDelta < MouseMoveThrottleMs && distance < MouseMoveMinDistance)
+                {
+                    return;
+                }
+
+                _lastMouseMoveTime = currentTime;
+                _lastMousePosition = currentPosition;
             }
         }
 
@@ -4925,9 +5016,19 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     await System.Threading.Tasks.Task.Delay(1);
                 }
+                
             }
 
             Debug.WriteLine($"设备恢复完成，当前设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
+            // ✅ 新增：批量恢复完成，立即重建四叉树
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("批量设备恢复完成，已标记四叉树需要重建");
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
         }
 
         /// <summary>
@@ -4986,6 +5087,16 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             Debug.WriteLine($"管道恢复完成: 成功 {successCount}/{pipesData.Count}");
+
+            // ✅ 新增：批量恢复完成，立即重建四叉树
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("批量管道恢复完成，已标记四叉树需要重建");
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
         }
 
         /// <summary>
@@ -5072,9 +5183,7 @@ namespace MaxChemical.Modules.Designer.Views
                     // 添加到画布
                     DesignCanvas.Children.Add(pipeControl);
 
-                    // ✅ 移除：不需要每个管道都强制更新布局
-                    // pipeControl.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    // pipeControl.Arrange(new Rect(new Point(pipeData.X, pipeData.Y), pipeControl.DesiredSize));
+                    // ❌ 删除：所有 UpdateLayout 调用
                     // pipeControl.UpdateLayout();
 
                     // 添加到管道字典
@@ -5377,8 +5486,10 @@ namespace MaxChemical.Modules.Designer.Views
                 deviceScale.ScaleY = scaleY;
                 deviceElement.RenderTransformOrigin = new Point(0.5, 0.5);
 
-                // 更新布局
-                deviceElement.UpdateLayout();
+                // ❌ 删除：deviceElement.UpdateLayout();
+
+                // ✅ 新增：调度延迟布局更新
+                ScheduleLayoutUpdate();
 
                 Debug.WriteLine($"设备 {deviceId} 缩放恢复完成");
 
@@ -5571,7 +5682,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ScheduleFinalPipeValidation();
 
                 // 更新区域覆盖服务上下文
-                UpdateRegionOverlayContext();
+                //UpdateRegionOverlayContext();
 
                 Debug.WriteLine("画布加载处理完成");
             }
@@ -6524,13 +6635,21 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region ✅ 新增:管道整体拖动事件处理
 
-      
+
 
         /// <summary>
-        /// 管道拖动中
+        /// 管道拖动中（已优化节流）
         /// </summary>
         private void OnPipeDragging(object sender, PipeDragEventArgs e)
         {
+            // ✅ 节流检查：避免过于频繁的吸附检测
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16) // ~60 FPS
+            {
+                return; // 跳过这次更新
+            }
+            _lastMouseMoveTime = now;
+
             try
             {
                 var pipe = sender as StraightPipeControl;
@@ -6547,7 +6666,7 @@ namespace MaxChemical.Modules.Designer.Views
                     pipeTop + pipe.ActualHeight / 2
                 );
 
-                // ✅ 使用新的双端点吸附检测
+                // ✅ 使用 QuadTree 优化的吸附检测
                 var snapSolution = _pipeSnapService.FindBestSnapSolution(
                     pipe,
                     currentCenter,
@@ -6557,12 +6676,8 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (snapSolution != null && snapSolution.HasSnap)
                 {
-                    // 显示所有吸附指示器
                     _pipeSnapService.ShowSnapIndicators(snapSolution.EndPointSnaps);
-
                     _isPipeSnapping = true;
-
-                    Debug.WriteLine($"✅ 管道有 {snapSolution.EndPointSnaps.Count} 个端点可吸附");
                 }
                 else
                 {
@@ -6645,7 +6760,11 @@ namespace MaxChemical.Modules.Designer.Views
                 // 标记画布已修改
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道移动完成");
-
+                // ✅ 新增：标记四叉树需要重建
+                if (_pipeSnapService is PipeSnapService snapService)
+                {
+                    snapService.MarkQuadTreeDirty();
+                }
                 Debug.WriteLine($"管道拖动完成: {pipe.PipeId}");
             }
             catch (Exception ex)
@@ -6736,10 +6855,18 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 弯管道拖动中
+        /// 弯管道拖动中（已优化节流）
         /// </summary>
         private void OnElbowPipeDragging(object sender, ElbowPipeDragEventArgs e)
         {
+            // ✅ 节流检查
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
+            {
+                return;
+            }
+            _lastMouseMoveTime = now;
+
             try
             {
                 var pipe = sender as ElbowPipeControl;
@@ -6766,8 +6893,6 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     _pipeSnapService.ShowSnapIndicators(snapSolution.EndPointSnaps);
                     _isPipeSnapping = true;
-
-                    Debug.WriteLine($"✅ 弯管道有 {snapSolution.EndPointSnaps.Count} 个端点可吸附");
                 }
                 else
                 {
@@ -6815,6 +6940,12 @@ namespace MaxChemical.Modules.Designer.Views
 
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("弯管道移动完成");
+                // ✅ 新增：弯管道拖拽完成，标记四叉树需要重建
+                if (_pipeSnapService is PipeSnapService snapService)
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("弯管道拖拽完成，已标记四叉树需要重建");
+                }
             }
             catch (Exception ex)
             {
@@ -7045,10 +7176,18 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// Z形管道拖动中
+        /// Z形管道拖动中（已优化节流）
         /// </summary>
         private void OnZShapePipeDragging(object sender, ZPipeDragEventArgs e)
         {
+            // ✅ 节流检查
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
+            {
+                return;
+            }
+            _lastMouseMoveTime = now;
+
             try
             {
                 var pipe = sender as ZShapePipeControl;
@@ -7121,6 +7260,12 @@ namespace MaxChemical.Modules.Designer.Views
 
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("Z形管道移动完成");
+                // ✅ 新增：Z形管道拖拽完成，标记四叉树需要重建
+                if (_pipeSnapService is PipeSnapService snapService)
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("Z形管道拖拽完成，已标记四叉树需要重建");
+                }
             }
             catch (Exception ex)
             {
@@ -7509,6 +7654,51 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"恢复监控卡片位置失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region 布局更新优化
+
+        /// <summary>
+        /// 初始化布局更新定时器
+        /// </summary>
+        private void InitializeLayoutUpdateTimer()
+        {
+            _layoutUpdateTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(50) // 每50ms最多更新一次
+            };
+            _layoutUpdateTimer.Tick += OnLayoutUpdateTimerTick;
+
+            Debug.WriteLine("布局更新定时器已初始化");
+        }
+
+        /// <summary>
+        /// 调度延迟布局更新（替换所有 UpdateLayout 调用）
+        /// </summary>
+        private void ScheduleLayoutUpdate()
+        {
+            _needsLayoutUpdate = true;
+
+            if (!_layoutUpdateTimer.IsEnabled)
+            {
+                _layoutUpdateTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// 布局更新定时器触发
+        /// </summary>
+        private void OnLayoutUpdateTimerTick(object sender, EventArgs e)
+        {
+            _layoutUpdateTimer.Stop();
+
+            if (_needsLayoutUpdate)
+            {
+                DesignCanvas.UpdateLayout();
+                _needsLayoutUpdate = false;
             }
         }
 
