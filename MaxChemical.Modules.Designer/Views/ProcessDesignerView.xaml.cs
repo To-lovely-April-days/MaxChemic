@@ -3823,8 +3823,9 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 设备图标和尺寸相关
 
+
         /// <summary>
-        /// 获取调整后的设备尺寸
+        /// 获取调整后的设备尺寸（支持自定义控件）
         /// </summary>
         private Size GetAdjustedDeviceSize(IDevice device, double defaultWidth, double defaultHeight)
         {
@@ -3833,7 +3834,34 @@ namespace MaxChemical.Modules.Designer.Views
                 var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
                 string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
-                if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
+                // ✅ 自定义控件尺寸处理
+                if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
+                {
+                    string controlType = imageLocation.Replace("CUSTOM_CONTROL:", "");
+
+                    switch (controlType)
+                    {
+                        case "ConicalFlaskControl":
+                            // ✅ 锥形瓶的宽高比约为 80:120 = 2:3
+                            // ⚠️ 关键修复：使用更大的基础尺寸
+                            double baseWidth = 80;  // 原始宽度
+                            double baseHeight = 120; // 原始高度
+                            double aspectRatio = baseWidth / baseHeight; // 约 0.667
+
+                            // 方案A：保持原始尺寸（最简单）
+                            double targetWidth = baseWidth;
+                            double targetHeight = baseHeight;
+
+                            // 方案B：根据画布缩放调整（如果设备图标需要更大）
+                            // double targetWidth = 100;
+                            // double targetHeight = targetWidth / aspectRatio; // 150
+
+                            Debug.WriteLine($"锥形瓶尺寸: {targetWidth:F0}x{targetHeight:F0}");
+                            return new Size(targetWidth, targetHeight);
+                    }
+                }
+                // 普通图片尺寸处理
+                else if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
                 {
                     return CalculateImageBasedSize(imageLocation, defaultWidth, defaultHeight);
                 }
@@ -3914,7 +3942,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 创建设备图标
+        /// 创建设备图标（支持自定义控件）
         /// </summary>
         private UIElement CreateDeviceIcon(IDevice device, double targetWidth, double targetHeight)
         {
@@ -3923,7 +3951,13 @@ namespace MaxChemical.Modules.Designer.Views
                 var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
                 string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
-                if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
+                // ✅ 新增：检查是否为自定义控件
+                if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
+                {
+                    return CreateCustomControlIcon(imageLocation, targetWidth, targetHeight);
+                }
+                // 普通图片处理
+                else if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
                 {
                     return CreateImageIcon(imageLocation, targetWidth, targetHeight);
                 }
@@ -3938,7 +3972,127 @@ namespace MaxChemical.Modules.Designer.Views
                 return CreateDefaultIcon(targetWidth, targetHeight, device.Name);
             }
         }
+        /// <summary>
+        /// 创建自定义控件图标（锥形瓶等）
+        /// </summary>
+        private UIElement CreateCustomControlIcon(string imageLocation, double targetWidth, double targetHeight)
+        {
+            try
+            {
+                string controlType = imageLocation.Replace("CUSTOM_CONTROL:", "");
+                Debug.WriteLine($"创建自定义控件: {controlType}, 目标尺寸: {targetWidth}x{targetHeight}");
 
+                switch (controlType)
+                {
+                    case "ConicalFlaskControl":
+                        return CreateConicalFlaskIcon(targetWidth, targetHeight);
+
+                    // 未来可以添加其他自定义控件
+                    default:
+                        Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
+                        return CreateDefaultIcon(targetWidth, targetHeight, "自定义");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建自定义控件图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "自定义");
+            }
+        }
+
+        /// <summary>
+        /// 创建锥形瓶图标（用于画布上的小图标显示）- 优化版
+        /// </summary>
+        private UIElement CreateConicalFlaskIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var flaskControl = new ConicalFlaskControl
+                {
+                    FlaskWidth = 80,
+                    FlaskHeight = 120,
+                    IsHitTestVisible = false,
+                    Cursor = System.Windows.Input.Cursors.Hand
+                };
+
+                // 隐藏交互元素
+                HideFlaskInteractiveElements(flaskControl);
+
+                // ✅ 关键修复：使用 Loaded 事件而不是 SizeChanged
+                flaskControl.Loaded += (s, e) =>
+                {
+                    try
+                    {
+                        Debug.WriteLine("锥形瓶 Loaded 事件触发");
+
+                        // ✅ 方法1：直接设置液体（推荐）
+                        flaskControl.SetLiquidColor(96, 176, 224, 180);  // 增加透明度到180
+                        flaskControl.SetLiquidLevel(70, animated: false);
+                        flaskControl.IsWaveAnimationEnabled = false;
+
+                        // ✅ 强制更新布局和几何
+                        flaskControl.UpdateLayout();
+
+                        // ✅ 延迟调用，确保控件完全渲染
+                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            flaskControl.InvalidateVisual();
+                            flaskControl.DebugLiquidGeometry();
+                            Debug.WriteLine("✅ 液体初始化完成");
+                        }), System.Windows.Threading.DispatcherPriority.Loaded);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"❌ 锥形瓶液体初始化失败: {ex.Message}");
+                    }
+                };
+
+                // ✅ 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = flaskControl,
+                    IsHitTestVisible = false
+                };
+
+                Debug.WriteLine($"创建锥形瓶图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建锥形瓶图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "锥形瓶");
+            }
+        }
+        /// <summary>
+        /// 隐藏锥形瓶的交互元素（选择边框、锚点等）
+        /// </summary>
+        private void HideFlaskInteractiveElements(ConicalFlaskControl flask)
+        {
+            try
+            {
+                var selectionBorder = flask.FindName("SelectionBorder") as System.Windows.Shapes.Rectangle;
+                var topAnchor = flask.FindName("TopAnchor") as System.Windows.Shapes.Ellipse;
+                var bottomAnchor = flask.FindName("BottomAnchor") as System.Windows.Shapes.Ellipse;
+                var leftAnchor = flask.FindName("LeftAnchor") as System.Windows.Shapes.Ellipse;
+                var rightAnchor = flask.FindName("RightAnchor") as System.Windows.Shapes.Ellipse;
+
+                if (selectionBorder != null) selectionBorder.Visibility = System.Windows.Visibility.Collapsed;
+                if (topAnchor != null) topAnchor.Visibility = System.Windows.Visibility.Collapsed;
+                if (bottomAnchor != null) bottomAnchor.Visibility = System.Windows.Visibility.Collapsed;
+                if (leftAnchor != null) leftAnchor.Visibility = System.Windows.Visibility.Collapsed;
+                if (rightAnchor != null) rightAnchor.Visibility = System.Windows.Visibility.Collapsed;
+
+                Debug.WriteLine("锥形瓶交互元素已隐藏");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"隐藏锥形瓶交互元素失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 创建图片图标
         /// </summary>

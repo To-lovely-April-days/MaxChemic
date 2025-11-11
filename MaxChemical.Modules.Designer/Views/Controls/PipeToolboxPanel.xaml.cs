@@ -114,6 +114,32 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
+
+        /// <summary>
+        /// 锥形瓶拖拽
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnConicalFlaskMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                var pipeData = new PipeDragData
+                {
+                    PipeType = PipeType.Conical,  // ✅ 新增枚举值
+                    Width = 80,
+                    Height = 120
+                };
+
+                var dataObject = new DataObject("PipeData", pipeData);
+                DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
+
+                PipeDragStarted?.Invoke(this, new PipeDragStartEventArgs
+                {
+                    PipeType = PipeType.Conical
+                });
+            }
+        }
     }
 
     #region 事件参数和数据类
@@ -135,6 +161,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         Straight,   // 直管道
         Elbow,      // 弯管道（90度）
         ZShape,     // Z字形管道
+        Conical,    // ✅ 锥形瓶
         Tee,        // 三通管道
         Cross,      // 四通管道
         Valve       // 阀门

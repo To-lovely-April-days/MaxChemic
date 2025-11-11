@@ -3,13 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:prism="http://prismlibrary.com/"
              xmlns:converters="clr-namespace:MaxChemical.Modules.Device.Converters"
+             xmlns:controls="clr-namespace:MaxChemical.Modules.Designer.Views.Controls;assembly=MaxChemical.Modules.Designer"
              MinWidth="300px"
              prism:ViewModelLocator.AutoWireViewModel="True">
-
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:BoolToAngleConverter x:Key="BoolToAngleConverter"/>
-
+        <!-- ✅ 添加新的转换器 -->
+        <converters:DeviceToControlConverter x:Key="DeviceToControlConverter"/>
+        <converters:IsCustomControlConverter x:Key="IsCustomControlConverter"/>
         <!-- 定义颜色资源 -->
         <Color x:Key="PrimaryColor">#E60012</Color>
         <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
@@ -404,14 +406,31 @@
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </Border.Style>
-
-                                                        <!-- 设备图片/图标 -->
+                                                        <!-- 设备图片/控件容器 -->
                                                         <Grid>
-                                                            <!-- 设备图片 -->
+                                                            <!-- 自定义控件（锥形瓶等） -->
+                                                            <ContentControl Content="{Binding Converter={StaticResource DeviceToControlConverter}}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center">
+                                                                <ContentControl.Style>
+                                                                    <Style TargetType="ContentControl">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Converter={StaticResource IsCustomControlConverter}}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </ContentControl.Style>
+                                                            </ContentControl>
+
+                                                            <!-- 普通图片 -->
                                                             <Image Stretch="Uniform"
-                                                                   Margin="2"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center">
+           Margin="2"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center">
                                                                 <Image.Source>
                                                                     <BitmapImage UriSource="{Binding ImageLocation}"/>
                                                                 </Image.Source>
@@ -419,6 +438,11 @@
                                                                     <Style TargetType="Image">
                                                                         <Setter Property="Visibility" Value="Visible"/>
                                                                         <Style.Triggers>
+                                                                            <!-- 如果是自定义控件，隐藏图片 -->
+                                                                            <DataTrigger Binding="{Binding Converter={StaticResource IsCustomControlConverter}}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            </DataTrigger>
+                                                                            <!-- 如果 ImageLocation 为空，隐藏图片 -->
                                                                             <DataTrigger Binding="{Binding ImageLocation}" Value="{x:Null}">
                                                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                                             </DataTrigger>
@@ -429,8 +453,6 @@
                                                                     </Style>
                                                                 </Image.Style>
                                                             </Image>
-
-                                                         
                                                         </Grid>
                                                     </Border>
 

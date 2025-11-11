@@ -135,8 +135,8 @@ namespace ConicalFlask_ModbusTCP
                 RegionType.Quench,
                 RegionType.PostProcess
             };
-
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/ErlenmeyerFlasks.png";
+            // ✅ 使用特殊标记表示使用自定义控件
+            ImageLocation = "CUSTOM_CONTROL:ConicalFlaskControl";
 
             Parameters.Variables.Add(new StringParameter("DeviceId", "CF0101")
             {
