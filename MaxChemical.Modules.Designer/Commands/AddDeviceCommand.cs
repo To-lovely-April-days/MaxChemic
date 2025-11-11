@@ -17,15 +17,15 @@ namespace MaxChemical.Modules.Designer.Commands
     {
         private readonly ProcessDesignerViewModel _viewModel;
         private readonly CanvasDeviceViewModel _deviceViewModel;
-        private readonly IConnectionService _connectionService;
+       
 
         public string Description { get; }
 
-        public AddDeviceCommand(ProcessDesignerViewModel viewModel, CanvasDeviceViewModel deviceViewModel, IConnectionService connectionService)
+        public AddDeviceCommand(ProcessDesignerViewModel viewModel, CanvasDeviceViewModel deviceViewModel)
         {
             _viewModel = viewModel;
             _deviceViewModel = deviceViewModel;
-            _connectionService = connectionService;
+          
             Description = $"添加设备: {deviceViewModel.Device?.Name}";
         }
 
@@ -43,14 +43,14 @@ namespace MaxChemical.Modules.Designer.Commands
             if (_viewModel.CanvasDevices.Contains(_deviceViewModel))
             {
                 // 删除相关连接
-                var relatedConnections = _connectionService?.Connections?.Values
-                    .Where(c => c.StartDeviceId == _deviceViewModel.DeviceId || c.EndDeviceId == _deviceViewModel.DeviceId)
-                    .ToList();
+                //var relatedConnections = _connectionService?.Connections?.Values
+                //    .Where(c => c.StartDeviceId == _deviceViewModel.DeviceId || c.EndDeviceId == _deviceViewModel.DeviceId)
+                //    .ToList();
 
-                foreach (var connection in relatedConnections ?? new System.Collections.Generic.List<ConnectionInfo>())
-                {
-                    _connectionService?.RemoveConnection(connection.Id);
-                }
+                //foreach (var connection in relatedConnections ?? new System.Collections.Generic.List<ConnectionInfo>())
+                //{
+                //    _connectionService?.RemoveConnection(connection.Id);
+                //}
 
                 _viewModel.CanvasDevices.Remove(_deviceViewModel);
                 Debug.WriteLine($"撤销添加设备: {_deviceViewModel.Device?.Name}");
@@ -63,37 +63,37 @@ namespace MaxChemical.Modules.Designer.Commands
     {
         private readonly ProcessDesignerViewModel _viewModel;
         private readonly CanvasDeviceViewModel _deviceViewModel;
-        private readonly IConnectionService _connectionService;
+     
         private readonly System.Collections.Generic.List<ConnectionInfo> _deletedConnections;
 
         public string Description { get; }
 
-        public DeleteDeviceCommand(ProcessDesignerViewModel viewModel, CanvasDeviceViewModel deviceViewModel, IConnectionService connectionService)
+        public DeleteDeviceCommand(ProcessDesignerViewModel viewModel, CanvasDeviceViewModel deviceViewModel)
         {
             _viewModel = viewModel;
             _deviceViewModel = deviceViewModel;
-            _connectionService = connectionService;
+           
             _deletedConnections = new System.Collections.Generic.List<ConnectionInfo>();
             Description = $"删除设备: {deviceViewModel.Device?.Name}";
 
-            // 保存要删除的连接
-            var relatedConnections = _connectionService?.Connections?.Values
-                .Where(c => c.StartDeviceId == deviceViewModel.DeviceId || c.EndDeviceId == deviceViewModel.DeviceId)
-                .ToList();
+            //// 保存要删除的连接
+            //var relatedConnections = _connectionService?.Connections?.Values
+            //    .Where(c => c.StartDeviceId == deviceViewModel.DeviceId || c.EndDeviceId == deviceViewModel.DeviceId)
+            //    .ToList();
 
-            if (relatedConnections != null)
-            {
-                _deletedConnections.AddRange(relatedConnections);
-            }
+            //if (relatedConnections != null)
+            //{
+            //    _deletedConnections.AddRange(relatedConnections);
+            //}
         }
 
         public void Execute()
         {
-            // 删除相关连接
-            foreach (var connection in _deletedConnections)
-            {
-                _connectionService?.RemoveConnection(connection.Id);
-            }
+            //// 删除相关连接
+            //foreach (var connection in _deletedConnections)
+            //{
+            //    _connectionService?.RemoveConnection(connection.Id);
+            //}
 
             // 删除设备
             if (_viewModel.CanvasDevices.Contains(_deviceViewModel))
@@ -112,16 +112,16 @@ namespace MaxChemical.Modules.Designer.Commands
                 Debug.WriteLine($"恢复设备: {_deviceViewModel.Device?.Name}");
             }
 
-            // 恢复连接
-            foreach (var connection in _deletedConnections)
-            {
-                if (!_connectionService.Connections.ContainsKey(connection.Id))
-                {
-                    _connectionService.Connections[connection.Id] = connection;
-                    // 重新创建视觉元素
-                    _connectionService.UpdateConnectionPath(connection);
-                }
-            }
+            //// 恢复连接
+            //foreach (var connection in _deletedConnections)
+            //{
+            //    if (!_connectionService.Connections.ContainsKey(connection.Id))
+            //    {
+            //        _connectionService.Connections[connection.Id] = connection;
+            //        // 重新创建视觉元素
+            //        _connectionService.UpdateConnectionPath(connection);
+            //    }
+            //}
         }
     }
 

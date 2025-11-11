@@ -32,7 +32,6 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly IEventAggregator _eventAggregator;
         private readonly IDragDropService _dragDropService;
         private readonly IRegionOverlayService _regionOverlayService;
-        private readonly IConnectionService _connectionService;
         private readonly ICanvasDataService _canvasDataService;
         private readonly ICommandHistory _commandHistory;
         private ProcessDesignerViewModel _viewModel;
@@ -224,7 +223,6 @@ namespace MaxChemical.Modules.Designer.Views
             IEventAggregator eventAggregator,
             IRegionOverlayService regionOverlayService,
             IDragDropService dragDropService,
-            IConnectionService connectionService,
             ICanvasDataService canvasDataService,
             ICommandHistory commandHistory,
             IPipeConnectionService pipeConnectionService,
@@ -234,13 +232,10 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _regionOverlayService = regionOverlayService ?? throw new ArgumentNullException(nameof(regionOverlayService));
             _dragDropService = dragDropService ?? throw new ArgumentNullException(nameof(dragDropService));
-            _connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
             _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _pipeConnectionService = pipeConnectionService ?? throw new ArgumentNullException(nameof(pipeConnectionService));
             _pipeSnapService = pipeSnapService ?? throw new ArgumentNullException(nameof(pipeSnapService));
-            // 配置连接服务
-            ConfigureConnectionService();
 
             // 初始化界面组件
             InitializeComponent();
@@ -259,7 +254,7 @@ namespace MaxChemical.Modules.Designer.Views
             // 配置生命周期事件
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
-           
+
         }
         /// <summary>
         /// 配置管道连接服务
@@ -268,17 +263,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             _pipeConnectionService.GetCanvasFunc = () => DesignCanvas;
             _pipeConnectionService.FindDeviceElementFunc = FindDeviceElementInCanvas;
-        }
-        /// <summary>
-        /// 配置连接服务的委托和事件
-        /// </summary>
-        private void ConfigureConnectionService()
-        {
-            _connectionService.GetCanvasFunc = () => DesignCanvas;
-            _connectionService.FindDeviceElementFunc = FindDeviceElementInCanvas;
-            _connectionService.ShowAllDeviceConnectionPointsAction = ShowAllDeviceConnectionPoints;
-            _connectionService.ConnectionCreated += OnConnectionCreated;
-            _connectionService.ConnectionDeleted += OnConnectionDeleted;
         }
 
         /// <summary>
@@ -855,7 +839,7 @@ namespace MaxChemical.Modules.Designer.Views
             // 订阅画布操作相关事件
             SubscribeToCanvasEvents();
             SubscribeToExecutionEvents();
-         
+
 
             // *** 新增：订阅监控参数状态事件 ***
             SubscribeToMonitoringParameterEvents();
@@ -975,7 +959,7 @@ namespace MaxChemical.Modules.Designer.Views
             sb.Children.Add(opacityAnim);
             return sb;
         }
-   
+
 
         private void OnGetDeviceDisplayNamesRequest(Action<Dictionary<string, string>> callback)
         {
@@ -1033,7 +1017,6 @@ namespace MaxChemical.Modules.Designer.Views
             // 清理所有事件订阅
             UnsubscribeFromViewModelEvents();
             UnsubscribeFromCanvasEvents();
-            UnsubscribeFromConnectionService();
             UnsubscribeFromKeyboardEvents();
             UnsubscribeFromPipeToolboxEvents(); // ✅ 新增
 
@@ -1089,7 +1072,6 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Subscribe(OnRegionLayoutUpdated);
             _eventAggregator?.GetEvent<GetCanvasSizeRequestEvent>()?.Subscribe(OnGetCanvasSizeRequested);
             _eventAggregator?.GetEvent<DeleteSelectedDeviceEvent>()?.Subscribe(OnDeleteSelectedDevice);
-            _eventAggregator?.GetEvent<DeleteSelectedConnectionsEvent>()?.Subscribe(OnDeleteSelectedConnections);
             _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Subscribe(OnRequestCanvasDevices);
         }
 
@@ -1106,7 +1088,7 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Unsubscribe(OnRegionLayoutUpdated);
             _eventAggregator?.GetEvent<GetCanvasSizeRequestEvent>()?.Unsubscribe(OnGetCanvasSizeRequested);
             _eventAggregator?.GetEvent<DeleteSelectedDeviceEvent>()?.Unsubscribe(OnDeleteSelectedDevice);
-            _eventAggregator?.GetEvent<DeleteSelectedConnectionsEvent>()?.Unsubscribe(OnDeleteSelectedConnections);
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Unsubscribe(OnRequestCanvasDevices);
         }
 
         /// <summary>
@@ -1126,7 +1108,7 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Subscribe(OnDeleteSelectedPipe);
             // ✅ 新增：订阅管道数据收集和恢复事件
             _eventAggregator?.GetEvent<CollectPipeDataRequestEvent>()?.Subscribe(OnCollectPipeDataRequest);
-          
+
         }
 
         /// <summary>
@@ -1154,7 +1136,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             // ✅ 新增：取消订阅
             _eventAggregator?.GetEvent<CollectPipeDataRequestEvent>()?.Unsubscribe(OnCollectPipeDataRequest);
-          
+
 
             // ✅ 新增：取消订阅监控卡片位置事件
             _eventAggregator?.GetEvent<GetMonitoringCardPositionsRequestEvent>()?.Unsubscribe(OnGetMonitoringCardPositionsRequest);
@@ -1221,18 +1203,6 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 取消订阅连接服务事件
-        /// </summary>
-        private void UnsubscribeFromConnectionService()
-        {
-            if (_connectionService != null)
-            {
-                _connectionService.ConnectionCreated -= OnConnectionCreated;
-                _connectionService.ConnectionDeleted -= OnConnectionDeleted;
-            }
-        }
-
-        /// <summary>
         /// 取消订阅键盘事件
         /// </summary>
         private void UnsubscribeFromKeyboardEvents()
@@ -1253,7 +1223,8 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     case Key.LeftShift:
                     case Key.RightShift:
-                        HandleShiftKeyDown();
+                        _isShiftPressed = true;
+                        Debug.WriteLine("Shift键按下");
                         break;
 
                     case Key.LeftCtrl:
@@ -1293,7 +1264,8 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 case Key.LeftShift:
                 case Key.RightShift:
-                    HandleShiftKeyUp();
+                    _isShiftPressed = false;
+                    Debug.WriteLine("Shift键释放");
                     break;
 
                 case Key.LeftCtrl:
@@ -1301,31 +1273,6 @@ namespace MaxChemical.Modules.Designer.Views
                     HandleCtrlKeyUp();
                     break;
             }
-        }
-
-        /// <summary>
-        /// 处理Shift键按下 进入连接模式
-        /// </summary>
-        private void HandleShiftKeyDown()
-        {
-            _isShiftPressed = true;
-            ShowConnectionPointsForSelectedDevices();
-            Debug.WriteLine("Shift键按下，进入连接模式");
-        }
-
-        /// <summary>
-        /// 处理Shift键释放 退出连接模式
-        /// </summary>
-        private void HandleShiftKeyUp()
-        {
-            _isShiftPressed = false;
-            _connectionService.HideAllConnectionPoints();
-
-            if (_connectionService.IsConnectionMode)
-            {
-                _connectionService.CancelConnection();
-            }
-            Debug.WriteLine("Shift键释放，退出连接模式");
         }
 
         /// <summary>
@@ -1368,7 +1315,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 // 没有选中设备或管道时删除选中的连接线
                 Debug.WriteLine("通过Delete键删除选中的连接线");
-                OnDeleteSelectedConnections();
             }
         }
 
@@ -1377,11 +1323,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void HandleEscapeKey()
         {
-            if (_connectionService.IsConnectionMode)
-            {
-                _connectionService.CancelConnection();
-                Debug.WriteLine("通过Escape键取消连接模式");
-            }
+            Debug.WriteLine("Escape键按下");
         }
 
         /// <summary>
@@ -1406,72 +1348,6 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine("通过Ctrl+Y执行重做");
                 _commandHistory.Redo();
             }
-        }
-
-        #endregion
-
-        #region 连接相关事件处理
-
-        /// <summary>
-        /// 连接创建事件处理
-        /// </summary>
-        private void OnConnectionCreated(ConnectionInfo connection)
-        {
-            // 检查连接是否已存在避免重复添加
-            if (_viewModel?.Connections.Any(c => c.Id == connection.Id) == true)
-            {
-                Debug.WriteLine($"连接 {connection.Id} 已存在于 ViewModel，跳过添加");
-                return;
-            }
-
-            // 使用命令模式添加连接支持撤销重做
-            var createConnectionCommand = new CreateConnectionCommand(_viewModel, _connectionService, connection);
-            _commandHistory.ExecuteCommand(createConnectionCommand);
-
-            Debug.WriteLine($"通过命令创建连接: {connection.Id}");
-        }
-
-        /// <summary>
-        /// 连接删除事件处理
-        /// </summary>
-        private void OnConnectionDeleted(string connectionId)
-        {
-            var connection = _viewModel?.Connections.FirstOrDefault(c => c.Id == connectionId);
-            if (connection != null)
-            {
-                _viewModel.Connections.Remove(connection);
-                Debug.WriteLine($"连接已从ViewModel移除: {connectionId}");
-
-                // 标记画布已修改
-                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-
-                // 更新区域覆盖上下文
-                //UpdateRegionOverlayContext();
-            }
-        }
-
-        /// <summary>
-        /// 为选中设备显示连接点
-        /// </summary>
-        private void ShowConnectionPointsForSelectedDevices()
-        {
-            if (!_isShiftPressed) return;
-            ShowAllDeviceConnectionPoints();
-        }
-
-        /// <summary>
-        /// 显示所有设备的连接点
-        /// </summary>
-        private void ShowAllDeviceConnectionPoints()
-        {
-            if (_viewModel?.CanvasDevices == null) return;
-
-            foreach (var canvasDevice in _viewModel.CanvasDevices)
-            {
-                _connectionService?.ShowConnectionPoints(canvasDevice.DeviceId);
-            }
-
-            Debug.WriteLine($"已显示 {_viewModel.CanvasDevices.Count} 个设备的连接点");
         }
 
         #endregion
@@ -1618,8 +1494,6 @@ namespace MaxChemical.Modules.Designer.Views
                 deviceScale.ScaleY = scaleY;
                 deviceElement.RenderTransformOrigin = new Point(0.5, 0.5);
 
-                // ❌ 删除：deviceElement.UpdateLayout();
-
                 // ✅ 新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
@@ -1676,8 +1550,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 try
                 {
-                    UpdateConnections(deviceId);
-                    UpdateDeviceConnectionPoints(deviceId);
                     Debug.WriteLine($"设备 {deviceId} 连接更新完成");
                 }
                 catch (Exception ex)
@@ -1828,7 +1700,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 恢复画布状态
                 DesignCanvas.AllowDrop = true;
-                _connectionService?.SetDragMode(false);
 
                 Debug.WriteLine("拖拽状态清理完成");
             }
@@ -1841,7 +1712,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 释放所有鼠标捕获
         /// </summary>
-        private void ReleaseMou​seCaptures()
+        private void ReleaseMouseCaptures()
         {
             if (DesignCanvas.IsMouseCaptured)
             {
@@ -1922,7 +1793,7 @@ namespace MaxChemical.Modules.Designer.Views
                 RemoveMonitoringCard(deviceId);
 
                 // 使用命令删除设备支持撤销重做
-                var deleteCommand = new DeleteDeviceCommand(_viewModel, deviceToDelete, _connectionService);
+                var deleteCommand = new DeleteDeviceCommand(_viewModel, deviceToDelete);
                 _commandHistory.ExecuteCommand(deleteCommand);
 
                 // 清除选择状态
@@ -1971,60 +1842,6 @@ namespace MaxChemical.Modules.Designer.Views
             });
         }
 
-        /// <summary>
-        /// 删除选中的连接线
-        /// </summary>
-        private void OnDeleteSelectedConnections()
-        {
-            try
-            {
-                Debug.WriteLine("删除选中的连接线");
-
-                if (_connectionService?.Connections == null)
-                {
-                    Debug.WriteLine("连接服务无效");
-                    return;
-                }
-
-                // 查找选中的连接
-                var selectedConnections = _connectionService.Connections.Values
-                    .Where(c => c.IsSelected)
-                    .ToList();
-
-                if (selectedConnections.Count == 0)
-                {
-                    Debug.WriteLine("没有选中的连接线");
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("没有选中的连接线");
-                    return;
-                }
-
-                Debug.WriteLine($"找到 {selectedConnections.Count} 个选中的连接线");
-
-                // 为每个连接创建删除命令
-                foreach (var connection in selectedConnections)
-                {
-                    try
-                    {
-                        var deleteConnectionCommand = new DeleteConnectionCommand(_viewModel, _connectionService, connection);
-                        _commandHistory.ExecuteCommand(deleteConnectionCommand);
-                        Debug.WriteLine($"通过命令删除连接: {connection.Id}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"删除连接失败: {connection.Id}, 错误: {ex.Message}");
-                    }
-                }
-
-                // 标记画布已修改
-                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已删除 {selectedConnections.Count} 个连接线");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"删除连接线失败: {ex.Message}");
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"删除连接线失败: {ex.Message}");
-            }
-        }
         private void OnRequestCanvasDevices(System.Action<List<CanvasDeviceViewModel>> callback)
         {
             try
@@ -2044,129 +1861,168 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 外部拖放事件处理 从设备库到画布
 
-        //private void OnDragEnter(object sender, DragEventArgs e)
-        //{
-        //    Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
+        private void OnDragEnter(object sender, DragEventArgs e)
+        {
+            Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
 
-        //    // 如果正在进行内部拖拽则忽略外部拖放
-        //    if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-        //    {
-        //        Debug.WriteLine("忽略外部拖拽，内部拖拽进行中");
-        //        e.Effects = DragDropEffects.None;
-        //        e.Handled = true;
-        //        return;
-        //    }
+            // 如果正在进行内部拖拽则忽略外部拖放
+            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+            {
+                Debug.WriteLine("忽略外部拖拽，内部拖拽进行中");
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
 
-        //    // 处理设备拖拽
-        //    if (e.Data.GetDataPresent("Device"))
-        //    {
-        //        var device = e.Data.GetData("Device") as IDevice;
-        //        var position = e.GetPosition(DesignCanvas);
-        //        Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
+            // ✅ 新增:处理管道拖拽
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
+                Debug.WriteLine($"管道拖拽进入: {pipeData?.PipeType}");
+                e.Effects = DragDropEffects.Copy;
+                DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 255, 120)); // 绿色提示
+                e.Handled = true;
+                return;
+            }
 
-        //        // 检查设备是否可以放置在当前区域
-        //        if (IsValidRegionForDevice(device, position))
-        //        {
-        //            e.Effects = DragDropEffects.Copy;
-        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
-        //        }
-        //        else
-        //        {
-        //            e.Effects = DragDropEffects.None;
-        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
-        //        }
-        //    }
-        //    else
-        //    {
-        //        e.Effects = DragDropEffects.None;
-        //    }
+            // 处理设备拖拽
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                var position = e.GetPosition(DesignCanvas);
+                Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
 
-        //    e.Handled = true;
-        //}
+                // 检查设备是否可以放置在当前区域
+                if (IsValidRegionForDevice(device, position))
+                {
+                    e.Effects = DragDropEffects.Copy;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
+                }
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
 
-        //private void OnDragOver(object sender, DragEventArgs e)
-        //{
-        //    // 如果正在进行内部拖拽则拒绝外部拖放
-        //    if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-        //    {
-        //        e.Effects = DragDropEffects.None;
-        //        e.Handled = true;
-        //        return;
-        //    }
+            e.Handled = true;
+        }
 
-        //    // 实时检查拖拽位置是否有效
-        //    if (e.Data.GetDataPresent("Device"))
-        //    {
-        //        var device = e.Data.GetData("Device") as IDevice;
-        //        var position = e.GetPosition(DesignCanvas);
+        private void OnDragOver(object sender, DragEventArgs e)
+        {
+            // 如果正在进行内部拖拽则拒绝外部拖放
+            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
 
-        //        if (IsValidRegionForDevice(device, position))
-        //        {
-        //            e.Effects = DragDropEffects.Copy;
-        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
-        //        }
-        //        else
-        //        {
-        //            e.Effects = DragDropEffects.None;
-        //            DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
-        //        }
-        //    }
+            // ✅ 新增:处理管道拖拽
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+                return;
+            }
 
-        //    e.Handled = true;
-        //}
+            // 实时检查拖拽位置是否有效
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                var position = e.GetPosition(DesignCanvas);
 
-        //private void OnDragLeave(object sender, DragEventArgs e)
-        //{
-        //    Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
+                if (IsValidRegionForDevice(device, position))
+                {
+                    e.Effects = DragDropEffects.Copy;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
+                }
+            }
 
-        //    // 如果正在进行内部拖拽则忽略
-        //    if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-        //    {
-        //        Debug.WriteLine("忽略外部拖拽离开，内部拖拽进行中");
-        //        e.Handled = true;
-        //        return;
-        //    }
+            e.Handled = true;
+        }
 
-        //    // 恢复画布背景
-        //    DesignCanvas.Background = Brushes.White;
+        private void OnDragLeave(object sender, DragEventArgs e)
+        {
+            Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
 
-        //    if (e.Data.GetDataPresent("Device"))
-        //    {
-        //        var device = e.Data.GetData("Device") as IDevice;
-        //        Debug.WriteLine($"外部设备拖拽离开: {device?.Name}");
-        //    }
+            // 如果正在进行内部拖拽则忽略
+            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
+            {
+                Debug.WriteLine("忽略外部拖拽离开，内部拖拽进行中");
+                e.Handled = true;
+                return;
+            }
 
-        //    e.Handled = true;
-        //}
+            // 恢复画布背景
+            DesignCanvas.Background = Brushes.White;
 
-        //private void OnDrop(object sender, DragEventArgs e)
-        //{
-        //    Debug.WriteLine($"外部拖放: 内部拖拽={_isInternalDragging}, 正在处理={_isProcessingDrop}");
+            // ✅ 新增:处理管道拖拽离开
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
+                Debug.WriteLine($"管道拖拽离开: {pipeData?.PipeType}");
+            }
 
-        //    // 恢复画布背景
-        //    DesignCanvas.Background = Brushes.White;
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                Debug.WriteLine($"外部设备拖拽离开: {device?.Name}");
+            }
 
-        //    // 检查是否应该忽略此拖放事件
-        //    if (ShouldIgnoreDropEvent())
-        //    {
-        //        e.Effects = DragDropEffects.None;
-        //        e.Handled = true;
-        //        return;
-        //    }
+            e.Handled = true;
+        }
 
-        //    // 验证拖放数据
-        //    if (!ValidateDropData(e, out var device, out var dropPosition))
-        //    {
-        //        e.Effects = DragDropEffects.None;
-        //        e.Handled = true;
-        //        return;
-        //    }
+        private void OnDrop(object sender, DragEventArgs e)
+        {
+            Debug.WriteLine($"外部拖放: 内部拖拽={_isInternalDragging}, 正在处理={_isProcessingDrop}");
 
-        //    // 处理设备拖放
-        //    ProcessDeviceDrop(device, dropPosition);
-        //    e.Effects = DragDropEffects.Copy;
-        //    e.Handled = true;
-        //}
+            // 恢复画布背景
+            DesignCanvas.Background = Brushes.White;
+
+            // 检查是否应该忽略此拖放事件
+            if (ShouldIgnoreDropEvent())
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            // ✅ 修复:处理管道拖放 - 使用不同的变量名
+            if (e.Data.GetDataPresent("PipeData"))
+            {
+                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
+                var pipeDropPosition = e.GetPosition(DesignCanvas); // ✅ 改名为 pipeDropPosition
+
+                ProcessPipeDrop(pipeData, pipeDropPosition);
+
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+                return;
+            }
+
+            // 验证拖放数据 - 这里使用 dropPosition 变量
+            if (!ValidateDropData(e, out var device, out var dropPosition))
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            // 处理设备拖放
+            ProcessDeviceDrop(device, dropPosition);
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
 
         /// <summary>
         /// 检查是否应该忽略拖放事件
@@ -2309,7 +2165,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var canvasDevice = CreateCanvasDeviceViewModel(device, position);
 
                 // 使用命令创建设备支持撤销重做
-                var addCommand = new AddDeviceCommand(_viewModel, canvasDevice, _connectionService);
+                var addCommand = new AddDeviceCommand(_viewModel, canvasDevice);
                 _commandHistory.ExecuteCommand(addCommand);
 
                 Debug.WriteLine($"设备创建完成: {device.Name}, ID: {canvasDevice.DeviceId}");
@@ -2377,6 +2233,67 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        /// <summary>
+        /// 处理管道拖放
+        /// </summary>
+        private void ProcessPipeDrop(PipeDragData pipeData, Point dropPosition)
+        {
+            _isProcessingDrop = true;
+            _lastDropTime = DateTime.Now;
+
+            try
+            {
+                Debug.WriteLine($"放置管道: {pipeData.PipeType} 在位置 ({dropPosition.X:F0}, {dropPosition.Y:F0})");
+
+                CreatePipeFromToolbox(pipeData, dropPosition);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理管道拖放失败: {ex.Message}");
+            }
+            finally
+            {
+                // 延迟重置处理标志
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _isProcessingDrop = false;
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+        }
+
+        /// <summary>
+        /// 从工具箱创建管道
+        /// </summary>
+        private void CreatePipeFromToolbox(PipeDragData pipeData, Point position)
+        {
+            try
+            {
+                switch (pipeData.PipeType)
+                {
+                    case PipeType.Straight:
+                        CreateStraightPipe(position);
+                        break;
+
+                    case PipeType.Elbow:
+                        CreateElbowPipe(position);
+                        break;
+
+                    // ✅ 新增：Z 形管道创建
+                    case PipeType.ZShape:
+                        CreateZShapePipe(position);
+                        break;
+
+                    default:
+                        Debug.WriteLine($"不支持的管道类型: {pipeData.PipeType}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建管道失败: {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region 画布鼠标事件处理 设备拖拽和连接
@@ -2420,14 +2337,6 @@ namespace MaxChemical.Modules.Designer.Views
             if (!IsDeviceExistInViewModel(deviceId))
             {
                 Debug.WriteLine($"设备 {deviceId} 不存在，忽略鼠标事件");
-                e.Handled = true;
-                return;
-            }
-
-            // 处理连接模式点击
-            if (_isShiftPressed)
-            {
-                HandleConnectionClick(deviceId, e.GetPosition(deviceControl));
                 e.Handled = true;
                 return;
             }
@@ -2478,54 +2387,9 @@ namespace MaxChemical.Modules.Designer.Views
             this.Focus();
         }
 
-        /// <summary>
-        /// 处理连接点击
-        /// </summary>
-        private void HandleConnectionClick(string deviceId, Point clickPosition)
-        {
-            var deviceElement = FindDeviceElement(deviceId);
-            if (deviceElement == null) return;
-
-            var direction = DetermineConnectionDirection(deviceElement, clickPosition);
-
-            if (_connectionService.IsConnectionMode)
-            {
-                _connectionService.CompleteConnection(deviceId, direction);
-            }
-            else
-            {
-                _connectionService.StartConnection(deviceId, direction);
-            }
-        }
-
-        /// <summary>
-        /// 确定连接方向
-        /// </summary>
-        private ConnectionDirection DetermineConnectionDirection(FrameworkElement device, Point clickPosition)
-        {
-            double width = device.ActualWidth;
-            double height = device.ActualHeight;
-
-            double relativeX = clickPosition.X / width;
-            double relativeY = clickPosition.Y / height;
-
-            if (relativeX < 0.25) return ConnectionDirection.Left;
-            if (relativeX > 0.75) return ConnectionDirection.Right;
-            if (relativeY < 0.25) return ConnectionDirection.Top;
-            return ConnectionDirection.Bottom;
-        }
-
         private void OnCanvasMouseMove(object sender, MouseEventArgs e)
         {
             var currentPosition = e.GetPosition(DesignCanvas);
-
-            // ✅ 优先处理连接模式（无需节流）
-            if (_connectionService?.IsConnectionMode == true)
-            {
-                _connectionService.UpdateMousePosition(currentPosition);
-                e.Handled = true;
-                return;
-            }
 
             // ✅ 优先处理拖拽状态（无需节流）
             if (_isMouseDown && _mouseDownElement != null && e.LeftButton == MouseButtonState.Pressed)
@@ -2599,7 +2463,6 @@ namespace MaxChemical.Modules.Designer.Views
             _hasStartedDrag = true;
             _isInternalDragging = true;
 
-            _connectionService.SetDragMode(true);
             DesignCanvas.AllowDrop = false;
             DesignCanvas.CaptureMouse();
             AddDragVisualFeedback(_mouseDownElement);
@@ -2637,14 +2500,11 @@ namespace MaxChemical.Modules.Designer.Views
             Canvas.SetTop(_mouseDownElement, boundedTop);
             _mouseDownElement.Opacity = 0.8;
 
-            // ❌ 删除：ForceUpdateConnections(_currentDraggingDeviceId);
-            // ❌ 删除：_mouseDownElement.UpdateLayout();
+            // ✅ 新增：调度延迟布局更新
+            ScheduleLayoutUpdate();
 
             UpdateDragVisualFeedback(_mouseDownElement, true);
             _dragStartPoint = currentPoint;
-
-            // ✅ 新增：调度延迟布局更新
-            ScheduleLayoutUpdate();
         }
 
         /// <summary>
@@ -2692,7 +2552,6 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void ProcessMouseUpEvent(MouseButtonEventArgs e)
         {
-            _connectionService.SetDragMode(false);
             var endPosition = e.GetPosition(DesignCanvas);
 
             if (_isInternalDragging)
@@ -2716,23 +2575,19 @@ namespace MaxChemical.Modules.Designer.Views
             var deviceId = _mouseDownElement.Tag as string;
             var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == deviceId);
 
-            if (canvasDevice != null)
+            var finalPosition = CalculateFinalPosition();
+            var isSuccessful = ValidateFinalPosition(canvasDevice, finalPosition);
+
+            if (isSuccessful)
             {
-                var finalPosition = CalculateFinalPosition();
-                var isSuccessful = ValidateFinalPosition(canvasDevice, finalPosition);
-
-                if (isSuccessful)
-                {
-                    CompleteDragOperation(canvasDevice, deviceId, finalPosition);
-                }
-                else
-                {
-                    RestoreDeviceToOriginalPosition(_mouseDownElement);
-                    UpdateConnections(deviceId);
-                }
-
-                _dragDropService.EndDrag(endPosition, isSuccessful, "Canvas");
+                CompleteDragOperation(canvasDevice, deviceId, finalPosition);
             }
+            else
+            {
+                RestoreDeviceToOriginalPosition(_mouseDownElement);
+            }
+
+            _dragDropService.EndDrag(endPosition, isSuccessful, "Canvas");
 
             DesignCanvas.AllowDrop = true;
 
@@ -2783,9 +2638,6 @@ namespace MaxChemical.Modules.Designer.Views
                     NewPosition = finalPosition,
                     IsCompleted = true
                 });
-
-            // 更新连接线
-            UpdateConnections(deviceId);
         }
 
         private void OnCanvasMouseLeave(object sender, MouseEventArgs e)
@@ -2801,8 +2653,6 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void HandleMouseLeaveWhileDragging()
         {
-            _connectionService.SetDragMode(false);
-
             Debug.WriteLine($"鼠标离开画布，结束拖拽: {_currentDraggingDeviceId}");
 
             RemoveDragVisualFeedback(_mouseDownElement);
@@ -2811,7 +2661,6 @@ namespace MaxChemical.Modules.Designer.Views
             if (_mouseDownElement?.Tag is string deviceId)
             {
                 _dragDropService.EndDrag(new Point(), false, "Canvas");
-                UpdateConnections(deviceId);
             }
 
             DesignCanvas.AllowDrop = true;
@@ -2888,115 +2737,6 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
-        #region 连接更新
-
-        /// <summary>
-        /// 强制更新连接 用于拖拽过程中
-        /// </summary>
-        private void ForceUpdateConnections(string deviceId)
-        {
-            if (string.IsNullOrEmpty(deviceId) || _connectionService?.Connections == null)
-            {
-                return;
-            }
-
-            var relatedConnections = _connectionService.Connections.Values
-                .Where(c => c.StartDeviceId == deviceId || c.EndDeviceId == deviceId)
-                .ToList();
-
-            foreach (var connection in relatedConnections)
-            {
-                try
-                {
-                    // 重新获取设备元素引用
-                    var startElement = FindDeviceElementInCanvas(connection.StartDeviceId);
-                    var endElement = FindDeviceElementInCanvas(connection.EndDeviceId);
-
-                    if (startElement != null && endElement != null)
-                    {
-                        connection.StartDevice = startElement;
-                        connection.EndDevice = endElement;
-                        _connectionService.UpdateConnectionPath(connection);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"强制更新连接失败: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// 标准连接更新
-        /// </summary>
-        private void UpdateConnections(string deviceId)
-        {
-            if (string.IsNullOrEmpty(deviceId) || _connectionService?.Connections == null)
-            {
-                return;
-            }
-
-            var relatedConnections = _connectionService.Connections.Values
-                .Where(c => c.StartDeviceId == deviceId || c.EndDeviceId == deviceId)
-                .ToList();
-
-            Debug.WriteLine($"更新设备 {deviceId} 的 {relatedConnections.Count} 个连接");
-
-            foreach (var connection in relatedConnections)
-            {
-                try
-                {
-                    var startElement = FindDeviceElementInCanvas(connection.StartDeviceId);
-                    var endElement = FindDeviceElementInCanvas(connection.EndDeviceId);
-
-                    if (startElement != null && endElement != null)
-                    {
-                        connection.StartDevice = startElement;
-                        connection.EndDevice = endElement;
-
-                        // 强制更新布局确保变换生效
-                        startElement.UpdateLayout();
-                        endElement.UpdateLayout();
-
-                        _connectionService.UpdateConnectionPath(connection);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"更新连接失败: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// 更新设备连接点位置
-        /// </summary>
-        private void UpdateDeviceConnectionPoints(string deviceId)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(deviceId) || _connectionService == null)
-                    return;
-
-                Debug.WriteLine($"更新设备 {deviceId} 的连接点");
-
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (_isShiftPressed || _connectionService.IsConnectionMode)
-                    {
-                        _connectionService.ShowConnectionPoints(deviceId);
-                    }
-                    Debug.WriteLine($"设备 {deviceId} 的连接点已更新");
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新设备连接点失败: {ex.Message}");
-            }
-        }
-
-        #endregion
-
         #region 设备视觉元素管理
 
         /// <summary>
@@ -3025,9 +2765,6 @@ namespace MaxChemical.Modules.Designer.Views
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
             }
 
-            // 更新区域覆盖上下文
-           // UpdateRegionOverlayContext();
-
             try
             {
                 var currentDevices = _viewModel?.CanvasDevices?.ToList() ?? new List<CanvasDeviceViewModel>();
@@ -3047,50 +2784,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                //UpdateDeviceConnections(deviceId);
             }), System.Windows.Threading.DispatcherPriority.Background);
-        }
-
-        /// <summary>
-        /// 更新特定设备的连接
-        /// </summary>
-        private void UpdateDeviceConnections(string deviceId)
-        {
-            if (string.IsNullOrEmpty(deviceId) || _connectionService == null) return;
-
-            var relatedConnections = _connectionService.Connections.Values
-                .Where(c => c.StartDeviceId == deviceId || c.EndDeviceId == deviceId)
-                .ToList();
-
-            foreach (var connection in relatedConnections)
-            {
-                try
-                {
-                    UpdateConnectionDeviceReferences(connection, deviceId);
-                    _connectionService.UpdateConnectionPath(connection);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"更新设备连接失败: {ex.Message}");
-                }
-            }
-
-            Debug.WriteLine($"更新了设备 {deviceId} 的 {relatedConnections.Count} 个连接");
-        }
-
-        /// <summary>
-        /// 更新连接的设备引用
-        /// </summary>
-        private void UpdateConnectionDeviceReferences(ConnectionInfo connection, string deviceId)
-        {
-            if (connection.StartDeviceId == deviceId)
-            {
-                connection.StartDevice = FindDeviceElementInCanvas(deviceId);
-            }
-            if (connection.EndDeviceId == deviceId)
-            {
-                connection.EndDevice = FindDeviceElementInCanvas(deviceId);
-            }
         }
 
         /// <summary>
@@ -3113,9 +2807,6 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 设置事件处理器
             AttachDeviceEventHandlers(deviceControl);
-
-            // 更新连接引用
-            //UpdateDeviceConnectionReferences(canvasDevice.DeviceId, deviceControl);
 
             Debug.WriteLine($"设备视觉元素创建完成: {canvasDevice.Device.Name}, ID: {canvasDevice.DeviceId}");
         }
@@ -3319,7 +3010,7 @@ namespace MaxChemical.Modules.Designer.Views
                             // 可选：延迟调试当前状态
                             Dispatcher.BeginInvoke(new Action(() =>
                             {
-                               
+
                             }), System.Windows.Threading.DispatcherPriority.Background);
 
                         }
@@ -3615,7 +3306,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"更新监控卡片位置失败: {ex.Message}");
             }
         }
-      
+
 
         /// <summary>
         /// 获取设备显示名称
@@ -3734,14 +3425,6 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void HandleDeviceLeftClick(FrameworkElement deviceElement, string deviceId, MouseButtonEventArgs e)
         {
-            if (_isShiftPressed)
-            {
-                // Shift点击进入连接模式
-                HandleConnectionClick(deviceId, e.GetPosition(deviceElement));
-                e.Handled = true;
-                return;
-            }
-
             // 准备拖拽
             StartDeviceDragPreparation(deviceElement, deviceId, e);
             e.Handled = true;
@@ -3802,8 +3485,6 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void HandleDragEnd(Point endPosition)
         {
-            _connectionService.SetDragMode(false);
-
             Debug.WriteLine($"结束设备拖拽: {_currentDraggingDeviceId}");
 
             if (_mouseDownElement != null)
@@ -3822,15 +3503,10 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     // 使用命令模式记录移动操作
                     ExecuteMoveDeviceCommand(canvasDevice, finalPosition);
-                    UpdateConnections(deviceId);
                 }
                 else
                 {
                     RestoreDeviceToOriginalPosition(_mouseDownElement);
-                    if (!string.IsNullOrEmpty(deviceId))
-                    {
-                        UpdateConnections(deviceId);
-                    }
                 }
 
                 _dragDropService.EndDrag(endPosition, isSuccessful, "Canvas");
@@ -3889,19 +3565,11 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"设备 {deviceId} 视觉位置已更新到: ({elementLeft:F1}, {elementTop:F1})");
 
-                // ❌ 删除：deviceElement.UpdateLayout();
-
                 // ✅ 新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
                 // 更新监控卡片位置
                 UpdateMonitoringCardPosition(deviceId);
-
-                // 延迟更新连接线
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    UpdateConnections(deviceId);
-                }), System.Windows.Threading.DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
@@ -3973,7 +3641,6 @@ namespace MaxChemical.Modules.Designer.Views
             _hasStartedDrag = true;
             _isInternalDragging = true;
 
-            _connectionService.SetDragMode(true);
             DesignCanvas.AllowDrop = false;
             AddDragVisualFeedback(deviceElement);
 
@@ -4006,9 +3673,6 @@ namespace MaxChemical.Modules.Designer.Views
             Canvas.SetLeft(deviceElement, boundedLeft);
             Canvas.SetTop(deviceElement, boundedTop);
             deviceElement.Opacity = 0.8;
-
-            // 更新连接
-            ForceUpdateConnections(_currentDraggingDeviceId);
 
             UpdateDragVisualFeedback(deviceElement, true);
         }
@@ -4053,12 +3717,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 添加悬停效果
                 AddDeviceHoverEffect(deviceElement, deviceId);
-
-                // 连接模式下显示连接点
-                if (_isShiftPressed)
-                {
-                    _connectionService?.ShowConnectionPoints(deviceId);
-                }
             }
         }
 
@@ -4098,39 +3756,6 @@ namespace MaxChemical.Modules.Designer.Views
                 border.BorderBrush = Brushes.DarkBlue;
                 border.BorderThickness = new Thickness(0);
             }
-        }
-
-        /// <summary>
-        /// 更新设备连接引用
-        /// </summary>
-        private void UpdateDeviceConnectionReferences(string deviceId, FrameworkElement deviceElement)
-        {
-            if (string.IsNullOrEmpty(deviceId) || deviceElement == null || _connectionService?.Connections == null)
-            {
-                return;
-            }
-
-            Debug.WriteLine($"更新设备 {deviceId} 的连接引用");
-
-            var relatedConnections = _connectionService.Connections.Values
-                .Where(c => c.StartDeviceId == deviceId || c.EndDeviceId == deviceId)
-                .ToList();
-
-            foreach (var connection in relatedConnections)
-            {
-                if (connection.StartDeviceId == deviceId)
-                {
-                    connection.StartDevice = deviceElement;
-                    Debug.WriteLine($"更新连接 {connection.Id} 的起始设备引用");
-                }
-                if (connection.EndDeviceId == deviceId)
-                {
-                    connection.EndDevice = deviceElement;
-                    Debug.WriteLine($"更新连接 {connection.Id} 的结束设备引用");
-                }
-            }
-
-            Debug.WriteLine($"设备 {deviceId} 的 {relatedConnections.Count} 个连接引用已更新");
         }
 
         /// <summary>
@@ -4536,32 +4161,26 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine("========== 开始清空画布 ==========");
 
-                // ✅ 1. 取消所有活动操作
-                CancelActiveConnectionOperations();
-
-                // ✅ 2. 清空监控相关
+                // ✅ 1. 清空监控相关
                 ClearAllMonitoringStates();
 
-                // ✅ 3. 清空设备相关状态
+                // ✅ 2. 清空设备相关状态
                 ClearDeviceStates();
 
-                // ✅ 4. 清空管道
+                // ✅ 3. 清空管道
                 ClearAllPipes();
 
-                // ✅ 5. 强制清空画布视觉元素（先清视图）
+                // ✅ 4. 强制清空画布视觉元素（先清视图）
                 ClearCanvasVisualElements();
 
-                // ✅ 6. 清空数据模型（后清数据）
+                // ✅ 5. 清空数据模型（后清数据）
                 ClearViewModelData();
 
-                // ✅ 7. 清空连接服务
-                ClearConnectionService();
-
-                // ✅ 8. 清空选择状态
+                // ✅ 6. 清空选择状态
                 ClearDeviceSelection();
                 ClearPipeSelection();
 
-                // ✅ 9. 重置画布状态
+                // ✅ 7. 重置画布状态
                 ResetCanvasState();
 
                 Debug.WriteLine("========== 画布清空完成 ==========");
@@ -4573,7 +4192,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-     
+
         /// <summary>
         /// 重置画布状态
         /// </summary>
@@ -4681,17 +4300,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
             Debug.WriteLine("所有监控卡片已清空");
         }
-        /// <summary>
-        /// 取消活动的连接操作
-        /// </summary>
-        private void CancelActiveConnectionOperations()
-        {
-            if (_connectionService?.IsConnectionMode == true)
-            {
-                _connectionService.CancelConnection();
-                Debug.WriteLine("取消了进行中的连接操作");
-            }
-        }
 
         /// <summary>
         /// 清空ViewModel数据
@@ -4702,29 +4310,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"清空 {_viewModel.CanvasDevices.Count} 个设备");
                 _viewModel.CanvasDevices.Clear();
-            }
-
-            if (_viewModel?.Connections != null)
-            {
-                Debug.WriteLine($"清空 ViewModel 中的 {_viewModel.Connections.Count} 个连接");
-                _viewModel.Connections.Clear();
-            }
-        }
-
-        /// <summary>
-        /// 清空连接服务
-        /// </summary>
-        private void ClearConnectionService()
-        {
-            if (_connectionService?.Connections != null)
-            {
-                var connectionIds = _connectionService.Connections.Keys.ToList();
-                Debug.WriteLine($"清空连接服务中的 {connectionIds.Count} 个连接");
-
-                foreach (var connectionId in connectionIds)
-                {
-                    _connectionService.RemoveConnection(connectionId);
-                }
             }
         }
 
@@ -4751,11 +4336,6 @@ namespace MaxChemical.Modules.Designer.Views
                     else if (child is StraightPipeControl ||
                              child is ElbowPipeControl ||
                              child is ZShapePipeControl)
-                    {
-                        elementsToRemove.Add(child);
-                    }
-                    // 连接线（Path）
-                    else if (child is System.Windows.Shapes.Path)
                     {
                         elementsToRemove.Add(child);
                     }
@@ -4796,10 +4376,9 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var canvasData = CreateCanvasDocument();
                 CollectDeviceData(canvasData);
-                CollectConnectionData(canvasData);
 
                 callback?.Invoke(canvasData);
-                Debug.WriteLine($"收集画布数据完成: 设备{canvasData.Devices.Count}个, 连接{canvasData.Connections.Count}个");
+                Debug.WriteLine($"收集画布数据完成: 设备{canvasData.Devices.Count}个");
             }
             catch (Exception ex)
             {
@@ -4870,28 +4449,6 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 收集连接数据
-        /// </summary>
-        private void CollectConnectionData(CanvasDocument canvasData)
-        {
-            if (_connectionService?.Connections == null) return;
-
-            foreach (var connection in _connectionService.Connections.Values)
-            {
-                var connectionData = new ConnectionData
-                {
-                    ConnectionId = connection.Id,
-                    StartDeviceId = connection.StartDeviceId,
-                    EndDeviceId = connection.EndDeviceId,
-                    StartDirection = connection.StartAnchor?.Direction.ToString(),
-                    EndDirection = connection.EndAnchor?.Direction.ToString()
-                };
-
-                canvasData.Connections.Add(connectionData);
-            }
-        }
-
-        /// <summary>
         /// 新画布创建事件处理
         /// </summary>
         private void OnNewCanvasCreated(CanvasDocument newCanvas)
@@ -4916,7 +4473,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"========== 开始加载画布: {canvasDocument.Name} ==========");
                 Debug.WriteLine($"设备数量: {canvasDocument.Devices?.Count ?? 0}");
-                Debug.WriteLine($"连接数量: {canvasDocument.Connections?.Count ?? 0}");
                 Debug.WriteLine($"管道数量: {canvasDocument.Pipes?.Count ?? 0}");
 
                 // 更新画布尺寸
@@ -4958,9 +4514,6 @@ namespace MaxChemical.Modules.Designer.Views
                     DesignCanvas.UpdateLayout();
                     await System.Threading.Tasks.Task.Delay(10);
                 }
-
-                // 步骤4：延迟恢复连接
-                //ScheduleConnectionRestoration(canvasDocument.Connections);
 
                 Debug.WriteLine("========== 画布加载完成 ==========");
             }
@@ -5016,7 +4569,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     await System.Threading.Tasks.Task.Delay(1);
                 }
-                
+
             }
 
             Debug.WriteLine($"设备恢复完成，当前设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
@@ -5183,9 +4736,6 @@ namespace MaxChemical.Modules.Designer.Views
                     // 添加到画布
                     DesignCanvas.Children.Add(pipeControl);
 
-                    // ❌ 删除：所有 UpdateLayout 调用
-                    // pipeControl.UpdateLayout();
-
                     // 添加到管道字典
                     _pipes[pipeData.PipeId] = pipeControl;
 
@@ -5240,6 +4790,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"清除已存在的管道: {pipeId}");
             }
         }
+
         /// <summary>
         /// 更新画布尺寸
         /// </summary>
@@ -5251,23 +4802,6 @@ namespace MaxChemical.Modules.Designer.Views
                 DesignCanvas.Height = canvasDocument.CanvasHeight;
             }
         }
-
-        /// <summary>
-        /// 安排连接恢复
-        /// </summary>
-        //private void ScheduleConnectionRestoration(List<ConnectionData> connectionDataList)
-        //{
-        //    System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-        //    {
-        //        DesignCanvas.UpdateLayout();
-
-        //        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-        //        {
-        //            RestoreConnections(connectionDataList);
-        //        }), System.Windows.Threading.DispatcherPriority.Loaded);
-
-        //    }), System.Windows.Threading.DispatcherPriority.Render);
-        //}
 
         /// <summary>
         /// 恢复设备
@@ -5486,174 +5020,14 @@ namespace MaxChemical.Modules.Designer.Views
                 deviceScale.ScaleY = scaleY;
                 deviceElement.RenderTransformOrigin = new Point(0.5, 0.5);
 
-                // ❌ 删除：deviceElement.UpdateLayout();
-
                 // ✅ 新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
                 Debug.WriteLine($"设备 {deviceId} 缩放恢复完成");
-
-                // 延迟更新连接线
-                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    UpdateConnections(deviceId);
-                }), System.Windows.Threading.DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"恢复设备缩放失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 恢复连接
-        /// </summary>
-        private void RestoreConnections(List<ConnectionData> connectionDataList)
-        {
-            if (connectionDataList == null || !connectionDataList.Any())
-            {
-                Debug.WriteLine("没有连接需要恢复");
-                return;
-            }
-
-            Debug.WriteLine($"开始恢复 {connectionDataList.Count} 个连接");
-
-            // 验证设备元素
-            ValidateDeviceElementsForConnections(connectionDataList);
-
-            // 恢复每个连接
-            foreach (var connectionData in connectionDataList)
-            {
-                try
-                {
-                    RestoreSingleConnection(connectionData);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"恢复连接 {connectionData.ConnectionId} 失败: {ex.Message}");
-                }
-            }
-
-            Debug.WriteLine($"连接恢复完成，连接服务中有 {_connectionService?.Connections?.Count ?? 0} 个连接");
-        }
-
-        /// <summary>
-        /// 验证连接的设备元素
-        /// </summary>
-        private void ValidateDeviceElementsForConnections(List<ConnectionData> connectionDataList)
-        {
-            foreach (var connectionData in connectionDataList)
-            {
-                var startElement = FindDeviceElementInCanvas(connectionData.StartDeviceId);
-                var endElement = FindDeviceElementInCanvas(connectionData.EndDeviceId);
-
-                Debug.WriteLine($"连接 {connectionData.ConnectionId}:");
-                Debug.WriteLine($"  起始设备 {connectionData.StartDeviceId}: {(startElement != null ? "已找到" : "未找到")}");
-                Debug.WriteLine($"  结束设备 {connectionData.EndDeviceId}: {(endElement != null ? "已找到" : "未找到")}");
-            }
-        }
-
-        /// <summary>
-        /// 恢复单个连接
-        /// </summary>
-        private void RestoreSingleConnection(ConnectionData connectionData)
-        {
-            Debug.WriteLine($"正在恢复连接: {connectionData.StartDeviceId} -> {connectionData.EndDeviceId}");
-
-            // 验证设备元素
-            var startDeviceElement = FindDeviceElementInCanvas(connectionData.StartDeviceId);
-            var endDeviceElement = FindDeviceElementInCanvas(connectionData.EndDeviceId);
-
-            if (startDeviceElement == null || endDeviceElement == null)
-            {
-                Debug.WriteLine("设备元素未找到，跳过连接恢复");
-                return;
-            }
-
-            // 解析连接方向
-            var startDirection = ParseConnectionDirection(connectionData.StartDirection,ConnectionDirection.Right);
-            var endDirection = ParseConnectionDirection(connectionData.EndDirection, ConnectionDirection.Left);
-
-            // 检查连接是否已存在
-            var existingConnection = FindExistingConnection(connectionData);
-            if (existingConnection != null)
-            {
-                UpdateExistingConnection(existingConnection, startDeviceElement, endDeviceElement);
-                return;
-            }
-
-            // 创建新连接
-            CreateNewConnection(connectionData, startDirection, endDirection, startDeviceElement, endDeviceElement);
-        }
-
-        /// <summary>
-        /// 解析连接方向
-        /// </summary>
-        private ConnectionDirection ParseConnectionDirection(string direction,ConnectionDirection defaultDirection)
-        {
-            if (Enum.TryParse<ConnectionDirection>(direction, out var parsedDirection))
-            {
-                return parsedDirection;
-            }
-            return defaultDirection;
-        }
-
-        /// <summary>
-        /// 查找已存在的连接
-        /// </summary>
-        private ConnectionInfo FindExistingConnection(ConnectionData connectionData)
-        {
-            return _connectionService.Connections.Values
-                .FirstOrDefault(c => c.StartDeviceId == connectionData.StartDeviceId &&
-                                   c.EndDeviceId == connectionData.EndDeviceId);
-        }
-
-        /// <summary>
-        /// 更新已存在的连接
-        /// </summary>
-        private void UpdateExistingConnection(ConnectionInfo existingConnection, FrameworkElement startElement, FrameworkElement endElement)
-        {
-            Debug.WriteLine($"连接已存在，更新设备引用: {existingConnection.Id}");
-
-            existingConnection.StartDevice = startElement;
-            existingConnection.EndDevice = endElement;
-            _connectionService.UpdateConnectionPath(existingConnection);
-        }
-
-        /// <summary>
-        /// 创建新连接
-        /// </summary>
-        private void CreateNewConnection(ConnectionData connectionData,ConnectionDirection startDirection, ConnectionDirection endDirection, FrameworkElement startElement, FrameworkElement endElement)
-        {
-            var connection = _connectionService.CreateConnection(
-                connectionData.StartDeviceId,
-                connectionData.EndDeviceId,
-                startDirection,
-                endDirection);
-
-            if (connection != null)
-            {
-                Debug.WriteLine($"连接创建成功: {connection.Id}");
-
-                // 设置设备元素引用
-                connection.StartDevice = startElement;
-                connection.EndDevice = endElement;
-
-                // 添加到ViewModel
-                if (!_viewModel.Connections.Any(c => c.Id == connection.Id))
-                {
-                    _viewModel?.Connections.Add(connection);
-                    Debug.WriteLine("连接已添加到 ViewModel");
-                }
-
-                // 更新连接路径
-                _connectionService.UpdateConnectionPath(connection);
-
-                Debug.WriteLine($"连接 {connectionData.ConnectionId} 恢复成功");
-            }
-            else
-            {
-                Debug.WriteLine($"连接创建失败: {connectionData.ConnectionId}");
             }
         }
 
@@ -5666,23 +5040,13 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"画布加载完成: {canvasDocument.Name}");
                 Debug.WriteLine($"最终设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
-                Debug.WriteLine($"最终连接数量: {_connectionService?.Connections?.Count ?? 0}");
                 Debug.WriteLine($"最终管道数量: {_pipes.Count}"); // ✅ 新增
-
-                // 确保连接服务状态正确
-                EnsureConnectionServiceState();
 
                 // 强制更新布局
                 DesignCanvas.UpdateLayout();
 
-                // 最终确定连接引用
-                ScheduleFinalConnectionUpdate();
-
                 // ✅ 新增：最终确认管道状态
                 ScheduleFinalPipeValidation();
-
-                // 更新区域覆盖服务上下文
-                //UpdateRegionOverlayContext();
 
                 Debug.WriteLine("画布加载处理完成");
             }
@@ -5731,87 +5095,6 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"验证管道状态失败: {ex.Message}");
             }
         }
-        /// <summary>
-        /// 确保连接服务状态正确
-        /// </summary>
-        private void EnsureConnectionServiceState()
-        {
-            if (_connectionService?.IsConnectionMode == true)
-            {
-                _connectionService.CancelConnection();
-            }
-            _connectionService?.HideAllConnectionPoints();
-        }
-
-        /// <summary>
-        /// 安排最终连接更新
-        /// </summary>
-        private void ScheduleFinalConnectionUpdate()
-        {
-            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                FinalizeConnectionReferences();
-            }), System.Windows.Threading.DispatcherPriority.Background);
-        }
-
-        /// <summary>
-        /// 最终确定连接引用
-        /// </summary>
-        private void FinalizeConnectionReferences()
-        {
-            if (_connectionService?.Connections == null)
-            {
-                Debug.WriteLine("FinalizeConnectionReferences: 连接服务无效");
-                return;
-            }
-
-            Debug.WriteLine("开始最终确定连接引用");
-
-            foreach (var connection in _connectionService.Connections.Values)
-            {
-                try
-                {
-                    FinalizeConnectionReference(connection);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"最终确定连接 {connection.Id} 失败: {ex.Message}");
-                }
-            }
-
-            Debug.WriteLine("FinalizeConnectionReferences: 完成");
-        }
-
-        /// <summary>
-        /// 最终确定单个连接引用
-        /// </summary>
-        private void FinalizeConnectionReference(ConnectionInfo connection)
-        {
-            var startElement = FindDeviceElementInCanvas(connection.StartDeviceId);
-            var endElement = FindDeviceElementInCanvas(connection.EndDeviceId);
-
-            if (startElement != null && endElement != null)
-            {
-                connection.StartDevice = startElement;
-                connection.EndDevice = endElement;
-
-                Debug.WriteLine($"最终确定连接 {connection.Id}:");
-                Debug.WriteLine($"  起始设备: {connection.StartDeviceId} -> 元素已找到");
-                Debug.WriteLine($"  结束设备: {connection.EndDeviceId} -> 元素已找到");
-
-                // 强制更新布局确保缩放变换生效
-                startElement.UpdateLayout();
-                endElement.UpdateLayout();
-
-                _connectionService.UpdateConnectionPath(connection);
-            }
-            else
-            {
-                Debug.WriteLine($"连接 {connection.Id} 的设备元素未完全找到:");
-                Debug.WriteLine($"  起始设备: {(startElement != null ? "已找到" : "未找到")}");
-                Debug.WriteLine($"  结束设备: {(endElement != null ? "已找到" : "未找到")}");
-            }
-        }
 
         #endregion
 
@@ -5826,20 +5109,14 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var currentDocument = GetCurrentDocument();
                 var variablePanels = GetVariablePanels();
-                var connections = _viewModel?.Connections?.Cast<object>().ToList() ?? new List<object>();
 
                 // 传入连接服务实例
                 _regionOverlayService.SetCurrentContext(
                     currentDocument,
                     DesignCanvas,
-                    variablePanels,
-                    connections,
-                    _connectionService);
+                    variablePanels);
 
                 Debug.WriteLine("RegionOverlayService 上下文设置完成");
-
-                // 调试连接服务信息
-                LogConnectionServiceInfo();
 
                 // 更新区域覆盖
                 if (_viewModel?.CurrentRegionLayout != null)
@@ -5853,21 +5130,6 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"设置RegionOverlayService上下文失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 记录连接服务信息
-        /// </summary>
-        private void LogConnectionServiceInfo()
-        {
-            if (_connectionService?.Connections != null)
-            {
-                Debug.WriteLine($"当前连接服务中有 {_connectionService.Connections.Count} 个连接");
-                foreach (var connection in _connectionService.Connections.Values)
-                {
-                    Debug.WriteLine($"  连接: {connection.Id} ({connection.StartDeviceId} -> {connection.EndDeviceId})");
-                }
             }
         }
 
@@ -5945,32 +5207,6 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 更新区域覆盖上下文
-        /// </summary>
-        private void UpdateRegionOverlayContext()
-        {
-            try
-            {
-                var currentDocument = GetCurrentDocument();
-                var variablePanels = GetVariablePanels();
-                var connections = _viewModel?.Connections?.Cast<object>().ToList() ?? new List<object>();
-
-                _regionOverlayService.SetCurrentContext(
-                    currentDocument,
-                    DesignCanvas,
-                    variablePanels,
-                    connections,
-                    _connectionService);
-
-                Debug.WriteLine($"更新上下文后，连接服务中有 {_connectionService?.Connections?.Count ?? 0} 个连接");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新RegionOverlayService上下文失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// 区域布局更新事件处理
         /// </summary>
         private void OnRegionLayoutUpdated(RegionLayout newLayout)
@@ -5980,13 +5216,11 @@ namespace MaxChemical.Modules.Designer.Views
                 // 更新上下文中的布局信息
                 var currentDocument = GetCurrentDocument();
                 var variablePanels = GetVariablePanels();
-                var connections = _viewModel?.Connections?.Cast<object>().ToList() ?? new List<object>();
 
                 _regionOverlayService.SetCurrentContext(
                     currentDocument,
                     DesignCanvas,
-                    variablePanels,
-                    connections);
+                    variablePanels);
 
                 _regionOverlayService?.UpdateRegionOverlay(DesignCanvas, newLayout);
                 _viewModel?.UpdateRegionLayout(newLayout);
@@ -6008,7 +5242,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private bool HasCanvasContent()
         {
-            return _viewModel?.CanvasDevices?.Count > 0 || _viewModel?.Connections?.Count > 0;
+            return _viewModel?.CanvasDevices?.Count > 0;
         }
 
         /// <summary>
@@ -6154,490 +5388,6 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 修改 OnDragEnter 支持管道拖拽
-        /// </summary>
-        private void OnDragEnter(object sender, DragEventArgs e)
-        {
-            Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
-
-            // 如果正在进行内部拖拽则忽略外部拖放
-            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-            {
-                Debug.WriteLine("忽略外部拖拽,内部拖拽进行中");
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
-
-            // ✅ 新增:处理管道拖拽
-            if (e.Data.GetDataPresent("PipeData"))
-            {
-                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
-                Debug.WriteLine($"管道拖拽进入: {pipeData?.PipeType}");
-                e.Effects = DragDropEffects.Copy;
-                DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 255, 120)); // 绿色提示
-                e.Handled = true;
-                return;
-            }
-
-            // 处理设备拖拽
-            if (e.Data.GetDataPresent("Device"))
-            {
-                var device = e.Data.GetData("Device") as IDevice;
-                var position = e.GetPosition(DesignCanvas);
-                Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
-
-                if (IsValidRegionForDevice(device, position))
-                {
-                    e.Effects = DragDropEffects.Copy;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
-                }
-                else
-                {
-                    e.Effects = DragDropEffects.None;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
-                }
-            }
-            else
-            {
-                e.Effects = DragDropEffects.None;
-            }
-
-            e.Handled = true;
-        }
-
-        /// <summary>
-        /// 修改 OnDragOver 支持管道拖拽
-        /// </summary>
-        private void OnDragOver(object sender, DragEventArgs e)
-        {
-            // 如果正在进行内部拖拽则拒绝外部拖放
-            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-            {
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
-
-            // ✅ 新增:处理管道拖拽
-            if (e.Data.GetDataPresent("PipeData"))
-            {
-                e.Effects = DragDropEffects.Copy;
-                e.Handled = true;
-                return;
-            }
-
-            // 实时检查拖拽位置是否有效
-            if (e.Data.GetDataPresent("Device"))
-            {
-                var device = e.Data.GetData("Device") as IDevice;
-                var position = e.GetPosition(DesignCanvas);
-
-                if (IsValidRegionForDevice(device, position))
-                {
-                    e.Effects = DragDropEffects.Copy;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
-                }
-                else
-                {
-                    e.Effects = DragDropEffects.None;
-                    DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
-                }
-            }
-
-            e.Handled = true;
-        }
-
-        /// <summary>
-        /// 修改 OnDragLeave 支持管道拖拽
-        /// </summary>
-        private void OnDragLeave(object sender, DragEventArgs e)
-        {
-            Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
-
-            // 如果正在进行内部拖拽则忽略
-            if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
-            {
-                Debug.WriteLine("忽略外部拖拽离开,内部拖拽进行中");
-                e.Handled = true;
-                return;
-            }
-
-            // 恢复画布背景
-            DesignCanvas.Background = Brushes.White;
-
-            // ✅ 新增:处理管道拖拽离开
-            if (e.Data.GetDataPresent("PipeData"))
-            {
-                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
-                Debug.WriteLine($"管道拖拽离开: {pipeData?.PipeType}");
-            }
-
-            if (e.Data.GetDataPresent("Device"))
-            {
-                var device = e.Data.GetData("Device") as IDevice;
-                Debug.WriteLine($"外部设备拖拽离开: {device?.Name}");
-            }
-
-            e.Handled = true;
-        }
-
-        /// <summary>
-        /// 修改 OnDrop 支持管道拖拽
-        /// </summary>
-        private void OnDrop(object sender, DragEventArgs e)
-        {
-            Debug.WriteLine($"外部拖放: 内部拖拽={_isInternalDragging}, 正在处理={_isProcessingDrop}");
-
-            // 恢复画布背景
-            DesignCanvas.Background = Brushes.White;
-
-            // 检查是否应该忽略此拖放事件
-            if (ShouldIgnoreDropEvent())
-            {
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
-
-            // ✅ 修复:处理管道拖放 - 使用不同的变量名
-            if (e.Data.GetDataPresent("PipeData"))
-            {
-                var pipeData = e.Data.GetData("PipeData") as PipeDragData;
-                var pipeDropPosition = e.GetPosition(DesignCanvas); // ✅ 改名为 pipeDropPosition
-
-                ProcessPipeDrop(pipeData, pipeDropPosition);
-
-                e.Effects = DragDropEffects.Copy;
-                e.Handled = true;
-                return;
-            }
-
-            // 验证拖放数据 - 这里使用 dropPosition 变量
-            if (!ValidateDropData(e, out var device, out var dropPosition))
-            {
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
-            }
-
-            // 处理设备拖放
-            ProcessDeviceDrop(device, dropPosition);
-            e.Effects = DragDropEffects.Copy;
-            e.Handled = true;
-        }
-
-        /// <summary>
-        /// 处理管道拖放
-        /// </summary>
-        private void ProcessPipeDrop(PipeDragData pipeData, Point dropPosition)
-        {
-            _isProcessingDrop = true;
-            _lastDropTime = DateTime.Now;
-
-            try
-            {
-                Debug.WriteLine($"放置管道: {pipeData.PipeType} 在位置 ({dropPosition.X:F0}, {dropPosition.Y:F0})");
-
-                CreatePipeFromToolbox(pipeData, dropPosition);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"处理管道拖放失败: {ex.Message}");
-            }
-            finally
-            {
-                // 延迟重置处理标志
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _isProcessingDrop = false;
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
-        }
-
-
-        /// <summary>
-        /// 从工具箱创建管道
-        /// </summary>
-        private void CreatePipeFromToolbox(PipeDragData pipeData, Point position)
-        {
-            try
-            {
-                switch (pipeData.PipeType)
-                {
-                    case PipeType.Straight:
-                        CreateStraightPipe(position);
-                        break;
-
-                    case PipeType.Elbow:
-                        CreateElbowPipe(position);
-                        break;
-
-                    // ✅ 新增：Z 形管道创建
-                    case PipeType.ZShape:
-                        CreateZShapePipe(position);
-                        break;
-
-                    default:
-                        Debug.WriteLine($"不支持的管道类型: {pipeData.PipeType}");
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"创建管道失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 创建直管道 - 使用命令模式
-        /// </summary>
-        private void CreateStraightPipe(Point position)
-        {
-            var pipe = new StraightPipeControl
-            {
-                PipeId = Guid.NewGuid().ToString(),
-                PipeLength = 80,
-                PipeWidth = 8
-            };
-
-            // 订阅事件
-            SubscribeStraightPipeEvents(pipe);
-
-            // ✅ 使用命令创建管道
-            var addCommand = new AddPipeCommand(
-                DesignCanvas,
-                pipe,
-                position,
-                "直管道",
-                _pipeConnectionService);
-
-            _commandHistory.ExecuteCommand(addCommand);
-
-            // 添加到管道集合
-            _pipes[pipe.PipeId] = pipe;
-
-            // 标记画布已修改
-            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-
-            Debug.WriteLine($"直管道已创建: {pipe.PipeId}");
-        }
-        /// <summary>
-        /// 订阅直管道事件
-        /// </summary>
-        private void SubscribeStraightPipeEvents(StraightPipeControl pipe)
-        {
-            pipe.PipeDragStarted += OnPipeDragStarted;
-            pipe.PipeDragging += OnPipeDragging;
-            pipe.PipeDragCompleted += OnPipeDragCompleted;
-            pipe.PipeResizeStarted += OnPipeResizeStarted;
-            pipe.PipeResizing += OnPipeResizing;
-            pipe.PipeResizeCompleted += OnPipeResizeCompleted;
-            pipe.PipeRotateStarted += OnPipeRotateStarted;
-            pipe.PipeRotating += OnPipeRotating;
-            pipe.PipeRotateCompleted += OnPipeRotateCompleted;
-            // ✅ 订阅管道选中事件（新增）
-            pipe.PipeSelected += OnPipeSelectedFromControl;
-            pipe.PipeDeselected += OnPipeDeselectedFromControl;
-        }
-
-        /// <summary>
-        /// 管道控件通知画布：我被选中了
-        /// </summary>
-        private void OnPipeSelectedFromControl(object sender, string pipeId)
-        {
-            try
-            {
-                Debug.WriteLine($"========== 画布收到管道选中通知 ==========");
-                Debug.WriteLine($"PipeId: {pipeId}");
-                Debug.WriteLine($"Sender: {sender?.GetType().Name}");
-                Debug.WriteLine($"=========================================");
-
-                var pipeElement = sender as FrameworkElement;
-                if (pipeElement == null)
-                {
-                    Debug.WriteLine("⚠️ 警告：发送者不是 FrameworkElement");
-                    return;
-                }
-
-                // ✅ 清除其他选择
-                ClearDeviceSelection();
-                ClearAllPipeSelectionsExcept(pipeId);
-
-                // ✅ 记录选中状态
-                _selectedPipeId = pipeId;
-                _selectedPipeElement = pipeElement;
-
-                Debug.WriteLine($"✅ 画布已确认管道选中: {pipeId}");
-
-                // 更新状态栏
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中管道: {pipeId}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ 处理管道选中通知失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 管道控件通知画布：我被取消选中了
-        /// </summary>
-        private void OnPipeDeselectedFromControl(object sender, string pipeId)
-        {
-            try
-            {
-                Debug.WriteLine($"画布收到管道取消选中通知: {pipeId}");
-
-                if (_selectedPipeId == pipeId)
-                {
-                    _selectedPipeId = null;
-                    _selectedPipeElement = null;
-                    Debug.WriteLine("画布已清除管道选择");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"处理管道取消选中通知失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 清除除指定管道外的所有管道选择
-        /// </summary>
-        private void ClearAllPipeSelectionsExcept(string exceptPipeId)
-        {
-            foreach (var child in DesignCanvas.Children)
-            {
-                if (child is StraightPipeControl straightPipe && straightPipe.PipeId != exceptPipeId)
-                {
-                    straightPipe.IsSelected = false;
-                }
-                else if (child is ElbowPipeControl elbowPipe && elbowPipe.PipeId != exceptPipeId)
-                {
-                    elbowPipe.IsSelected = false;
-                }
-                else if (child is ZShapePipeControl zPipe && zPipe.PipeId != exceptPipeId)
-                {
-                    zPipe.IsSelected = false;
-                }
-            }
-        }
-        /// <summary>
-        /// 创建弯管道 - 使用命令模式
-        /// </summary>
-        private void CreateElbowPipe(Point position)
-        {
-            var pipe = new ElbowPipeControl
-            {
-                PipeId = Guid.NewGuid().ToString(),
-                HorizontalLength = 35,
-                VerticalLength = 42,
-                PipeWidth = 8
-            };
-
-            // 订阅事件
-            SubscribeElbowPipeEvents(pipe);
-
-            // ✅ 使用命令创建管道
-            var addCommand = new AddPipeCommand(
-                DesignCanvas,
-                pipe,
-                position,
-                "弯管道",
-                _pipeConnectionService);
-
-            _commandHistory.ExecuteCommand(addCommand);
-
-            // 添加到管道集合
-            _pipes[pipe.PipeId] = pipe;
-
-            // 标记画布已修改
-            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-
-            Debug.WriteLine($"弯管道已创建: {pipe.PipeId}");
-        }
-
-        /// <summary>
-        /// 订阅弯管道事件
-        /// </summary>
-        private void SubscribeElbowPipeEvents(ElbowPipeControl pipe)
-        {
-            pipe.PipeDragStarted += OnElbowPipeDragStarted;
-            pipe.PipeDragging += OnElbowPipeDragging;
-            pipe.PipeDragCompleted += OnElbowPipeDragCompleted;
-            pipe.PipeResizeStarted += OnElbowPipeResizeStarted;
-            pipe.PipeResizing += OnElbowPipeResizing;
-            pipe.PipeResizeCompleted += OnElbowPipeResizeCompleted;
-            pipe.PipeRotateStarted += OnElbowPipeRotateStarted;
-            pipe.PipeRotating += OnElbowPipeRotating;
-            pipe.PipeRotateCompleted += OnElbowPipeRotateCompleted;
-            // ✅ 订阅选中事件
-            pipe.PipeSelected += OnPipeSelectedFromControl;
-            pipe.PipeDeselected += OnPipeDeselectedFromControl;
-        }
-
-
-
-        /// <summary>
-        /// 创建Z形管道 - 使用命令模式
-        /// </summary>
-        private void CreateZShapePipe(Point position)
-        {
-            var pipe = new ZShapePipeControl
-            {
-                PipeId = Guid.NewGuid().ToString(),
-                TopHorizontalLength = 20,
-                BottomHorizontalLength = 20,
-                VerticalOffset = 40,
-                PipeWidth = 8
-            };
-
-            // 订阅事件
-            SubscribeZShapePipeEvents(pipe);
-
-            // ✅ 使用命令创建管道
-            var addCommand = new AddPipeCommand(
-                DesignCanvas,
-                pipe,
-                position,
-                "Z形管道",
-                _pipeConnectionService);
-
-            _commandHistory.ExecuteCommand(addCommand);
-
-            // 添加到管道集合
-            _pipes[pipe.PipeId] = pipe;
-
-            // 标记画布已修改
-            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-
-            Debug.WriteLine($"Z形管道已创建: {pipe.PipeId}");
-        }
-
-        /// <summary>
-        /// 订阅Z形管道事件
-        /// </summary>
-        private void SubscribeZShapePipeEvents(ZShapePipeControl pipe)
-        {
-            pipe.PipeDragStarted += OnZShapePipeDragStarted;
-            pipe.PipeDragging += OnZShapePipeDragging;
-            pipe.PipeDragCompleted += OnZShapePipeDragCompleted;
-            pipe.PipeResizeStarted += OnZShapePipeResizeStarted;
-            pipe.PipeResizing += OnZShapePipeResizing;
-            pipe.PipeResizeCompleted += OnZShapePipeResizeCompleted;
-            pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
-            pipe.PipeRotating += OnZShapePipeRotating;
-            pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
-            // ✅ 订阅选中事件
-            pipe.PipeSelected += OnPipeSelectedFromControl;
-            pipe.PipeDeselected += OnPipeDeselectedFromControl;
-        }
-
-        #region ✅ 新增:管道整体拖动事件处理
-
-
-
-        /// <summary>
         /// 管道拖动中（已优化节流）
         /// </summary>
         private void OnPipeDragging(object sender, PipeDragEventArgs e)
@@ -6773,9 +5523,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
-        #region ✅ 新增:管道调整大小事件处理
-
         /// <summary>
         /// 管道调整大小开始
         /// </summary>
@@ -6835,8 +5582,65 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
-        #region ✅ 弯管道整体拖动事件处理
+        /// <summary>
+        /// 直管道旋转开始
+        /// </summary>
+        private void OnPipeRotateStarted(object sender, PipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"直管道旋转开始: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转直管道... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"直管道旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 直管道旋转中
+        /// </summary>
+        private void OnPipeRotating(object sender, PipeRotateEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏显示当前角度
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"直管道旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 直管道旋转完成
+        /// </summary>
+        private void OnPipeRotateCompleted(object sender, PipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"直管道旋转完成: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+                Debug.WriteLine($"旋转增量: {(e.CurrentAngle - e.OriginalAngle):F1}°");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"直管道已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"直管道旋转完成处理失败: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// 弯管道拖动开始
@@ -6953,9 +5757,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
-        #region ✅ 弯管道调整大小事件处理
-
         /// <summary>
         /// 弯管道调整大小开始
         /// </summary>
@@ -7031,72 +5832,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
-        #region ✅ 直管道旋转事件处理（拖动锚点方式）
-
-        /// <summary>
-        /// 直管道旋转开始
-        /// </summary>
-        private void OnPipeRotateStarted(object sender, PipeRotateEventArgs e)
-        {
-            try
-            {
-                Debug.WriteLine($"直管道旋转开始: {e.PipeId}");
-                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
-
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    "正在旋转直管道... (按住 Shift 键可15度步进)");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"直管道旋转开始处理失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 直管道旋转中
-        /// </summary>
-        private void OnPipeRotating(object sender, PipeRotateEventArgs e)
-        {
-            try
-            {
-                // 实时更新状态栏显示当前角度
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"旋转角度: {e.CurrentAngle:F1}°");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"直管道旋转处理失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 直管道旋转完成
-        /// </summary>
-        private void OnPipeRotateCompleted(object sender, PipeRotateEventArgs e)
-        {
-            try
-            {
-                Debug.WriteLine($"直管道旋转完成: {e.PipeId}");
-                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
-                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
-                Debug.WriteLine($"旋转增量: {(e.CurrentAngle - e.OriginalAngle):F1}°");
-
-                // 标记画布已修改
-                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
-
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"直管道已旋转至 {e.CurrentAngle:F1}°");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"直管道旋转完成处理失败: {ex.Message}");
-            }
-        }
-
-        #endregion
-        #region ✅ 弯管道旋转事件处理
-
         /// <summary>
         /// 弯管道旋转开始
         /// </summary>
@@ -7155,9 +5890,6 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"弯管道旋转完成处理失败: {ex.Message}");
             }
         }
-
-        #endregion
-        #region ✅ Z形管道拖动事件处理
 
         /// <summary>
         /// Z形管道拖动开始
@@ -7273,10 +6005,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
-
-        #region ✅ Z形管道调整大小事件处理
-
         /// <summary>
         /// Z形管道调整大小开始
         /// </summary>
@@ -7350,10 +6078,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
-
-        #region ✅ Z形管道旋转事件处理
-
         /// <summary>
         /// Z形管道旋转开始
         /// </summary>
@@ -7413,7 +6137,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #endregion
         #endregion
 
         #region 管道数据保存和恢复
@@ -7514,9 +6237,10 @@ namespace MaxChemical.Modules.Designer.Views
             callback?.Invoke(pipeDataList);
         }
 
-      
-     
-   
+
+
+
+
 
         /// <summary>
         /// 创建恢复的直管道
@@ -7700,6 +6424,254 @@ namespace MaxChemical.Modules.Designer.Views
                 DesignCanvas.UpdateLayout();
                 _needsLayoutUpdate = false;
             }
+        }
+
+        #endregion
+
+        #region 管道创建方法
+
+        /// <summary>
+        /// 创建直管道 - 使用命令模式
+        /// </summary>
+        private void CreateStraightPipe(Point position)
+        {
+            var pipe = new StraightPipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                PipeLength = 80,
+                PipeWidth = 8
+            };
+
+            // 订阅事件
+            SubscribeStraightPipeEvents(pipe);
+
+            // ✅ 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "直管道",
+                _pipeConnectionService);
+
+            _commandHistory.ExecuteCommand(addCommand);
+
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+            Debug.WriteLine($"直管道已创建: {pipe.PipeId}");
+        }
+
+        /// <summary>
+        /// 订阅直管道事件
+        /// </summary>
+        private void SubscribeStraightPipeEvents(StraightPipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnPipeDragStarted;
+            pipe.PipeDragging += OnPipeDragging;
+            pipe.PipeDragCompleted += OnPipeDragCompleted;
+            pipe.PipeResizeStarted += OnPipeResizeStarted;
+            pipe.PipeResizing += OnPipeResizing;
+            pipe.PipeResizeCompleted += OnPipeResizeCompleted;
+            pipe.PipeRotateStarted += OnPipeRotateStarted;
+            pipe.PipeRotating += OnPipeRotating;
+            pipe.PipeRotateCompleted += OnPipeRotateCompleted;
+            // ✅ 订阅管道选中事件（新增）
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
+
+        /// <summary>
+        /// 管道控件通知画布：我被选中了
+        /// </summary>
+        private void OnPipeSelectedFromControl(object sender, string pipeId)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 画布收到管道选中通知 ==========");
+                Debug.WriteLine($"PipeId: {pipeId}");
+                Debug.WriteLine($"Sender: {sender?.GetType().Name}");
+                Debug.WriteLine($"=========================================");
+
+                var pipeElement = sender as FrameworkElement;
+                if (pipeElement == null)
+                {
+                    Debug.WriteLine("⚠️ 警告：发送者不是 FrameworkElement");
+                    return;
+                }
+
+                // ✅ 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(pipeId);
+
+                // ✅ 记录选中状态
+                _selectedPipeId = pipeId;
+                _selectedPipeElement = pipeElement;
+
+                Debug.WriteLine($"✅ 画布已确认管道选中: {pipeId}");
+
+                // 更新状态栏
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中管道: {pipeId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理管道选中通知失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管道控件通知画布：我被取消选中了
+        /// </summary>
+        private void OnPipeDeselectedFromControl(object sender, string pipeId)
+        {
+            try
+            {
+                Debug.WriteLine($"画布收到管道取消选中通知: {pipeId}");
+
+                if (_selectedPipeId == pipeId)
+                {
+                    _selectedPipeId = null;
+                    _selectedPipeElement = null;
+                    Debug.WriteLine("画布已清除管道选择");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理管道取消选中通知失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清除除指定管道外的所有管道选择
+        /// </summary>
+        private void ClearAllPipeSelectionsExcept(string exceptPipeId)
+        {
+            foreach (var child in DesignCanvas.Children)
+            {
+                if (child is StraightPipeControl straightPipe && straightPipe.PipeId != exceptPipeId)
+                {
+                    straightPipe.IsSelected = false;
+                }
+                else if (child is ElbowPipeControl elbowPipe && elbowPipe.PipeId != exceptPipeId)
+                {
+                    elbowPipe.IsSelected = false;
+                }
+                else if (child is ZShapePipeControl zPipe && zPipe.PipeId != exceptPipeId)
+                {
+                    zPipe.IsSelected = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 创建弯管道 - 使用命令模式
+        /// </summary>
+        private void CreateElbowPipe(Point position)
+        {
+            var pipe = new ElbowPipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                HorizontalLength = 35,
+                VerticalLength = 42,
+                PipeWidth = 8
+            };
+
+            // 订阅事件
+            SubscribeElbowPipeEvents(pipe);
+
+            // ✅ 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "弯管道",
+                _pipeConnectionService);
+
+            _commandHistory.ExecuteCommand(addCommand);
+
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+            Debug.WriteLine($"弯管道已创建: {pipe.PipeId}");
+        }
+
+        /// <summary>
+        /// 订阅弯管道事件
+        /// </summary>
+        private void SubscribeElbowPipeEvents(ElbowPipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnElbowPipeDragStarted;
+            pipe.PipeDragging += OnElbowPipeDragging;
+            pipe.PipeDragCompleted += OnElbowPipeDragCompleted;
+            pipe.PipeResizeStarted += OnElbowPipeResizeStarted;
+            pipe.PipeResizing += OnElbowPipeResizing;
+            pipe.PipeResizeCompleted += OnElbowPipeResizeCompleted;
+            pipe.PipeRotateStarted += OnElbowPipeRotateStarted;
+            pipe.PipeRotating += OnElbowPipeRotating;
+            pipe.PipeRotateCompleted += OnElbowPipeRotateCompleted;
+            // ✅ 订阅选中事件
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
+
+        /// <summary>
+        /// 创建Z形管道 - 使用命令模式
+        /// </summary>
+        private void CreateZShapePipe(Point position)
+        {
+            var pipe = new ZShapePipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                TopHorizontalLength = 20,
+                BottomHorizontalLength = 20,
+                VerticalOffset = 40,
+                PipeWidth = 8
+            };
+
+            // 订阅事件
+            SubscribeZShapePipeEvents(pipe);
+
+            // ✅ 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "Z形管道",
+                _pipeConnectionService);
+
+            _commandHistory.ExecuteCommand(addCommand);
+
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+            Debug.WriteLine($"Z形管道已创建: {pipe.PipeId}");
+        }
+
+        /// <summary>
+        /// 订阅Z形管道事件
+        /// </summary>
+        private void SubscribeZShapePipeEvents(ZShapePipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnZShapePipeDragStarted;
+            pipe.PipeDragging += OnZShapePipeDragging;
+            pipe.PipeDragCompleted += OnZShapePipeDragCompleted;
+            pipe.PipeResizeStarted += OnZShapePipeResizeStarted;
+            pipe.PipeResizing += OnZShapePipeResizing;
+            pipe.PipeResizeCompleted += OnZShapePipeResizeCompleted;
+            pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
+            pipe.PipeRotating += OnZShapePipeRotating;
+            pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
+            // ✅ 订阅选中事件
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
         }
 
         #endregion
