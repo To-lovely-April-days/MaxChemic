@@ -2807,8 +2807,12 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 设置事件处理器
             AttachDeviceEventHandlers(deviceControl);
+
+            // ✅ 新增：如果设备包含阀门控件，订阅阀门事件
+            SubscribeValveEventsInDevice(deviceControl);
+
             if (canvasDevice.Device?.Name?.Contains("锥形瓶") == true ||
-        canvasDevice.Device?.Name?.Contains("Flask") == true)
+                canvasDevice.Device?.Name?.Contains("Flask") == true)
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -2819,6 +2823,7 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
+
             Debug.WriteLine($"设备视觉元素创建完成: {canvasDevice.Device.Name}, ID: {canvasDevice.DeviceId}");
         }
 
@@ -3869,6 +3874,14 @@ namespace MaxChemical.Modules.Designer.Views
                             double pumpHeight = baseHeight;
                             Debug.WriteLine($"柱塞泵尺寸: {pumpWidth:F0}x{pumpHeight:F0}");
                             return new Size(pumpWidth, pumpHeight);
+
+                        // ✅ 新增：阀门尺寸
+                        case "ValveControl":
+                            double valveWidth = 200 * 0.5;   // 100（阀门原尺寸200x200，缩小到一半）
+                            double valveHeight = 200 * 0.5;  // 100
+                            Debug.WriteLine($"阀门尺寸: {valveWidth:F0}x{valveHeight:F0}");
+                            return new Size(valveWidth, valveHeight);
+
                     }
                 }
                 // 普通图片尺寸处理
@@ -4002,6 +4015,9 @@ namespace MaxChemical.Modules.Designer.Views
                     case "PistonPumpControl":
                         return CreatePistonPumpIcon(targetWidth, targetHeight);
 
+                    // ✅ 新增：阀门控件
+                    case "ValveControl":
+                        return CreateValveIcon(targetWidth, targetHeight);
                     // 未来可以添加其他自定义控件
                     default:
                         Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
@@ -6801,6 +6817,250 @@ namespace MaxChemical.Modules.Designer.Views
             // ✅ 订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
+
+        #endregion
+
+
+        #region 阀门管理
+
+        /// <summary>
+        /// 创建阀门图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateValveIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var valveControl = new ValveControl
+                {
+                    IsHitTestVisible = true,  // ✅ 阀门需要交互（点击切换状态）
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    IsOpen = false  // 初始为关闭状态
+                };
+
+                // ✅ 移除：Loaded 事件中的边框隐藏逻辑
+                // 因为设备库中的阀门不需要选择功能，画布上的阀门才需要
+
+                // ✅ 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = valveControl,
+                    IsHitTestVisible = true  // ✅ 允许交互
+                };
+
+                Debug.WriteLine($"创建阀门图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建阀门图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "阀门");
+            }
+        }
+        /// <summary>
+        /// 订阅设备中包含的阀门控件事件
+        /// </summary>
+        private void SubscribeValveEventsInDevice(Border deviceControl)
+        {
+            try
+            {
+                // 查找设备中的 ValveControl
+                var valve = FindVisualChild<ValveControl>(deviceControl);
+
+                if (valve != null)
+                {
+                    Debug.WriteLine($"发现阀门控件，准备订阅事件: {valve.ValveId}");
+
+                    // 订阅阀门事件
+                    SubscribeValveEvents(valve);
+
+                    Debug.WriteLine($"✅ 阀门事件订阅完成: {valve.ValveId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅阀门事件失败: {ex.Message}");
+            }
+        }
+        #endregion
+        #region 阀门事件处理
+
+        /// <summary>
+        /// 订阅阀门事件
+        /// </summary>
+        private void SubscribeValveEvents(ValveControl valve)
+        {
+            // 拖动事件
+            valve.ValveDragStarted += OnValveDragStarted;
+            valve.ValveDragging += OnValveDragging;
+            valve.ValveDragCompleted += OnValveDragCompleted;
+
+            // ✅ 旋转事件
+            valve.ValveRotateStarted += OnValveRotateStarted;
+            valve.ValveRotating += OnValveRotating;
+            valve.ValveRotateCompleted += OnValveRotateCompleted;
+
+            // 选中事件
+            valve.ValveSelected += OnValveSelectedFromControl;
+            valve.ValveDeselected += OnValveDeselectedFromControl;
+
+            Debug.WriteLine($"阀门事件已订阅: {valve.ValveId}");
+        }
+
+        /// <summary>
+        /// 阀门拖动开始
+        /// </summary>
+        private void OnValveDragStarted(object sender, ValveDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"阀门拖动开始: {e.ValveId}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动阀门...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"阀门拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门拖动中
+        /// </summary>
+        private void OnValveDragging(object sender, ValveDragEventArgs e)
+        {
+            // 节流检查
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
+            {
+                return;
+            }
+            _lastMouseMoveTime = now;
+
+            try
+            {
+                // 可以添加吸附逻辑（与管道类似）
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"阀门拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门拖动完成
+        /// </summary>
+        private void OnValveDragCompleted(object sender, ValveDragEventArgs e)
+        {
+            try
+            {
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("阀门移动完成");
+
+                Debug.WriteLine($"阀门拖动完成: {e.ValveId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"阀门拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门旋转开始
+        /// </summary>
+        private void OnValveRotateStarted(object sender, ValveRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"阀门旋转开始: {e.ValveId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转阀门... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"阀门旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门旋转中
+        /// </summary>
+        private void OnValveRotating(object sender, ValveRotateEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏显示当前角度
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"阀门旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门旋转完成
+        /// </summary>
+        private void OnValveRotateCompleted(object sender, ValveRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"阀门旋转完成: {e.ValveId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"阀门已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"阀门旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门选中
+        /// </summary>
+        private void OnValveSelectedFromControl(object sender, string valveId)
+        {
+            try
+            {
+                Debug.WriteLine($"阀门被选中: {valveId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中阀门: {valveId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理阀门选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 阀门取消选中
+        /// </summary>
+        private void OnValveDeselectedFromControl(object sender, string valveId)
+        {
+            try
+            {
+                Debug.WriteLine($"阀门取消选中: {valveId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理阀门取消选中失败: {ex.Message}");
+            }
         }
 
         #endregion

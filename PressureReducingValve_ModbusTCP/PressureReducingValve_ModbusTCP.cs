@@ -135,8 +135,8 @@ namespace PressureReducingValve_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PressureReducingValve.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PressureReducingValve.png";
+            ImageLocation = "CUSTOM_CONTROL:ValveControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "PRV0101")
             {
                 Options = new ObservableCollection<string>(new List<string>()

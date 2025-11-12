@@ -22,12 +22,13 @@ namespace MaxChemical.Modules.Device.Converters
 
                     switch (controlType)
                     {
+                        #region 锥形瓶控件
                         case "ConicalFlaskControl":
                             var flaskControl = new ConicalFlaskControl
                             {
                                 FlaskWidth = 80,
                                 FlaskHeight = 120,
-                                IsHitTestVisible = false,
+                                IsHitTestVisible = true,  // ✅ 允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -37,61 +38,55 @@ namespace MaxChemical.Modules.Device.Converters
                                 Height = 40,
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
-                                Child = flaskControl
-                            };
-
-                            // 禁用锥形瓶的交互元素
-                            flaskControl.Loaded += (s, e) =>
-                            {
-                                var flask = s as ConicalFlaskControl;
-                                if (flask != null)
-                                {
-                                    var selectionBorder = flask.FindName("SelectionBorder") as System.Windows.Shapes.Rectangle;
-                                    var topAnchor = flask.FindName("TopAnchor") as System.Windows.Shapes.Ellipse;
-                                    var bottomAnchor = flask.FindName("BottomAnchor") as System.Windows.Shapes.Ellipse;
-                                    var leftAnchor = flask.FindName("LeftAnchor") as System.Windows.Shapes.Ellipse;
-                                    var rightAnchor = flask.FindName("RightAnchor") as System.Windows.Shapes.Ellipse;
-
-                                    if (selectionBorder != null) selectionBorder.Visibility = System.Windows.Visibility.Collapsed;
-                                    if (topAnchor != null) topAnchor.Visibility = System.Windows.Visibility.Collapsed;
-                                    if (bottomAnchor != null) bottomAnchor.Visibility = System.Windows.Visibility.Collapsed;
-                                    if (leftAnchor != null) leftAnchor.Visibility = System.Windows.Visibility.Collapsed;
-                                    if (rightAnchor != null) rightAnchor.Visibility = System.Windows.Visibility.Collapsed;
-                                }
+                                Child = flaskControl,
+                                IsHitTestVisible = true  // ✅ 允许交互
                             };
 
                             return flaskViewbox;
+                        #endregion
 
-                        // ✅ 新增：柱塞泵控件
+                        #region 柱塞泵控件
                         case "PistonPumpControl":
                             var pumpControl = new PistonPumpControl
                             {
-                                IsHitTestVisible = false,
+                                IsHitTestVisible = true,  // ✅ 允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
-                            // 使用 Viewbox 包裹以实现缩放
                             var pumpViewbox = new System.Windows.Controls.Viewbox
                             {
-                                Width = 40,  
+                                Width = 40,
                                 Height = 40,
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
-                                Child = pumpControl
-                            };
-
-                            // ✅ 不隐藏按钮，保持完整显示
-                            // 如果需要停止动画以节省性能，可以取消下面的注释
-                            pumpControl.Loaded += (s, e) =>
-                            {
-                                var pump = s as PistonPumpControl;
-                                if (pump != null)
-                                {
-                                    pump.StopPump();
-                                }
+                                Child = pumpControl,
+                                IsHitTestVisible = true  // ✅ 允许交互
                             };
 
                             return pumpViewbox;
+                        #endregion
+
+                        #region 阀门控件
+                        case "ValveControl":
+                            var valveControl = new ValveControl
+                            {
+                                IsHitTestVisible = true,  // ✅ 允许交互
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                IsOpen = false  // 初始为关闭状态
+                            };
+
+                            var valveViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = valveControl,
+                                IsHitTestVisible = true  // ✅ 允许交互
+                            };
+
+                            return valveViewbox;
+                        #endregion
 
                         default:
                             return null;
