@@ -25,15 +25,13 @@ namespace MaxChemical.Modules.Device.Converters
                         case "ConicalFlaskControl":
                             var flaskControl = new ConicalFlaskControl
                             {
-                                // 使用原始默认尺寸
                                 FlaskWidth = 80,
                                 FlaskHeight = 120,
                                 IsHitTestVisible = false,
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
-                            // 使用 Viewbox 包裹以实现缩放
-                            var viewbox = new System.Windows.Controls.Viewbox
+                            var flaskViewbox = new System.Windows.Controls.Viewbox
                             {
                                 Width = 40,
                                 Height = 40,
@@ -42,13 +40,12 @@ namespace MaxChemical.Modules.Device.Converters
                                 Child = flaskControl
                             };
 
-                            // 禁用交互元素
+                            // 禁用锥形瓶的交互元素
                             flaskControl.Loaded += (s, e) =>
                             {
                                 var flask = s as ConicalFlaskControl;
                                 if (flask != null)
                                 {
-                                    // 隐藏选中边框和所有锚点
                                     var selectionBorder = flask.FindName("SelectionBorder") as System.Windows.Shapes.Rectangle;
                                     var topAnchor = flask.FindName("TopAnchor") as System.Windows.Shapes.Ellipse;
                                     var bottomAnchor = flask.FindName("BottomAnchor") as System.Windows.Shapes.Ellipse;
@@ -63,7 +60,38 @@ namespace MaxChemical.Modules.Device.Converters
                                 }
                             };
 
-                            return viewbox;
+                            return flaskViewbox;
+
+                        // ✅ 新增：柱塞泵控件
+                        case "PistonPumpControl":
+                            var pumpControl = new PistonPumpControl
+                            {
+                                IsHitTestVisible = false,
+                                Cursor = System.Windows.Input.Cursors.Hand
+                            };
+
+                            // 使用 Viewbox 包裹以实现缩放
+                            var pumpViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,  
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = pumpControl
+                            };
+
+                            // ✅ 不隐藏按钮，保持完整显示
+                            // 如果需要停止动画以节省性能，可以取消下面的注释
+                            pumpControl.Loaded += (s, e) =>
+                            {
+                                var pump = s as PistonPumpControl;
+                                if (pump != null)
+                                {
+                                    pump.StopPump();
+                                }
+                            };
+
+                            return pumpViewbox;
 
                         default:
                             return null;

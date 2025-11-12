@@ -257,8 +257,8 @@ namespace PeristalticPumps_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/Pistonpumps.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/Pistonpumps.png";
+            ImageLocation = "CUSTOM_CONTROL:PistonPumpControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "P0101")
             {
                 Options = new ObservableCollection<string>(new List<string>() { "P0101", "P0111", "P0121" }),

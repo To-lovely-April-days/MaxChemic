@@ -38,7 +38,6 @@
                                    FontSize="12" 
                                    FontWeight="SemiBold" 
                                    Margin="0,0,0,5"/>
-                        <!-- 只改预览尺寸：从 120x40 改为 80x25 -->
                         <local:StraightPipeControl Width="80" 
                                                    Height="25" 
                                                    IsHitTestVisible="False"/>
@@ -63,7 +62,6 @@
                                    FontSize="12" 
                                    FontWeight="SemiBold" 
                                    Margin="0,0,0,5"/>
-                        <!-- 只改预览尺寸：从 80x80 改为 50x50 -->
                         <local:ElbowPipeControl Width="50" 
                                                Height="50" 
                                                IsHitTestVisible="False"
@@ -89,7 +87,6 @@
                                    FontSize="12" 
                                    FontWeight="SemiBold" 
                                    Margin="0,0,0,5"/>
-                        <!-- 只改预览尺寸：从 120x100 改为 90x60 -->
                         <local:ZShapePipeControl Width="90" 
                                                 Height="60" 
                                                 IsHitTestVisible="False"
@@ -100,30 +97,59 @@
                                    Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
+
                 <!-- 锥形瓶 -->
                 <Border Background="#F5F5F5" 
-        Padding="10" 
-        Margin="0,0,0,10"
-        CornerRadius="3"
-        Cursor="Hand"
-        MouseDown="OnConicalFlaskMouseDown"
-        MouseEnter="OnToolboxItemMouseEnter"
-        MouseLeave="OnToolboxItemMouseLeave">
+                        Padding="10" 
+                        Margin="0,0,0,10"
+                        CornerRadius="3"
+                        Cursor="Hand"
+                        MouseDown="OnConicalFlaskMouseDown"
+                        MouseEnter="OnToolboxItemMouseEnter"
+                        MouseLeave="OnToolboxItemMouseLeave">
                     <StackPanel>
                         <TextBlock Text="锥形瓶" 
-                   FontSize="12" 
-                   FontWeight="SemiBold" 
-                   Margin="0,0,0,5"/>
+                                   FontSize="12" 
+                                   FontWeight="SemiBold" 
+                                   Margin="0,0,0,5"/>
                         <local:ConicalFlaskControl Width="60" 
-                                   Height="90" 
-                                   IsHitTestVisible="False"
-                                   HorizontalAlignment="Center"/>
+                                                   Height="90" 
+                                                   IsHitTestVisible="False"
+                                                   HorizontalAlignment="Center"/>
                         <TextBlock Text="拖拽到画布使用" 
-                   FontSize="10" 
-                   Foreground="Gray" 
-                   Margin="0,5,0,0"/>
+                                   FontSize="10" 
+                                   Foreground="Gray" 
+                                   Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
+
+                <!-- ✅ 柱塞泵 - 调整为更小的预览尺寸 -->
+                <Border Background="#F5F5F5" 
+                        Padding="10,8,10,10" 
+                        Margin="0,0,0,10"
+                        CornerRadius="3"
+                        Cursor="Hand"
+                        MouseDown="OnPistonPumpMouseDown"
+                        MouseEnter="OnToolboxItemMouseEnter"
+                        MouseLeave="OnToolboxItemMouseLeave">
+                    <StackPanel>
+                        <TextBlock Text="柱塞泵" 
+                                   FontSize="12" 
+                                   FontWeight="SemiBold" 
+                                   Margin="0,0,0,3"/>
+                        <!-- 调整为更小尺寸：88x60 (保持比例 880:600 = 22:15) -->
+                        <Viewbox Width="120" Height="70" Stretch="Uniform" Margin="0,2,0,2">
+                            <local:PistonPumpControl Width="880" 
+                                                    Height="600" 
+                                                    IsHitTestVisible="False"/>
+                        </Viewbox>
+                        <TextBlock Text="拖拽到画布使用" 
+                                   FontSize="10" 
+                                   Foreground="Gray" 
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- 将来可以添加更多管道类型 -->
                 <TextBlock Text="更多组件..." 
                            FontSize="11" 

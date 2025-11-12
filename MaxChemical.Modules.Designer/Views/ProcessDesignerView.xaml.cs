@@ -3853,22 +3853,22 @@ namespace MaxChemical.Modules.Designer.Views
                     switch (controlType)
                     {
                         case "ConicalFlaskControl":
-                            // ✅ 锥形瓶的宽高比约为 80:120 = 2:3
-                            // ⚠️ 关键修复：使用更大的基础尺寸
-                            double baseWidth = 80;  // 原始宽度
-                            double baseHeight = 120; // 原始高度
-                            double aspectRatio = baseWidth / baseHeight; // 约 0.667
+                            // 锥形瓶尺寸
+                            double flaskWidth = 80;
+                            double flaskHeight = 120;
+                            Debug.WriteLine($"锥形瓶尺寸: {flaskWidth:F0}x{flaskHeight:F0}");
+                            return new Size(flaskWidth, flaskHeight);
 
-                            // 方案A：保持原始尺寸（最简单）
-                            double targetWidth = baseWidth;
-                            double targetHeight = baseHeight;
-
-                            // 方案B：根据画布缩放调整（如果设备图标需要更大）
-                            // double targetWidth = 100;
-                            // double targetHeight = targetWidth / aspectRatio; // 150
-
-                            Debug.WriteLine($"锥形瓶尺寸: {targetWidth:F0}x{targetHeight:F0}");
-                            return new Size(targetWidth, targetHeight);
+                        // ✅ 新增：柱塞泵尺寸
+                        case "PistonPumpControl":
+                            // 根据你的 XAML：Width="880" Height="600"
+                            // 但画布上需要缩小显示
+                            double baseWidth = 880 * 0.25;   // 176
+                            double baseHeight = 600 * 0.25;  // 120
+                            double pumpWidth = baseWidth;
+                            double pumpHeight = baseHeight;
+                            Debug.WriteLine($"柱塞泵尺寸: {pumpWidth:F0}x{pumpHeight:F0}");
+                            return new Size(pumpWidth, pumpHeight);
                     }
                 }
                 // 普通图片尺寸处理
@@ -3984,7 +3984,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         /// <summary>
-        /// 创建自定义控件图标（锥形瓶等）
+        /// 创建自定义控件图标（锥形瓶、柱塞泵等）
         /// </summary>
         private UIElement CreateCustomControlIcon(string imageLocation, double targetWidth, double targetHeight)
         {
@@ -3997,6 +3997,10 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     case "ConicalFlaskControl":
                         return CreateConicalFlaskIcon(targetWidth, targetHeight);
+
+                    // ✅ 新增：柱塞泵控件
+                    case "PistonPumpControl":
+                        return CreatePistonPumpIcon(targetWidth, targetHeight);
 
                     // 未来可以添加其他自定义控件
                     default:
@@ -4077,6 +4081,71 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"❌ 创建锥形瓶图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "锥形瓶");
             }
+        }
+
+        /// <summary>
+        /// 创建柱塞泵图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreatePistonPumpIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                // ✅ 创建柱塞泵控件实例
+                var pumpControl = new PistonPumpControl
+                {
+                    IsHitTestVisible = false,
+                    Cursor = System.Windows.Input.Cursors.Hand
+                };
+                //pumpControl.StartPump();
+
+                // ✅ 包装在 Viewbox 中，适应目标尺寸
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = pumpControl,
+                    IsHitTestVisible = false
+                };
+                
+                Debug.WriteLine($"创建柱塞泵图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建柱塞泵图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "柱塞泵");
+            }
+        }
+
+       
+        /// <summary>
+        /// 通用的可视化树查找辅助方法
+        /// </summary>
+        private T FindVisualChild<T>(DependencyObject parent, Func<T, bool> predicate = null)
+            where T : DependencyObject
+        {
+            if (parent == null) return null;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+
+                if (child is T typedChild && (predicate == null || predicate(typedChild)))
+                {
+                    return typedChild;
+                }
+
+                var result = FindVisualChild(child, predicate);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            return null;
         }
         /// <summary>
         /// 隐藏锥形瓶的交互元素（选择边框、锚点等）

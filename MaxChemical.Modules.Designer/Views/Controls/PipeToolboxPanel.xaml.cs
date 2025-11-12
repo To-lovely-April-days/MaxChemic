@@ -115,18 +115,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        /// <summary>
-        /// 锥形瓶拖拽
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        #region 锥形瓶拖拽
+
         private void OnConicalFlaskMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 var pipeData = new PipeDragData
                 {
-                    PipeType = PipeType.Conical,  // ✅ 新增枚举值
+                    PipeType = PipeType.Conical,
                     Width = 80,
                     Height = 120
                 };
@@ -140,6 +137,33 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 });
             }
         }
+
+        #endregion
+
+        #region ✅ 柱塞泵拖拽
+
+        private void OnPistonPumpMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                var pipeData = new PipeDragData
+                {
+                    PipeType = PipeType.PistonPump,
+                    Width = 880,
+                    Height = 600
+                };
+
+                var dataObject = new DataObject("PipeData", pipeData);
+                DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
+
+                PipeDragStarted?.Invoke(this, new PipeDragStartEventArgs
+                {
+                    PipeType = PipeType.PistonPump
+                });
+            }
+        }
+
+        #endregion
     }
 
     #region 事件参数和数据类
@@ -158,13 +182,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
     public enum PipeType
     {
-        Straight,   // 直管道
-        Elbow,      // 弯管道（90度）
-        ZShape,     // Z字形管道
-        Conical,    // ✅ 锥形瓶
-        Tee,        // 三通管道
-        Cross,      // 四通管道
-        Valve       // 阀门
+        Straight,      // 直管道
+        Elbow,         // 弯管道（90度）
+        ZShape,        // Z字形管道
+        Conical,       // 锥形瓶
+        PistonPump,    // ✅ 柱塞泵
+        Tee,           // 三通管道
+        Cross,         // 四通管道
+        Valve          // 阀门
     }
 
     #endregion
