@@ -4090,15 +4090,14 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // ✅ 创建柱塞泵控件实例
+                // ✅ 创建柱塞泵控件实例 - 允许交互
                 var pumpControl = new PistonPumpControl
                 {
-                    IsHitTestVisible = false,
+                    IsHitTestVisible = true,  // ✅ 改为 true，允许按钮点击
                     Cursor = System.Windows.Input.Cursors.Hand
                 };
-                //pumpControl.StartPump();
 
-                // ✅ 包装在 Viewbox 中，适应目标尺寸
+                // ✅ 包装在 Viewbox 中 - 也要允许交互
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -4106,10 +4105,10 @@ namespace MaxChemical.Modules.Designer.Views
                     Stretch = System.Windows.Media.Stretch.Uniform,
                     StretchDirection = System.Windows.Controls.StretchDirection.Both,
                     Child = pumpControl,
-                    IsHitTestVisible = false
+                    IsHitTestVisible = true  // ✅ 改为 true
                 };
-                
-                Debug.WriteLine($"创建柱塞泵图标容器: {targetWidth}x{targetHeight}");
+
+                Debug.WriteLine($"创建柱塞泵图标容器（画布可交互）: {targetWidth}x{targetHeight}");
                 return viewbox;
             }
             catch (Exception ex)
@@ -4119,7 +4118,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-       
+
         /// <summary>
         /// 通用的可视化树查找辅助方法
         /// </summary>

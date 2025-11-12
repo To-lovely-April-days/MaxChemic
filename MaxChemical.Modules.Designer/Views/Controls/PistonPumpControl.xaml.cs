@@ -7,6 +7,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
+using System.Windows.Shapes;
 using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
@@ -132,13 +134,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             bool isInDesignMode = DesignerProperties.GetIsInDesignMode(this);
 
-            if (!isInDesignMode)
-            {
-                this.MouseDown += OnControlMouseDown;
-                this.MouseMove += OnControlMouseMove;
-                this.MouseUp += OnControlMouseUp;
-                this.MouseLeave += OnControlMouseLeave;
-            }
+            //if (!isInDesignMode)
+            //{
+            //    this.MouseDown += OnControlMouseDown;
+            //    this.MouseMove += OnControlMouseMove;
+            //    this.MouseUp += OnControlMouseUp;
+            //    this.MouseLeave += OnControlMouseLeave;
+            //}
 
             this.Loaded += OnPumpControlLoaded;
 
@@ -315,10 +317,52 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 {
                     Debug.WriteLine("⚠️ 无法更新泵运行状态: 动画资源未加载");
                 }
+
+                // ✅ 新增：更新电源按钮颜色（可选）
+                UpdatePowerButtonColor();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 更新泵运行状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 更新电源按钮颜色（运行时红色，停止时绿色）
+        /// </summary>
+        private void UpdatePowerButtonColor()
+        {
+            try
+            {
+                // 查找电源按钮中的 Path（需要在 XAML 中给 Path 命名为 PowerIcon）
+                var powerIcon = this.FindName("PowerIcon") as System.Windows.Shapes.Path;
+                if (powerIcon != null)
+                {
+                    if (_isRunning)
+                    {
+                        // 运行时 - 红色
+                        powerIcon.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
+                        var effect = powerIcon.Effect as DropShadowEffect;
+                        if (effect != null)
+                        {
+                            effect.Color = Color.FromRgb(255, 59, 48);
+                        }
+                    }
+                    else
+                    {
+                        // 停止时 - 绿色
+                        powerIcon.Fill = new SolidColorBrush(Color.FromRgb(26, 187, 72));
+                        var effect = powerIcon.Effect as DropShadowEffect;
+                        if (effect != null)
+                        {
+                            effect.Color = Color.FromRgb(26, 187, 72);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 更新电源按钮颜色失败: {ex.Message}");
             }
         }
 
@@ -470,16 +514,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 if (!_isDraggingPump) return;
+
                 var finalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
+
                 PumpDragCompleted?.Invoke(this, new PumpDragEventArgs
                 {
                     PumpId = PumpId,
                     StartPosition = _originalPosition,
                     CurrentPosition = finalPosition
                 });
+
                 this.Opacity = 1.0;
                 _isDraggingPump = false;
-                this.ReleaseMouseCapture();
+
                 Debug.WriteLine($"✅ 柱塞泵 {PumpId} 拖拽完成: ({finalPosition.X:F0}, {finalPosition.Y:F0})");
             }
             catch (Exception ex)
@@ -650,6 +697,199 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
+
+        #region 按钮事件处理
+
+        /// <summary>
+        /// 电源按钮点击 - 切换泵的运行状态
+        /// </summary>
+        private void OnPowerButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // ✅ 切换运行状态
+                TogglePump();
+
+                // ✅ 阻止事件冒泡，避免触发设备拖拽
+                e.Handled = true;
+
+                Debug.WriteLine($"💡 电源按钮点击: {(IsRunning ? "启动泵" : "停止泵")}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 电源按钮点击处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 增加速度按钮点击
+        /// </summary>
+        private void OnIncreaseButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                IncreaseSpeed(10);
+
+                // ✅ 阻止事件冒泡
+                e.Handled = true;
+
+                Debug.WriteLine($"⬆️ 增加速度按钮点击: 当前速度 {PumpSpeed}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 增加速度按钮点击处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 减少速度按钮点击
+        /// </summary>
+        private void OnDecreaseButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                DecreaseSpeed(10);
+
+                // ✅ 阻止事件冒泡
+                e.Handled = true;
+
+                Debug.WriteLine($"⬇️ 减少速度按钮点击: 当前速度 {PumpSpeed}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 减少速度按钮点击处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 可拖拽区域的鼠标按下事件
+        /// </summary>
+        private void OnDraggableAreaMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (e.LeftButton == MouseButtonState.Pressed)
+                {
+                    // ✅ 选中设备
+                    PumpSelected?.Invoke(this, this.PumpId);
+                    this.IsSelected = true;
+
+                    // ✅ 开始拖拽
+                    _isDraggingPump = true;
+                    var parent = this.Parent as Canvas;
+                    if (parent != null)
+                    {
+                        _dragStartPoint = e.GetPosition(parent);
+                        _originalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
+                        if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
+                        if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
+                    }
+
+                    // ✅ 捕获鼠标（在 Rectangle 上捕获，而不是整个 UserControl）
+                    var draggableArea = sender as Rectangle;
+                    draggableArea?.CaptureMouse();
+
+                    this.Opacity = 0.7;
+
+                    PumpDragStarted?.Invoke(this, new PumpDragEventArgs
+                    {
+                        PumpId = PumpId,
+                        StartPosition = _originalPosition
+                    });
+
+                    e.Handled = true;
+                    Debug.WriteLine($"🖱️ 开始拖拽柱塞泵 {PumpId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 鼠标按下事件处理失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 可拖拽区域的鼠标移动事件
+        /// </summary>
+        private void OnDraggableAreaMouseMove(object sender, MouseEventArgs e)
+        {
+            try
+            {
+                if (_isDraggingPump && e.LeftButton == MouseButtonState.Pressed)
+                {
+                    var parent = this.Parent as Canvas;
+                    if (parent != null)
+                    {
+                        var currentPoint = e.GetPosition(parent);
+                        double deltaX = currentPoint.X - _dragStartPoint.X;
+                        double deltaY = currentPoint.Y - _dragStartPoint.Y;
+
+                        double newLeft = Math.Max(0, Math.Min(parent.ActualWidth - this.ActualWidth,
+                                                              _originalPosition.X + deltaX));
+                        double newTop = Math.Max(0, Math.Min(parent.ActualHeight - this.ActualHeight,
+                                                             _originalPosition.Y + deltaY));
+
+                        Canvas.SetLeft(this, newLeft);
+                        Canvas.SetTop(this, newTop);
+
+                        PumpDragging?.Invoke(this, new PumpDragEventArgs
+                        {
+                            PumpId = PumpId,
+                            CurrentPosition = new Point(newLeft, newTop)
+                        });
+                    }
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 鼠标移动事件处理失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 可拖拽区域的鼠标释放事件
+        /// </summary>
+        private void OnDraggableAreaMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (_isDraggingPump)
+                {
+                    CompletePumpDrag();
+
+                    // ✅ 释放鼠标捕获
+                    var draggableArea = sender as Rectangle;
+                    draggableArea?.ReleaseMouseCapture();
+
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 鼠标释放事件处理失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// 可拖拽区域的鼠标离开事件
+        /// </summary>
+        private void OnDraggableAreaMouseLeave(object sender, MouseEventArgs e)
+        {
+            try
+            {
+                if (_isDraggingPump)
+                {
+                    CompletePumpDrag();
+
+                    // ✅ 释放鼠标捕获
+                    var draggableArea = sender as Rectangle;
+                    draggableArea?.ReleaseMouseCapture();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 鼠标离开事件处理失败: {ex.Message}");
+            }
+        }
     }
 
     #region 辅助类和枚举

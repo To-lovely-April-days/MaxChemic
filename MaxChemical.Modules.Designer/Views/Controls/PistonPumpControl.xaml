@@ -219,7 +219,17 @@
     </UserControl.Triggers>-->
 
     <Canvas Background="Transparent">
-
+        <!-- ===== 添加一个可拖拽的覆盖层 ===== -->
+        <Rectangle x:Name="DraggableArea"
+               Canvas.Left="0" Canvas.Top="0"
+               Width="880" Height="600"
+               Fill="Transparent"
+               Panel.ZIndex="0"
+               Cursor="SizeAll"
+               MouseDown="OnDraggableAreaMouseDown"
+               MouseMove="OnDraggableAreaMouseMove"
+               MouseUp="OnDraggableAreaMouseUp"
+               MouseLeave="OnDraggableAreaMouseLeave"/>
         <!-- ===== 第1层：地面阴影 ===== -->
         <Ellipse Canvas.Left="240" Canvas.Top="592"
                  Width="320" Height="6" Opacity="0.15">
@@ -392,7 +402,7 @@
 
         <!-- ===== 第11层：泵速显示框 ===== -->
         <Border Canvas.Left="124" Canvas.Top="82" Width="181" Height="68" CornerRadius="12" 
-                Background="White" BorderBrush="#E8EEF1" BorderThickness="2" Panel.ZIndex="8">
+        Background="White" BorderBrush="#E8EEF1" BorderThickness="2" Panel.ZIndex="8">
             <Border.Effect>
                 <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="8" ShadowDepth="3" Direction="225"/>
             </Border.Effect>
@@ -406,9 +416,15 @@
                         </LinearGradientBrush>
                     </Border.Background>
                 </Border>
-                <TextBlock Text="20" FontSize="40" FontWeight="SemiBold" 
-                          Foreground="#2A4A68" TextAlignment="Center" 
-                          VerticalAlignment="Center" FontFamily="Segoe UI, Arial"/>
+                <!-- ✅ 修改：绑定到 PumpSpeed 属性 -->
+                <TextBlock x:Name="SpeedDisplay"  
+                   Text="{Binding PumpSpeed, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                   FontSize="40" 
+                   FontWeight="SemiBold" 
+                   Foreground="#2A4A68" 
+                   TextAlignment="Center" 
+                   VerticalAlignment="Center" 
+                   FontFamily="Segoe UI, Arial"/>
             </Grid>
         </Border>
 
@@ -605,14 +621,19 @@
                 </Ellipse.Effect>
             </Ellipse>
         </Canvas>
-
         <!-- ===== 第17层：电源按钮 ===== -->
         <Button Canvas.Left="124" Canvas.Top="399" Width="82" Height="82" 
-        Style="{StaticResource PowerButtonStyle}" Panel.ZIndex="11" Cursor="Hand">
+        Style="{StaticResource PowerButtonStyle}" 
+        Panel.ZIndex="100" 
+        Cursor="Hand"
+        Click="OnPowerButtonClick">
+            <!-- ✅ 添加点击事件 -->
             <Viewbox Width="50" Height="50" Stretch="Uniform">
                 <Canvas Width="1024" Height="1024">
-                    <Path Data="M320 108.8v70.4c-115.2 64-192 192-192 332.8 0 211.2 172.8 384 384 384s384-172.8 384-384c0-140.8-76.8-262.4-192-332.8V108.8c153.6 70.4 256 224 256 403.2 0 249.6-198.4 448-448 448s-448-198.4-448-448c0-179.2 102.4-332.8 256-403.2zM544 64v288h-64V64h64z" 
+                    <Path x:Name="PowerIcon"  
+                        Data="M320 108.8v70.4c-115.2 64-192 192-192 332.8 0 211.2 172.8 384 384 384s384-172.8 384-384c0-140.8-76.8-262.4-192-332.8V108.8c153.6 70.4 256 224 256 403.2 0 249.6-198.4 448-448 448s-448-198.4-448-448c0-179.2 102.4-332.8 256-403.2zM544 64v288h-64V64h64z" 
                   Fill="#1ABB48">
+                        <!-- ✅ 默认绿色（停止状态） -->
                         <Path.Effect>
                             <DropShadowEffect Color="#1ABB48" Opacity="0.5" BlurRadius="6" ShadowDepth="0"/>
                         </Path.Effect>
@@ -623,7 +644,11 @@
 
         <!-- ===== 第18层：增加按钮 ===== -->
         <Button Canvas.Left="127" Canvas.Top="161" Width="82" Height="82" 
-        Style="{StaticResource CircleButtonStyle}" Panel.ZIndex="11" Cursor="Hand">
+        Style="{StaticResource CircleButtonStyle}" 
+        Panel.ZIndex="100" 
+        Cursor="Hand"
+        Click="OnIncreaseButtonClick">
+            <!-- ✅ 添加点击事件 -->
             <Viewbox Width="40" Height="40">
                 <Canvas Width="1024" Height="1024">
                     <Path Data="M861.417121,738.727375 C903.021852,738.727375 926.650504,683.76358 896.345760,653.469157 L547.071415,304.191372 C527.041419,284.159656 497.249294,284.159656 477.217578,304.191372 L127.955275,653.469157 C96.869561,684.54283 122.818761,738.727375 163.396533,738.727375 L861.417121,738.727375 Z" 
@@ -634,7 +659,11 @@
 
         <!-- ===== 第19层：减少按钮 ===== -->
         <Button Canvas.Left="219" Canvas.Top="161" Width="82" Height="82" 
-        Style="{StaticResource CircleButtonStyle}" Panel.ZIndex="11" Cursor="Hand">
+        Style="{StaticResource CircleButtonStyle}" 
+        Panel.ZIndex="100" 
+        Cursor="Hand"
+        Click="OnDecreaseButtonClick">
+            <!-- ✅ 添加点击事件 -->
             <Viewbox Width="40" Height="40">
                 <Canvas Width="1024" Height="1024">
                     <Path Data="M163.396533,289.168875 C122.818761,289.168875 96.871281,343.35342 127.955275,374.427093 L477.217578,723.704878 C497.249294,743.736594 527.041419,743.736594 547.073135,723.704878 L896.34748,374.427093 C926.652224,344.132670 903.025292,289.168875 861.419841,289.168875 L163.396533,289.168875 Z" 
@@ -642,5 +671,6 @@
                 </Canvas>
             </Viewbox>
         </Button>
+
     </Canvas>
 </UserControl>
