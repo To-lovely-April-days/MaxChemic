@@ -7,10 +7,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
 {
-    public partial class ConicalFlaskControl : UserControl, INotifyPropertyChanged
+    public partial class ConicalFlaskControl : UserControl, INotifyPropertyChanged, IPipeSnapPoints
     {
         #region 事件定义
 
@@ -400,6 +401,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 LiquidContainer.Clip = clipGeometry;
 
                 Debug.WriteLine($"液体几何更新: 水位 {_liquidLevel:F1}%, 高度 {liquidHeight:F0}px");
+
+
             }
             catch (Exception ex)
             {
@@ -876,34 +879,53 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             topHighlightGeometry.Figures.Add(topHighlightFigure);
             TopHighlight.Data = topHighlightGeometry;
 
-            double scaleSpacing = (bodyBottom - bodyTop - 20) / 4;
-            ScaleLine1.X1 = bodyBottomLeft + (neckLeft - bodyBottomLeft) * 0.7;
-            ScaleLine1.Y1 = bodyTop + scaleSpacing;
-            ScaleLine1.X2 = ScaleLine1.X1 + 10;
+            // ========== ✅ 修正：刻度线位置计算 ==========
+            double bodyHeight = bodyBottom - bodyTop;
+
+            // 100ml 刻度线（接近顶部 5%）
+            double height1Percent = 0.05;
+            double width1 = neckWidth + (bodyBottomWidth - neckWidth) * height1Percent;
+            double left1 = (_flaskWidth - width1) / 2;
+            ScaleLine1.X1 = left1;
+            ScaleLine1.Y1 = bodyTop + bodyHeight * height1Percent;
+            ScaleLine1.X2 = left1 + 10;
             ScaleLine1.Y2 = ScaleLine1.Y1;
 
-            ScaleLine2.X1 = bodyBottomLeft + (neckLeft - bodyBottomLeft) * 0.5;
-            ScaleLine2.Y1 = bodyTop + scaleSpacing * 2;
-            ScaleLine2.X2 = ScaleLine2.X1 + 10;
+            // 75ml 刻度线（25% 位置）
+            double height2Percent = 0.25;
+            double width2 = neckWidth + (bodyBottomWidth - neckWidth) * height2Percent;
+            double left2 = (_flaskWidth - width2) / 2;
+            ScaleLine2.X1 = left2;
+            ScaleLine2.Y1 = bodyTop + bodyHeight * height2Percent;
+            ScaleLine2.X2 = left2 + 10;
             ScaleLine2.Y2 = ScaleLine2.Y1;
 
-            ScaleLine3.X1 = bodyBottomLeft + (neckLeft - bodyBottomLeft) * 0.3;
-            ScaleLine3.Y1 = bodyTop + scaleSpacing * 3;
-            ScaleLine3.X2 = ScaleLine3.X1 + 10;
+            // 50ml 刻度线（50% 位置）
+            double height3Percent = 0.50;
+            double width3 = neckWidth + (bodyBottomWidth - neckWidth) * height3Percent;
+            double left3 = (_flaskWidth - width3) / 2;
+            ScaleLine3.X1 = left3;
+            ScaleLine3.Y1 = bodyTop + bodyHeight * height3Percent;
+            ScaleLine3.X2 = left3 + 10;
             ScaleLine3.Y2 = ScaleLine3.Y1;
 
-            ScaleLine4.X1 = bodyBottomLeft + (neckLeft - bodyBottomLeft) * 0.1;
-            ScaleLine4.Y1 = bodyTop + scaleSpacing * 4;
-            ScaleLine4.X2 = ScaleLine4.X1 + 10;
+            // 25ml 刻度线（75% 位置）
+            double height4Percent = 0.75;
+            double width4 = neckWidth + (bodyBottomWidth - neckWidth) * height4Percent;
+            double left4 = (_flaskWidth - width4) / 2;
+            ScaleLine4.X1 = left4;
+            ScaleLine4.Y1 = bodyTop + bodyHeight * height4Percent;
+            ScaleLine4.X2 = left4 + 10;
             ScaleLine4.Y2 = ScaleLine4.Y1;
 
+            // 刻度文本位置（统一使用 -17 保证对齐）
             Canvas.SetLeft(ScaleText1, ScaleLine1.X1 - 17);
             Canvas.SetTop(ScaleText1, ScaleLine1.Y1 - 3);
-            Canvas.SetLeft(ScaleText2, ScaleLine2.X1 - 15);
+            Canvas.SetLeft(ScaleText2, ScaleLine2.X1 - 17);
             Canvas.SetTop(ScaleText2, ScaleLine2.Y1 - 3);
-            Canvas.SetLeft(ScaleText3, ScaleLine3.X1 - 15);
+            Canvas.SetLeft(ScaleText3, ScaleLine3.X1 - 17);
             Canvas.SetTop(ScaleText3, ScaleLine3.Y1 - 3);
-            Canvas.SetLeft(ScaleText4, ScaleLine4.X1 - 15);
+            Canvas.SetLeft(ScaleText4, ScaleLine4.X1 - 17);
             Canvas.SetTop(ScaleText4, ScaleLine4.Y1 - 3);
 
             Canvas.SetLeft(FlaskBottom, bodyBottomLeft);
@@ -972,6 +994,88 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             Canvas.SetLeft(RightAnchor, _flaskWidth - 6);
             Canvas.SetTop(RightAnchor, _flaskHeight / 2 - 6);
+        }
+
+        #endregion
+        #region IPipeSnapPoints 实现
+
+        /// <summary>
+        /// 获取锥形瓶的吸附点（修正版 - 紧贴边缘）
+        /// </summary>
+        public List<PipeSnapPoint> GetSnapPoints()
+        {
+            var snapPoints = new List<PipeSnapPoint>();
+
+            var parent = this.Parent as Canvas;
+            if (parent == null) return snapPoints;
+
+            // 获取锥形瓶在画布上的位置
+            var flaskLeft = Canvas.GetLeft(this);
+            var flaskTop = Canvas.GetTop(this);
+            if (double.IsNaN(flaskLeft)) flaskLeft = 0;
+            if (double.IsNaN(flaskTop)) flaskTop = 0;
+
+            // 🔬 锥形瓶关键几何参数
+            double neckWidth = _flaskWidth * 0.3;
+            double neckHeight = _flaskHeight * 0.1;
+            double neckLeft = (_flaskWidth - neckWidth) / 2;
+            double transitionHeight = _flaskHeight * 0.15;
+            double bodyTop = 2 + neckHeight + transitionHeight;
+            double bodyBottomWidth = _flaskWidth * 0.8;
+            double bodyBottomLeft = (_flaskWidth - bodyBottomWidth) / 2;
+            double bodyBottom = _flaskHeight - 12;
+
+            // ========== ✅ 修复：顶部吸附点（瓶口正上方外侧） ==========
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    flaskLeft + _flaskWidth / 2,  // 水平中心
+                    flaskTop + 0  // ✅ 紧贴瓶口顶部外边缘
+                ),
+                Direction = SnapDirection.Up,
+                Description = $"锥形瓶顶部（瓶口）"
+            });
+
+            // ========== ✅ 修复：左侧吸附点（瓶颈底部左外侧） ==========
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    flaskLeft + neckLeft - 5,  // ✅ 瓶颈左边缘外侧 5px
+                    flaskTop + bodyTop
+                ),
+                Direction = SnapDirection.Left,
+                Description = $"锥形瓶左侧（瓶颈）"
+            });
+
+            // ========== ✅ 修复：右侧吸附点（瓶颈底部右外侧） ==========
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    flaskLeft + neckLeft + neckWidth + 5,  // ✅ 瓶颈右边缘外侧 5px
+                    flaskTop + bodyTop
+                ),
+                Direction = SnapDirection.Right,
+                Description = $"锥形瓶右侧（瓶颈）"
+            });
+
+            // ========== ✅ 修复：底部吸附点（瓶底正下方外侧） ==========
+            snapPoints.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(
+                    flaskLeft + _flaskWidth / 2,
+                    flaskTop + _flaskHeight + 5  // ✅ 瓶底外侧 5px
+                ),
+                Direction = SnapDirection.Down,
+                Description = $"锥形瓶底部"
+            });
+
+            Debug.WriteLine($"🔬 锥形瓶 {FlaskId} 提供 {snapPoints.Count} 个吸附点:");
+            foreach (var point in snapPoints)
+            {
+                Debug.WriteLine($"  📍 {point.Description} at ({point.WorldPosition.X:F1}, {point.WorldPosition.Y:F1}) 方向:{point.Direction}");
+            }
+
+            return snapPoints;
         }
 
         #endregion

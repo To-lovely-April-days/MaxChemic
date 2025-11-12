@@ -158,7 +158,13 @@
         </Path>
 
         <!-- ===== 第5层：液体容器（带裁剪） ===== -->
-        <Canvas x:Name="LiquidContainer" Panel.ZIndex="3" ClipToBounds="True">
+        <Canvas x:Name="LiquidContainer" 
+        Canvas.Left="0" 
+        Canvas.Top="0"
+        Width="{Binding FlaskWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"
+        Height="{Binding FlaskHeight, RelativeSource={RelativeSource AncestorType=UserControl}}"
+        Panel.ZIndex="100" 
+        ClipToBounds="False">
             <!-- 液体主体 -->
             <Path x:Name="FlaskLiquid" Visibility="Collapsed">
                 <Path.Fill>

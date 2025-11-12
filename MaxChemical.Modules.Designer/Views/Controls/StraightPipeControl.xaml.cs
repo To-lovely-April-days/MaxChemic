@@ -23,16 +23,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<PipeRotateEventArgs> PipeRotating;
         public event EventHandler<PipeRotateEventArgs> PipeRotateCompleted;
 
-        // ✅ 新增：管道选中事件
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
         public string PipeId { get; set; }
 
-        #region ✅ IsSelected 依赖属性
+        #region IsSelected 依赖属性
 
-        /// <summary>
-        /// 是否选中的依赖属性
-        /// </summary>
         public static readonly DependencyProperty IsSelectedProperty =
             DependencyProperty.Register(
                 nameof(IsSelected),
@@ -40,18 +36,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 typeof(StraightPipeControl),
                 new PropertyMetadata(false, OnIsSelectedChanged));
 
-        /// <summary>
-        /// 是否选中
-        /// </summary>
         public bool IsSelected
         {
             get => (bool)GetValue(IsSelectedProperty);
             set => SetValue(IsSelectedProperty, value);
         }
 
-        /// <summary>
-        /// 选中状态变化回调
-        /// </summary>
         private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is StraightPipeControl control)
@@ -60,14 +50,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// ✅ 修复：更新选中视觉效果
-        /// </summary>
         private void UpdateSelectionVisual(bool isSelected)
         {
             if (isSelected)
             {
-                // ========== 选中时 ==========
                 var orangeBrush = new SolidColorBrush(Colors.Orange);
                 var glowEffect = new System.Windows.Media.Effects.DropShadowEffect
                 {
@@ -101,9 +87,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             else
             {
-                // ========== ✅ 取消选中时：恢复原始样式 ==========
-
-                // ✅ 关键：移除管道主体的 Stroke
                 if (MainPipe != null)
                 {
                     MainPipe.Stroke = null;
@@ -111,17 +94,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     MainPipe.Effect = null;
                 }
 
-                // ✅ 恢复边缘线的原始颜色
                 if (TopEdgeLine != null)
                 {
-                    TopEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(60, 60, 60));
-                    TopEdgeLine.StrokeThickness = 1;
+                    TopEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(0x2A, 0x4A, 0x68));
+                    TopEdgeLine.StrokeThickness = 0.6;
                 }
 
                 if (BottomEdgeLine != null)
                 {
-                    BottomEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(40, 40, 40));
-                    BottomEdgeLine.StrokeThickness = 1;
+                    BottomEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(0x2A, 0x4A, 0x68));
+                    BottomEdgeLine.StrokeThickness = 0.6;
                 }
 
                 SelectionBorder.Visibility = Visibility.Collapsed;
@@ -134,7 +116,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
-
 
         private bool _isDraggingPipe = false;
         private bool _isResizing = false;
@@ -151,6 +132,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double MinPipeWidth = 8;
         private const double MaxPipeWidth = 100;
 
+        // ✅ 修改：默认管道长度 80（与XAML的MainPipe Width一致）
         private double _pipeLength = 80;
         private double _pipeWidth = 15;
         private double _rotationAngle = 0;
@@ -298,36 +280,41 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdatePipeGeometry()
         {
-            this.Width = _pipeLength + 16;
+            // ✅ 修改：控件总宽度计算
+            // 左法兰(Canvas.Left=6, Width=4) + 管道(Canvas.Left=10, Width=_pipeLength) + 右法兰(Width=4)
+            // = 6 + 4 + _pipeLength + 4 = _pipeLength + 14
+            this.Width = _pipeLength + 14;
             this.Height = _pipeWidth + 30;
 
+            // 管道主体位置
             MainPipe.Width = _pipeLength;
             MainPipe.Height = _pipeWidth;
-            Canvas.SetLeft(MainPipe, 8);
+            Canvas.SetLeft(MainPipe, 10);
             Canvas.SetTop(MainPipe, 15);
 
-            TopEdgeLine.X1 = 8;
-            TopEdgeLine.X2 = 8 + _pipeLength;
+            // 顶部和底部边缘线
+            TopEdgeLine.X1 = 10;
+            TopEdgeLine.X2 = 10 + _pipeLength;
             TopEdgeLine.Y1 = 15;
             TopEdgeLine.Y2 = 15;
 
-            BottomEdgeLine.X1 = 8;
-            BottomEdgeLine.X2 = 8 + _pipeLength;
+            BottomEdgeLine.X1 = 10;
+            BottomEdgeLine.X2 = 10 + _pipeLength;
             BottomEdgeLine.Y1 = 15 + _pipeWidth;
             BottomEdgeLine.Y2 = 15 + _pipeWidth;
 
+            // 高光和阴影
             TopHighlight.Width = _pipeLength - 2;
-            Canvas.SetLeft(TopHighlight, 9);
+            Canvas.SetLeft(TopHighlight, 11);
             Canvas.SetTop(TopHighlight, 16);
 
             BottomShadow.Width = _pipeLength - 2;
-            Canvas.SetLeft(BottomShadow, 9);
+            Canvas.SetLeft(BottomShadow, 11);
             Canvas.SetTop(BottomShadow, 15 + _pipeWidth - 2);
 
             UpdateFlanges();
-            UpdateConnections();
 
-            SelectionBorder.Width = this.Width;
+            SelectionBorder.Width = this.Width - 2;
             SelectionBorder.Height = _pipeWidth + 4;
 
             UpdateAnchorPositions();
@@ -336,17 +323,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlanges()
         {
-            double flangeHeight = _pipeWidth + 8;
+            // ✅ 修改：法兰高度改为管道宽度 + 4（上下各多出2px）
+            double flangeHeight = _pipeWidth + 4;
             double flangeTop = (this.Height - flangeHeight) / 2;
 
-            Canvas.SetLeft(LeftFlangeGroup, 2);
+            // 左侧法兰位置（XAML中 Canvas.Left="6"）
+            Canvas.SetLeft(LeftFlangeGroup, 6);
             Canvas.SetTop(LeftFlangeGroup, flangeTop);
             LeftFlangeBase.Height = flangeHeight;
             LeftFlangeGradient.Height = flangeHeight;
             LeftFlangeBorder.Height = flangeHeight;
             UpdateFlangeBolts(LeftBolt1, LeftBolt2, LeftBolt3, flangeHeight);
 
-            Canvas.SetLeft(RightFlangeGroup, this.Width - 8);
+            // 右侧法兰位置
+            Canvas.SetLeft(RightFlangeGroup, 10 + _pipeLength);
             Canvas.SetTop(RightFlangeGroup, flangeTop);
             RightFlangeBase.Height = flangeHeight;
             RightFlangeGradient.Height = flangeHeight;
@@ -356,29 +346,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlangeBolts(Ellipse bolt1, Ellipse bolt2, Ellipse bolt3, double flangeHeight)
         {
-            double boltSize = 2.5;
-            double leftPosition = 1.75;
-            double spacing = (flangeHeight - boltSize) / 4;
+            double boltSize = 2;
+            double leftPosition = 1;  // 居中：(4-2)/2 = 1
+
+            // ✅ 修改：螺栓垂直分布更合理
+            // 第一个螺栓：距离顶部 flangeHeight * 0.2
+            // 第二个螺栓：居中
+            // 第三个螺栓：距离底部 flangeHeight * 0.2
 
             Canvas.SetLeft(bolt1, leftPosition);
-            Canvas.SetTop(bolt1, spacing);
+            Canvas.SetTop(bolt1, flangeHeight * 0.2 - boltSize / 2);
 
             Canvas.SetLeft(bolt2, leftPosition);
-            Canvas.SetTop(bolt2, spacing * 2 + boltSize / 2);
+            Canvas.SetTop(bolt2, (flangeHeight - boltSize) / 2);
 
             Canvas.SetLeft(bolt3, leftPosition);
-            Canvas.SetTop(bolt3, spacing * 3 + boltSize);
-        }
-
-        private void UpdateConnections()
-        {
-            LeftConnection.Height = _pipeWidth;
-            Canvas.SetLeft(LeftConnection, 7);
-            Canvas.SetTop(LeftConnection, 15);
-
-            RightConnection.Height = _pipeWidth;
-            Canvas.SetLeft(RightConnection, 8 + _pipeLength - 1);
-            Canvas.SetTop(RightConnection, 15);
+            Canvas.SetTop(bolt3, flangeHeight * 0.8 - boltSize / 2);
         }
 
         private void UpdateAnchorPositions()
@@ -430,10 +413,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
-                // ✅ 新增：通知画布管道被选中
                 PipeSelected?.Invoke(this, this.PipeId);
-
-                // ✅ 设置选中状态
                 this.IsSelected = true;
 
                 _isDraggingPipe = true;
@@ -635,57 +615,42 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void ResizeLengthFromAnchor(Point currentMousePosition)
         {
-            // 计算固定点到鼠标位置的向量
             double deltaX = currentMousePosition.X - _fixedPoint.X;
             double deltaY = currentMousePosition.Y - _fixedPoint.Y;
 
-            // 获取当前旋转角度的弧度值
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // 将鼠标移动投影到管道的轴向（沿着管道方向）
-            // 这样可以只改变长度，而不改变角度
             double projectedLength = deltaX * cos + deltaY * sin;
 
-            // 如果拖动的是左侧锚点，方向相反
             if (_resizingAnchor == PipeAnchorPosition.Left)
             {
                 projectedLength = -projectedLength;
             }
 
-            // 新长度是投影距离的绝对值
             double newLength = Math.Abs(projectedLength);
-
-            // 限制在最小和最大长度之间
             newLength = Math.Max(MinPipeLength, Math.Min(MaxPipeLength, newLength));
 
-            // 只更新长度，不改变旋转角度
             _pipeLength = newLength;
 
-            // 重新计算控件的中心位置，确保固定点保持不动
-            // 固定点在局部坐标系中的位置
             double fixedLocalX = (_resizingAnchor == PipeAnchorPosition.Right)
-                ? -_pipeLength / 2  // 右侧锚点拖动时，左端是固定点
-                : _pipeLength / 2;   // 左侧锚点拖动时，右端是固定点
+                ? -_pipeLength / 2
+                : _pipeLength / 2;
 
-            // 将固定点的局部坐标转换为世界坐标偏移
             Point fixedOffset = new Point(
                 fixedLocalX * cos,
                 fixedLocalX * sin
             );
 
-            // 计算新的中心点位置
             Point newCenter = new Point(
                 _fixedPoint.X - fixedOffset.X,
                 _fixedPoint.Y - fixedOffset.Y
             );
 
-            // 更新控件位置
             Canvas.SetLeft(this, newCenter.X - this.ActualWidth / 2);
             Canvas.SetTop(this, newCenter.Y - this.ActualHeight / 2);
 
-            // 更新几何形状
             UpdatePipeGeometry();
 
             Debug.WriteLine($"调整长度: {_pipeLength:F1}px, 角度保持: {_rotationAngle:F1}°");
@@ -827,16 +792,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public void SetSelected(bool selected)
         {
             IsSelected = selected;
-            if (selected)
-            {
-                ShowAllAnchors();
-                SelectionBorder.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                HideAllAnchors();
-                SelectionBorder.Visibility = Visibility.Collapsed;
-            }
         }
 
         #endregion
@@ -856,9 +811,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             switch (position)
             {
                 case PipeAnchorPosition.Left:
+                    // ✅ 左法兰中心位置：Canvas.Left=6, 法兰宽度=4, 中心=6+2=8
                     return new Point(pipeLeft + 8, pipeTop + this.Height / 2);
                 case PipeAnchorPosition.Right:
-                    return new Point(pipeLeft + this.Width - 8, pipeTop + this.Height / 2);
+                    // ✅ 右法兰中心位置：Canvas.Left=10+_pipeLength, 法兰宽度=4, 中心=10+_pipeLength+2
+                    return new Point(pipeLeft + 10 + _pipeLength + 2, pipeTop + this.Height / 2);
                 case PipeAnchorPosition.Top:
                     return new Point(pipeLeft + this.Width / 2, pipeTop + 15);
                 case PipeAnchorPosition.Bottom:
@@ -873,7 +830,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region IPipeSnapPoints 实现
 
         /// <summary>
-        /// 获取直管的两个法兰吸附点
+        /// ✅ 获取直管的两个法兰吸附点（适配法兰宽度4）
         /// </summary>
         public List<PipeSnapPoint> GetSnapPoints()
         {
@@ -882,7 +839,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var parent = this.Parent as Canvas;
             if (parent == null) return snapPoints;
 
-            // 获取管道在画布上的位置
             var pipeLeft = Canvas.GetLeft(this);
             var pipeTop = Canvas.GetTop(this);
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
@@ -894,16 +850,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 pipeTop + this.ActualHeight / 2
             );
 
-            // 考虑旋转角度
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // ✅ 左侧法兰的位置（在本地坐标系中）
-            // 左法兰在 Canvas.Left=2, Canvas.Top=11, 法兰宽度=6
-            // 法兰外侧边缘位置 = 2（法兰左边）
-            double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
-            double leftFlangeY = 0;  // 水平管道，法兰在中心高度
+            // ✅ 左侧法兰的位置
+            // 左法兰在 Canvas.Left=6，宽度=4，外侧边缘=6
+            // 法兰中心 = 6 + 2 = 8
+            double leftFlangeX = 8 - this.ActualWidth / 2;  // 相对于控件中心
+            double leftFlangeY = 0;
 
             Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
             Point leftFlangeWorld = RotatePoint(leftFlangeLocal, radians);
@@ -914,14 +869,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     center.X + leftFlangeWorld.X,
                     center.Y + leftFlangeWorld.Y
                 ),
-                Direction = GetSnapDirectionFromAngle(radians + Math.PI), // 向左连接
+                Direction = GetSnapDirectionFromAngle(radians + Math.PI),
                 Description = $"直管左法兰 (长度:{_pipeLength:F0})"
             });
 
             // ✅ 右侧法兰的位置
-            // 右法兰在 Canvas.Left=88（对于默认96宽度），法兰宽度=6
-            // 法兰外侧边缘位置 = 94（法兰右边）
-            double rightFlangeX = (this.ActualWidth - 2) - this.ActualWidth / 2;  // 相对于中心
+            // 右法兰在 Canvas.Left = 10 + _pipeLength，宽度=4
+            // 法兰中心 = 10 + _pipeLength + 2
+            double rightFlangeX = (10 + _pipeLength + 2) - this.ActualWidth / 2;
             double rightFlangeY = 0;
 
             Point rightFlangeLocal = new Point(rightFlangeX, rightFlangeY);
@@ -933,16 +888,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     center.X + rightFlangeWorld.X,
                     center.Y + rightFlangeWorld.Y
                 ),
-                Direction = GetSnapDirectionFromAngle(radians), // 向右连接
+                Direction = GetSnapDirectionFromAngle(radians),
                 Description = $"直管右法兰 (长度:{_pipeLength:F0})"
             });
 
             return snapPoints;
         }
 
-        /// <summary>
-        /// 旋转点（从局部坐标到世界坐标偏移）
-        /// </summary>
         private Point RotatePoint(Point localPoint, double radians)
         {
             double cos = Math.Cos(radians);
@@ -954,15 +906,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             );
         }
 
-        /// <summary>
-        /// 根据弧度角度获取吸附方向
-        /// </summary>
         private SnapDirection GetSnapDirectionFromAngle(double radians)
         {
-            // 转换为 0-360 度
             double degrees = (radians * 180 / Math.PI + 360) % 360;
 
-            // 按照 45° 分区判断方向
             if (degrees >= 315 || degrees < 45) return SnapDirection.Right;
             if (degrees >= 45 && degrees < 135) return SnapDirection.Down;
             if (degrees >= 135 && degrees < 225) return SnapDirection.Left;

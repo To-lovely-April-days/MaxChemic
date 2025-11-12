@@ -12,13 +12,13 @@ using MaxChemical.Modules.Designer.Views.Controls;
 namespace MaxChemical.Modules.Designer.Service
 {
     /// <summary>
-    /// 管道吸附服务实现（QuadTree 优化版）
+    /// 管道吸附服务实现（QuadTree 优化版 - 仅收集 IPipeSnapPoints）
     /// </summary>
     public class PipeSnapService : IPipeSnapService
     {
         private const double SnapDistance = 15.0;
         private const double SnapHighlightDistance = 25.0;
-        private const double QuadTreeQueryRadius = 50.0; // ✅ QuadTree 查询半径
+        private const double QuadTreeQueryRadius = 50.0;
 
         private Canvas _canvas;
         private readonly List<Ellipse> _snapIndicators = new List<Ellipse>();
@@ -31,7 +31,7 @@ namespace MaxChemical.Modules.Designer.Service
         // ✅ 缓存计时器（定期重建四叉树）
         private System.Windows.Threading.DispatcherTimer _rebuildTimer;
         private DateTime _lastRebuildTime = DateTime.MinValue;
-        private const int RebuildIntervalMs = 500; // 500ms 内最多重建一次
+        private const int RebuildIntervalMs = 500;
 
         /// <summary>
         /// 初始化吸附服务
@@ -40,11 +40,9 @@ namespace MaxChemical.Modules.Designer.Service
         {
             _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
 
-            // 初始化画布边界
-            _canvasBounds = new Rect(0, 0, 10000, 10000); // 默认边界
+            _canvasBounds = new Rect(0, 0, 10000, 10000);
             _snapPointQuadTree = new QuadTree<SnapPoint>(_canvasBounds);
 
-            // ✅ 初始化重建计时器
             _rebuildTimer = new System.Windows.Threading.DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(RebuildIntervalMs)
@@ -55,7 +53,7 @@ namespace MaxChemical.Modules.Designer.Service
                 RebuildQuadTree();
             };
 
-            Debug.WriteLine("吸附服务已初始化（QuadTree优化）");
+            Debug.WriteLine("✅ 吸附服务已初始化（QuadTree优化 - 仅收集 IPipeSnapPoints）");
         }
 
         #region QuadTree 管理
@@ -67,7 +65,6 @@ namespace MaxChemical.Modules.Designer.Service
         {
             _quadTreeNeedsRebuild = true;
 
-            // ✅ 启动延迟重建（避免频繁重建）
             if (!_rebuildTimer.IsEnabled)
             {
                 _rebuildTimer.Start();
@@ -82,7 +79,7 @@ namespace MaxChemical.Modules.Designer.Service
             var now = DateTime.Now;
             if ((now - _lastRebuildTime).TotalMilliseconds < RebuildIntervalMs)
             {
-                return; // 限制重建频率
+                return;
             }
             _lastRebuildTime = now;
 
@@ -91,12 +88,12 @@ namespace MaxChemical.Modules.Designer.Service
             _snapPointQuadTree.Clear();
 
             var snapPoints = new List<SnapPoint>();
-            CollectDeviceSnapPoints(snapPoints);
-            CollectPipeSnapPoints(snapPoints, null);
+
+            // ✅ 只收集实现了 IPipeSnapPoints 接口的元素
+            CollectSnapPointsFromInterface(snapPoints, null);
 
             foreach (var point in snapPoints)
             {
-                // 为每个吸附点创建一个小的边界框
                 var bounds = new Rect(
                     point.Position.X - 5,
                     point.Position.Y - 5,
@@ -137,17 +134,14 @@ namespace MaxChemical.Modules.Designer.Service
             if (_canvas == null || pipeElement == null)
                 return null;
 
-            // ✅ 确保四叉树已更新
             EnsureQuadTreeUpdated();
 
-            // 获取管道的端点
             var pipeEndPoints = GetPipeEndPoints(pipeElement, currentCenter);
             if (pipeEndPoints == null || pipeEndPoints.Count == 0)
                 return null;
 
             var solution = new PipeSnapSolution();
 
-            // ✅ 为每个端点使用 QuadTree 查询附近的吸附点
             foreach (var endPoint in pipeEndPoints)
             {
                 var nearbySnapPoints = _snapPointQuadTree.QueryRadius(
@@ -155,7 +149,6 @@ namespace MaxChemical.Modules.Designer.Service
                     QuadTreeQueryRadius
                 );
 
-                // 过滤掉被排除的管道
                 if (!string.IsNullOrEmpty(excludePipeId))
                 {
                     nearbySnapPoints = nearbySnapPoints
@@ -163,7 +156,6 @@ namespace MaxChemical.Modules.Designer.Service
                         .ToList();
                 }
 
-                // 在附近的点中查找最佳吸附点
                 var nearestSnap = FindClosestSnapPointForEndPoint(
                     endPoint.Position,
                     nearbySnapPoints
@@ -181,7 +173,6 @@ namespace MaxChemical.Modules.Designer.Service
                 }
             }
 
-            // 计算吸附后的中心位置
             if (solution.EndPointSnaps.Count > 0)
             {
                 solution.HasSnap = true;
@@ -278,6 +269,7 @@ namespace MaxChemical.Modules.Designer.Service
             if (snapInfos.Count == 0)
                 return currentCenter;
 
+            // 使用距离最近的吸附点作为主要参考
             var primarySnap = snapInfos.OrderBy(s => s.Distance).First();
 
             var offset = new Point(
@@ -303,16 +295,13 @@ namespace MaxChemical.Modules.Designer.Service
             if (_canvas == null)
                 return null;
 
-            // ✅ 确保四叉树已更新
             EnsureQuadTreeUpdated();
 
-            // ✅ 使用 QuadTree 查询附近的吸附点
             var nearbySnapPoints = _snapPointQuadTree.QueryRadius(
                 currentPosition,
                 QuadTreeQueryRadius
             );
 
-            // 过滤排除的管道
             if (!string.IsNullOrEmpty(excludePipeId))
             {
                 nearbySnapPoints = nearbySnapPoints
@@ -370,110 +359,100 @@ namespace MaxChemical.Modules.Designer.Service
 
         #endregion
 
-        #region 收集吸附点（保持原有逻辑）
+        #region 收集吸附点（✅ 只从 IPipeSnapPoints 收集）
 
         /// <summary>
-        /// 收集设备的吸附点
+        /// ✅ 只收集实现了 IPipeSnapPoints 接口的元素的吸附点
         /// </summary>
-        private void CollectDeviceSnapPoints(List<SnapPoint> snapPoints)
+        private void CollectSnapPointsFromInterface(List<SnapPoint> snapPoints, string excludePipeId)
         {
-            var deviceElements = _canvas.Children
-                .OfType<Border>()
-                .Where(b => b.Tag is string deviceId && !string.IsNullOrEmpty(deviceId))
-                .ToList();
+            if (_canvas == null)
+                return;
 
-            foreach (var device in deviceElements)
-            {
-                var deviceId = device.Tag as string;
-                snapPoints.AddRange(GetDeviceConnectionPoints(device, deviceId));
-            }
-        }
-
-        /// <summary>
-        /// 获取设备的连接点
-        /// </summary>
-        private List<SnapPoint> GetDeviceConnectionPoints(Border device, string deviceId)
-        {
-            var points = new List<SnapPoint>();
-
-            var left = Canvas.GetLeft(device);
-            var top = Canvas.GetTop(device);
-            if (double.IsNaN(left)) left = 0;
-            if (double.IsNaN(top)) top = 0;
-
-            var width = device.ActualWidth;
-            var height = device.ActualHeight;
-
-            points.Add(new SnapPoint
-            {
-                Position = new Point(left, top + height / 2),
-                Type = SnapPointType.DeviceLeft,
-                TargetId = deviceId,
-                Direction = ConnectionDirection.Left
-            });
-
-            points.Add(new SnapPoint
-            {
-                Position = new Point(left + width, top + height / 2),
-                Type = SnapPointType.DeviceRight,
-                TargetId = deviceId,
-                Direction = ConnectionDirection.Right
-            });
-
-            points.Add(new SnapPoint
-            {
-                Position = new Point(left + width / 2, top),
-                Type = SnapPointType.DeviceTop,
-                TargetId = deviceId,
-                Direction = ConnectionDirection.Top
-            });
-
-            points.Add(new SnapPoint
-            {
-                Position = new Point(left + width / 2, top + height),
-                Type = SnapPointType.DeviceBottom,
-                TargetId = deviceId,
-                Direction = ConnectionDirection.Bottom
-            });
-
-            return points;
-        }
-
-        /// <summary>
-        /// 收集管道的吸附点
-        /// </summary>
-        private void CollectPipeSnapPoints(List<SnapPoint> snapPoints, string excludePipeId)
-        {
-            var pipeElements = _canvas.Children
+            // 遍历画布上所有实现了 IPipeSnapPoints 接口的元素
+            var snapProviders = _canvas.Children
                 .OfType<IPipeSnapPoints>()
                 .ToList();
 
-            foreach (var pipe in pipeElements)
-            {
-                string pipeId = null;
-                if (pipe is StraightPipeControl straightPipe)
-                    pipeId = straightPipe.PipeId;
-                else if (pipe is ElbowPipeControl elbowPipe)
-                    pipeId = elbowPipe.PipeId;
-                else if (pipe is ZShapePipeControl zPipe)
-                    pipeId = zPipe.PipeId;
+            int deviceCount = 0;
+            int pipeCount = 0;
 
-                if (pipeId == excludePipeId)
+            foreach (var provider in snapProviders)
+            {
+                // 获取元素的 ID（用于排除）
+                string elementId = null;
+
+                if (provider is StraightPipeControl straightPipe)
+                {
+                    elementId = straightPipe.PipeId;
+                    pipeCount++;
+                }
+                else if (provider is ElbowPipeControl elbowPipe)
+                {
+                    elementId = elbowPipe.PipeId;
+                    pipeCount++;
+                }
+                else if (provider is ZShapePipeControl zPipe)
+                {
+                    elementId = zPipe.PipeId;
+                    pipeCount++;
+                }
+                else if (provider is ConicalFlaskControl flaskControl)
+                {
+                    elementId = flaskControl.FlaskId;
+                    deviceCount++;
+                }
+                else
+                {
+                    // ✅ 对于其他类型的设备，尝试通过反射获取 ID
+                    // 假设设备有 DeviceId 或类似属性
+                    var idProperty = provider.GetType().GetProperty("DeviceId")
+                                  ?? provider.GetType().GetProperty("Id")
+                                  ?? provider.GetType().GetProperty("ElementId");
+
+                    if (idProperty != null)
+                    {
+                        elementId = idProperty.GetValue(provider) as string;
+                        deviceCount++;
+                    }
+                    else
+                    {
+                        // 如果没有 ID 属性，生成一个临时 ID
+                        elementId = $"Unknown_{provider.GetHashCode()}";
+                        deviceCount++;
+                    }
+                }
+
+                // 如果是被排除的元素，跳过
+                if (elementId == excludePipeId)
                     continue;
 
-                var pipeSnapPoints = pipe.GetSnapPoints();
-
-                foreach (var point in pipeSnapPoints)
+                try
                 {
-                    snapPoints.Add(new SnapPoint
+                    // 获取该元素提供的吸附点
+                    var providerSnapPoints = provider.GetSnapPoints();
+
+                    if (providerSnapPoints == null || providerSnapPoints.Count == 0)
+                        continue;
+
+                    foreach (var point in providerSnapPoints)
                     {
-                        Position = point.WorldPosition,
-                        Type = SnapPointType.PipeEnd,
-                        TargetId = pipeId,
-                        Direction = ConvertSnapDirection(point.Direction)
-                    });
+                        snapPoints.Add(new SnapPoint
+                        {
+                            Position = point.WorldPosition,
+                            Type = SnapPointType.PipeEnd, // 统一使用 PipeEnd 类型
+                            TargetId = elementId,
+                            Direction = ConvertSnapDirection(point.Direction)
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"⚠️ 获取元素 {elementId} 的吸附点时出错: {ex.Message}");
                 }
             }
+
+            Debug.WriteLine($"📍 收集吸附点: {deviceCount} 个设备, {pipeCount} 个管道, 共 {snapPoints.Count} 个吸附点");
         }
 
         /// <summary>
@@ -493,8 +472,11 @@ namespace MaxChemical.Modules.Designer.Service
 
         #endregion
 
-        #region 吸附指示器（保持原有逻辑）
+        #region 吸附指示器
 
+        /// <summary>
+        /// 显示单个吸附指示器
+        /// </summary>
         public void ShowSnapIndicator(Point position)
         {
             Ellipse indicator;
@@ -513,9 +495,15 @@ namespace MaxChemical.Modules.Designer.Service
             indicator.Visibility = Visibility.Visible;
         }
 
+        /// <summary>
+        /// 显示多个吸附指示器
+        /// </summary>
         public void ShowSnapIndicators(List<EndPointSnapInfo> snapInfos)
         {
             HideSnapIndicator();
+
+            if (snapInfos == null || snapInfos.Count == 0)
+                return;
 
             for (int i = 0; i < snapInfos.Count; i++)
             {
@@ -538,6 +526,9 @@ namespace MaxChemical.Modules.Designer.Service
             }
         }
 
+        /// <summary>
+        /// 创建吸附指示器
+        /// </summary>
         private Ellipse CreateSnapIndicator()
         {
             var indicator = new Ellipse
@@ -565,6 +556,9 @@ namespace MaxChemical.Modules.Designer.Service
             return indicator;
         }
 
+        /// <summary>
+        /// 隐藏吸附指示器
+        /// </summary>
         public void HideSnapIndicator()
         {
             foreach (var indicator in _snapIndicators)
@@ -580,6 +574,9 @@ namespace MaxChemical.Modules.Designer.Service
 
         #region 辅助方法
 
+        /// <summary>
+        /// 计算两点之间的距离
+        /// </summary>
         private double CalculateDistance(Point p1, Point p2)
         {
             var dx = p1.X - p2.X;
@@ -589,13 +586,18 @@ namespace MaxChemical.Modules.Designer.Service
 
         #endregion
 
+        #region 清理资源
+
         /// <summary>
         /// 清理资源
         /// </summary>
         public void Cleanup()
         {
             _rebuildTimer?.Stop();
+            _rebuildTimer = null;
+
             _snapPointQuadTree?.Clear();
+            _snapPointQuadTree = null;
 
             foreach (var indicator in _snapIndicators)
             {
@@ -606,7 +608,9 @@ namespace MaxChemical.Modules.Designer.Service
             }
             _snapIndicators.Clear();
 
-            Debug.WriteLine("吸附服务资源已清理");
+            Debug.WriteLine("✅ 吸附服务资源已清理");
         }
+
+        #endregion
     }
 }

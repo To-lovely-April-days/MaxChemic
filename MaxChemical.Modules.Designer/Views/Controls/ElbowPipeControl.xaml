@@ -13,24 +13,24 @@
 
     <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
 
-        <!-- 左侧法兰组 (水平段) -->
+        <!-- ✅ 左侧法兰组 (水平段) - 宽度改为4 -->
         <Canvas x:Name="LeftFlangeGroup" 
-                Canvas.Left="2" 
-                Canvas.Top="30"
-                Width="6" 
-                Height="28">
+        Canvas.Left="2" 
+        Canvas.Top="32"
+        Width="4" 
+        Height="24">
             <Rectangle x:Name="LeftFlangeBase"
-                       Width="6"
-                       Height="28"
-                       Fill="#D0D0D0"
-                       RadiusX="1" 
-                       RadiusY="1"/>
+               Width="4"
+               Height="24"
+               Fill="#D0D0D0"
+               RadiusX="0.8" 
+               RadiusY="0.8"/>
 
             <Rectangle x:Name="LeftFlangeGradient"
-                       Width="6"
-                       Height="28"
-                       RadiusX="1" 
-                       RadiusY="1">
+               Width="4"
+               Height="24"
+               RadiusX="0.8" 
+               RadiusY="0.8">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                         <GradientStop Color="#E8E8E8" Offset="0"/>
@@ -41,25 +41,26 @@
             </Rectangle>
 
             <Rectangle x:Name="LeftFlangeBorder"
-                       Width="6"
-                       Height="28"
-                       Stroke="#334C68" 
-                       StrokeThickness="0.8"
-                       RadiusX="1" 
-                       RadiusY="1" 
-                       Fill="Transparent"/>
+               Width="4"
+               Height="24"
+               Stroke="#334C68" 
+               StrokeThickness="0.8"
+               RadiusX="0.8" 
+               RadiusY="0.8" 
+               Fill="Transparent"/>
 
-            <Ellipse x:Name="LeftBolt1" Width="2.5" Height="2.5" Fill="#4A4A4A" Canvas.Left="1.75" Canvas.Top="3">
+            <!-- ✅ 螺栓位置调整 -->
+            <Ellipse x:Name="LeftBolt1" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="1" Canvas.Top="3">
                 <Ellipse.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
                 </Ellipse.Effect>
             </Ellipse>
-            <Ellipse x:Name="LeftBolt2" Width="2.5" Height="2.5" Fill="#4A4A4A" Canvas.Left="1.75" Canvas.Top="12.75">
+            <Ellipse x:Name="LeftBolt2" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="1" Canvas.Top="11">
                 <Ellipse.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
                 </Ellipse.Effect>
             </Ellipse>
-            <Ellipse x:Name="LeftBolt3" Width="2.5" Height="2.5" Fill="#4A4A4A" Canvas.Left="1.75" Canvas.Top="22.5">
+            <Ellipse x:Name="LeftBolt3" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="1" Canvas.Top="19">
                 <Ellipse.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
                 </Ellipse.Effect>
@@ -68,9 +69,9 @@
 
         <!-- 水平管道段 -->
         <Rectangle x:Name="HorizontalPipe" 
-                   Canvas.Left="8" 
+                   Canvas.Left="6" 
                    Canvas.Top="34"
-                   Width="32"
+                   Width="34"
                    Height="20"
                    RadiusX="1.5" 
                    RadiusY="1.5">
@@ -89,21 +90,21 @@
 
         <!-- 水平管道边缘线 -->
         <Line x:Name="HorizontalTopEdge" 
-              X1="8" Y1="34" 
+              X1="6" Y1="34" 
               X2="40" Y2="34"
               Stroke="#2A4A68" 
               StrokeThickness="0.6"/>
         <Line x:Name="HorizontalBottomEdge" 
-              X1="8" Y1="54" 
+              X1="6" Y1="54" 
               X2="40" Y2="54"
               Stroke="#2A4A68" 
               StrokeThickness="0.6"/>
 
         <!-- 水平管道高光 -->
         <Rectangle x:Name="HorizontalHighlight" 
-                   Canvas.Left="9"
+                   Canvas.Left="7"
                    Canvas.Top="35"
-                   Width="30"
+                   Width="32"
                    Height="3" 
                    Opacity="0.6" 
                    RadiusX="0.5" 
@@ -163,9 +164,9 @@
         <!-- 垂直管道段 -->
         <Rectangle x:Name="VerticalPipe" 
                    Canvas.Left="50"
-                   Canvas.Top="8"
+                   Canvas.Top="6"
                    Width="20"
-                   Height="26"
+                   Height="28"
                    RadiusX="1.5" 
                    RadiusY="1.5">
             <Rectangle.Fill>
@@ -183,12 +184,12 @@
 
         <!-- 垂直管道边缘线 -->
         <Line x:Name="VerticalLeftEdge" 
-              X1="50" Y1="8" 
+              X1="50" Y1="6" 
               X2="50" Y2="34"
               Stroke="#2A4A68" 
               StrokeThickness="0.6"/>
         <Line x:Name="VerticalRightEdge" 
-              X1="70" Y1="8" 
+              X1="70" Y1="6" 
               X2="70" Y2="34"
               Stroke="#2A4A68" 
               StrokeThickness="0.6"/>
@@ -196,9 +197,9 @@
         <!-- 垂直管道高光 -->
         <Rectangle x:Name="VerticalHighlight" 
                    Canvas.Left="51"
-                   Canvas.Top="9"
+                   Canvas.Top="7"
                    Width="3"
-                   Height="24"
+                   Height="26"
                    Opacity="0.6" 
                    RadiusX="0.5" 
                    RadiusY="0.5">
@@ -211,23 +212,23 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- 顶部法兰组 -->
+        <!-- ✅ 顶部法兰组 - 高度改为4 -->
         <Canvas x:Name="TopFlangeGroup" 
-                Canvas.Left="46"
-                Canvas.Top="2"
-                Width="28"
-                Height="6">
+        Canvas.Left="48"
+        Canvas.Top="2"
+        Width="24"
+        Height="4">
             <Rectangle x:Name="TopFlangeBase" 
-                       Width="28"
-                       Height="6" 
-                       Fill="#D0D0D0" 
-                       RadiusX="1" 
-                       RadiusY="1"/>
+               Width="24"
+               Height="4" 
+               Fill="#D0D0D0" 
+               RadiusX="0.8" 
+               RadiusY="0.8"/>
             <Rectangle x:Name="TopFlangeGradient" 
-                       Width="28"
-                       Height="6" 
-                       RadiusX="1" 
-                       RadiusY="1">
+               Width="24"
+               Height="4" 
+               RadiusX="0.8" 
+               RadiusY="0.8">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Color="#E8E8E8" Offset="0"/>
@@ -237,25 +238,26 @@
                 </Rectangle.Fill>
             </Rectangle>
             <Rectangle x:Name="TopFlangeBorder" 
-                       Width="28"
-                       Height="6" 
-                       Stroke="#334C68" 
-                       StrokeThickness="0.8" 
-                       RadiusX="1" 
-                       RadiusY="1" 
-                       Fill="Transparent"/>
+               Width="24"
+               Height="4" 
+               Stroke="#334C68" 
+               StrokeThickness="0.8" 
+               RadiusX="0.8" 
+               RadiusY="0.8" 
+               Fill="Transparent"/>
 
-            <Ellipse x:Name="TopBolt1" Width="2.5" Height="2.5" Fill="#4A4A4A" Canvas.Left="3" Canvas.Top="1.75">
+            <!-- ✅ 螺栓位置调整 -->
+            <Ellipse x:Name="TopBolt1" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="3" Canvas.Top="1">
                 <Ellipse.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
                 </Ellipse.Effect>
             </Ellipse>
-            <Ellipse x:Name="TopBolt2" Width="2.5" Height="2.5" Fill="#4A4A4A" Canvas.Left="12.75" Canvas.Top="1.75">
+            <Ellipse x:Name="TopBolt2" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="11" Canvas.Top="1">
                 <Ellipse.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
                 </Ellipse.Effect>
             </Ellipse>
-            <Ellipse x:Name="TopBolt3" Width="2.5" Height="2.5" Fill="#4A4A4A" Canvas.Left="22.5" Canvas.Top="1.75">
+            <Ellipse x:Name="TopBolt3" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="19" Canvas.Top="1">
                 <Ellipse.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
                 </Ellipse.Effect>
@@ -264,7 +266,7 @@
 
         <!-- 连接处 -->
         <Rectangle x:Name="LeftConnection" 
-                   Canvas.Left="7"
+                   Canvas.Left="5"
                    Canvas.Top="34"
                    Width="2"
                    Height="20"
@@ -273,7 +275,7 @@
                    RadiusY="0.5"/>
         <Rectangle x:Name="TopConnection" 
                    Canvas.Left="50"
-                   Canvas.Top="7"
+                   Canvas.Top="5"
                    Width="20"
                    Height="2"
                    Fill="#8FA9BD" 

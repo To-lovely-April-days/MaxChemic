@@ -2807,7 +2807,18 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 设置事件处理器
             AttachDeviceEventHandlers(deviceControl);
-
+            if (canvasDevice.Device?.Name?.Contains("锥形瓶") == true ||
+        canvasDevice.Device?.Name?.Contains("Flask") == true)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (deviceControl.Child is Viewbox viewbox &&
+                        viewbox.Child is ConicalFlaskControl flask)
+                    {
+                        Debug.WriteLine("延迟强制刷新锥形瓶液体");
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
             Debug.WriteLine($"设备视觉元素创建完成: {canvasDevice.Device.Name}, ID: {canvasDevice.DeviceId}");
         }
 
@@ -4027,8 +4038,8 @@ namespace MaxChemical.Modules.Designer.Views
 
                         // ✅ 方法1：直接设置液体（推荐）
                         flaskControl.SetLiquidColor(96, 176, 224, 180);  // 增加透明度到180
-                        flaskControl.SetLiquidLevel(70, animated: false);
-                        flaskControl.IsWaveAnimationEnabled = false;
+                        flaskControl.SetLiquidLevel(65, animated: true);
+                        //flaskControl.IsWaveAnimationEnabled = true;
 
                         // ✅ 强制更新布局和几何
                         flaskControl.UpdateLayout();
@@ -4806,48 +4817,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        /// <summary>
-        /// ✅ 新增:同步恢复管道
-        /// </summary>
-        private void RestorePipesSync(List<CanvasPipeData> pipesData)
-        {
-            if (pipesData == null || !pipesData.Any())
-            {
-                Debug.WriteLine("没有管道数据需要恢复");
-                return;
-            }
-
-            try
-            {
-                Debug.WriteLine($"========== 同步恢复 {pipesData.Count} 个管道 ==========");
-
-                // 清空现有管道,避免重复
-                ClearExistingPipesBeforeRestore(pipesData);
-
-                // 同步批量恢复管道
-                int successCount = 0;
-                foreach (var pipeData in pipesData)
-                {
-                    try
-                    {
-                        if (RestoreSinglePipeSync(pipeData))
-                        {
-                            successCount++;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"恢复管道 {pipeData.PipeId} 失败: {ex.Message}");
-                    }
-                }
-
-                Debug.WriteLine($"========== 管道同步恢复完成: 成功 {successCount}/{pipesData.Count} ==========");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ 同步恢复管道数据失败: {ex.Message}");
-            }
-        }
 
         /// <summary>
         /// 同步恢复单个管道 - 优化版
@@ -4957,33 +4926,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        /// <summary>
-        /// 恢复设备
-        /// </summary>
-        private void RestoreDevices(List<CanvasDeviceData> deviceDataList)
-        {
-            if (deviceDataList == null || !deviceDataList.Any())
-            {
-                Debug.WriteLine("没有设备需要恢复");
-                return;
-            }
-
-            Debug.WriteLine($"开始恢复 {deviceDataList.Count} 个设备");
-
-            foreach (var deviceData in deviceDataList)
-            {
-                try
-                {
-                    RestoreSingleDevice(deviceData);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"恢复设备 {deviceData.DeviceName} 失败: {ex.Message}");
-                }
-            }
-
-            Debug.WriteLine($"设备恢复完成，当前设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
-        }
 
         /// <summary>
         /// 恢复单个设备 - 优化版
@@ -5041,48 +4983,6 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 恢复设备失败: {ex.Message}");
-            }
-        }
-        /// <summary>
-        /// 为恢复的设备生成显示名
-        /// </summary>
-        private string GenerateDisplayNameForRestoredDevice(string baseName, string deviceId)
-        {
-            try
-            {
-                // 如果已经有显示名映射，直接使用
-                if (_deviceDisplayNames.TryGetValue(deviceId, out var existingName))
-                {
-                    return existingName;
-                }
-
-                // 从已有映射中找出相同基础名的最大序号
-                int maxIndex = 0;
-                foreach (var kvp in _deviceDisplayNames.Values)
-                {
-                    if (kvp.StartsWith(baseName + "#"))
-                    {
-                        var parts = kvp.Split('#');
-                        if (parts.Length == 2 && int.TryParse(parts[1], out int index))
-                        {
-                            maxIndex = Math.Max(maxIndex, index);
-                        }
-                    }
-                }
-
-                // 更新计数器
-                _deviceNameCounters[baseName] = Math.Max(_deviceNameCounters.GetValueOrDefault(baseName, 0), maxIndex);
-
-                // 生成新的显示名
-                var newIndex = _deviceNameCounters[baseName] + 1;
-                _deviceNameCounters[baseName] = newIndex;
-
-                return $"{baseName}#{newIndex}";
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"生成恢复设备显示名失败: {ex.Message}");
-                return baseName ?? "设备";
             }
         }
 
@@ -6611,6 +6511,13 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 添加到管道集合
             _pipes[pipe.PipeId] = pipe;
+
+            // ✅ 新增：立即标记四叉树需要重建
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                snapService.MarkQuadTreeDirty();
+                Debug.WriteLine("✅ 管道创建完成，已标记四叉树需要重建");
+            }
 
             // 标记画布已修改
             _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();

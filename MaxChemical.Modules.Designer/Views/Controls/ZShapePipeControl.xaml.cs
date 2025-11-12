@@ -669,11 +669,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                double flangeWidth = Math.Max(4, Math.Min(8, _pipeWidth * 0.3)); // 法兰宽度随管道宽度变化
+                // ✅ 修改：法兰固定宽度为4
+                double flangeWidth = 4;
                 double leftFlangeX = 2;
 
-                // 计算法兰高度（略大于管道宽度）
-                double flangeHeight = _pipeWidth + 8;
+                // ✅ 修改：法兰高度改为管道宽度 + 4（上下各多出2px）
+                double flangeHeight = _pipeWidth + 4;
                 double topFlangeY = 16;
 
                 // 更新左侧法兰尺寸和位置
@@ -690,25 +691,26 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 LeftFlangeBorder.Width = flangeWidth;
                 LeftFlangeBorder.Height = flangeHeight;
 
-                // 更新左侧法兰螺栓位置和大小
-                double boltSize = Math.Max(2, Math.Min(3.5, _pipeWidth * 0.15));
-                double boltLeftOffset = (flangeWidth - boltSize) / 2;
+                // ✅ 更新左侧法兰螺栓位置和大小
+                double boltSize = 2;
+                double boltLeftOffset = (flangeWidth - boltSize) / 2;  // (4-2)/2 = 1
 
                 LeftBolt1.Width = boltSize;
                 LeftBolt1.Height = boltSize;
                 Canvas.SetLeft(LeftBolt1, boltLeftOffset);
-                Canvas.SetTop(LeftBolt1, flangeHeight * 0.15);
+                Canvas.SetTop(LeftBolt1, flangeHeight * 0.2 - boltSize / 2);
 
                 LeftBolt2.Width = boltSize;
                 LeftBolt2.Height = boltSize;
                 Canvas.SetLeft(LeftBolt2, boltLeftOffset);
-                Canvas.SetTop(LeftBolt2, flangeHeight * 0.5 - boltSize / 2);
+                Canvas.SetTop(LeftBolt2, (flangeHeight - boltSize) / 2);
 
                 LeftBolt3.Width = boltSize;
                 LeftBolt3.Height = boltSize;
                 Canvas.SetLeft(LeftBolt3, boltLeftOffset);
-                Canvas.SetTop(LeftBolt3, flangeHeight * 0.85 - boltSize);
+                Canvas.SetTop(LeftBolt3, flangeHeight * 0.8 - boltSize / 2);
 
+                // 修改：topPipeLeft = 法兰X(2) + 法兰宽度(4) = 6
                 double topPipeLeft = leftFlangeX + flangeWidth;
                 double topPipeTop = leftFlangeTop + (flangeHeight - _pipeWidth) / 2;
                 double topPipeWidth = _topHorizontalLength;
@@ -816,23 +818,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 RightFlangeBorder.Width = flangeWidth;
                 RightFlangeBorder.Height = flangeHeight;
 
-                // 更新右侧法兰螺栓位置和大小
+                // ✅ 更新右侧法兰螺栓位置和大小
                 RightBolt1.Width = boltSize;
                 RightBolt1.Height = boltSize;
                 Canvas.SetLeft(RightBolt1, boltLeftOffset);
-                Canvas.SetTop(RightBolt1, flangeHeight * 0.15);
+                Canvas.SetTop(RightBolt1, flangeHeight * 0.2 - boltSize / 2);
 
                 RightBolt2.Width = boltSize;
                 RightBolt2.Height = boltSize;
                 Canvas.SetLeft(RightBolt2, boltLeftOffset);
-                Canvas.SetTop(RightBolt2, flangeHeight * 0.5 - boltSize / 2);
+                Canvas.SetTop(RightBolt2, (flangeHeight - boltSize) / 2);
 
                 RightBolt3.Width = boltSize;
                 RightBolt3.Height = boltSize;
                 Canvas.SetLeft(RightBolt3, boltLeftOffset);
-                Canvas.SetTop(RightBolt3, flangeHeight * 0.85 - boltSize);
+                Canvas.SetTop(RightBolt3, flangeHeight * 0.8 - boltSize / 2);
 
-                // 连接处
+                // 连接处 - 左连接改为5 (法兰4 + 间距1)
                 Canvas.SetLeft(LeftConnection, topPipeLeft - 1);
                 Canvas.SetTop(LeftConnection, topPipeTop);
                 LeftConnection.Height = topPipeHeight;
@@ -1065,8 +1067,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // ✅ 左上法兰位置（上方水平段入口）
-            double leftFlangeX = 2 - this.ActualWidth / 2;  // 相对于中心
+            // ✅ 左侧法兰中心位置：Canvas.Left=2, 法兰宽度=4, 中心=2+2=4
+            double leftFlangeX = 4 - this.ActualWidth / 2;  // 相对于中心
             double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
             Point leftTopLocal = new Point(leftFlangeX, leftFlangeY);
@@ -1082,8 +1084,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"Z形管道左上法兰 (上段:{_topHorizontalLength:F0})"
             });
 
-            // ✅ 右下法兰位置（下方水平段出口）
-            double rightFlangeX = Canvas.GetLeft(RightFlangeGroup) + RightFlangeGroup.Width - this.ActualWidth / 2;
+            // ✅ 右侧法兰中心位置：Canvas.Left + 法兰宽度/2
+            double rightFlangeX = Canvas.GetLeft(RightFlangeGroup) + 2 - this.ActualWidth / 2;  // 法兰宽度4/2=2
             double rightFlangeY = Canvas.GetTop(RightFlangeGroup) + RightFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
             Point rightBottomLocal = new Point(rightFlangeX, rightFlangeY);
