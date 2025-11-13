@@ -2383,6 +2383,8 @@ namespace MaxChemical.Modules.Designer.Views
         {
             OnDeviceDeselected();
             ClearPipeSelection(); // ✅ 新增：清除管道选择
+            ClearAllValveSelections(); // ✅ 新增：清除所有阀门选择
+            ClearAllFlowMeterSelections(); // ✅ 新增
             CleanupDragState();
             this.Focus();
         }
@@ -2844,20 +2846,15 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var adjustedSize = GetAdjustedDeviceSize(canvasDevice.Device, canvasDevice.Width, canvasDevice.Height);
 
-            // *** 关键修复：区分新建设备和恢复设备的显示名处理 ***
             string displayName;
             if (_deviceDisplayNames.TryGetValue(canvasDevice.DeviceId, out var existingDisplayName))
             {
-                // 设备已有显示名（恢复场景），直接使用
                 displayName = existingDisplayName;
-                Debug.WriteLine($"使用已有显示名: {canvasDevice.DeviceId} -> {displayName}");
             }
             else
             {
-                // 新建设备，生成并缓存显示名
                 displayName = GetDisplayNameForNewDevice(canvasDevice.Device);
                 _deviceDisplayNames[canvasDevice.DeviceId] = displayName;
-                Debug.WriteLine($"生成新显示名: {canvasDevice.DeviceId} -> {displayName}");
             }
 
             var deviceControl = new Border
@@ -2870,11 +2867,10 @@ namespace MaxChemical.Modules.Designer.Views
                 CornerRadius = new CornerRadius(5),
                 Cursor = Cursors.Hand,
                 Tag = canvasDevice.DeviceId,
-                IsHitTestVisible = true,
+                IsHitTestVisible = true,  // ✅ 确保可以接收鼠标事件
                 AllowDrop = false
             };
 
-            // 传递正确的显示名
             deviceControl.Child = CreateDeviceContent(canvasDevice, adjustedSize, displayName);
 
             return deviceControl;
@@ -3881,7 +3877,19 @@ namespace MaxChemical.Modules.Designer.Views
                             double valveHeight = 200 * 0.5;  // 100
                             Debug.WriteLine($"阀门尺寸: {valveWidth:F0}x{valveHeight:F0}");
                             return new Size(valveWidth, valveHeight);
+                        //新增电磁阀
+                        case "SolenoidValveControl":
+                            double solenoidValveWidth = 200 * 0.5;   // 100（电磁阀原尺寸200x200，缩小到一半）
+                            double solenoidValveHeight = 200 * 0.5;  // 100
+                            Debug.WriteLine($"电磁阀尺寸: {solenoidValveWidth:F0}x{solenoidValveHeight:F0}");
+                            return new Size(solenoidValveWidth, solenoidValveHeight);
 
+                        case "MassFlowMeterControl":
+                            // 流量计原尺寸 400x500，缩小到画布显示
+                            double meterWidth = 400 * 0.35;   // 120
+                            double meterHeight = 500 * 0.35;  // 150
+                            Debug.WriteLine($"流量计尺寸: {meterWidth:F0}x{meterHeight:F0}");
+                            return new Size(meterWidth, meterHeight);
                     }
                 }
                 // 普通图片尺寸处理
@@ -4018,6 +4026,14 @@ namespace MaxChemical.Modules.Designer.Views
                     // ✅ 新增：阀门控件
                     case "ValveControl":
                         return CreateValveIcon(targetWidth, targetHeight);
+
+                    case "SolenoidValveControl":
+                        return CreateSolenoidValveIcon(targetWidth, targetHeight);
+
+                    // ✅ 新增：流量计控件
+                    case "MassFlowMeterControl":
+                        return CreateMassFlowMeterIcon(targetWidth, targetHeight);
+
                     // 未来可以添加其他自定义控件
                     default:
                         Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
@@ -6868,22 +6884,62 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 查找设备中的 ValveControl
+                // 查找手动阀门
                 var valve = FindVisualChild<ValveControl>(deviceControl);
-
                 if (valve != null)
                 {
-                    Debug.WriteLine($"发现阀门控件，准备订阅事件: {valve.ValveId}");
-
-                    // 订阅阀门事件
+                    Debug.WriteLine($"发现手动阀门控件，准备订阅事件: {valve.ValveId}");
                     SubscribeValveEvents(valve);
+                    Debug.WriteLine($"✅ 手动阀门事件订阅完成: {valve.ValveId}");
+                }
 
-                    Debug.WriteLine($"✅ 阀门事件订阅完成: {valve.ValveId}");
+                // ✅ 新增：查找电磁阀
+                var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceControl);
+                if (solenoidValve != null)
+                {
+                    Debug.WriteLine($"发现电磁阀控件，准备订阅事件: {solenoidValve.ValveId}");
+                    SubscribeSolenoidValveEvents(solenoidValve);
+                    Debug.WriteLine($"✅ 电磁阀事件订阅完成: {solenoidValve.ValveId}");
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"订阅阀门事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 创建电磁阀图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateSolenoidValveIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var solenoidValveControl = new SolenoidValveControl
+                {
+                    IsHitTestVisible = true,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    IsOpen = false  // 初始为关闭状态
+                };
+
+                // ✅ 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = solenoidValveControl,
+                    IsHitTestVisible = true
+                };
+
+                Debug.WriteLine($"创建电磁阀图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建电磁阀图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "电磁阀");
             }
         }
         #endregion
@@ -7062,7 +7118,410 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"处理阀门取消选中失败: {ex.Message}");
             }
         }
+        /// <summary>
+        /// ✅ 新增：清除所有阀门选择
+        /// </summary>
+        private void ClearAllValveSelections()
+        {
+            try
+            {
+                // 清除手动阀门
+                var valves = FindAllValvesInCanvas();
+                foreach (var valve in valves)
+                {
+                    valve.IsSelected = false;
+                    Debug.WriteLine($"清除手动阀门选择: {valve.ValveId}");
+                }
 
+                // ✅ 清除电磁阀
+                var solenoidValves = FindAllSolenoidValvesInCanvas();
+                foreach (var solenoidValve in solenoidValves)
+                {
+                    solenoidValve.IsSelected = false;
+                    Debug.WriteLine($"清除电磁阀选择: {solenoidValve.ValveId}");
+                }
+
+                Debug.WriteLine($"清除了 {valves.Count} 个手动阀门和 {solenoidValves.Count} 个电磁阀的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除阀门选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：查找画布中所有阀门控件
+        /// </summary>
+        private List<ValveControl> FindAllValvesInCanvas()
+        {
+            var valves = new List<ValveControl>();
+
+            try
+            {
+                // 遍历画布上的所有设备
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        // 在设备容器中查找阀门控件
+                        var valve = FindVisualChild<ValveControl>(deviceBorder);
+                        if (valve != null)
+                        {
+                            valves.Add(valve);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找阀门控件失败: {ex.Message}");
+            }
+
+            return valves;
+        }
+        /// <summary>
+        /// ✅ 新增：查找画布中所有电磁阀控件
+        /// </summary>
+        private List<SolenoidValveControl> FindAllSolenoidValvesInCanvas()
+        {
+            var solenoidValves = new List<SolenoidValveControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceBorder);
+                        if (solenoidValve != null)
+                        {
+                            solenoidValves.Add(solenoidValve);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找电磁阀控件失败: {ex.Message}");
+            }
+
+            return solenoidValves;
+        }
+        #endregion
+
+        #region 电磁阀事件处理
+
+        /// <summary>
+        /// 订阅电磁阀事件
+        /// </summary>
+        private void SubscribeSolenoidValveEvents(SolenoidValveControl solenoidValve)
+        {
+            // 选中事件
+            solenoidValve.ValveSelected += OnSolenoidValveSelectedFromControl;
+            solenoidValve.ValveDeselected += OnSolenoidValveDeselectedFromControl;
+
+            Debug.WriteLine($"电磁阀事件已订阅: {solenoidValve.ValveId}");
+        }
+
+        /// <summary>
+        /// 电磁阀选中
+        /// </summary>
+        private void OnSolenoidValveSelectedFromControl(object sender, string valveId)
+        {
+            try
+            {
+                Debug.WriteLine($"电磁阀被选中: {valveId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections(); // 清除手动阀门选择
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中电磁阀: {valveId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理电磁阀选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 电磁阀取消选中
+        /// </summary>
+        private void OnSolenoidValveDeselectedFromControl(object sender, string valveId)
+        {
+            try
+            {
+                Debug.WriteLine($"电磁阀取消选中: {valveId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理电磁阀取消选中失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region 流量计
+        /// <summary>
+        /// 创建流量计图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateMassFlowMeterIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var meterControl = new MassFlowMeterControl
+                {
+                    IsHitTestVisible = true,  // ✅ 允许交互（点击切换流动状态）
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    CurrentFlow = 0.0,        // 初始流量为0
+                    TargetFlow = 125.0,       // 默认目标流量
+                    MaxFlow = 150.0,          // 最大流量
+                    IsFlowing = false         // 初始为关闭状态
+                };
+
+                // ✅ 订阅流量计事件（如果需要）
+                SubscribeMassFlowMeterEvents(meterControl);
+
+                // ✅ 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = meterControl,
+                    IsHitTestVisible = true  // ✅ 允许交互
+                };
+
+                Debug.WriteLine($"创建流量计图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建流量计图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "流量计");
+            }
+        }
+
+        #region 流量计事件处理
+
+        /// <summary>
+        /// 订阅设备中包含的流量计控件事件
+        /// </summary>
+        private void SubscribeMassFlowMeterEvents(MassFlowMeterControl meter)
+        {
+            try
+            {
+                // 选中事件
+                meter.MeterSelected += OnMassFlowMeterSelectedFromControl;
+                meter.MeterDeselected += OnMassFlowMeterDeselectedFromControl;
+
+                // 旋转事件
+                meter.MeterRotateStarted += OnMassFlowMeterRotateStarted;
+                meter.MeterRotating += OnMassFlowMeterRotating;
+                meter.MeterRotateCompleted += OnMassFlowMeterRotateCompleted;
+
+                // 流动状态变化事件
+                meter.FlowStateChanged += OnMassFlowMeterFlowStateChanged;
+
+                // 目标流量变化事件
+                meter.TargetFlowChanged += OnMassFlowMeterTargetFlowChanged;
+
+                Debug.WriteLine($"流量计事件已订阅: {meter.MeterId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅流量计事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计选中
+        /// </summary>
+        private void OnMassFlowMeterSelectedFromControl(object sender, string meterId)
+        {
+            try
+            {
+                Debug.WriteLine($"流量计被选中: {meterId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中流量计: {meterId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理流量计选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计取消选中
+        /// </summary>
+        private void OnMassFlowMeterDeselectedFromControl(object sender, string meterId)
+        {
+            try
+            {
+                Debug.WriteLine($"流量计取消选中: {meterId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理流量计取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计旋转开始
+        /// </summary>
+        private void OnMassFlowMeterRotateStarted(object sender, MeterRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"流量计旋转开始: {e.MeterId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转流量计... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"流量计旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计旋转中
+        /// </summary>
+        private void OnMassFlowMeterRotating(object sender, MeterRotateEventArgs e)
+        {
+            try
+            {
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"流量计旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计旋转完成
+        /// </summary>
+        private void OnMassFlowMeterRotateCompleted(object sender, MeterRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"流量计旋转完成: {e.MeterId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"流量计已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"流量计旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计流动状态变化
+        /// </summary>
+        private void OnMassFlowMeterFlowStateChanged(object sender, FlowStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"流量计 {e.MeterId} 流动状态变化: {(e.IsFlowing ? "启动" : "停止")}");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    e.IsFlowing ? "流量计已启动" : "流量计已停止");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"流量计流动状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 流量计目标流量变化
+        /// </summary>
+        private void OnMassFlowMeterTargetFlowChanged(object sender, FlowValueChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"流量计 {e.MeterId} 目标流量变化: {e.OldValue:F1} -> {e.NewValue:F1}");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"流量计目标流量: {e.NewValue:F1} kg/h");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"流量计目标流量变化处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// ✅ 新增：清除所有流量计选择
+        /// </summary>
+        private void ClearAllFlowMeterSelections()
+        {
+            try
+            {
+                var flowMeters = FindAllFlowMetersInCanvas();
+                foreach (var meter in flowMeters)
+                {
+                    meter.HideSelection();
+                    Debug.WriteLine($"清除流量计选择: {meter.MeterId}");
+                }
+
+                Debug.WriteLine($"清除了 {flowMeters.Count} 个流量计的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除流量计选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：查找画布中所有流量计控件
+        /// </summary>
+        private List<MassFlowMeterControl> FindAllFlowMetersInCanvas()
+        {
+            var flowMeters = new List<MassFlowMeterControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var meter = FindVisualChild<MassFlowMeterControl>(deviceBorder);
+                        if (meter != null)
+                        {
+                            flowMeters.Add(meter);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找流量计控件失败: {ex.Message}");
+            }
+
+            return flowMeters;
+        }
         #endregion
     }
 }

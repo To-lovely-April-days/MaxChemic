@@ -249,8 +249,8 @@ namespace SolenoidValves_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/SolenoidValves_ZBS_1RL.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/SolenoidValves_ZBS_1RL.png";
+            ImageLocation = "CUSTOM_CONTROL:SolenoidValveControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "SV0101")
             {
                 Options = new ObservableCollection<string>(new List<string>()

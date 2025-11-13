@@ -1121,8 +1121,8 @@ namespace FlowMeter_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/D07-19BMassFlowMeter.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/D07-19BMassFlowMeter.png";
+            ImageLocation = "CUSTOM_CONTROL:MassFlowMeterControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "FT0101")
             {
                 Options = new ObservableCollection<string>(new List<string>() { "FT0101", "FT0102", "FT0103" }),

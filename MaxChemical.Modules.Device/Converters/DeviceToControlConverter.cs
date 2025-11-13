@@ -28,7 +28,7 @@ namespace MaxChemical.Modules.Device.Converters
                             {
                                 FlaskWidth = 80,
                                 FlaskHeight = 120,
-                                IsHitTestVisible = true,  // ✅ 允许交互
+                                IsHitTestVisible = false,  // ✅ 允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -49,7 +49,7 @@ namespace MaxChemical.Modules.Device.Converters
                         case "PistonPumpControl":
                             var pumpControl = new PistonPumpControl
                             {
-                                IsHitTestVisible = true,  // ✅ 允许交互
+                                IsHitTestVisible = false,  // ✅ 允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -70,7 +70,7 @@ namespace MaxChemical.Modules.Device.Converters
                         case "ValveControl":
                             var valveControl = new ValveControl
                             {
-                                IsHitTestVisible = true,  // ✅ 允许交互
+                                IsHitTestVisible = false,  // ✅ 允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand,
                                 IsOpen = false  // 初始为关闭状态
                             };
@@ -88,6 +88,52 @@ namespace MaxChemical.Modules.Device.Converters
                             return valveViewbox;
                         #endregion
 
+                        #region 电磁阀控件
+                        case "SolenoidValveControl":
+                            var solenoidValveControl = new SolenoidValveControl
+                            {
+                                IsHitTestVisible = false,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                IsOpen = false  // 初始为关闭状态
+                            };
+
+                            var solenoidValveViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = solenoidValveControl,
+                                IsHitTestVisible = true
+                            };
+
+                            return solenoidValveViewbox;
+                        #endregion
+
+                        #region 流量计控件
+                        case "MassFlowMeterControl":
+                            var meterControl = new MassFlowMeterControl
+                            {
+                                IsHitTestVisible = false,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                CurrentFlow = 0.0,
+                                TargetFlow = 125.0,
+                                MaxFlow = 150.0,
+                                IsFlowing = false
+                            };
+
+                            var meterViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = meterControl,
+                                IsHitTestVisible = true
+                            };
+
+                            return meterViewbox;
+                        #endregion
                         default:
                             return null;
                     }

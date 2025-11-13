@@ -265,7 +265,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 if (IsClickOnRotateAnchor(e.OriginalSource))
                 {
-                    Debug.WriteLine("点击在旋转锚点上，忽略覆盖层处理");
                     return;
                 }
 
@@ -284,6 +283,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
 
+                // ✅ 先捕获鼠标
                 ((UIElement)sender).CaptureMouse();
                 e.Handled = true;
             }
@@ -293,46 +293,49 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (e.LeftButton == MouseButtonState.Pressed && !_isRotating)
             {
-                var parent = this.Parent as Canvas;
-                if (parent == null) return;
-
-                Point currentPoint = e.GetPosition(parent);
-                double deltaX = currentPoint.X - _dragStartPoint.X;
-                double deltaY = currentPoint.Y - _dragStartPoint.Y;
+                var currentPosition = e.GetPosition(this);
+                double deltaX = currentPosition.X - _mouseDownPosition.X;
+                double deltaY = currentPosition.Y - _mouseDownPosition.Y;
                 double distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
+                    Debug.WriteLine("✅ 超过阈值，开始拖拽模式");
                     _isDragging = true;
-                    this.Opacity = 0.7;
 
-                    ValveDragStarted?.Invoke(this, new ValveDragEventArgs
+                    // ✅ 释放阀门的鼠标捕获
+                    if (((UIElement)sender).IsMouseCaptured)
                     {
-                        ValveId = ValveId,
-                        StartPosition = _originalPosition
-                    });
+                        ((UIElement)sender).ReleaseMouseCapture();
+                    }
+
+                    // ✅ 查找并触发设备容器的拖拽
+                    var deviceBorder = FindParentOfType<Border>(this);
+                    if (deviceBorder != null && deviceBorder.Tag is string deviceId)
+                    {
+                        Debug.WriteLine($"将拖拽交给设备容器: {deviceId}");
+
+                        // ✅ 让设备容器捕获鼠标
+                        deviceBorder.CaptureMouse();
+
+                        // ✅ 创建新的鼠标事件参数，传递给设备容器
+                        var canvas = FindParentOfType<Canvas>(deviceBorder);
+                        var canvasPosition = e.GetPosition(canvas);
+
+                        var newArgs = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                        {
+                            RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent
+                        };
+
+                        deviceBorder.RaiseEvent(newArgs);
+                    }
                 }
 
-                if (_isDragging)
-                {
-                    double newLeft = Math.Max(0, Math.Min(parent.ActualWidth - this.ActualWidth,
-                        _originalPosition.X + deltaX));
-                    double newTop = Math.Max(0, Math.Min(parent.ActualHeight - this.ActualHeight,
-                        _originalPosition.Y + deltaY));
-
-                    Canvas.SetLeft(this, newLeft);
-                    Canvas.SetTop(this, newTop);
-
-                    ValveDragging?.Invoke(this, new ValveDragEventArgs
-                    {
-                        ValveId = ValveId,
-                        CurrentPosition = new Point(newLeft, newTop)
-                    });
-                }
-
-                e.Handled = true;
+                // ✅ 不处理这个事件，因为如果是拖拽，已经释放了捕获
+                // 如果是点击（未超过阈值），保持捕获
             }
         }
+
 
         private void OnOverlayMouseUp(object sender, MouseButtonEventArgs e)
         {
@@ -349,30 +352,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    Debug.WriteLine("检测到点击 - 切换阀门状态");
+                    Debug.WriteLine("✅ 确认是点击 - 切换阀门状态");
                     IsOpen = !IsOpen;
-
-                    // ✅ 短暂显示选中效果后自动取消
                     ShowTemporarySelection();
-                }
-                else if (_isDragging)
-                {
-                    var finalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
-                    ValveDragCompleted?.Invoke(this, new ValveDragEventArgs
-                    {
-                        ValveId = ValveId,
-                        StartPosition = _originalPosition,
-                        CurrentPosition = finalPosition
-                    });
                 }
 
                 this.Opacity = 1.0;
                 _isDragging = false;
-                ((UIElement)sender).ReleaseMouseCapture();
+
+                if (((UIElement)sender).IsMouseCaptured)
+                {
+                    ((UIElement)sender).ReleaseMouseCapture();
+                }
 
                 e.Handled = true;
             }
         }
+
 
         /// <summary>
         /// ✅ 显示临时选中效果（自动消失）

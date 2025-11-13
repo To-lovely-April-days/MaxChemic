@@ -384,7 +384,8 @@
                 MouseLeftButtonDown="OnOverlayMouseDown"
                 MouseLeftButtonUp="OnOverlayMouseUp"
                 MouseMove="OnOverlayMouseMove"
-                MouseLeave="OnOverlayMouseLeave"/>
+                MouseLeave="OnOverlayMouseLeave"
+                IsHitTestVisible="True"/>
 
         <!-- ===== 选中边框 ===== -->
         <Rectangle x:Name="SelectionBorder" 
