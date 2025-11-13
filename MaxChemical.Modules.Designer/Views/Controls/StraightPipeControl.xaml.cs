@@ -22,12 +22,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<PipeRotateEventArgs> PipeRotateStarted;
         public event EventHandler<PipeRotateEventArgs> PipeRotating;
         public event EventHandler<PipeRotateEventArgs> PipeRotateCompleted;
-
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
+
         public string PipeId { get; set; }
 
-        #region IsSelected 依赖属性
+        #region 依赖属性
 
         public static readonly DependencyProperty IsSelectedProperty =
             DependencyProperty.Register(
@@ -50,71 +50,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        private void UpdateSelectionVisual(bool isSelected)
-        {
-            if (isSelected)
-            {
-                var orangeBrush = new SolidColorBrush(Colors.Orange);
-                var glowEffect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = Colors.Orange,
-                    BlurRadius = 10,
-                    ShadowDepth = 0,
-                    Opacity = 0.8
-                };
-
-                if (MainPipe != null)
-                {
-                    MainPipe.Stroke = orangeBrush;
-                    MainPipe.StrokeThickness = 2;
-                    MainPipe.Effect = glowEffect;
-                }
-
-                if (TopEdgeLine != null)
-                {
-                    TopEdgeLine.Stroke = orangeBrush;
-                    TopEdgeLine.StrokeThickness = 2;
-                }
-
-                if (BottomEdgeLine != null)
-                {
-                    BottomEdgeLine.Stroke = orangeBrush;
-                    BottomEdgeLine.StrokeThickness = 2;
-                }
-
-                SelectionBorder.Visibility = Visibility.Visible;
-                ShowAllAnchors();
-            }
-            else
-            {
-                if (MainPipe != null)
-                {
-                    MainPipe.Stroke = null;
-                    MainPipe.StrokeThickness = 0;
-                    MainPipe.Effect = null;
-                }
-
-                if (TopEdgeLine != null)
-                {
-                    TopEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(0x2A, 0x4A, 0x68));
-                    TopEdgeLine.StrokeThickness = 0.6;
-                }
-
-                if (BottomEdgeLine != null)
-                {
-                    BottomEdgeLine.Stroke = new SolidColorBrush(Color.FromRgb(0x2A, 0x4A, 0x68));
-                    BottomEdgeLine.StrokeThickness = 0.6;
-                }
-
-                SelectionBorder.Visibility = Visibility.Collapsed;
-
-                if (!this.IsMouseOver && !_isResizing && !_isRotating)
-                {
-                    HideAllAnchors();
-                }
-            }
-        }
-
         #endregion
 
         private bool _isDraggingPipe = false;
@@ -132,14 +67,21 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double MinPipeWidth = 8;
         private const double MaxPipeWidth = 100;
 
-        // ✅ 修改：默认管道长度 80（与XAML的MainPipe Width一致）
-        private double _pipeLength = 80;
-        private double _pipeWidth = 15;
+        // ✅ 默认管道长度和宽度（匹配XAML初始值）
+        private double _pipeLength = 85.9;  // SVG: 372 * 0.230833
+        private double _pipeWidth = 16.6;   // SVG: 72 * 0.230833
         private double _rotationAngle = 0;
 
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
+
+        // ✅ SVG坐标系常量
+        private const double SCALE_FACTOR = 0.230833;
+        private const double LEFT_FLANGE_LEFT = 0.35;      // SVG: 1.5 * 0.230833
+        private const double LEFT_FLANGE_WIDTH = 2.54;     // SVG: 11 * 0.230833
+        private const double PIPE_LEFT = 3.2;              // SVG: 14 * 0.230833
+        private const double RIGHT_FLANGE_WIDTH = 2.54;    // SVG: 11 * 0.230833
 
         public double PipeLength
         {
@@ -280,42 +222,50 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdatePipeGeometry()
         {
-            // ✅ 修改：控件总宽度计算
-            // 左法兰(Canvas.Left=6, Width=4) + 管道(Canvas.Left=10, Width=_pipeLength) + 右法兰(Width=4)
-            // = 6 + 4 + _pipeLength + 4 = _pipeLength + 14
-            this.Width = _pipeLength + 14;
-            this.Height = _pipeWidth + 30;
+            // ✅ 控件总宽度 = 左法兰left + 左法兰宽 + 管道宽 + 右法兰宽
+            this.Width = LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH + _pipeLength + RIGHT_FLANGE_WIDTH;
 
-            // 管道主体位置
+            // ✅ 控件总高度根据管道宽度动态计算
+            // 端盖高度 = 管道宽度 + 上下各延伸部分
+            double flangeExtension = 5.8;  // SVG中端盖比管道多出的高度 (97-72)/2 * 0.230833 ≈ 2.9 * 2
+            this.Height = _pipeWidth + flangeExtension;
+
+            // ✅ 管道背景和主体位置
+            double pipeTopOffset = flangeExtension / 2;  // 管道距离顶部的偏移
+
+            PipeBackground.Width = _pipeLength;
+            PipeBackground.Height = _pipeWidth;
+            Canvas.SetLeft(PipeBackground, PIPE_LEFT);
+            Canvas.SetTop(PipeBackground, pipeTopOffset);
+
             MainPipe.Width = _pipeLength;
             MainPipe.Height = _pipeWidth;
-            Canvas.SetLeft(MainPipe, 10);
-            Canvas.SetTop(MainPipe, 15);
+            Canvas.SetLeft(MainPipe, PIPE_LEFT);
+            Canvas.SetTop(MainPipe, pipeTopOffset);
 
-            // 顶部和底部边缘线
-            TopEdgeLine.X1 = 10;
-            TopEdgeLine.X2 = 10 + _pipeLength;
-            TopEdgeLine.Y1 = 15;
-            TopEdgeLine.Y2 = 15;
+            // ✅ 顶部和底部边缘线
+            double edgeLeft = PIPE_LEFT + 0.38;
+            double edgeRight = PIPE_LEFT + _pipeLength - 0.38;
+            double topEdgeY = pipeTopOffset + 0.32;
+            double bottomEdgeY = pipeTopOffset + _pipeWidth - 0.32;
 
-            BottomEdgeLine.X1 = 10;
-            BottomEdgeLine.X2 = 10 + _pipeLength;
-            BottomEdgeLine.Y1 = 15 + _pipeWidth;
-            BottomEdgeLine.Y2 = 15 + _pipeWidth;
+            TopEdgeLine.X1 = edgeLeft;
+            TopEdgeLine.X2 = edgeRight;
+            TopEdgeLine.Y1 = topEdgeY;
+            TopEdgeLine.Y2 = topEdgeY;
 
-            // 高光和阴影
-            TopHighlight.Width = _pipeLength - 2;
-            Canvas.SetLeft(TopHighlight, 11);
-            Canvas.SetTop(TopHighlight, 16);
-
-            BottomShadow.Width = _pipeLength - 2;
-            Canvas.SetLeft(BottomShadow, 11);
-            Canvas.SetTop(BottomShadow, 15 + _pipeWidth - 2);
+            BottomEdgeLine.X1 = edgeLeft;
+            BottomEdgeLine.X2 = edgeRight;
+            BottomEdgeLine.Y1 = bottomEdgeY;
+            BottomEdgeLine.Y2 = bottomEdgeY;
 
             UpdateFlanges();
 
-            SelectionBorder.Width = this.Width - 2;
+            // ✅ 选择边框
+            SelectionBorder.Width = _pipeLength + 4;
             SelectionBorder.Height = _pipeWidth + 4;
+            Canvas.SetLeft(SelectionBorder, PIPE_LEFT - 2);
+            Canvas.SetTop(SelectionBorder, pipeTopOffset - 2);
 
             UpdateAnchorPositions();
             UpdateRotationLabelPosition();
@@ -323,45 +273,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlanges()
         {
-            // ✅ 修改：法兰高度改为管道宽度 + 4（上下各多出2px）
-            double flangeHeight = _pipeWidth + 4;
-            double flangeTop = (this.Height - flangeHeight) / 2;
+            // ✅ 法兰高度 = 管道宽度 + 上下延伸
+            double flangeExtension = 5.8;  // 上下各延伸 2.9
+            double flangeHeight = _pipeWidth + flangeExtension;
+            double flangeTop = 0;  // 法兰从控件顶部开始
 
-            // 左侧法兰位置（XAML中 Canvas.Left="6"）
-            Canvas.SetLeft(LeftFlangeGroup, 6);
+            // ✅ 左侧法兰
+            Canvas.SetLeft(LeftFlangeGroup, LEFT_FLANGE_LEFT);
             Canvas.SetTop(LeftFlangeGroup, flangeTop);
             LeftFlangeBase.Height = flangeHeight;
             LeftFlangeGradient.Height = flangeHeight;
             LeftFlangeBorder.Height = flangeHeight;
-            UpdateFlangeBolts(LeftBolt1, LeftBolt2, LeftBolt3, flangeHeight);
 
-            // 右侧法兰位置
-            Canvas.SetLeft(RightFlangeGroup, 10 + _pipeLength);
+            // ✅ 右侧法兰 - 动态计算位置
+            double rightFlangeLeft = LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH + _pipeLength + (PIPE_LEFT - LEFT_FLANGE_LEFT - LEFT_FLANGE_WIDTH);
+            Canvas.SetLeft(RightFlangeGroup, rightFlangeLeft);
             Canvas.SetTop(RightFlangeGroup, flangeTop);
             RightFlangeBase.Height = flangeHeight;
             RightFlangeGradient.Height = flangeHeight;
             RightFlangeBorder.Height = flangeHeight;
-            UpdateFlangeBolts(RightBolt1, RightBolt2, RightBolt3, flangeHeight);
-        }
-
-        private void UpdateFlangeBolts(Ellipse bolt1, Ellipse bolt2, Ellipse bolt3, double flangeHeight)
-        {
-            double boltSize = 2;
-            double leftPosition = 1;  // 居中：(4-2)/2 = 1
-
-            // ✅ 修改：螺栓垂直分布更合理
-            // 第一个螺栓：距离顶部 flangeHeight * 0.2
-            // 第二个螺栓：居中
-            // 第三个螺栓：距离底部 flangeHeight * 0.2
-
-            Canvas.SetLeft(bolt1, leftPosition);
-            Canvas.SetTop(bolt1, flangeHeight * 0.2 - boltSize / 2);
-
-            Canvas.SetLeft(bolt2, leftPosition);
-            Canvas.SetTop(bolt2, (flangeHeight - boltSize) / 2);
-
-            Canvas.SetLeft(bolt3, leftPosition);
-            Canvas.SetTop(bolt3, flangeHeight * 0.8 - boltSize / 2);
         }
 
         private void UpdateAnchorPositions()
@@ -401,6 +331,47 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             _rotateTransform.Angle = _rotationAngle;
             RotationText.Text = $"{_rotationAngle:F0}°";
+        }
+
+        private void UpdateSelectionVisual(bool isSelected)
+        {
+            if (isSelected)
+            {
+                var orangeBrush = new SolidColorBrush(Colors.Orange);
+                var glowEffect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Orange,
+                    BlurRadius = 10,
+                    ShadowDepth = 0,
+                    Opacity = 0.8
+                };
+
+                if (MainPipe != null)
+                {
+                    MainPipe.Stroke = orangeBrush;
+                    MainPipe.StrokeThickness = 2;
+                    MainPipe.Effect = glowEffect;
+                }
+
+                SelectionBorder.Visibility = Visibility.Visible;
+                ShowAllAnchors();
+            }
+            else
+            {
+                if (MainPipe != null)
+                {
+                    MainPipe.Stroke = null;
+                    MainPipe.StrokeThickness = 0;
+                    MainPipe.Effect = null;
+                }
+
+                SelectionBorder.Visibility = Visibility.Collapsed;
+
+                if (!this.IsMouseOver && !_isResizing && !_isRotating)
+                {
+                    HideAllAnchors();
+                }
+            }
         }
 
         #endregion
@@ -523,7 +494,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
 
                     _fixedPoint = CalculateFixedPoint(position);
-                    Debug.WriteLine($"开始调整大小: 锚点={position}, 固定点=({_fixedPoint.X:F1}, {_fixedPoint.Y:F1})");
                 }
                 this.CaptureMouse();
                 PipeResizeStarted?.Invoke(this, new PipeResizeEventArgs
@@ -652,8 +622,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(this, newCenter.Y - this.ActualHeight / 2);
 
             UpdatePipeGeometry();
-
-            Debug.WriteLine($"调整长度: {_pipeLength:F1}px, 角度保持: {_rotationAngle:F1}°");
         }
 
         private void ResizeWidthFromAnchor(Point currentMousePosition)
@@ -672,7 +640,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             _pipeWidth = newWidth;
 
-            double fixedLocalY = (_resizingAnchor == PipeAnchorPosition.Bottom) ? -_pipeWidth / 2 : _pipeWidth / 2;
+            double fixedLocalY = (_resizingAnchor == PipeAnchorPosition.Bottom)
+                ? -_pipeWidth / 2
+                : _pipeWidth / 2;
 
             Point fixedOffset = new Point(
                 -fixedLocalY * sin,
@@ -688,8 +658,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(this, newCenter.Y - this.ActualHeight / 2);
 
             UpdatePipeGeometry();
-
-            Debug.WriteLine($"调整宽度: {newWidth:F1}px");
         }
 
         private void CompleteResize()
@@ -702,7 +670,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 OriginalSize = _originalSize,
                 CurrentSize = new Size(_pipeLength, _pipeWidth)
             });
-            Debug.WriteLine($"调整大小完成: 长度={_pipeLength:F0}px, 宽度={_pipeWidth:F0}px");
             _isResizing = false;
             _resizingAnchor = null;
             this.ReleaseMouseCapture();
@@ -798,6 +765,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region 辅助方法
 
+        /// <summary>
+        /// ✅ 获取锚点位置（考虑SVG布局）
+        /// </summary>
         public Point GetAnchorPosition(PipeAnchorPosition position)
         {
             var parent = this.Parent as Canvas;
@@ -811,15 +781,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             switch (position)
             {
                 case PipeAnchorPosition.Left:
-                    // ✅ 左法兰中心位置：Canvas.Left=6, 法兰宽度=4, 中心=6+2=8
-                    return new Point(pipeLeft + 8, pipeTop + this.Height / 2);
+                    // 左法兰中心：left + 法兰left + 法兰宽/2
+                    return new Point(
+                        pipeLeft + LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH / 2,
+                        pipeTop + this.Height / 2
+                    );
+
                 case PipeAnchorPosition.Right:
-                    // ✅ 右法兰中心位置：Canvas.Left=10+_pipeLength, 法兰宽度=4, 中心=10+_pipeLength+2
-                    return new Point(pipeLeft + 10 + _pipeLength + 2, pipeTop + this.Height / 2);
+                    // 右法兰中心：控件宽 - 右法兰宽/2
+                    return new Point(
+                        pipeLeft + this.Width - RIGHT_FLANGE_WIDTH / 2,
+                        pipeTop + this.Height / 2
+                    );
+
                 case PipeAnchorPosition.Top:
-                    return new Point(pipeLeft + this.Width / 2, pipeTop + 15);
+                    return new Point(pipeLeft + this.Width / 2, pipeTop + 14.8);
+
                 case PipeAnchorPosition.Bottom:
-                    return new Point(pipeLeft + this.Width / 2, pipeTop + this.Height - 15);
+                    return new Point(pipeLeft + this.Width / 2, pipeTop + 14.8 + _pipeWidth);
+
                 default:
                     return new Point();
             }
@@ -830,7 +810,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region IPipeSnapPoints 实现
 
         /// <summary>
-        /// ✅ 获取直管的两个法兰吸附点（适配法兰宽度4）
+        /// ✅ 获取直管的两个法兰吸附点（SVG精确坐标）
         /// </summary>
         public List<PipeSnapPoint> GetSnapPoints()
         {
@@ -844,7 +824,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            // 管道中心点
+            // 控件中心点
             Point center = new Point(
                 pipeLeft + this.ActualWidth / 2,
                 pipeTop + this.ActualHeight / 2
@@ -854,10 +834,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // ✅ 左侧法兰的位置
-            // 左法兰在 Canvas.Left=6，宽度=4，外侧边缘=6
-            // 法兰中心 = 6 + 2 = 8
-            double leftFlangeX = 8 - this.ActualWidth / 2;  // 相对于控件中心
+            // ✅ 左侧法兰中心（相对控件中心）
+            double leftFlangeX = (LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH / 2) - this.ActualWidth / 2;
             double leftFlangeY = 0;
 
             Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
@@ -873,10 +851,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"直管左法兰 (长度:{_pipeLength:F0})"
             });
 
-            // ✅ 右侧法兰的位置
-            // 右法兰在 Canvas.Left = 10 + _pipeLength，宽度=4
-            // 法兰中心 = 10 + _pipeLength + 2
-            double rightFlangeX = (10 + _pipeLength + 2) - this.ActualWidth / 2;
+            // ✅ 右侧法兰中心（相对控件中心）
+            double rightFlangeX = this.ActualWidth - RIGHT_FLANGE_WIDTH / 2 - this.ActualWidth / 2;
             double rightFlangeY = 0;
 
             Point rightFlangeLocal = new Point(rightFlangeX, rightFlangeY);

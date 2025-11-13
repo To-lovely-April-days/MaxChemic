@@ -11,115 +11,121 @@
              Cursor="SizeAll"
              ClipToBounds="False">
 
+    <UserControl.Resources>
+        <!-- ✅ 统一管道渐变（与直管道一致） -->
+        <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#727171" Offset="0"/>
+            <GradientStop Color="#59727171" Offset="0.264"/>
+            <GradientStop Color="#1A727171" Offset="0.418"/>
+            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
+            <GradientStop Color="#1A727171" Offset="0.581"/>
+            <GradientStop Color="#59727171" Offset="0.719"/>
+            <GradientStop Color="#727171" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- ✅ 统一法兰渐变（左侧） -->
+        <LinearGradientBrush x:Key="LeftEndCapGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#D9D9D9" Offset="0"/>
+            <GradientStop Color="#A0A0A0" Offset="0.5"/>
+            <GradientStop Color="#D9D9D9" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- ✅ 统一法兰渐变（顶部） -->
+        <LinearGradientBrush x:Key="TopEndCapGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#D9D9D9" Offset="0"/>
+            <GradientStop Color="#A0A0A0" Offset="0.5"/>
+            <GradientStop Color="#D9D9D9" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- ✅ 水平管道渐变（垂直方向） -->
+        <LinearGradientBrush x:Key="HorizontalPipeGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#727171" Offset="0"/>
+            <GradientStop Color="#59727171" Offset="0.264"/>
+            <GradientStop Color="#1A727171" Offset="0.418"/>
+            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
+            <GradientStop Color="#1A727171" Offset="0.581"/>
+            <GradientStop Color="#59727171" Offset="0.719"/>
+            <GradientStop Color="#727171" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- ✅ 垂直管道渐变（水平方向） -->
+        <LinearGradientBrush x:Key="VerticalPipeGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#727171" Offset="0"/>
+            <GradientStop Color="#59727171" Offset="0.264"/>
+            <GradientStop Color="#1A727171" Offset="0.418"/>
+            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
+            <GradientStop Color="#1A727171" Offset="0.581"/>
+            <GradientStop Color="#59727171" Offset="0.719"/>
+            <GradientStop Color="#727171" Offset="1"/>
+        </LinearGradientBrush>
+    </UserControl.Resources>
+
     <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
 
-        <!-- ✅ 左侧法兰组 (水平段) - 宽度改为4 -->
+        <!-- ✅ 左侧法兰组 (水平段) - 移除所有螺栓 -->
         <Canvas x:Name="LeftFlangeGroup" 
-        Canvas.Left="2" 
-        Canvas.Top="32"
-        Width="4" 
-        Height="24">
+                Canvas.Left="0.35" 
+                Canvas.Top="32"
+                Width="2.54" 
+                Height="24">
+
             <Rectangle x:Name="LeftFlangeBase"
-               Width="4"
-               Height="24"
-               Fill="#D0D0D0"
-               RadiusX="0.8" 
-               RadiusY="0.8"/>
+                       Width="2.54"
+                       Height="24"
+                       Fill="#D9D9D9"
+                       RadiusX="1.27" 
+                       RadiusY="1.27"/>
 
             <Rectangle x:Name="LeftFlangeGradient"
-               Width="4"
-               Height="24"
-               RadiusX="0.8" 
-               RadiusY="0.8">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#E8E8E8" Offset="0"/>
-                        <GradientStop Color="#F5F5F5" Offset="0.5"/>
-                        <GradientStop Color="#D8D8D8" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+                       Width="2.54"
+                       Height="24"
+                       Fill="{StaticResource LeftEndCapGradient}"
+                       Opacity="0.6"
+                       RadiusX="1.27" 
+                       RadiusY="1.27"/>
 
             <Rectangle x:Name="LeftFlangeBorder"
-               Width="4"
-               Height="24"
-               Stroke="#334C68" 
-               StrokeThickness="0.8"
-               RadiusX="0.8" 
-               RadiusY="0.8" 
-               Fill="Transparent"/>
-
-            <!-- ✅ 螺栓位置调整 -->
-            <Ellipse x:Name="LeftBolt1" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="1" Canvas.Top="3">
-                <Ellipse.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
-                </Ellipse.Effect>
-            </Ellipse>
-            <Ellipse x:Name="LeftBolt2" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="1" Canvas.Top="11">
-                <Ellipse.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
-                </Ellipse.Effect>
-            </Ellipse>
-            <Ellipse x:Name="LeftBolt3" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="1" Canvas.Top="19">
-                <Ellipse.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
-                </Ellipse.Effect>
-            </Ellipse>
+                       Width="2.54"
+                       Height="24"
+                       Stroke="#727171" 
+                       StrokeThickness="0.7"
+                       RadiusX="1.27" 
+                       RadiusY="1.27" 
+                       Fill="Transparent"/>
         </Canvas>
 
-        <!-- 水平管道段 -->
+        <!-- ✅ 水平管道段 - 使用统一渐变 -->
         <Rectangle x:Name="HorizontalPipe" 
-                   Canvas.Left="6" 
+                   Canvas.Left="3.2" 
                    Canvas.Top="34"
                    Width="34"
                    Height="20"
-                   RadiusX="1.5" 
-                   RadiusY="1.5">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#D5E5F2" Offset="0"/>
-                    <GradientStop Color="#C5D9E8" Offset="0.1"/>
-                    <GradientStop Color="#B0CAE2" Offset="0.3"/>
-                    <GradientStop Color="#95B5D5" Offset="0.5"/>
-                    <GradientStop Color="#B0CAE2" Offset="0.7"/>
-                    <GradientStop Color="#C5D9E8" Offset="0.9"/>
-                    <GradientStop Color="#D5E5F2" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
+                   Fill="{StaticResource HorizontalPipeGradient}"/>
 
-        <!-- 水平管道边缘线 -->
+        <!-- ✅ 水平管道边缘线 - 统一为黑色+透明度 -->
         <Line x:Name="HorizontalTopEdge" 
-              X1="6" Y1="34" 
-              X2="40" Y2="34"
-              Stroke="#2A4A68" 
-              StrokeThickness="0.6"/>
+              X1="3.58" Y1="34.32" 
+              X2="37.18" Y2="34.32"
+              Stroke="#000000" 
+              StrokeThickness="0.7"
+              Opacity="0.12"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"/>
+
         <Line x:Name="HorizontalBottomEdge" 
-              X1="6" Y1="54" 
-              X2="40" Y2="54"
-              Stroke="#2A4A68" 
-              StrokeThickness="0.6"/>
+              X1="3.58" Y1="53.68" 
+              X2="37.18" Y2="53.68"
+              Stroke="#000000" 
+              StrokeThickness="0.7"
+              Opacity="0.12"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"/>
 
-        <!-- 水平管道高光 -->
-        <Rectangle x:Name="HorizontalHighlight" 
-                   Canvas.Left="7"
-                   Canvas.Top="35"
-                   Width="32"
-                   Height="3" 
-                   Opacity="0.6" 
-                   RadiusX="0.5" 
-                   RadiusY="0.5">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
-
-        <!-- 弯头部分 -->
-        <Path x:Name="ElbowPath" StrokeThickness="0.6" Stroke="#2A4A68">
+        <!-- ✅ 弯头部分 - 从右下到左上的线性渐变 -->
+        <!-- ✅ 弯头部分 - 从右下到左上的线性渐变（与直管道金属色一致） -->
+        <Path x:Name="ElbowPath" 
+      StrokeThickness="0.7" 
+      Stroke="#727171">
             <Path.Data>
                 <PathGeometry>
                     <PathFigure StartPoint="40,54">
@@ -131,170 +137,149 @@
                 </PathGeometry>
             </Path.Data>
             <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#D5E5F2" Offset="0"/>
-                    <GradientStop Color="#C5D9E8" Offset="0.2"/>
-                    <GradientStop Color="#B0CAE2" Offset="0.4"/>
-                    <GradientStop Color="#95B5D5" Offset="0.5"/>
-                    <GradientStop Color="#B0CAE2" Offset="0.6"/>
-                    <GradientStop Color="#C5D9E8" Offset="0.8"/>
-                    <GradientStop Color="#D5E5F2" Offset="1"/>
+                <!-- ✅ 线性渐变：使用与直管道一致的金属灰色系 -->
+                <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
+                    <GradientStop Color="#727171" Offset="0"/>
+                    <!-- 标准金属灰（右下外侧） -->
+                    <GradientStop Color="#59727171" Offset="0.15"/>
+                    <GradientStop Color="#40727171" Offset="0.28"/>
+                    <GradientStop Color="#1A727171" Offset="0.42"/>
+                    <GradientStop Color="#00FFFFFF" Offset="0.5"/>
+                    <!-- 中心透明/高光 -->
+                    <GradientStop Color="#1A727171" Offset="0.58"/>
+                    <GradientStop Color="#40727171" Offset="0.72"/>
+                    <GradientStop Color="#59727171" Offset="0.85"/>
+                    <GradientStop Color="#8A8A8A" Offset="1"/>
+                    <!-- 稍浅的灰（左上内侧） -->
                 </LinearGradientBrush>
             </Path.Fill>
         </Path>
 
-        <!-- 弯头高光 -->
-        <Path x:Name="ElbowHighlight" Opacity="0.5">
+        <!-- ✅ 弯头外侧轻微强化（可选，降低不透明度） -->
+        <Path x:Name="ElbowOuterEdge" Opacity="0.15">
             <Path.Data>
                 <PathGeometry>
-                    <PathFigure StartPoint="42,49">
-                        <ArcSegment Point="55,36" Size="15,15" SweepDirection="Counterclockwise"/>
+                    <PathFigure StartPoint="40,53.5">
+                        <ArcSegment Point="59.5,34" Size="19.5,19.5" SweepDirection="Counterclockwise"/>
                     </PathFigure>
                 </PathGeometry>
             </Path.Data>
-            <Path.Fill>
-                <RadialGradientBrush Center="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.3"/>
+            <Path.Stroke>
+                <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
+                    <GradientStop Color="#5A5A5A" Offset="0"/>
+                    <GradientStop Color="#6A6A6A" Offset="0.4"/>
                     <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Path.Fill>
+                </LinearGradientBrush>
+            </Path.Stroke>
+            <Path.StrokeThickness>1.5</Path.StrokeThickness>
         </Path>
 
-        <!-- 垂直管道段 -->
+        <!-- ✅ 弯头高光（金属光泽） -->
+        <Path x:Name="ElbowHighlight" Opacity="0.3">
+            <Path.Data>
+                <PathGeometry>
+                    <PathFigure StartPoint="43,51">
+                        <ArcSegment Point="57,37" Size="17,17" SweepDirection="Counterclockwise"/>
+                    </PathFigure>
+                </PathGeometry>
+            </Path.Data>
+            <Path.Stroke>
+                <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
+                    <GradientStop Color="Transparent" Offset="0"/>
+                    <GradientStop Color="#D8D8D8" Offset="0.4"/>
+                    <GradientStop Color="#FFFFFF" Offset="0.7"/>
+                    <GradientStop Color="#F0F0F0" Offset="1"/>
+                </LinearGradientBrush>
+            </Path.Stroke>
+            <Path.StrokeThickness>1.5</Path.StrokeThickness>
+        </Path>
+
+        <!-- ✅ 垂直管道段 - 使用统一渐变 -->
         <Rectangle x:Name="VerticalPipe" 
                    Canvas.Left="50"
-                   Canvas.Top="6"
+                   Canvas.Top="3.2"
                    Width="20"
                    Height="28"
-                   RadiusX="1.5" 
-                   RadiusY="1.5">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#D5E5F2" Offset="0"/>
-                    <GradientStop Color="#C5D9E8" Offset="0.1"/>
-                    <GradientStop Color="#B0CAE2" Offset="0.3"/>
-                    <GradientStop Color="#95B5D5" Offset="0.5"/>
-                    <GradientStop Color="#B0CAE2" Offset="0.7"/>
-                    <GradientStop Color="#C5D9E8" Offset="0.9"/>
-                    <GradientStop Color="#D5E5F2" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
+                   Fill="{StaticResource VerticalPipeGradient}"/>
 
-        <!-- 垂直管道边缘线 -->
+        <!-- ✅ 垂直管道边缘线 - 统一为黑色+透明度 -->
         <Line x:Name="VerticalLeftEdge" 
-              X1="50" Y1="6" 
-              X2="50" Y2="34"
-              Stroke="#2A4A68" 
-              StrokeThickness="0.6"/>
+              X1="50.32" Y1="3.58" 
+              X2="50.32" Y2="31.18"
+              Stroke="#000000" 
+              StrokeThickness="0.7"
+              Opacity="0.12"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"/>
+
         <Line x:Name="VerticalRightEdge" 
-              X1="70" Y1="6" 
-              X2="70" Y2="34"
-              Stroke="#2A4A68" 
-              StrokeThickness="0.6"/>
+              X1="69.68" Y1="3.58" 
+              X2="69.68" Y2="31.18"
+              Stroke="#000000" 
+              StrokeThickness="0.7"
+              Opacity="0.12"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"/>
 
-        <!-- 垂直管道高光 -->
-        <Rectangle x:Name="VerticalHighlight" 
-                   Canvas.Left="51"
-                   Canvas.Top="7"
-                   Width="3"
-                   Height="26"
-                   Opacity="0.6" 
-                   RadiusX="0.5" 
-                   RadiusY="0.5">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
-
-        <!-- ✅ 顶部法兰组 - 高度改为4 -->
+        <!-- ✅ 顶部法兰组 - 移除所有螺栓 -->
         <Canvas x:Name="TopFlangeGroup" 
-        Canvas.Left="48"
-        Canvas.Top="2"
-        Width="24"
-        Height="4">
-            <Rectangle x:Name="TopFlangeBase" 
-               Width="24"
-               Height="4" 
-               Fill="#D0D0D0" 
-               RadiusX="0.8" 
-               RadiusY="0.8"/>
-            <Rectangle x:Name="TopFlangeGradient" 
-               Width="24"
-               Height="4" 
-               RadiusX="0.8" 
-               RadiusY="0.8">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#E8E8E8" Offset="0"/>
-                        <GradientStop Color="#F5F5F5" Offset="0.5"/>
-                        <GradientStop Color="#D8D8D8" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
-            <Rectangle x:Name="TopFlangeBorder" 
-               Width="24"
-               Height="4" 
-               Stroke="#334C68" 
-               StrokeThickness="0.8" 
-               RadiusX="0.8" 
-               RadiusY="0.8" 
-               Fill="Transparent"/>
+                Canvas.Left="48"
+                Canvas.Top="0.35"
+                Width="24"
+                Height="2.54">
 
-            <!-- ✅ 螺栓位置调整 -->
-            <Ellipse x:Name="TopBolt1" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="3" Canvas.Top="1">
-                <Ellipse.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
-                </Ellipse.Effect>
-            </Ellipse>
-            <Ellipse x:Name="TopBolt2" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="11" Canvas.Top="1">
-                <Ellipse.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
-                </Ellipse.Effect>
-            </Ellipse>
-            <Ellipse x:Name="TopBolt3" Width="2" Height="2" Fill="#4A4A4A" Canvas.Left="19" Canvas.Top="1">
-                <Ellipse.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="1" ShadowDepth="0.5" Opacity="0.3"/>
-                </Ellipse.Effect>
-            </Ellipse>
+            <Rectangle x:Name="TopFlangeBase" 
+                       Width="24"
+                       Height="2.54" 
+                       Fill="#D9D9D9" 
+                       RadiusX="1.27" 
+                       RadiusY="1.27"/>
+
+            <Rectangle x:Name="TopFlangeGradient" 
+                       Width="24"
+                       Height="2.54" 
+                       Fill="{StaticResource TopEndCapGradient}"
+                       Opacity="0.6"
+                       RadiusX="1.27" 
+                       RadiusY="1.27"/>
+
+            <Rectangle x:Name="TopFlangeBorder" 
+                       Width="24"
+                       Height="2.54" 
+                       Stroke="#727171" 
+                       StrokeThickness="0.7" 
+                       RadiusX="1.27" 
+                       RadiusY="1.27" 
+                       Fill="Transparent"/>
         </Canvas>
 
-        <!-- 连接处 -->
+        <!-- ✅ 连接处 - 统一颜色为灰色 -->
         <Rectangle x:Name="LeftConnection" 
-                   Canvas.Left="5"
+                   Canvas.Left="2.89"
                    Canvas.Top="34"
-                   Width="2"
+                   Width="1"
                    Height="20"
-                   Fill="#8FA9BD" 
-                   RadiusX="0.5" 
-                   RadiusY="0.5"/>
+                   Fill="#727171" 
+                   Opacity="0.6"/>
+
         <Rectangle x:Name="TopConnection" 
                    Canvas.Left="50"
-                   Canvas.Top="5"
+                   Canvas.Top="2.89"
                    Width="20"
-                   Height="2"
-                   Fill="#8FA9BD" 
-                   RadiusX="0.5" 
-                   RadiusY="0.5"/>
+                   Height="1"
+                   Fill="#727171" 
+                   Opacity="0.6"/>
 
         <!-- 锚点 -->
         <Ellipse x:Name="LeftAnchor" 
                  Canvas.Left="-6"
                  Canvas.Top="38"
                  Width="12" Height="12" 
-                 Fill="#FF6B6B" 
+                 Fill="Orange" 
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
                  Cursor="SizeWE">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
-            </Ellipse.Effect>
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整水平长度"/>
             </Ellipse.ToolTip>
@@ -304,14 +289,11 @@
                  Canvas.Left="54"
                  Canvas.Top="-6"
                  Width="12" Height="12" 
-                 Fill="#FF6B6B" 
+                 Fill="Orange" 
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
                  Cursor="SizeNS">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
-            </Ellipse.Effect>
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整垂直长度"/>
             </Ellipse.ToolTip>
@@ -321,14 +303,11 @@
                  Canvas.Left="19"
                  Canvas.Top="68"
                  Width="12" Height="12" 
-                 Fill="#4ECDC4" 
+                 Fill="Orange" 
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
                  Cursor="SizeNS">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
-            </Ellipse.Effect>
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整管道宽度"/>
             </Ellipse.ToolTip>
@@ -338,14 +317,11 @@
                  Canvas.Left="74"
                  Canvas.Top="15"
                  Width="12" Height="12" 
-                 Fill="#4ECDC4" 
+                 Fill="Orange" 
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
                  Cursor="SizeWE">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
-            </Ellipse.Effect>
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整管道宽度"/>
             </Ellipse.ToolTip>
@@ -359,25 +335,25 @@
                    Height="84"
                    Stroke="#FF9500" 
                    StrokeThickness="2" 
-                   StrokeDashArray="4,2" 
                    Fill="Transparent" 
                    RadiusX="3" 
                    RadiusY="3" 
-                   Visibility="Collapsed"/>
+                   Visibility="Collapsed">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="Orange" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
+            </Rectangle.Effect>
+        </Rectangle>
 
         <!-- 旋转锚点 -->
         <Ellipse x:Name="RotateAnchor" 
                  Canvas.Left="34"
                  Canvas.Top="-30"
                  Width="12" Height="12" 
-                 Fill="#9B59B6" 
+                 Fill="#4CAF50" 
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
                  Cursor="Hand">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
-            </Ellipse.Effect>
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动旋转 (按住Shift=15°步进)"/>
             </Ellipse.ToolTip>
@@ -387,7 +363,7 @@
         <Line x:Name="RotateAnchorLine" 
               X1="40" Y1="0"
               X2="40" Y2="-24"
-              Stroke="#9B59B6" 
+              Stroke="Orange" 
               StrokeThickness="1" 
               StrokeDashArray="2,2" 
               Opacity="0"/>
@@ -398,12 +374,11 @@
                 Canvas.Top="-50"
                 Background="#CC000000"
                 CornerRadius="3"
-                Padding="8,3"
+                Padding="5,2"
                 Visibility="Collapsed">
             <TextBlock x:Name="RotationText"
                        Foreground="White"
-                       FontSize="12"
-                       FontWeight="Bold"
+                       FontSize="11"
                        Text="0°"/>
         </Border>
     </Canvas>

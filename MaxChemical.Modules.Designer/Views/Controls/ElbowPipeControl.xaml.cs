@@ -29,7 +29,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ElbowPipeEventArgs> PipeDeleted;
         public event EventHandler<ElbowPipeEventArgs> ShowPipeProperties;
 
-        // ✅ 新增：管道选中事件
+        // ✅ 管道选中事件
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
 
@@ -87,6 +87,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double MaxArmLength = 300;
         private const double MinPipeWidth = 8;
         private const double MaxPipeWidth = 60;
+
+        // ✅ 法兰尺寸常量（与直管道统一）
+        private const double FlangeWidth = 2.54;
+        private const double FlangeOffset = 0.35;
+        private const double FlangeSpacing = 2.0; // 法兰与管道之间的间距
 
         private double _horizontalLength = 50;
         private double _verticalLength = 60;
@@ -231,19 +236,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 更新选中视觉效果（取消选中时完全恢复原样）
+        /// ✅ 更新选中视觉效果
         /// </summary>
         private void UpdateSelectionVisual(bool isSelected)
         {
             if (isSelected)
             {
-                // ========== 选中时：只显示选择边框和锚点 ==========
                 SelectionBorder.Visibility = Visibility.Visible;
                 ShowAllAnchors();
             }
             else
             {
-                // ========== ✅ 取消选中时：完全恢复原始状态 ==========
                 SelectionBorder.Visibility = Visibility.Collapsed;
 
                 if (!this.IsMouseOver && !_isResizing && !_isRotating)
@@ -370,7 +373,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             double centerX = this.Width / 2;
             Canvas.SetLeft(RotationLabel, centerX - 20);
-            Canvas.SetTop(RotationLabel, -30);
+            Canvas.SetTop(RotationLabel, -50);
         }
 
         #endregion
@@ -434,17 +437,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             this.Width = _horizontalLength + 20;
             this.Height = _verticalLength + 20;
 
-            double flangeSpace = 8;
             double elbowRadius = _pipeWidth;
 
+            // ✅ 修改：考虑法兰宽度2.54的计算
+            // 水平中心Y = 控件高度 - 底部边距10 - 管道宽度一半
             double horizontalCenterY = this.Height - 10 - _pipeWidth / 2;
+
+            // 垂直中心X = 控件宽度 - 右侧边距10 - 管道宽度一半
             double verticalCenterX = this.Width - 10 - _pipeWidth / 2;
 
             double elbowCenterX = verticalCenterX;
             double elbowCenterY = horizontalCenterY;
 
-            UpdateHorizontalPipe(horizontalCenterY, elbowCenterX, flangeSpace, elbowRadius);
-            UpdateVerticalPipe(verticalCenterX, elbowCenterY, flangeSpace, elbowRadius);
+            UpdateHorizontalPipe(horizontalCenterY, elbowCenterX, elbowRadius);
+            UpdateVerticalPipe(verticalCenterX, elbowCenterY, elbowRadius);
             UpdateElbow(elbowCenterX, elbowCenterY, elbowRadius);
             UpdateFlanges(horizontalCenterY, verticalCenterX);
             UpdateConnections(horizontalCenterY, verticalCenterX);
@@ -456,10 +462,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateRotationLabelPosition();
         }
 
-        private void UpdateHorizontalPipe(double centerY, double elbowCenterX, double flangeSpace, double elbowRadius)
+        private void UpdateHorizontalPipe(double centerY, double elbowCenterX, double elbowRadius)
         {
-            // ✅ 修改：法兰宽度从6改为4，pipeLeft = 4 + 2 = 6
-            double pipeLeft = 6;  // 法兰宽度4 + 间距2
+            // ✅ 修改：pipeLeft = 法兰宽度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
+            double pipeLeft = FlangeWidth + FlangeSpacing + FlangeOffset;
             double pipeWidth = Math.Max(0, elbowCenterX - elbowRadius - pipeLeft);
             double pipeTop = centerY - _pipeWidth / 2;
 
@@ -468,26 +474,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(HorizontalPipe, pipeLeft);
             Canvas.SetTop(HorizontalPipe, pipeTop);
 
-            HorizontalTopEdge.X1 = pipeLeft;
-            HorizontalTopEdge.X2 = pipeLeft + pipeWidth;
-            HorizontalTopEdge.Y1 = pipeTop;
-            HorizontalTopEdge.Y2 = pipeTop;
+            // ✅ 边缘线位置微调
+            double edgeOffset = 0.38; // (3.58 - 3.2) = 0.38
+            HorizontalTopEdge.X1 = pipeLeft + edgeOffset;
+            HorizontalTopEdge.X2 = pipeLeft + pipeWidth - edgeOffset;
+            HorizontalTopEdge.Y1 = pipeTop + 0.32;
+            HorizontalTopEdge.Y2 = pipeTop + 0.32;
 
-            HorizontalBottomEdge.X1 = pipeLeft;
-            HorizontalBottomEdge.X2 = pipeLeft + pipeWidth;
-            HorizontalBottomEdge.Y1 = pipeTop + _pipeWidth;
-            HorizontalBottomEdge.Y2 = pipeTop + _pipeWidth;
-
-            HorizontalHighlight.Width = Math.Max(0, pipeWidth - 2);
-            Canvas.SetLeft(HorizontalHighlight, pipeLeft + 1);
-            Canvas.SetTop(HorizontalHighlight, pipeTop + 1);
+            HorizontalBottomEdge.X1 = pipeLeft + edgeOffset;
+            HorizontalBottomEdge.X2 = pipeLeft + pipeWidth - edgeOffset;
+            HorizontalBottomEdge.Y1 = pipeTop + _pipeWidth - 0.32;
+            HorizontalBottomEdge.Y2 = pipeTop + _pipeWidth - 0.32;
         }
 
-
-        private void UpdateVerticalPipe(double centerX, double elbowCenterY, double flangeSpace, double elbowRadius)
+        private void UpdateVerticalPipe(double centerX, double elbowCenterY, double elbowRadius)
         {
-            // ✅ 修改：法兰高度从6改为4，pipeTop = 4 + 2 = 6
-            double pipeTop = 6;  // 法兰高度4 + 间距2
+            // ✅ 修改：pipeTop = 法兰高度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
+            double pipeTop = FlangeWidth + FlangeSpacing + FlangeOffset;
             double pipeHeight = Math.Max(0, elbowCenterY - elbowRadius - pipeTop);
             double pipeLeft = centerX - _pipeWidth / 2;
 
@@ -496,21 +499,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(VerticalPipe, pipeLeft);
             Canvas.SetTop(VerticalPipe, pipeTop);
 
-            VerticalLeftEdge.X1 = pipeLeft;
-            VerticalLeftEdge.X2 = pipeLeft;
-            VerticalLeftEdge.Y1 = pipeTop;
-            VerticalLeftEdge.Y2 = pipeTop + pipeHeight;
+            // ✅ 边缘线位置微调
+            double edgeOffset = 0.38;
+            VerticalLeftEdge.X1 = pipeLeft + 0.32;
+            VerticalLeftEdge.X2 = pipeLeft + 0.32;
+            VerticalLeftEdge.Y1 = pipeTop + edgeOffset;
+            VerticalLeftEdge.Y2 = pipeTop + pipeHeight - edgeOffset;
 
-            VerticalRightEdge.X1 = pipeLeft + _pipeWidth;
-            VerticalRightEdge.X2 = pipeLeft + _pipeWidth;
-            VerticalRightEdge.Y1 = pipeTop;
-            VerticalRightEdge.Y2 = pipeTop + pipeHeight;
-
-            VerticalHighlight.Height = Math.Max(0, pipeHeight - 2);
-            Canvas.SetLeft(VerticalHighlight, pipeLeft + 1);
-            Canvas.SetTop(VerticalHighlight, pipeTop + 1);
+            VerticalRightEdge.X1 = pipeLeft + _pipeWidth - 0.32;
+            VerticalRightEdge.X2 = pipeLeft + _pipeWidth - 0.32;
+            VerticalRightEdge.Y1 = pipeTop + edgeOffset;
+            VerticalRightEdge.Y2 = pipeTop + pipeHeight - edgeOffset;
         }
-
 
         private void UpdateElbow(double centerX, double centerY, double radius)
         {
@@ -540,6 +540,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             elbowGeometry.Figures.Add(figure);
             ElbowPath.Data = elbowGeometry;
 
+            // 弯头高光
             PathGeometry highlightGeometry = new PathGeometry();
             PathFigure highlightFigure = new PathFigure();
             double highlightRadius = radius - _pipeWidth / 4;
@@ -558,81 +559,86 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlanges(double horizontalY, double verticalX)
         {
-            // ✅ 修改：法兰高度/宽度改为管道宽度 + 4（上下/左右各多出2px）
+            // ✅ 法兰高度/宽度 = 管道宽度 + 4（上下/左右各多出2px）
             double flangeHeight = _pipeWidth + 4;
             double flangeWidth = _pipeWidth + 4;
 
             // 左侧法兰（垂直方向）
-            Canvas.SetLeft(LeftFlangeGroup, 2);
+            Canvas.SetLeft(LeftFlangeGroup, FlangeOffset);
             Canvas.SetTop(LeftFlangeGroup, horizontalY - flangeHeight / 2);
+            LeftFlangeGroup.Width = FlangeWidth;
             LeftFlangeGroup.Height = flangeHeight;
+
+            LeftFlangeBase.Width = FlangeWidth;
             LeftFlangeBase.Height = flangeHeight;
+            LeftFlangeGradient.Width = FlangeWidth;
             LeftFlangeGradient.Height = flangeHeight;
+            LeftFlangeBorder.Width = FlangeWidth;
             LeftFlangeBorder.Height = flangeHeight;
 
-            UpdateFlangeBoltsVertical(LeftBolt1, LeftBolt2, LeftBolt3, flangeHeight);
+            // ✅ 移除螺栓更新
+            // UpdateFlangeBoltsVertical(LeftBolt1, LeftBolt2, LeftBolt3, flangeHeight);
 
             // 顶部法兰（水平方向）
             Canvas.SetLeft(TopFlangeGroup, verticalX - flangeWidth / 2);
-            Canvas.SetTop(TopFlangeGroup, 2);
+            Canvas.SetTop(TopFlangeGroup, FlangeOffset);
             TopFlangeGroup.Width = flangeWidth;
-            TopFlangeBase.Width = flangeWidth;
-            TopFlangeGradient.Width = flangeWidth;
-            TopFlangeBorder.Width = flangeWidth;
+            TopFlangeGroup.Height = FlangeWidth;
 
-            UpdateFlangeBoltsHorizontal(TopBolt1, TopBolt2, TopBolt3, flangeWidth);
+            TopFlangeBase.Width = flangeWidth;
+            TopFlangeBase.Height = FlangeWidth;
+            TopFlangeGradient.Width = flangeWidth;
+            TopFlangeGradient.Height = FlangeWidth;
+            TopFlangeBorder.Width = flangeWidth;
+            TopFlangeBorder.Height = FlangeWidth;
+
+            // ✅ 移除螺栓更新
+            // UpdateFlangeBoltsHorizontal(TopBolt1, TopBolt2, TopBolt3, flangeWidth);
         }
 
         private void UpdateFlangeBoltsVertical(Ellipse bolt1, Ellipse bolt2, Ellipse bolt3, double flangeHeight)
         {
-            double boltSize = 2;
-            double leftPosition = 1;  // 居中：(4-2)/2 = 1
+            double boltSize = 1.5;
+            double leftPosition = (FlangeWidth - boltSize) / 2; // 居中
 
-            // ✅ 修改：螺栓垂直分布更合理
-            // 第一个螺栓：距离顶部 20%
+            // 螺栓垂直分布
             Canvas.SetLeft(bolt1, leftPosition);
             Canvas.SetTop(bolt1, flangeHeight * 0.2 - boltSize / 2);
 
-            // 第二个螺栓：居中
             Canvas.SetLeft(bolt2, leftPosition);
             Canvas.SetTop(bolt2, (flangeHeight - boltSize) / 2);
 
-            // 第三个螺栓：距离底部 20%
             Canvas.SetLeft(bolt3, leftPosition);
             Canvas.SetTop(bolt3, flangeHeight * 0.8 - boltSize / 2);
         }
 
         private void UpdateFlangeBoltsHorizontal(Ellipse bolt1, Ellipse bolt2, Ellipse bolt3, double flangeWidth)
         {
-            double boltSize = 2;
-            double topPosition = 1;  // 居中：(4-2)/2 = 1
+            double boltSize = 1.5;
+            double topPosition = (FlangeWidth - boltSize) / 2; // 居中
 
-            // ✅ 修改：螺栓水平分布更合理
-            // 第一个螺栓：距离左侧 20%
+            // 螺栓水平分布
             Canvas.SetLeft(bolt1, flangeWidth * 0.2 - boltSize / 2);
             Canvas.SetTop(bolt1, topPosition);
 
-            // 第二个螺栓：居中
             Canvas.SetLeft(bolt2, (flangeWidth - boltSize) / 2);
             Canvas.SetTop(bolt2, topPosition);
 
-            // 第三个螺栓：距离右侧 20%
             Canvas.SetLeft(bolt3, flangeWidth * 0.8 - boltSize / 2);
             Canvas.SetTop(bolt3, topPosition);
         }
 
-
         private void UpdateConnections(double horizontalY, double verticalX)
         {
             LeftConnection.Height = _pipeWidth;
-            // ✅ 修改：左连接位置 = 法兰宽度4 + 间距1 = 5
-            Canvas.SetLeft(LeftConnection, 5);
+            // ✅ 左连接位置 = 法兰宽度2.54 + 偏移0.35 = 2.89
+            Canvas.SetLeft(LeftConnection, FlangeWidth + FlangeOffset);
             Canvas.SetTop(LeftConnection, horizontalY - _pipeWidth / 2);
 
             TopConnection.Width = _pipeWidth;
             Canvas.SetLeft(TopConnection, verticalX - _pipeWidth / 2);
-            // ✅ 修改：顶连接位置 = 法兰高度4 + 间距1 = 5
-            Canvas.SetTop(TopConnection, 5);
+            // ✅ 顶连接位置 = 法兰高度2.54 + 偏移0.35 = 2.89
+            Canvas.SetTop(TopConnection, FlangeWidth + FlangeOffset);
         }
 
         private void UpdateAnchorPositions(double horizontalY, double verticalX)
@@ -675,7 +681,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
-                // ✅ 新增：通知画布管道被选中
+                // ✅ 通知画布管道被选中
                 PipeSelected?.Invoke(this, this.PipeId);
 
                 // ✅ 设置选中状态
@@ -1089,9 +1095,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // ✅ 左侧法兰中心位置：Canvas.Left=2, 法兰宽度=4, 中心X=2+2=4
-            // Canvas.Top 由代码动态计算，取法兰高度中心
-            double leftFlangeX = 4 - this.ActualWidth / 2;
+            // ✅ 左侧法兰中心位置：Canvas.Left=0.35, 法兰宽度=2.54, 中心X=0.35+1.27=1.62
+            double leftFlangeX = FlangeOffset + FlangeWidth / 2 - this.ActualWidth / 2;
             double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
             Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
@@ -1107,10 +1112,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"弯管水平法兰 (水平:{_horizontalLength:F0})"
             });
 
-            // ✅ 顶部法兰中心位置：Canvas.Top=2, 法兰高度=4, 中心Y=2+2=4
-            // Canvas.Left 由代码动态计算，取法兰宽度中心
+            // ✅ 顶部法兰中心位置：Canvas.Top=0.35, 法兰高度=2.54, 中心Y=0.35+1.27=1.62
             double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - this.ActualWidth / 2;
-            double topFlangeY = 4 - this.ActualHeight / 2;
+            double topFlangeY = FlangeOffset + FlangeWidth / 2 - this.ActualHeight / 2;
 
             Point topFlangeLocal = new Point(topFlangeX, topFlangeY);
             Point topFlangeWorld = RotatePoint(topFlangeLocal, radians);
