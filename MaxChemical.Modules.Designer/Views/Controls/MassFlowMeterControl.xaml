@@ -12,74 +12,6 @@
              ClipToBounds="False">
 
     <UserControl.Resources>
-        <!-- 真实液体流动动画 -->
-        <Storyboard x:Key="FluidFlowAnimation" RepeatBehavior="Forever">
-            <!-- 液体流动渐变偏移 -->
-            <DoubleAnimation Storyboard.TargetName="FluidGradientTransform"
-                           Storyboard.TargetProperty="X"
-                           From="0" To="100" Duration="0:0:2"
-                           RepeatBehavior="Forever"/>
-
-            <!-- 气泡1 -->
-            <DoubleAnimation Storyboard.TargetName="Bubble1"
-                           Storyboard.TargetProperty="(Canvas.Left)"
-                           From="-10" To="440" Duration="0:0:4"
-                           RepeatBehavior="Forever"/>
-            <DoubleAnimation Storyboard.TargetName="Bubble1"
-                           Storyboard.TargetProperty="(Canvas.Top)"
-                           From="20" To="8" Duration="0:0:2"
-                           AutoReverse="True"
-                           RepeatBehavior="Forever"/>
-
-            <!-- 气泡2 -->
-            <DoubleAnimation Storyboard.TargetName="Bubble2"
-                           Storyboard.TargetProperty="(Canvas.Left)"
-                           From="-10" To="440" Duration="0:0:3.5"
-                           BeginTime="0:0:0.8"
-                           RepeatBehavior="Forever"/>
-            <DoubleAnimation Storyboard.TargetName="Bubble2"
-                           Storyboard.TargetProperty="(Canvas.Top)"
-                           From="24" To="12" Duration="0:0:1.8"
-                           AutoReverse="True"
-                           RepeatBehavior="Forever"/>
-
-            <!-- 气泡3 -->
-            <DoubleAnimation Storyboard.TargetName="Bubble3"
-                           Storyboard.TargetProperty="(Canvas.Left)"
-                           From="-10" To="440" Duration="0:0:4.2"
-                           BeginTime="0:0:1.5"
-                           RepeatBehavior="Forever"/>
-            <DoubleAnimation Storyboard.TargetName="Bubble3"
-                           Storyboard.TargetProperty="(Canvas.Top)"
-                           From="16" To="6" Duration="0:0:2.2"
-                           AutoReverse="True"
-                           RepeatBehavior="Forever"/>
-
-            <!-- 气泡4 -->
-            <DoubleAnimation Storyboard.TargetName="Bubble4"
-                           Storyboard.TargetProperty="(Canvas.Left)"
-                           From="-10" To="440" Duration="0:0:3.8"
-                           BeginTime="0:0:2.2"
-                           RepeatBehavior="Forever"/>
-            <DoubleAnimation Storyboard.TargetName="Bubble4"
-                           Storyboard.TargetProperty="(Canvas.Top)"
-                           From="22" To="10" Duration="0:0:1.9"
-                           AutoReverse="True"
-                           RepeatBehavior="Forever"/>
-
-            <!-- 气泡5 -->
-            <DoubleAnimation Storyboard.TargetName="Bubble5"
-                           Storyboard.TargetProperty="(Canvas.Left)"
-                           From="-10" To="440" Duration="0:0:4.5"
-                           BeginTime="0:0:0.5"
-                           RepeatBehavior="Forever"/>
-            <DoubleAnimation Storyboard.TargetName="Bubble5"
-                           Storyboard.TargetProperty="(Canvas.Top)"
-                           From="18" To="7" Duration="0:0:2.5"
-                           AutoReverse="True"
-                           RepeatBehavior="Forever"/>
-        </Storyboard>
-
         <!-- 数据发光动画 -->
         <Storyboard x:Key="DataGlowAnimation" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="ValueGlow"
@@ -124,18 +56,6 @@
             <GradientStop Color="#E8E8E8" Offset="0.7"/>
             <GradientStop Color="#D0D0D0" Offset="1"/>
         </RadialGradientBrush>
-
-        <!-- 真实液体渐变 -->
-        <LinearGradientBrush x:Key="FluidGradient" StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
-            <LinearGradientBrush.RelativeTransform>
-                <TranslateTransform x:Name="FluidGradientTransform" X="0"/>
-            </LinearGradientBrush.RelativeTransform>
-            <GradientStop Color="#4D2E86C1" Offset="0"/>
-            <GradientStop Color="#803498DB" Offset="0.25"/>
-            <GradientStop Color="#CC5DADE2" Offset="0.5"/>
-            <GradientStop Color="#803498DB" Offset="0.75"/>
-            <GradientStop Color="#4D2E86C1" Offset="1"/>
-        </LinearGradientBrush>
 
         <!-- 小型按钮样式 -->
         <Style x:Key="SmallButtonStyle" TargetType="Button">
@@ -322,52 +242,72 @@
         </Rectangle>
 
         <!-- ===== 真实液体流动效果 ===== -->
-        <Canvas x:Name="FluidFlowContainer"   Canvas.Left="-16" Canvas.Top="385" Width="432" Height="37" Panel.ZIndex="10" ClipToBounds="True"  Visibility="Collapsed">
+        <Canvas x:Name="FluidFlowContainer" 
+                Canvas.Left="-16" Canvas.Top="385" 
+                Width="432" Height="37" 
+                Panel.ZIndex="10" 
+                ClipToBounds="True"  
+                Visibility="Collapsed">
 
-            <!-- 液体主体 - 流动渐变 -->
-            <Rectangle Width="432" Height="37" Fill="{StaticResource FluidGradient}"/>
+            <!-- 液体主体矩形 -->
+            <Rectangle x:Name="FluidRectangle" Width="432" Height="37">
+                <Rectangle.Fill>
+                    <LinearGradientBrush x:Name="FluidGradientBrush" StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                        <LinearGradientBrush.RelativeTransform>
+                            <TranslateTransform x:Name="FluidGradientTransform" X="0"/>
+                        </LinearGradientBrush.RelativeTransform>
+                        <GradientStop Color="#4D2E86C1" Offset="0"/>
+                        <GradientStop Color="#803498DB" Offset="0.25"/>
+                        <GradientStop Color="#CC5DADE2" Offset="0.5"/>
+                        <GradientStop Color="#803498DB" Offset="0.75"/>
+                        <GradientStop Color="#4D2E86C1" Offset="1"/>
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
 
-            <!-- 液体表面波动 -->
-            <Path Data="M -50,0 Q -25,3 0,0 T 50,0 T 100,0 T 150,0 T 200,0 T 250,0 T 300,0 T 350,0 T 400,0 T 450,0 T 500,0"
+            <!-- 液体表面波动路径 -->
+            <Path x:Name="WavePath1" 
+                  Data="M -50,0 Q -25,3 0,0 T 50,0 T 100,0 T 150,0 T 200,0 T 250,0 T 300,0 T 350,0 T 400,0 T 450,0 T 500,0"
                   Stroke="#85C1F0" StrokeThickness="1.5" Canvas.Top="8" Opacity="0.6">
                 <Path.RenderTransform>
-                    <TranslateTransform X="{Binding ElementName=FluidGradientTransform, Path=X}"/>
+                    <TranslateTransform x:Name="WaveTransform1" X="0"/>
                 </Path.RenderTransform>
             </Path>
 
-            <Path Data="M -50,0 Q -25,-2 0,0 T 50,0 T 100,0 T 150,0 T 200,0 T 250,0 T 300,0 T 350,0 T 400,0 T 450,0 T 500,0"
+            <Path x:Name="WavePath2"
+                  Data="M -50,0 Q -25,-2 0,0 T 50,0 T 100,0 T 150,0 T 200,0 T 250,0 T 300,0 T 350,0 T 400,0 T 450,0 T 500,0"
                   Stroke="#AED6F1" StrokeThickness="1.2" Canvas.Top="28" Opacity="0.5">
                 <Path.RenderTransform>
-                    <TranslateTransform X="{Binding ElementName=FluidGradientTransform, Path=X}"/>
+                    <TranslateTransform x:Name="WaveTransform2" X="0"/>
                 </Path.RenderTransform>
             </Path>
 
             <!-- 流动气泡 -->
-            <Ellipse x:Name="Bubble1" Width="6" Height="6" Fill="White" Opacity="0.5">
+            <Ellipse x:Name="Bubble1" Width="6" Height="6" Fill="White" Opacity="0.5" Canvas.Left="-10" Canvas.Top="20">
                 <Ellipse.Effect>
                     <BlurEffect Radius="2"/>
                 </Ellipse.Effect>
             </Ellipse>
 
-            <Ellipse x:Name="Bubble2" Width="5" Height="5" Fill="White" Opacity="0.4">
+            <Ellipse x:Name="Bubble2" Width="5" Height="5" Fill="White" Opacity="0.4" Canvas.Left="-10" Canvas.Top="24">
                 <Ellipse.Effect>
                     <BlurEffect Radius="1.5"/>
                 </Ellipse.Effect>
             </Ellipse>
 
-            <Ellipse x:Name="Bubble3" Width="4" Height="4" Fill="White" Opacity="0.6">
+            <Ellipse x:Name="Bubble3" Width="4" Height="4" Fill="White" Opacity="0.6" Canvas.Left="-10" Canvas.Top="16">
                 <Ellipse.Effect>
                     <BlurEffect Radius="1"/>
                 </Ellipse.Effect>
             </Ellipse>
 
-            <Ellipse x:Name="Bubble4" Width="7" Height="7" Fill="White" Opacity="0.3">
+            <Ellipse x:Name="Bubble4" Width="7" Height="7" Fill="White" Opacity="0.3" Canvas.Left="-10" Canvas.Top="22">
                 <Ellipse.Effect>
                     <BlurEffect Radius="2.5"/>
                 </Ellipse.Effect>
             </Ellipse>
 
-            <Ellipse x:Name="Bubble5" Width="5" Height="5" Fill="White" Opacity="0.5">
+            <Ellipse x:Name="Bubble5" Width="5" Height="5" Fill="White" Opacity="0.5" Canvas.Left="-10" Canvas.Top="18">
                 <Ellipse.Effect>
                     <BlurEffect Radius="1.8"/>
                 </Ellipse.Effect>
@@ -539,13 +479,12 @@
             </Ellipse>
 
             <Path x:Name="CurrentPointer" Fill="#E74C3C" Stroke="#C0392B" StrokeThickness="1"
-      Data="M 75,78 L 72,30 L 75,25 L 78,30 Z">
+                  Data="M 75,78 L 72,30 L 75,25 L 78,30 Z">
                 <Path.RenderTransform>
-                    <!-- ✅ 修复：明确指定旋转中心为仪表盘中心点 (75, 75) -->
                     <RotateTransform x:Name="PointerRotation" 
-                         Angle="0"
-                         CenterX="75" 
-                         CenterY="75"/>
+                                   Angle="0"
+                                   CenterX="75" 
+                                   CenterY="75"/>
                 </Path.RenderTransform>
                 <Path.Effect>
                     <DropShadowEffect Color="#000000" Opacity="0.4" BlurRadius="4" ShadowDepth="2"/>
@@ -558,20 +497,20 @@
         <!-- ===== 实时流量显示 ===== -->
         <StackPanel Canvas.Left="100" Canvas.Top="300" Width="200" Panel.ZIndex="8">
             <TextBlock Text="CURRENT FLOW" FontSize="10" Foreground="#7F8C8D" FontWeight="Bold" 
-              HorizontalAlignment="Center" Margin="0,0,0,5"/>
-            <TextBlock x:Name="CurrentValueText" Text="123.4 kg/h" 
-              FontSize="22" FontWeight="Bold" 
-              Foreground="#1A1A1A"  
-              TextAlignment="Center" 
-              FontFamily="Segoe UI, Arial">
+                      HorizontalAlignment="Center" Margin="0,0,0,5"/>
+            <TextBlock x:Name="CurrentValueText" Text="0.0 kg/h" 
+                      FontSize="22" FontWeight="Bold" 
+                      Foreground="#1A1A1A"  
+                      TextAlignment="Center" 
+                      FontFamily="Segoe UI, Arial">
                 <TextBlock.Effect>
                     <DropShadowEffect x:Name="ValueGlow" 
-                              Color="#555555" 
-                        Opacity="0.5" 
-                              BlurRadius="10" 
-                              ShadowDepth="0"/>
+                                    Color="#555555" 
+                                    Opacity="0.5" 
+                                    BlurRadius="10" 
+                                    ShadowDepth="0"/>
                 </TextBlock.Effect>
-    </TextBlock>
+            </TextBlock>
         </StackPanel>
 
         <!-- ===== 装饰螺丝 ===== -->

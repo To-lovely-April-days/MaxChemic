@@ -56,7 +56,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             set => SetValue(MaxFlowProperty, value);
         }
 
-        // ✅ 新增：流动状态属性
         public static readonly DependencyProperty IsFlowingProperty =
             DependencyProperty.Register(
                 nameof(IsFlowing),
@@ -93,7 +92,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<MeterRotateEventArgs> MeterRotating;
         public event EventHandler<MeterRotateEventArgs> MeterRotateCompleted;
         public event EventHandler<FlowValueChangedEventArgs> TargetFlowChanged;
-        public event EventHandler<FlowStateChangedEventArgs> FlowStateChanged; // ✅ 新增
+        public event EventHandler<FlowStateChangedEventArgs> FlowStateChanged;
 
         #endregion
 
@@ -129,7 +128,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             InitializeComponent();
 
             MeterId = Guid.NewGuid().ToString();
-            Debug.WriteLine($"MassFlowMeterControl 构造: MeterId={MeterId}");
+            Debug.WriteLine($"✅ MassFlowMeterControl 构造: MeterId={MeterId}");
 
             _rotateTransform = new RotateTransform(0);
             _transformGroup = new TransformGroup();
@@ -163,6 +162,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnControlLoaded(object sender, RoutedEventArgs e)
         {
+            Debug.WriteLine("===== OnControlLoaded 开始 =====");
+
             // 初始化显示
             UpdatePointerAngle(CurrentFlow);
             UpdateCurrentValueText(CurrentFlow);
@@ -172,15 +173,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _dataGlowAnimation = this.Resources["DataGlowAnimation"] as Storyboard;
             _dataGlowAnimation?.Begin();
 
-            // ✅ 根据 IsFlowing 状态决定是否显示液体动画
+            // 验证关键元素
+            Debug.WriteLine($"FluidFlowContainer: {(FluidFlowContainer != null ? "✅" : "❌")}");
+            Debug.WriteLine($"FluidGradientTransform: {(FluidGradientTransform != null ? "✅" : "❌")}");
+            Debug.WriteLine($"WaveTransform1: {(WaveTransform1 != null ? "✅" : "❌")}");
+            Debug.WriteLine($"WaveTransform2: {(WaveTransform2 != null ? "✅" : "❌")}");
+            Debug.WriteLine($"Bubble1: {(Bubble1 != null ? "✅" : "❌")}");
+
+            // 根据 IsFlowing 状态决定是否显示液体动画
             UpdateFlowAnimationState(IsFlowing);
+
+            Debug.WriteLine("===== OnControlLoaded 结束 =====");
         }
 
         #endregion
 
         #region 动画控制
 
-        // ✅ 新增：流动状态变化回调
         private static void OnIsFlowingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is MassFlowMeterControl meter)
@@ -188,46 +197,203 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 bool isFlowing = (bool)e.NewValue;
                 meter.UpdateFlowAnimationState(isFlowing);
 
-                // 触发状态变化事件
                 meter.FlowStateChanged?.Invoke(meter, new FlowStateChangedEventArgs
                 {
                     MeterId = meter.MeterId,
                     IsFlowing = isFlowing
                 });
 
-                Debug.WriteLine($"流量计 {meter.MeterId} 流动状态: {(isFlowing ? "✅ 启动" : "❌ 停止")}");
+                Debug.WriteLine($"🔄 流量计 {meter.MeterId} 流动状态变更: {(isFlowing ? "✅ 启动" : "❌ 停止")}");
             }
         }
 
-        // ✅ 新增：更新液体流动动画状态
         private void UpdateFlowAnimationState(bool isFlowing)
         {
-            if (FluidFlowContainer == null) return;
+            Debug.WriteLine($"🚀 UpdateFlowAnimationState 调用: isFlowing={isFlowing}");
+
+            if (FluidFlowContainer == null)
+            {
+                Debug.WriteLine("❌ FluidFlowContainer 为 NULL!");
+                return;
+            }
+
+            Debug.WriteLine($"✅ FluidFlowContainer 存在, Children={FluidFlowContainer.Children.Count}");
 
             if (isFlowing)
             {
-                // 显示液体流动效果
+                // 显示容器
                 FluidFlowContainer.Visibility = Visibility.Visible;
+                Debug.WriteLine("✅ 容器已显示");
 
-                // 启动流动动画
-                _fluidFlowAnimation = this.Resources["FluidFlowAnimation"] as Storyboard;
-                _fluidFlowAnimation?.Begin();
-
-                Debug.WriteLine($"💧 流量计 {MeterId} 液体动画已启动");
+                // 创建并启动动画
+                CreateAndStartFluidAnimation();
             }
             else
             {
                 // 停止动画
-                _fluidFlowAnimation?.Stop();
+                StopAllFluidAnimations();
 
-                // 隐藏液体流动效果
+                // 隐藏容器
                 FluidFlowContainer.Visibility = Visibility.Collapsed;
-
-                Debug.WriteLine($"⏹️ 流量计 {MeterId} 液体动画已停止");
+                Debug.WriteLine("⏹️ 容器已隐藏");
             }
         }
 
-        // 保留原有的启动/停止方法（现在通过 IsFlowing 属性控制）
+        private void CreateAndStartFluidAnimation()
+        {
+            Debug.WriteLine("🎬 开始创建液体流动动画...");
+
+            // 停止之前的动画（如果有）
+            StopAllFluidAnimations();
+
+            // 创建新的 Storyboard
+            _fluidFlowAnimation = new Storyboard
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+
+            // 1. 渐变流动动画
+            if (FluidGradientTransform != null)
+            {
+                var gradientAnim = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 100,
+                    Duration = TimeSpan.FromSeconds(2),
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                Storyboard.SetTarget(gradientAnim, FluidGradientTransform);
+                Storyboard.SetTargetProperty(gradientAnim, new PropertyPath("X"));
+                _fluidFlowAnimation.Children.Add(gradientAnim);
+                Debug.WriteLine("✅ 渐变动画已添加");
+            }
+            else
+            {
+                Debug.WriteLine("❌ FluidGradientTransform 为 NULL!");
+            }
+
+            // 2. 波浪动画
+            if (WaveTransform1 != null)
+            {
+                var waveAnim = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 100,
+                    Duration = TimeSpan.FromSeconds(2),
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                Storyboard.SetTarget(waveAnim, WaveTransform1);
+                Storyboard.SetTargetProperty(waveAnim, new PropertyPath("X"));
+                _fluidFlowAnimation.Children.Add(waveAnim);
+                Debug.WriteLine("✅ 波浪1动画已添加");
+            }
+
+            if (WaveTransform2 != null)
+            {
+                var waveAnim = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 100,
+                    Duration = TimeSpan.FromSeconds(2),
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                Storyboard.SetTarget(waveAnim, WaveTransform2);
+                Storyboard.SetTargetProperty(waveAnim, new PropertyPath("X"));
+                _fluidFlowAnimation.Children.Add(waveAnim);
+                Debug.WriteLine("✅ 波浪2动画已添加");
+            }
+
+            // 3. 气泡动画
+            AddBubbleAnimation(Bubble1, 4.0, 20, 8, 2.0, 0);
+            AddBubbleAnimation(Bubble2, 3.5, 24, 12, 1.8, 0.8);
+            AddBubbleAnimation(Bubble3, 4.2, 16, 6, 2.2, 1.5);
+            AddBubbleAnimation(Bubble4, 3.8, 22, 10, 1.9, 2.2);
+            AddBubbleAnimation(Bubble5, 4.5, 18, 7, 2.5, 0.5);
+
+            // 启动动画
+            try
+            {
+                _fluidFlowAnimation.Begin();
+                Debug.WriteLine("💧💧💧 液体流动动画已启动! 💧💧💧");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 动画启动失败: {ex.Message}");
+                Debug.WriteLine($"❌ 堆栈跟踪: {ex.StackTrace}");
+            }
+        }
+
+        private void AddBubbleAnimation(Ellipse bubble, double duration, double fromTop, double toTop,
+                                         double verticalDuration, double delay)
+        {
+            if (bubble == null)
+            {
+                Debug.WriteLine("⚠️ 气泡元素为 NULL,跳过");
+                return;
+            }
+
+            // 水平移动动画
+            var leftAnim = new DoubleAnimation
+            {
+                From = -10,
+                To = 440,
+                Duration = TimeSpan.FromSeconds(duration),
+                BeginTime = TimeSpan.FromSeconds(delay),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTarget(leftAnim, bubble);
+            Storyboard.SetTargetProperty(leftAnim, new PropertyPath("(Canvas.Left)"));
+            _fluidFlowAnimation.Children.Add(leftAnim);
+
+            // 垂直波动动画
+            var topAnim = new DoubleAnimation
+            {
+                From = fromTop,
+                To = toTop,
+                Duration = TimeSpan.FromSeconds(verticalDuration),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTarget(topAnim, bubble);
+            Storyboard.SetTargetProperty(topAnim, new PropertyPath("(Canvas.Top)"));
+            _fluidFlowAnimation.Children.Add(topAnim);
+
+            Debug.WriteLine($"✅ 气泡动画已添加: {bubble.Name ?? "未命名气泡"}");
+        }
+
+        private void StopAllFluidAnimations()
+        {
+            if (_fluidFlowAnimation != null)
+            {
+                _fluidFlowAnimation.Stop();
+                _fluidFlowAnimation = null;
+                Debug.WriteLine("⏹️ 液体动画已停止");
+            }
+
+            // 重置所有 Transform 位置
+            if (FluidGradientTransform != null)
+                FluidGradientTransform.X = 0;
+            if (WaveTransform1 != null)
+                WaveTransform1.X = 0;
+            if (WaveTransform2 != null)
+                WaveTransform2.X = 0;
+
+            // 重置气泡位置
+            ResetBubblePosition(Bubble1);
+            ResetBubblePosition(Bubble2);
+            ResetBubblePosition(Bubble3);
+            ResetBubblePosition(Bubble4);
+            ResetBubblePosition(Bubble5);
+        }
+
+        private void ResetBubblePosition(Ellipse bubble)
+        {
+            if (bubble != null)
+            {
+                Canvas.SetLeft(bubble, -10);
+            }
+        }
+
         private void StartFlowAnimation()
         {
             IsFlowing = true;
@@ -440,7 +606,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
-                    Debug.WriteLine("✅ 超过阈值，开始拖拽模式");
+                    Debug.WriteLine("✅ 超过阈值,开始拖拽模式");
                     _isDragging = true;
 
                     if (((UIElement)sender).IsMouseCaptured)
@@ -480,9 +646,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    // ✅ 点击切换流动状态
+                    // 点击切换流动状态
                     IsFlowing = !IsFlowing;
-                    Debug.WriteLine($"✅ 点击切换流动状态: {(IsFlowing ? "启动" : "停止")}");
+                    Debug.WriteLine($"🖱️ 点击切换流动状态: {(IsFlowing ? "✅ 启动" : "❌ 停止")}");
                     ShowTemporarySelection();
                 }
 
@@ -737,7 +903,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             CurrentFlow = Math.Max(0, Math.Min(value, MaxFlow));
         }
 
-        // ✅ 新增：控制流动的公共方法
         public void StartFlow()
         {
             IsFlowing = true;
@@ -820,7 +985,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public double NewValue { get; set; }
     }
 
-    // ✅ 新增：流动状态变化事件参数
     public class FlowStateChangedEventArgs : EventArgs
     {
         public string MeterId { get; set; }
