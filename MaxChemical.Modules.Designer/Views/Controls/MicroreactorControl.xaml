@@ -1,0 +1,829 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.MicroreactorControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" 
+             d:DesignWidth="880"
+             Width="880" Height="600"
+             Background="Transparent"
+             Cursor="SizeAll"
+             ClipToBounds="False"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             RenderOptions.EdgeMode="Unspecified"
+             RenderOptions.CachingHint="Cache">
+
+    <UserControl.CacheMode>
+        <BitmapCache RenderAtScale="1.0" 
+                     SnapsToDevicePixels="True" 
+                     EnableClearType="False"/>
+    </UserControl.CacheMode>
+
+    <UserControl.Resources>
+        <!-- 流体流动动画 -->
+        <Storyboard x:Key="FlowAnimationStoryboard" RepeatBehavior="Forever">
+            <!-- 进料A流动 -->
+            <DoubleAnimation Storyboard.TargetName="FlowA1" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="30" To="140" Duration="0:0:2" RepeatBehavior="Forever"/>
+            <DoubleAnimation Storyboard.TargetName="FlowA2" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="30" To="140" Duration="0:0:2" BeginTime="0:0:0.7" RepeatBehavior="Forever"/>
+
+            <!-- 进料B流动 -->
+            <DoubleAnimation Storyboard.TargetName="FlowB1" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="30" To="140" Duration="0:0:2" RepeatBehavior="Forever"/>
+            <DoubleAnimation Storyboard.TargetName="FlowB2" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="30" To="140" Duration="0:0:2" BeginTime="0:0:0.7" RepeatBehavior="Forever"/>
+
+            <!-- 特斯拉阀内流动 -->
+            <DoubleAnimation Storyboard.TargetName="ReactorFlow1" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="210" To="650" Duration="0:0:4" RepeatBehavior="Forever"/>
+            <DoubleAnimation Storyboard.TargetName="ReactorFlow2" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="210" To="650" Duration="0:0:4" BeginTime="0:0:1" RepeatBehavior="Forever"/>
+            <DoubleAnimation Storyboard.TargetName="ReactorFlow3" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="210" To="650" Duration="0:0:4" BeginTime="0:0:2" RepeatBehavior="Forever"/>
+
+            <!-- 出料流动 -->
+            <DoubleAnimation Storyboard.TargetName="OutFlow1" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="745" To="865" Duration="0:0:1.8" RepeatBehavior="Forever"/>
+            <DoubleAnimation Storyboard.TargetName="OutFlow2" Storyboard.TargetProperty="(Canvas.Left)"
+                           From="745" To="865" Duration="0:0:1.8" BeginTime="0:0:0.6" RepeatBehavior="Forever"/>
+        </Storyboard>
+
+        <!-- 金属质感渐变 -->
+        <LinearGradientBrush x:Key="MetalBrush" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#59020202" Offset="0"/>
+            <GradientStop Color="#1F020202" Offset="0.026"/>
+            <GradientStop Color="#1FFFFFFF" Offset="0.116"/>
+            <GradientStop Color="#4DFFFFFF" Offset="0.498"/>
+            <GradientStop Color="#1FFFFFFF" Offset="0.888"/>
+            <GradientStop Color="#1F020202" Offset="0.966"/>
+            <GradientStop Color="#59020202" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 管道渐变 -->
+        <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#A8B5BC" Offset="0"/>
+            <GradientStop Color="#C4CFD6" Offset="0.15"/>
+            <GradientStop Color="#DCE4E9" Offset="0.35"/>
+            <GradientStop Color="#F4F7F9" Offset="0.5"/>
+            <GradientStop Color="#DCE4E9" Offset="0.65"/>
+            <GradientStop Color="#C4CFD6" Offset="0.85"/>
+            <GradientStop Color="#A8B5BC" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 反应器玻璃渐变 -->
+        <LinearGradientBrush x:Key="GlassGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#5A6870" Offset="0"/>
+            <GradientStop Color="#7A8890" Offset="0.15"/>
+            <GradientStop Color="#A0ADB5" Offset="0.35"/>
+            <GradientStop Color="#C8D3DA" Offset="0.5"/>
+            <GradientStop Color="#A0ADB5" Offset="0.65"/>
+            <GradientStop Color="#7A8890" Offset="0.85"/>
+            <GradientStop Color="#5A6870" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 底座渐变 -->
+        <LinearGradientBrush x:Key="BaseGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#4DB8C5CC" Offset="0"/>
+            <GradientStop Color="#66B8C5CC" Offset="0.3"/>
+            <GradientStop Color="#99AAB8BF" Offset="0.6"/>
+            <GradientStop Color="#B8C5CC" Offset="1"/>
+        </LinearGradientBrush>
+    </UserControl.Resources>
+
+    <Canvas Background="Transparent">
+        <!-- 可拖拽区域 -->
+        <Rectangle x:Name="DraggableArea" Canvas.Left="0" Canvas.Top="0" Width="880" Height="600"
+                   Fill="Transparent" Panel.ZIndex="0" Cursor="SizeAll"
+                  
+                   />
+
+        <!-- 地面阴影 -->
+        <Ellipse Canvas.Left="140" Canvas.Top="592" Width="600" Height="6" Opacity="0.15" RenderOptions.CachingHint="Cache">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#2A4A68" Offset="0"/>
+                    <GradientStop Color="#2A4A68" Offset="0.6"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="6" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 设备底座 -->
+        <Rectangle Canvas.Left="120" Canvas.Top="571" Width="640" Height="29" RadiusX="7" RadiusY="7"
+                   Panel.ZIndex="1" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#4DB8C5CC" Offset="0"/>
+                    <GradientStop Color="#66B8C5CC" Offset="0.3"/>
+                    <GradientStop Color="#99AAB8BF" Offset="0.6"/>
+                    <GradientStop Color="#B8C5CC" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <!-- 底座高光 -->
+        <Rectangle Canvas.Left="122" Canvas.Top="573" Width="636" Height="8" RadiusX="6" RadiusY="6"
+                   Opacity="0.25" Panel.ZIndex="2" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFFFFF" Offset="0"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- 底座支撑 -->
+        <Polygon Points="303,545 497,545 529,571 271,571" Panel.ZIndex="1" RenderOptions.CachingHint="Cache">
+            <Polygon.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#4DB8C5CC" Offset="0"/>
+                    <GradientStop Color="#66B8C5CC" Offset="0.4"/>
+                    <GradientStop Color="#99AAB8BF" Offset="0.7"/>
+                    <GradientStop Color="#B8C5CC" Offset="1"/>
+                </LinearGradientBrush>
+            </Polygon.Fill>
+            <Polygon.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Polygon.Stroke>
+            <Polygon.StrokeThickness>2.5</Polygon.StrokeThickness>
+        </Polygon>
+
+        <!-- 主设备外壳 -->
+        <Rectangle Canvas.Left="100" Canvas.Top="120" Width="680" Height="425" RadiusX="12" RadiusY="12"
+                   Fill="#F0F4F6" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="12" ShadowDepth="5" Direction="315" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <!-- 外壳金属质感 -->
+        <Rectangle Canvas.Left="100" Canvas.Top="120" Width="680" Height="425" RadiusX="12" RadiusY="12"
+                   Fill="{StaticResource MetalBrush}" Panel.ZIndex="4" RenderOptions.CachingHint="Cache">
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
+        </Rectangle>
+
+        <!-- 外壳顶部高光 -->
+        <Rectangle Canvas.Left="102" Canvas.Top="122" Width="676" Height="60" RadiusX="10" RadiusY="10"
+                   Opacity="0.3" Panel.ZIndex="5" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFFFFF" Offset="0"/>
+                    <GradientStop Color="#FAFCFD" Offset="0.4"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- 进料管道A (左上) -->
+        <Rectangle Canvas.Left="1.5" Canvas.Top="220" Width="11" Height="85" RadiusX="5.5" RadiusY="5.5"
+                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="180" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Rectangle Canvas.Left="14" Canvas.Top="240" Width="125" Height="45"
+                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2" RenderOptions.CachingHint="Cache">
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Rectangle Canvas.Left="16" Canvas.Top="242" Width="121" Height="12" Opacity="0.35" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFFFFF" Offset="0"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- 进料标签A -->
+        <Border Canvas.Left="18" Canvas.Top="220" Background="White" BorderBrush="#2A4A68" 
+                BorderThickness="1.5" CornerRadius="3" Padding="5,2" Panel.ZIndex="4">
+            <Border.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+            </Border.Effect>
+            <TextBlock Text="进料A" Foreground="#2A4A68" FontSize="11" FontWeight="SemiBold"/>
+        </Border>
+
+        <!-- 进料管道B (左下) -->
+        <Rectangle Canvas.Left="1.5" Canvas.Top="310" Width="11" Height="85" RadiusX="5.5" RadiusY="5.5"
+                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="180" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Rectangle Canvas.Left="14" Canvas.Top="330" Width="125" Height="45"
+                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2" RenderOptions.CachingHint="Cache">
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Rectangle Canvas.Left="16" Canvas.Top="332" Width="121" Height="12" Opacity="0.35" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFFFFF" Offset="0"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- 进料标签B -->
+        <Border Canvas.Left="18" Canvas.Top="375" Background="White" BorderBrush="#2A4A68" 
+                BorderThickness="1.5" CornerRadius="3" Padding="5,2" Panel.ZIndex="4">
+            <Border.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+            </Border.Effect>
+            <TextBlock Text="进料B" Foreground="#2A4A68" FontSize="11" FontWeight="SemiBold"/>
+        </Border>
+
+        <!-- 出料管道 (右侧) -->
+        <Rectangle Canvas.Left="869.5" Canvas.Top="280" Width="11" Height="55" RadiusX="5.5" RadiusY="5.5"
+                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="0" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Rectangle Canvas.Left="741" Canvas.Top="285" Width="127" Height="45"
+                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2" RenderOptions.CachingHint="Cache">
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Rectangle Canvas.Left="743" Canvas.Top="287" Width="123" Height="12" Opacity="0.35" Panel.ZIndex="3" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFFFFF" Offset="0"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- 出料标签 -->
+        <Border Canvas.Left="806" Canvas.Top="285" Background="White" BorderBrush="#2A4A68" 
+                BorderThickness="1.5" CornerRadius="3" Padding="5,2" Panel.ZIndex="4">
+            <Border.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="6" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+            </Border.Effect>
+            <TextBlock Text="产品出口" Foreground="#2A4A68" FontSize="11" FontWeight="SemiBold"/>
+        </Border>
+
+        <!-- 反应器主体 (观察窗) -->
+        <Rectangle Canvas.Left="170" Canvas.Top="160" Width="540" Height="345" RadiusX="10" RadiusY="10"
+                   Fill="{StaticResource GlassGradient}" Panel.ZIndex="6" RenderOptions.CachingHint="Cache">
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="10" ShadowDepth="5" Direction="315" RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <!-- 玻璃窗口高光 -->
+        <Rectangle Canvas.Left="172" Canvas.Top="162" Width="536" Height="40" RadiusX="8" RadiusY="8"
+                   Opacity="0.3" Panel.ZIndex="7" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFFFFF" Offset="0"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- 观察窗内层（背景） -->
+        <Rectangle Canvas.Left="185" Canvas.Top="175" Width="510" Height="315" RadiusX="8" RadiusY="8"
+                   Panel.ZIndex="7" RenderOptions.CachingHint="Cache">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#E8EEF1" Offset="0"/>
+                    <GradientStop Color="#DCE4E9" Offset="0.3"/>
+                    <GradientStop Color="#C8D3DA" Offset="0.6"/>
+                    <GradientStop Color="#A0ADB5" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+            <Rectangle.Stroke>
+                <SolidColorBrush Color="#2A4A68" Opacity="0.1"/>
+            </Rectangle.Stroke>
+            <Rectangle.StrokeThickness>1.5</Rectangle.StrokeThickness>
+        </Rectangle>
+
+        <!-- 特斯拉阀结构 -->
+        <Canvas Canvas.Left="210" Canvas.Top="215" Panel.ZIndex="8">
+
+            <!-- 特斯拉阀单元 1 -->
+            <Canvas Canvas.Top="0">
+                <!-- 主通道上壁 -->
+                <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="0,20">
+                                <LineSegment Point="40,20"/>
+                                <BezierSegment Point1="60,20" Point2="60,0" Point3="80,0"/>
+                                <LineSegment Point="120,0"/>
+                                <BezierSegment Point1="140,0" Point2="140,20" Point3="160,20"/>
+                                <LineSegment Point="200,20"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+
+                <!-- 主通道下壁 -->
+                <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="0,50">
+                                <LineSegment Point="40,50"/>
+                                <BezierSegment Point1="60,50" Point2="60,70" Point3="80,70"/>
+                                <LineSegment Point="120,70"/>
+                                <BezierSegment Point1="140,70" Point2="140,50" Point3="160,50"/>
+                                <LineSegment Point="200,50"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+
+                <!-- 分流挡板 -->
+                <Path Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="2">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="70,28">
+                                <BezierSegment Point1="85,25" Point2="95,25" Point3="100,35"/>
+                                <BezierSegment Point1="95,45" Point2="85,45" Point3="70,42"/>
+                                <LineSegment Point="70,28"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="3" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+            </Canvas>
+
+            <!-- 特斯拉阀单元 2 -->
+            <Canvas Canvas.Top="90">
+                <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="0,20">
+                                <LineSegment Point="40,20"/>
+                                <BezierSegment Point1="60,20" Point2="60,0" Point3="80,0"/>
+                                <LineSegment Point="120,0"/>
+                                <BezierSegment Point1="140,0" Point2="140,20" Point3="160,20"/>
+                                <LineSegment Point="200,20"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+
+                <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="0,50">
+                                <LineSegment Point="40,50"/>
+                                <BezierSegment Point1="60,50" Point2="60,70" Point3="80,70"/>
+                                <LineSegment Point="120,70"/>
+                                <BezierSegment Point1="140,70" Point2="140,50" Point3="160,50"/>
+                                <LineSegment Point="200,50"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+
+                <Path Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="2">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="70,28">
+                                <BezierSegment Point1="85,25" Point2="95,25" Point3="100,35"/>
+                                <BezierSegment Point1="95,45" Point2="85,45" Point3="70,42"/>
+                                <LineSegment Point="70,28"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="3" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+            </Canvas>
+
+            <!-- 特斯拉阀单元 3 -->
+            <Canvas Canvas.Top="180">
+                <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="0,20">
+                                <LineSegment Point="40,20"/>
+                                <BezierSegment Point1="60,20" Point2="60,0" Point3="80,0"/>
+                                <LineSegment Point="120,0"/>
+                                <BezierSegment Point1="140,0" Point2="140,20" Point3="160,20"/>
+                                <LineSegment Point="200,20"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+
+                <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="0,50">
+                                <LineSegment Point="40,50"/>
+                                <BezierSegment Point1="60,50" Point2="60,70" Point3="80,70"/>
+                                <LineSegment Point="120,70"/>
+                                <BezierSegment Point1="140,70" Point2="140,50" Point3="160,50"/>
+                                <LineSegment Point="200,50"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+
+                <Path Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="2">
+                    <Path.Data>
+                        <PathGeometry>
+                            <PathFigure StartPoint="70,28">
+                                <BezierSegment Point1="85,25" Point2="95,25" Point3="100,35"/>
+                                <BezierSegment Point1="95,45" Point2="85,45" Point3="70,42"/>
+                                <LineSegment Point="70,28"/>
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                    <Path.Effect>
+                        <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="3" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+                    </Path.Effect>
+                </Path>
+            </Canvas>
+
+            <!-- 第二列特斯拉阀 -->
+            <Canvas Canvas.Left="240">
+                <!-- 特斯拉阀单元 4 -->
+                <Canvas Canvas.Top="0">
+                    <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,20">
+                                    <LineSegment Point="40,20"/>
+                                    <BezierSegment Point1="60,20" Point2="60,0" Point3="80,0"/>
+                                    <LineSegment Point="120,0"/>
+                                    <BezierSegment Point1="140,0" Point2="140,20" Point3="160,20"/>
+                                    <LineSegment Point="200,20"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+
+                    <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,50">
+                                    <LineSegment Point="40,50"/>
+                                    <BezierSegment Point1="60,50" Point2="60,70" Point3="80,70"/>
+                                    <LineSegment Point="120,70"/>
+                                    <BezierSegment Point1="140,70" Point2="140,50" Point3="160,50"/>
+                                    <LineSegment Point="200,50"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+
+                    <Path Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="2">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="70,28">
+                                    <BezierSegment Point1="85,25" Point2="95,25" Point3="100,35"/>
+                                    <BezierSegment Point1="95,45" Point2="85,45" Point3="70,42"/>
+                                    <LineSegment Point="70,28"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="3" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+                </Canvas>
+
+                <!-- 特斯拉阀单元 5 -->
+                <Canvas Canvas.Top="90">
+                    <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,20">
+                                    <LineSegment Point="40,20"/>
+                                    <BezierSegment Point1="60,20" Point2="60,0" Point3="80,0"/>
+                                    <LineSegment Point="120,0"/>
+                                    <BezierSegment Point1="140,0" Point2="140,20" Point3="160,20"/>
+                                    <LineSegment Point="200,20"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+
+                    <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,50">
+                                    <LineSegment Point="40,50"/>
+                                    <BezierSegment Point1="60,50" Point2="60,70" Point3="80,70"/>
+                                    <LineSegment Point="120,70"/>
+                                    <BezierSegment Point1="140,70" Point2="140,50" Point3="160,50"/>
+                                    <LineSegment Point="200,50"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+
+                    <Path Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="2">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="70,28">
+                                    <BezierSegment Point1="85,25" Point2="95,25" Point3="100,35"/>
+                                    <BezierSegment Point1="95,45" Point2="85,45" Point3="70,42"/>
+                                    <LineSegment Point="70,28"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="3" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+                </Canvas>
+
+                <!-- 特斯拉阀单元 6 -->
+                <Canvas Canvas.Top="180">
+                    <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,20">
+                                    <LineSegment Point="40,20"/>
+                                    <BezierSegment Point1="60,20" Point2="60,0" Point3="80,0"/>
+                                    <LineSegment Point="120,0"/>
+                                    <BezierSegment Point1="140,0" Point2="140,20" Point3="160,20"/>
+                                    <LineSegment Point="200,20"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+
+                    <Path Stroke="#5A6870" StrokeThickness="3.5" Fill="Transparent">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="0,50">
+                                    <LineSegment Point="40,50"/>
+                                    <BezierSegment Point1="60,50" Point2="60,70" Point3="80,70"/>
+                                    <LineSegment Point="120,70"/>
+                                    <BezierSegment Point1="140,70" Point2="140,50" Point3="160,50"/>
+                                    <LineSegment Point="200,50"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+
+                    <Path Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="2">
+                        <Path.Data>
+                            <PathGeometry>
+                                <PathFigure StartPoint="70,28">
+                                    <BezierSegment Point1="85,25" Point2="95,25" Point3="100,35"/>
+                                    <BezierSegment Point1="95,45" Point2="85,45" Point3="70,42"/>
+                                    <LineSegment Point="70,28"/>
+                                </PathFigure>
+                            </PathGeometry>
+                        </Path.Data>
+                        <Path.Effect>
+                            <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="3" ShadowDepth="2" Direction="315" RenderingBias="Performance"/>
+                        </Path.Effect>
+                    </Path>
+                </Canvas>
+            </Canvas>
+
+        </Canvas>
+
+        <!-- 液体流动指示A -->
+        <Ellipse x:Name="FlowA1" Canvas.Top="259" Width="16" Height="7" Opacity="0.9" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#6BA3D4" Offset="0"/>
+                    <GradientStop Color="#4A90E2" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4A90E2" Opacity="0.6" BlurRadius="8" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Ellipse x:Name="FlowA2" Canvas.Top="259" Width="16" Height="7" Opacity="0.9" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#6BA3D4" Offset="0"/>
+                    <GradientStop Color="#4A90E2" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4A90E2" Opacity="0.6" BlurRadius="8" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 液体流动指示B -->
+        <Ellipse x:Name="FlowB1" Canvas.Top="349" Width="16" Height="7" Opacity="0.9" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#6BA3D4" Offset="0"/>
+                    <GradientStop Color="#4A90E2" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4A90E2" Opacity="0.6" BlurRadius="8" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Ellipse x:Name="FlowB2" Canvas.Top="349" Width="16" Height="7" Opacity="0.9" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#6BA3D4" Offset="0"/>
+                    <GradientStop Color="#4A90E2" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4A90E2" Opacity="0.6" BlurRadius="8" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 特斯拉阀内流动粒子 -->
+        <Ellipse x:Name="ReactorFlow1" Canvas.Top="250" Width="18" Height="10" Opacity="0.85" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#4CAF50" Offset="0"/>
+                    <GradientStop Color="#1ABB48" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4CAF50" Opacity="0.7" BlurRadius="10" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Ellipse x:Name="ReactorFlow2" Canvas.Top="325" Width="18" Height="10" Opacity="0.85" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#4CAF50" Offset="0"/>
+                    <GradientStop Color="#1ABB48" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4CAF50" Opacity="0.7" BlurRadius="10" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Ellipse x:Name="ReactorFlow3" Canvas.Top="415" Width="18" Height="10" Opacity="0.85" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#4CAF50" Offset="0"/>
+                    <GradientStop Color="#1ABB48" Offset="0.5"/>
+                    <GradientStop Color="#2A4A68" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4CAF50" Opacity="0.7" BlurRadius="10" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 出料流动 -->
+        <Ellipse x:Name="OutFlow1" Canvas.Top="304" Width="16" Height="7" Opacity="0.9" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#66D9A9" Offset="0"/>
+                    <GradientStop Color="#4CAF50" Offset="0.5"/>
+                    <GradientStop Color="#1ABB48" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4CAF50" Opacity="0.6" BlurRadius="8" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Ellipse x:Name="OutFlow2" Canvas.Top="304" Width="16" Height="7" Opacity="0.9" Panel.ZIndex="9">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#66D9A9" Offset="0"/>
+                    <GradientStop Color="#4CAF50" Offset="0.5"/>
+                    <GradientStop Color="#1ABB48" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#4CAF50" Opacity="0.6" BlurRadius="8" ShadowDepth="0" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 装饰螺丝 -->
+        <Ellipse Canvas.Left="185" Canvas.Top="175" Width="8" Height="8"
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11" RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="187" Y1="179" X2="191" Y2="179" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+
+        <Ellipse Canvas.Left="687" Canvas.Top="175" Width="8" Height="8"
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11" RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="689" Y1="179" X2="693" Y2="179" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+
+        <Ellipse Canvas.Left="185" Canvas.Top="482" Width="8" Height="8"
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11" RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="187" Y1="486" X2="191" Y2="486" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+
+        <Ellipse Canvas.Left="687" Canvas.Top="482" Width="8" Height="8"
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11" RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="689" Y1="486" X2="693" Y2="486" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+
+        <!-- 设备标识 -->
+        <TextBlock Canvas.Left="305" Canvas.Top="140" Text="特斯拉阀微反应器" Foreground="#2A4A68" 
+                   FontSize="16" FontWeight="Bold" Panel.ZIndex="10"/>
+        <TextBlock Canvas.Left="340" Canvas.Top="520" Text="Tesla Valve Reactor-2000" Foreground="#5A6870" 
+                   FontSize="13" FontWeight="SemiBold" Panel.ZIndex="10"/>
+
+    </Canvas>
+</UserControl>
