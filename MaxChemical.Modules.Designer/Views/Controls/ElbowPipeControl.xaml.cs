@@ -193,6 +193,36 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             this.Loaded += (s, e) => UpdatePipeGeometry();
             Dispatcher.BeginInvoke(new Action(() => UpdatePipeGeometry()),
                 System.Windows.Threading.DispatcherPriority.Loaded);
+
+            // ========== ✅ 硬件加速配置（优化版） ==========
+
+            // 1. 高质量渲染
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
+
+            // 2. 启用缓存提示
+            RenderOptions.SetCachingHint(this, CachingHint.Cache);
+            RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
+            RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
+
+            // 3. 配置位图缓存（关键优化）
+            CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
+            // 4. 像素对齐
+            this.SnapsToDevicePixels = true;
+            this.UseLayoutRounding = true;
+
+            // ✅ 5. 弯头路径优化（禁用缓存，使用 GPU）
+            ElbowPath.CacheMode = null;
+            ElbowOuterEdge.CacheMode = null;
+            ElbowHighlight.CacheMode = null;
+
+            Debug.WriteLine($" 弯管 {PipeId} 硬件加速已启用");
         }
 
         #endregion
@@ -434,18 +464,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdatePipeGeometry()
         {
+            // ✅ 开始批量更新（减少重绘次数）
+            PipeCanvas.BeginInit();
+
             this.Width = _horizontalLength + 20;
             this.Height = _verticalLength + 20;
 
             double elbowRadius = _pipeWidth;
-
-            // ✅ 修改：考虑法兰宽度2.54的计算
-            // 水平中心Y = 控件高度 - 底部边距10 - 管道宽度一半
             double horizontalCenterY = this.Height - 10 - _pipeWidth / 2;
-
-            // 垂直中心X = 控件宽度 - 右侧边距10 - 管道宽度一半
             double verticalCenterX = this.Width - 10 - _pipeWidth / 2;
-
             double elbowCenterX = verticalCenterX;
             double elbowCenterY = horizontalCenterY;
 
@@ -460,6 +487,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             UpdateAnchorPositions(horizontalCenterY, verticalCenterX);
             UpdateRotationLabelPosition();
+
+            // ✅ 结束批量更新
+            PipeCanvas.EndInit();
         }
 
         private void UpdateHorizontalPipe(double centerY, double elbowCenterX, double elbowRadius)
@@ -720,10 +750,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
-                // ✅ 通知画布管道被选中
                 PipeSelected?.Invoke(this, this.PipeId);
-
-                // ✅ 设置选中状态
                 this.IsSelected = true;
 
                 _isDraggingPipe = true;
@@ -735,9 +762,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
+
+                // ✅ 拖拽时禁用缓存，降低质量
+                this.CacheMode = null;
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                 this.CaptureMouse();
                 this.Opacity = 0.7;
-                PipeDragStarted?.Invoke(this, new ElbowPipeDragEventArgs { PipeId = PipeId, StartPosition = _originalPosition });
+
+                PipeDragStarted?.Invoke(this, new ElbowPipeDragEventArgs
+                {
+                    PipeId = PipeId,
+                    StartPosition = _originalPosition
+                });
                 e.Handled = true;
             }
         }
@@ -789,12 +826,31 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void CompletePipeDrag()
         {
             if (!_isDraggingPipe) return;
+
             var finalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
-            PipeDragCompleted?.Invoke(this, new ElbowPipeDragEventArgs { PipeId = PipeId, StartPosition = _originalPosition, CurrentPosition = finalPosition });
+
+            PipeDragCompleted?.Invoke(this, new ElbowPipeDragEventArgs
+            {
+                PipeId = PipeId,
+                StartPosition = _originalPosition,
+                CurrentPosition = finalPosition
+            });
+
             this.Opacity = 1.0;
             _isDraggingPipe = false;
+
+            // ✅ 拖拽结束后恢复缓存和高质量
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            this.CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
             this.ReleaseMouseCapture();
         }
+
 
         private bool IsClickOnAnchor(object source)
         {
@@ -811,6 +867,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 _isResizing = true;
                 _resizingAnchor = position;
+
                 var parent = this.Parent as Canvas;
                 if (parent != null)
                 {
@@ -829,7 +886,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                     Debug.WriteLine($"开始调整弯管大小: 锚点={position}, 固定点=({_fixedPoint.X:F1}, {_fixedPoint.Y:F1})");
                 }
+
+                // ✅ 调整大小时禁用缓存
+                this.CacheMode = null;
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                 this.CaptureMouse();
+
                 PipeResizeStarted?.Invoke(this, new ElbowPipeResizeEventArgs
                 {
                     PipeId = PipeId,
@@ -1036,6 +1099,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void CompleteResize()
         {
             if (!_isResizing) return;
+
             PipeResizeCompleted?.Invoke(this, new ElbowPipeResizeEventArgs
             {
                 PipeId = PipeId,
@@ -1048,10 +1112,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     PipeWidth = _pipeWidth
                 }
             });
+
             _isResizing = false;
             _resizingAnchor = null;
+
+            // ✅ 调整大小结束后恢复缓存
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            this.CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
             this.ReleaseMouseCapture();
         }
+
 
         #endregion
 
@@ -1061,10 +1137,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 _isRotating = true;
                 _originalRotation = _rotationAngle;
+
                 var parent = this.Parent as Canvas;
-                if (parent != null) _dragStartPoint = e.GetPosition(parent);
+                if (parent != null)
+                    _dragStartPoint = e.GetPosition(parent);
+
+                // ✅ 旋转时禁用缓存（关键优化）
+                this.CacheMode = null;
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                 this.CaptureMouse();
-                PipeRotateStarted?.Invoke(this, new ElbowPipeRotateEventArgs { PipeId = PipeId, OriginalAngle = _originalRotation });
+
+                PipeRotateStarted?.Invoke(this, new ElbowPipeRotateEventArgs
+                {
+                    PipeId = PipeId,
+                    OriginalAngle = _originalRotation
+                });
                 e.Handled = true;
             }
         }
@@ -1096,13 +1184,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void CompleteRotate()
         {
             if (!_isRotating) return;
+
             PipeRotateCompleted?.Invoke(this, new ElbowPipeRotateEventArgs
             {
                 PipeId = PipeId,
                 OriginalAngle = _originalRotation,
                 CurrentAngle = _rotationAngle
             });
+
             _isRotating = false;
+
+            // ✅ 旋转结束后恢复缓存（关键优化）
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            this.CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
             this.ReleaseMouseCapture();
         }
 

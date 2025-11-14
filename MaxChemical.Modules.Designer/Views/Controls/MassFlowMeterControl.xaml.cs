@@ -157,8 +157,46 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.MouseEnter += OnMeterMouseEnter;
                 this.MouseLeave += OnMeterMouseLeave;
                 SetupRotateAnchorEvents();
+
+                // ========== ✅ 硬件加速配置 ==========
+
+                // 1. 高质量渲染
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+                RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
+
+                // 2. 启用缓存提示
+                RenderOptions.SetCachingHint(this, CachingHint.Cache);
+                RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
+                RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
+
+                // 3. 配置位图缓存
+                CacheMode = new BitmapCache
+                {
+                    RenderAtScale = 1.0,
+                    SnapsToDevicePixels = true,
+                    EnableClearType = false
+                };
+
+                // 4. 像素对齐
+                this.SnapsToDevicePixels = true;
+                this.UseLayoutRounding = true;
+
+                // ✅ 5. 液体动画层禁用缓存（使用 GPU）
+                if (FluidFlowContainer != null)
+                {
+                    FluidFlowContainer.CacheMode = null;
+                }
+
+                // ✅ 6. 指针禁用缓存（使用硬件加速变换）
+                if (CurrentPointer != null)
+                {
+                    CurrentPointer.CacheMode = null;
+                }
+
+                Debug.WriteLine($"流量计 {MeterId} 硬件加速已启用");
             }
         }
+
 
         private void OnControlLoaded(object sender, RoutedEventArgs e)
         {
@@ -243,14 +281,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             Debug.WriteLine("🎬 开始创建液体流动动画...");
 
-            // 停止之前的动画（如果有）
             StopAllFluidAnimations();
 
-            // 创建新的 Storyboard
             _fluidFlowAnimation = new Storyboard
             {
                 RepeatBehavior = RepeatBehavior.Forever
             };
+
+            // ✅ 设置动画帧率为30fps（降低CPU占用）
+            Timeline.SetDesiredFrameRate(_fluidFlowAnimation, 30);
 
             // 1. 渐变流动动画
             if (FluidGradientTransform != null)
@@ -267,10 +306,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 _fluidFlowAnimation.Children.Add(gradientAnim);
                 Debug.WriteLine("✅ 渐变动画已添加");
             }
-            else
-            {
-                Debug.WriteLine("❌ FluidGradientTransform 为 NULL!");
-            }
 
             // 2. 波浪动画
             if (WaveTransform1 != null)
@@ -285,7 +320,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Storyboard.SetTarget(waveAnim, WaveTransform1);
                 Storyboard.SetTargetProperty(waveAnim, new PropertyPath("X"));
                 _fluidFlowAnimation.Children.Add(waveAnim);
-                Debug.WriteLine("✅ 波浪1动画已添加");
             }
 
             if (WaveTransform2 != null)
@@ -300,7 +334,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Storyboard.SetTarget(waveAnim, WaveTransform2);
                 Storyboard.SetTargetProperty(waveAnim, new PropertyPath("X"));
                 _fluidFlowAnimation.Children.Add(waveAnim);
-                Debug.WriteLine("✅ 波浪2动画已添加");
             }
 
             // 3. 气泡动画
@@ -310,16 +343,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             AddBubbleAnimation(Bubble4, 3.8, 22, 10, 1.9, 2.2);
             AddBubbleAnimation(Bubble5, 4.5, 18, 7, 2.5, 0.5);
 
-            // 启动动画
             try
             {
                 _fluidFlowAnimation.Begin();
-                Debug.WriteLine("💧💧💧 液体流动动画已启动! 💧💧💧");
+                Debug.WriteLine("💧💧💧 液体流动动画已启动（30fps GPU加速）! 💧💧💧");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 动画启动失败: {ex.Message}");
-                Debug.WriteLine($"❌ 堆栈跟踪: {ex.StackTrace}");
             }
         }
 
@@ -746,6 +777,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _dragStartPoint = e.GetPosition(canvas);
                 }
 
+                // ✅ 旋转时禁用缓存
+                this.CacheMode = null;
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                 ((UIElement)sender).CaptureMouse();
 
                 MeterRotateStarted?.Invoke(this, new MeterRotateEventArgs
@@ -756,6 +791,34 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 ShowRotationLabel();
                 e.Handled = true;
+            }
+        }
+
+        private void CompleteRotate()
+        {
+            if (!_isRotating) return;
+
+            MeterRotateCompleted?.Invoke(this, new MeterRotateEventArgs
+            {
+                MeterId = this.MeterId,
+                OriginalAngle = _originalRotation,
+                CurrentAngle = _rotationAngle
+            });
+
+            _isRotating = false;
+
+            // ✅ 旋转结束后恢复缓存
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            this.CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
+            if (RotateAnchor != null)
+            {
+                ((UIElement)RotateAnchor).ReleaseMouseCapture();
             }
         }
 
@@ -815,23 +878,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             });
         }
 
-        private void CompleteRotate()
-        {
-            if (!_isRotating) return;
-
-            MeterRotateCompleted?.Invoke(this, new MeterRotateEventArgs
-            {
-                MeterId = this.MeterId,
-                OriginalAngle = _originalRotation,
-                CurrentAngle = _rotationAngle
-            });
-
-            _isRotating = false;
-            if (RotateAnchor != null)
-            {
-                ((UIElement)RotateAnchor).ReleaseMouseCapture();
-            }
-        }
+       
 
         private void UpdateRotation()
         {

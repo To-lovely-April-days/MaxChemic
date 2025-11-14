@@ -9,65 +9,71 @@
              Width="80" Height="80"
              Background="Transparent"
              Cursor="SizeAll"
-             ClipToBounds="False">
+             ClipToBounds="False"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             RenderOptions.EdgeMode="Unspecified"
+             RenderOptions.CachingHint="Cache">
+
+    <!-- ✅ 根级别缓存配置 -->
+    <UserControl.CacheMode>
+        <BitmapCache RenderAtScale="1.0" 
+                     SnapsToDevicePixels="True" 
+                     EnableClearType="False"/>
+    </UserControl.CacheMode>
 
     <UserControl.Resources>
-        <!-- ✅ 统一管道渐变（与直管道一致） -->
+        <!-- ✅ 优化：简化管道渐变（减少梯度停止点） -->
         <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.264"/>
-            <GradientStop Color="#1A727171" Offset="0.418"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
-            <GradientStop Color="#1A727171" Offset="0.581"/>
-            <GradientStop Color="#59727171" Offset="0.719"/>
+            <GradientStop Color="#59727171" Offset="0.25"/>
+            <GradientStop Color="#00FFFFFF" Offset="0.5"/>
+            <GradientStop Color="#59727171" Offset="0.75"/>
             <GradientStop Color="#727171" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 统一法兰渐变（左侧） -->
+        <!-- ✅ 简化法兰渐变 -->
         <LinearGradientBrush x:Key="LeftEndCapGradient" StartPoint="0,0.5" EndPoint="1,0.5">
             <GradientStop Color="#D9D9D9" Offset="0"/>
             <GradientStop Color="#A0A0A0" Offset="0.5"/>
             <GradientStop Color="#D9D9D9" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 统一法兰渐变（顶部） -->
         <LinearGradientBrush x:Key="TopEndCapGradient" StartPoint="0.5,0" EndPoint="0.5,1">
             <GradientStop Color="#D9D9D9" Offset="0"/>
             <GradientStop Color="#A0A0A0" Offset="0.5"/>
             <GradientStop Color="#D9D9D9" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 水平管道渐变（垂直方向） -->
+        <!-- ✅ 简化水平管道渐变 -->
         <LinearGradientBrush x:Key="HorizontalPipeGradient" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.264"/>
-            <GradientStop Color="#1A727171" Offset="0.418"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
-            <GradientStop Color="#1A727171" Offset="0.581"/>
-            <GradientStop Color="#59727171" Offset="0.719"/>
+            <GradientStop Color="#59727171" Offset="0.25"/>
+            <GradientStop Color="#00FFFFFF" Offset="0.5"/>
+            <GradientStop Color="#59727171" Offset="0.75"/>
             <GradientStop Color="#727171" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 垂直管道渐变（水平方向） -->
+        <!-- ✅ 简化垂直管道渐变 -->
         <LinearGradientBrush x:Key="VerticalPipeGradient" StartPoint="0,0" EndPoint="1,0">
             <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.264"/>
-            <GradientStop Color="#1A727171" Offset="0.418"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
-            <GradientStop Color="#1A727171" Offset="0.581"/>
-            <GradientStop Color="#59727171" Offset="0.719"/>
+            <GradientStop Color="#59727171" Offset="0.25"/>
+            <GradientStop Color="#00FFFFFF" Offset="0.5"/>
+            <GradientStop Color="#59727171" Offset="0.75"/>
             <GradientStop Color="#727171" Offset="1"/>
         </LinearGradientBrush>
     </UserControl.Resources>
 
     <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
 
-        <!-- ✅ 左侧法兰组 (水平段) - 移除所有螺栓 -->
+        <!-- ✅ 静态层：左侧法兰（启用缓存） -->
         <Canvas x:Name="LeftFlangeGroup" 
                 Canvas.Left="0.35" 
                 Canvas.Top="32"
                 Width="2.54" 
-                Height="24">
+                Height="24"
+                RenderOptions.CachingHint="Cache">
 
             <Rectangle x:Name="LeftFlangeBase"
                        Width="2.54"
@@ -94,15 +100,16 @@
                        Fill="Transparent"/>
         </Canvas>
 
-        <!-- ✅ 水平管道段 - 使用统一渐变 -->
+        <!-- ✅ 静态层：水平管道（启用缓存） -->
         <Rectangle x:Name="HorizontalPipe" 
                    Canvas.Left="3.2" 
                    Canvas.Top="34"
                    Width="34"
                    Height="20"
-                   Fill="{StaticResource HorizontalPipeGradient}"/>
+                   Fill="{StaticResource HorizontalPipeGradient}"
+                   RenderOptions.CachingHint="Cache"/>
 
-        <!-- ✅ 水平管道边缘线 - 统一为黑色+透明度 -->
+        <!-- ✅ 边缘线（使用性能优化模式） -->
         <Line x:Name="HorizontalTopEdge" 
               X1="3.58" Y1="34.32" 
               X2="37.18" Y2="34.32"
@@ -110,7 +117,8 @@
               StrokeThickness="0.7"
               Opacity="0.12"
               StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"/>
+              StrokeEndLineCap="Round"
+              RenderOptions.EdgeMode="Aliased"/>
 
         <Line x:Name="HorizontalBottomEdge" 
               X1="3.58" Y1="53.68" 
@@ -119,12 +127,14 @@
               StrokeThickness="0.7"
               Opacity="0.12"
               StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"/>
+              StrokeEndLineCap="Round"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- ✅ 弯头部分 - 加深版本（更明显的金属质感） -->
+        <!-- ✅ 核心元素：弯头（不缓存，使用 GPU 渲染） -->
         <Path x:Name="ElbowPath" 
-      StrokeThickness="0.7" 
-      Stroke="#727171">
+              StrokeThickness="0.7" 
+              Stroke="#727171"
+              RenderOptions.BitmapScalingMode="HighQuality">
             <Path.Data>
                 <PathGeometry>
                     <PathFigure StartPoint="40,54">
@@ -135,37 +145,24 @@
                     </PathFigure>
                 </PathGeometry>
             </Path.Data>
+            <!-- ✅ 优化：简化弯头渐变 -->
             <Path.Fill>
-                <!-- ✅ 加深版渐变：外侧更深，增强立体感 -->
                 <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
-                    <!-- 右下外侧 - 更深的金属灰 -->
                     <GradientStop Color="#5A5A5A" Offset="0"/>
-                    <GradientStop Color="#656565" Offset="0.12"/>
                     <GradientStop Color="#727171" Offset="0.22"/>
-
-                    <!-- 中间过渡区 -->
-                    <GradientStop Color="#59727171" Offset="0.32"/>
                     <GradientStop Color="#40727171" Offset="0.40"/>
-                    <GradientStop Color="#1A727171" Offset="0.46"/>
-
-                    <!-- 中心高光 -->
                     <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-
-                    <!-- 中间过渡区（对称） -->
-                    <GradientStop Color="#1A727171" Offset="0.54"/>
                     <GradientStop Color="#40727171" Offset="0.60"/>
-                    <GradientStop Color="#59727171" Offset="0.68"/>
-
-                    <!-- 左上内侧 - 标准金属灰 -->
                     <GradientStop Color="#727171" Offset="0.78"/>
-                    <GradientStop Color="#7D7D7D" Offset="0.88"/>
                     <GradientStop Color="#8A8A8A" Offset="1"/>
                 </LinearGradientBrush>
             </Path.Fill>
         </Path>
 
-        <!-- ✅ 弯头外侧强化 - 增强深度 -->
-        <Path x:Name="ElbowOuterEdge" Opacity="0.25">
+        <!-- ✅ 弯头外侧强化（降低复杂度） -->
+        <Path x:Name="ElbowOuterEdge" 
+              Opacity="0.25"
+              RenderOptions.EdgeMode="Aliased">
             <Path.Data>
                 <PathGeometry>
                     <PathFigure StartPoint="40,53.5">
@@ -176,8 +173,6 @@
             <Path.Stroke>
                 <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
                     <GradientStop Color="#3E3E3E" Offset="0"/>
-                    <!-- 深灰 -->
-                    <GradientStop Color="#4A4A4A" Offset="0.3"/>
                     <GradientStop Color="#5A5A5A" Offset="0.5"/>
                     <GradientStop Color="Transparent" Offset="1"/>
                 </LinearGradientBrush>
@@ -185,8 +180,10 @@
             <Path.StrokeThickness>1.8</Path.StrokeThickness>
         </Path>
 
-        <!-- ✅ 弯头高光（金属光泽）- 降低强度以配合更深的基色 -->
-        <Path x:Name="ElbowHighlight" Opacity="0.25">
+        <!-- ✅ 弯头高光（简化渐变） -->
+        <Path x:Name="ElbowHighlight" 
+              Opacity="0.25"
+              RenderOptions.EdgeMode="Aliased">
             <Path.Data>
                 <PathGeometry>
                     <PathFigure StartPoint="43,51">
@@ -197,24 +194,23 @@
             <Path.Stroke>
                 <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
                     <GradientStop Color="Transparent" Offset="0"/>
-                    <GradientStop Color="#C8C8C8" Offset="0.35"/>
-                    <!-- 稍弱的高光 -->
-                    <GradientStop Color="#E8E8E8" Offset="0.65"/>
+                    <GradientStop Color="#E8E8E8" Offset="0.5"/>
                     <GradientStop Color="#F0F0F0" Offset="1"/>
                 </LinearGradientBrush>
             </Path.Stroke>
             <Path.StrokeThickness>1.5</Path.StrokeThickness>
         </Path>
 
-        <!-- ✅ 垂直管道段 - 使用统一渐变 -->
+        <!-- ✅ 静态层：垂直管道（启用缓存） -->
         <Rectangle x:Name="VerticalPipe" 
                    Canvas.Left="50"
                    Canvas.Top="3.2"
                    Width="20"
                    Height="28"
-                   Fill="{StaticResource VerticalPipeGradient}"/>
+                   Fill="{StaticResource VerticalPipeGradient}"
+                   RenderOptions.CachingHint="Cache"/>
 
-        <!-- ✅ 垂直管道边缘线 - 统一为黑色+透明度 -->
+        <!-- ✅ 垂直边缘线（性能优化） -->
         <Line x:Name="VerticalLeftEdge" 
               X1="50.32" Y1="3.58" 
               X2="50.32" Y2="31.18"
@@ -222,7 +218,8 @@
               StrokeThickness="0.7"
               Opacity="0.12"
               StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"/>
+              StrokeEndLineCap="Round"
+              RenderOptions.EdgeMode="Aliased"/>
 
         <Line x:Name="VerticalRightEdge" 
               X1="69.68" Y1="3.58" 
@@ -231,14 +228,16 @@
               StrokeThickness="0.7"
               Opacity="0.12"
               StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"/>
+              StrokeEndLineCap="Round"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- ✅ 顶部法兰组 - 移除所有螺栓 -->
+        <!-- ✅ 静态层：顶部法兰（启用缓存） -->
         <Canvas x:Name="TopFlangeGroup" 
                 Canvas.Left="48"
                 Canvas.Top="0.35"
                 Width="24"
-                Height="2.54">
+                Height="2.54"
+                RenderOptions.CachingHint="Cache">
 
             <Rectangle x:Name="TopFlangeBase" 
                        Width="24"
@@ -265,14 +264,15 @@
                        Fill="Transparent"/>
         </Canvas>
 
-        <!-- ✅ 连接处 - 统一颜色为灰色 -->
+        <!-- ✅ 连接处（静态缓存） -->
         <Rectangle x:Name="LeftConnection" 
                    Canvas.Left="2.89"
                    Canvas.Top="34"
                    Width="1"
                    Height="20"
                    Fill="#727171" 
-                   Opacity="0.6"/>
+                   Opacity="0.6"
+                   RenderOptions.CachingHint="Cache"/>
 
         <Rectangle x:Name="TopConnection" 
                    Canvas.Left="50"
@@ -280,9 +280,10 @@
                    Width="20"
                    Height="1"
                    Fill="#727171" 
-                   Opacity="0.6"/>
+                   Opacity="0.6"
+                   RenderOptions.CachingHint="Cache"/>
 
-        <!-- 锚点 -->
+        <!-- ✅ 锚点（优化阴影性能） -->
         <Ellipse x:Name="LeftAnchor" 
                  Canvas.Left="-6"
                  Canvas.Top="38"
@@ -291,7 +292,8 @@
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
-                 Cursor="SizeWE">
+                 Cursor="SizeWE"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整水平长度"/>
             </Ellipse.ToolTip>
@@ -305,7 +307,8 @@
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
-                 Cursor="SizeNS">
+                 Cursor="SizeNS"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整垂直长度"/>
             </Ellipse.ToolTip>
@@ -319,7 +322,8 @@
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
-                 Cursor="SizeNS">
+                 Cursor="SizeNS"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整管道宽度"/>
             </Ellipse.ToolTip>
@@ -333,13 +337,14 @@
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
-                 Cursor="SizeWE">
+                 Cursor="SizeWE"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整管道宽度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 选中边框 -->
+        <!-- ✅ 选中边框（不缓存，优化阴影） -->
         <Rectangle x:Name="SelectionBorder" 
                    Canvas.Left="-2"
                    Canvas.Top="-2"
@@ -352,11 +357,15 @@
                    RadiusY="3" 
                    Visibility="Collapsed">
             <Rectangle.Effect>
-                <DropShadowEffect Color="Orange" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
+                <DropShadowEffect Color="Orange" 
+                                  BlurRadius="10" 
+                                  ShadowDepth="0" 
+                                  Opacity="0.8"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 旋转锚点 -->
+        <!-- ✅ 旋转锚点（缓存） -->
         <Ellipse x:Name="RotateAnchor" 
                  Canvas.Left="34"
                  Canvas.Top="-30"
@@ -365,22 +374,24 @@
                  Stroke="White" 
                  StrokeThickness="2" 
                  Opacity="0" 
-                 Cursor="Hand">
+                 Cursor="Hand"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动旋转 (按住Shift=15°步进)"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 旋转辅助线 -->
+        <!-- ✅ 旋转辅助线（性能模式） -->
         <Line x:Name="RotateAnchorLine" 
               X1="40" Y1="0"
               X2="40" Y2="-24"
               Stroke="Orange" 
               StrokeThickness="1" 
               StrokeDashArray="2,2" 
-              Opacity="0"/>
+              Opacity="0"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- 旋转角度显示标签 -->
+        <!-- ✅ 旋转角度标签（不缓存） -->
         <Border x:Name="RotationLabel"
                 Canvas.Left="20"
                 Canvas.Top="-50"
@@ -391,7 +402,8 @@
             <TextBlock x:Name="RotationText"
                        Foreground="White"
                        FontSize="11"
-                       Text="0°"/>
+                       Text="0°"
+                       RenderOptions.ClearTypeHint="Enabled"/>
         </Border>
     </Canvas>
 

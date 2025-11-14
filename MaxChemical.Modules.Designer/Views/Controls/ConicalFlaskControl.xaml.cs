@@ -216,7 +216,38 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 // 获取动画资源
                 _waveStoryboard = this.Resources["WaveAnimation"] as Storyboard;
+
+                // ✅ 新增：优化波动动画的硬件加速
+                if (_waveStoryboard != null)
+                {
+                    Timeline.SetDesiredFrameRate(_waveStoryboard, 30); // 限制帧率
+                }
             };
+
+            // ========== ✅ 硬件加速配置（新增） ==========
+
+            // 1. 高质量渲染
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
+
+            // 2. 启用缓存提示
+            RenderOptions.SetCachingHint(this, CachingHint.Cache);
+            RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
+            RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
+
+            // 3. 配置位图缓存
+            CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
+            // 4. 像素对齐
+            this.SnapsToDevicePixels = true;
+            this.UseLayoutRounding = true;
+
+            Debug.WriteLine($" 锥形瓶 {FlaskId} 硬件加速已启用");
         }
 
         #endregion
@@ -416,9 +447,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 if (_waveStoryboard != null && !_waveAnimationRunning && _isWaveAnimationEnabled)
                 {
+                    // ✅ 动画时禁用液体容器缓存
+                    LiquidContainer.CacheMode = null;
+
                     _waveStoryboard.Begin(this, true);
                     _waveAnimationRunning = true;
-                    Debug.WriteLine("液体波动动画已启动");
+                    Debug.WriteLine("💧 液体波动动画已启动（GPU 加速）");
                 }
             }
             catch (Exception ex)
@@ -426,6 +460,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Debug.WriteLine($"启动波动动画失败: {ex.Message}");
             }
         }
+
 
         private void StopWaveAnimation()
         {
@@ -435,7 +470,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 {
                     _waveStoryboard.Stop(this);
                     _waveAnimationRunning = false;
-                    Debug.WriteLine("液体波动动画已停止");
+
+                    // ✅ 动画停止后恢复液体容器缓存（可选）
+                    // 注意：如果液体频繁变化，保持 null
+                    // LiquidContainer.CacheMode = new BitmapCache { RenderAtScale = 1.0 };
+
+                    Debug.WriteLine("💧 液体波动动画已停止");
                 }
             }
             catch (Exception ex)
@@ -613,8 +653,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
+
+                // ✅ 拖拽时禁用缓存
+                this.CacheMode = null;
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                 this.CaptureMouse();
                 this.Opacity = 0.7;
+
                 FlaskDragStarted?.Invoke(this, new FlaskDragEventArgs
                 {
                     FlaskId = FlaskId,
@@ -676,15 +722,28 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void CompleteFlaskDrag()
         {
             if (!_isDraggingFlask) return;
+
             var finalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
+
             FlaskDragCompleted?.Invoke(this, new FlaskDragEventArgs
             {
                 FlaskId = FlaskId,
                 StartPosition = _originalPosition,
                 CurrentPosition = finalPosition
             });
+
             this.Opacity = 1.0;
             _isDraggingFlask = false;
+
+            // ✅ 拖拽结束后恢复缓存
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            this.CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
             this.ReleaseMouseCapture();
         }
 
@@ -700,6 +759,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 _isResizing = true;
                 _resizingAnchor = position;
+
                 var parent = this.Parent as Canvas;
                 if (parent != null)
                 {
@@ -709,7 +769,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
+
+                // ✅ 调整大小时禁用缓存
+                this.CacheMode = null;
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                 this.CaptureMouse();
+
                 FlaskResizeStarted?.Invoke(this, new FlaskResizeEventArgs
                 {
                     FlaskId = FlaskId,
@@ -719,6 +785,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 e.Handled = true;
             }
         }
+
 
         private void HandleResize(MouseEventArgs e)
         {
@@ -785,6 +852,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void CompleteResize()
         {
             if (!_isResizing) return;
+
             FlaskResizeCompleted?.Invoke(this, new FlaskResizeEventArgs
             {
                 FlaskId = FlaskId,
@@ -792,10 +860,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 OriginalSize = _originalSize,
                 CurrentSize = new Size(_flaskWidth, _flaskHeight)
             });
+
             _isResizing = false;
             _resizingAnchor = null;
+
+            // ✅ 调整大小结束后恢复缓存
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            this.CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
+            };
+
             this.ReleaseMouseCapture();
         }
+
 
         private void UpdateFlaskGeometry()
         {

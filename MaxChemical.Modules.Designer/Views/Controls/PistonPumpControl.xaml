@@ -9,12 +9,24 @@
              Width="880" Height="600"
              Background="Transparent"
              Cursor="SizeAll"
-             ClipToBounds="False">
+             ClipToBounds="False"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             RenderOptions.EdgeMode="Unspecified"
+             RenderOptions.CachingHint="Cache">
+
+    <!-- ✅ 根级别缓存配置 -->
+    <UserControl.CacheMode>
+        <BitmapCache RenderAtScale="1.0" 
+                     SnapsToDevicePixels="True" 
+                     EnableClearType="False"/>
+    </UserControl.CacheMode>
 
     <UserControl.Resources>
-        <!-- 柱塞往复运动动画 -->
+        <!-- ✅ 优化：柱塞动画添加帧率限制 -->
         <Storyboard x:Key="PistonMotionStoryboard" RepeatBehavior="Forever">
-            <!-- 柱塞1向上运动 -->
+            <!-- ========== 柱塞1：位置 + 颜色 + 发光 ========== -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Piston1Transform"
                                           Storyboard.TargetProperty="Y"
                                           Duration="0:0:2">
@@ -33,7 +45,39 @@
                 <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 柱塞2向上运动 -->
+            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Piston1Rod"
+                                         Storyboard.TargetProperty="(Rectangle.Fill).(SolidColorBrush.Color)"
+                                         Duration="0:0:2">
+                <LinearColorKeyFrame KeyTime="0:0:0" Value="#B0BCC3"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.15" Value="#6BA3D4"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.35" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.5" Value="#4CAF50"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.65" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.85" Value="#6BA3D4"/>
+                <LinearColorKeyFrame KeyTime="0:0:1" Value="#B0BCC3"/>
+            </ColorAnimationUsingKeyFrames>
+
+            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Piston1Glow"
+                                         Storyboard.TargetProperty="Color"
+                                         Duration="0:0:2">
+                <LinearColorKeyFrame KeyTime="0:0:0" Value="Transparent"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.25" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.5" Value="#4CAF50"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.75" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1" Value="Transparent"/>
+            </ColorAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Piston1Glow"
+                                          Storyboard.TargetProperty="BlurRadius"
+                                          Duration="0:0:2">
+                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:0.25" Value="12"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:0.5" Value="18"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="12"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0"/>
+            </DoubleAnimationUsingKeyFrames>
+
+            <!-- ========== 柱塞2 ========== -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Piston2Transform"
                                           Storyboard.TargetProperty="Y"
                                           Duration="0:0:2">
@@ -52,7 +96,39 @@
                 <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 柱塞3向上运动 -->
+            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Piston2Rod"
+                                         Storyboard.TargetProperty="(Rectangle.Fill).(SolidColorBrush.Color)"
+                                         Duration="0:0:2">
+                <LinearColorKeyFrame KeyTime="0:0:0.5" Value="#B0BCC3"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.65" Value="#6BA3D4"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.85" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1" Value="#4CAF50"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.15" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.35" Value="#6BA3D4"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.5" Value="#B0BCC3"/>
+            </ColorAnimationUsingKeyFrames>
+
+            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Piston2Glow"
+                                         Storyboard.TargetProperty="Color"
+                                         Duration="0:0:2">
+                <LinearColorKeyFrame KeyTime="0:0:0.5" Value="Transparent"/>
+                <LinearColorKeyFrame KeyTime="0:0:0.75" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1" Value="#4CAF50"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.25" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.5" Value="Transparent"/>
+            </ColorAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Piston2Glow"
+                                          Storyboard.TargetProperty="BlurRadius"
+                                          Duration="0:0:2">
+                <LinearDoubleKeyFrame KeyTime="0:0:0.5" Value="0"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="12"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="18"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1.25" Value="12"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="0"/>
+            </DoubleAnimationUsingKeyFrames>
+
+            <!-- ========== 柱塞3 ========== -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Piston3Transform"
                                           Storyboard.TargetProperty="Y"
                                           Duration="0:0:2">
@@ -70,9 +146,41 @@
                     </EasingDoubleKeyFrame.EasingFunction>
                 </EasingDoubleKeyFrame>
             </DoubleAnimationUsingKeyFrames>
+
+            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Piston3Rod"
+                                         Storyboard.TargetProperty="(Rectangle.Fill).(SolidColorBrush.Color)"
+                                         Duration="0:0:2">
+                <LinearColorKeyFrame KeyTime="0:0:1" Value="#B0BCC3"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.15" Value="#6BA3D4"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.35" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.5" Value="#4CAF50"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.65" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.85" Value="#6BA3D4"/>
+                <LinearColorKeyFrame KeyTime="0:0:2" Value="#B0BCC3"/>
+            </ColorAnimationUsingKeyFrames>
+
+            <ColorAnimationUsingKeyFrames Storyboard.TargetName="Piston3Glow"
+                                         Storyboard.TargetProperty="Color"
+                                         Duration="0:0:2">
+                <LinearColorKeyFrame KeyTime="0:0:1" Value="Transparent"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.25" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.5" Value="#4CAF50"/>
+                <LinearColorKeyFrame KeyTime="0:0:1.75" Value="#4A90E2"/>
+                <LinearColorKeyFrame KeyTime="0:0:2" Value="Transparent"/>
+            </ColorAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Piston3Glow"
+                                          Storyboard.TargetProperty="BlurRadius"
+                                          Duration="0:0:2">
+                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1.25" Value="12"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="18"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:1.75" Value="12"/>
+                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="0"/>
+            </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
-        <!-- 精细金属渐变 - 调整为蓝灰色调 -->
+        <!-- 渐变资源保持不变 -->
         <LinearGradientBrush x:Key="MetalBrush" StartPoint="0,0" EndPoint="1,0">
             <GradientStop Color="#59020202" Offset="0"/>
             <GradientStop Color="#1F020202" Offset="0.026"/>
@@ -83,7 +191,6 @@
             <GradientStop Color="#59020202" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 底座渐变 - 蓝灰色调 -->
         <LinearGradientBrush x:Key="BaseGradient" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#33B8C5CC" Offset="0"/>
             <GradientStop Color="#59B8C5CC" Offset="0.264"/>
@@ -94,7 +201,6 @@
             <GradientStop Color="#B8C5CC" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 管道渐变 - 蓝灰金属色 -->
         <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#A8B5BC" Offset="0"/>
             <GradientStop Color="#C4CFD6" Offset="0.15"/>
@@ -105,18 +211,6 @@
             <GradientStop Color="#A8B5BC" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 柱塞渐变 - 精细蓝灰金属 -->
-        <LinearGradientBrush x:Key="PistonGradient" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#B0BCC3" Offset="0"/>
-            <GradientStop Color="#D8E0E5" Offset="0.2"/>
-            <GradientStop Color="#F0F4F6" Offset="0.4"/>
-            <GradientStop Color="#FFFFFF" Offset="0.5"/>
-            <GradientStop Color="#F0F4F6" Offset="0.6"/>
-            <GradientStop Color="#D8E0E5" Offset="0.8"/>
-            <GradientStop Color="#B0BCC3" Offset="1"/>
-        </LinearGradientBrush>
-
-        <!-- 气缸渐变 - 深蓝灰金属 -->
         <LinearGradientBrush x:Key="CylinderGradient" StartPoint="0,0" EndPoint="1,0">
             <GradientStop Color="#5A6870" Offset="0"/>
             <GradientStop Color="#7A8890" Offset="0.15"/>
@@ -127,13 +221,12 @@
             <GradientStop Color="#5A6870" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 按钮样式 - 优化版 -->
+        <!-- ✅ 优化：按钮样式添加缓存 -->
         <Style x:Key="CircleButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <!-- 按钮背景 -->
+                        <Grid RenderOptions.CachingHint="Cache">
                             <Ellipse x:Name="ButtonBg" Opacity="0.08">
                                 <Ellipse.Fill>
                                     <RadialGradientBrush>
@@ -143,12 +236,11 @@
                                 </Ellipse.Fill>
                                 <Ellipse.Effect>
                                     <DropShadowEffect Color="#2A4A68" Opacity="0.2" 
-                                                    BlurRadius="8" ShadowDepth="3" Direction="315"/>
+                                                    BlurRadius="8" ShadowDepth="3" Direction="315"
+                                                    RenderingBias="Performance"/>
                                 </Ellipse.Effect>
                             </Ellipse>
-                            <!-- 按钮边框 -->
                             <Ellipse Stroke="White" StrokeThickness="2.5" Margin="1" Opacity="0.9"/>
-                            <!-- 内圈高光 -->
                             <Ellipse Margin="4" Opacity="0.15">
                                 <Ellipse.Fill>
                                     <RadialGradientBrush>
@@ -172,22 +264,19 @@
             </Setter>
         </Style>
 
-        <!-- 电源按钮专用样式 -->
         <Style x:Key="PowerButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <!-- 按钮背景 - 白色半透明 -->
+                        <Grid RenderOptions.CachingHint="Cache">
                             <Ellipse x:Name="ButtonBg" Fill="#FFFFFFFF">
                                 <Ellipse.Effect>
                                     <DropShadowEffect Color="#2A4A68" Opacity="0.2" 
-                                            BlurRadius="8" ShadowDepth="3" Direction="315"/>
+                                            BlurRadius="8" ShadowDepth="3" Direction="315"
+                                            RenderingBias="Performance"/>
                                 </Ellipse.Effect>
                             </Ellipse>
-                            <!-- 按钮边框 -->
                             <Ellipse Stroke="White" StrokeThickness="2.5" Margin="1" Opacity="0.5"/>
-                            <!-- 内圈高光 -->
                             <Ellipse Margin="4" Opacity="0.08">
                                 <Ellipse.Fill>
                                     <RadialGradientBrush>
@@ -212,27 +301,23 @@
         </Style>
     </UserControl.Resources>
 
-    <!--<UserControl.Triggers>
-        <EventTrigger RoutedEvent="Loaded">
-            <BeginStoryboard Storyboard="{StaticResource PistonMotionStoryboard}"/>
-        </EventTrigger>
-    </UserControl.Triggers>-->
-
     <Canvas Background="Transparent">
-        <!-- ===== 添加一个可拖拽的覆盖层 ===== -->
+        <!-- ✅ 可拖拽区域（不缓存） -->
         <Rectangle x:Name="DraggableArea"
-               Canvas.Left="0" Canvas.Top="0"
-               Width="880" Height="600"
-               Fill="Transparent"
-               Panel.ZIndex="0"
-               Cursor="SizeAll"
-               MouseDown="OnDraggableAreaMouseDown"
-               MouseMove="OnDraggableAreaMouseMove"
-               MouseUp="OnDraggableAreaMouseUp"
-               MouseLeave="OnDraggableAreaMouseLeave"/>
-        <!-- ===== 第1层：地面阴影 ===== -->
+                   Canvas.Left="0" Canvas.Top="0"
+                   Width="880" Height="600"
+                   Fill="Transparent"
+                   Panel.ZIndex="0"
+                   Cursor="SizeAll"
+                   MouseDown="OnDraggableAreaMouseDown"
+                   MouseMove="OnDraggableAreaMouseMove"
+                   MouseUp="OnDraggableAreaMouseUp"
+                   MouseLeave="OnDraggableAreaMouseLeave"/>
+
+        <!-- ✅ 静态层：地面阴影（性能优化） -->
         <Ellipse Canvas.Left="240" Canvas.Top="592"
-                 Width="320" Height="6" Opacity="0.15">
+                 Width="320" Height="6" Opacity="0.15"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.Fill>
                 <RadialGradientBrush>
                     <GradientStop Color="#2A4A68" Offset="0"/>
@@ -241,13 +326,14 @@
                 </RadialGradientBrush>
             </Ellipse.Fill>
             <Ellipse.Effect>
-                <BlurEffect Radius="6"/>
+                <BlurEffect Radius="6" RenderingBias="Performance"/>
             </Ellipse.Effect>
         </Ellipse>
 
-        <!-- ===== 第2层：底座矩形 ===== -->
+        <!-- ✅ 静态层：底座（启用缓存） -->
         <Rectangle Canvas.Left="250" Canvas.Top="571" Width="300" Height="29" RadiusX="7" RadiusY="7"
-                   Panel.ZIndex="1">
+                   Panel.ZIndex="1"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#4DB8C5CC" Offset="0"/>
@@ -261,13 +347,14 @@
             </Rectangle.Stroke>
             <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="315"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 底座高光 -->
         <Rectangle Canvas.Left="252" Canvas.Top="573" Width="296" Height="8" RadiusX="6" RadiusY="6"
-                   Opacity="0.25" Panel.ZIndex="2">
+                   Opacity="0.25" Panel.ZIndex="2"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -276,8 +363,8 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ===== 第3层：底座梯形 ===== -->
-        <Polygon Points="303,545 497,545 529,571 271,571" Panel.ZIndex="1">
+        <Polygon Points="303,545 497,545 529,571 271,571" Panel.ZIndex="1"
+                 RenderOptions.CachingHint="Cache">
             <Polygon.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#4DB8C5CC" Offset="0"/>
@@ -292,26 +379,28 @@
             <Polygon.StrokeThickness>2.5</Polygon.StrokeThickness>
         </Polygon>
 
-        <!-- ===== 第4层：主外壳背景 ===== -->
+        <!-- ✅ 静态层：主外壳（启用缓存） -->
         <Rectangle Canvas.Left="37" Canvas.Top="0" Width="763" Height="545" RadiusX="12" RadiusY="12" 
-                   Fill="#F0F4F6" Panel.ZIndex="3">
+                   Fill="#F0F4F6" Panel.ZIndex="3"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="12" ShadowDepth="5" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="12" ShadowDepth="5" Direction="315"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ===== 第5层：主外壳金属效果 ===== -->
         <Rectangle Canvas.Left="37" Canvas.Top="0" Width="763" Height="545" RadiusX="12" RadiusY="12" 
-                   Fill="{StaticResource MetalBrush}" Panel.ZIndex="4">
+                   Fill="{StaticResource MetalBrush}" Panel.ZIndex="4"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Stroke>
                 <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
             </Rectangle.Stroke>
             <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
         </Rectangle>
 
-        <!-- 外壳顶部高光 -->
         <Rectangle Canvas.Left="39" Canvas.Top="2" Width="759" Height="60" RadiusX="10" RadiusY="10"
-                   Opacity="0.3" Panel.ZIndex="5">
+                   Opacity="0.3" Panel.ZIndex="5"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -321,29 +410,32 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ===== 第6层：左上管道接口 ===== -->
+        <!-- ✅ 静态层：管道（启用缓存） -->
         <Rectangle Canvas.Left="1.5" Canvas.Top="51.5" Width="11" Height="97" RadiusX="5.5" RadiusY="5.5" 
-                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3">
+                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="180"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="180"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ===== 第7层：左上管道 ===== -->
         <Rectangle Canvas.Left="14" Canvas.Top="64" Width="658" Height="72" 
-                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2">
+                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Stroke>
                 <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
             </Rectangle.Stroke>
             <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 左上管道高光 -->
         <Rectangle Canvas.Left="16" Canvas.Top="66" Width="654" Height="20"
-                   Opacity="0.35" Panel.ZIndex="3">
+                   Opacity="0.35" Panel.ZIndex="3"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -352,29 +444,31 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ===== 第8层：右下管道接口 ===== -->
         <Rectangle Canvas.Left="869.5" Canvas.Top="251.5" Width="11" Height="97" RadiusX="5.5" RadiusY="5.5" 
-                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3">
+                   Fill="#D4DDE2" Stroke="#8A9AA5" StrokeThickness="2.5" Panel.ZIndex="3"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="0"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="4" ShadowDepth="2" Direction="0"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ===== 第9层：右下管道 ===== -->
         <Rectangle Canvas.Left="786" Canvas.Top="264" Width="82" Height="72" 
-                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2">
+                   Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Stroke>
                 <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
             </Rectangle.Stroke>
             <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="6" ShadowDepth="3" Direction="270"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 右下管道高光 -->
         <Rectangle Canvas.Left="788" Canvas.Top="266" Width="78" Height="18"
-                   Opacity="0.35" Panel.ZIndex="3">
+                   Opacity="0.35" Panel.ZIndex="3"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -383,31 +477,34 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ===== 第10层：外壳曲面效果（左侧凹陷） ===== -->
+        <!-- ✅ 静态层：外壳曲面（启用缓存） -->
         <Path Canvas.Left="37" Canvas.Top="0" 
               Data="M0,12 C0,5.373 5.373,0 12,0 L751,0 C757.627,0 763,5.373 763,12 L763,533 C763,539.627 757.627,545 751,545 L589.3,545 C588.768,545 588.298,544.973 587.771,544.9 C574.575,543.064 385.431,515.763 267.999,443 C116.549,349.157 15.169,184.52 1.559,161.66 C0.487,159.859 0,157.895 0,155.8 Z"
-              Fill="#F0F4F6" Panel.ZIndex="6"/>
+              Fill="#F0F4F6" Panel.ZIndex="6"
+              RenderOptions.CachingHint="Cache"/>
 
         <Path Canvas.Left="37" Canvas.Top="0" 
               Data="M0,12 C0,5.373 5.373,0 12,0 L751,0 C757.627,0 763,5.373 763,12 L763,533 C763,539.627 757.627,545 751,545 L589.3,545 C588.768,545 588.298,544.973 587.771,544.9 C574.575,543.064 385.431,515.763 267.999,443 C116.549,349.157 15.169,184.52 1.559,161.66 C0.487,159.859 0,157.895 0,155.8 Z"
-              Fill="{StaticResource MetalBrush}" Panel.ZIndex="7">
+              Fill="{StaticResource MetalBrush}" Panel.ZIndex="7"
+              RenderOptions.CachingHint="Cache">
             <Path.Stroke>
                 <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
             </Path.Stroke>
             <Path.StrokeThickness>2.5</Path.StrokeThickness>
             <Path.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="6" ShadowDepth="4" Direction="270"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="6" ShadowDepth="4" Direction="270"
+                                  RenderingBias="Performance"/>
             </Path.Effect>
         </Path>
 
-        <!-- ===== 第11层：泵速显示框 ===== -->
+        <!-- ✅ 泵速显示框（不缓存，保持动态） -->
         <Border Canvas.Left="124" Canvas.Top="82" Width="181" Height="68" CornerRadius="12" 
-        Background="White" BorderBrush="#E8EEF1" BorderThickness="2" Panel.ZIndex="8">
+                Background="White" BorderBrush="#E8EEF1" BorderThickness="2" Panel.ZIndex="8">
             <Border.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="8" ShadowDepth="3" Direction="225"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="8" ShadowDepth="3" Direction="225"
+                                  RenderingBias="Performance"/>
             </Border.Effect>
             <Grid>
-                <!-- 内部轻微渐变 -->
                 <Border CornerRadius="10" Margin="2">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -416,37 +513,39 @@
                         </LinearGradientBrush>
                     </Border.Background>
                 </Border>
-                <!-- ✅ 修改：绑定到 PumpSpeed 属性 -->
                 <TextBlock x:Name="SpeedDisplay"  
-                   Text="{Binding PumpSpeed, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                   FontSize="40" 
-                   FontWeight="SemiBold" 
-                   Foreground="#2A4A68" 
-                   TextAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   FontFamily="Segoe UI, Arial"/>
+                           Text="{Binding PumpSpeed, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                           FontSize="40" 
+                           FontWeight="SemiBold" 
+                           Foreground="#2A4A68" 
+                           TextAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           FontFamily="Segoe UI, Arial"/>
             </Grid>
         </Border>
 
-        <!-- ===== 第12层：泵体主外壳 ===== -->
+        <!-- ✅ 静态层：泵体外壳（启用缓存） -->
         <Rectangle Canvas.Left="380" Canvas.Top="120" Width="300" Height="320" RadiusX="15" RadiusY="15" 
-                   Fill="#C8D3DA" Panel.ZIndex="8">
+                   Fill="#C8D3DA" Panel.ZIndex="8"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="10" ShadowDepth="6" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="10" ShadowDepth="6" Direction="315"
+                                  RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
         <Rectangle Canvas.Left="380" Canvas.Top="120" Width="300" Height="320" RadiusX="15" RadiusY="15" 
-                   Fill="{StaticResource MetalBrush}" Panel.ZIndex="9">
+                   Fill="{StaticResource MetalBrush}" Panel.ZIndex="9"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Stroke>
                 <SolidColorBrush Color="#2A4A68" Opacity="0.15"/>
             </Rectangle.Stroke>
             <Rectangle.StrokeThickness>2.5</Rectangle.StrokeThickness>
         </Rectangle>
 
-        <!-- 泵体顶部高光 -->
         <Rectangle Canvas.Left="382" Canvas.Top="122" Width="296" Height="40" RadiusX="13" RadiusY="13"
-                   Opacity="0.3" Panel.ZIndex="10">
+                   Opacity="0.3" Panel.ZIndex="10"
+                   RenderOptions.CachingHint="Cache">
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -455,57 +554,67 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ===== 第13层：装饰螺丝 ===== -->
-        <!-- 左上角螺丝 -->
+        <!-- ✅ 静态层：装饰螺丝（启用缓存） -->
         <Ellipse Canvas.Left="395" Canvas.Top="135" Width="8" Height="8"
-                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11">
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"
+                                  RenderingBias="Performance"/>
             </Ellipse.Effect>
         </Ellipse>
-        <Line X1="397" Y1="139" X2="401" Y2="139" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+        <Line X1="397" Y1="139" X2="401" Y2="139" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- 右上角螺丝 -->
         <Ellipse Canvas.Left="657" Canvas.Top="135" Width="8" Height="8"
-                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11">
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"
+                                  RenderingBias="Performance"/>
             </Ellipse.Effect>
         </Ellipse>
-        <Line X1="659" Y1="139" X2="663" Y2="139" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+        <Line X1="659" Y1="139" X2="663" Y2="139" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- 左下角螺丝 -->
         <Ellipse Canvas.Left="395" Canvas.Top="417" Width="8" Height="8"
-                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11">
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"
+                                  RenderingBias="Performance"/>
             </Ellipse.Effect>
         </Ellipse>
-        <Line X1="397" Y1="421" X2="401" Y2="421" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+        <Line X1="397" Y1="421" X2="401" Y2="421" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- 右下角螺丝 -->
         <Ellipse Canvas.Left="657" Canvas.Top="417" Width="8" Height="8"
-                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11">
+                 Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11"
+                 RenderOptions.CachingHint="Cache">
             <Ellipse.Effect>
-                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"/>
+                <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="2" ShadowDepth="1" Direction="315"
+                                  RenderingBias="Performance"/>
             </Ellipse.Effect>
         </Ellipse>
-        <Line X1="659" Y1="421" X2="663" Y2="421" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"/>
+        <Line X1="659" Y1="421" X2="663" Y2="421" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"
+              RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- ===== 第14层：柱塞气缸组1 ===== -->
+        <!-- ✅ 动画层：柱塞气缸组（禁用缓存，使用 GPU） -->
         <Canvas Canvas.Left="420" Canvas.Top="180" Panel.ZIndex="10">
-            <!-- 气缸体 -->
-            <Rectangle Width="50" Height="220" RadiusX="8" RadiusY="8"
+            <!-- 气缸体（缓存） -->
+            <Rectangle x:Name="Cylinder1" Width="50" Height="220" RadiusX="8" RadiusY="8"
                        Fill="{StaticResource CylinderGradient}"
-                       Stroke="#3D4A52" StrokeThickness="2">
+                       Stroke="#3D4A52" StrokeThickness="2"
+                       RenderOptions.CachingHint="Cache">
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="5" ShadowDepth="3" Direction="315"/>
+                    <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="5" ShadowDepth="3" Direction="315"
+                                      RenderingBias="Performance"/>
                 </Rectangle.Effect>
             </Rectangle>
 
-            <!-- 气缸顶部高光 -->
             <Rectangle Canvas.Left="2" Canvas.Top="2" Width="46" Height="30" RadiusX="6" RadiusY="6"
-                       Opacity="0.25">
+                       Opacity="0.25"
+                       RenderOptions.CachingHint="Cache">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -514,42 +623,47 @@
                 </Rectangle.Fill>
             </Rectangle>
 
-            <!-- 柱塞杆 -->
-            <Rectangle Canvas.Left="15" Canvas.Top="40" Width="20" Height="180"
-                       Fill="{StaticResource PistonGradient}"
+            <!-- ⚠️ 柱塞杆（不缓存，动画元素） -->
+            <Rectangle x:Name="Piston1Rod" Canvas.Left="15" Canvas.Top="40" Width="20" Height="180"
+                       Fill="#B0BCC3"
                        Stroke="#607580" StrokeThickness="1">
                 <Rectangle.RenderTransform>
                     <TranslateTransform x:Name="Piston1Transform" Y="0"/>
                 </Rectangle.RenderTransform>
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="3" ShadowDepth="2" Direction="0"/>
+                    <DropShadowEffect x:Name="Piston1Glow" Color="Transparent" 
+                                      Opacity="0.8" BlurRadius="0" ShadowDepth="0"
+                                      RenderingBias="Performance"/>
                 </Rectangle.Effect>
             </Rectangle>
 
-            <!-- 柱塞头 -->
+            <!-- 柱塞头（不缓存） -->
             <Ellipse Canvas.Left="10" Canvas.Top="35" Width="30" Height="15"
                      Fill="#F0F4F6" Stroke="#8A9AA5" StrokeThickness="1.5">
                 <Ellipse.RenderTransform>
                     <TranslateTransform Y="0"/>
                 </Ellipse.RenderTransform>
                 <Ellipse.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270"/>
+                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270"
+                                      RenderingBias="Performance"/>
                 </Ellipse.Effect>
             </Ellipse>
         </Canvas>
 
-        <!-- ===== 第15层：柱塞气缸组2 ===== -->
         <Canvas Canvas.Left="515" Canvas.Top="180" Panel.ZIndex="10">
-            <Rectangle Width="50" Height="220" RadiusX="8" RadiusY="8"
+            <Rectangle x:Name="Cylinder2" Width="50" Height="220" RadiusX="8" RadiusY="8"
                        Fill="{StaticResource CylinderGradient}"
-                       Stroke="#3D4A52" StrokeThickness="2">
+                       Stroke="#3D4A52" StrokeThickness="2"
+                       RenderOptions.CachingHint="Cache">
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="5" ShadowDepth="3" Direction="315"/>
+                    <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="5" ShadowDepth="3" Direction="315"
+                                      RenderingBias="Performance"/>
                 </Rectangle.Effect>
             </Rectangle>
 
             <Rectangle Canvas.Left="2" Canvas.Top="2" Width="46" Height="30" RadiusX="6" RadiusY="6"
-                       Opacity="0.25">
+                       Opacity="0.25"
+                       RenderOptions.CachingHint="Cache">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -558,14 +672,16 @@
                 </Rectangle.Fill>
             </Rectangle>
 
-            <Rectangle Canvas.Left="15" Canvas.Top="40" Width="20" Height="180"
-                       Fill="{StaticResource PistonGradient}"
+            <Rectangle x:Name="Piston2Rod" Canvas.Left="15" Canvas.Top="40" Width="20" Height="180"
+                       Fill="#B0BCC3"
                        Stroke="#607580" StrokeThickness="1">
                 <Rectangle.RenderTransform>
                     <TranslateTransform x:Name="Piston2Transform" Y="0"/>
                 </Rectangle.RenderTransform>
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="3" ShadowDepth="2" Direction="0"/>
+                    <DropShadowEffect x:Name="Piston2Glow" Color="Transparent" 
+                                      Opacity="0.8" BlurRadius="0" ShadowDepth="0"
+                                      RenderingBias="Performance"/>
                 </Rectangle.Effect>
             </Rectangle>
 
@@ -575,23 +691,26 @@
                     <TranslateTransform Y="0"/>
                 </Ellipse.RenderTransform>
                 <Ellipse.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270"/>
+                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270"
+                                      RenderingBias="Performance"/>
                 </Ellipse.Effect>
             </Ellipse>
         </Canvas>
 
-        <!-- ===== 第16层：柱塞气缸组3 ===== -->
         <Canvas Canvas.Left="610" Canvas.Top="180" Panel.ZIndex="10">
-            <Rectangle Width="50" Height="220" RadiusX="8" RadiusY="8"
+            <Rectangle x:Name="Cylinder3" Width="50" Height="220" RadiusX="8" RadiusY="8"
                        Fill="{StaticResource CylinderGradient}"
-                       Stroke="#3D4A52" StrokeThickness="2">
+                       Stroke="#3D4A52" StrokeThickness="2"
+                       RenderOptions.CachingHint="Cache">
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="5" ShadowDepth="3" Direction="315"/>
+                    <DropShadowEffect Color="#2A4A68" Opacity="0.25" BlurRadius="5" ShadowDepth="3" Direction="315"
+                                      RenderingBias="Performance"/>
                 </Rectangle.Effect>
             </Rectangle>
 
             <Rectangle Canvas.Left="2" Canvas.Top="2" Width="46" Height="30" RadiusX="6" RadiusY="6"
-                       Opacity="0.25">
+                       Opacity="0.25"
+                       RenderOptions.CachingHint="Cache">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -600,14 +719,16 @@
                 </Rectangle.Fill>
             </Rectangle>
 
-            <Rectangle Canvas.Left="15" Canvas.Top="40" Width="20" Height="180"
-                       Fill="{StaticResource PistonGradient}"
+            <Rectangle x:Name="Piston3Rod" Canvas.Left="15" Canvas.Top="40" Width="20" Height="180"
+                       Fill="#B0BCC3"
                        Stroke="#607580" StrokeThickness="1">
                 <Rectangle.RenderTransform>
                     <TranslateTransform x:Name="Piston3Transform" Y="0"/>
                 </Rectangle.RenderTransform>
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="3" ShadowDepth="2" Direction="0"/>
+                    <DropShadowEffect x:Name="Piston3Glow" Color="Transparent" 
+                                      Opacity="0.8" BlurRadius="0" ShadowDepth="0"
+                                      RenderingBias="Performance"/>
                 </Rectangle.Effect>
             </Rectangle>
 
@@ -617,57 +738,54 @@
                     <TranslateTransform Y="0"/>
                 </Ellipse.RenderTransform>
                 <Ellipse.Effect>
-                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270"/>
+                    <DropShadowEffect Color="#2A4A68" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270"
+                                      RenderingBias="Performance"/>
                 </Ellipse.Effect>
             </Ellipse>
         </Canvas>
-        <!-- ===== 第17层：电源按钮 ===== -->
+
+        <!-- ✅ 按钮（已在样式中优化缓存） -->
         <Button Canvas.Left="124" Canvas.Top="399" Width="82" Height="82" 
-        Style="{StaticResource PowerButtonStyle}" 
-        Panel.ZIndex="100" 
-        Cursor="Hand"
-        Click="OnPowerButtonClick">
-            <!-- ✅ 添加点击事件 -->
+                Style="{StaticResource PowerButtonStyle}" 
+                Panel.ZIndex="100" 
+                Cursor="Hand"
+                Click="OnPowerButtonClick">
             <Viewbox Width="50" Height="50" Stretch="Uniform">
                 <Canvas Width="1024" Height="1024">
                     <Path x:Name="PowerIcon"  
-                        Data="M320 108.8v70.4c-115.2 64-192 192-192 332.8 0 211.2 172.8 384 384 384s384-172.8 384-384c0-140.8-76.8-262.4-192-332.8V108.8c153.6 70.4 256 224 256 403.2 0 249.6-198.4 448-448 448s-448-198.4-448-448c0-179.2 102.4-332.8 256-403.2zM544 64v288h-64V64h64z" 
-                  Fill="#1ABB48">
-                        <!-- ✅ 默认绿色（停止状态） -->
+                          Data="M320 108.8v70.4c-115.2 64-192 192-192 332.8 0 211.2 172.8 384 384 384s384-172.8 384-384c0-140.8-76.8-262.4-192-332.8V108.8c153.6 70.4 256 224 256 403.2 0 249.6-198.4 448-448 448s-448-198.4-448-448c0-179.2 102.4-332.8 256-403.2zM544 64v288h-64V64h64z" 
+                          Fill="#1ABB48">
                         <Path.Effect>
-                            <DropShadowEffect Color="#1ABB48" Opacity="0.5" BlurRadius="6" ShadowDepth="0"/>
+                            <DropShadowEffect Color="#1ABB48" Opacity="0.5" BlurRadius="6" ShadowDepth="0"
+                                              RenderingBias="Performance"/>
                         </Path.Effect>
                     </Path>
                 </Canvas>
             </Viewbox>
         </Button>
 
-        <!-- ===== 第18层：增加按钮 ===== -->
         <Button Canvas.Left="127" Canvas.Top="161" Width="82" Height="82" 
-        Style="{StaticResource CircleButtonStyle}" 
-        Panel.ZIndex="100" 
-        Cursor="Hand"
-        Click="OnIncreaseButtonClick">
-            <!-- ✅ 添加点击事件 -->
+                Style="{StaticResource CircleButtonStyle}" 
+                Panel.ZIndex="100" 
+                Cursor="Hand"
+                Click="OnIncreaseButtonClick">
             <Viewbox Width="40" Height="40">
                 <Canvas Width="1024" Height="1024">
                     <Path Data="M861.417121,738.727375 C903.021852,738.727375 926.650504,683.76358 896.345760,653.469157 L547.071415,304.191372 C527.041419,284.159656 497.249294,284.159656 477.217578,304.191372 L127.955275,653.469157 C96.869561,684.54283 122.818761,738.727375 163.396533,738.727375 L861.417121,738.727375 Z" 
-                  Fill="#2A4A68"/>
+                          Fill="#2A4A68"/>
                 </Canvas>
             </Viewbox>
         </Button>
 
-        <!-- ===== 第19层：减少按钮 ===== -->
         <Button Canvas.Left="219" Canvas.Top="161" Width="82" Height="82" 
-        Style="{StaticResource CircleButtonStyle}" 
-        Panel.ZIndex="100" 
-        Cursor="Hand"
-        Click="OnDecreaseButtonClick">
-            <!-- ✅ 添加点击事件 -->
+                Style="{StaticResource CircleButtonStyle}" 
+                Panel.ZIndex="100" 
+                Cursor="Hand"
+                Click="OnDecreaseButtonClick">
             <Viewbox Width="40" Height="40">
                 <Canvas Width="1024" Height="1024">
                     <Path Data="M163.396533,289.168875 C122.818761,289.168875 96.871281,343.35342 127.955275,374.427093 L477.217578,723.704878 C497.249294,743.736594 527.041419,743.736594 547.073135,723.704878 L896.34748,374.427093 C926.652224,344.132670 903.025292,289.168875 861.419841,289.168875 L163.396533,289.168875 Z" 
-                  Fill="#2A4A68"/>
+                          Fill="#2A4A68"/>
                 </Canvas>
             </Viewbox>
         </Button>

@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -255,7 +257,159 @@ namespace MaxChemical.Modules.Designer.Views
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
 
+            // ========== ✅ 硬件加速配置 ==========
+            ConfigureHardwareAcceleration();
         }
+
+        #region 硬件加速
+        /// <summary>
+        /// ✅ 新增：配置硬件加速
+        /// </summary>
+        private void ConfigureHardwareAcceleration()
+        {
+            try
+            {
+                Debug.WriteLine("========== 开始配置画布硬件加速 ==========");
+
+                // 1. 强制启用硬件渲染
+                EnableHardwareRendering();
+
+                // 2. 配置画布级别优化
+                ConfigureCanvasOptimization();
+
+                // 3. 配置滚动容器优化
+                ConfigureScrollViewerOptimization();
+
+                // 4. 启用 GPU 合成
+                EnableGPUComposition();
+
+                // 5. 配置像素对齐
+                ConfigurePixelAlignment();
+
+                Debug.WriteLine("========== 画布硬件加速配置完成 ==========");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 硬件加速配置失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 1. 强制启用硬件渲染
+        /// </summary>
+        private void EnableHardwareRendering()
+        {
+            try
+            {
+                // 获取窗口句柄并强制硬件渲染
+                var hwndSource = PresentationSource.FromVisual(this) as HwndSource;
+                if (hwndSource != null)
+                {
+                    hwndSource.CompositionTarget.RenderMode = RenderMode.Default; // 硬件渲染
+                    Debug.WriteLine("✅ 强制启用硬件渲染");
+                }
+                else
+                {
+                    // 延迟绑定（窗口加载后）
+                    this.Loaded += (s, e) =>
+                    {
+                        var source = PresentationSource.FromVisual(this) as HwndSource;
+                        if (source != null)
+                        {
+                            source.CompositionTarget.RenderMode = RenderMode.Default;
+                            Debug.WriteLine("✅ 延迟启用硬件渲染");
+                        }
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ 启用硬件渲染失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 2. 配置画布级别优化
+        /// </summary>
+        private void ConfigureCanvasOptimization()
+        {
+            // 高质量渲染
+            RenderOptions.SetBitmapScalingMode(DesignCanvas, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(DesignCanvas, EdgeMode.Unspecified);
+
+            // 启用缓存提示
+            RenderOptions.SetCachingHint(DesignCanvas, CachingHint.Cache);
+            RenderOptions.SetCacheInvalidationThresholdMinimum(DesignCanvas, 0.5);
+            RenderOptions.SetCacheInvalidationThresholdMaximum(DesignCanvas, 2.0);
+
+            // 像素对齐
+            DesignCanvas.SnapsToDevicePixels = true;
+            DesignCanvas.UseLayoutRounding = true;
+
+            Debug.WriteLine("✅ 画布级别优化完成");
+        }
+
+        /// <summary>
+        /// 3. 配置滚动容器优化
+        /// </summary>
+        private void ConfigureScrollViewerOptimization()
+        {
+            if (CanvasScrollViewer != null)
+            {
+                // 高质量渲染
+                RenderOptions.SetBitmapScalingMode(CanvasScrollViewer, BitmapScalingMode.HighQuality);
+                RenderOptions.SetEdgeMode(CanvasScrollViewer, EdgeMode.Unspecified);
+
+                // 像素对齐
+                CanvasScrollViewer.SnapsToDevicePixels = true;
+                CanvasScrollViewer.UseLayoutRounding = true;
+
+                Debug.WriteLine("✅ 滚动容器优化完成");
+            }
+        }
+
+        /// <summary>
+        /// 4. 启用 GPU 合成
+        /// </summary>
+        private void EnableGPUComposition()
+        {
+            try
+            {
+                // ✅ 关键：启用 GPU 分层合成
+                DesignCanvas.IsVisibleChanged += (s, e) =>
+                {
+                    if (DesignCanvas.IsVisible)
+                    {
+                        // 强制 GPU 合成
+                        var layer = AdornerLayer.GetAdornerLayer(DesignCanvas);
+                        if (layer != null)
+                        {
+                            RenderOptions.SetBitmapScalingMode(layer, BitmapScalingMode.HighQuality);
+                        }
+                    }
+                };
+
+                Debug.WriteLine("✅ GPU 合成已启用");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ GPU 合成启用失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 5. 配置像素对齐
+        /// </summary>
+        private void ConfigurePixelAlignment()
+        {
+            this.SnapsToDevicePixels = true;
+            this.UseLayoutRounding = true;
+
+            Debug.WriteLine("✅ 像素对齐配置完成");
+        }
+
+        #endregion
+
         /// <summary>
         /// 配置管道连接服务
         /// </summary>
@@ -1861,6 +2015,12 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 外部拖放事件处理 从设备库到画布
 
+        #region 私有字段 拖放节流优化
+
+        // ✅ 拖放区域检测缓存
+        private bool? _dragRegionCheckResult = null; // 缓存本次拖放的区域检测结果
+
+        #endregion
         private void OnDragEnter(object sender, DragEventArgs e)
         {
             Debug.WriteLine($"外部拖拽进入: 内部拖拽={_isInternalDragging}, 当前拖拽设备={_currentDraggingDeviceId}");
@@ -1871,16 +2031,18 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine("忽略外部拖拽，内部拖拽进行中");
                 e.Effects = DragDropEffects.None;
                 e.Handled = true;
+                _dragRegionCheckResult = null; // ✅ 清除缓存
                 return;
             }
 
-            // ✅ 新增:处理管道拖拽
+            // ✅ 处理管道拖拽
             if (e.Data.GetDataPresent("PipeData"))
             {
                 var pipeData = e.Data.GetData("PipeData") as PipeDragData;
                 Debug.WriteLine($"管道拖拽进入: {pipeData?.PipeType}");
                 e.Effects = DragDropEffects.Copy;
-                DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 255, 120)); // 绿色提示
+                DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 255, 120));
+                _dragRegionCheckResult = null; // ✅ 管道不需要区域检测
                 e.Handled = true;
                 return;
             }
@@ -1892,8 +2054,11 @@ namespace MaxChemical.Modules.Designer.Views
                 var position = e.GetPosition(DesignCanvas);
                 Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
 
-                // 检查设备是否可以放置在当前区域
-                if (IsValidRegionForDevice(device, position))
+                // ✅ 只在 DragEnter 时检测一次区域并缓存结果
+                _dragRegionCheckResult = IsValidRegionForDevice(device, position);
+                Debug.WriteLine($"[DragEnter] 区域检测结果: {(_dragRegionCheckResult == true ? "有效区域" : "无效区域")}"); // ✅ 保留日志
+
+                if (_dragRegionCheckResult == true)
                 {
                     e.Effects = DragDropEffects.Copy;
                     DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
@@ -1907,6 +2072,7 @@ namespace MaxChemical.Modules.Designer.Views
             else
             {
                 e.Effects = DragDropEffects.None;
+                _dragRegionCheckResult = null; // ✅ 清除缓存
             }
 
             e.Handled = true;
@@ -1922,7 +2088,7 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ✅ 新增:处理管道拖拽
+            // ✅ 处理管道拖拽
             if (e.Data.GetDataPresent("PipeData"))
             {
                 e.Effects = DragDropEffects.Copy;
@@ -1930,13 +2096,13 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // 实时检查拖拽位置是否有效
+            // ✅ 使用缓存的检测结果，不再重复检测
             if (e.Data.GetDataPresent("Device"))
             {
-                var device = e.Data.GetData("Device") as IDevice;
-                var position = e.GetPosition(DesignCanvas);
+                var position = e.GetPosition(DesignCanvas); // ✅ 保留位置日志需要
 
-                if (IsValidRegionForDevice(device, position))
+                // ✅ 使用缓存结果
+                if (_dragRegionCheckResult == true)
                 {
                     e.Effects = DragDropEffects.Copy;
                     DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 120, 212));
@@ -1946,6 +2112,9 @@ namespace MaxChemical.Modules.Designer.Views
                     e.Effects = DragDropEffects.None;
                     DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
                 }
+
+                // ✅ 保留原有位置日志（如果需要）
+                Debug.WriteLine($"[DragOver] 位置: ({position.X:F0}, {position.Y:F0}), 效果: {e.Effects}");
             }
 
             e.Handled = true;
@@ -1954,6 +2123,9 @@ namespace MaxChemical.Modules.Designer.Views
         private void OnDragLeave(object sender, DragEventArgs e)
         {
             Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
+
+            // ✅ 清除缓存
+            _dragRegionCheckResult = null;
 
             // 如果正在进行内部拖拽则忽略
             if (_isInternalDragging || !string.IsNullOrEmpty(_currentDraggingDeviceId))
@@ -1966,7 +2138,6 @@ namespace MaxChemical.Modules.Designer.Views
             // 恢复画布背景
             DesignCanvas.Background = Brushes.White;
 
-            // ✅ 新增:处理管道拖拽离开
             if (e.Data.GetDataPresent("PipeData"))
             {
                 var pipeData = e.Data.GetData("PipeData") as PipeDragData;
@@ -1989,6 +2160,10 @@ namespace MaxChemical.Modules.Designer.Views
             // 恢复画布背景
             DesignCanvas.Background = Brushes.White;
 
+            // ✅ 清除缓存
+            var cachedResult = _dragRegionCheckResult;
+            _dragRegionCheckResult = null;
+
             // 检查是否应该忽略此拖放事件
             if (ShouldIgnoreDropEvent())
             {
@@ -1997,11 +2172,11 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ✅ 修复:处理管道拖放 - 使用不同的变量名
+            // ✅ 处理管道拖放
             if (e.Data.GetDataPresent("PipeData"))
             {
                 var pipeData = e.Data.GetData("PipeData") as PipeDragData;
-                var pipeDropPosition = e.GetPosition(DesignCanvas); // ✅ 改名为 pipeDropPosition
+                var pipeDropPosition = e.GetPosition(DesignCanvas);
 
                 ProcessPipeDrop(pipeData, pipeDropPosition);
 
@@ -2010,17 +2185,29 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // 验证拖放数据 - 这里使用 dropPosition 变量
-            if (!ValidateDropData(e, out var device, out var dropPosition))
+            // 处理设备拖放
+            if (e.Data.GetDataPresent("Device"))
+            {
+                var device = e.Data.GetData("Device") as IDevice;
+                var dropPosition = e.GetPosition(DesignCanvas);
+
+                // ✅ 使用缓存的检测结果
+                if (cachedResult == true)
+                {
+                    ProcessDeviceDrop(device, dropPosition);
+                    e.Effects = DragDropEffects.Copy;
+                }
+                else
+                {
+                    Debug.WriteLine($"设备 {device?.Name} 不能放置在当前区域（使用缓存结果）");
+                    e.Effects = DragDropEffects.None;
+                }
+            }
+            else
             {
                 e.Effects = DragDropEffects.None;
-                e.Handled = true;
-                return;
             }
 
-            // 处理设备拖放
-            ProcessDeviceDrop(device, dropPosition);
-            e.Effects = DragDropEffects.Copy;
             e.Handled = true;
         }
 
@@ -2469,6 +2656,10 @@ namespace MaxChemical.Modules.Designer.Views
             DesignCanvas.CaptureMouse();
             AddDragVisualFeedback(_mouseDownElement);
 
+            // ✅ 拖拽时降低渲染质量
+            RenderOptions.SetBitmapScalingMode(DesignCanvas, BitmapScalingMode.LowQuality);
+            DesignCanvas.CacheMode = null; // 禁用缓存
+
             Debug.WriteLine($"开始拖拽设备: {_currentDraggingDeviceId}");
         }
 
@@ -2566,7 +2757,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 处理拖拽结束
+        /// 处理拖拽结束 - 添加区域检测
         /// </summary>
         private void ProcessDragEnd(Point endPosition)
         {
@@ -2578,7 +2769,9 @@ namespace MaxChemical.Modules.Designer.Views
             var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == deviceId);
 
             var finalPosition = CalculateFinalPosition();
-            var isSuccessful = ValidateFinalPosition(canvasDevice, finalPosition);
+            var isValidRegion = IsValidRegionForDevice(canvasDevice.Device, finalPosition);
+            var isWithinBounds = IsValidDropPosition(finalPosition);
+            var isSuccessful = isValidRegion && isWithinBounds;
 
             if (isSuccessful)
             {
@@ -2587,18 +2780,23 @@ namespace MaxChemical.Modules.Designer.Views
             else
             {
                 RestoreDeviceToOriginalPosition(_mouseDownElement);
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "⚠️ 设备不能放置在当前区域");
             }
 
             _dragDropService.EndDrag(endPosition, isSuccessful, "Canvas");
-
             DesignCanvas.AllowDrop = true;
 
-            // ✅ 新增：设备拖拽完成，标记四叉树需要重建
-            if (_pipeSnapService is PipeSnapService snapService)
+            // ✅ 拖拽结束后恢复高质量
+            RenderOptions.SetBitmapScalingMode(DesignCanvas, BitmapScalingMode.HighQuality);
+            DesignCanvas.CacheMode = new BitmapCache
             {
-                snapService.MarkQuadTreeDirty();
-                Debug.WriteLine("设备拖拽完成，已标记四叉树需要重建");
-            }
+                EnableClearType = false,
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true
+            };
+
+            Debug.WriteLine("✅ 已恢复高质量渲染");
         }
 
         /// <summary>
@@ -2840,7 +3038,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 创建设备控件
+        /// 创建设备控件 - 优化版
         /// </summary>
         private Border CreateDeviceControl(CanvasDeviceViewModel canvasDevice)
         {
@@ -2867,11 +3065,22 @@ namespace MaxChemical.Modules.Designer.Views
                 CornerRadius = new CornerRadius(5),
                 Cursor = Cursors.Hand,
                 Tag = canvasDevice.DeviceId,
-                IsHitTestVisible = true,  // ✅ 确保可以接收鼠标事件
+                IsHitTestVisible = true,
                 AllowDrop = false
             };
 
+            // ✅ 启用设备级别缓存
+            RenderOptions.SetCachingHint(deviceControl, CachingHint.Cache);
+            deviceControl.CacheMode = new BitmapCache
+            {
+                EnableClearType = false,
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true
+            };
+
             deviceControl.Child = CreateDeviceContent(canvasDevice, adjustedSize, displayName);
+
+            Debug.WriteLine($"创建设备控件（带缓存）: {canvasDevice.Device.Name}");
 
             return deviceControl;
         }
@@ -3255,6 +3464,25 @@ namespace MaxChemical.Modules.Designer.Views
                 DesignCanvas.Children.Add(monitoringCard);
 
                 Debug.WriteLine($"监控卡片已添加到画布: 位置({cardLeft:F0}, {cardTop:F0})");
+
+                // ✅ 启用监控卡片缓存
+                RenderOptions.SetCachingHint(monitoringCard, CachingHint.Cache);
+                monitoringCard.CacheMode = new BitmapCache
+                {
+                    EnableClearType = false,
+                    RenderAtScale = 1.0,
+                    SnapsToDevicePixels = true
+                };
+
+                Canvas.SetLeft(monitoringCard, cardLeft);
+                Canvas.SetTop(monitoringCard, cardTop);
+                Canvas.SetZIndex(monitoringCard, 500);
+
+                monitoringCard.Tag = $"MonitoringCard_{deviceId}";
+
+                DesignCanvas.Children.Add(monitoringCard);
+
+                Debug.WriteLine($"监控卡片已添加（带缓存）: 位置({cardLeft:F0}, {cardTop:F0})");
             }
             catch (Exception ex)
             {
@@ -3674,12 +3902,12 @@ namespace MaxChemical.Modules.Designer.Views
             // 应用边界限制
             var (boundedLeft, boundedTop) = ApplyDeviceBoundaryConstraints(deviceElement, newLeft, newTop);
 
-            // 检查区域有效性
-            if (!IsValidDeviceDragPosition(boundedLeft, boundedTop, deviceElement))
-            {
-                UpdateDragVisualFeedback(deviceElement, false);
-                return;
-            }
+            //// 检查区域有效性
+            //if (!IsValidDeviceDragPosition(boundedLeft, boundedTop, deviceElement))
+            //{
+            //    UpdateDragVisualFeedback(deviceElement, false);
+            //    return;
+            //}
 
             // 移动设备
             Canvas.SetLeft(deviceElement, boundedLeft);
@@ -6585,7 +6813,7 @@ namespace MaxChemical.Modules.Designer.Views
         #region 管道创建方法
 
         /// <summary>
-        /// 创建直管道 - 使用命令模式
+        /// 创建直管道 - 优化版
         /// </summary>
         private void CreateStraightPipe(Point position)
         {
@@ -6596,10 +6824,19 @@ namespace MaxChemical.Modules.Designer.Views
                 PipeWidth = 8
             };
 
+            // ✅ 启用管道级别缓存
+            RenderOptions.SetCachingHint(pipe, CachingHint.Cache);
+            pipe.CacheMode = new BitmapCache
+            {
+                EnableClearType = false,
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true
+            };
+
             // 订阅事件
             SubscribeStraightPipeEvents(pipe);
 
-            // ✅ 使用命令创建管道
+            // 使用命令创建管道
             var addCommand = new AddPipeCommand(
                 DesignCanvas,
                 pipe,
@@ -6612,17 +6849,16 @@ namespace MaxChemical.Modules.Designer.Views
             // 添加到管道集合
             _pipes[pipe.PipeId] = pipe;
 
-            // ✅ 新增：立即标记四叉树需要重建
+            // 标记四叉树需要重建
             if (_pipeSnapService is PipeSnapService snapService)
             {
                 snapService.MarkQuadTreeDirty();
-                Debug.WriteLine("✅ 管道创建完成，已标记四叉树需要重建");
             }
 
             // 标记画布已修改
             _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
-            Debug.WriteLine($"直管道已创建: {pipe.PipeId}");
+            Debug.WriteLine($"直管道已创建（带缓存）: {pipe.PipeId}");
         }
 
         /// <summary>

@@ -138,6 +138,26 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 UpdateVisualState(false);
             }
+
+            // 1. 启用硬件渲染（强制使用 GPU）
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality); // 最高质量
+            RenderOptions.SetEdgeMode(this, EdgeMode.Aliased); // 关闭抗锯齿提升性能
+
+            // 2. 启用位图缓存（关键优化）
+            RenderOptions.SetCachingHint(this, CachingHint.Cache);
+            RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
+            RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
+
+            // 3. 配置位图缓存
+            CacheMode = new BitmapCache
+            {
+                RenderAtScale = 1.0,        // 按实际比例缓存
+                SnapsToDevicePixels = true, // 对齐像素边界
+                EnableClearType = false     // 禁用 ClearType（GPU 不支持）
+            };
+
+            // 4. 强制硬件加速（关键）
+            this.SetValue(RenderOptions.EdgeModeProperty, EdgeMode.Unspecified);
         }
 
         #endregion

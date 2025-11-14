@@ -134,17 +134,37 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             bool isInDesignMode = DesignerProperties.GetIsInDesignMode(this);
 
-            //if (!isInDesignMode)
-            //{
-            //    this.MouseDown += OnControlMouseDown;
-            //    this.MouseMove += OnControlMouseMove;
-            //    this.MouseUp += OnControlMouseUp;
-            //    this.MouseLeave += OnControlMouseLeave;
-            //}
-
             this.Loaded += OnPumpControlLoaded;
 
-            Debug.WriteLine($"🏗️ 柱塞泵控件 {PumpId} 已创建");
+            if (!isInDesignMode)
+            {
+                // ========== ✅ 硬件加速配置 ==========
+
+                // 1. 高质量渲染
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+                RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
+
+                // 2. 启用缓存提示
+                RenderOptions.SetCachingHint(this, CachingHint.Cache);
+                RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
+                RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
+
+                // 3. 配置位图缓存
+                CacheMode = new BitmapCache
+                {
+                    RenderAtScale = 1.0,
+                    SnapsToDevicePixels = true,
+                    EnableClearType = false
+                };
+
+                // 4. 像素对齐
+                this.SnapsToDevicePixels = true;
+                this.UseLayoutRounding = true;
+
+                Debug.WriteLine($" 柱塞泵 {PumpId} 硬件加速已启用");
+            }
+
+            Debug.WriteLine($"柱塞泵控件 {PumpId} 已创建");
         }
 
         private void OnPumpControlLoaded(object sender, RoutedEventArgs e)
@@ -302,9 +322,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 {
                     if (_isRunning)
                     {
+                        // ✅ 设置动画帧率（降低CPU占用）
+                        Timeline.SetDesiredFrameRate(_pistonStoryboard, 30);
+
                         // 启动柱塞动画
                         _pistonStoryboard.Begin(this, true);
-                        Debug.WriteLine("🔄 柱塞动画已启动");
+                        Debug.WriteLine("🔄 柱塞动画已启动（30fps GPU加速）");
                     }
                     else
                     {
@@ -318,7 +341,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     Debug.WriteLine("⚠️ 无法更新泵运行状态: 动画资源未加载");
                 }
 
-                // ✅ 新增：更新电源按钮颜色（可选）
                 UpdatePowerButtonColor();
             }
             catch (Exception ex)
@@ -526,6 +548,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 this.Opacity = 1.0;
                 _isDraggingPump = false;
+
+                // ✅ 拖拽结束后恢复缓存
+                RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+                this.CacheMode = new BitmapCache
+                {
+                    RenderAtScale = 1.0,
+                    SnapsToDevicePixels = true,
+                    EnableClearType = false
+                };
 
                 Debug.WriteLine($"✅ 柱塞泵 {PumpId} 拖拽完成: ({finalPosition.X:F0}, {finalPosition.Y:F0})");
             }
@@ -772,11 +803,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 if (e.LeftButton == MouseButtonState.Pressed)
                 {
-                    // ✅ 选中设备
                     PumpSelected?.Invoke(this, this.PumpId);
                     this.IsSelected = true;
 
-                    // ✅ 开始拖拽
                     _isDraggingPump = true;
                     var parent = this.Parent as Canvas;
                     if (parent != null)
@@ -787,7 +816,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                         if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                     }
 
-                    // ✅ 捕获鼠标（在 Rectangle 上捕获，而不是整个 UserControl）
+                    // ✅ 拖拽时禁用缓存
+                    this.CacheMode = null;
+                    RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
+
                     var draggableArea = sender as Rectangle;
                     draggableArea?.CaptureMouse();
 

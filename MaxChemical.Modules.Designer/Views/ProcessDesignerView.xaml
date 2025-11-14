@@ -4,20 +4,74 @@
              xmlns:prism="http://prismlibrary.com/"
              xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
              prism:ViewModelLocator.AutoWireViewModel="True"
-             Background="White">
+             Background="White"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             RenderOptions.EdgeMode="Unspecified">
 
-    <Border Background="White" 
-            BorderBrush="#E0E0E0">
+    <!-- ✅ 样式资源 -->
+    <UserControl.Resources>
+        <!-- ✅ 优化：高性能 ScrollViewer 样式 -->
+        <Style x:Key="ThinScrollViewerStyle" TargetType="ScrollViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
+                            <!-- 内容区域 -->
+                            <ScrollContentPresenter Grid.Column="0" Grid.Row="0"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                    Content="{TemplateBinding Content}"
+                                                    ContentTemplate="{TemplateBinding ContentTemplate}"/>
+
+                            <!-- 垂直滚动条 -->
+                            <ScrollBar Grid.Column="1" Grid.Row="0"
+                                       Name="PART_VerticalScrollBar"
+                                       Orientation="Vertical"
+                                       Value="{TemplateBinding VerticalOffset}"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                       Width="8"
+                                       Opacity="0.6"/>
+
+                            <!-- 水平滚动条 -->
+                            <ScrollBar Grid.Column="0" Grid.Row="1"
+                                       Name="PART_HorizontalScrollBar"
+                                       Orientation="Horizontal"
+                                       Value="{TemplateBinding HorizontalOffset}"
+                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
+                                       Height="8"
+                                       Opacity="0.6"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="White" BorderBrush="#E0E0E0">
         <Grid>
-            <!-- 🔥 新增：管道工具箱浮动在右侧 -->
+            <!-- ✅ 管道工具箱（最高层级，不缓存） -->
             <local:PipeToolboxPanel x:Name="PipeToolbox"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Top"
                                     Margin="0,20,20,0"
-                                    Panel.ZIndex="1000"/>
+                                    Panel.ZIndex="1000"
+                                    IsHitTestVisible="True"/>
 
-            <!-- 🔥 添加滚动查看器包装设计画布 -->
+            <!-- ✅ 画布滚动容器（硬件加速） -->
             <ScrollViewer x:Name="CanvasScrollViewer"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
@@ -26,28 +80,31 @@
                           Background="Transparent"
                           PanningMode="Both"
                           CanContentScroll="True"
-                          Style="{StaticResource ThinScrollViewerStyle}">
+                          Style="{StaticResource ThinScrollViewerStyle}"
+                          RenderOptions.BitmapScalingMode="HighQuality"
+                          RenderOptions.EdgeMode="Unspecified">
 
-                <!-- 设计画布 -->
+                <!-- ✅ 设计画布（核心优化） -->
                 <Canvas x:Name="DesignCanvas"
-                Background="White"
-                ClipToBounds="True"
-                RenderOptions.BitmapScalingMode="LowQuality"
-                RenderOptions.EdgeMode="Aliased"
-                SnapsToDevicePixels="True"
-                UseLayoutRounding="True">
+                        Background="White"
+                        ClipToBounds="True"
+                        SnapsToDevicePixels="True"
+                        UseLayoutRounding="True"
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        RenderOptions.EdgeMode="Unspecified"
+                        RenderOptions.CachingHint="Cache">
 
-                    <!-- ✅ 关键优化：启用画布级别缓存 -->
+                    <!-- ✅ 画布级别缓存配置（仅在静止时生效） -->
                     <Canvas.CacheMode>
                         <BitmapCache EnableClearType="False" 
-                             RenderAtScale="1" 
-                             SnapsToDevicePixels="True"/>
+                                     RenderAtScale="1" 
+                                     SnapsToDevicePixels="True"/>
                     </Canvas.CacheMode>
                 </Canvas>
 
             </ScrollViewer>
 
-            <!-- 水印和提示信息 -->
+            <!-- ✅ 水印和提示信息（不缓存） -->
             <StackPanel HorizontalAlignment="Center" 
                         VerticalAlignment="Center"
                         IsHitTestVisible="False"
@@ -88,7 +145,7 @@
                                    MaxWidth="300"
                                    Margin="0,5,0,0"/>
 
-                        <TextBlock Text="• 滚动条：导航到指定区域&#x0a;• 中键拖拽：平移画布&#x0a;• 拖拽设备到画布上开始设计" 
+                        <TextBlock Text="• 滚动条：导航到指定区域&#x0a;• 中键拖拽:平移画布&#x0a;• 拖拽设备到画布上开始设计" 
                                    FontSize="11" 
                                    Foreground="#ADB5BD" 
                                    HorizontalAlignment="Center"
