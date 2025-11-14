@@ -514,47 +514,86 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateElbow(double centerX, double centerY, double radius)
         {
+            // ========== 🔧 修正：弯头路径应该严格在管道内部 ==========
+
             PathGeometry elbowGeometry = new PathGeometry();
             PathFigure figure = new PathFigure();
 
+            // ✅ 外弧起点：弯头左侧底部（水平管道右端底部）
             Point outerStart = new Point(centerX - radius, centerY + _pipeWidth / 2);
             figure.StartPoint = outerStart;
 
+            // ✅ 外弧：从左下到右上（逆时针）
+            // 外弧半径 = 弯头中心半径 + 管道宽度一半
             ArcSegment outerArc = new ArcSegment(
                 new Point(centerX + _pipeWidth / 2, centerY - radius),
                 new Size(radius + _pipeWidth / 2, radius + _pipeWidth / 2),
                 0, false, SweepDirection.Counterclockwise, true);
             figure.Segments.Add(outerArc);
 
+            // ✅ 顶部横线：从外弧终点到内弧起点
             LineSegment toInner = new LineSegment(
                 new Point(centerX - _pipeWidth / 2, centerY - radius), true);
             figure.Segments.Add(toInner);
 
+            // ✅ 内弧：从右上到左下（顺时针）
+            // 内弧半径 = 弯头中心半径 - 管道宽度一半
             ArcSegment innerArc = new ArcSegment(
                 new Point(centerX - radius, centerY - _pipeWidth / 2),
                 new Size(radius - _pipeWidth / 2, radius - _pipeWidth / 2),
                 0, false, SweepDirection.Clockwise, true);
             figure.Segments.Add(innerArc);
 
+            // ✅ 封闭路径
             figure.IsClosed = true;
             elbowGeometry.Figures.Add(figure);
             ElbowPath.Data = elbowGeometry;
 
-            // 弯头高光
-            PathGeometry highlightGeometry = new PathGeometry();
-            PathFigure highlightFigure = new PathFigure();
-            double highlightRadius = radius - _pipeWidth / 4;
-            Point highlightStart = new Point(centerX - highlightRadius, centerY - _pipeWidth / 4);
-            highlightFigure.StartPoint = highlightStart;
+            // ========== 弯头外侧强化边缘 ==========
+            if (ElbowOuterEdge != null)
+            {
+                PathGeometry outerEdgeGeometry = new PathGeometry();
+                PathFigure outerEdgeFigure = new PathFigure();
 
-            ArcSegment highlightArc = new ArcSegment(
-                new Point(centerX - _pipeWidth / 4, centerY - highlightRadius),
-                new Size(highlightRadius, highlightRadius),
-                0, false, SweepDirection.Counterclockwise, true);
-            highlightFigure.Segments.Add(highlightArc);
+                // ✅ 外侧边缘略微偏移（视觉强化）
+                double edgeOffset = 0.5;
+                Point edgeStart = new Point(centerX - radius, centerY + _pipeWidth / 2 - edgeOffset);
+                outerEdgeFigure.StartPoint = edgeStart;
 
-            highlightGeometry.Figures.Add(highlightFigure);
-            ElbowHighlight.Data = highlightGeometry;
+                ArcSegment edgeArc = new ArcSegment(
+                    new Point(centerX + _pipeWidth / 2 - edgeOffset, centerY - radius),
+                    new Size(radius + _pipeWidth / 2 - edgeOffset, radius + _pipeWidth / 2 - edgeOffset),
+                    0, false, SweepDirection.Counterclockwise, true);
+                outerEdgeFigure.Segments.Add(edgeArc);
+
+                outerEdgeGeometry.Figures.Add(outerEdgeFigure);
+                ElbowOuterEdge.Data = outerEdgeGeometry;
+            }
+
+            // ========== 弯头高光路径 ==========
+            if (ElbowHighlight != null)
+            {
+                PathGeometry highlightGeometry = new PathGeometry();
+                PathFigure highlightFigure = new PathFigure();
+
+                // ✅ 高光位置：从内弧偏移一定距离
+                double highlightOffset = _pipeWidth * 0.25;
+                double highlightRadius = radius - highlightOffset;
+
+                Point highlightStart = new Point(
+                    centerX - highlightRadius,
+                    centerY - highlightOffset);
+                highlightFigure.StartPoint = highlightStart;
+
+                ArcSegment highlightArc = new ArcSegment(
+                    new Point(centerX - highlightOffset, centerY - highlightRadius),
+                    new Size(highlightRadius, highlightRadius),
+                    0, false, SweepDirection.Counterclockwise, true);
+                highlightFigure.Segments.Add(highlightArc);
+
+                highlightGeometry.Figures.Add(highlightFigure);
+                ElbowHighlight.Data = highlightGeometry;
+            }
         }
 
         private void UpdateFlanges(double horizontalY, double verticalX)

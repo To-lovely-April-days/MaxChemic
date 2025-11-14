@@ -121,8 +121,7 @@
               StrokeStartLineCap="Round"
               StrokeEndLineCap="Round"/>
 
-        <!-- ✅ 弯头部分 - 从右下到左上的线性渐变 -->
-        <!-- ✅ 弯头部分 - 从右下到左上的线性渐变（与直管道金属色一致） -->
+        <!-- ✅ 弯头部分 - 加深版本（更明显的金属质感） -->
         <Path x:Name="ElbowPath" 
       StrokeThickness="0.7" 
       Stroke="#727171">
@@ -137,26 +136,36 @@
                 </PathGeometry>
             </Path.Data>
             <Path.Fill>
-                <!-- ✅ 线性渐变：使用与直管道一致的金属灰色系 -->
+                <!-- ✅ 加深版渐变：外侧更深，增强立体感 -->
                 <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
-                    <GradientStop Color="#727171" Offset="0"/>
-                    <!-- 标准金属灰（右下外侧） -->
-                    <GradientStop Color="#59727171" Offset="0.15"/>
-                    <GradientStop Color="#40727171" Offset="0.28"/>
-                    <GradientStop Color="#1A727171" Offset="0.42"/>
+                    <!-- 右下外侧 - 更深的金属灰 -->
+                    <GradientStop Color="#5A5A5A" Offset="0"/>
+                    <GradientStop Color="#656565" Offset="0.12"/>
+                    <GradientStop Color="#727171" Offset="0.22"/>
+
+                    <!-- 中间过渡区 -->
+                    <GradientStop Color="#59727171" Offset="0.32"/>
+                    <GradientStop Color="#40727171" Offset="0.40"/>
+                    <GradientStop Color="#1A727171" Offset="0.46"/>
+
+                    <!-- 中心高光 -->
                     <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-                    <!-- 中心透明/高光 -->
-                    <GradientStop Color="#1A727171" Offset="0.58"/>
-                    <GradientStop Color="#40727171" Offset="0.72"/>
-                    <GradientStop Color="#59727171" Offset="0.85"/>
+
+                    <!-- 中间过渡区（对称） -->
+                    <GradientStop Color="#1A727171" Offset="0.54"/>
+                    <GradientStop Color="#40727171" Offset="0.60"/>
+                    <GradientStop Color="#59727171" Offset="0.68"/>
+
+                    <!-- 左上内侧 - 标准金属灰 -->
+                    <GradientStop Color="#727171" Offset="0.78"/>
+                    <GradientStop Color="#7D7D7D" Offset="0.88"/>
                     <GradientStop Color="#8A8A8A" Offset="1"/>
-                    <!-- 稍浅的灰（左上内侧） -->
                 </LinearGradientBrush>
             </Path.Fill>
         </Path>
 
-        <!-- ✅ 弯头外侧轻微强化（可选，降低不透明度） -->
-        <Path x:Name="ElbowOuterEdge" Opacity="0.15">
+        <!-- ✅ 弯头外侧强化 - 增强深度 -->
+        <Path x:Name="ElbowOuterEdge" Opacity="0.25">
             <Path.Data>
                 <PathGeometry>
                     <PathFigure StartPoint="40,53.5">
@@ -166,16 +175,18 @@
             </Path.Data>
             <Path.Stroke>
                 <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
-                    <GradientStop Color="#5A5A5A" Offset="0"/>
-                    <GradientStop Color="#6A6A6A" Offset="0.4"/>
+                    <GradientStop Color="#3E3E3E" Offset="0"/>
+                    <!-- 深灰 -->
+                    <GradientStop Color="#4A4A4A" Offset="0.3"/>
+                    <GradientStop Color="#5A5A5A" Offset="0.5"/>
                     <GradientStop Color="Transparent" Offset="1"/>
                 </LinearGradientBrush>
             </Path.Stroke>
-            <Path.StrokeThickness>1.5</Path.StrokeThickness>
+            <Path.StrokeThickness>1.8</Path.StrokeThickness>
         </Path>
 
-        <!-- ✅ 弯头高光（金属光泽） -->
-        <Path x:Name="ElbowHighlight" Opacity="0.3">
+        <!-- ✅ 弯头高光（金属光泽）- 降低强度以配合更深的基色 -->
+        <Path x:Name="ElbowHighlight" Opacity="0.25">
             <Path.Data>
                 <PathGeometry>
                     <PathFigure StartPoint="43,51">
@@ -186,8 +197,9 @@
             <Path.Stroke>
                 <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
                     <GradientStop Color="Transparent" Offset="0"/>
-                    <GradientStop Color="#D8D8D8" Offset="0.4"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.7"/>
+                    <GradientStop Color="#C8C8C8" Offset="0.35"/>
+                    <!-- 稍弱的高光 -->
+                    <GradientStop Color="#E8E8E8" Offset="0.65"/>
                     <GradientStop Color="#F0F0F0" Offset="1"/>
                 </LinearGradientBrush>
             </Path.Stroke>

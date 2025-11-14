@@ -695,20 +695,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 double boltSize = 2;
                 double boltLeftOffset = (flangeWidth - boltSize) / 2;  // (4-2)/2 = 1
 
-                LeftBolt1.Width = boltSize;
-                LeftBolt1.Height = boltSize;
-                Canvas.SetLeft(LeftBolt1, boltLeftOffset);
-                Canvas.SetTop(LeftBolt1, flangeHeight * 0.2 - boltSize / 2);
+                //LeftBolt1.Width = boltSize;
+                //LeftBolt1.Height = boltSize;
+                //Canvas.SetLeft(LeftBolt1, boltLeftOffset);
+                //Canvas.SetTop(LeftBolt1, flangeHeight * 0.2 - boltSize / 2);
 
-                LeftBolt2.Width = boltSize;
-                LeftBolt2.Height = boltSize;
-                Canvas.SetLeft(LeftBolt2, boltLeftOffset);
-                Canvas.SetTop(LeftBolt2, (flangeHeight - boltSize) / 2);
+                //LeftBolt2.Width = boltSize;
+                //LeftBolt2.Height = boltSize;
+                //Canvas.SetLeft(LeftBolt2, boltLeftOffset);
+                //Canvas.SetTop(LeftBolt2, (flangeHeight - boltSize) / 2);
 
-                LeftBolt3.Width = boltSize;
-                LeftBolt3.Height = boltSize;
-                Canvas.SetLeft(LeftBolt3, boltLeftOffset);
-                Canvas.SetTop(LeftBolt3, flangeHeight * 0.8 - boltSize / 2);
+                //LeftBolt3.Width = boltSize;
+                //LeftBolt3.Height = boltSize;
+                //Canvas.SetLeft(LeftBolt3, boltLeftOffset);
+                //Canvas.SetTop(LeftBolt3, flangeHeight * 0.8 - boltSize / 2);
 
                 // 修改：topPipeLeft = 法兰X(2) + 法兰宽度(4) = 6
                 double topPipeLeft = leftFlangeX + flangeWidth;
@@ -732,10 +732,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 TopHorizontalBottomEdge.X2 = topPipeLeft + topPipeWidth;
                 TopHorizontalBottomEdge.Y2 = topPipeTop + topPipeHeight;
 
-                TopHorizontalHighlight.Width = Math.Max(0, topPipeWidth - 2);
-                TopHorizontalHighlight.Height = 3;
-                Canvas.SetLeft(TopHorizontalHighlight, topPipeLeft + 1);
-                Canvas.SetTop(TopHorizontalHighlight, topPipeTop + 1);
+                //TopHorizontalHighlight.Width = Math.Max(0, topPipeWidth - 2);
+                //TopHorizontalHighlight.Height = 3;
+                //Canvas.SetLeft(TopHorizontalHighlight, topPipeLeft + 1);
+                //Canvas.SetTop(TopHorizontalHighlight, topPipeTop + 1);
 
                 // 第一个弯头
                 double elbow1Radius = _pipeWidth;
@@ -764,10 +764,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 DiagonalRightEdge.X2 = diagPipeLeft + _pipeWidth;
                 DiagonalRightEdge.Y2 = diagPipeTop + diagPipeHeight;
 
-                DiagonalHighlight.Width = 3;
-                DiagonalHighlight.Height = Math.Max(0, diagPipeHeight - 2);
-                Canvas.SetLeft(DiagonalHighlight, diagPipeLeft + 1);
-                Canvas.SetTop(DiagonalHighlight, diagPipeTop + 1);
+                //DiagonalHighlight.Width = 3;
+                //DiagonalHighlight.Height = Math.Max(0, diagPipeHeight - 2);
+                //Canvas.SetLeft(DiagonalHighlight, diagPipeLeft + 1);
+                //Canvas.SetTop(DiagonalHighlight, diagPipeTop + 1);
 
                 // 第二个弯头
                 double elbow2Radius = _pipeWidth;
@@ -796,10 +796,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 BottomHorizontalBottomEdge.X2 = bottomPipeLeft + bottomPipeWidth;
                 BottomHorizontalBottomEdge.Y2 = bottomPipeTop + _pipeWidth;
 
-                BottomHorizontalHighlight.Width = Math.Max(0, bottomPipeWidth - 2);
-                BottomHorizontalHighlight.Height = 3;
-                Canvas.SetLeft(BottomHorizontalHighlight, bottomPipeLeft + 1);
-                Canvas.SetTop(BottomHorizontalHighlight, bottomPipeTop + 1);
+                //BottomHorizontalHighlight.Width = Math.Max(0, bottomPipeWidth - 2);
+                //BottomHorizontalHighlight.Height = 3;
+                //Canvas.SetLeft(BottomHorizontalHighlight, bottomPipeLeft + 1);
+                //Canvas.SetTop(BottomHorizontalHighlight, bottomPipeTop + 1);
 
                 // 右侧法兰
                 double rightFlangeX = bottomPipeLeft + bottomPipeWidth;
@@ -818,21 +818,21 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 RightFlangeBorder.Width = flangeWidth;
                 RightFlangeBorder.Height = flangeHeight;
 
-                // ✅ 更新右侧法兰螺栓位置和大小
-                RightBolt1.Width = boltSize;
-                RightBolt1.Height = boltSize;
-                Canvas.SetLeft(RightBolt1, boltLeftOffset);
-                Canvas.SetTop(RightBolt1, flangeHeight * 0.2 - boltSize / 2);
+                //// ✅ 更新右侧法兰螺栓位置和大小
+                //RightBolt1.Width = boltSize;
+                //RightBolt1.Height = boltSize;
+                //Canvas.SetLeft(RightBolt1, boltLeftOffset);
+                //Canvas.SetTop(RightBolt1, flangeHeight * 0.2 - boltSize / 2);
 
-                RightBolt2.Width = boltSize;
-                RightBolt2.Height = boltSize;
-                Canvas.SetLeft(RightBolt2, boltLeftOffset);
-                Canvas.SetTop(RightBolt2, (flangeHeight - boltSize) / 2);
+                //RightBolt2.Width = boltSize;
+                //RightBolt2.Height = boltSize;
+                //Canvas.SetLeft(RightBolt2, boltLeftOffset);
+                //Canvas.SetTop(RightBolt2, (flangeHeight - boltSize) / 2);
 
-                RightBolt3.Width = boltSize;
-                RightBolt3.Height = boltSize;
-                Canvas.SetLeft(RightBolt3, boltLeftOffset);
-                Canvas.SetTop(RightBolt3, flangeHeight * 0.8 - boltSize / 2);
+                //RightBolt3.Width = boltSize;
+                //RightBolt3.Height = boltSize;
+                //Canvas.SetLeft(RightBolt3, boltLeftOffset);
+                //Canvas.SetTop(RightBolt3, flangeHeight * 0.8 - boltSize / 2);
 
                 // 连接处 - 左连接改为5 (法兰4 + 间距1)
                 Canvas.SetLeft(LeftConnection, topPipeLeft - 1);
