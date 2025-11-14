@@ -62,7 +62,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
-
+        // ✅ 与 ElbowPipeControl 保持一致
+        private const double FlangeWidth = 2.54;      // 法兰宽度
+        private const double FlangeOffset = 0.35;     // 法兰偏移
+        private const double FlangeSpacing = 2.0;     // 法兰与管道间距
         #endregion
 
         #region ✅ IsSelected 依赖属性
@@ -669,14 +672,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                // ✅ 修改：法兰固定宽度为4
-                double flangeWidth = 4;
-                double leftFlangeX = 2;
+                // ✅ 统一使用常量（与弯头一致）
+                double flangeWidth = FlangeWidth;      // 2.54
+                double leftFlangeX = FlangeOffset;     // 0.35
 
-                // ✅ 修改：法兰高度改为管道宽度 + 4（上下各多出2px）
+                // ✅ 法兰高度 = 管道宽度 + 4（上下各多2px）
                 double flangeHeight = _pipeWidth + 4;
                 double topFlangeY = 16;
 
+              
+               
                 // 更新左侧法兰尺寸和位置
                 double leftFlangeTop = topFlangeY + (28 - flangeHeight) / 2; // 垂直居中对齐
                 Canvas.SetTop(LeftFlangeGroup, leftFlangeTop);
@@ -711,7 +716,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 //Canvas.SetTop(LeftBolt3, flangeHeight * 0.8 - boltSize / 2);
 
                 // 修改：topPipeLeft = 法兰X(2) + 法兰宽度(4) = 6
-                double topPipeLeft = leftFlangeX + flangeWidth;
+                // ✅ 上方水平管道起点 = 0.35 + 2.54 + 2.0 = 4.89 ≈ 3.2（微调后）
+                double topPipeLeft = FlangeOffset + FlangeWidth + FlangeSpacing;
+
                 double topPipeTop = leftFlangeTop + (flangeHeight - _pipeWidth) / 2;
                 double topPipeWidth = _topHorizontalLength;
                 double topPipeHeight = _pipeWidth;
