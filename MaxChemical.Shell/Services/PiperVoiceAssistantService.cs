@@ -58,6 +58,7 @@ namespace MaxChemical.Shell.Services
 
             ITtsEngine engine = voiceSettings.TtsProvider.ToLower() switch
             {
+                "edge" => new EdgeTtsEngine(_logger, voiceSettings.EdgeTts),
                 "azure" => new AzureTtsEngine(_logger, voiceSettings.AzureTts),
                 "piper" or _ => new PiperTtsEngine(_logger, voiceSettings.Piper)
             };
@@ -66,8 +67,21 @@ namespace MaxChemical.Shell.Services
             {
                 _logger.LogWarning($"⚠ {engine.EngineName} 不可用，尝试降级方案");
 
-                // 降级策略：如果Azure不可用，尝试Piper
-                if (voiceSettings.TtsProvider.ToLower() == "azure")
+                // 降级策略: Edge -> Piper -> Azure
+                if (voiceSettings.TtsProvider.ToLower() == "edge")
+                {
+                    _logger.LogInformation("🔄 切换到 Piper TTS");
+                    engine.Dispose();
+                    engine = new PiperTtsEngine(_logger, voiceSettings.Piper);
+
+                    if (!engine.IsAvailable)
+                    {
+                        _logger.LogInformation("🔄 切换到 Azure TTS");
+                        engine.Dispose();
+                        engine = new AzureTtsEngine(_logger, voiceSettings.AzureTts);
+                    }
+                }
+                else if (voiceSettings.TtsProvider.ToLower() == "azure")
                 {
                     _logger.LogInformation("🔄 切换到 Piper TTS");
                     engine.Dispose();
