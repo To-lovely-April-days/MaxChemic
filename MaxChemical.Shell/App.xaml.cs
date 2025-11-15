@@ -21,6 +21,7 @@ using Prism.Events;
 using MaxChemical.Data.Services;
 using MaxChemical.Data.Repositories;
 using MaxChemical.Core;
+using MaxChemical.Shell.Services;
 
 namespace MaxChemical.Shell;
 
@@ -84,7 +85,7 @@ public partial class App : PrismApplication
 
     protected override void RegisterTypes(IContainerRegistry containerRegistry)
     {
-        // 注册基础服务
+        // ========== 基础服务 ==========
         containerRegistry.RegisterSingleton<ILocalizationService, LocalizationService>();
         containerRegistry.RegisterSingleton<IDialogService, DialogService>();
         containerRegistry.RegisterSingleton<IProjectService, ProjectService>();
@@ -103,16 +104,33 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IDeviceNameResolverService, DeviceNameResolverService>();
         containerRegistry.RegisterSingleton<IVariablePersistenceBackgroundService, VariablePersistenceBackgroundService>();
         containerRegistry.RegisterSingleton<IParameterMonitoringService, ParameterMonitoringService>();
-        // 注册新的项目数据服务
         containerRegistry.RegisterSingleton<IProjectDataService, ProjectDataService>();
         containerRegistry.RegisterSingleton<ProjectCoordinator>();
-
-        // ✅ 新增:注册管道连接服务
         containerRegistry.RegisterSingleton<IPipeConnectionService, PipeConnectionService>();
-        // 注册Prism自己的日志服务
-        containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
         containerRegistry.RegisterSingleton<IPipeSnapService, PipeSnapService>();
-        // 从Host服务中注册数据库相关服务到Prism容器
+
+        // ========== Prism日志服务 ==========
+        containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
+
+        // ========== ✅ 新增：注册配置服务 ==========
+        if (_host != null)
+        {
+            try
+            {
+                var configuration = _host.Services.GetRequiredService<IConfiguration>();
+                containerRegistry.RegisterInstance<IConfiguration>(configuration);
+                _logger?.LogInformation("✅ IConfiguration 已从 Host 注册到 Prism 容器");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "从 Host 获取 IConfiguration 失败");
+            }
+        }
+
+        // ========== ✅ 注册语音助手服务 ==========
+        containerRegistry.RegisterSingleton<IVoiceAssistantService, PiperVoiceAssistantService>();
+
+        // ========== 数据库相关服务 ==========
         if (_host != null)
         {
             try
@@ -126,14 +144,12 @@ public partial class App : PrismApplication
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "从Host注册服务失败，使用降级方案");
-                // 降级方案：直接注册
                 containerRegistry.RegisterSingleton<IDatabaseConfigService, DatabaseConfigService>();
                 containerRegistry.RegisterSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();
             }
         }
         else
         {
-            // 降级方案：直接注册
             containerRegistry.RegisterSingleton<IDatabaseConfigService, DatabaseConfigService>();
             containerRegistry.RegisterSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();
         }
@@ -142,9 +158,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IExperimentDataRepository, ExperimentDataRepository>();
         containerRegistry.RegisterSingleton<IExperimentDataCollectionService, ExperimentDataCollectionService>();
         containerRegistry.RegisterSingleton<IExcelExportService, ExcelExportService>();
-
         containerRegistry.RegisterSingleton<IExperimentDataAdapter, ExperimentDataAdapter>();
-
     }
 
     protected override void OnExit(ExitEventArgs e)
