@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Speech.Recognition;
 using System.Threading;
+using MaxChemical.Infrastructure.Events;
 using MaxChemical.Logging;
 using MaxChemical.Shell.Models;
 using Microsoft.Extensions.Configuration;
@@ -155,7 +156,7 @@ namespace MaxChemical.Shell.Services
             choices.Add("取消静音");
             choices.Add("休眠");
             choices.Add("再见");
-
+            choices.Add("创建一个柱塞泵");
             var gb = new GrammarBuilder();
             gb.Append(choices);
 
@@ -249,7 +250,7 @@ namespace MaxChemical.Shell.Services
             if (!_isAwake)
             {
                 _isAwake = true;
-                _logger.LogInformation($"🌟 语音助手已唤醒");
+                _logger.LogInformation($"语音助手已唤醒");
                 CommandRecognized?.Invoke(this, "WAKE_UP");
                 SpeakAsync("我在");
                 StartAutoSleepTimer();
@@ -268,21 +269,88 @@ namespace MaxChemical.Shell.Services
             ResetAutoSleepTimer();
             CommandRecognized?.Invoke(this, command);
 
-            string response = GetCommandResponse(command);
-            if (!string.IsNullOrEmpty(response))
+            // ✅ 检查是否是创建设备命令
+            if (command.Contains("创建") && command.Contains("柱塞泵"))
             {
-                SpeakAsync(response);
+                HandleCreateDeviceCommand("柱塞泵");
+                return;
             }
 
-            if (command == "休眠" || command == "再见")
+            // 检查是否是特定命令
+            if (IsSpecificCommand(command))
             {
-                _isAwake = false;
-                StopAutoSleepTimer();
-                CommandRecognized?.Invoke(this, "SLEEP");
-                _logger.LogInformation("💤 语音助手已休眠");
+                string response = GetCommandResponse(command);
+                if (!string.IsNullOrEmpty(response))
+                {
+                    SpeakAsync(response);
+                }
+
+                if (command == "休眠" || command == "再见")
+                {
+                    _isAwake = false;
+                    StopAutoSleepTimer();
+                    CommandRecognized?.Invoke(this, "SLEEP");
+                    _logger.LogInformation("💤 语音助手已休眠");
+                }
+            }
+            else
+            {
+                // 非特定命令，重复用户说的话
+                _logger.LogInformation($"📢 复述用户指令: {command}");
+                SpeakAsync($"您说的是:{command}");
             }
         }
 
+        /// <summary>
+        /// 处理创建设备命令
+        /// </summary>
+        private void HandleCreateDeviceCommand(string deviceName)
+        {
+            try
+            {
+                _logger.LogInformation($"🎨 处理创建设备命令: {deviceName}");
+
+                // 发布创建设备事件
+                _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Publish(new VoiceCreateDeviceEventArgs
+                {
+                    DeviceName = deviceName,
+                    Command = $"创建一个{deviceName}",
+                    Timestamp = DateTime.Now
+                });
+
+                // 语音反馈
+                SpeakAsync($"正在为您创建{deviceName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 处理创建设备命令失败: {ex.Message}");
+                SpeakAsync("创建设备失败,请稍后重试");
+            }
+        }
+        private bool IsSpecificCommand(string command)
+        {
+            var specificCommands = new[]
+            {
+        "最大化窗口",
+        "最小化窗口",
+        "还原窗口",
+        "关闭窗口",
+        "打开首页",
+        "打开设置",
+        "返回",
+        "退出登录",
+        "切换语言",
+        "现在几点",
+        "今天星期几",
+        "今天日期",
+        "静音",
+        "取消静音",
+        "休眠",
+        "再见"
+    };
+
+            return Array.Exists(specificCommands, cmd => cmd == command);
+        }
         private string GetCommandResponse(string command)
         {
             return command switch
@@ -302,6 +370,7 @@ namespace MaxChemical.Shell.Services
                 "静音" => "好的，我先不说话了",
                 "取消静音" => "好的，我又回来啦",
                 "休眠" => "好的，需要的时候叫我哦",
+                "创建一个柱塞泵" => "好的，正在为您创建柱塞泵",
                 "再见" => "再见，有需要随时叫我",
                 _ => "好的"
             };

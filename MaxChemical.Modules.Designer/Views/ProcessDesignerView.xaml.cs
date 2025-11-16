@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Designer.Commands;
 using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Models;
@@ -44,6 +45,8 @@ namespace MaxChemical.Modules.Designer.Views
 
         // B. 执行动画管理
         private readonly Dictionary<string, Storyboard> _runningAnimations = new();
+
+        private readonly IDeviceManager _deviceManager;
         #endregion
 
         #region 私有字段 拖拽状态管理
@@ -228,7 +231,8 @@ namespace MaxChemical.Modules.Designer.Views
             ICanvasDataService canvasDataService,
             ICommandHistory commandHistory,
             IPipeConnectionService pipeConnectionService,
-            IPipeSnapService pipeSnapService)
+            IPipeSnapService pipeSnapService,
+            IDeviceManager deviceManager)
         {
             // 依赖注入验证
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
@@ -238,6 +242,7 @@ namespace MaxChemical.Modules.Designer.Views
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _pipeConnectionService = pipeConnectionService ?? throw new ArgumentNullException(nameof(pipeConnectionService));
             _pipeSnapService = pipeSnapService ?? throw new ArgumentNullException(nameof(pipeSnapService));
+            _deviceManager = deviceManager ?? throw new ArgumentNullException(nameof(deviceManager)); // ✅ 新增
 
             // 初始化界面组件
             InitializeComponent();
@@ -1002,6 +1007,10 @@ namespace MaxChemical.Modules.Designer.Views
             SubscribeToPipeToolboxEvents();
             //初始化吸附服务
             _pipeSnapService.Initialize(DesignCanvas);
+
+            // ✅ 新增: 订阅语音创建设备事件
+            SubscribeToVoiceAssistantEvents();
+
             // ✅ 新增：标记四叉树需要初始化
             (_pipeSnapService as PipeSnapService)?.MarkQuadTreeDirty();
         }
@@ -1173,7 +1182,8 @@ namespace MaxChemical.Modules.Designer.Views
             UnsubscribeFromCanvasEvents();
             UnsubscribeFromKeyboardEvents();
             UnsubscribeFromPipeToolboxEvents(); // ✅ 新增
-
+                                                // ✅ 新增: 取消订阅语音助手事件
+            _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Unsubscribe(OnVoiceCreateDevice);
             // ✅ 新增：停止布局更新定时器
             _layoutUpdateTimer?.Stop();
         }
@@ -7758,6 +7768,195 @@ namespace MaxChemical.Modules.Designer.Views
 
             return flowMeters;
         }
+        #endregion
+
+        #region 语音助手事件处理
+
+        /// <summary>
+        /// 订阅语音助手事件
+        /// </summary>
+        private void SubscribeToVoiceAssistantEvents()
+        {
+            _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Subscribe(
+                OnVoiceCreateDevice,
+                ThreadOption.UIThread);
+
+            Debug.WriteLine("✅ 语音助手事件已订阅");
+        }
+
+        /// <summary>
+        /// 处理语音创建设备事件
+        /// </summary>
+        private void OnVoiceCreateDevice(VoiceCreateDeviceEventArgs args)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 语音创建设备 ==========");
+                Debug.WriteLine($"设备名称: {args.DeviceName}");
+                Debug.WriteLine($"语音命令: {args.Command}");
+                Debug.WriteLine($"时间戳: {args.Timestamp}");
+
+                // 1. 从设备管理器中查找设备
+                var device = FindDeviceByName(args.DeviceName);
+                if (device == null)
+                {
+                    Debug.WriteLine($"❌ 未找到设备: {args.DeviceName}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"未找到 {args.DeviceName}");
+                    return;
+                }
+
+                // 2. 计算放置位置（画布中心）
+                var dropPosition = CalculateCenterPosition();
+
+                // 3. 创建设备
+                CreateDeviceFromVoiceCommand(device, dropPosition);
+
+                Debug.WriteLine($"✅ 语音创建设备成功: {args.DeviceName}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"已创建 {args.DeviceName}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 语音创建设备失败: {ex.Message}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "创建设备失败");
+            }
+        }
+
+        /// <summary>
+        /// 根据名称查找设备
+        /// </summary>
+        private IDevice FindDeviceByName(string deviceName)
+        {
+            try
+            {
+                // 从设备管理器获取所有设备
+                var allDevices = _deviceManager?.GetAllDevices();
+                if (allDevices == null || !allDevices.Any())
+                {
+                    Debug.WriteLine("⚠️ 设备管理器中没有设备");
+                    return null;
+                }
+
+                // 模糊匹配设备名称
+                var device = allDevices.FirstOrDefault(d =>
+                    d.Name?.Contains(deviceName) == true ||
+                    deviceName.Contains(d.Name));
+
+                if (device != null)
+                {
+                    Debug.WriteLine($"✅ 找到设备: {device.Name} ({device.GetType().Name})");
+                }
+
+                return device;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找设备失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 计算画布中心位置
+        /// </summary>
+        private Point CalculateCenterPosition()
+        {
+            var canvasWidth = DesignCanvas.ActualWidth > 0 ? DesignCanvas.ActualWidth : 1200;
+            var canvasHeight = DesignCanvas.ActualHeight > 0 ? DesignCanvas.ActualHeight : 800;
+
+            // 在中心位置稍微偏移，避免重叠
+            var random = new Random();
+            var offsetX = random.Next(-50, 50);
+            var offsetY = random.Next(-50, 50);
+
+            return new Point(
+                canvasWidth / 2 + offsetX,
+                canvasHeight / 2 + offsetY
+            );
+        }
+
+        /// <summary>
+        /// 从语音命令创建设备
+        /// </summary>
+        private void CreateDeviceFromVoiceCommand(IDevice device, Point position)
+        {
+            try
+            {
+                Debug.WriteLine($"开始创建设备: {device.Name} 在位置 ({position.X:F1}, {position.Y:F1})");
+
+                // 检查位置是否已有设备
+                if (IsPositionOccupied(position))
+                {
+                    Debug.WriteLine("位置已被占用，调整位置");
+                    position = FindNearbyEmptyPosition(position);
+                }
+
+                // 创建设备视图模型
+                var canvasDevice = CreateCanvasDeviceViewModel(device, position);
+                if (canvasDevice == null)
+                {
+                    Debug.WriteLine("❌ 创建设备视图模型失败");
+                    return;
+                }
+
+                // 使用命令创建设备（支持撤销重做）
+                var addCommand = new AddDeviceCommand(_viewModel, canvasDevice);
+                _commandHistory.ExecuteCommand(addCommand);
+
+                Debug.WriteLine($"✅ 设备创建完成: {device.Name}, ID: {canvasDevice.DeviceId}");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                // ✅ 选中新创建的设备
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    OnDeviceSelected(canvasDevice.DeviceId);
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建设备失败: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 查找附近的空位置
+        /// </summary>
+        private Point FindNearbyEmptyPosition(Point originalPosition)
+        {
+            const int searchRadius = 100;
+            const int step = 20;
+            var random = new Random();
+
+            for (int radius = step; radius <= searchRadius; radius += step)
+            {
+                for (int angle = 0; angle < 360; angle += 45)
+                {
+                    var radians = angle * Math.PI / 180;
+                    var testPosition = new Point(
+                        originalPosition.X + radius * Math.Cos(radians),
+                        originalPosition.Y + radius * Math.Sin(radians)
+                    );
+
+                    if (!IsPositionOccupied(testPosition) && IsValidDropPosition(testPosition))
+                    {
+                        Debug.WriteLine($"找到空位置: ({testPosition.X:F0}, {testPosition.Y:F0})");
+                        return testPosition;
+                    }
+                }
+            }
+
+            // 如果没找到，返回随机偏移的位置
+            return new Point(
+                originalPosition.X + random.Next(-100, 100),
+                originalPosition.Y + random.Next(-100, 100)
+            );
+        }
+
         #endregion
     }
 }

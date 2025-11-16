@@ -124,3 +124,33 @@ public class CanvasDevicePositionChangedEventArgs
     public Point NewPosition { get; set; }
     public bool IsCompleted { get; set; } // true表示拖拽完成，false表示拖拽中
 }
+
+
+
+/// <summary>
+/// 语音创建设备事件参数
+/// </summary>
+public class VoiceCreateDeviceEventArgs
+{
+    /// <summary>
+    /// 设备名称
+    /// </summary>
+    public string DeviceName { get; set; }
+
+    /// <summary>
+    /// 语音命令
+    /// </summary>
+    public string Command { get; set; }
+
+    /// <summary>
+    /// 时间戳
+    /// </summary>
+    public DateTime Timestamp { get; set; }
+}
+
+/// <summary>
+/// 语音创建设备事件
+/// </summary>
+public class VoiceCreateDeviceEvent : PubSubEvent<VoiceCreateDeviceEventArgs>
+{
+}
