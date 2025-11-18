@@ -134,6 +134,31 @@ namespace MaxChemical.Modules.Device.Converters
 
                             return meterViewbox;
                         #endregion
+
+                        #region 微反应器控件
+                        case "MicroreactorControl":
+                            var reactorControl = new MicroreactorControl
+                            {
+                                IsHitTestVisible = false,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                Temperature1 = 85.5,
+                                Temperature2 = 92.3,
+                                Temperature3 = 98.7,
+                                IsReacting = false
+                            };
+
+                            var reactorViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = reactorControl,
+                                IsHitTestVisible = true
+                            };
+
+                            return reactorViewbox;
+                        #endregion
                         default:
                             return null;
                     }

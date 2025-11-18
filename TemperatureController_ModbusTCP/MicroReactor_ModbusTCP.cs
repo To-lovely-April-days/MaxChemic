@@ -224,8 +224,8 @@ namespace MicroReactor_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/MicroReactor.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/MicroReactor.png";
+            ImageLocation = "CUSTOM_CONTROL:MicroreactorControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "R0101")
             {
                 Options = new ObservableCollection<string>(new List<string>()

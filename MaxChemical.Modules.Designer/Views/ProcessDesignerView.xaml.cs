@@ -2582,6 +2582,7 @@ namespace MaxChemical.Modules.Designer.Views
             ClearPipeSelection(); // ✅ 新增：清除管道选择
             ClearAllValveSelections(); // ✅ 新增：清除所有阀门选择
             ClearAllFlowMeterSelections(); // ✅ 新增
+            ClearAllMicroreactorSelections(); // ✅ 新增
             CleanupDragState();
             this.Focus();
         }
@@ -4128,6 +4129,14 @@ namespace MaxChemical.Modules.Designer.Views
                             double meterHeight = 500 * 0.35;  // 150
                             Debug.WriteLine($"流量计尺寸: {meterWidth:F0}x{meterHeight:F0}");
                             return new Size(meterWidth, meterHeight);
+
+                        // 在 switch (controlType) 中添加
+                        case "MicroreactorControl":
+                            // 微反应器原尺寸 880x600，缩小到画布显示
+                            double reactorWidth = 880 * 0.3;   
+                            double reactorHeight = 600 * 0.3; 
+                            Debug.WriteLine($"微反应器尺寸: {reactorWidth:F0}x{reactorHeight:F0}");
+                            return new Size(reactorWidth, reactorHeight);
                     }
                 }
                 // 普通图片尺寸处理
@@ -4271,7 +4280,9 @@ namespace MaxChemical.Modules.Designer.Views
                     // ✅ 新增：流量计控件
                     case "MassFlowMeterControl":
                         return CreateMassFlowMeterIcon(targetWidth, targetHeight);
-
+                    //微反应器
+                    case "MicroreactorControl":
+                        return CreateMicroreactorIcon(targetWidth, targetHeight);
                     // 未来可以添加其他自定义控件
                     default:
                         Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
@@ -7523,7 +7534,7 @@ namespace MaxChemical.Modules.Designer.Views
                     CurrentFlow = 0.0,        // 初始流量为0
                     TargetFlow = 125.0,       // 默认目标流量
                     MaxFlow = 150.0,          // 最大流量
-                    IsFlowing = false         // 初始为关闭状态
+                    IsFlowing = true         // 初始为关闭状态
                 };
 
                 // ✅ 订阅流量计事件（如果需要）
@@ -7769,7 +7780,244 @@ namespace MaxChemical.Modules.Designer.Views
             return flowMeters;
         }
         #endregion
+        #region 微反应器
 
+        /// <summary>
+        /// 创建微反应器图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateMicroreactorIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var reactorControl = new MicroreactorControl
+                {
+                    IsHitTestVisible = true,  // ✅ 允许交互
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Temperature1 = 85.5,
+                    Temperature2 = 92.3,
+                    Temperature3 = 98.7,
+                    IsReacting = false,  // 初始为关闭状态
+                    IsFlow1Enabled = true,
+                    IsFlow2Enabled = true,
+                    IsFlow3Enabled = true,
+                    FlowRate = 100.0         // 默认流速
+                };
+                // ✅ 订阅微反应器事件
+                SubscribeMicroreactorEvents(reactorControl);
+
+                // ✅ 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = reactorControl,
+                    IsHitTestVisible = true  // ✅ 允许交互
+                };
+
+                Debug.WriteLine($"创建微反应器图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建微反应器图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "微反应器");
+            }
+        }
+
+        #endregion
+        #region 微反应器事件处理
+
+        /// <summary>
+        /// 订阅微反应器控件事件
+        /// </summary>
+        private void SubscribeMicroreactorEvents(MicroreactorControl reactor)
+        {
+            try
+            {
+                // 选中事件
+                reactor.ReactorSelected += OnMicroreactorSelectedFromControl;
+                reactor.ReactorDeselected += OnMicroreactorDeselectedFromControl;
+
+                // 旋转事件（如果实现了旋转功能）
+                // reactor.ReactorRotateStarted += OnMicroreactorRotateStarted;
+                // reactor.ReactorRotating += OnMicroreactorRotating;
+                // reactor.ReactorRotateCompleted += OnMicroreactorRotateCompleted;
+
+                // 状态变化事件
+                reactor.ReactorStateChanged += OnMicroreactorStateChanged;
+
+                // 温度变化事件
+                reactor.TemperatureChanged += OnMicroreactorTemperatureChanged;
+
+                // 流量变化事件
+                reactor.FlowStateChanged += OnMicroreactorFlowStateChanged;
+
+                Debug.WriteLine($"微反应器事件已订阅: {reactor.ReactorId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅微反应器事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 微反应器选中
+        /// </summary>
+        private void OnMicroreactorSelectedFromControl(object sender, string reactorId)
+        {
+            try
+            {
+                Debug.WriteLine($"微反应器被选中: {reactorId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections();
+                ClearAllFlowMeterSelections();
+                ClearAllMicroreactorSelections(); // ✅ 清除其他微反应器选择（保留当前）
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中微反应器: {reactorId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理微反应器选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 微反应器取消选中
+        /// </summary>
+        private void OnMicroreactorDeselectedFromControl(object sender, string reactorId)
+        {
+            try
+            {
+                Debug.WriteLine($"微反应器取消选中: {reactorId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理微反应器取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 微反应器状态变化
+        /// </summary>
+        private void OnMicroreactorStateChanged(object sender, ReactorStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"微反应器 {e.ReactorId} 状态变化: {(e.IsReacting ? "启动" : "停止")}");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    e.IsReacting ? "微反应器已启动反应" : "微反应器已停止反应");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"微反应器状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 微反应器温度变化
+        /// </summary>
+        private void OnMicroreactorTemperatureChanged(object sender, TemperatureChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"微反应器 {e.ReactorId} 温度变化: {e.SensorName} {e.OldValue:F1}°C -> {e.NewValue:F1}°C");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"微反应器 {e.SensorName}: {e.NewValue:F1}°C");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"微反应器温度变化处理失败: {ex.Message}");
+            }
+        }
+
+
+        /// <summary>
+        /// 微反应器流量状态变化（新增方法）
+        /// </summary>
+        private void OnMicroreactorFlowStateChanged(object sender, MicroreactorFlowStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 微反应器流量状态变化 ==========");
+                Debug.WriteLine($"反应器ID: {e.ReactorId}");
+                Debug.WriteLine($"流体路径: {e.FlowPath}");
+                Debug.WriteLine($"状态: {(e.IsEnabled ? "✅ 启动" : "❌ 停止")}");
+                Debug.WriteLine($"=========================================");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"微反应器流体路径{e.FlowPath}: {(e.IsEnabled ? "启动" : "停止")}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"微反应器流量状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：清除所有微反应器选择
+        /// </summary>
+        private void ClearAllMicroreactorSelections()
+        {
+            try
+            {
+                var reactors = FindAllMicroreactorsInCanvas();
+                foreach (var reactor in reactors)
+                {
+                    reactor.IsSelected=false;
+                    Debug.WriteLine($"清除微反应器选择: {reactor.ReactorId}");
+                }
+
+                Debug.WriteLine($"清除了 {reactors.Count} 个微反应器的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除微反应器选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增:查找画布中所有微反应器控件
+        /// </summary>
+        private List<MicroreactorControl> FindAllMicroreactorsInCanvas()
+        {
+            var reactors = new List<MicroreactorControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var reactor = FindVisualChild<MicroreactorControl>(deviceBorder);
+                        if (reactor != null)
+                        {
+                            reactors.Add(reactor);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找微反应器控件失败: {ex.Message}");
+            }
+
+            return reactors;
+        }
+
+        #endregion
         #region 语音助手事件处理
 
         /// <summary>
