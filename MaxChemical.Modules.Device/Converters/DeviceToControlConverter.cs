@@ -159,6 +159,30 @@ namespace MaxChemical.Modules.Device.Converters
 
                             return reactorViewbox;
                         #endregion
+
+                        #region 换热器控件
+                        case "HeatExchangerControl":
+                            var exchangerControl = new HeatExchangerControl
+                            {
+                                IsHitTestVisible = false,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                Temperature = 85.0,
+                                Pressure = 2.5,
+                                IsOperating = false
+                            };
+
+                            var exchangerViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = exchangerControl,
+                                IsHitTestVisible = true
+                            };
+
+                            return exchangerViewbox;
+                        #endregion
                         default:
                             return null;
                     }

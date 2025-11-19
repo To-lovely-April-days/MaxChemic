@@ -2583,6 +2583,7 @@ namespace MaxChemical.Modules.Designer.Views
             ClearAllValveSelections(); // ✅ 新增：清除所有阀门选择
             ClearAllFlowMeterSelections(); // ✅ 新增
             ClearAllMicroreactorSelections(); // ✅ 新增
+            ClearAllHeatExchangerSelections(); // ✅ 新增：清除换热器选择
             CleanupDragState();
             this.Focus();
         }
@@ -4137,6 +4138,13 @@ namespace MaxChemical.Modules.Designer.Views
                             double reactorHeight = 600 * 0.3; 
                             Debug.WriteLine($"微反应器尺寸: {reactorWidth:F0}x{reactorHeight:F0}");
                             return new Size(reactorWidth, reactorHeight);
+
+                        case "HeatExchangerControl":
+                            // 换热器原尺寸 400x600，缩小到画布显示
+                            double exchangerWidth = 400 * 0.3;   // 120
+                            double exchangerHeight = 600 * 0.3;  // 180
+                            Debug.WriteLine($"换热器尺寸: {exchangerWidth:F0}x{exchangerHeight:F0}");
+                            return new Size(exchangerWidth, exchangerHeight);
                     }
                 }
                 // 普通图片尺寸处理
@@ -4284,6 +4292,8 @@ namespace MaxChemical.Modules.Designer.Views
                     case "MicroreactorControl":
                         return CreateMicroreactorIcon(targetWidth, targetHeight);
                     // 未来可以添加其他自定义控件
+                    case "HeatExchangerControl":
+                        return CreateHeatExchangerIcon(targetWidth, targetHeight);
                     default:
                         Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
                         return CreateDefaultIcon(targetWidth, targetHeight, "自定义");
@@ -7606,7 +7616,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ClearDeviceSelection();
                 ClearAllPipeSelectionsExcept(null);
                 ClearAllValveSelections();
-
+                ClearAllHeatExchangerSelections(); // ✅ 清除换热器选择
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中流量计: {meterId}");
             }
             catch (Exception ex)
@@ -7797,8 +7807,9 @@ namespace MaxChemical.Modules.Designer.Views
                     Temperature2 = 92.3,
                     Temperature3 = 98.7,
                     IsReacting = false,  // 初始为关闭状态
-                    IsFlow1Enabled = true,
-                 
+                    //IsFlow1Enabled = true,
+                    //IsFlow2Enabled = true,
+                    //IsFlow3Enabled = true,
                     FlowRate = 100.0         // 默认流速
                 };
                 // ✅ 订阅微反应器事件
@@ -7876,7 +7887,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ClearAllValveSelections();
                 ClearAllFlowMeterSelections();
                 ClearAllMicroreactorSelections(); // ✅ 清除其他微反应器选择（保留当前）
-
+                ClearAllHeatExchangerSelections(); // ✅ 新增
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中微反应器: {reactorId}");
             }
             catch (Exception ex)
@@ -8014,6 +8025,247 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             return reactors;
+        }
+
+        #endregion
+        #region 换热器
+
+        /// <summary>
+        /// 创建换热器图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateHeatExchangerIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var exchangerControl = new HeatExchangerControl
+                {
+                    IsHitTestVisible = true,  // ✅ 允许交互
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Temperature = 85.0,       // 默认温度
+                    Pressure = 2.5,           // 默认压力
+                    IsOperating = false       // 初始为关闭状态
+                };
+
+                // ✅ 订阅换热器事件
+                SubscribeHeatExchangerEvents(exchangerControl);
+
+                // ✅ 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = exchangerControl,
+                    IsHitTestVisible = true  // ✅ 允许交互
+                };
+
+                Debug.WriteLine($"创建换热器图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建换热器图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "换热器");
+            }
+        }
+
+        #endregion
+        #region 换热器事件处理
+
+        /// <summary>
+        /// 订阅换热器控件事件
+        /// </summary>
+        private void SubscribeHeatExchangerEvents(HeatExchangerControl exchanger)
+        {
+            try
+            {
+                // 选中事件
+                exchanger.ExchangerSelected += OnHeatExchangerSelectedFromControl;
+                exchanger.ExchangerDeselected += OnHeatExchangerDeselectedFromControl;
+
+                // 旋转事件
+                exchanger.ExchangerRotateStarted += OnHeatExchangerRotateStarted;
+                exchanger.ExchangerRotating += OnHeatExchangerRotating;
+                exchanger.ExchangerRotateCompleted += OnHeatExchangerRotateCompleted;
+
+                // 状态变化事件
+                exchanger.OperatingStateChanged += OnHeatExchangerStateChanged;
+
+                Debug.WriteLine($"换热器事件已订阅: {exchanger.ExchangerId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅换热器事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 换热器选中
+        /// </summary>
+        private void OnHeatExchangerSelectedFromControl(object sender, string exchangerId)
+        {
+            try
+            {
+                Debug.WriteLine($"换热器被选中: {exchangerId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections();
+                ClearAllFlowMeterSelections();
+                ClearAllMicroreactorSelections();
+                ClearAllHeatExchangerSelections(); // ✅ 清除其他换热器选择
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中换热器: {exchangerId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理换热器选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 换热器取消选中
+        /// </summary>
+        private void OnHeatExchangerDeselectedFromControl(object sender, string exchangerId)
+        {
+            try
+            {
+                Debug.WriteLine($"换热器取消选中: {exchangerId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理换热器取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 换热器旋转开始
+        /// </summary>
+        private void OnHeatExchangerRotateStarted(object sender, ExchangerRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"换热器旋转开始: {e.ExchangerId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转换热器... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"换热器旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 换热器旋转中
+        /// </summary>
+        private void OnHeatExchangerRotating(object sender, ExchangerRotateEventArgs e)
+        {
+            try
+            {
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"换热器旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 换热器旋转完成
+        /// </summary>
+        private void OnHeatExchangerRotateCompleted(object sender, ExchangerRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"换热器旋转完成: {e.ExchangerId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"换热器已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"换热器旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 换热器状态变化
+        /// </summary>
+        private void OnHeatExchangerStateChanged(object sender, ExchangerStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"换热器 {e.ExchangerId} 状态变化: {(e.IsOperating ? "启动" : "停止")}");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    e.IsOperating ? "换热器已启动" : "换热器已停止");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"换热器状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：清除所有换热器选择
+        /// </summary>
+        private void ClearAllHeatExchangerSelections()
+        {
+            try
+            {
+                var exchangers = FindAllHeatExchangersInCanvas();
+                foreach (var exchanger in exchangers)
+                {
+                    exchanger.HideSelection();
+                    Debug.WriteLine($"清除换热器选择: {exchanger.ExchangerId}");
+                }
+
+                Debug.WriteLine($"清除了 {exchangers.Count} 个换热器的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除换热器选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：查找画布中所有换热器控件
+        /// </summary>
+        private List<HeatExchangerControl> FindAllHeatExchangersInCanvas()
+        {
+            var exchangers = new List<HeatExchangerControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var exchanger = FindVisualChild<HeatExchangerControl>(deviceBorder);
+                        if (exchanger != null)
+                        {
+                            exchangers.Add(exchanger);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找换热器控件失败: {ex.Message}");
+            }
+
+            return exchangers;
         }
 
         #endregion

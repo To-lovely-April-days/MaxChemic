@@ -438,10 +438,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_1_1" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_1_1" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_1_1" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
 
@@ -457,10 +468,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_1_2" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_1_2" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_1_2" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
 
@@ -476,10 +498,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_1_3" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_1_3" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_1_3" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
             </Canvas>
@@ -498,10 +531,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_2_1" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_2_1" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_2_1" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
 
@@ -517,10 +561,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_2_2" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_2_2" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_2_2" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
 
@@ -536,10 +591,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_2_3" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_2_3" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_2_3" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
             </Canvas>
@@ -558,10 +624,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_3_1" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_3_1" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_3_1" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
 
@@ -577,10 +654,21 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_3_2" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_3_2" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_3_2" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
 
@@ -596,247 +684,54 @@
                         M208.93,299.06s-4.11-96.56,92.39-98.26c32.97,5.08,108.36,16.09,84.64,134.68-9.32,40.66-18.64,68.44,17.79,85.47s37.27,36.51,10.16,39.9c-14.4-5.08-44.05-23.72-71.15-9.32s-41.44,42.35-41.44,42.35c0,0-22.93-64.38-89-44.05-22.87,13.55-46.59,18.64-44.89-9.32,7.62-9.32,17.79-6.95,33.04-19.57s32.19-20.24,24.56-61.75c-8.47-16.94-11.86-26.26-16.09-60.14Z
                     </Path.Data>
                     <Path.Fill>
-                        <SolidColorBrush x:Name="ValveFluidBrush_3_3" Color="#D085C1F0"/>
+                        <LinearGradientBrush x:Name="ValveFluidGradient_3_3" StartPoint="0,0" EndPoint="1,0">
+                            <LinearGradientBrush.RelativeTransform>
+                                <TranslateTransform x:Name="ValveFluidTransform_3_3" X="0"/>
+                            </LinearGradientBrush.RelativeTransform>
+                            <GradientStop Color="#40AED6F1" Offset="0"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.15"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.3"/>
+                            <GradientStop Color="#F0AED6F1" Offset="0.5"/>
+                            <GradientStop Color="#D085C1F0" Offset="0.7"/>
+                            <GradientStop Color="#A085C1F0" Offset="0.85"/>
+                            <GradientStop Color="#40AED6F1" Offset="1"/>
+                        </LinearGradientBrush>
                     </Path.Fill>
                     <Path.Effect>
-                        <DropShadowEffect Color="#5DADE2" Opacity="0.8" BlurRadius="15" ShadowDepth="0" RenderingBias="Performance"/>
+                        <DropShadowEffect Color="#5DADE2" Opacity="0.6" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
                     </Path.Effect>
                 </Path>
             </Canvas>
 
-            <!-- ✅ 增强气泡效果 - 更大更明显 -->
-            <Canvas x:Name="EnhancedBubblesContainer">
-                <!-- 第一排大气泡 -->
-                <Ellipse x:Name="BigBubble1_1" Width="22" Height="22" Opacity="0" Canvas.Left="-30" Canvas.Top="-98">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#E3F2FD" Offset="0.5"/>
-                            <GradientStop Color="#90CAF9" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#2196F3" Opacity="0.9" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
+            <!-- ✅ 流动粒子效果（替代气泡） -->
+            <Canvas x:Name="FlowParticlesContainer">
+                <!-- 第一排粒子流 -->
+                <Canvas x:Name="ParticleRow1" Canvas.Top="-90">
+                    <!-- 主粒子带 -->
+                    <Ellipse x:Name="Particle1_1" Width="4" Height="4" Fill="#90CAF9" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle1_2" Width="3" Height="3" Fill="#64B5F6" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle1_3" Width="5" Height="5" Fill="#42A5F5" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle1_4" Width="3" Height="3" Fill="#90CAF9" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle1_5" Width="4" Height="4" Fill="#64B5F6" Opacity="0" Canvas.Left="-10"/>
+                </Canvas>
 
-                <Ellipse x:Name="BigBubble1_2" Width="18" Height="18" Opacity="0" Canvas.Left="-30" Canvas.Top="-92">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#E8F5E9" Offset="0.6"/>
-                            <GradientStop Color="#81C784" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#4CAF50" Opacity="0.8" BlurRadius="10" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
+                <!-- 第二排粒子流 -->
+                <Canvas x:Name="ParticleRow2" Canvas.Top="20">
+                    <Ellipse x:Name="Particle2_1" Width="4" Height="4" Fill="#90CAF9" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle2_2" Width="3" Height="3" Fill="#64B5F6" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle2_3" Width="5" Height="5" Fill="#42A5F5" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle2_4" Width="3" Height="3" Fill="#90CAF9" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle2_5" Width="4" Height="4" Fill="#64B5F6" Opacity="0" Canvas.Left="-10"/>
+                </Canvas>
 
-                <Ellipse x:Name="BigBubble1_3" Width="25" Height="25" Opacity="0" Canvas.Left="-30" Canvas.Top="-105">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#FFF9C4" Offset="0.5"/>
-                            <GradientStop Color="#FDD835" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#FFEB3B" Opacity="0.9" BlurRadius="14" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 第二排大气泡 -->
-                <Ellipse x:Name="BigBubble2_1" Width="22" Height="22" Opacity="0" Canvas.Left="-30" Canvas.Top="12">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#E3F2FD" Offset="0.5"/>
-                            <GradientStop Color="#90CAF9" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#2196F3" Opacity="0.9" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="BigBubble2_2" Width="18" Height="18" Opacity="0" Canvas.Left="-30" Canvas.Top="18">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#E8F5E9" Offset="0.6"/>
-                            <GradientStop Color="#81C784" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#4CAF50" Opacity="0.8" BlurRadius="10" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="BigBubble2_3" Width="25" Height="25" Opacity="0" Canvas.Left="-30" Canvas.Top="5">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#FFF9C4" Offset="0.5"/>
-                            <GradientStop Color="#FDD835" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#FFEB3B" Opacity="0.9" BlurRadius="14" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 第三排大气泡 -->
-                <Ellipse x:Name="BigBubble3_1" Width="22" Height="22" Opacity="0" Canvas.Left="-30" Canvas.Top="122">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#E3F2FD" Offset="0.5"/>
-                            <GradientStop Color="#90CAF9" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#2196F3" Opacity="0.9" BlurRadius="12" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="BigBubble3_2" Width="18" Height="18" Opacity="0" Canvas.Left="-30" Canvas.Top="128">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#E8F5E9" Offset="0.6"/>
-                            <GradientStop Color="#81C784" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#4CAF50" Opacity="0.8" BlurRadius="10" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="BigBubble3_3" Width="25" Height="25" Opacity="0" Canvas.Left="-30" Canvas.Top="115">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#FFF9C4" Offset="0.5"/>
-                            <GradientStop Color="#FDD835" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#FFEB3B" Opacity="0.9" BlurRadius="14" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- ✅ 添加小气泡群（每排3个额外小气泡） -->
-                <!-- 第一排小气泡 -->
-                <Ellipse x:Name="SmallBubble1_1" Width="8" Height="8" Opacity="0" Canvas.Left="-25" Canvas.Top="-88">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#B3E5FC" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#03A9F4" Opacity="0.7" BlurRadius="6" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="SmallBubble1_2" Width="6" Height="6" Opacity="0" Canvas.Left="-22" Canvas.Top="-95">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#C5E1A5" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#8BC34A" Opacity="0.6" BlurRadius="5" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="SmallBubble1_3" Width="10" Height="10" Opacity="0" Canvas.Left="-28" Canvas.Top="-100">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#FFF59D" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#FBC02D" Opacity="0.7" BlurRadius="7" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 第二排小气泡 -->
-                <Ellipse x:Name="SmallBubble2_1" Width="8" Height="8" Opacity="0" Canvas.Left="-25" Canvas.Top="22">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#B3E5FC" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#03A9F4" Opacity="0.7" BlurRadius="6" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="SmallBubble2_2" Width="6" Height="6" Opacity="0" Canvas.Left="-22" Canvas.Top="15">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#C5E1A5" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#8BC34A" Opacity="0.6" BlurRadius="5" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="SmallBubble2_3" Width="10" Height="10" Opacity="0" Canvas.Left="-28" Canvas.Top="10">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#FFF59D" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#FBC02D" Opacity="0.7" BlurRadius="7" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 第三排小气泡 -->
-                <Ellipse x:Name="SmallBubble3_1" Width="8" Height="8" Opacity="0" Canvas.Left="-25" Canvas.Top="132">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#B3E5FC" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#03A9F4" Opacity="0.7" BlurRadius="6" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="SmallBubble3_2" Width="6" Height="6" Opacity="0" Canvas.Left="-22" Canvas.Top="125">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#C5E1A5" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#8BC34A" Opacity="0.6" BlurRadius="5" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <Ellipse x:Name="SmallBubble3_3" Width="10" Height="10" Opacity="0" Canvas.Left="-28" Canvas.Top="120">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#FFF59D" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.Effect>
-                        <DropShadowEffect Color="#FBC02D" Opacity="0.7" BlurRadius="7" ShadowDepth="0" RenderingBias="Performance"/>
-                    </Ellipse.Effect>
-                </Ellipse>
+                <!-- 第三排粒子流 -->
+                <Canvas x:Name="ParticleRow3" Canvas.Top="130">
+                    <Ellipse x:Name="Particle3_1" Width="4" Height="4" Fill="#90CAF9" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle3_2" Width="3" Height="3" Fill="#64B5F6" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle3_3" Width="5" Height="5" Fill="#42A5F5" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle3_4" Width="3" Height="3" Fill="#90CAF9" Opacity="0" Canvas.Left="-10"/>
+                    <Ellipse x:Name="Particle3_5" Width="4" Height="4" Fill="#64B5F6" Opacity="0" Canvas.Left="-10"/>
+                </Canvas>
             </Canvas>
         </Canvas>
 

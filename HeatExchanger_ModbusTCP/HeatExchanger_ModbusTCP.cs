@@ -191,8 +191,8 @@ namespace HeatExchanger_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/HeatExchanger.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/HeatExchanger.png";
+            ImageLocation = "CUSTOM_CONTROL:HeatExchangerControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "H0101")
             {
                 Options = new ObservableCollection<string>(new List<string>()

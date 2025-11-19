@@ -151,6 +151,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private SolidColorBrush[] _valveFluidBrushes = new SolidColorBrush[9];
         // 添加小气泡数组
         private Ellipse[] _smallBubbles = new Ellipse[9]; // 每排3个小气泡
+                                                          
+        private TranslateTransform[] _valveFluidTransforms = new TranslateTransform[9];
+        private Ellipse[][] _flowParticles = new Ellipse[3][]; // 每排5个粒子
         #endregion
 
         #region 构造函数
@@ -223,29 +226,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _valveFluidPaths[7] = ValveFluid_3_2;
             _valveFluidPaths[8] = ValveFluid_3_3;
 
-            _valveFluidBrushes[0] = ValveFluidBrush_1_1;
-            _valveFluidBrushes[1] = ValveFluidBrush_1_2;
-            _valveFluidBrushes[2] = ValveFluidBrush_1_3;
-            _valveFluidBrushes[3] = ValveFluidBrush_2_1;
-            _valveFluidBrushes[4] = ValveFluidBrush_2_2;
-            _valveFluidBrushes[5] = ValveFluidBrush_2_3;
-            _valveFluidBrushes[6] = ValveFluidBrush_3_1;
-            _valveFluidBrushes[7] = ValveFluidBrush_3_2;
-            _valveFluidBrushes[8] = ValveFluidBrush_3_3;
+            // ✅ 初始化渐变变换
+            _valveFluidTransforms[0] = ValveFluidTransform_1_1;
+            _valveFluidTransforms[1] = ValveFluidTransform_1_2;
+            _valveFluidTransforms[2] = ValveFluidTransform_1_3;
+            _valveFluidTransforms[3] = ValveFluidTransform_2_1;
+            _valveFluidTransforms[4] = ValveFluidTransform_2_2;
+            _valveFluidTransforms[5] = ValveFluidTransform_2_3;
+            _valveFluidTransforms[6] = ValveFluidTransform_3_1;
+            _valveFluidTransforms[7] = ValveFluidTransform_3_2;
+            _valveFluidTransforms[8] = ValveFluidTransform_3_3;
 
-            // 初始化小气泡
-            _smallBubbles[0] = SmallBubble1_1;
-            _smallBubbles[1] = SmallBubble1_2;
-            _smallBubbles[2] = SmallBubble1_3;
-            _smallBubbles[3] = SmallBubble2_1;
-            _smallBubbles[4] = SmallBubble2_2;
-            _smallBubbles[5] = SmallBubble2_3;
-            _smallBubbles[6] = SmallBubble3_1;
-            _smallBubbles[7] = SmallBubble3_2;
-            _smallBubbles[8] = SmallBubble3_3;
+            // ✅ 初始化流动粒子
+            _flowParticles[0] = new[] { Particle1_1, Particle1_2, Particle1_3, Particle1_4, Particle1_5 };
+            _flowParticles[1] = new[] { Particle2_1, Particle2_2, Particle2_3, Particle2_4, Particle2_5 };
+            _flowParticles[2] = new[] { Particle3_1, Particle3_2, Particle3_3, Particle3_4, Particle3_5 };
 
-            Debug.WriteLine("✅ 特斯拉阀液体元素和气泡初始化完成");
+            Debug.WriteLine("✅ 特斯拉阀液体流动元素初始化完成");
         }
+
 
 
         #endregion
@@ -510,61 +509,57 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var storyboard = new Storyboard { RepeatBehavior = RepeatBehavior.Forever };
             Timeline.SetDesiredFrameRate(storyboard, 30);
 
-            double baseDuration = 3.0; // 加快节奏
-            double valveDelay = baseDuration / 3.0;
+            double baseDuration = 2.5;
+            double valveDelay = 0.4; // 阀之间的延迟
 
             int startIndex = (channel - 1) * 3;
 
-            // 液体流动动画
+            // ✅ 为该通道的3个特斯拉阀创建流动动画
             for (int i = 0; i < 3; i++)
             {
                 int valveIndex = startIndex + i;
 
-                if (_valveFluidPaths[valveIndex] == null || _valveFluidBrushes[valveIndex] == null)
+                if (_valveFluidPaths[valveIndex] == null || _valveFluidTransforms[valveIndex] == null)
                     continue;
 
                 double delay = i * valveDelay;
 
-                // ✅ 增强透明度动画
+                // ✅ 透明度动画（快速出现，持续显示）
                 var opacityAnim = new DoubleAnimationUsingKeyFrames
                 {
                     BeginTime = TimeSpan.FromSeconds(delay),
                     Duration = TimeSpan.FromSeconds(baseDuration)
                 };
 
-                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(0)));
-                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromPercent(0.1),
-                    new QuadraticEase { EasingMode = EasingMode.EaseIn }));
-                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromPercent(0.9)));
-                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1.0),
+                opacityAnim.KeyFrames.Add(new DiscreteDoubleKeyFrame(0, KeyTime.FromPercent(0)));
+                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.85, KeyTime.FromPercent(0.05),
                     new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+                opacityAnim.KeyFrames.Add(new LinearDoubleKeyFrame(0.85, KeyTime.FromPercent(0.95)));
+                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1.0),
+                    new QuadraticEase { EasingMode = EasingMode.EaseIn }));
 
                 Storyboard.SetTarget(opacityAnim, _valveFluidPaths[valveIndex]);
                 Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
                 storyboard.Children.Add(opacityAnim);
 
-                // ✅ 增强颜色动画（更鲜艳的颜色变化）
-                var colorAnim = new ColorAnimationUsingKeyFrames
+                // ✅ 水流渐变移动动画（营造流动感）
+                var gradientAnim = new DoubleAnimation
                 {
-                    BeginTime = TimeSpan.FromSeconds(delay),
-                    Duration = TimeSpan.FromSeconds(baseDuration)
+                    From = -2.0,
+                    To = 2.0,
+                    Duration = TimeSpan.FromSeconds(1.2),
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    AutoReverse = true,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
                 };
 
-                colorAnim.KeyFrames.Add(new DiscreteColorKeyFrame(Color.FromArgb(208, 93, 173, 226), KeyTime.FromPercent(0)));
-                colorAnim.KeyFrames.Add(new EasingColorKeyFrame(Color.FromArgb(240, 129, 212, 250), KeyTime.FromPercent(0.1),
-                    new QuadraticEase { EasingMode = EasingMode.EaseIn }));
-                colorAnim.KeyFrames.Add(new LinearColorKeyFrame(Color.FromArgb(240, 174, 214, 241), KeyTime.FromPercent(0.5)));
-                colorAnim.KeyFrames.Add(new LinearColorKeyFrame(Color.FromArgb(240, 129, 212, 250), KeyTime.FromPercent(0.9)));
-                colorAnim.KeyFrames.Add(new EasingColorKeyFrame(Color.FromArgb(208, 93, 173, 226), KeyTime.FromPercent(1.0),
-                    new QuadraticEase { EasingMode = EasingMode.EaseOut }));
-
-                Storyboard.SetTarget(colorAnim, _valveFluidBrushes[valveIndex]);
-                Storyboard.SetTargetProperty(colorAnim, new PropertyPath("Color"));
-                storyboard.Children.Add(colorAnim);
+                Storyboard.SetTarget(gradientAnim, _valveFluidTransforms[valveIndex]);
+                Storyboard.SetTargetProperty(gradientAnim, new PropertyPath("X"));
+                storyboard.Children.Add(gradientAnim);
             }
 
-            // ✅ 添加气泡动画
-            AddEnhancedBubblesForChannel(storyboard, channel);
+            // ✅ 添加流动粒子动画
+            AddFlowParticlesAnimation(storyboard, channel);
 
             storyboard.Begin();
 
@@ -575,57 +570,73 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 case 3: _valveFlowStoryboard3 = storyboard; break;
             }
 
-            Debug.WriteLine($"🌊 通道{channel}增强流动动画已启动");
+            Debug.WriteLine($"🌊 通道{channel}水流动画已启动");
         }
         /// <summary>
-        /// ✅ 为指定通道添加增强气泡动画
+        /// ✅ 添加流动粒子动画
         /// </summary>
-        private void AddEnhancedBubblesForChannel(Storyboard storyboard, int channel)
+        private void AddFlowParticlesAnimation(Storyboard storyboard, int channel)
         {
-            Ellipse[] bigBubbles = null;
-            Ellipse[] smallBubbles = null;
-            double baseTop = 0;
+            int particleRowIndex = channel - 1;
+            if (particleRowIndex < 0 || particleRowIndex >= _flowParticles.Length)
+                return;
 
-            switch (channel)
+            var particles = _flowParticles[particleRowIndex];
+            if (particles == null) return;
+
+            double[] delays = { 0, 0.3, 0.6, 0.9, 1.2 };
+            double[] topOffsets = { 0, 3, -2, 4, -3 };
+
+            for (int i = 0; i < particles.Length; i++)
             {
-                case 1:
-                    bigBubbles = new[] { BigBubble1_1, BigBubble1_2, BigBubble1_3 };
-                    smallBubbles = new[] { SmallBubble1_1, SmallBubble1_2, SmallBubble1_3 };
-                    baseTop = -95;
-                    break;
-                case 2:
-                    bigBubbles = new[] { BigBubble2_1, BigBubble2_2, BigBubble2_3 };
-                    smallBubbles = new[] { SmallBubble2_1, SmallBubble2_2, SmallBubble2_3 };
-                    baseTop = 15;
-                    break;
-                case 3:
-                    bigBubbles = new[] { BigBubble3_1, BigBubble3_2, BigBubble3_3 };
-                    smallBubbles = new[] { SmallBubble3_1, SmallBubble3_2, SmallBubble3_3 };
-                    baseTop = 125;
-                    break;
-            }
+                if (particles[i] == null) continue;
 
-            if (bigBubbles == null || smallBubbles == null) return;
+                double particleDuration = 2.8 + (i * 0.15);
 
-            double[] delays = { 0, 0.8, 1.6 };
-            double[] topOffsets = { 0, 7, -7 };
+                // 水平移动
+                var leftAnim = new DoubleAnimation
+                {
+                    From = -10,
+                    To = 400,
+                    Duration = TimeSpan.FromSeconds(particleDuration),
+                    BeginTime = TimeSpan.FromSeconds(delays[i]),
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+                };
+                Storyboard.SetTarget(leftAnim, particles[i]);
+                Storyboard.SetTargetProperty(leftAnim, new PropertyPath("(Canvas.Left)"));
+                storyboard.Children.Add(leftAnim);
 
-            // 大气泡动画
-            for (int i = 0; i < bigBubbles.Length; i++)
-            {
-                AddEnhancedBubbleAnimation(storyboard, bigBubbles[i], baseTop + topOffsets[i], 3.5, delays[i], true);
-            }
+                // 垂直微波动
+                var topAnim = new DoubleAnimation
+                {
+                    From = topOffsets[i] - 2,
+                    To = topOffsets[i] + 2,
+                    Duration = TimeSpan.FromSeconds(0.8),
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+                Storyboard.SetTarget(topAnim, particles[i]);
+                Storyboard.SetTargetProperty(topAnim, new PropertyPath("(Canvas.Top)"));
+                storyboard.Children.Add(topAnim);
 
-            // 小气泡动画（速度更快，路径略有不同）
-            double[] smallDelays = { 0.4, 1.2, 2.0 };
-            double[] smallTopOffsets = { -3, 3, 0 };
-            for (int i = 0; i < smallBubbles.Length; i++)
-            {
-                AddEnhancedBubbleAnimation(storyboard, smallBubbles[i], baseTop + smallTopOffsets[i], 2.8, smallDelays[i], false);
+                // 透明度闪烁
+                var opacityAnim = new DoubleAnimation
+                {
+                    From = 0.5,
+                    To = 0.9,
+                    Duration = TimeSpan.FromSeconds(0.6),
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                Storyboard.SetTarget(opacityAnim, particles[i]);
+                Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
+                storyboard.Children.Add(opacityAnim);
             }
         }
-
       
+
         /// <summary>
         /// ✅ 停止指定通道的特斯拉阀流动动画
         /// </summary>
@@ -645,19 +656,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 storyboard.Stop();
             }
 
-            // 重置该通道的阀液体透明度和气泡
+            // 重置该通道的阀液体
             int startIndex = (channel - 1) * 3;
             for (int i = 0; i < 3; i++)
             {
                 int valveIndex = startIndex + i;
                 if (_valveFluidPaths[valveIndex] != null)
                     _valveFluidPaths[valveIndex].Opacity = 0;
+                if (_valveFluidTransforms[valveIndex] != null)
+                    _valveFluidTransforms[valveIndex].X = 0;
             }
 
-            // 重置该通道的气泡
-            ResetBubblesForChannel(channel);
+            // 重置该通道的粒子
+            ResetParticlesForChannel(channel);
 
-            // 清除Storyboard引用
             switch (channel)
             {
                 case 1: _valveFlowStoryboard1 = null; break;
@@ -665,48 +677,32 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 case 3: _valveFlowStoryboard3 = null; break;
             }
 
-            Debug.WriteLine($"⏹️ 通道{channel}特斯拉阀流动动画已停止");
+            Debug.WriteLine($"⏹️ 通道{channel}水流动画已停止");
         }
         /// <summary>
-        /// ✅ 重置指定通道的气泡
+        /// ✅ 重置指定通道的粒子
         /// </summary>
-        private void ResetBubblesForChannel(int channel)
+        private void ResetParticlesForChannel(int channel)
         {
-            Ellipse[] bigBubbles = null;
-            Ellipse[] smallBubbles = null;
+            int particleRowIndex = channel - 1;
+            if (particleRowIndex < 0 || particleRowIndex >= _flowParticles.Length)
+                return;
 
-            switch (channel)
+            var particles = _flowParticles[particleRowIndex];
+            if (particles != null)
             {
-                case 1:
-                    bigBubbles = new[] { BigBubble1_1, BigBubble1_2, BigBubble1_3 };
-                    smallBubbles = new[] { SmallBubble1_1, SmallBubble1_2, SmallBubble1_3 };
-                    break;
-                case 2:
-                    bigBubbles = new[] { BigBubble2_1, BigBubble2_2, BigBubble2_3 };
-                    smallBubbles = new[] { SmallBubble2_1, SmallBubble2_2, SmallBubble2_3 };
-                    break;
-                case 3:
-                    bigBubbles = new[] { BigBubble3_1, BigBubble3_2, BigBubble3_3 };
-                    smallBubbles = new[] { SmallBubble3_1, SmallBubble3_2, SmallBubble3_3 };
-                    break;
-            }
-
-            if (bigBubbles != null)
-            {
-                foreach (var bubble in bigBubbles)
+                foreach (var particle in particles)
                 {
-                    ResetBubble(bubble);
-                }
-            }
-
-            if (smallBubbles != null)
-            {
-                foreach (var bubble in smallBubbles)
-                {
-                    ResetBubble(bubble);
+                    if (particle != null)
+                    {
+                        particle.Opacity = 0;
+                        Canvas.SetLeft(particle, -10);
+                        Canvas.SetTop(particle, 0);
+                    }
                 }
             }
         }
+     
 
 
         /// <summary>
