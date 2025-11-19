@@ -49,7 +49,8 @@ namespace MaxChemical.Modules.Designer.Models
         // 设备缩放
         public double ScaleX { get; set; } = 1.0;
         public double ScaleY { get; set; } = 1.0;
-
+        // ✅ 新增：控件旋转角度
+        public double RotationAngle { get; set; } = 0.0;
         public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
     }
 
@@ -140,7 +141,10 @@ namespace MaxChemical.Modules.Designer.Models
         /// Z形管道垂直偏移
         /// </summary>
         public double? VerticalOffset { get; set; }
-
+        // T型管道专用属性
+        public double? MainPipeLength { get; set; }
+        public double? BranchPosition { get; set; }
+        public double? BranchPipeLength { get; set; }
         public override string ToString()
         {
             return $"Pipe[{PipeType}] ID:{PipeId} at ({X:F0},{Y:F0})";

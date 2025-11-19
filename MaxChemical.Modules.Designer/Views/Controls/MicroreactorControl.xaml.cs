@@ -107,6 +107,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             set => SetValue(FlowRateProperty, value);
         }
 
+        public double RotationAngle
+        {
+            get => _rotationAngle;
+            set
+            {
+                _rotationAngle = value % 360;
+                if (_rotationAngle < 0) _rotationAngle += 360;
+            }
+        }
         #endregion
 
         #region 事件定义

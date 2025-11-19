@@ -2479,6 +2479,10 @@ namespace MaxChemical.Modules.Designer.Views
                     case PipeType.ZShape:
                         CreateZShapePipe(position);
                         break;
+                    //新增：T 型管道创建
+                    case PipeType.Tee:
+                        CreateTShapePipe(position);
+                        break;
 
                     default:
                         Debug.WriteLine($"不支持的管道类型: {pipeData.PipeType}");
@@ -4753,7 +4757,8 @@ namespace MaxChemical.Modules.Designer.Views
                     .OfType<FrameworkElement>()
                     .Where(e => e is StraightPipeControl ||
                                e is ElbowPipeControl ||
-                               e is ZShapePipeControl)
+                               e is ZShapePipeControl||
+                               e is TShapePipeControl)
                     .ToList();
 
                 foreach (var pipe in pipeElements)
@@ -4936,6 +4941,9 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var (scaleX, scaleY) = GetDeviceScaleInfo(canvasDevice.DeviceId);
 
+                // ✅ 获取控件旋转角度
+                var rotationAngle = GetDeviceRotationAngle(canvasDevice.DeviceId);
+
                 var deviceData = new CanvasDeviceData
                 {
                     DeviceId = canvasDevice.DeviceId,
@@ -4947,17 +4955,71 @@ namespace MaxChemical.Modules.Designer.Views
                     Width = canvasDevice.Width,
                     Height = canvasDevice.Height,
                     ScaleX = scaleX,
-                    ScaleY = scaleY
+                    ScaleY = scaleY,
+                    RotationAngle = rotationAngle // ✅ 保存旋转角度
                 };
 
                 // 收集设备参数
                 CollectDeviceParameters(canvasDevice, deviceData);
 
                 canvasData.Devices.Add(deviceData);
-                Debug.WriteLine($"保存设备: {deviceData.DeviceName}, 缩放: {scaleX:F2}x{scaleY:F2}");
+                Debug.WriteLine($"保存设备: {deviceData.DeviceName}, 缩放: {scaleX:F2}x{scaleY:F2}, 旋转: {rotationAngle:F1}°");
             }
         }
 
+        /// <summary>
+        /// ✅ 新增：获取设备内控件的旋转角度
+        /// </summary>
+        private double GetDeviceRotationAngle(string deviceId)
+        {
+            try
+            {
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null)
+                {
+                    Debug.WriteLine($"未找到设备元素: {deviceId}");
+                    return 0.0;
+                }
+
+                // 查找设备内的各种自定义控件
+                var valve = FindVisualChild<ValveControl>(deviceElement);
+                if (valve != null)
+                {
+                    Debug.WriteLine($"阀门旋转角度: {valve.RotationAngle:F1}°");
+                    return valve.RotationAngle;
+                }
+
+                var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceElement);
+                if (solenoidValve != null)
+                {
+                    Debug.WriteLine($"电磁阀旋转角度: {solenoidValve.RotationAngle:F1}°");
+                    return solenoidValve.RotationAngle;
+                }
+
+                var flowMeter = FindVisualChild<MassFlowMeterControl>(deviceElement);
+                if (flowMeter != null)
+                {
+                    Debug.WriteLine($"流量计旋转角度: {flowMeter.RotationAngle:F1}°");
+                    return flowMeter.RotationAngle;
+                }
+
+                var heatExchanger = FindVisualChild<HeatExchangerControl>(deviceElement);
+                if (heatExchanger != null)
+                {
+                    Debug.WriteLine($"换热器旋转角度: {heatExchanger.RotationAngle:F1}°");
+                    return heatExchanger.RotationAngle;
+                }
+                
+                // 其他控件...
+
+                return 0.0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取设备旋转角度失败: {ex.Message}");
+                return 0.0;
+            }
+        }
         /// <summary>
         /// 收集设备参数
         /// </summary>
@@ -5204,6 +5266,9 @@ namespace MaxChemical.Modules.Designer.Views
                     case "ZShape":
                         pipeControl = CreateRestoredZShapePipe(pipeData);
                         break;
+                    case "TShape":
+                        pipeControl = CreateRestoredTShapePipe(pipeData);
+                        break;
                     default:
                         return false;
                 }
@@ -5293,9 +5358,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // ✅ 简化日志输出
-                // Debug.WriteLine($"恢复设备: {deviceData.DeviceName}");
-
                 // 重建设备实例
                 var device = _canvasDataService.RestoreDeviceFromData(deviceData);
                 if (device == null)
@@ -5328,13 +5390,19 @@ namespace MaxChemical.Modules.Designer.Views
                     Height = deviceData.Height > 0 ? deviceData.Height : 60
                 };
 
-                // ✅ 直接添加到ViewModel，不触发事件
+                // ✅ 直接添加到ViewModel
                 _viewModel?.CanvasDevices.Add(canvasDeviceViewModel);
 
-                // ✅ 延迟恢复缩放和监控卡片（在所有设备加载完后统一处理）
+                // ✅ 延迟恢复缩放
                 if (deviceData.ScaleX != 1.0 || deviceData.ScaleY != 1.0)
                 {
                     ScheduleDeviceScaleRestoration(deviceData.DeviceId, deviceData.ScaleX, deviceData.ScaleY);
+                }
+
+                // ✅ 新增：延迟恢复旋转角度
+                if (Math.Abs(deviceData.RotationAngle) > 0.01)
+                {
+                    ScheduleDeviceRotationRestoration(deviceData.DeviceId, deviceData.RotationAngle);
                 }
 
                 ScheduleMonitoringCardRestoration(deviceData.DeviceId);
@@ -5342,6 +5410,80 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 恢复设备失败: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// ✅ 新增：安排设备旋转角度恢复
+        /// </summary>
+        private void ScheduleDeviceRotationRestoration(string deviceId, double rotationAngle)
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                RestoreDeviceRotation(deviceId, rotationAngle);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
+        /// ✅ 新增：恢复设备旋转角度
+        /// </summary>
+        private void RestoreDeviceRotation(string deviceId, double rotationAngle)
+        {
+            try
+            {
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null)
+                {
+                    Debug.WriteLine($"恢复旋转: 未找到设备元素 {deviceId}");
+                    return;
+                }
+
+                Debug.WriteLine($"恢复设备 {deviceId} 旋转角度: {rotationAngle:F1}°");
+
+                // 查找并设置各种控件的旋转角度
+                bool restored = false;
+
+                var valve = FindVisualChild<ValveControl>(deviceElement);
+                if (valve != null)
+                {
+                    valve.RotationAngle = rotationAngle;
+                    restored = true;
+                    Debug.WriteLine($"✅ 阀门旋转角度已恢复: {rotationAngle:F1}°");
+                }
+
+                var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceElement);
+                if (solenoidValve != null)
+                {
+                    solenoidValve.RotationAngle = rotationAngle;
+                    restored = true;
+                    Debug.WriteLine($"✅ 电磁阀旋转角度已恢复: {rotationAngle:F1}°");
+                }
+
+                var flowMeter = FindVisualChild<MassFlowMeterControl>(deviceElement);
+                if (flowMeter != null)
+                {
+                    flowMeter.RotationAngle = rotationAngle;
+                    restored = true;
+                    Debug.WriteLine($"✅ 流量计旋转角度已恢复: {rotationAngle:F1}°");
+                }
+
+                var heatExchanger = FindVisualChild<HeatExchangerControl>(deviceElement);
+                if (heatExchanger != null)
+                {
+                    heatExchanger.RotationAngle = rotationAngle;
+                    restored = true;
+                    Debug.WriteLine($"✅ 换热器旋转角度已恢复: {rotationAngle:F1}°");
+                }
+
+                // 其他控件...
+
+                if (!restored)
+                {
+                    Debug.WriteLine($"⚠️ 设备 {deviceId} 中未找到可旋转的控件");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"恢复设备旋转角度失败: {ex.Message}");
             }
         }
 
@@ -6549,7 +6691,255 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"Z形管道旋转完成处理失败: {ex.Message}");
             }
         }
+        #region T型管道事件处理
 
+        /// <summary>
+        /// T型管道拖动开始
+        /// </summary>
+        private void OnTShapePipeDragStarted(object sender, TPipeDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"T型管道拖动开始: {e.PipeId}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动T型管道...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道拖动中（已优化节流）
+        /// </summary>
+        private void OnTShapePipeDragging(object sender, TPipeDragEventArgs e)
+        {
+            // ✅ 节流检查
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
+            {
+                return;
+            }
+            _lastMouseMoveTime = now;
+
+            try
+            {
+                var pipe = sender as TShapePipeControl;
+                if (pipe == null) return;
+
+                var pipeLeft = Canvas.GetLeft(pipe);
+                var pipeTop = Canvas.GetTop(pipe);
+                if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+                if (double.IsNaN(pipeTop)) pipeTop = 0;
+
+                var currentCenter = new Point(
+                    pipeLeft + pipe.ActualWidth / 2,
+                    pipeTop + pipe.ActualHeight / 2
+                );
+
+                var snapSolution = _pipeSnapService.FindBestSnapSolution(
+                    pipe,
+                    currentCenter,
+                    pipe.PipeId);
+
+                _currentSnapSolution = snapSolution;
+
+                if (snapSolution != null && snapSolution.HasSnap)
+                {
+                    _pipeSnapService.ShowSnapIndicators(snapSolution.EndPointSnaps);
+                    _isPipeSnapping = true;
+                }
+                else
+                {
+                    _pipeSnapService.HideSnapIndicator();
+                    _isPipeSnapping = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道拖动完成
+        /// </summary>
+        private void OnTShapePipeDragCompleted(object sender, TPipeDragEventArgs e)
+        {
+            try
+            {
+                var pipe = sender as TShapePipeControl;
+                if (pipe == null) return;
+
+                if (_currentSnapSolution != null && _currentSnapSolution.HasSnap)
+                {
+                    var newCenter = _currentSnapSolution.NewCenterPosition;
+                    var newLeft = newCenter.X - pipe.ActualWidth / 2;
+                    var newTop = newCenter.Y - pipe.ActualHeight / 2;
+
+                    Canvas.SetLeft(pipe, newLeft);
+                    Canvas.SetTop(pipe, newTop);
+
+                    var snapTypes = string.Join(", ",
+                        _currentSnapSolution.EndPointSnaps.Select(s => s.SnapTarget.Type));
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"T型管道已吸附到: {snapTypes}");
+                }
+
+                _pipeSnapService.HideSnapIndicator();
+                _isPipeSnapping = false;
+                _currentSnapSolution = null;
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("T型管道移动完成");
+
+                // ✅ 标记四叉树需要重建
+                if (_pipeSnapService is PipeSnapService snapService)
+                {
+                    snapService.MarkQuadTreeDirty();
+                    Debug.WriteLine("T型管道拖拽完成，已标记四叉树需要重建");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道调整大小开始
+        /// </summary>
+        private void OnTShapePipeResizeStarted(object sender, TPipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"T型管道调整大小开始: {e.PipeId}, 锚点: {e.AnchorPosition}");
+                Debug.WriteLine($"原始尺寸: 主管={e.OriginalSize.MainPipeLength:F0}, " +
+                               $"支管={e.OriginalSize.BranchPipeLength:F0}, " +
+                               $"支管位置={e.OriginalSize.BranchPosition:F0}, " +
+                               $"宽度={e.OriginalSize.PipeWidth:F0}");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"调整T型管道大小 ({e.AnchorPosition})...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道调整大小开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道调整大小中
+        /// </summary>
+        private void OnTShapePipeResizing(object sender, TPipeResizeEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏
+                string sizeInfo = e.AnchorPosition switch
+                {
+                    TAnchorPosition.MainLength => $"主管长度: {e.CurrentSize.MainPipeLength:F0}",
+                    TAnchorPosition.BranchLength => $"支管长度: {e.CurrentSize.BranchPipeLength:F0}",
+                    TAnchorPosition.BranchPosition => $"支管位置: {e.CurrentSize.BranchPosition:F0}",
+                    TAnchorPosition.PipeWidth => $"管道宽度: {e.CurrentSize.PipeWidth:F0}",
+                    _ => $"主管={e.CurrentSize.MainPipeLength:F0}, 支管={e.CurrentSize.BranchPipeLength:F0}"
+                };
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(sizeInfo);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道调整大小处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道调整大小完成
+        /// </summary>
+        private void OnTShapePipeResizeCompleted(object sender, TPipeResizeEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"T型管道调整大小完成: {e.PipeId}");
+                Debug.WriteLine($"最终尺寸: 主管={e.CurrentSize.MainPipeLength:F0}, " +
+                               $"支管={e.CurrentSize.BranchPipeLength:F0}, " +
+                               $"支管位置={e.CurrentSize.BranchPosition:F0}, " +
+                               $"宽度={e.CurrentSize.PipeWidth:F0}");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"T型管道已调整: 主管={e.CurrentSize.MainPipeLength:F0}, " +
+                    $"支管={e.CurrentSize.BranchPipeLength:F0}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道调整大小完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道旋转开始
+        /// </summary>
+        private void OnTShapePipeRotateStarted(object sender, TPipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"T型管道旋转开始: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "正在旋转T型管道... (按住 Shift 键可15度步进)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道旋转开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道旋转中
+        /// </summary>
+        private void OnTShapePipeRotating(object sender, TPipeRotateEventArgs e)
+        {
+            try
+            {
+                // 实时更新状态栏显示当前角度
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"旋转角度: {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道旋转处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// T型管道旋转完成
+        /// </summary>
+        private void OnTShapePipeRotateCompleted(object sender, TPipeRotateEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"T型管道旋转完成: {e.PipeId}");
+                Debug.WriteLine($"原始角度: {e.OriginalAngle:F1}°");
+                Debug.WriteLine($"最终角度: {e.CurrentAngle:F1}°");
+
+                // 标记画布已修改
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"T型管道已旋转至 {e.CurrentAngle:F1}°");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"T型管道旋转完成处理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
         #endregion
 
         #region 管道数据保存和恢复
@@ -6633,7 +7023,28 @@ namespace MaxChemical.Modules.Designer.Views
 
                         Debug.WriteLine($"收集Z形管道: {zPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
                     }
+                    // 处理T形管道
+                    else if (child is TShapePipeControl tPipe)
+                    {
+                        var left = Canvas.GetLeft(tPipe);
+                        var top = Canvas.GetTop(tPipe);
 
+                        pipeData = new CanvasPipeData
+                        {
+                            PipeId = tPipe.PipeId,
+                            PipeType = "TShape",
+                            X = double.IsNaN(left) ? 0 : left,
+                            Y = double.IsNaN(top) ? 0 : top,
+                            ZIndex = Panel.GetZIndex(tPipe),
+                            PipeWidth = tPipe.PipeWidth,
+                            RotationAngle = tPipe.RotationAngle,
+                            MainPipeLength = tPipe.MainPipeLength,
+                            BranchPipeLength = tPipe.BranchPipeLength,
+                            BranchPosition = tPipe.BranchPosition
+                        };
+
+                        Debug.WriteLine($"收集T形管道: {tPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                    }
                     if (pipeData != null)
                     {
                         pipeDataList.Add(pipeData);
@@ -6718,6 +7129,28 @@ namespace MaxChemical.Modules.Designer.Views
             return pipe;
         }
 
+
+        /// <summary>
+        /// 创建恢复的T形管道
+        /// </summary>
+        private TShapePipeControl CreateRestoredTShapePipe(CanvasPipeData pipeData)
+        {
+            var pipe = new TShapePipeControl
+            {
+                PipeId = pipeData.PipeId,
+                MainPipeLength = pipeData.MainPipeLength ?? 120,
+                BranchPipeLength = pipeData.BranchPipeLength ?? 54,
+                BranchPosition = pipeData.BranchPosition ?? 60,
+                PipeWidth = pipeData.PipeWidth,
+                RotationAngle = pipeData.RotationAngle,
+                IsSelected = false
+            };
+
+            // 订阅事件
+            SubscribeTShapePipeEvents(pipe);
+
+            return pipe;
+        }
         #endregion
 
 
@@ -6990,6 +7423,10 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     zPipe.IsSelected = false;
                 }
+                else if (child is TShapePipeControl tPipe && tPipe.PipeId != exceptPipeId)  // ✅ 新增
+                {
+                    tPipe.IsSelected = false;
+                }
             }
         }
 
@@ -7097,6 +7534,75 @@ namespace MaxChemical.Modules.Designer.Views
             pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
             pipe.PipeRotating += OnZShapePipeRotating;
             pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
+            // ✅ 订阅选中事件
+            pipe.PipeSelected += OnPipeSelectedFromControl;
+            pipe.PipeDeselected += OnPipeDeselectedFromControl;
+        }
+
+        /// <summary>
+        /// 创建 T 型管道 - 使用命令模式
+        /// </summary>
+        private void CreateTShapePipe(Point position)
+        {
+            var pipe = new TShapePipeControl
+            {
+                PipeId = Guid.NewGuid().ToString(),
+                MainPipeLength = 40,   
+                BranchPipeLength = 20,    
+                BranchPosition = 20,     
+                PipeWidth = 8             
+            };
+
+            // ✅ 启用管道级别缓存
+            RenderOptions.SetCachingHint(pipe, CachingHint.Cache);
+            pipe.CacheMode = new BitmapCache
+            {
+                EnableClearType = false,
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true
+            };
+
+            // 订阅事件
+            SubscribeTShapePipeEvents(pipe);
+
+            // 使用命令创建管道
+            var addCommand = new AddPipeCommand(
+                DesignCanvas,
+                pipe,
+                position,
+                "T型管道",
+                _pipeConnectionService);
+
+            _commandHistory.ExecuteCommand(addCommand);
+
+            // 添加到管道集合
+            _pipes[pipe.PipeId] = pipe;
+
+            // 标记四叉树需要重建
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                snapService.MarkQuadTreeDirty();
+            }
+
+            // 标记画布已修改
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+
+            Debug.WriteLine($"T型管道已创建（带缓存）: {pipe.PipeId}");
+        }
+        /// <summary>
+        /// 订阅 T 型管道事件
+        /// </summary>
+        private void SubscribeTShapePipeEvents(TShapePipeControl pipe)
+        {
+            pipe.PipeDragStarted += OnTShapePipeDragStarted;
+            pipe.PipeDragging += OnTShapePipeDragging;
+            pipe.PipeDragCompleted += OnTShapePipeDragCompleted;
+            pipe.PipeResizeStarted += OnTShapePipeResizeStarted;
+            pipe.PipeResizing += OnTShapePipeResizing;
+            pipe.PipeResizeCompleted += OnTShapePipeResizeCompleted;
+            pipe.PipeRotateStarted += OnTShapePipeRotateStarted;
+            pipe.PipeRotating += OnTShapePipeRotating;
+            pipe.PipeRotateCompleted += OnTShapePipeRotateCompleted;
             // ✅ 订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
@@ -7544,7 +8050,7 @@ namespace MaxChemical.Modules.Designer.Views
                     CurrentFlow = 0.0,        // 初始流量为0
                     TargetFlow = 125.0,       // 默认目标流量
                     MaxFlow = 150.0,          // 最大流量
-                    IsFlowing = true         // 初始为关闭状态
+                    IsFlowing = false         // 初始为关闭状态
                 };
 
                 // ✅ 订阅流量计事件（如果需要）

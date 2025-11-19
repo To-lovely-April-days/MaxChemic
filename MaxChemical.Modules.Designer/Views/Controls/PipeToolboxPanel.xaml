@@ -3,203 +3,201 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
-             Width="150">
+             x:Name="RootControl">
 
-    <Border Background="White" 
-            BorderBrush="#E0E0E0" 
-            BorderThickness="1"
-            CornerRadius="5">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="0.3"/>
-        </Border.Effect>
+    <!-- 使用Grid作为根容器 -->
+    <Grid>
+        <!-- 展开状态的工具箱 -->
+        <Border x:Name="ExpandedPanel"
+                Background="White" 
+                BorderBrush="#E0E0E0" 
+                BorderThickness="1"
+                CornerRadius="5"
+                Width="160"
+                Visibility="Visible">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="0.3"/>
+            </Border.Effect>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" 
-                      HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="10">
-                <!-- 标题 -->
-                <TextBlock Text="管道组件库" 
-                           FontSize="14" 
-                           FontWeight="Bold"
-                           Margin="0,0,0,10"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <Separator Margin="0,0,0,10"/>
+                <!-- 标题栏 -->
+                <Border Grid.Row="0" 
+                        Background="#F8F9FA" 
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="0,0,0,1"
+                        CornerRadius="5,5,0,0">
+                    <Grid Margin="10,8">
+                        <TextBlock Text="管道组件库" 
+                                   FontSize="13" 
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
 
-                <!-- 直管道 -->
-                <Border Background="#F5F5F5" 
-                        Padding="10" 
-                        Margin="0,0,0,10"
-                        CornerRadius="3"
-                        Cursor="Hand"
-                        MouseDown="OnStraightPipeMouseDown"
-                        MouseEnter="OnToolboxItemMouseEnter"
-                        MouseLeave="OnToolboxItemMouseLeave">
-                    <StackPanel>
-                        <TextBlock Text="直管道" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,5"/>
-                        <local:StraightPipeControl Width="80" 
-                                                   Height="25" 
-                                                   IsHitTestVisible="False"/>
-                        <TextBlock Text="拖拽到画布使用" 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   Margin="0,5,0,0"/>
-                    </StackPanel>
+                        <!-- 收缩按钮 -->
+                        <Button x:Name="CollapseButton"
+                                Content="◀"
+                                Width="24"
+                                Height="24"
+                                HorizontalAlignment="Right"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                FontSize="12"
+                                Cursor="Hand"
+                                Click="OnCollapseClick"
+                                ToolTip="收缩工具箱">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="3"
+                                                        Padding="4">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                    VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#E0E0E0"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
                 </Border>
 
-                <!-- 弯管道 -->
-                <Border Background="#F5F5F5" 
-                        Padding="10" 
-                        Margin="0,0,0,10"
-                        CornerRadius="3"
-                        Cursor="Hand"
-                        MouseDown="OnElbowPipeMouseDown"
-                        MouseEnter="OnToolboxItemMouseEnter"
-                        MouseLeave="OnToolboxItemMouseLeave">
-                    <StackPanel>
-                        <TextBlock Text="弯管道 (90°)" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,5"/>
-                        <local:ElbowPipeControl Width="50" 
-                                               Height="50" 
-                                               IsHitTestVisible="False"
-                                               HorizontalAlignment="Center"/>
-                        <TextBlock Text="拖拽到画布使用" 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   Margin="0,5,0,0"/>
-                    </StackPanel>
-                </Border>
+                <!-- 组件列表 -->
+                <StackPanel Grid.Row="1" Margin="10">
 
-                <!-- Z字形管道 -->
-                <Border Background="#F5F5F5" 
-                        Padding="10" 
-                        Margin="0,0,0,10"
-                        CornerRadius="3"
-                        Cursor="Hand"
-                        MouseDown="OnZShapePipeMouseDown"
-                        MouseEnter="OnToolboxItemMouseEnter"
-                        MouseLeave="OnToolboxItemMouseLeave">
-                    <StackPanel>
-                        <TextBlock Text="Z字形管道" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,5"/>
-                        <local:ZShapePipeControl Width="90" 
-                                                Height="60" 
-                                                IsHitTestVisible="False"
-                                                HorizontalAlignment="Center"/>
-                        <TextBlock Text="拖拽到画布使用" 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   Margin="0,5,0,0"/>
-                    </StackPanel>
-                </Border>
+                    <!-- 直管道 -->
+                    <Border Background="#F5F5F5" 
+                            Padding="10" 
+                            Margin="0,0,0,8"
+                            CornerRadius="3"
+                            Cursor="Hand"
+                            MouseDown="OnStraightPipeMouseDown"
+                            MouseEnter="OnToolboxItemMouseEnter"
+                            MouseLeave="OnToolboxItemMouseLeave">
+                        <StackPanel>
+                            <TextBlock Text="直管道" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold" 
+                                       Margin="0,0,0,4"/>
+                            <local:StraightPipeControl Width="70" 
+                                                       Height="22" 
+                                                       IsHitTestVisible="False"/>
+                        </StackPanel>
+                    </Border>
 
-                <!-- 锥形瓶 -->
-                <Border Background="#F5F5F5" 
-                        Padding="10" 
-                        Margin="0,0,0,10"
-                        CornerRadius="3"
-                        Cursor="Hand"
-                        MouseDown="OnConicalFlaskMouseDown"
-                        MouseEnter="OnToolboxItemMouseEnter"
-                        MouseLeave="OnToolboxItemMouseLeave">
-                    <StackPanel>
-                        <TextBlock Text="锥形瓶" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,5"/>
-                        <local:ConicalFlaskControl Width="60" 
-                                                   Height="90" 
+                    <!-- 弯管道 -->
+                    <Border Background="#F5F5F5" 
+                            Padding="10" 
+                            Margin="0,0,0,8"
+                            CornerRadius="3"
+                            Cursor="Hand"
+                            MouseDown="OnElbowPipeMouseDown"
+                            MouseEnter="OnToolboxItemMouseEnter"
+                            MouseLeave="OnToolboxItemMouseLeave">
+                        <StackPanel>
+                            <TextBlock Text="弯管道 (90°)" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold" 
+                                       Margin="0,0,0,4"/>
+                            <local:ElbowPipeControl Width="45" 
+                                                   Height="45" 
                                                    IsHitTestVisible="False"
                                                    HorizontalAlignment="Center"/>
-                        <TextBlock Text="拖拽到画布使用" 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   Margin="0,5,0,0"/>
-                    </StackPanel>
-                </Border>
+                        </StackPanel>
+                    </Border>
 
-                <!-- ✅ 柱塞泵 - 调整为更小的预览尺寸 -->
-                <Border Background="#F5F5F5" 
-                        Padding="10,8,10,10" 
-                        Margin="0,0,0,10"
-                        CornerRadius="3"
-                        Cursor="Hand"
-                        MouseDown="OnPistonPumpMouseDown"
-                        MouseEnter="OnToolboxItemMouseEnter"
-                        MouseLeave="OnToolboxItemMouseLeave">
-                    <StackPanel>
-                        <TextBlock Text="柱塞泵" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,3"/>
-                        <!-- 调整为更小尺寸：88x60 (保持比例 880:600 = 22:15) -->
-                        <Viewbox Width="120" Height="70" Stretch="Uniform" Margin="0,2,0,2">
-                            <local:PistonPumpControl Width="880" 
-                                                    Height="600" 
-                                                    IsHitTestVisible="False"/>
-                        </Viewbox>
-                        <TextBlock Text="拖拽到画布使用" 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Border>
+                    <!-- Z字形管道 -->
+                    <Border Background="#F5F5F5" 
+                            Padding="10" 
+                            Margin="0,0,0,0"
+                            CornerRadius="3"
+                            Cursor="Hand"
+                            MouseDown="OnZShapePipeMouseDown"
+                            MouseEnter="OnToolboxItemMouseEnter"
+                            MouseLeave="OnToolboxItemMouseLeave">
+                        <StackPanel>
+                            <TextBlock Text="Z字形管道" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold" 
+                                       Margin="0,0,0,4"/>
+                            <local:ZShapePipeControl Width="80" 
+                                                    Height="50" 
+                                                    IsHitTestVisible="False"
+                                                    HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- 三角通 -->
+                    <Border Background="#F5F5F5" 
+        Padding="10" 
+        Margin="0,0,0,8"
+        CornerRadius="3"
+        Cursor="Hand"
+        MouseDown="OnTShapePipeMouseDown"
+        MouseEnter="OnToolboxItemMouseEnter"
+        MouseLeave="OnToolboxItemMouseLeave">
+                        <StackPanel>
+                            <TextBlock Text="三角通 (T型)" 
+                   FontSize="11" 
+                   FontWeight="SemiBold" 
+                   Margin="0,0,0,4"/>
+                            <local:TShapePipeControl Width="80" 
+                                Height="70" 
+                                IsHitTestVisible="False"
+                                HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-                <!-- 将来可以添加更多管道类型 -->
-                <TextBlock Text="更多组件..." 
-                           FontSize="11" 
-                           Foreground="#999"
-                           FontStyle="Italic"
+        <!-- 收缩状态的按钮 -->
+        <Border x:Name="CollapsedPanel"
+                Background="White" 
+                BorderBrush="#E0E0E0" 
+                BorderThickness="1"
+                CornerRadius="5"
+                Width="40"
+                Height="100"
+                Visibility="Collapsed"
+                Cursor="Hand"
+                MouseDown="OnExpandClick">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="0.3"/>
+            </Border.Effect>
+
+            <Grid>
+                <TextBlock Text="展开"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="#666">
+                    <TextBlock.LayoutTransform>
+                        <RotateTransform Angle="90"/>
+                    </TextBlock.LayoutTransform>
+                </TextBlock>
+
+                <TextBlock Text="▶"
+                           FontSize="14"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Top"
                            Margin="0,10,0,0"
-                           HorizontalAlignment="Center"/>
+                           Foreground="#999"/>
+            </Grid>
+        </Border>
+    </Grid>
 
-                <!-- 占位符：三通管道 -->
-                <Border Background="#FAFAFA" 
-                        Padding="10" 
-                        Margin="0,10,0,10"
-                        CornerRadius="3"
-                        BorderBrush="#DDD"
-                        BorderThickness="1"
-                        Opacity="0.5">
-                    <StackPanel>
-                        <TextBlock Text="三通管道" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,5"/>
-                        <TextBlock Text="即将推出..." 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   HorizontalAlignment="Center"
-                                   Margin="0,10"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- 占位符：阀门 -->
-                <Border Background="#FAFAFA" 
-                        Padding="10" 
-                        Margin="0,0,0,10"
-                        CornerRadius="3"
-                        BorderBrush="#DDD"
-                        BorderThickness="1"
-                        Opacity="0.5">
-                    <StackPanel>
-                        <TextBlock Text="阀门" 
-                                   FontSize="12" 
-                                   FontWeight="SemiBold" 
-                                   Margin="0,0,0,5"/>
-                        <TextBlock Text="即将推出..." 
-                                   FontSize="10" 
-                                   Foreground="Gray" 
-                                   HorizontalAlignment="Center"
-                                   Margin="0,10"/>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
-    </Border>
 </UserControl>

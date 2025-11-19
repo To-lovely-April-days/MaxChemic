@@ -16,6 +16,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             InitializeComponent();
         }
 
+        #region 收缩/展开功能
+
+        private void OnCollapseClick(object sender, RoutedEventArgs e)
+        {
+            ExpandedPanel.Visibility = Visibility.Collapsed;
+            CollapsedPanel.Visibility = Visibility.Visible;
+        }
+
+        private void OnExpandClick(object sender, MouseButtonEventArgs e)
+        {
+            CollapsedPanel.Visibility = Visibility.Collapsed;
+            ExpandedPanel.Visibility = Visibility.Visible;
+        }
+
+        #endregion
+
         #region 鼠标悬停效果
 
         private void OnToolboxItemMouseEnter(object sender, MouseEventArgs e)
@@ -115,17 +131,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 锥形瓶拖拽
+        #region T型管道拖拽
 
-        private void OnConicalFlaskMouseDown(object sender, MouseButtonEventArgs e)
+        private void OnTShapePipeMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 var pipeData = new PipeDragData
                 {
-                    PipeType = PipeType.Conical,
-                    Width = 80,
-                    Height = 120
+                    PipeType = PipeType.Tee,  // ✅ 使用已定义的 Tee 类型
+                    Width = 160,
+                    Height = 140
                 };
 
                 var dataObject = new DataObject("PipeData", pipeData);
@@ -133,32 +149,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 PipeDragStarted?.Invoke(this, new PipeDragStartEventArgs
                 {
-                    PipeType = PipeType.Conical
-                });
-            }
-        }
-
-        #endregion
-
-        #region ✅ 柱塞泵拖拽
-
-        private void OnPistonPumpMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.LeftButton == MouseButtonState.Pressed)
-            {
-                var pipeData = new PipeDragData
-                {
-                    PipeType = PipeType.PistonPump,
-                    Width = 880,
-                    Height = 600
-                };
-
-                var dataObject = new DataObject("PipeData", pipeData);
-                DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
-
-                PipeDragStarted?.Invoke(this, new PipeDragStartEventArgs
-                {
-                    PipeType = PipeType.PistonPump
+                    PipeType = PipeType.Tee
                 });
             }
         }
@@ -186,7 +177,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         Elbow,         // 弯管道（90度）
         ZShape,        // Z字形管道
         Conical,       // 锥形瓶
-        PistonPump,    // ✅ 柱塞泵
+        PistonPump,    // 柱塞泵
         Tee,           // 三通管道
         Cross,         // 四通管道
         Valve          // 阀门

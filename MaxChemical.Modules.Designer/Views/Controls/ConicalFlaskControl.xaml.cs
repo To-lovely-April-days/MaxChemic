@@ -139,7 +139,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 }
             }
         }
-
+       
         #endregion
 
         #region IsSelected 依赖属性
