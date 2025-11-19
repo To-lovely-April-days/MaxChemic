@@ -7798,8 +7798,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Temperature3 = 98.7,
                     IsReacting = false,  // 初始为关闭状态
                     IsFlow1Enabled = true,
-                    IsFlow2Enabled = true,
-                    IsFlow3Enabled = true,
+                 
                     FlowRate = 100.0         // 默认流速
                 };
                 // ✅ 订阅微反应器事件

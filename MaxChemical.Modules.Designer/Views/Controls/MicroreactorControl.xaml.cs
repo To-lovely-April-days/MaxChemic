@@ -134,8 +134,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private DispatcherTimer _temperatureUpdateTimer;
         private Random _random = new Random();
 
-        // ✅ 改进后的流动控制
-        private Storyboard _valveFlowStoryboard;
+        // ✅ 为每个通道单独管理Storyboard
+        private Storyboard _valveFlowStoryboard1;
+        private Storyboard _valveFlowStoryboard2;
+        private Storyboard _valveFlowStoryboard3;
         private Storyboard _inputPipeStoryboard1;
         private Storyboard _inputPipeStoryboard2;
         private Storyboard _inputPipeStoryboard3;
@@ -147,7 +149,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         // ✅ 特斯拉阀液体元素数组
         private Path[] _valveFluidPaths = new Path[9];
         private SolidColorBrush[] _valveFluidBrushes = new SolidColorBrush[9];
-
+        // 添加小气泡数组
+        private Ellipse[] _smallBubbles = new Ellipse[9]; // 每排3个小气泡
         #endregion
 
         #region 构造函数
@@ -230,8 +233,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _valveFluidBrushes[7] = ValveFluidBrush_3_2;
             _valveFluidBrushes[8] = ValveFluidBrush_3_3;
 
-            Debug.WriteLine("✅ 特斯拉阀液体元素初始化完成");
+            // 初始化小气泡
+            _smallBubbles[0] = SmallBubble1_1;
+            _smallBubbles[1] = SmallBubble1_2;
+            _smallBubbles[2] = SmallBubble1_3;
+            _smallBubbles[3] = SmallBubble2_1;
+            _smallBubbles[4] = SmallBubble2_2;
+            _smallBubbles[5] = SmallBubble2_3;
+            _smallBubbles[6] = SmallBubble3_1;
+            _smallBubbles[7] = SmallBubble3_2;
+            _smallBubbles[8] = SmallBubble3_3;
+
+            Debug.WriteLine("✅ 特斯拉阀液体元素和气泡初始化完成");
         }
+
 
         #endregion
 
@@ -279,14 +294,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 InputPipeFluid1Container.Visibility = Visibility.Visible;
                 StartInputPipeAnimation(1);
-                UpdateValveFlowState();
+                UpdateValveFlowState(1, true); // ✅ 只控制通道1
                 Debug.WriteLine("✅ 进料1流动已启动");
             }
             else
             {
                 StopInputPipeAnimation(1);
                 InputPipeFluid1Container.Visibility = Visibility.Collapsed;
-                UpdateValveFlowState();
+                UpdateValveFlowState(1, false); // ✅ 只控制通道1
                 Debug.WriteLine("⏹️ 进料1流动已停止");
             }
 
@@ -313,14 +328,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 InputPipeFluid2Container.Visibility = Visibility.Visible;
                 StartInputPipeAnimation(2);
-                UpdateValveFlowState();
+                UpdateValveFlowState(2, true); // ✅ 只控制通道2
                 Debug.WriteLine("✅ 进料2流动已启动");
             }
             else
             {
                 StopInputPipeAnimation(2);
                 InputPipeFluid2Container.Visibility = Visibility.Collapsed;
-                UpdateValveFlowState();
+                UpdateValveFlowState(2, false); // ✅ 只控制通道2
                 Debug.WriteLine("⏹️ 进料2流动已停止");
             }
 
@@ -347,14 +362,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 InputPipeFluid3Container.Visibility = Visibility.Visible;
                 StartInputPipeAnimation(3);
-                UpdateValveFlowState();
+                UpdateValveFlowState(3, true); // ✅ 只控制通道3
                 Debug.WriteLine("✅ 进料3流动已启动");
             }
             else
             {
                 StopInputPipeAnimation(3);
                 InputPipeFluid3Container.Visibility = Visibility.Collapsed;
-                UpdateValveFlowState();
+                UpdateValveFlowState(3, false); // ✅ 只控制通道3
                 Debug.WriteLine("⏹️ 进料3流动已停止");
             }
 
@@ -367,25 +382,35 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 更新特斯拉阀流动状态（核心方法）
+        /// ✅ 更新特定通道的特斯拉阀流动状态
         /// </summary>
-        private void UpdateValveFlowState()
+        private void UpdateValveFlowState(int channel, bool isEnabled)
         {
-            bool anyFlowEnabled = IsFlow1Enabled || IsFlow2Enabled || IsFlow3Enabled;
-
-            if (anyFlowEnabled)
+            if (isEnabled)
             {
                 ValveFluidLayerContainer.Visibility = Visibility.Visible;
-                StartValveFlowAnimation();
-                StartOutputPipeAnimation();
-                Debug.WriteLine("✅ 特斯拉阀流动动画已启动");
+                StartValveFlowAnimation(channel);
+
+                // 检查是否有任何通道启用，决定是否启动出口动画
+                if (IsFlow1Enabled || IsFlow2Enabled || IsFlow3Enabled)
+                {
+                    StartOutputPipeAnimation();
+                }
+
+                Debug.WriteLine($"✅ 通道{channel}特斯拉阀流动动画已启动");
             }
             else
             {
-                StopValveFlowAnimation();
-                StopOutputPipeAnimation();
-                ValveFluidLayerContainer.Visibility = Visibility.Collapsed;
-                Debug.WriteLine("⏹️ 特斯拉阀流动动画已停止");
+                StopValveFlowAnimation(channel);
+
+                // 检查是否所有通道都关闭，决定是否停止出口动画
+                if (!IsFlow1Enabled && !IsFlow2Enabled && !IsFlow3Enabled)
+                {
+                    StopOutputPipeAnimation();
+                    ValveFluidLayerContainer.Visibility = Visibility.Collapsed;
+                }
+
+                Debug.WriteLine($"⏹️ 通道{channel}特斯拉阀流动动画已停止");
             }
         }
 
@@ -478,25 +503,29 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// <summary>
         /// ✅ 启动特斯拉阀流动动画（波浪式依次点亮）
         /// </summary>
-        private void StartValveFlowAnimation()
+        private void StartValveFlowAnimation(int channel)
         {
-            StopValveFlowAnimation();
+            StopValveFlowAnimation(channel);
 
             var storyboard = new Storyboard { RepeatBehavior = RepeatBehavior.Forever };
             Timeline.SetDesiredFrameRate(storyboard, 30);
 
-            double baseDuration = 3.5; // 基础周期
-            double valveDelay = baseDuration / 9.0; // 每个阀延迟时间
+            double baseDuration = 3.0; // 加快节奏
+            double valveDelay = baseDuration / 3.0;
 
-            // ✅ 为每个特斯拉阀创建依次点亮动画
-            for (int i = 0; i < 9; i++)
+            int startIndex = (channel - 1) * 3;
+
+            // 液体流动动画
+            for (int i = 0; i < 3; i++)
             {
-                if (_valveFluidPaths[i] == null || _valveFluidBrushes[i] == null)
+                int valveIndex = startIndex + i;
+
+                if (_valveFluidPaths[valveIndex] == null || _valveFluidBrushes[valveIndex] == null)
                     continue;
 
                 double delay = i * valveDelay;
 
-                // 透明度动画（0 → 0.85 → 0）
+                // ✅ 增强透明度动画
                 var opacityAnim = new DoubleAnimationUsingKeyFrames
                 {
                     BeginTime = TimeSpan.FromSeconds(delay),
@@ -504,84 +533,214 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 };
 
                 opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(0)));
-                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.85, KeyTime.FromPercent(0.15),
+                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromPercent(0.1),
                     new QuadraticEase { EasingMode = EasingMode.EaseIn }));
-                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.85, KeyTime.FromPercent(0.85)));
+                opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromPercent(0.9)));
                 opacityAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1.0),
                     new QuadraticEase { EasingMode = EasingMode.EaseOut }));
 
-                Storyboard.SetTarget(opacityAnim, _valveFluidPaths[i]);
+                Storyboard.SetTarget(opacityAnim, _valveFluidPaths[valveIndex]);
                 Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
                 storyboard.Children.Add(opacityAnim);
 
-                // 颜色动画（增加亮度变化）
+                // ✅ 增强颜色动画（更鲜艳的颜色变化）
                 var colorAnim = new ColorAnimationUsingKeyFrames
                 {
                     BeginTime = TimeSpan.FromSeconds(delay),
                     Duration = TimeSpan.FromSeconds(baseDuration)
                 };
 
-                colorAnim.KeyFrames.Add(new DiscreteColorKeyFrame(Color.FromArgb(176, 133, 193, 240), KeyTime.FromPercent(0)));
-                colorAnim.KeyFrames.Add(new EasingColorKeyFrame(Color.FromArgb(220, 174, 214, 241), KeyTime.FromPercent(0.15),
+                colorAnim.KeyFrames.Add(new DiscreteColorKeyFrame(Color.FromArgb(208, 93, 173, 226), KeyTime.FromPercent(0)));
+                colorAnim.KeyFrames.Add(new EasingColorKeyFrame(Color.FromArgb(240, 129, 212, 250), KeyTime.FromPercent(0.1),
                     new QuadraticEase { EasingMode = EasingMode.EaseIn }));
-                colorAnim.KeyFrames.Add(new LinearColorKeyFrame(Color.FromArgb(220, 174, 214, 241), KeyTime.FromPercent(0.85)));
-                colorAnim.KeyFrames.Add(new EasingColorKeyFrame(Color.FromArgb(176, 133, 193, 240), KeyTime.FromPercent(1.0),
+                colorAnim.KeyFrames.Add(new LinearColorKeyFrame(Color.FromArgb(240, 174, 214, 241), KeyTime.FromPercent(0.5)));
+                colorAnim.KeyFrames.Add(new LinearColorKeyFrame(Color.FromArgb(240, 129, 212, 250), KeyTime.FromPercent(0.9)));
+                colorAnim.KeyFrames.Add(new EasingColorKeyFrame(Color.FromArgb(208, 93, 173, 226), KeyTime.FromPercent(1.0),
                     new QuadraticEase { EasingMode = EasingMode.EaseOut }));
 
-                Storyboard.SetTarget(colorAnim, _valveFluidBrushes[i]);
+                Storyboard.SetTarget(colorAnim, _valveFluidBrushes[valveIndex]);
                 Storyboard.SetTargetProperty(colorAnim, new PropertyPath("Color"));
                 storyboard.Children.Add(colorAnim);
             }
 
-            // ✅ 第一排气泡（顶部3个阀，Y约15）
-            AddEnhancedBubbleAnimation(storyboard, BigBubble1_1, 15, 4.5, 0);
-            AddEnhancedBubbleAnimation(storyboard, BigBubble1_2, 20, 5.0, 1.5);
-            AddEnhancedBubbleAnimation(storyboard, BigBubble1_3, 10, 4.8, 3.0);
-
-            // ✅ 第二排气泡（中间3个阀，Y约125）
-            AddEnhancedBubbleAnimation(storyboard, BigBubble2_1, 125, 4.5, 0.5);
-            AddEnhancedBubbleAnimation(storyboard, BigBubble2_2, 130, 5.0, 2.0);
-            AddEnhancedBubbleAnimation(storyboard, BigBubble2_3, 120, 4.8, 3.5);
-
-            // ✅ 第三排气泡（底部3个阀，Y约235）
-            AddEnhancedBubbleAnimation(storyboard, BigBubble3_1, 235, 4.5, 1.0);
-            AddEnhancedBubbleAnimation(storyboard, BigBubble3_2, 240, 5.0, 2.5);
-            AddEnhancedBubbleAnimation(storyboard, BigBubble3_3, 230, 4.8, 4.0);
+            // ✅ 添加气泡动画
+            AddEnhancedBubblesForChannel(storyboard, channel);
 
             storyboard.Begin();
-            _valveFlowStoryboard = storyboard;
 
-            Debug.WriteLine("🌊 特斯拉阀波浪式流动动画已启动");
+            switch (channel)
+            {
+                case 1: _valveFlowStoryboard1 = storyboard; break;
+                case 2: _valveFlowStoryboard2 = storyboard; break;
+                case 3: _valveFlowStoryboard3 = storyboard; break;
+            }
+
+            Debug.WriteLine($"🌊 通道{channel}增强流动动画已启动");
         }
+        /// <summary>
+        /// ✅ 为指定通道添加增强气泡动画
+        /// </summary>
+        private void AddEnhancedBubblesForChannel(Storyboard storyboard, int channel)
+        {
+            Ellipse[] bigBubbles = null;
+            Ellipse[] smallBubbles = null;
+            double baseTop = 0;
+
+            switch (channel)
+            {
+                case 1:
+                    bigBubbles = new[] { BigBubble1_1, BigBubble1_2, BigBubble1_3 };
+                    smallBubbles = new[] { SmallBubble1_1, SmallBubble1_2, SmallBubble1_3 };
+                    baseTop = -95;
+                    break;
+                case 2:
+                    bigBubbles = new[] { BigBubble2_1, BigBubble2_2, BigBubble2_3 };
+                    smallBubbles = new[] { SmallBubble2_1, SmallBubble2_2, SmallBubble2_3 };
+                    baseTop = 15;
+                    break;
+                case 3:
+                    bigBubbles = new[] { BigBubble3_1, BigBubble3_2, BigBubble3_3 };
+                    smallBubbles = new[] { SmallBubble3_1, SmallBubble3_2, SmallBubble3_3 };
+                    baseTop = 125;
+                    break;
+            }
+
+            if (bigBubbles == null || smallBubbles == null) return;
+
+            double[] delays = { 0, 0.8, 1.6 };
+            double[] topOffsets = { 0, 7, -7 };
+
+            // 大气泡动画
+            for (int i = 0; i < bigBubbles.Length; i++)
+            {
+                AddEnhancedBubbleAnimation(storyboard, bigBubbles[i], baseTop + topOffsets[i], 3.5, delays[i], true);
+            }
+
+            // 小气泡动画（速度更快，路径略有不同）
+            double[] smallDelays = { 0.4, 1.2, 2.0 };
+            double[] smallTopOffsets = { -3, 3, 0 };
+            for (int i = 0; i < smallBubbles.Length; i++)
+            {
+                AddEnhancedBubbleAnimation(storyboard, smallBubbles[i], baseTop + smallTopOffsets[i], 2.8, smallDelays[i], false);
+            }
+        }
+
+      
+        /// <summary>
+        /// ✅ 停止指定通道的特斯拉阀流动动画
+        /// </summary>
+        private void StopValveFlowAnimation(int channel)
+        {
+            Storyboard storyboard = null;
+
+            switch (channel)
+            {
+                case 1: storyboard = _valveFlowStoryboard1; break;
+                case 2: storyboard = _valveFlowStoryboard2; break;
+                case 3: storyboard = _valveFlowStoryboard3; break;
+            }
+
+            if (storyboard != null)
+            {
+                storyboard.Stop();
+            }
+
+            // 重置该通道的阀液体透明度和气泡
+            int startIndex = (channel - 1) * 3;
+            for (int i = 0; i < 3; i++)
+            {
+                int valveIndex = startIndex + i;
+                if (_valveFluidPaths[valveIndex] != null)
+                    _valveFluidPaths[valveIndex].Opacity = 0;
+            }
+
+            // 重置该通道的气泡
+            ResetBubblesForChannel(channel);
+
+            // 清除Storyboard引用
+            switch (channel)
+            {
+                case 1: _valveFlowStoryboard1 = null; break;
+                case 2: _valveFlowStoryboard2 = null; break;
+                case 3: _valveFlowStoryboard3 = null; break;
+            }
+
+            Debug.WriteLine($"⏹️ 通道{channel}特斯拉阀流动动画已停止");
+        }
+        /// <summary>
+        /// ✅ 重置指定通道的气泡
+        /// </summary>
+        private void ResetBubblesForChannel(int channel)
+        {
+            Ellipse[] bigBubbles = null;
+            Ellipse[] smallBubbles = null;
+
+            switch (channel)
+            {
+                case 1:
+                    bigBubbles = new[] { BigBubble1_1, BigBubble1_2, BigBubble1_3 };
+                    smallBubbles = new[] { SmallBubble1_1, SmallBubble1_2, SmallBubble1_3 };
+                    break;
+                case 2:
+                    bigBubbles = new[] { BigBubble2_1, BigBubble2_2, BigBubble2_3 };
+                    smallBubbles = new[] { SmallBubble2_1, SmallBubble2_2, SmallBubble2_3 };
+                    break;
+                case 3:
+                    bigBubbles = new[] { BigBubble3_1, BigBubble3_2, BigBubble3_3 };
+                    smallBubbles = new[] { SmallBubble3_1, SmallBubble3_2, SmallBubble3_3 };
+                    break;
+            }
+
+            if (bigBubbles != null)
+            {
+                foreach (var bubble in bigBubbles)
+                {
+                    ResetBubble(bubble);
+                }
+            }
+
+            if (smallBubbles != null)
+            {
+                foreach (var bubble in smallBubbles)
+                {
+                    ResetBubble(bubble);
+                }
+            }
+        }
+
 
         /// <summary>
         /// ✅ 添加增强气泡动画（水平穿过特斯拉阀）
         /// </summary>
+        /// <summary>
+        /// ✅ 增强气泡动画（更明显的效果）
+        /// </summary>
         private void AddEnhancedBubbleAnimation(Storyboard storyboard, Ellipse bubble,
-            double centerTop, double duration, double delay)
+            double centerTop, double duration, double delay, bool isBigBubble)
         {
             if (bubble == null) return;
 
-            // 水平移动动画（从-20到390，覆盖3个阀的宽度）
+            // ✅ 水平移动动画
             var leftAnim = new DoubleAnimation
             {
-                From = -20,
-                To = 390,
+                From = -30,
+                To = 400,
                 Duration = TimeSpan.FromSeconds(duration),
                 BeginTime = TimeSpan.FromSeconds(delay),
                 RepeatBehavior = RepeatBehavior.Forever,
-                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
             };
             Storyboard.SetTarget(leftAnim, bubble);
             Storyboard.SetTargetProperty(leftAnim, new PropertyPath("(Canvas.Left)"));
             storyboard.Children.Add(leftAnim);
 
-            // 垂直波动（上下±6像素）
+            // ✅ 垂直波动（大气泡波动更大）
+            double verticalRange = isBigBubble ? 10 : 6;
             var topAnim = new DoubleAnimation
             {
-                From = centerTop - 6,
-                To = centerTop + 6,
-                Duration = TimeSpan.FromSeconds(1.2),
+                From = centerTop - verticalRange,
+                To = centerTop + verticalRange,
+                Duration = TimeSpan.FromSeconds(1.0),
                 AutoReverse = true,
                 RepeatBehavior = RepeatBehavior.Forever,
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
@@ -590,55 +749,63 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Storyboard.SetTargetProperty(topAnim, new PropertyPath("(Canvas.Top)"));
             storyboard.Children.Add(topAnim);
 
-            // 透明度闪烁
+            // ✅ 透明度闪烁（更明显）
             var opacityAnim = new DoubleAnimation
             {
-                From = 0.5,
-                To = 0.9,
-                Duration = TimeSpan.FromSeconds(0.8),
+                From = 0.7,
+                To = 1.0,
+                Duration = TimeSpan.FromSeconds(0.6),
                 AutoReverse = true,
                 RepeatBehavior = RepeatBehavior.Forever
             };
             Storyboard.SetTarget(opacityAnim, bubble);
             Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
             storyboard.Children.Add(opacityAnim);
-        }
-        /// <summary>
-        /// ✅ 停止特斯拉阀流动动画
-        /// </summary>
-        /// <summary>
-        /// ✅ 停止特斯拉阀流动动画
-        /// </summary>
-        private void StopValveFlowAnimation()
-        {
-            if (_valveFlowStoryboard != null)
+
+            // ✅ 大小脉动（气泡呼吸效果）
+            if (isBigBubble)
             {
-                _valveFlowStoryboard.Stop();
-                _valveFlowStoryboard = null;
+                var scaleTransform = new ScaleTransform(1, 1, 0.5, 0.5);
+                if (bubble.RenderTransform is TransformGroup transformGroup)
+                {
+                    transformGroup.Children.Add(scaleTransform);
+                }
+                else
+                {
+                    bubble.RenderTransform = scaleTransform;
+                    bubble.RenderTransformOrigin = new Point(0.5, 0.5);
+                }
+
+                var scaleAnim = new DoubleAnimation
+                {
+                    From = 1.0,
+                    To = 1.3,
+                    Duration = TimeSpan.FromSeconds(0.8),
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+
+                Storyboard.SetTarget(scaleAnim, scaleTransform);
+                Storyboard.SetTargetProperty(scaleAnim, new PropertyPath("ScaleX"));
+                storyboard.Children.Add(scaleAnim);
+
+                var scaleAnimY = new DoubleAnimation
+                {
+                    From = 1.0,
+                    To = 1.3,
+                    Duration = TimeSpan.FromSeconds(0.8),
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+
+                Storyboard.SetTarget(scaleAnimY, scaleTransform);
+                Storyboard.SetTargetProperty(scaleAnimY, new PropertyPath("ScaleY"));
+                storyboard.Children.Add(scaleAnimY);
             }
-
-            // 重置所有阀的液体透明度
-            for (int i = 0; i < 9; i++)
-            {
-                if (_valveFluidPaths[i] != null)
-                    _valveFluidPaths[i].Opacity = 0;
-            }
-
-            // ✅ 重置所有气泡（9个）
-            ResetBubble(BigBubble1_1);
-            ResetBubble(BigBubble1_2);
-            ResetBubble(BigBubble1_3);
-
-            ResetBubble(BigBubble2_1);
-            ResetBubble(BigBubble2_2);
-            ResetBubble(BigBubble2_3);
-
-            ResetBubble(BigBubble3_1);
-            ResetBubble(BigBubble3_2);
-            ResetBubble(BigBubble3_3);
-
-            Debug.WriteLine("⏹️ 特斯拉阀流动动画已停止");
         }
+
 
         private void ResetBubble(Ellipse bubble)
         {
@@ -717,8 +884,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlowSpeed(double flowRate)
         {
-            // 流速范围: 10-500 kg/h
-            // 动画时长: 1-8秒（反比关系）
             double baseDuration = Math.Max(1.0, Math.Min(8.0, 350.0 / flowRate));
 
             // 更新进料管道速度
@@ -726,8 +891,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateStoryboardDuration(_inputPipeStoryboard2, baseDuration * 0.8);
             UpdateStoryboardDuration(_inputPipeStoryboard3, baseDuration * 0.8);
 
-            // 更新特斯拉阀流动速度
-            UpdateStoryboardDuration(_valveFlowStoryboard, baseDuration);
+            // ✅ 更新每个通道的特斯拉阀流动速度
+            UpdateStoryboardDuration(_valveFlowStoryboard1, baseDuration);
+            UpdateStoryboardDuration(_valveFlowStoryboard2, baseDuration);
+            UpdateStoryboardDuration(_valveFlowStoryboard3, baseDuration);
 
             // 更新产品出口速度
             UpdateStoryboardDuration(_outputPipeStoryboard, baseDuration * 0.7);
