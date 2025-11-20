@@ -21,6 +21,7 @@ using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views.Controls;
 using Prism.Events;
+using static MaxChemical.Modules.Designer.Views.Controls.SolenoidValveControl;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -3076,21 +3077,17 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 查找阀门控件
-                var valve = FindVisualChild<ValveControl>(deviceControl);
-                if (valve != null)
+                // 新增：查找电磁阀控件
+                var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceControl);
+                if (solenoidValve != null)
                 {
-                    valve.PreviewMouseLeftButtonDown += async (s, e) =>
+                    // ✅ 订阅状态切换请求事件
+                    solenoidValve.StateChangeRequested += async (s, e) =>
                     {
-                        // ✅ 阻止事件冒泡（避免触发设备拖拽）
-                        e.Handled = true;
-
-                        await HandleValveClickAsync(canvasDevice.Device, valve.IsOpen);
+                        await HandleValveStateChangeRequestAsync(canvasDevice.Device, e);
                     };
-                    Debug.WriteLine($"✅ 已订阅阀门点击事件: {canvasDevice.DeviceId}");
+                    Debug.WriteLine($"✅ 已订阅电磁阀状态切换事件: {canvasDevice.DeviceId}");
                 }
-
-               
 
                 // ✅ 未来可扩展其他设备类型...
             }
@@ -3100,42 +3097,115 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+
         /// <summary>
-        /// 处理阀门点击（触发设备命令）
+        /// 处理电磁阀门状态切换请求
         /// </summary>
-        private async Task HandleValveClickAsync(IDevice device, bool currentIsOpen)
+        private async Task HandleValveStateChangeRequestAsync(IDevice device, object eventArgs)
         {
+            SolenoidValveControl solenoidValve = null;
+
             try
             {
-                if (device is not IDeviceUIInteraction uiInteraction)
+                // 1️⃣ 解析事件参数
+                if (eventArgs is not SolenoidValveControl.ValveStateChangeRequestEventArgs solenoidArgs)
                 {
-                    Debug.WriteLine($"⚠️ 设备 {device.Name} 不支持UI交互");
+                    Debug.WriteLine("⚠️ 未知的事件参数类型");
                     return;
                 }
 
-                string commandName = currentIsOpen ? "关闭阀门" : "打开阀门";
-                Debug.WriteLine($"🖱️ 用户点击阀门，执行命令: {commandName}");
+                string valveId = solenoidArgs.ValveId;
+                bool currentState = solenoidArgs.CurrentState;
+                bool requestedState = solenoidArgs.RequestedState;
 
-                // ✅ 调用设备命令
+                // 查找电磁阀控件
+                solenoidValve = FindDeviceControl<SolenoidValveControl>(valveId);
+                if (solenoidValve == null)
+                {
+                    Debug.WriteLine($"⚠️ 未找到电磁阀控件: {valveId}");
+                    return;
+                }
+
+                Debug.WriteLine($"========== 处理电磁阀状态切换请求 ==========");
+                Debug.WriteLine($"ValveId: {valveId}");
+                Debug.WriteLine($"当前状态: {currentState}");
+                Debug.WriteLine($"请求状态: {requestedState}");
+
+                // 2️⃣ 检查设备是否支持UI交互
+                if (device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"⚠️ 设备 {device.Name} 不支持UI交互");
+                    solenoidValve?.HideLoading();
+                    return;
+                }
+
+                // 3️⃣ 确定命令名称
+                string commandName = requestedState ? "打开电磁阀" : "关闭电磁阀";
+                Debug.WriteLine($"执行命令: {commandName}");
+
+                // 4️⃣ 调用设备命令（异步执行）
                 var result = await uiInteraction.ExecuteUICommandAsync(commandName);
 
+                // 5️⃣ 隐藏加载动画
+                solenoidValve?.HideLoading();
+
+                // 6️⃣ 处理执行结果
                 if (result.Success)
                 {
                     Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(result.Message);
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ {commandName}成功");
                 }
                 else
                 {
                     Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"失败: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ {commandName}失败: {result.Message}");
+
+                    // ✅ 显示失败动画
+                    solenoidValve?.ShowOperationFailure();
                 }
+
+                Debug.WriteLine($"==========================================");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理阀门点击失败: {ex.Message}");
+                Debug.WriteLine($"❌ 处理阀门状态切换请求失败: {ex.Message}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"❌ 操作失败: {ex.Message}");
+
+                // ✅ 隐藏加载 + 显示错误
+                solenoidValve?.HideLoading();
+                solenoidValve?.ShowOperationFailure();
             }
         }
-
+        /// <summary>
+        /// ✅ 辅助方法：查找设备控件
+        /// </summary>
+        private T FindDeviceControl<T>(string valveId)  where T : UserControl
+        {
+            foreach (var item in DesignCanvas.Children)
+            {
+                if (item is Border border)
+                {
+                    var control = FindVisualChild<T>(border);
+                    if (control != null)
+                    {
+                        // 通过反射获取 ValveId 属性
+                        var idProperty = typeof(T).GetProperty("ValveId");
+                        if (idProperty != null)
+                        {
+                            var controlValveId = idProperty.GetValue(control) as string;
+                            if (controlValveId == valveId)
+                            {
+                                return control;
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
         /// <summary>
         /// 设备状态变化处理（设备 → UI）
         /// </summary>
@@ -3145,7 +3215,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"📢 设备状态变化: {e.DeviceId} - {e.StateName} = {e.StateValue}");
 
-                // ✅ 在UI线程更新控件
                 Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                 {
                     var deviceElement = FindDeviceElementInCanvas(e.DeviceId);
@@ -3155,17 +3224,10 @@ namespace MaxChemical.Modules.Designer.Views
                         return;
                     }
 
-                    // 根据状态名称更新对应控件
-                    switch (e.StateName)
+                    // ✅ 统一处理电磁阀状态
+                    if (e.StateName == "ValveState")
                     {
-                        case "IsOpen":
-                            UpdateValveState(deviceElement, (bool)e.StateValue);
-                            break;
-
-                       
-                        case "OutletPressure":
-                            // 可以显示在监控卡片或控件上
-                            break;
+                        HandleSolenoidValveStateChange(deviceElement, e);
                     }
                 }));
             }
@@ -3174,17 +3236,126 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"❌ 处理设备状态变化失败: {ex.Message}");
             }
         }
-
         /// <summary>
-        /// 更新阀门状态
+        /// ✅ 处理电磁阀状态变化（统一入口）
         /// </summary>
-        private void UpdateValveState(FrameworkElement deviceElement, bool isOpen)
+        private void HandleSolenoidValveStateChange(
+      FrameworkElement deviceElement,
+      DeviceControlStateChangedEventArgs e)
         {
-            var valve = FindVisualChild<ValveControl>(deviceElement);
-            if (valve != null)
+            if (e.StateValue is not SolenoidValveState valveState)
             {
-                valve.IsOpen = isOpen;
-                Debug.WriteLine($"✅ 阀门状态已更新: IsOpen={isOpen}");
+                Debug.WriteLine($"⚠️ 状态值类型错误: {e.StateValue?.GetType().Name}");
+                return;
+            }
+
+            // 查找电磁阀控件
+            var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceElement);
+            if (solenoidValve == null)
+            {
+                Debug.WriteLine($"⚠️ 未找到电磁阀控件: {e.DeviceId}");
+                return;
+            }
+
+            Debug.WriteLine($"🔔 电磁阀状态: {valveState}");
+
+            // ✅ 根据状态更新UI
+            switch (valveState)
+            {
+                case SolenoidValveState.Opening:
+                    solenoidValve.ShowLoading();
+                    UpdateStatusBar("⏳ 正在打开电磁阀...");
+                    break;
+
+                case SolenoidValveState.Open:
+                    solenoidValve.HideLoading();
+                    solenoidValve.IsOpen = true;
+                    UpdateStatusBar("✅ 电磁阀已打开");
+                    break;
+
+                case SolenoidValveState.Closing:
+                    solenoidValve.ShowLoading();
+                    UpdateStatusBar("⏳ 正在关闭电磁阀...");
+                    break;
+
+                case SolenoidValveState.Closed:
+                    solenoidValve.HideLoading();
+                    solenoidValve.IsOpen = false;
+                    UpdateStatusBar("✅ 电磁阀已关闭");
+                    break;
+
+                case SolenoidValveState.Failed:
+                    solenoidValve.HideLoading();
+                    solenoidValve.ShowOperationFailure();
+                    UpdateStatusBar("❌ 电磁阀操作失败");
+                    break;
+
+                case SolenoidValveState.Error:
+                    solenoidValve.HideLoading();
+                    solenoidValve.ShowOperationFailure();
+                    var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                        ? e.AdditionalData["ErrorMessage"]?.ToString()
+                        : "未知错误";
+                    UpdateStatusBar($"⚠️ 电磁阀错误: {errorMsg}");
+                    break;
+            }
+        }
+        /// <summary>
+        /// ✅ 辅助方法：更新状态栏
+        /// </summary>
+        private void UpdateStatusBar(string message)
+        {
+            _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(message);
+            Debug.WriteLine($"📊 状态栏: {message}");
+        }
+        /// <summary>
+        /// ✅ 新增：处理命令执行状态变化
+        /// </summary>
+        private void HandleCommandStateChange(DeviceControlStateChangedEventArgs e)
+        {
+            try
+            {
+                if (e.StateValue is not CommandExecutionState executionState)
+                {
+                    Debug.WriteLine($"⚠️ 命令状态值类型错误: {e.StateValue?.GetType().Name}");
+                    return;
+                }
+
+                // 提取命令名称
+                var commandName = e.StateName.Replace("CommandState_", "");
+
+                Debug.WriteLine($"🔔 命令状态变化: {commandName} -> {executionState}");
+
+                // 根据执行状态更新UI
+                switch (executionState)
+                {
+                    case CommandExecutionState.Running:
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"⏳ 正在执行 {commandName}...");
+                        break;
+
+                    case CommandExecutionState.Succeeded:
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"✅ {commandName} 成功");
+                        break;
+
+                    case CommandExecutionState.Failed:
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"❌ {commandName} 失败");
+                        break;
+
+                    case CommandExecutionState.Error:
+                        var errorMessage = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                            ? e.AdditionalData["ErrorMessage"]?.ToString()
+                            : "未知错误";
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"⚠️ {commandName} 异常: {errorMessage}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理命令状态变化失败: {ex.Message}");
             }
         }
 

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using DevicePlugins.Devices;
 using MaxChemical.Core;
@@ -12,7 +13,7 @@ using MaxChemical.Logging;
 namespace SolenoidValves_ModbusTCP
 {
     [Export(typeof(IDevice))]
-    public class SolenoidValves_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
+    public class SolenoidValves_ModbusTCP : Device, IDeviceUIInteraction, IControllableDevice, IFlowLifecycleAware
     {
         private readonly ILogService _logger;
         private readonly object _stateLock = new object();
@@ -21,10 +22,225 @@ namespace SolenoidValves_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
-
+        private bool _isOpen = false; // ✅ 新增：当前设备的开关状态
         // 电磁阀状态跟踪
         private readonly Dictionary<string, bool> _valveStates = new Dictionary<string, bool>();
+        // ✅ 新增：当前状态字段
+        private SolenoidValveState _currentState = SolenoidValveState.Closed;
+        #region IDeviceUIInteraction 实现
 
+
+        public async Task<CommandExecutionResult> ExecuteUICommandAsync(string commandName, Dictionary<string, object> parameters = null)
+        {
+            try
+            {
+                InfoLog($"收到UI命令: {commandName}");
+
+                switch (commandName)
+                {
+                    case "打开电磁阀":
+                    case "Open":
+                        return await OpenValveAsync();
+
+                    case "关闭电磁阀":
+                    case "Close":
+                        return await CloseValveAsync();
+
+                    default:
+                        return new CommandExecutionResult
+                        {
+                            Success = false,
+                            Message = $"未识别的命令: {commandName}"
+                        };
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"执行UI命令失败: {commandName}", ex);
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        public override DeviceState GetCurrentState()
+        {
+            return new DeviceState
+            {
+                States = new Dictionary<string, object>
+                {
+                    ["ValveState"] = _currentState, // ✅ 返回业务状态
+                    ["IsOpen"] = _isOpen,
+                    ["ComId"] = this.ComId
+                }
+            };
+        }
+
+        #endregion
+
+        #region 内部方法 - UI命令执行
+
+        /// <summary>
+        /// 打开电磁阀（UI调用）
+        /// </summary>
+        private async Task<CommandExecutionResult> OpenValveAsync()
+        {
+            try
+            {
+                if (_isOpen)
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = true,
+                        Message = "电磁阀已是打开状态"
+                    };
+                }
+
+                string valveId = Parameters.GetValue<string>("DeviceId");
+
+                // 构造命令参数
+                var commandParams = new DeviceParameters();
+                // 不需要传入 ValveId，因为设备自己知道
+
+                // 执行设备的"打开电磁阀"命令
+                var openCommand = Commands.FirstOrDefault(c => c.Name == "打开电磁阀");
+                if (openCommand?.Action == null)
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = false,
+                        Message = "未找到打开电磁阀命令"
+                    };
+                }
+
+                // 执行命令
+                var outputParams = await Task.Run(() => openCommand.Action(commandParams));
+
+                // 检查执行结果
+                var success = outputParams.GetValue<bool>("Success");
+
+                if (success)
+                {
+                    _isOpen = true;
+
+                    // ✅ 触发状态变化事件（通知UI更新）
+                    OnStateChanged("IsOpen", true);
+
+                    InfoLog($"电磁阀 {valveId} 已打开");
+                    return new CommandExecutionResult
+                    {
+                        Success = true,
+                        Message = "电磁阀打开成功",
+                        OutputData = new Dictionary<string, object>
+                        {
+                            ["IsOpen"] = true,
+                            ["ValveId"] = valveId,
+                            ["Timestamp"] = DateTime.Now
+                        }
+                    };
+                }
+                else
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = false,
+                        Message = "电磁阀打开失败"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("打开电磁阀失败", ex);
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 关闭电磁阀（UI调用）
+        /// </summary>
+        private async Task<CommandExecutionResult> CloseValveAsync()
+        {
+            try
+            {
+                if (!_isOpen)
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = true,
+                        Message = "电磁阀已是关闭状态"
+                    };
+                }
+
+                string valveId = Parameters.GetValue<string>("DeviceId");
+
+                var commandParams = new DeviceParameters();
+
+                var closeCommand = Commands.FirstOrDefault(c => c.Name == "关闭电磁阀");
+                if (closeCommand?.Action == null)
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = false,
+                        Message = "未找到关闭电磁阀命令"
+                    };
+                }
+
+                var outputParams = await Task.Run(() => closeCommand.Action(commandParams));
+
+                var success = outputParams.GetValue<bool>("Success");
+
+                if (success)
+                {
+                    _isOpen = false;
+
+                    // ✅ 触发状态变化事件（通知UI更新）
+                    OnStateChanged("IsOpen", false);
+
+                    InfoLog($"电磁阀 {valveId} 已关闭");
+                    return new CommandExecutionResult
+                    {
+                        Success = true,
+                        Message = "电磁阀关闭成功",
+                        OutputData = new Dictionary<string, object>
+                        {
+                            ["IsOpen"] = false,
+                            ["ValveId"] = valveId,
+                            ["Timestamp"] = DateTime.Now
+                        }
+                    };
+                }
+                else
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = false,
+                        Message = "电磁阀关闭失败"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("关闭电磁阀失败", ex);
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+       
+
+        #endregion
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -269,154 +485,200 @@ namespace SolenoidValves_ModbusTCP
 
         private void InitializeCommands()
         {
-            // 1. 打开电磁阀命令 - 只控制当前设备
+            // 1. 打开电磁阀命令 - 超简洁版本
             Commands.Add(new DeviceCommand
             {
                 Name = "打开电磁阀",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/open.png",
                 HelpText = "打开当前电磁阀",
-                InputParameters = new DeviceParameters(), // 不需要输入参数，直接使用设备的DeviceId
+                InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-            {
-                new BooleanParameter("Success", false, "打开成功") { IsVisibleInVariableManager = true },
-                new StringParameter("ValveId", "", "电磁阀ID") { IsVisibleInVariableManager = true }
-            }
-                },
-                Action = WrapAction("打开电磁阀", async delegate (DeviceParameters parameters)
                 {
-                    string valveId = Parameters.GetValue<string>("DeviceId");
-                    ComId = valveId; // 设置通信ID为当前设备ID
-                    bool success = false;
-
-                    try
-                    {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                        { 
-                            // *** 使用转换后的控制值 ***
-                            bool controlValue = true;
-                            if (Parameters.GetValue<bool>("IsLogicReversed"))
-                            {
-                                controlValue = false;
-                            }
-                            success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", controlValue);
-                            InfoLog($"打开电磁阀 {valveId}, 发送值: {controlValue}, 结果: {success}");
-                        }
-                        else if (IsSimulationMode)
-                        {
-                            lock (_stateLock)
-                            {
-                                _valveStates[valveId] = true; // 模拟模式下直接存储逻辑状态
-                            }
-                            success = true;
-                            InfoLog($"模拟模式打开电磁阀: {valveId}");
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
-                        }
-
-                        // 状态跟踪逻辑保持不变
-                        if (success)
-                        {
-                            AddActiveState(
-                                stateName: $"ValveOpen_{valveId}",
-                                activateCommand: "打开电磁阀",
-                                deactivateCommand: "关闭电磁阀",
-                                pauseCommand: "关闭电磁阀",
-                                resumeCommand: "打开电磁阀",
-                                stateData: valveId
-                            );
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorLog($"打开电磁阀失败: {valveId} - {ex.Message}");
-                        success = false;
-                    }
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
+                    new BooleanParameter("Success", false, "打开成功") { IsVisibleInVariableManager = true },
+                    new StringParameter("ValveId", "", "电磁阀ID") { IsVisibleInVariableManager = true }
+                }
+                },
+                Action = WrapActionWithAutoStateSync("打开电磁阀",
+        async (parameters) =>
         {
-            new BooleanParameter("Success", success, "打开成功") { IsVisibleInVariableManager = true },
-            new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
+            string valveId = Parameters.GetValue<string>("DeviceId");
+            ComId = valveId;
+            bool success = false;
+
+            try
+            {
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
+                {
+                    bool controlValue = !Parameters.GetValue<bool>("IsLogicReversed");
+                    success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", controlValue);
+                }
+                else if (IsSimulationMode)
+                {
+                    await Task.Delay(3000);
+                    lock (_stateLock)
+                    {
+                        _valveStates[valveId] = true;
+                    }
+                    success = true;
+                }
+
+                if (success)
+                {
+                    _isOpen = true;
+                    AddActiveState(
+                        stateName: $"ValveOpen_{valveId}",
+                        activateCommand: "打开电磁阀",
+                        deactivateCommand: "关闭电磁阀",
+                        pauseCommand: "关闭电磁阀",
+                        resumeCommand: "打开电磁阀",
+                        stateData: valveId
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"打开电磁阀失败: {valveId} - {ex.Message}");
+            }
+
+            return new DeviceParameters
+            {
+                Variables = new ObservableCollection<ParameterBase>
+                {
+                    new BooleanParameter("Success", success, "打开成功") { IsVisibleInVariableManager = true },
+                    new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
+                }
+            };
+        },
+
+        // ✅ 开始执行：正在打开
+        onStartStateSync: () =>
+        {
+            _currentState = SolenoidValveState.Opening;
+            OnStateChanged("ValveState", SolenoidValveState.Opening); // ✅ 使用枚举
+            Debug.WriteLine("🔄 电磁阀开始打开");
+        },
+
+        // ✅ 成功：已打开
+        onSuccessStateSync: (output) =>
+        {
+            _currentState = SolenoidValveState.Open;
+            OnStateChanged("ValveState", SolenoidValveState.Open); // ✅ 使用枚举
+            Debug.WriteLine("✅ 电磁阀成功打开");
+        },
+
+        // ✅ 失败：操作失败
+        onFailureStateSync: (output) =>
+        {
+            _currentState = SolenoidValveState.Failed;
+            OnStateChanged("ValveState", SolenoidValveState.Failed); // ✅ 使用枚举
+            Debug.WriteLine("❌ 电磁阀打开失败");
+        },
+
+        // ✅ 异常：通讯错误
+        onErrorStateSync: (errorMessage) =>
+        {
+            _currentState = SolenoidValveState.Failed;
+            OnStateChanged("ValveState", SolenoidValveState.Error); // ✅ 使用枚举
+            Debug.WriteLine($"⚠️ 电磁阀打开异常: {errorMessage}");
         }
-                    };
-                })
+    )
             });
 
-            // 2. 关闭电磁阀命令 - 只控制当前设备
+            // 2. 关闭电磁阀命令
             Commands.Add(new DeviceCommand
             {
                 Name = "关闭电磁阀",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/off.png",
                 HelpText = "关闭当前电磁阀",
-                InputParameters = new DeviceParameters(), // 不需要输入参数，直接使用设备的DeviceId
+                InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-            {
-                new BooleanParameter("Success", false, "关闭成功") { IsVisibleInVariableManager = true },
-                new StringParameter("ValveId", "", "电磁阀ID") { IsVisibleInVariableManager = true }
-            }
-                },
-                Action = WrapAction("关闭电磁阀", async delegate (DeviceParameters parameters)
                 {
-                    string valveId = Parameters.GetValue<string>("DeviceId");
-                    ComId = valveId; // 设置通信ID为当前设备ID
-                    bool success = false;
-
-                    try
+                    new BooleanParameter("Success", false, "关闭成功") { IsVisibleInVariableManager = true },
+                    new StringParameter("ValveId", "", "电磁阀ID") { IsVisibleInVariableManager = true }
+                }
+                },
+                Action = WrapActionWithAutoStateSync("关闭电磁阀",
+                    async (parameters) =>
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        string valveId = Parameters.GetValue<string>("DeviceId");
+                        ComId = valveId;
+                        bool success = false;
+
+                        try
                         {
-                            // *** 使用转换后的控制值 ***
-                            bool controlValue = false;
-                            if (Parameters.GetValue<bool>("IsLogicReversed"))
+                            if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                                ConnectionManager != null && !IsSimulationMode)
                             {
-                                controlValue = true;
+                                bool controlValue = Parameters.GetValue<bool>("IsLogicReversed");
+                                success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", controlValue);
+                                InfoLog($"关闭电磁阀 {valveId}, 发送值: {controlValue}, 结果: {success}");
                             }
-                            success = await ConnectionManager.WriteAsync(ComId, $"{valveId}手动启停", controlValue);
-                            InfoLog($"关闭电磁阀 {valveId}, 发送值: {controlValue}, 结果: {success}");
-                        }
-                        else if (IsSimulationMode)
-                        {
-                            lock (_stateLock)
+                            else if (IsSimulationMode)
                             {
-                                _valveStates[valveId] = false; // 模拟模式下直接存储逻辑状态
+                                await Task.Delay(3000);
+                                lock (_stateLock)
+                                {
+                                    _valveStates[valveId] = false;
+                                }
+                                success = true;
+                                InfoLog($"模拟模式关闭电磁阀: {valveId}");
                             }
-                            success = true;
-                            InfoLog($"模拟模式关闭电磁阀: {valveId}");
+
+                            if (success)
+                            {
+                                _isOpen = false;
+                                RemoveActiveState($"ValveOpen_{valveId}");
+                            }
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
+                            ErrorLog($"关闭电磁阀失败: {valveId} - {ex.Message}");
                         }
 
-                        // 移除活跃状态逻辑保持不变
-                        if (success)
+                        return new DeviceParameters
                         {
-                            RemoveActiveState($"ValveOpen_{valveId}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorLog($"关闭电磁阀失败: {valveId} - {ex.Message}");
-                        success = false;
-                    }
-
-                    return new DeviceParameters
-                    {
-                        Variables = new ObservableCollection<ParameterBase>
+                            Variables = new ObservableCollection<ParameterBase>
+                            {
+                            new BooleanParameter("Success", success, "关闭成功") { IsVisibleInVariableManager = true },
+                            new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
+                            }
+                        };
+                    },
+        // ✅ 开始执行：正在关闭
+        onStartStateSync: () =>
         {
-            new BooleanParameter("Success", success, "关闭成功") { IsVisibleInVariableManager = true },
-            new StringParameter("ValveId", valveId, "电磁阀ID") { IsVisibleInVariableManager = true }
+            _currentState = SolenoidValveState.Closing;
+            OnStateChanged("ValveState", SolenoidValveState.Closing);
+        },
+
+        // ✅ 成功：已关闭
+        onSuccessStateSync: (output) =>
+        {
+            _currentState = SolenoidValveState.Closed;
+            OnStateChanged("ValveState", SolenoidValveState.Closed);
+        },
+
+        // ✅ 失败：操作失败
+        onFailureStateSync: (output) =>
+        {
+            _currentState = SolenoidValveState.Failed;
+            OnStateChanged("ValveState", SolenoidValveState.Failed);
+        },
+
+        // ✅ 异常：通讯错误
+        onErrorStateSync: (errorMessage) =>
+        {
+            _currentState = SolenoidValveState.Error;
+            OnStateChanged("ValveState", SolenoidValveState.Error);
         }
-                    };
-                })
+                )
             });
+
 
             // 3. 获取电磁阀状态命令（可选）
             Commands.Add(new DeviceCommand

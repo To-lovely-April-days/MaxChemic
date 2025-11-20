@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 using MaxChemical.Core;
 using MaxChemical.Logging;
 
@@ -12,7 +13,7 @@ namespace DevicePlugins.Devices
 {    
     
     #region 设备基类
-    public abstract class Device : IDevice, IDisposable
+    public abstract class Device : IDevice, IDeviceUIInteraction, IDisposable
     {
         private readonly ILogService _logger;
         private DeviceConnectionStatus _connectionStatus = DeviceConnectionStatus.Disconnected;
@@ -44,7 +45,9 @@ namespace DevicePlugins.Devices
                 OnSimulationModeChanged(value);
             }
         }
-       
+        // ✅ 实现接口事件
+        public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
+
         protected Device()
         {
             _logger = LogManager.GetLogger(GetType().Name);
@@ -471,6 +474,7 @@ namespace DevicePlugins.Devices
         }
 
         #endregion
+
         #region 模拟模式相关方法
 
         /// <summary>
@@ -1051,6 +1055,204 @@ namespace DevicePlugins.Devices
         }
 
         #endregion
+        /// <summary>
+        /// ✅ 虚方法：执行UI命令（子类可重写）
+        /// </summary>
+        public virtual async Task<CommandExecutionResult> ExecuteUICommandAsync(
+            string commandName,
+            Dictionary<string, object> parameters = null)
+        {
+            // 默认实现：查找对应命令并执行
+            var command = Commands?.FirstOrDefault(c => c.Name == commandName);
+            if (command?.Action == null)
+            {
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = $"未找到命令: {commandName}"
+                };
+            }
+
+            try
+            {
+                var inputParams = new DeviceParameters();
+                if (parameters != null)
+                {
+                    foreach (var kvp in parameters)
+                    {
+                        // 添加参数到 inputParams
+                    }
+                }
+
+                var output = await Task.Run(() => command.Action(inputParams));
+                var success = output?.GetValue<bool>("Success") ?? false;
+
+                return new CommandExecutionResult
+                {
+                    Success = success,
+                    Message = success ? "命令执行成功" : "命令执行失败",
+                    OutputData = ConvertToOutputData(output)
+                };
+            }
+            catch (Exception ex)
+            {
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// ✅ 虚方法：获取当前状态（子类可重写）
+        /// </summary>
+        public virtual DeviceState GetCurrentState()
+        {
+            return new DeviceState
+            {
+                States = new Dictionary<string, object>
+                {
+                    ["DeviceId"] = this.DeviceId,
+                    ["ComId"] = this.ComId,
+                    ["IsConnected"] = this.IsConnected
+                }
+            };
+        }
+
+        /// <summary>
+        /// 支持自定义所有阶段的状态同步
+        /// </summary>
+        protected Func<DeviceParameters, DeviceParameters> WrapActionWithAutoStateSync(
+      string commandName,
+      Func<DeviceParameters, Task<DeviceParameters>> innerAsync,
+      Action<DeviceParameters> onSuccessStateSync = null,
+      Action onStartStateSync = null,
+      Action<DeviceParameters> onFailureStateSync = null,
+      Action<string> onErrorStateSync = null)
+        {
+            return (DeviceParameters parameters) =>
+            {
+                var sw = Stopwatch.StartNew();
+
+                try
+                {
+                    // 1️⃣ 发送"执行中"状态
+                    OnCommandStateChanged(commandName, CommandExecutionState.Running); // ✅ 直接传枚举
+                    onStartStateSync?.Invoke();
+
+                    // 2️⃣ 执行命令
+                    var output = innerAsync(parameters).GetAwaiter().GetResult();
+                    sw.Stop();
+
+                    // 3️⃣ 判断成功/失败
+                    var success = output?.GetValue<bool>("Success") ?? false;
+
+                    if (success)
+                    {
+                        onSuccessStateSync?.Invoke(output);
+                        OnCommandStateChanged(commandName, CommandExecutionState.Succeeded, output); // ✅ 传枚举 + 输出
+                    }
+                    else
+                    {
+                        onFailureStateSync?.Invoke(output);
+                        OnCommandStateChanged(commandName, CommandExecutionState.Failed, output); // ✅ 传枚举 + 输出
+                    }
+
+                    return output;
+                }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    onErrorStateSync?.Invoke(ex.Message);
+                    OnCommandStateChanged(commandName, CommandExecutionState.Error,
+                        errorMessage: ex.Message); // ✅ 传枚举 + 错误 + 异常
+
+                    throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
+                }
+            };
+        }
+
+        /// <summary>
+        /// ✅ 触发命令执行状态事件
+        /// </summary>
+        protected virtual void OnCommandStateChanged(
+            string commandName,
+            CommandExecutionState state,
+            DeviceParameters output = null,
+            string errorMessage = null)
+        {
+            try
+            {
+                var eventArgs = new DeviceControlStateChangedEventArgs
+                {
+                    DeviceId = this.DeviceId,
+                    ComId = this.ComId,
+                    CommandName = commandName,
+                    StateName = $"CommandState_{commandName}",
+                    StateValue = state,
+                    ExecutionState = state,
+                    Timestamp = DateTime.Now,
+                    AdditionalData = new Dictionary<string, object>()
+                };
+
+                if (output != null)
+                {
+                    eventArgs.AdditionalData["OutputParameters"] = output;
+                }
+
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    eventArgs.AdditionalData["ErrorMessage"] = errorMessage;
+                }
+
+                // ✅ 直接触发事件
+                ControlStateChanged?.Invoke(this, eventArgs);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"触发命令状态事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ✅ 触发设备状态变化事件
+        /// </summary>
+        protected virtual void OnStateChanged(string stateName, object stateValue)
+        {
+            try
+            {
+                ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
+                {
+                    DeviceId = this.DeviceId,
+                    ComId = this.ComId,
+                    StateName = stateName,
+                    StateValue = stateValue,
+                    Timestamp = DateTime.Now
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"触发状态变化事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 辅助方法：转换输出参数为字典
+        /// </summary>
+        private Dictionary<string, object> ConvertToOutputData(DeviceParameters output)
+        {
+            var data = new Dictionary<string, object>();
+            if (output?.Variables != null)
+            {
+                foreach (var variable in output.Variables)
+                {
+                    data[variable.Name] = variable.Value;
+                }
+            }
+            return data;
+        }
 
         #region IDisposable Implementation
 

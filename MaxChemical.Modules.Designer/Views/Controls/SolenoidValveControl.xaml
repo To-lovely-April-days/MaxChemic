@@ -78,6 +78,116 @@
             <GradientStop Color="#FFFFFF" Offset="0.5"/>
             <GradientStop Color="#727171" Offset="1"/>
         </LinearGradientBrush>
+
+        <!-- ===== 失败状态渐变 ===== -->
+        <LinearGradientBrush x:Key="ErrorBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#D32F2F" Offset="0"/>
+            <GradientStop Color="#E57373" Offset="0.1"/>
+            <GradientStop Color="#EF9A9A" Offset="0.2"/>
+            <GradientStop Color="#FFCDD2" Offset="0.35"/>
+            <GradientStop Color="#FFEBEE" Offset="0.5"/>
+            <GradientStop Color="#FFCDD2" Offset="0.65"/>
+            <GradientStop Color="#EF9A9A" Offset="0.8"/>
+            <GradientStop Color="#E57373" Offset="0.9"/>
+            <GradientStop Color="#D32F2F" Offset="1"/>
+        </LinearGradientBrush>
+
+        <RadialGradientBrush x:Key="ErrorCenterGradient" GradientOrigin="0.3,0.3">
+            <GradientStop Color="#FFEBEE" Offset="0"/>
+            <GradientStop Color="#EF9A9A" Offset="0.3"/>
+            <GradientStop Color="#E57373" Offset="0.6"/>
+            <GradientStop Color="#D32F2F" Offset="0.85"/>
+            <GradientStop Color="#B71C1C" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- ===== 失败状态闪烁动画 ===== -->
+        <Storyboard x:Key="ErrorBlinkAnimation" RepeatBehavior="3x">
+            <!-- 透明度闪烁 -->
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorOverlay"
+                                   Storyboard.TargetProperty="Opacity"
+                                   Duration="0:0:1.5">
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="0.8" KeyTime="0:0:0.3"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:0.6"/>
+                <LinearDoubleKeyFrame Value="0.8" KeyTime="0:0:0.9"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:1.2"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:1.5"/>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+
+
+        <!-- ===== 加载状态渐变 ===== -->
+        <LinearGradientBrush x:Key="LoadingBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#FFB74D" Offset="0"/>
+            <GradientStop Color="#FFCC80" Offset="0.1"/>
+            <GradientStop Color="#FFE0B2" Offset="0.2"/>
+            <GradientStop Color="#FFF3E0" Offset="0.35"/>
+            <GradientStop Color="#FFF8E1" Offset="0.5"/>
+            <GradientStop Color="#FFF3E0" Offset="0.65"/>
+            <GradientStop Color="#FFE0B2" Offset="0.8"/>
+            <GradientStop Color="#FFCC80" Offset="0.9"/>
+            <GradientStop Color="#FFB74D" Offset="1"/>
+        </LinearGradientBrush>
+
+        <RadialGradientBrush x:Key="LoadingCenterGradient" GradientOrigin="0.3,0.3">
+            <GradientStop Color="#FFF8E1" Offset="0"/>
+            <GradientStop Color="#FFE0B2" Offset="0.3"/>
+            <GradientStop Color="#FFCC80" Offset="0.6"/>
+            <GradientStop Color="#FFB74D" Offset="0.85"/>
+            <GradientStop Color="#FF9800" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- ===== 加载动画 ===== -->
+        <Storyboard x:Key="LoadingAnimation">
+            <!-- 加载覆盖层淡入 -->
+            <DoubleAnimation Storyboard.TargetName="LoadingOverlay"
+                     Storyboard.TargetProperty="Opacity"
+                     From="0" To="0.7"
+                     Duration="0:0:0.2"
+                     BeginTime="0:0:0"/>
+
+            <DoubleAnimation Storyboard.TargetName="LoadingCenterOverlay"
+                     Storyboard.TargetProperty="Opacity"
+                     From="0" To="0.7"
+                     Duration="0:0:0.2"
+                     BeginTime="0:0:0"/>
+
+            <!-- 轮盘旋转动画 -->
+            <DoubleAnimation Storyboard.TargetName="LoadingWheelRotation"
+                     Storyboard.TargetProperty="Angle"
+                     From="0" To="360"
+                     Duration="0:0:1.2"
+                     RepeatBehavior="Forever"
+                     BeginTime="0:0:0.2"/>
+
+            <!-- 脉冲效果 -->
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
+                                   Storyboard.TargetProperty="Opacity"
+                                   RepeatBehavior="Forever"
+                                   BeginTime="0:0:0.2">
+                <LinearDoubleKeyFrame Value="0.3" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="0.8" KeyTime="0:0:0.5"/>
+                <LinearDoubleKeyFrame Value="0.3" KeyTime="0:0:1"/>
+            </DoubleAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
+                                   Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
+                                   RepeatBehavior="Forever"
+                                   BeginTime="0:0:0.2">
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="1.15" KeyTime="0:0:0.5"/>
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:1"/>
+            </DoubleAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
+                                   Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleY)"
+                                   RepeatBehavior="Forever"
+                                   BeginTime="0:0:0.2">
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="1.15" KeyTime="0:0:0.5"/>
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:1"/>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
     </UserControl.Resources>
 
     <Canvas x:Name="ValveCanvas" Background="Transparent" ClipToBounds="False">
@@ -187,7 +297,102 @@
                 <DropShadowEffect Color="#2A4A68" BlurRadius="10" ShadowDepth="5" Opacity="0.25" Direction="315"/>
             </Path.Effect>
         </Path>
+        <!-- ===== 错误状态覆盖层 ===== -->
+        <Path x:Name="ErrorOverlay"
+      Data="M 63.075,186 C 63.075,186 57.506,160.118 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 Z"
+      Fill="{StaticResource ErrorBodyGradient}"
+      Opacity="0"
+      Panel.ZIndex="8"
+      IsHitTestVisible="False">
+            <Path.Effect>
+                <DropShadowEffect Color="#D32F2F" BlurRadius="20" ShadowDepth="0" Opacity="0.8"/>
+            </Path.Effect>
+        </Path>
 
+        <!-- ===== 错误状态中心圆盘覆盖层 ===== -->
+        <Ellipse x:Name="ErrorCenterOverlay"
+         Canvas.Left="77" Canvas.Top="77"
+         Width="46" Height="46"
+         Fill="{StaticResource ErrorCenterGradient}"
+         Opacity="0"
+         Panel.ZIndex="18"
+         IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#D32F2F" BlurRadius="15" ShadowDepth="0" Opacity="0.9"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- ===== 加载状态覆盖层 ===== -->
+        <Path x:Name="LoadingOverlay"
+      Data="M 63.075,186 C 63.075,186 57.506,160.118 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 Z"
+      Fill="{StaticResource LoadingBodyGradient}"
+      Opacity="0"
+      Panel.ZIndex="20"
+      IsHitTestVisible="False">
+            <Path.Effect>
+                <DropShadowEffect Color="#FF9800" BlurRadius="15" ShadowDepth="0" Opacity="0.6"/>
+            </Path.Effect>
+        </Path>
+
+        <!-- 加载状态中心圆盘覆盖层 -->
+        <Ellipse x:Name="LoadingCenterOverlay"
+         Canvas.Left="77" Canvas.Top="77"
+         Width="46" Height="46"
+         Fill="{StaticResource LoadingCenterGradient}"
+         Opacity="0"
+         Panel.ZIndex="21"
+         IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#FF9800" BlurRadius="12" ShadowDepth="0" Opacity="0.7"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 加载轮盘旋转层 -->
+        <Canvas x:Name="LoadingWheelContainer"
+        Canvas.Left="0" Canvas.Top="0"
+        Width="200" Height="200"
+        Panel.ZIndex="22"
+        Opacity="0"
+        IsHitTestVisible="False">
+
+            <Canvas.RenderTransform>
+                <RotateTransform x:Name="LoadingWheelRotation" Angle="0" CenterX="100" CenterY="100"/>
+            </Canvas.RenderTransform>
+
+            <!-- 简化的加载指示器 -->
+            <Path Fill="#FF9800" Opacity="0.8">
+                <Path.Data>
+                    <GeometryGroup>
+                        <!-- 外圈小圆点 (3个) -->
+                        <EllipseGeometry Center="100,55" RadiusX="4" RadiusY="4"/>
+                        <EllipseGeometry Center="130,80" RadiusX="4" RadiusY="4"/>
+                        <EllipseGeometry Center="130,120" RadiusX="4" RadiusY="4"/>
+                    </GeometryGroup>
+                </Path.Data>
+                <Path.Effect>
+                    <DropShadowEffect Color="#FF9800" BlurRadius="8" ShadowDepth="0" Opacity="0.8"/>
+                </Path.Effect>
+            </Path>
+        </Canvas>
+
+        <!-- 脉冲效果圆环 -->
+        <Ellipse x:Name="LoadingPulse"
+         Canvas.Left="70" Canvas.Top="70"
+         Width="60" Height="60"
+         Stroke="#FF9800"
+         StrokeThickness="2"
+         Fill="Transparent"
+         Opacity="0"
+         Panel.ZIndex="23"
+         IsHitTestVisible="False"
+         RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <ScaleTransform ScaleX="1" ScaleY="1"/>
+            </Ellipse.RenderTransform>
+            <Ellipse.Effect>
+                <BlurEffect Radius="3"/>
+            </Ellipse.Effect>
+        </Ellipse>
         <Path Data="M 63.621,18.62 C 63.902,17.299 64.129,16.236 64.287,15.497 L 135.662,15.497 C 135.799,16.235 135.995,17.284 136.237,18.583 C 136.739,21.277 137.442,25.048 138.247,29.353 C 139.855,37.964 141.869,48.715 143.489,57.276 C 146.624,73.844 147.838,83.302 147.983,100.01 C 148.129,116.724 147.351,126.196 144.242,142.72 C 142.629,151.293 140.43,162.031 138.632,170.632 C 137.734,174.931 136.936,178.694 136.363,181.381 C 136.082,182.7 135.855,183.759 135.697,184.497 L 64.287,184.497 C 64.129,183.758 63.902,182.695 63.621,181.374 C 63.049,178.681 62.252,174.913 61.354,170.61 C 59.557,162.002 57.358,151.263 55.741,142.718 C 52.615,126.197 52,116.743 52,100 C 52,83.257 52.615,73.8 55.741,57.279 C 57.358,48.734 59.557,37.996 61.354,29.387 C 62.252,25.084 63.049,21.316 63.621,18.624 Z"
               Stroke="#2A4A68"
               StrokeThickness="1.5"

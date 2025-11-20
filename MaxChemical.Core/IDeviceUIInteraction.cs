@@ -33,8 +33,33 @@ namespace MaxChemical.Core
         public string StateName { get; set; }  // 例如："IsOpen", "FlowRate", "Temperature"
         public object StateValue { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
-    }
 
+        // ✅ 新增：命令执行状态（可选）
+        public CommandExecutionState? ExecutionState { get; set; }
+
+        // ✅ 新增：关联的命令名称（可选）
+        public string CommandName { get; set; }
+
+        // ✅ 新增：额外数据（可选）
+        public Dictionary<string, object> AdditionalData { get; set; }
+    }
+    /// <summary>
+    /// ✅ 新增：命令执行状态枚举
+    /// </summary>
+    public enum CommandExecutionState
+    {
+        /// <summary>执行中</summary>
+        Running,
+
+        /// <summary>成功</summary>
+        Succeeded,
+
+        /// <summary>失败</summary>
+        Failed,
+
+        /// <summary>异常</summary>
+        Error
+    }
     /// <summary>
     /// 命令执行结果
     /// </summary>

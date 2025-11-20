@@ -68,11 +68,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             get => (bool)GetValue(IsSelectedProperty);
             set => SetValue(IsSelectedProperty, value);
         }
+        // 新增：是否处于错误状态
+        public static readonly DependencyProperty IsErrorProperty =
+            DependencyProperty.Register(
+                nameof(IsError),
+                typeof(bool),
+                typeof(SolenoidValveControl),
+                new PropertyMetadata(false, OnIsErrorChanged));
+
+        public bool IsError
+        {
+            get => (bool)GetValue(IsErrorProperty);
+            set => SetValue(IsErrorProperty, value);
+        }
 
         #endregion
 
         #region 事件定义
-
+        // ✅ 新增：请求状态切换事件（控件 → 外部）
+        public event EventHandler<ValveStateChangeRequestEventArgs> StateChangeRequested;
         public event EventHandler<string> ValveSelected;
         public event EventHandler<string> ValveDeselected;
         public event EventHandler<ValveRotateEventArgs> ValveRotateStarted;
@@ -98,7 +112,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
+        // ✅ 新增：错误状态动画
+        private Storyboard _errorBlinkAnimation;
+        private DispatcherTimer _errorResetTimer;
 
+        // ✅ 新增：加载状态动画
+        private Storyboard _loadingAnimation;
+        private bool _isLoading = false;
         public string ValveId { get; set; }
 
         #endregion
@@ -122,6 +142,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (!isInDesignMode)
             {
+                // 旋转标签定时器
                 _rotationLabelTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromSeconds(2)
@@ -132,6 +153,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _rotationLabelTimer.Stop();
                 };
 
+                // ✅ 新增：错误状态重置定时器
+                _errorResetTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(4.5) // 3次闪烁 × 1.5秒
+                };
+                _errorResetTimer.Tick += (s, e) =>
+                {
+                    IsError = false;
+                    _errorResetTimer.Stop();
+                    Debug.WriteLine($"⏱️ 错误状态已自动重置 | ValveId:{ValveId}");
+                };
+
                 this.MouseEnter += OnValveMouseEnter;
                 this.MouseLeave += OnValveMouseLeave;
                 SetupRotateAnchorEvents();
@@ -139,24 +172,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 UpdateVisualState(false);
             }
 
-            // 1. 启用硬件渲染（强制使用 GPU）
-            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality); // 最高质量
-            RenderOptions.SetEdgeMode(this, EdgeMode.Aliased); // 关闭抗锯齿提升性能
-
-            // 2. 启用位图缓存（关键优化）
+            // 硬件加速配置
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(this, EdgeMode.Aliased);
             RenderOptions.SetCachingHint(this, CachingHint.Cache);
             RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
             RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
 
-            // 3. 配置位图缓存
             CacheMode = new BitmapCache
             {
-                RenderAtScale = 1.0,        // 按实际比例缓存
-                SnapsToDevicePixels = true, // 对齐像素边界
-                EnableClearType = false     // 禁用 ClearType（GPU 不支持）
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true,
+                EnableClearType = false
             };
 
-            // 4. 强制硬件加速（关键）
             this.SetValue(RenderOptions.EdgeModeProperty, EdgeMode.Unspecified);
         }
 
@@ -334,9 +363,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    Debug.WriteLine("✅ 确认是点击 - 切换电磁阀状态");
-                    IsOpen = !IsOpen;
-                    ShowTemporarySelection();
+                    Debug.WriteLine($"✅ 电磁阀点击 | ValveId:{ValveId}, 当前状态:{IsOpen}");
+
+                    // ✅ 显示加载动画
+                    ShowLoading();
+
+                    // 触发状态切换请求
+                    var requestedState = !IsOpen;
+
+                    StateChangeRequested?.Invoke(this, new ValveStateChangeRequestEventArgs
+                    {
+                        ValveId = this.ValveId,
+                        CurrentState = IsOpen,
+                        RequestedState = requestedState
+                    });
                 }
 
                 this.Opacity = 1.0;
@@ -584,6 +624,170 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
+        #region 错误状态处理
+
+        /// <summary>
+        /// 错误状态变化回调
+        /// </summary>
+        private static void OnIsErrorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is SolenoidValveControl valve)
+            {
+                bool isError = (bool)e.NewValue;
+                valve.UpdateErrorState(isError);
+            }
+        }
+
+        /// <summary>
+        /// 更新错误状态视觉效果
+        /// </summary>
+        private void UpdateErrorState(bool isError)
+        {
+            if (isError)
+            {
+                Debug.WriteLine($"🚨 显示错误状态 | ValveId:{ValveId}");
+
+                // 停止之前的动画
+                _errorBlinkAnimation?.Stop();
+
+                // 从资源加载动画
+                _errorBlinkAnimation = (Storyboard)this.Resources["ErrorBlinkAnimation"];
+
+                // 启动闪烁动画
+                _errorBlinkAnimation.Begin(this, true);
+
+                // 启动自动重置定时器
+                _errorResetTimer?.Stop();
+                _errorResetTimer?.Start();
+            }
+            else
+            {
+                Debug.WriteLine($"✅ 清除错误状态 | ValveId:{ValveId}");
+
+                // 停止动画
+                _errorBlinkAnimation?.Stop();
+
+                // 重置覆盖层透明度
+                if (ErrorOverlay != null)
+                {
+                    ErrorOverlay.Opacity = 0;
+                }
+
+                if (ErrorCenterOverlay != null)
+                {
+                    ErrorCenterOverlay.Opacity = 0;
+                }
+
+                // 停止定时器
+                _errorResetTimer?.Stop();
+            }
+        }
+
+        /// <summary>
+        /// ✅ 公共方法：显示操作失败动画
+        /// </summary>
+        public void ShowOperationFailure()
+        {
+            IsError = true;
+        }
+
+        /// <summary>
+        /// ✅ 公共方法：清除错误状态
+        /// </summary>
+        public void ClearError()
+        {
+            IsError = false;
+        }
+
+        #endregion
+
+        #region 加载状态处理
+
+        /// <summary>
+        /// ✅ 显示加载动画
+        /// </summary>
+        public void ShowLoading()
+        {
+            if (_isLoading) return;
+
+            _isLoading = true;
+            Debug.WriteLine($"⏳ 显示加载动画 | ValveId:{ValveId}");
+
+            // 停止错误动画（如果正在播放）
+            if (IsError)
+            {
+                IsError = false;
+            }
+
+            // 加载动画
+            _loadingAnimation = (Storyboard)this.Resources["LoadingAnimation"];
+            _loadingAnimation.Begin(this, true);
+
+            // 显示加载轮盘容器
+            LoadingWheelContainer.Opacity = 1;
+        }
+
+        /// <summary>
+        /// ✅ 隐藏加载动画
+        /// </summary>
+        public void HideLoading()
+        {
+            if (!_isLoading) return;
+
+            _isLoading = false;
+            Debug.WriteLine($"✅ 隐藏加载动画 | ValveId:{ValveId}");
+
+            // 停止动画
+            _loadingAnimation?.Stop();
+
+            // 淡出效果
+            var fadeOut = new DoubleAnimation
+            {
+                From = LoadingOverlay.Opacity,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(200)
+            };
+
+            var fadeOutCenter = new DoubleAnimation
+            {
+                From = LoadingCenterOverlay.Opacity,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(200)
+            };
+
+            var fadeOutWheel = new DoubleAnimation
+            {
+                From = LoadingWheelContainer.Opacity,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(200)
+            };
+
+            var fadeOutPulse = new DoubleAnimation
+            {
+                From = LoadingPulse.Opacity,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(200)
+            };
+
+            LoadingOverlay.BeginAnimation(OpacityProperty, fadeOut);
+            LoadingCenterOverlay.BeginAnimation(OpacityProperty, fadeOutCenter);
+            LoadingWheelContainer.BeginAnimation(OpacityProperty, fadeOutWheel);
+            LoadingPulse.BeginAnimation(OpacityProperty, fadeOutPulse);
+
+            // 重置旋转角度
+            LoadingWheelRotation.Angle = 0;
+        }
+
+        /// <summary>
+        /// ✅ 公共属性：是否正在加载
+        /// </summary>
+        public bool IsLoading
+        {
+            get => _isLoading;
+        }
+
+        #endregion
+
         #region IPipeSnapPoints 实现
 
         public List<PipeSnapPoint> GetSnapPoints()
@@ -638,6 +842,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
+
+        //  新增：状态切换请求事件参数
+        public class ValveStateChangeRequestEventArgs : EventArgs
+        {
+            public string ValveId { get; set; }
+            public bool CurrentState { get; set; }  // 当前状态
+            public bool RequestedState { get; set; } // 请求的新状态
+        }
     }
 
     
