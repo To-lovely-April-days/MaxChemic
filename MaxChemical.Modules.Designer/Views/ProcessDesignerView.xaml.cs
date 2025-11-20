@@ -45,7 +45,7 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly Dictionary<string, string> _deviceDisplayNames = new();    // DeviceId -> 显示名（泵#2）
 
         // B. 执行动画管理
-        private readonly Dictionary<string, Storyboard> _runningAnimations = new();
+        //private readonly Dictionary<string, Storyboard> _runningAnimations = new();
 
         private readonly IDeviceManager _deviceManager;
         #endregion
@@ -1005,9 +1005,12 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 订阅画布操作相关事件
             SubscribeToCanvasEvents();
-            SubscribeToExecutionEvents();
+            // SubscribeToExecutionEvents();
 
-
+            //  保留这个订阅(单独订阅,不通过 SubscribeToExecutionEvents)
+            _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Subscribe(
+                OnMonitoringCardUpdate,
+                Prism.Events.ThreadOption.UIThread);
             // *** 新增：订阅监控参数状态事件 ***
             SubscribeToMonitoringParameterEvents();
 
@@ -1022,6 +1025,7 @@ namespace MaxChemical.Modules.Designer.Views
             // ✅ 新增：标记四叉树需要初始化
             (_pipeSnapService as PipeSnapService)?.MarkQuadTreeDirty();
         }
+        /*
         private void SubscribeToExecutionEvents()
         {
             _eventAggregator?.GetEvent<DeviceExecutionStartedEvent>()?.Subscribe(OnDeviceExecutionStarted, Prism.Events.ThreadOption.UIThread);
@@ -1068,7 +1072,7 @@ namespace MaxChemical.Modules.Designer.Views
                 element.BorderThickness = new Thickness(0);
                 element.BorderBrush = Brushes.DarkBlue;
             }), System.Windows.Threading.DispatcherPriority.Background);
-        }
+        }*/
         /// <summary>
         /// 监控卡片更新事件处理
         /// </summary>
@@ -1088,6 +1092,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"更新监控卡片数据失败: {ex.Message}");
             }
         }
+        /*
         private Storyboard CreatePulseStoryboard(Border element)
         {
             var brush = new SolidColorBrush(Colors.Orange);
@@ -1130,7 +1135,7 @@ namespace MaxChemical.Modules.Designer.Views
             sb.Children.Add(opacityAnim);
             return sb;
         }
-
+        */
 
         private void OnGetDeviceDisplayNamesRequest(Action<Dictionary<string, string>> callback)
         {
@@ -1192,6 +1197,8 @@ namespace MaxChemical.Modules.Designer.Views
             UnsubscribeFromPipeToolboxEvents(); // ✅ 新增
                                                 // ✅ 新增: 取消订阅语音助手事件
             _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Unsubscribe(OnVoiceCreateDevice);
+            // ✅ 新增:取消订阅监控卡片更新
+            _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Unsubscribe(OnMonitoringCardUpdate);
             // ✅ 新增：停止布局更新定时器
             _layoutUpdateTimer?.Stop();
         }
