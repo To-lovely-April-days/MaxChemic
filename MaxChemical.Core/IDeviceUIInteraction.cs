@@ -21,6 +21,8 @@ namespace MaxChemical.Core
         /// 获取当前设备状态（用于UI初始化）
         /// </summary>
         DeviceState GetCurrentState();
+
+        
     }
 
     /// <summary>

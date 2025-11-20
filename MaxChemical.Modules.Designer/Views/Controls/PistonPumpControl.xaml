@@ -299,6 +299,109 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- ===== 🆕 失败状态渐变 ===== -->
+        <LinearGradientBrush x:Key="ErrorBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#D32F2F" Offset="0"/>
+            <GradientStop Color="#E57373" Offset="0.1"/>
+            <GradientStop Color="#EF9A9A" Offset="0.2"/>
+            <GradientStop Color="#FFCDD2" Offset="0.35"/>
+            <GradientStop Color="#FFEBEE" Offset="0.5"/>
+            <GradientStop Color="#FFCDD2" Offset="0.65"/>
+            <GradientStop Color="#EF9A9A" Offset="0.8"/>
+            <GradientStop Color="#E57373" Offset="0.9"/>
+            <GradientStop Color="#D32F2F" Offset="1"/>
+        </LinearGradientBrush>
+
+        <RadialGradientBrush x:Key="ErrorCenterGradient" GradientOrigin="0.3,0.3">
+            <GradientStop Color="#FFEBEE" Offset="0"/>
+            <GradientStop Color="#EF9A9A" Offset="0.3"/>
+            <GradientStop Color="#E57373" Offset="0.6"/>
+            <GradientStop Color="#D32F2F" Offset="0.85"/>
+            <GradientStop Color="#B71C1C" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- ===== 🆕 失败状态闪烁动画 ===== -->
+        <Storyboard x:Key="ErrorBlinkAnimation" RepeatBehavior="3x">
+            <!-- 主体透明度闪烁 -->
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorOverlay"
+                               Storyboard.TargetProperty="Opacity"
+                               Duration="0:0:1.5">
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="0.8" KeyTime="0:0:0.3"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:0.6"/>
+                <LinearDoubleKeyFrame Value="0.8" KeyTime="0:0:0.9"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:1.2"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:1.5"/>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+
+        <!-- ===== 🆕 加载状态渐变 ===== -->
+        <LinearGradientBrush x:Key="LoadingBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#FFB74D" Offset="0"/>
+            <GradientStop Color="#FFCC80" Offset="0.1"/>
+            <GradientStop Color="#FFE0B2" Offset="0.2"/>
+            <GradientStop Color="#FFF3E0" Offset="0.35"/>
+            <GradientStop Color="#FFF8E1" Offset="0.5"/>
+            <GradientStop Color="#FFF3E0" Offset="0.65"/>
+            <GradientStop Color="#FFE0B2" Offset="0.8"/>
+            <GradientStop Color="#FFCC80" Offset="0.9"/>
+            <GradientStop Color="#FFB74D" Offset="1"/>
+        </LinearGradientBrush>
+
+        <RadialGradientBrush x:Key="LoadingCenterGradient" GradientOrigin="0.3,0.3">
+            <GradientStop Color="#FFF8E1" Offset="0"/>
+            <GradientStop Color="#FFE0B2" Offset="0.3"/>
+            <GradientStop Color="#FFCC80" Offset="0.6"/>
+            <GradientStop Color="#FFB74D" Offset="0.85"/>
+            <GradientStop Color="#FF9800" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- ===== 🆕 加载动画 ===== -->
+        <Storyboard x:Key="LoadingAnimation">
+            <!-- 加载覆盖层淡入 -->
+            <DoubleAnimation Storyboard.TargetName="LoadingOverlay"
+                 Storyboard.TargetProperty="Opacity"
+                 From="0" To="0.7"
+                 Duration="0:0:0.2"
+                 BeginTime="0:0:0"/>
+
+            <!-- 加载指示器旋转 -->
+            <DoubleAnimation Storyboard.TargetName="LoadingIndicatorRotation"
+                 Storyboard.TargetProperty="Angle"
+                 From="0" To="360"
+                 Duration="0:0:1.2"
+                 RepeatBehavior="Forever"
+                 BeginTime="0:0:0.2"/>
+
+            <!-- 脉冲效果 -->
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
+                               Storyboard.TargetProperty="Opacity"
+                               RepeatBehavior="Forever"
+                               BeginTime="0:0:0.2">
+                <LinearDoubleKeyFrame Value="0.3" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="0.8" KeyTime="0:0:0.5"/>
+                <LinearDoubleKeyFrame Value="0.3" KeyTime="0:0:1"/>
+            </DoubleAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
+                               Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
+                               RepeatBehavior="Forever"
+                               BeginTime="0:0:0.2">
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="1.15" KeyTime="0:0:0.5"/>
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:1"/>
+            </DoubleAnimationUsingKeyFrames>
+
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
+                               Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleY)"
+                               RepeatBehavior="Forever"
+                               BeginTime="0:0:0.2">
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="1.15" KeyTime="0:0:0.5"/>
+                <LinearDoubleKeyFrame Value="1" KeyTime="0:0:1"/>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
     </UserControl.Resources>
 
     <Canvas Background="Transparent">
@@ -789,6 +892,126 @@
                 </Canvas>
             </Viewbox>
         </Button>
+        <!-- ===== 🆕 错误状态覆盖层 (ZIndex=1000) ===== -->
+        <Rectangle x:Name="ErrorOverlay"
+               Canvas.Left="0" Canvas.Top="0"
+               Width="880" Height="600"
+               Fill="{StaticResource ErrorBodyGradient}"
+               Opacity="0"
+               Panel.ZIndex="1000"
+               IsHitTestVisible="False"
+               RadiusX="12" RadiusY="12">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#D32F2F" 
+                              BlurRadius="25" 
+                              ShadowDepth="0" 
+                              Opacity="0.9"/>
+            </Rectangle.Effect>
+        </Rectangle>
 
+        <!-- ===== 🆕 错误状态边框闪烁 ===== -->
+        <Rectangle x:Name="ErrorBorder"
+               Canvas.Left="-3" Canvas.Top="-3"
+               Width="886" Height="606"
+               Stroke="#D32F2F"
+               StrokeThickness="6"
+               Fill="Transparent"
+               Opacity="0"
+               Panel.ZIndex="1001"
+               IsHitTestVisible="False"
+               RadiusX="15" RadiusY="15">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#D32F2F" 
+                              BlurRadius="20" 
+                              ShadowDepth="0" 
+                              Opacity="1"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <!-- ===== 🆕 加载状态覆盖层 (ZIndex=2000) ===== -->
+        <Rectangle x:Name="LoadingOverlay"
+               Canvas.Left="0" Canvas.Top="0"
+               Width="880" Height="600"
+               Fill="{StaticResource LoadingBodyGradient}"
+               Opacity="0"
+               Panel.ZIndex="2000"
+               IsHitTestVisible="False"
+               RadiusX="12" RadiusY="12">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#FF9800" 
+                              BlurRadius="20" 
+                              ShadowDepth="0" 
+                              Opacity="0.7"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <!-- ===== 🆕 加载指示器容器 ===== -->
+        <Canvas x:Name="LoadingIndicatorContainer"
+            Canvas.Left="390" Canvas.Top="250"
+            Width="100" Height="100"
+            Panel.ZIndex="2001"
+            Opacity="0"
+            IsHitTestVisible="False">
+
+            <Canvas.RenderTransform>
+                <RotateTransform x:Name="LoadingIndicatorRotation" 
+                             Angle="0" 
+                             CenterX="50" 
+                             CenterY="50"/>
+            </Canvas.RenderTransform>
+
+            <!-- 加载指示器 - 圆点样式 -->
+            <Ellipse Canvas.Left="45" Canvas.Top="10"
+                 Width="10" Height="10"
+                 Fill="#FF9800">
+                <Ellipse.Effect>
+                    <DropShadowEffect Color="#FF9800" 
+                                  BlurRadius="8" 
+                                  ShadowDepth="0" 
+                                  Opacity="0.8"/>
+                </Ellipse.Effect>
+            </Ellipse>
+
+            <Ellipse Canvas.Left="70" Canvas.Top="25"
+                 Width="10" Height="10"
+                 Fill="#FF9800" Opacity="0.8">
+                <Ellipse.Effect>
+                    <DropShadowEffect Color="#FF9800" 
+                                  BlurRadius="8" 
+                                  ShadowDepth="0" 
+                                  Opacity="0.8"/>
+                </Ellipse.Effect>
+            </Ellipse>
+
+            <Ellipse Canvas.Left="85" Canvas.Top="45"
+                 Width="10" Height="10"
+                 Fill="#FF9800" Opacity="0.6">
+                <Ellipse.Effect>
+                    <DropShadowEffect Color="#FF9800" 
+                                  BlurRadius="8" 
+                                  ShadowDepth="0" 
+                                  Opacity="0.8"/>
+                </Ellipse.Effect>
+            </Ellipse>
+        </Canvas>
+
+        <!-- ===== 🆕 脉冲效果圆环 ===== -->
+        <Ellipse x:Name="LoadingPulse"
+             Canvas.Left="340" Canvas.Top="200"
+             Width="200" Height="200"
+             Stroke="#FF9800"
+             StrokeThickness="3"
+             Fill="Transparent"
+             Opacity="0"
+             Panel.ZIndex="2002"
+             IsHitTestVisible="False"
+             RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <ScaleTransform ScaleX="1" ScaleY="1"/>
+            </Ellipse.RenderTransform>
+            <Ellipse.Effect>
+                <BlurEffect Radius="4"/>
+            </Ellipse.Effect>
+        </Ellipse>
     </Canvas>
 </UserControl>

@@ -15,7 +15,7 @@ using MaxChemical.Logging;
 namespace PeristalticPumps_ModbusTCP
 {
     [Export(typeof(IDevice))]
-    public class PeristalticPumps_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
+    public class PeristalticPumps_ModbusTCP : Device, IDeviceUIInteraction, IControllableDevice, IFlowLifecycleAware
     {
         private readonly ILogService _logger;
         private bool _isRunning = false;
@@ -27,7 +27,6 @@ namespace PeristalticPumps_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
-
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -237,6 +236,269 @@ namespace PeristalticPumps_ModbusTCP
 
         #endregion
 
+        #region ✅ 新增: IDeviceUIInteraction 实现
+
+        /// <summary>
+        /// 执行 UI 命令 (UI → 设备驱动)
+        /// </summary>
+        public async Task<CommandExecutionResult> ExecuteUICommandAsync(
+            string commandName,
+            Dictionary<string, object> parameters = null)
+        {
+            try
+            {
+                InfoLog($"收到UI命令: {commandName}");
+                IsSimulationMode = true;
+                switch (commandName)
+                {
+                    case "启动泵":
+                        return await StartPumpAsync();
+
+                    case "停止泵":
+                        return await StopPumpAsync();
+
+                    case "设置泵速":
+                        if (parameters == null || !parameters.ContainsKey("TargetSpeed"))
+                        {
+                            return new CommandExecutionResult
+                            {
+                                Success = false,
+                                Message = "缺少目标速度参数"
+                            };
+                        }
+
+                        // 关键修复：正确转换参数类型
+                        var targetSpeed = Convert.ToDouble(parameters["TargetSpeed"]);
+                        InfoLog($"📥 从UI接收到目标速度: {targetSpeed}"); // ✅ 添加日志
+
+                        return await SetSpeedAsync(targetSpeed);
+
+
+                    default:
+                        return new CommandExecutionResult
+                        {
+                            Success = false,
+                            Message = $"未识别的命令: {commandName}"
+                        };
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"执行UI命令失败: {commandName}", ex);
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 获取当前设备状态 (设备驱动 → UI)
+        /// </summary>
+        public override DeviceState GetCurrentState()
+        {
+            return new DeviceState
+            {
+                States = new Dictionary<string, object>
+                {
+                    ["IsRunning"] = _isRunning,
+                    ["PumpSpeed"] = _currentSpeed,
+                    ["ComId"] = this.ComId
+                }
+            };
+        }
+
+        #endregion
+
+        #region ✅ 新增: UI 命令内部实现
+
+        /// <summary>
+        /// 启动泵 (内部实现)
+        /// </summary>
+        private async Task<CommandExecutionResult> StartPumpAsync()
+        {
+            try
+            {
+                ComId = Parameters.GetValue<string>("DeviceId");
+                bool success = false;
+
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
+                {
+                    success = await ConnectionManager.WriteAsync(ComId, "P0101启动", true);
+                    InfoLog($"启动蠕动泵（ModbusTCP），结果: {success}");
+                }
+                else if (IsSimulationMode)
+                {
+                    lock (_stateLock)
+                    {
+                        _isRunning = true;
+                    }
+                    success = true;
+                    InfoLog("模拟模式启动蠕动泵");
+                }
+
+                if (success)
+                {
+                    AddActiveState("PumpRunning", "启动泵", "停止泵");
+                }
+
+                return new CommandExecutionResult
+                {
+                    Success = success,
+                    Message = success ? "启动成功" : "启动失败",
+                    OutputData = new Dictionary<string, object>
+                    {
+                        ["IsRunning"] = success,
+                        ["Timestamp"] = DateTime.Now
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"启动泵失败: {ex.Message}");
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 停止泵 (内部实现)
+        /// </summary>
+        private async Task<CommandExecutionResult> StopPumpAsync()
+        {
+            try
+            {
+                ComId = Parameters.GetValue<string>("DeviceId");
+                bool success = false;
+
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
+                {
+                    success = await ConnectionManager.WriteAsync(ComId, "P0101停止", false);
+                    InfoLog($"停止蠕动泵（ModbusTCP），结果: {success}");
+                }
+                else if (IsSimulationMode)
+                {
+                    lock (_stateLock)
+                    {
+                        _isRunning = false;
+                        _currentSpeed = 0;
+                    }
+                    success = true;
+                    InfoLog("模拟模式停止蠕动泵");
+                }
+
+                if (success)
+                {
+                    RemoveActiveState("PumpRunning");
+                }
+
+                return new CommandExecutionResult
+                {
+                    Success = success,
+                    Message = success ? "停止成功" : "停止失败",
+                    OutputData = new Dictionary<string, object>
+                    {
+                        ["IsRunning"] = false,
+                        ["Timestamp"] = DateTime.Now
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"停止泵失败: {ex.Message}");
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 设置泵速 (内部实现)
+        /// </summary>
+        private async Task<CommandExecutionResult> SetSpeedAsync(double targetSpeed)
+        {
+            try
+            {
+                InfoLog($"🎯 开始设置泵速: {targetSpeed}"); // ✅ 添加日志
+
+                ComId = Parameters.GetValue<string>("DeviceId");
+                bool success = false;
+
+                // ✅ 限制速度范围
+                targetSpeed = Math.Max(0, Math.Min(100, targetSpeed));
+                InfoLog($"📊 速度范围限制后: {targetSpeed}"); // ✅ 添加日志
+
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
+                {
+                    // 设置泵基准模式
+                    await ConnectionManager.WriteAsync(ComId, "P0101泵基准模式", true);
+                    InfoLog($"向ModbusTCP设置泵基准模式: true");
+
+                    // 设置泵速
+                    success = await ConnectionManager.WriteAsync(ComId, "P0101泵基准泵速", targetSpeed);
+                    InfoLog($"向ModbusTCP设置泵速: {targetSpeed}, 结果: {success}");
+                }
+                else if (IsSimulationMode)
+                {
+                    lock (_stateLock)
+                    {
+                        _currentSpeed = targetSpeed;
+                        _isRunning = targetSpeed > 0;
+                        if (_isRunning && _startTime == default)
+                        {
+                            _startTime = DateTime.Now;
+                        }
+                    }
+                    success = true;
+                    InfoLog($"✅ 模拟模式设置泵速: {targetSpeed}");
+                }
+
+                // ✅ 状态跟踪
+                if (success && targetSpeed > 0)
+                {
+                    AddActiveState("PumpRunning", "设置泵速", "停止泵", stateData: targetSpeed);
+                }
+                else if (success && targetSpeed == 0)
+                {
+                    RemoveActiveState("PumpRunning");
+                }
+
+                return new CommandExecutionResult
+                {
+                    Success = success,
+                    Message = success ? $"速度设置为 {targetSpeed}" : "设置速度失败",
+                    OutputData = new Dictionary<string, object>
+                    {
+                        ["PumpSpeed"] = targetSpeed,
+                        ["Timestamp"] = DateTime.Now
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"设置泵速失败: {ex.Message}");
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        #endregion
         public PeristalticPumps_ModbusTCP()
         {
             _logger = LogManager.GetLogger<PeristalticPumps_ModbusTCP>();
@@ -296,10 +558,11 @@ namespace PeristalticPumps_ModbusTCP
 
                     ComId = Parameters.GetValue<string>("DeviceId");
                     bool success = false;
-
+                    IsSimulationMode = true;
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
                         {
                             success = await ConnectionManager.WriteAsync(ComId, "P0101启动",true);
                             InfoLog($"启动蠕动泵（ModbusTCP地址400018设置为1）, 结果: {success}");
@@ -307,7 +570,7 @@ namespace PeristalticPumps_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             lock (_stateLock)
-                            {
+                             {
                                 _currentSpeed = 0;
                                 _isRunning = false;
                             }
@@ -421,10 +684,10 @@ namespace PeristalticPumps_ModbusTCP
                     ComId = Parameters.GetValue<string>("DeviceId");
                     double targetSpeed = parameters.GetValue<double>("TargetSpeed");
                     bool success = false;
-
+                    IsSimulationMode = true;
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
                         {
                             //1泵基准
                             success = await ConnectionManager.WriteAsync(ComId, "P0101泵基准模式",true);
@@ -496,10 +759,10 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
                     bool success = false;
-
+                    IsSimulationMode = true;
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
                         {
                             success = await ConnectionManager.WriteAsync(ComId, "P0101停止", false);
                             InfoLog($"停止蠕动泵（ModbusTCP地址400018设置为0）, 结果: {success}");

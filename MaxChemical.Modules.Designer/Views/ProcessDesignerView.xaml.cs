@@ -4720,9 +4720,11 @@ namespace MaxChemical.Modules.Designer.Views
                 var pumpControl = new PistonPumpControl
                 {
                     IsHitTestVisible = true,  // ✅ 改为 true，允许按钮点击
-                    Cursor = System.Windows.Input.Cursors.Hand
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    IsRunning = false,
+                    PumpSpeed = 20
                 };
-
+                SubscribePistonPumpEvents(pumpControl);
                 // ✅ 包装在 Viewbox 中 - 也要允许交互
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
@@ -4744,7 +4746,204 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        #region 柱塞泵事件处理
 
+        /// <summary>
+        /// 订阅柱塞泵控件事件
+        /// </summary>
+        private void SubscribePistonPumpEvents(PistonPumpControl pump)
+        {
+            try
+            {
+                // ✅ 订阅状态切换请求事件
+                pump.StateChangeRequested += async (s, e) =>
+                {
+                    await HandlePumpStateChangeRequestAsync(pump, e);
+                };
+
+                // ✅ 订阅速度变化请求事件
+                pump.SpeedChangeRequested += async (s, e) =>
+                {
+                    await HandlePumpSpeedChangeRequestAsync(pump, e);
+                };
+
+                Debug.WriteLine($"✅ 柱塞泵事件已订阅: {pump.PumpId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 订阅柱塞泵事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理泵状态切换请求 (UI → 设备驱动)
+        /// </summary>
+        private async Task HandlePumpStateChangeRequestAsync(
+            PistonPumpControl pump,
+            PumpStateChangeRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理柱塞泵状态切换请求 ==========");
+                Debug.WriteLine($"PumpId: {e.PumpId}");
+                Debug.WriteLine($"当前状态: {e.CurrentState}");
+                Debug.WriteLine($"请求状态: {e.RequestedState}");
+
+                // 1. 查找对应的设备
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var pumpInDevice = FindVisualChild<PistonPumpControl>(deviceElement);
+                    return pumpInDevice?.PumpId == e.PumpId;
+                });
+
+                if (canvasDevice?.Device == null)
+                {
+                    Debug.WriteLine($"⚠️ 未找到泵对应的设备");
+                    pump.HideLoading();
+                    return;
+                }
+
+                // 2. 检查设备是否支持UI交互
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"⚠️ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    pump.HideLoading();
+                    return;
+                }
+
+                // 3. 确定命令名称
+                string commandName = e.RequestedState ? "启动泵" : "停止泵";
+                Debug.WriteLine($"执行命令: {commandName}");
+
+                // 4. 调用设备命令
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                // 5. 隐藏加载动画
+                pump.HideLoading();
+
+                // 6. 处理执行结果
+                if (result.Success)
+                {
+                    Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
+
+                    // ✅ 更新UI状态 (设备驱动 → UI)
+                    pump.IsRunning = e.RequestedState;
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ {commandName}成功");
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+
+                    pump.ShowOperationFailure();
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ {commandName}失败: {result.Message}");
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理泵状态切换请求失败: {ex.Message}");
+                pump.HideLoading();
+                pump.ShowOperationFailure();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"❌ 操作失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理泵速度变化请求 (UI → 设备驱动)
+        /// </summary>
+        private async Task HandlePumpSpeedChangeRequestAsync(
+            PistonPumpControl pump,
+            PumpSpeedChangeRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理柱塞泵速度变化请求 ==========");
+                Debug.WriteLine($"PumpId: {e.PumpId}");
+                Debug.WriteLine($"当前速度: {e.CurrentSpeed}");
+                Debug.WriteLine($"请求速度: {e.RequestedSpeed}");
+                Debug.WriteLine($"变化类型: {e.ChangeType}");
+
+                // 1. 查找对应的设备
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var pumpInDevice = FindVisualChild<PistonPumpControl>(deviceElement);
+                    return pumpInDevice?.PumpId == e.PumpId;
+                });
+
+                if (canvasDevice?.Device == null)
+                {
+                    Debug.WriteLine($"⚠️ 未找到泵对应的设备");
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 2. 检查设备是否支持UI交互
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"⚠️ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // ✅✅✅ 关键：确保参数类型一致
+                var parameters = new Dictionary<string, object>
+                {
+                    ["TargetSpeed"] = (double)e.RequestedSpeed // ✅ 强制转换为 double
+                };
+
+                Debug.WriteLine($"📤 向设备发送参数: TargetSpeed={parameters["TargetSpeed"]}");
+
+                // 4. 调用设备命令
+                var result = await uiInteraction.ExecuteUICommandAsync("设置泵速", parameters);
+
+                // 5. 处理执行结果
+                if (result.Success)
+                {
+                    Debug.WriteLine($"✅ 速度设置成功: {e.RequestedSpeed}");
+
+                    // ✅ 更新UI状态 (设备驱动 → UI)
+                    pump.PumpSpeed = e.RequestedSpeed;
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ 泵速度设置为 {e.RequestedSpeed}");
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 速度设置失败: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ 设置速度失败: {result.Message}");
+                }
+
+                // ✅ 调用回调
+                e.OnCompleted?.Invoke(result.Success);
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理泵速度变化请求失败: {ex.Message}");
+                e.OnCompleted?.Invoke(false);
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"❌ 操作失败: {ex.Message}");
+            }
+        }
+
+
+        #endregion
         /// <summary>
         /// 通用的可视化树查找辅助方法
         /// </summary>
