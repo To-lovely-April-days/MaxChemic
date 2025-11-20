@@ -12,7 +12,7 @@ using MaxChemical.Logging;
 namespace PressureReducingValve_ModbusTCP
 {
     [Export(typeof(IDevice))]
-    public class PressureReducingValve_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
+    public class PressureReducingValve_ModbusTCP : Device, IDeviceUIInteraction, IControllableDevice, IFlowLifecycleAware
     {
         private readonly ILogService _logger;
         private readonly object _stateLock = new object();
@@ -115,6 +115,125 @@ namespace PressureReducingValve_ModbusTCP
 
         #endregion
 
+        private bool _isOpen = false;
+        private double _inletPressure = 0;
+        private double _outletPressure = 0;
+        // ========== IDeviceUIInteraction 实现 ==========
+        public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
+        public async Task<CommandExecutionResult> ExecuteUICommandAsync(string commandName, Dictionary<string, object> parameters = null)
+        {
+            try
+            {
+                InfoLog($"收到UI命令: {commandName}");
+
+                switch (commandName)
+                {
+                    case "打开阀门":
+                    case "Open":
+                        return await OpenValveAsync();
+
+                    case "关闭阀门":
+                    case "Close":
+                        return await CloseValveAsync();
+
+                 
+                }
+
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = $"未识别的命令: {commandName}"
+                };
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"执行UI命令失败: {commandName}", ex);
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+        public DeviceState GetCurrentState()
+        {
+            return new DeviceState
+            {
+                States = new Dictionary<string, object>
+                {
+                    ["IsOpen"] = _isOpen,
+                    ["InletPressure"] = _inletPressure,
+                    ["OutletPressure"] = _outletPressure
+                }
+            };
+        }
+
+        // ========== 内部方法 ==========
+        private async Task<CommandExecutionResult> OpenValveAsync()
+        {
+            if (_isOpen)
+            {
+                return new CommandExecutionResult { Success = true, Message = "阀门已是打开状态" };
+            }
+
+            // 模拟/实际硬件操作
+            await Task.Delay(500); // 模拟操作耗时
+            _isOpen = true;
+
+            // ✅ 通知UI更新
+            OnStateChanged("IsOpen", true);
+
+            InfoLog("阀门已打开");
+            return new CommandExecutionResult
+            {
+                Success = true,
+                Message = "阀门打开成功",
+                OutputData = new Dictionary<string, object>
+                {
+                    ["IsOpen"] = true,
+                    ["Timestamp"] = DateTime.Now
+                }
+            };
+        }
+
+        private async Task<CommandExecutionResult> CloseValveAsync()
+        {
+            if (!_isOpen)
+            {
+                return new CommandExecutionResult { Success = true, Message = "阀门已是关闭状态" };
+            }
+
+            await Task.Delay(500);
+            _isOpen = false;
+
+            // ✅ 通知UI更新
+            OnStateChanged("IsOpen", false);
+
+            InfoLog("阀门已关闭");
+            return new CommandExecutionResult
+            {
+                Success = true,
+                Message = "阀门关闭成功",
+                OutputData = new Dictionary<string, object>
+                {
+                    ["IsOpen"] = false,
+                    ["Timestamp"] = DateTime.Now
+                }
+            };
+        }
+
+        // ✅ 触发状态变化事件
+        protected virtual void OnStateChanged(string stateName, object stateValue)
+        {
+            ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
+            {
+                DeviceId=this.DeviceId,
+                ComId = this.ComId,
+                StateName = stateName,
+                StateValue = stateValue
+            });
+        }
         public PressureReducingValve_ModbusTCP()
         {
             _logger = LogManager.GetLogger<PressureReducingValve_ModbusTCP>();

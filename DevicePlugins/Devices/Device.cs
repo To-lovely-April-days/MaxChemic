@@ -65,6 +65,8 @@ namespace DevicePlugins.Devices
 
         #region Properties
 
+        public string DeviceId { get; set; } = string.Empty;
+
         /// <summary>
         /// 设备名称
         /// </summary>

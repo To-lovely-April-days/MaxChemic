@@ -10,7 +10,9 @@ namespace DevicePlugins.Devices
     /// 设备基础接口
     /// </summary>
     public interface IDevice : INotifyPropertyChanged
-    {
+    {   // 画布设备ID（与ComId区分）
+        string DeviceId { get; set; }  // 画布上的唯一ID
+
         /// <summary>
         /// 设备名称
         /// </summary>

@@ -133,6 +133,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _selectedPipeId = null;
                 _selectedPipeElement = null;
             }
+            
         }
 
 
@@ -152,6 +153,10 @@ namespace MaxChemical.Modules.Designer.Views
             else if (pipe is ZShapePipeControl zPipe)
             {
                 zPipe.IsSelected = false;
+            }
+            else if (pipe is TShapePipeControl tPipe)
+            {
+                tPipe.IsSelected = false;
             }
         }
 
@@ -222,6 +227,8 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
+        // ========== 新增：设备状态订阅管理 ==========
+        private readonly Dictionary<string, IDeviceUIInteraction> _deviceUIInteractions = new();
         #region 构造函数和初始化
 
         public ProcessDesignerView(
@@ -2403,16 +2410,25 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"  拷贝设备哈希: {independentDevice.GetHashCode()}");
                 Debug.WriteLine($"  原始参数哈希: {device.Parameters?.GetHashCode() ?? 0}");
                 Debug.WriteLine($"  拷贝参数哈希: {independentDevice.Parameters?.GetHashCode() ?? 0}");
-
+                var canvasDeviceId = Guid.NewGuid().ToString();
                 var canvasDevice = new CanvasDeviceViewModel
                 {
-                    DeviceId = Guid.NewGuid().ToString(),
+                    DeviceId = canvasDeviceId,
                     Device = independentDevice, // ✅ 使用深拷贝的独立设备实例
                     Position = position,
                     Width = 80,
                     Height = 60
                 };
-
+                // ✅ 关键修复：将画布ID传递给设备实例
+                if (independentDevice is IDeviceUIInteraction uiInteraction)
+                {
+                    // 如果设备支持UI交互，设置其DeviceId属性
+                    var deviceIdProperty = independentDevice.GetType().GetProperty("DeviceId");
+                    if (deviceIdProperty != null && deviceIdProperty.CanWrite)
+                    {
+                        deviceIdProperty.SetValue(independentDevice, canvasDeviceId);
+                    }
+                }
                 Debug.WriteLine($"设备视图模型创建完成: ID={canvasDevice.DeviceId}");
 
                 return canvasDevice;
@@ -3041,6 +3057,135 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             Debug.WriteLine($"设备视觉元素创建完成: {canvasDevice.Device.Name}, ID: {canvasDevice.DeviceId}");
+            // ✅ 订阅设备状态变化
+            if (canvasDevice.Device is IDeviceUIInteraction uiInteraction)
+            {
+                _deviceUIInteractions[canvasDevice.DeviceId] = uiInteraction;
+                uiInteraction.ControlStateChanged += OnDeviceStateChanged;
+
+                Debug.WriteLine($"✅ 已订阅设备UI交互: {canvasDevice.DeviceId}");
+            }
+
+            // ✅ 订阅控件交互事件
+            SubscribeDeviceControlEvents(deviceControl, canvasDevice);
+        }
+        /// <summary>
+        /// 订阅设备控件的交互事件（统一入口）
+        /// </summary>
+        private void SubscribeDeviceControlEvents(Border deviceControl, CanvasDeviceViewModel canvasDevice)
+        {
+            try
+            {
+                // 查找阀门控件
+                var valve = FindVisualChild<ValveControl>(deviceControl);
+                if (valve != null)
+                {
+                    valve.PreviewMouseLeftButtonDown += async (s, e) =>
+                    {
+                        // ✅ 阻止事件冒泡（避免触发设备拖拽）
+                        e.Handled = true;
+
+                        await HandleValveClickAsync(canvasDevice.Device, valve.IsOpen);
+                    };
+                    Debug.WriteLine($"✅ 已订阅阀门点击事件: {canvasDevice.DeviceId}");
+                }
+
+               
+
+                // ✅ 未来可扩展其他设备类型...
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 订阅设备控件事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理阀门点击（触发设备命令）
+        /// </summary>
+        private async Task HandleValveClickAsync(IDevice device, bool currentIsOpen)
+        {
+            try
+            {
+                if (device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"⚠️ 设备 {device.Name} 不支持UI交互");
+                    return;
+                }
+
+                string commandName = currentIsOpen ? "关闭阀门" : "打开阀门";
+                Debug.WriteLine($"🖱️ 用户点击阀门，执行命令: {commandName}");
+
+                // ✅ 调用设备命令
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(result.Message);
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"失败: {result.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理阀门点击失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 设备状态变化处理（设备 → UI）
+        /// </summary>
+        private void OnDeviceStateChanged(object sender, DeviceControlStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"📢 设备状态变化: {e.DeviceId} - {e.StateName} = {e.StateValue}");
+
+                // ✅ 在UI线程更新控件
+                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(e.DeviceId);
+                    if (deviceElement == null)
+                    {
+                        Debug.WriteLine($"⚠️ 未找到设备元素: {e.DeviceId}");
+                        return;
+                    }
+
+                    // 根据状态名称更新对应控件
+                    switch (e.StateName)
+                    {
+                        case "IsOpen":
+                            UpdateValveState(deviceElement, (bool)e.StateValue);
+                            break;
+
+                       
+                        case "OutletPressure":
+                            // 可以显示在监控卡片或控件上
+                            break;
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理设备状态变化失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 更新阀门状态
+        /// </summary>
+        private void UpdateValveState(FrameworkElement deviceElement, bool isOpen)
+        {
+            var valve = FindVisualChild<ValveControl>(deviceElement);
+            if (valve != null)
+            {
+                valve.IsOpen = isOpen;
+                Debug.WriteLine($"✅ 阀门状态已更新: IsOpen={isOpen}");
+            }
         }
 
         /// <summary>
@@ -4053,6 +4198,14 @@ namespace MaxChemical.Modules.Designer.Views
                 else
                 {
                     Debug.WriteLine($"未找到设备 {deviceId} 的视觉元素");
+                }
+
+                // ✅ 取消订阅
+                if (_deviceUIInteractions.TryGetValue(deviceId, out var uiInteraction))
+                {
+                    uiInteraction.ControlStateChanged -= OnDeviceStateChanged;
+                    _deviceUIInteractions.Remove(deviceId);
+                    Debug.WriteLine($"✅ 已取消设备UI交互订阅: {deviceId}");
                 }
             }
             catch (Exception ex)
