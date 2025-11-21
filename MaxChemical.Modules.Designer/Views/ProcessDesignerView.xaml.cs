@@ -3236,15 +3236,20 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleSolenoidValveStateChange(deviceElement, e);
                     }
-
+                  
                     // 查找柱塞泵控件
                     var pumpControl = FindVisualChild<PistonPumpControl>(deviceElement);
-                    if (pumpControl == null)
+                    //if (pumpControl == null)
+                    //{
+                    //    Debug.WriteLine($"⚠️ 未找到柱塞泵控件: {e.DeviceId}");
+                    //    return;
+                    //}
+                    // ✅ 新增：处理流量计状态
+                    var meterControl = FindVisualChild<MassFlowMeterControl>(deviceElement);
+                    if (meterControl != null)
                     {
-                        Debug.WriteLine($"⚠️ 未找到柱塞泵控件: {e.DeviceId}");
-                        return;
+                        HandleFlowMeterControlState(meterControl, e);
                     }
-
                     // ✅ 处理不同类型的状态变化
                     switch (e.StateName)
                     {
@@ -3390,6 +3395,95 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        /// <summary>
+        /// ✅ 新增：处理流量计控件状态
+        /// </summary>
+        private void HandleFlowMeterControlState(MassFlowMeterControl meterControl, DeviceControlStateChangedEventArgs e)
+        {
+            switch (e.StateName)
+            {
+                case "CurrentFlow":
+                    if (e.StateValue is double currentFlow)
+                    {
+                        meterControl.CurrentFlow = currentFlow;
+                        Debug.WriteLine($"✅ 当前流量已更新: {currentFlow:F2}");
+                    }
+                    break;
+
+                case "TargetFlow":
+                    if (e.StateValue is double targetFlow)
+                    {
+                        meterControl.TargetFlow = targetFlow;
+                        Debug.WriteLine($"✅ 目标流量已更新: {targetFlow:F2}");
+                    }
+                    break;
+
+                case "IsFlowing":
+                    if (e.StateValue is bool isFlowing)
+                    {
+                        meterControl.IsFlowing = isFlowing;
+                        Debug.WriteLine($"✅ 流动状态已更新: {isFlowing}");
+                    }
+                    break;
+
+                case "Density":
+                    // 可选：如果UI需要显示密度
+                    if (e.StateValue is double density)
+                    {
+                        Debug.WriteLine($"✅ 密度已更新: {density:F2}");
+                    }
+                    break;
+
+                case "CommandState_设置基准流量":
+                case "CommandState_停止流量控制":
+                case "CommandState_设置液体密度":
+                case "CommandState_获取基准流量":
+                    HandleFlowMeterCommandState(meterControl, e);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// ✅ 新增：处理流量计命令执行状态
+        /// </summary>
+        private void HandleFlowMeterCommandState(MassFlowMeterControl meterControl, DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+            {
+                Debug.WriteLine($"⚠️ 状态值类型错误: {e.StateValue?.GetType().Name}");
+                return;
+            }
+
+            Debug.WriteLine($"🔔 流量计命令状态: {e.StateName} -> {state}");
+
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    meterControl.ShowLoading();
+                    UpdateStatusBar("⏳ 正在执行命令...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    meterControl.HideLoading();
+                    UpdateStatusBar("✅ 命令执行成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                    meterControl.HideLoading();
+                    meterControl.ShowOperationFailure();
+                    UpdateStatusBar("❌ 命令执行失败");
+                    break;
+
+                case CommandExecutionState.Error:
+                    meterControl.HideLoading();
+                    meterControl.ShowOperationFailure();
+                    var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                        ? e.AdditionalData["ErrorMessage"]?.ToString()
+                        : "未知错误";
+                    UpdateStatusBar($"⚠️ 命令异常: {errorMsg}");
+                    break;
+            }
+        }
         /// <summary>
         /// ✅ 辅助方法：更新状态栏
         /// </summary>
@@ -8713,6 +8807,16 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 目标流量变化事件
                 meter.TargetFlowChanged += OnMassFlowMeterTargetFlowChanged;
+                // ✅ 新增：订阅状态切换和流量设置请求事件
+                meter.StateChangeRequested += async (s, e) =>
+                {
+                    await HandleFlowMeterStateChangeRequestAsync(meter, e);
+                };
+
+                meter.TargetFlowChangeRequested += async (s, e) =>
+                {
+                    await HandleFlowMeterTargetFlowChangeRequestAsync(meter, e);
+                };
 
                 Debug.WriteLine($"流量计事件已订阅: {meter.MeterId}");
             }
@@ -8855,7 +8959,199 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"流量计目标流量变化处理失败: {ex.Message}");
             }
         }
+        /// <summary>
+        /// 处理流量计状态切换请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleFlowMeterStateChangeRequestAsync(
+            MassFlowMeterControl meter,
+            FlowMeterStateChangeRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理流量计状态切换请求 ==========");
+                Debug.WriteLine($"MeterId: {e.MeterId}");
+                Debug.WriteLine($"当前状态: {e.CurrentState}");
+                Debug.WriteLine($"请求状态: {e.RequestedState}");
+                Debug.WriteLine($"目标流量: {e.TargetFlow:F1}");
 
+                // 1. 查找对应的设备
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var meterInDevice = FindVisualChild<MassFlowMeterControl>(deviceElement);
+                    return meterInDevice?.MeterId == e.MeterId;
+                });
+
+                if (canvasDevice?.Device == null)
+                {
+                    Debug.WriteLine($"⚠️ 未找到流量计对应的设备");
+                    meter.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 2. 检查设备是否支持UI交互
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"⚠️ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    meter.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 3. 确定命令和参数
+                string commandName;
+                Dictionary<string, object> parameters = null;
+
+                if (e.RequestedState) // 启动流量控制
+                {
+                    commandName = "设置基准流量";
+
+                    // 获取当前密度（可从UI或默认值）
+                    double density = 1.0; // 默认水的密度
+
+                    // ✅ 尝试从设备获取当前密度
+                    var currentState = uiInteraction.GetCurrentState();
+                    if (currentState?.States?.ContainsKey("Density") == true)
+                    {
+                        density = Convert.ToDouble(currentState.States["Density"]);
+                    }
+
+                    parameters = new Dictionary<string, object>
+                    {
+                        ["TargetFlow"] = e.TargetFlow,
+                        ["Density"] = density,
+                        ["EnableAutoControl"] = true
+                    };
+
+                    Debug.WriteLine($"执行命令: {commandName}, 流量={e.TargetFlow:F1}, 密度={density:F2}");
+                }
+                else // 停止流量控制
+                {
+                    commandName = "停止流量控制";
+                    Debug.WriteLine($"执行命令: {commandName}");
+                }
+
+                // 4. 调用设备命令
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName, parameters);
+
+                // 5. 隐藏加载动画
+                meter.HideLoading();
+
+                // 6. 处理执行结果
+                if (result.Success)
+                {
+                    Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
+
+                    // ✅ UI状态将通过 OnDeviceStateChanged 自动更新
+                    // meter.IsFlowing = e.RequestedState; // 不需要手动设置
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ {commandName}成功");
+
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+
+                    meter.ShowOperationFailure();
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ {commandName}失败: {result.Message}");
+
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理流量计状态切换请求失败: {ex.Message}");
+                meter.HideLoading();
+                meter.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"❌ 操作失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理流量计目标流量变化请求
+        /// </summary>
+        private async Task HandleFlowMeterTargetFlowChangeRequestAsync(
+            MassFlowMeterControl meter,
+            FlowMeterTargetFlowChangeRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理流量计目标流量变化 ==========");
+                Debug.WriteLine($"MeterId: {e.MeterId}");
+                Debug.WriteLine($"当前目标: {e.CurrentTargetFlow:F1}");
+                Debug.WriteLine($"请求目标: {e.RequestedTargetFlow:F1}");
+
+                // 查找设备（与状态切换相同）
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var meterInDevice = FindVisualChild<MassFlowMeterControl>(deviceElement);
+                    return meterInDevice?.MeterId == e.MeterId;
+                });
+
+                if (canvasDevice?.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // ✅ 如果流量控制正在运行，更新目标流量
+                if (meter.IsFlowing)
+                {
+                    var currentState = uiInteraction.GetCurrentState();
+                    double density = 1.0;
+                    if (currentState?.States?.ContainsKey("Density") == true)
+                    {
+                        density = Convert.ToDouble(currentState.States["Density"]);
+                    }
+
+                    var parameters = new Dictionary<string, object>
+                    {
+                        ["TargetFlow"] = e.RequestedTargetFlow,
+                        ["Density"] = density,
+                        ["EnableAutoControl"] = true
+                    };
+
+                    var result = await uiInteraction.ExecuteUICommandAsync("设置基准流量", parameters);
+
+                    if (result.Success)
+                    {
+                        // ✅ UI 将通过 OnDeviceStateChanged 自动更新
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"✅ 目标流量设置为 {e.RequestedTargetFlow:F1}");
+                    }
+
+                    e.OnCompleted?.Invoke(result.Success);
+                }
+                else
+                {
+                    // 仅更新显示，不启动控制
+                    meter.TargetFlow = e.RequestedTargetFlow;
+                    e.OnCompleted?.Invoke(true);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理目标流量变化失败: {ex.Message}");
+                e.OnCompleted?.Invoke(false);
+            }
+        }
         #endregion
 
         /// <summary>

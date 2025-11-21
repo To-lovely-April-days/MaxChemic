@@ -80,4 +80,42 @@ namespace MaxChemical.Core
     {
         public Dictionary<string, object> States { get; set; } = new Dictionary<string, object>();
     }
+
+    #region ✅ 新增：事件参数类
+
+    /// <summary>
+    /// 流量计状态切换请求事件参数（UI → 设备驱动）
+    /// </summary>
+    public class FlowMeterStateChangeRequestEventArgs : EventArgs
+    {
+        public string MeterId { get; set; }
+        public bool CurrentState { get; set; }   // 当前流动状态
+        public bool RequestedState { get; set; }  // 请求的新状态
+        public double TargetFlow { get; set; }    // 目标流量
+        public Action<bool> OnCompleted { get; set; }
+    }
+
+    /// <summary>
+    /// 流量计目标流量变化请求事件参数
+    /// </summary>
+    public class FlowMeterTargetFlowChangeRequestEventArgs : EventArgs
+    {
+        public string MeterId { get; set; }
+        public double CurrentTargetFlow { get; set; }
+        public double RequestedTargetFlow { get; set; }
+        public FlowChangeType ChangeType { get; set; }
+        public Action<bool> OnCompleted { get; set; }
+    }
+
+    /// <summary>
+    /// 流量变化类型
+    /// </summary>
+    public enum FlowChangeType
+    {
+        Increase,  // 增加
+        Decrease,  // 减少
+        Set        // 设置
+    }
+
+    #endregion
 }

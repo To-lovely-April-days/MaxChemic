@@ -7,8 +7,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using MaxChemical.Core;
 using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
@@ -121,6 +123,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
+        #region 新增：UI → 设备驱动的请求事件
+
+        public event EventHandler<FlowMeterStateChangeRequestEventArgs> StateChangeRequested;
+        public event EventHandler<FlowMeterTargetFlowChangeRequestEventArgs> TargetFlowChangeRequested;
+
+        #endregion
+
+        #region 新增：加载和错误动画资源
+
+        private Storyboard _loadingAnimation;
+        private Storyboard _errorBlinkAnimation;
+        private Storyboard _errorStateHoldAnimation;
+        private DispatcherTimer _errorResetTimer;
+        private bool _isLoading = false;
+
+        public bool IsLoading => _isLoading;
+
+        #endregion
+
         #region 构造函数
 
         public MassFlowMeterControl()
@@ -151,6 +172,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                         RotationLabel.Visibility = Visibility.Collapsed;
                     }
                     _rotationLabelTimer.Stop();
+                };
+                // ✅ 初始化加载/错误资源
+                this.Loaded += OnControlLoaded;
+
+                _errorResetTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(3)
+                };
+                _errorResetTimer.Tick += (s, e) =>
+                {
+                    ResetErrorState();
+                    _errorResetTimer.Stop();
                 };
 
                 this.Loaded += OnControlLoaded;
@@ -209,6 +242,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             // 数据发光动画始终运行
             _dataGlowAnimation = this.Resources["DataGlowAnimation"] as Storyboard;
+            // ✅ 加载动画资源
+            _loadingAnimation = this.Resources["LoadingAnimation"] as Storyboard;
+            _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
+            _errorStateHoldAnimation = this.Resources["ErrorStateHoldAnimation"] as Storyboard;
+            // ✅ 绑定错误闪烁完成事件
+            if (_errorBlinkAnimation != null)
+            {
+                _errorBlinkAnimation.Completed += OnErrorBlinkCompleted;
+            }
             _dataGlowAnimation?.Begin();
 
             // 验证关键元素
@@ -225,6 +267,172 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
+
+        
+
+        #region ✅ 新增：加载和错误动画方法
+
+        /// <summary>
+        /// 显示加载动画
+        /// </summary>
+        public void ShowLoading()
+        {
+            if (_isLoading) return;
+            _isLoading = true;
+            Debug.WriteLine($"⏳ 显示加载动画 | MeterId:{MeterId}");
+
+            try
+            {
+                ClearError();
+
+                // 停止液体流动动画
+                if (_fluidFlowAnimation != null && IsFlowing)
+                {
+                    _fluidFlowAnimation.Pause();
+                }
+
+                // 启动加载动画
+                if (_loadingAnimation != null)
+                {
+                    _loadingAnimation.Begin(this, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 显示加载动画失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 隐藏加载动画
+        /// </summary>
+        public void HideLoading()
+        {
+            if (!_isLoading) return;
+            _isLoading = false;
+            Debug.WriteLine($"✅ 隐藏加载动画 | MeterId:{MeterId}");
+
+            try
+            {
+                // 停止加载动画
+                if (_loadingAnimation != null)
+                {
+                    _loadingAnimation.Stop(this);
+                }
+
+                // 恢复液体流动动画
+                if (_fluidFlowAnimation != null && IsFlowing)
+                {
+                    _fluidFlowAnimation.Resume();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 隐藏加载动画失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 显示操作失败动画
+        /// </summary>
+        public void ShowOperationFailure()
+        {
+            Debug.WriteLine($"🚨 显示操作失败动画 | MeterId:{MeterId}");
+
+            try
+            {
+                HideLoading();
+
+                // 停止流动动画
+                if (_fluidFlowAnimation != null && IsFlowing)
+                {
+                    _fluidFlowAnimation.Stop();
+                }
+
+                // 停止之前的错误状态保持动画
+                _errorStateHoldAnimation?.Stop(this);
+
+                // 启动错误闪烁动画
+                if (_errorBlinkAnimation != null)
+                {
+                    _errorBlinkAnimation.Begin(this, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 显示失败动画失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 错误闪烁完成后启动持续状态
+        /// </summary>
+        private void OnErrorBlinkCompleted(object sender, EventArgs e)
+        {
+            Debug.WriteLine($"🚨 错误闪烁完成，进入持续错误状态");
+            _errorStateHoldAnimation?.Begin(this, true);
+        }
+
+        /// <summary>
+        /// 清除错误状态
+        /// </summary>
+        public void ClearError()
+        {
+            Debug.WriteLine($"✅ 清除错误状态 | MeterId:{MeterId}");
+
+            try
+            {
+                _errorBlinkAnimation?.Stop(this);
+                _errorStateHoldAnimation?.Stop(this);
+
+                // 重置光效
+                ResetAllGlowEffects();
+
+                // 恢复流动动画
+                if (_fluidFlowAnimation != null && IsFlowing)
+                {
+                    _fluidFlowAnimation.Begin();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 清除错误状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 重置所有光效
+        /// </summary>
+        private void ResetAllGlowEffects()
+        {
+            try
+            {
+                var shellGlow = this.FindName("ShellGlow") as DropShadowEffect;
+                if (shellGlow != null)
+                {
+                    shellGlow.Color = Colors.Transparent;
+                    shellGlow.BlurRadius = 0;
+                }
+
+                // 恢复数据发光
+                if (_dataGlowAnimation != null)
+                {
+                    _dataGlowAnimation.Begin();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 重置光效失败: {ex.Message}");
+            }
+        }
+
+        private void ResetErrorState()
+        {
+            Debug.WriteLine($"✅ 重置错误状态");
+        }
+
+        #endregion
+
 
         #region 动画控制
 
@@ -571,35 +779,127 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnIncreaseButtonClick(object sender, RoutedEventArgs e)
         {
-            double newValue = Math.Min(TargetFlow + 1, MaxFlow);
-            TargetFlow = newValue;
-            TargetFlowChanged?.Invoke(this, new FlowValueChangedEventArgs
+            try
             {
-                MeterId = this.MeterId,
-                OldValue = TargetFlow,
-                NewValue = newValue
-            });
-            e.Handled = true;
+                double newFlow = Math.Min(TargetFlow + 1, MaxFlow);
+                Debug.WriteLine($"⬆️ 增加流量: {TargetFlow:F1} → {newFlow:F1}");
+
+                // ✅ 显示加载动画
+                ShowLoading();
+
+                // ✅ 触发目标流量变化请求事件
+                TargetFlowChangeRequested?.Invoke(this, new FlowMeterTargetFlowChangeRequestEventArgs
+                {
+                    MeterId = this.MeterId,
+                    CurrentTargetFlow = TargetFlow,
+                    RequestedTargetFlow = newFlow,
+                    ChangeType = FlowChangeType.Increase,
+                    OnCompleted = (success) =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            HideLoading();
+                            if (!success)
+                            {
+                                ShowOperationFailure();
+                                Debug.WriteLine($"❌ 流量增加失败");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"✅ 流量增加成功: {newFlow:F1}");
+                            }
+                        }));
+                    }
+                });
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 增加流量失败: {ex.Message}");
+                HideLoading();
+                ShowOperationFailure();
+            }
         }
 
         private void OnDecreaseButtonClick(object sender, RoutedEventArgs e)
         {
-            double newValue = Math.Max(TargetFlow - 1, 0);
-            TargetFlow = newValue;
-            TargetFlowChanged?.Invoke(this, new FlowValueChangedEventArgs
+            try
             {
-                MeterId = this.MeterId,
-                OldValue = TargetFlow,
-                NewValue = newValue
-            });
-            e.Handled = true;
+                double newFlow = Math.Max(TargetFlow - 1, 0);
+                Debug.WriteLine($"⬇️ 减少流量: {TargetFlow:F1} → {newFlow:F1}");
+
+                ShowLoading();
+
+                TargetFlowChangeRequested?.Invoke(this, new FlowMeterTargetFlowChangeRequestEventArgs
+                {
+                    MeterId = this.MeterId,
+                    CurrentTargetFlow = TargetFlow,
+                    RequestedTargetFlow = newFlow,
+                    ChangeType = FlowChangeType.Decrease,
+                    OnCompleted = (success) =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            HideLoading();
+                            if (!success)
+                            {
+                                ShowOperationFailure();
+                            }
+                        }));
+                    }
+                });
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 减少流量失败: {ex.Message}");
+                HideLoading();
+                ShowOperationFailure();
+            }
         }
 
         private void OnSetButtonClick(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine($"流量计 {MeterId} 设定值确认: {TargetFlow:F1} kg/h");
-            ShowTemporarySelection();
-            e.Handled = true;
+            try
+            {
+                Debug.WriteLine($"🎯 SET按钮点击: 目标流量={TargetFlow:F1}");
+
+                ShowLoading();
+
+                // ✅ 触发状态切换请求（启动流量控制）
+                StateChangeRequested?.Invoke(this, new FlowMeterStateChangeRequestEventArgs
+                {
+                    MeterId = this.MeterId,
+                    CurrentState = IsFlowing,
+                    RequestedState = true,
+                    TargetFlow = TargetFlow,
+                    OnCompleted = (success) =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            HideLoading();
+                            if (success)
+                            {
+                                ShowTemporarySelection();
+                            }
+                            else
+                            {
+                                ShowOperationFailure();
+                            }
+                        }));
+                    }
+                });
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ SET按钮处理失败: {ex.Message}");
+                HideLoading();
+                ShowOperationFailure();
+            }
         }
 
         #endregion
@@ -677,10 +977,33 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    // 点击切换流动状态
-                    IsFlowing = !IsFlowing;
-                    Debug.WriteLine($"🖱️ 点击切换流动状态: {(IsFlowing ? "✅ 启动" : "❌ 停止")}");
-                    ShowTemporarySelection();
+                    Debug.WriteLine($"🖱️ 点击切换流动状态");
+
+                    ShowLoading();
+
+                    // ✅ 触发状态切换请求
+                    StateChangeRequested?.Invoke(this, new FlowMeterStateChangeRequestEventArgs
+                    {
+                        MeterId = this.MeterId,
+                        CurrentState = IsFlowing,
+                        RequestedState = !IsFlowing,
+                        TargetFlow = TargetFlow,
+                        OnCompleted = (success) =>
+                        {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                HideLoading();
+                                if (success)
+                                {
+                                    ShowTemporarySelection();
+                                }
+                                else
+                                {
+                                    ShowOperationFailure();
+                                }
+                            }));
+                        }
+                    });
                 }
 
                 this.Opacity = 1.0;

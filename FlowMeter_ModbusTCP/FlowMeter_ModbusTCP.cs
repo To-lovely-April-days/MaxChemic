@@ -17,7 +17,7 @@ using MaxChemical.Logging;
 namespace FlowMeter_ModbusTCP
 {
     [Export(typeof(IDevice))]
-    public class FlowMeter_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
+    public class FlowMeter_ModbusTCP : Device, IDeviceUIInteraction,IControllableDevice, IFlowLifecycleAware
     {
         private readonly ILogService _logger;
         private double _currentFlow = 0;
@@ -85,6 +85,203 @@ namespace FlowMeter_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
+        // ✅ 新增：状态变化事件（设备驱动 → UI）
+        public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
+
+        //模拟相关
+        private double _simulatedFlow = 0;
+        private double _flowTrend = 0;
+        private DateTime _lastSimulationTime = DateTime.Now;
+        #region IDeviceUIInteraction 实现
+
+        /// <summary>
+        /// 执行 UI 命令（UI → 设备驱动）
+        /// </summary>
+        public async Task<CommandExecutionResult> ExecuteUICommandAsync(
+            string commandName,
+            Dictionary<string, object> parameters = null)
+        {
+            try
+            {
+                InfoLog($"收到UI命令: {commandName}");
+
+                // ✅ 查找对应的 DeviceCommand
+                var command = Commands?.FirstOrDefault(c => c.Name == commandName);
+
+                if (command?.Action == null)
+                {
+                    return new CommandExecutionResult
+                    {
+                        Success = false,
+                        Message = $"未找到命令: {commandName}"
+                    };
+                }
+
+                // ✅ 转换参数格式
+                var deviceParams = ConvertToDeviceParameters(parameters, command.InputParameters);
+
+                // ✅ 直接执行 Command.Action
+                var outputParams = await Task.Run(() => command.Action(deviceParams));
+
+                // ✅ 从 OutputParameters 提取结果
+                return ConvertToCommandResult(outputParams, commandName);
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"执行UI命令失败: {commandName}", ex);
+                return new CommandExecutionResult
+                {
+                    Success = false,
+                    Message = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 获取当前设备状态（设备驱动 → UI）
+        /// </summary>
+        public override DeviceState GetCurrentState()
+        {
+            double currentDensity;
+            lock (_densityLock)
+            {
+                currentDensity = _currentDensity;
+            }
+
+            return new DeviceState
+            {
+                States = new Dictionary<string, object>
+                {
+                    ["CurrentFlow"] = _currentFlow,
+                    ["TargetFlow"] = _targetFlow,
+                    ["IsFlowing"] = _autoControlEnabled,
+                    ["Density"] = currentDensity,
+                    ["ComId"] = this.ComId
+                }
+            };
+        }
+
+        #endregion
+
+        #region 参数转换辅助方法
+
+        /// <summary>
+        /// 将 Dictionary 参数转换为 DeviceParameters
+        /// </summary>
+        private DeviceParameters ConvertToDeviceParameters(
+            Dictionary<string, object> inputDict,
+            DeviceParameters template)
+        {
+            var result = new DeviceParameters();
+
+            if (inputDict == null || template?.Variables == null)
+            {
+                return result;
+            }
+
+            foreach (var templateParam in template.Variables)
+            {
+                if (!inputDict.ContainsKey(templateParam.Name))
+                {
+                    // 使用模板默认值
+                    result.Variables.Add(templateParam.Clone() as ParameterBase);
+                    continue;
+                }
+
+                var value = inputDict[templateParam.Name];
+
+                // 根据参数类型创建对应的 Parameter
+                if (templateParam is NumberParameter numParam)
+                {
+                    var convertedValue = Convert.ToDouble(value);
+                    result.Variables.Add(new NumberParameter(
+                        numParam.Name,
+                        numParam.MinValue,
+                        numParam.MaxValue,
+                        convertedValue,
+                        numParam.HelpText));
+                }
+                else if (templateParam is BooleanParameter boolParam)
+                {
+                    var convertedValue = Convert.ToBoolean(value);
+                    result.Variables.Add(new BooleanParameter(
+                        boolParam.Name,
+                        convertedValue,
+                        boolParam.HelpText));
+                }
+                else if (templateParam is StringParameter strParam)
+                {
+                    var convertedValue = value?.ToString() ?? "";
+                    result.Variables.Add(new StringParameter(
+                        strParam.Name,
+                        convertedValue,
+                        strParam.HelpText));
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 将 DeviceParameters 转换为 CommandExecutionResult
+        /// </summary>
+        private CommandExecutionResult ConvertToCommandResult(
+            DeviceParameters outputParams,
+            string commandName)
+        {
+            var success = false;
+            var message = "";
+            var outputData = new Dictionary<string, object>();
+
+            if (outputParams?.Variables != null)
+            {
+                foreach (var param in outputParams.Variables)
+                {
+                    var value = param.Value;
+                    outputData[param.Name] = value;
+
+                    // 查找 Success 参数
+                    if (param.Name == "Success" && param is BooleanParameter boolParam)
+                    {
+                        success = (bool)boolParam.Value;
+                    }
+                }
+            }
+
+            message = success ? $"{commandName} 执行成功" : $"{commandName} 执行失败";
+
+            return new CommandExecutionResult
+            {
+                Success = success,
+                Message = message,
+                OutputData = outputData
+            };
+        }
+
+        #endregion
+
+        #region ✅ 新增：UI 命令内部实现
+
+      
+
+        private void RaiseControlStateChanged(string stateName, object stateValue, Dictionary<string, object> additionalData = null)
+        {
+            ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
+            {
+                DeviceId = this.DeviceId,
+                ComId = this.ComId,
+                StateName = stateName,
+                StateValue = stateValue,
+                Timestamp = DateTime.Now,
+                AdditionalData = additionalData ?? new Dictionary<string, object>()
+            });
+
+            InfoLog($"状态变化通知: {stateName} = {stateValue}");
+        }
+
+
+        #endregion
 
         #region 简化的三档动态等待策略
 
@@ -144,6 +341,8 @@ namespace FlowMeter_ModbusTCP
                 while ((DateTime.Now - startTime).TotalMilliseconds < remainingWaitMs)
                 {
                     double currentFlow = await ReadCurrentFlowAsync();
+                    // ✅ 通知UI：当前流量已更新
+                    RaiseControlStateChanged("CurrentFlow", currentFlow);
                     readingCount++;
                     recentFlows.Enqueue(currentFlow);
 
@@ -941,7 +1140,6 @@ namespace FlowMeter_ModbusTCP
 
                 // 修改智能等待调用
                 var (finalFlow, stabilizeTime, readings) = await SmartWaitForStability(targetFlow, currentPumpSpeed, speedChange);
-
                 // 记录泵速供下次使用
                 _previousPumpSpeed = currentPumpSpeed;
 
@@ -1057,6 +1255,8 @@ namespace FlowMeter_ModbusTCP
                 {
                     _lastPumpSpeedOutput = newPumpSpeed;
                     _previousPumpSpeed = newPumpSpeed;
+                    // ✅ 可选：通知UI泵速变化（如果流量计显示泵速）
+                     RaiseControlStateChanged("PumpSpeed", newPumpSpeed);
                     AddCycleLog($"│ ✅ 设置成功: {newPumpSpeed:F1} RPM (耗时: {pumpSetDuration.TotalMilliseconds:F0}ms)");
                     AddCycleLog($"│ 泵速变化: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM");
 
@@ -1154,7 +1354,7 @@ namespace FlowMeter_ModbusTCP
                     AddCycleLog($"│   泵速限制: {originalSpeed:F1} → {speed:F1} RPM");
                 }
 
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                 {
                     AddCycleLog($"│   设置基准模式...");
                     await ConnectionManager.WriteAsync(pumpDeviceId, "P0101泵基准模式", true);
@@ -1216,7 +1416,7 @@ namespace FlowMeter_ModbusTCP
         {
             try
             {
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                 {
                     return await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
                 }
@@ -1394,7 +1594,7 @@ namespace FlowMeter_ModbusTCP
 
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                         {
                             baseFlow = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
                             InfoLog($"从ModbusTCP地址40030获取基准质量流量: {baseFlow} g/min (密度: {currentDensity} g/cm³)");
@@ -1403,7 +1603,39 @@ namespace FlowMeter_ModbusTCP
                         {
                             lock (_stateLock)
                             {
-                                baseFlow = _currentFlow;
+                                double targetFlow = _currentFlow;
+
+                                // 初始化模拟流量
+                                if (_simulatedFlow == 0)
+                                {
+                                    _simulatedFlow = targetFlow;
+                                }
+
+                                // 计算时间间隔
+                                var now = DateTime.Now;
+                                double deltaTime = (now - _lastSimulationTime).TotalSeconds;
+                                _lastSimulationTime = now;
+
+                                // 趋势衰减（逐渐回归目标值）
+                                double returnRate = 0.1; // 10% 回归速率
+                                _flowTrend += (targetFlow - _simulatedFlow) * returnRate * deltaTime;
+
+                                // 添加随机扰动
+                                double randomChange = (Random.Shared.NextDouble() - 0.5) * 2 * targetFlow * 0.01; // ±1%
+                                _flowTrend += randomChange;
+
+                                // 限制趋势变化速率
+                                double maxTrendChange = targetFlow * 0.05; // 最大 5%/秒
+                                _flowTrend = Math.Clamp(_flowTrend, -maxTrendChange, maxTrendChange);
+
+                                // 更新模拟流量
+                                _simulatedFlow += _flowTrend * deltaTime;
+
+                                // 限制在合理范围
+                                _simulatedFlow = Math.Clamp(_simulatedFlow, targetFlow * 0.7, targetFlow * 1.3);
+                                _simulatedFlow = Math.Max(0, _simulatedFlow);
+
+                                baseFlow = _simulatedFlow;
                             }
                             InfoLog($"模拟模式获取基准质量流量: {baseFlow} g/min (密度: {currentDensity} g/cm³)");
                         }
@@ -1411,9 +1643,14 @@ namespace FlowMeter_ModbusTCP
                         {
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
+
+                        // ✅ 通知UI：当前流量已更新
+                        RaiseControlStateChanged("CurrentFlow", baseFlow);
                     }
                     catch (Exception ex)
-                    {
+                    { // ✅ 通知UI：命令执行异常
+                        RaiseControlStateChanged("CommandState_获取基准流量", CommandExecutionState.Error,
+                            new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                         ErrorLog($"获取基准流量失败: {ex.Message}");
                         throw;
                     }
@@ -1438,29 +1675,32 @@ namespace FlowMeter_ModbusTCP
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 50.0, "目标质量流量(g/min)"),
-                        new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, DEFAULT_WATER_DENSITY, "液体密度(g/cm³)")
-                        {
-                            HelpText = "输入液体密度：水=1.0，导热油通常0.8-0.9，其他液体请查阅资料"
-                        },
-                        new BooleanParameter("EnableAutoControl", true, "启用密度修正防超调智能控制")
-                    }
+        {
+            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 50.0, "目标质量流量(g/min)"),
+            new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, DEFAULT_WATER_DENSITY, "液体密度(g/cm³)")
+            {
+                HelpText = "输入液体密度：水=1.0，导热油通常0.8-0.9，其他液体请查阅资料"
+            },
+            new BooleanParameter("EnableAutoControl", true, "启用密度修正防超调智能控制")
+        }
                 },
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("AutoControlStarted", false, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
-                    }
+        {
+            new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
+            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
+            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
+            new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
+            new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
+            new BooleanParameter("AutoControlStarted", false, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
+        }
                 },
                 Action = WrapAction("设置基准流量", async delegate (DeviceParameters parameters)
                 {
+                    // ✅ 1. 通知UI：开始执行
+                    RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Running);
+
                     ComId = Parameters.GetValue<string>("DeviceId");
                     double targetFlow = parameters.GetValue<double>("TargetFlow");
                     double density = parameters.GetValue<double>("Density");
@@ -1487,6 +1727,10 @@ namespace FlowMeter_ModbusTCP
                             _currentDensity = density;
                         }
 
+                        // ✅ 2. 通知UI：参数已更新
+                        RaiseControlStateChanged("TargetFlow", targetFlow);
+                        RaiseControlStateChanged("Density", density);
+
                         // 计算所需体积流量和泵速
                         if (targetFlow > 0)
                         {
@@ -1503,16 +1747,25 @@ namespace FlowMeter_ModbusTCP
                                 InfoLog($"密度修正初始泵速设置成功: {calculatedSpeed} RPM");
                                 success = true;
 
+                                // ✅ 3. 通知UI：流动状态已启动
+                                RaiseControlStateChanged("IsFlowing", true);
+
                                 if (enableAutoControl)
                                 {
                                     StartAutoControl();
                                     autoControlStarted = true;
                                     InfoLog($"密度修正防超调智能PID控制已启动 - 目标质量流量: {targetFlow} g/min, 密度: {density} g/cm³, 三档动态等待策略");
                                 }
+
+                                // ✅ 4. 通知UI：命令执行成功
+                                RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Succeeded);
                             }
                             else
                             {
                                 WarnLog($"密度修正初始泵速设置失败: {calculatedSpeed} RPM");
+
+                                // ✅ 5. 通知UI：命令执行失败
+                                RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Failed);
                             }
 
                             if (success)
@@ -1526,26 +1779,36 @@ namespace FlowMeter_ModbusTCP
                             StopAutoControl();
                             RemoveActiveState("FlowControlActive");
                             success = true;
+
+                            // ✅ 通知UI：流动已停止
+                            RaiseControlStateChanged("IsFlowing", false);
+                            RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Succeeded);
+
                             InfoLog("目标流量设置为0，密度修正流量控制已停止");
                         }
                     }
                     catch (Exception ex)
                     {
                         ErrorLog($"设置密度修正基准流量失败: {ex.Message}");
+
+                        // ✅ 通知UI：命令执行异常
+                        RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Error,
+                            new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
+
                         throw;
                     }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, density, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(requiredVolumeFlow, 2), "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("AutoControlStarted", autoControlStarted, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
-                        }
+            {
+                new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
+                new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
+                new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, density, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
+                new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(requiredVolumeFlow, 2), "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
+                new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
+                new BooleanParameter("AutoControlStarted", autoControlStarted, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
+            }
                     };
                 })
             });
@@ -1560,12 +1823,15 @@ namespace FlowMeter_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
-                    }
+        {
+            new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
+        }
                 },
                 Action = WrapAction("停止流量控制", async delegate (DeviceParameters parameters)
                 {
+                    // ✅ 1. 通知UI：开始执行
+                    RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Running);
+
                     ComId = Parameters.GetValue<string>("DeviceId");
                     bool success = false;
 
@@ -1587,20 +1853,38 @@ namespace FlowMeter_ModbusTCP
                         if (success)
                         {
                             RemoveActiveState("FlowControlActive");
+
+                            // ✅ 2. 通知UI：流动已停止
+                            RaiseControlStateChanged("IsFlowing", false);
+                            RaiseControlStateChanged("TargetFlow", 0.0);
+                            RaiseControlStateChanged("CurrentFlow", 0.0);
+
+                            // ✅ 3. 通知UI：命令执行成功
+                            RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Succeeded);
+                        }
+                        else
+                        {
+                            // ✅ 通知UI：命令执行失败
+                            RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Failed);
                         }
                     }
                     catch (Exception ex)
                     {
                         ErrorLog($"停止密度修正流量控制失败: {ex.Message}");
+
+                        // ✅ 通知UI：命令执行异常
+                        RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Error,
+                            new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
+
                         throw;
                     }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("Success", success, "停止成功") { IsVisibleInVariableManager = true }
-                        }
+            {
+                new BooleanParameter("Success", success, "停止成功") { IsVisibleInVariableManager = true }
+            }
                     };
                 })
             });
@@ -1671,7 +1955,7 @@ namespace FlowMeter_ModbusTCP
                             currentVolumeFlow = currentFlow / currentDensity;
                         }
 
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                         {
                             try
                             {
@@ -1755,24 +2039,27 @@ namespace FlowMeter_ModbusTCP
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, DEFAULT_WATER_DENSITY, "液体密度(g/cm³)")
-                        {
-                            HelpText = "常见液体密度：水=1.0，乙醇=0.789，导热油=0.8-0.9，甘油=1.26"
-                        }
-                    }
+        {
+            new NumberParameter("Density", MIN_DENSITY, MAX_DENSITY, DEFAULT_WATER_DENSITY, "液体密度(g/cm³)")
+            {
+                HelpText = "常见液体密度：水=1.0，乙醇=0.789，导热油=0.8-0.9，甘油=1.26"
+            }
+        }
                 },
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, 0, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
-                    }
+        {
+            new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
+            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
+            new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, 0, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
+        }
                 },
                 Action = WrapAction("设置液体密度", async delegate (DeviceParameters parameters)
                 {
+                    // ✅ 1. 通知UI：开始执行
+                    RaiseControlStateChanged("CommandState_设置液体密度", CommandExecutionState.Running);
+
                     double newDensity = parameters.GetValue<double>("Density");
                     double previousDensity;
                     bool success = false;
@@ -1790,6 +2077,9 @@ namespace FlowMeter_ModbusTCP
 
                         success = true;
                         InfoLog($"液体密度已更新: {previousDensity:F2} → {newDensity:F2} g/cm³");
+
+                        // ✅ 2. 通知UI：密度已更新
+                        RaiseControlStateChanged("Density", newDensity);
 
                         // 如果控制正在运行，记录密度变化对控制的影响
                         bool isControlActive;
@@ -1814,25 +2104,34 @@ namespace FlowMeter_ModbusTCP
                                 WarnLog("密度已变化，建议观察控制系统响应，必要时重新设置基准流量");
                             }
                         }
+
+                        // ✅ 3. 通知UI：命令执行成功
+                        RaiseControlStateChanged("CommandState_设置液体密度", CommandExecutionState.Succeeded);
                     }
                     catch (Exception ex)
                     {
                         ErrorLog($"设置液体密度失败: {ex.Message}");
+
                         lock (_densityLock)
                         {
-                            previousDensity = _currentDensity; // 获取当前值作为previous
+                            previousDensity = _currentDensity;
                         }
+
+                        // ✅ 通知UI：命令执行异常
+                        RaiseControlStateChanged("CommandState_设置液体密度", CommandExecutionState.Error,
+                            new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
+
                         throw;
                     }
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, newDensity, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, previousDensity, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
-                        }
+            {
+                new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
+                new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, newDensity, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
+                new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, previousDensity, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
+            }
                     };
                 })
             });

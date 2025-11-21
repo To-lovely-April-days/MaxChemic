@@ -8,14 +8,14 @@ namespace DevicePlugins.Devices
     /// <summary>
     /// 参数基类
     /// </summary>
-    public abstract class ParameterBase : INotifyPropertyChanged
+    public abstract class ParameterBase : INotifyPropertyChanged, ICloneable
     {
         private string _name = string.Empty;
         private object? _value;
         private string _helpText = string.Empty;
         private bool _isRequired;
         private bool _isReadOnly;
-        private bool _isVisibleInVariableManager = false; // 新增属性，默认false
+        private bool _isVisibleInVariableManager = false;
 
         /// <summary>
         /// 参数名称
@@ -139,6 +139,40 @@ namespace DevicePlugins.Devices
         {
             return true;
         }
+
+        /// <summary>
+        /// 克隆参数（深拷贝）
+        /// </summary>
+        public abstract object Clone();
+
+        /// <summary>
+        /// 获取参数值（类型安全的辅助方法）
+        /// </summary>
+        public T GetValue<T>()
+        {
+            if (Value is T typedValue)
+                return typedValue;
+
+            if (Value == null)
+                return default(T);
+
+            try
+            {
+                return (T)Convert.ChangeType(Value, typeof(T));
+            }
+            catch
+            {
+                return default(T);
+            }
+        }
+
+        /// <summary>
+        /// 获取参数值（非泛型版本）
+        /// </summary>
+        public object GetValue()
+        {
+            return Value;
+        }
     }
 
     /// <summary>
@@ -194,6 +228,18 @@ namespace DevicePlugins.Devices
                 return false;
 
             return true;
+        }
+
+        public override object Clone()
+        {
+            var cloned = new StringParameter(Name, Value?.ToString() ?? "", HelpText, IsVisibleInVariableManager)
+            {
+                IsRequired = IsRequired,
+                IsReadOnly = IsReadOnly,
+                MaxLength = MaxLength,
+                Options = new ObservableCollection<string>(Options)
+            };
+            return cloned;
         }
     }
 
@@ -263,6 +309,18 @@ namespace DevicePlugins.Devices
 
             return doubleValue >= MinValue && doubleValue <= MaxValue;
         }
+
+        public override object Clone()
+        {
+            var cloned = new NumberParameter(Name, MinValue, MaxValue,
+                Value is double d ? d : 0, HelpText, IsVisibleInVariableManager)
+            {
+                IsRequired = IsRequired,
+                IsReadOnly = IsReadOnly,
+                DecimalPlaces = DecimalPlaces
+            };
+            return cloned;
+        }
     }
 
     /// <summary>
@@ -281,6 +339,17 @@ namespace DevicePlugins.Devices
         protected override bool ValidateValue()
         {
             return Value is bool;
+        }
+
+        public override object Clone()
+        {
+            var cloned = new BooleanParameter(Name,
+                Value is bool b ? b : false, HelpText, IsVisibleInVariableManager)
+            {
+                IsRequired = IsRequired,
+                IsReadOnly = IsReadOnly
+            };
+            return cloned;
         }
     }
 
@@ -325,6 +394,16 @@ namespace DevicePlugins.Devices
                 return false;
 
             return Enum.IsDefined(EnumType, Value);
+        }
+
+        public override object Clone()
+        {
+            var cloned = new EnumParameter(Name, EnumType, Value, HelpText, IsVisibleInVariableManager)
+            {
+                IsRequired = IsRequired,
+                IsReadOnly = IsReadOnly
+            };
+            return cloned;
         }
     }
 }
