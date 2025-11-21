@@ -54,6 +54,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private DispatcherTimer _errorResetTimer;
         private Storyboard _errorBlinkAnimation;
         private Storyboard _loadingAnimation;
+        private Storyboard _errorStateHoldAnimation;
+
+     
         /// <summary>
         /// 公共属性：是否正在加载
         /// </summary>
@@ -203,7 +206,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 // ✅ 加载动画资源
                 _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
                 _loadingAnimation = this.Resources["LoadingAnimation"] as Storyboard;
-
+                _errorStateHoldAnimation = this.Resources["ErrorStateHoldAnimation"] as Storyboard;
                 if (_pistonStoryboard == null)
                 {
                     Debug.WriteLine("⚠️ 警告: 柱塞动画资源未找到");
@@ -540,31 +543,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public void ShowLoading()
         {
             if (_isLoading) return;
-
             _isLoading = true;
-            Debug.WriteLine($"⏳ 显示加载动画 | PumpId:{PumpId}");
+            Debug.WriteLine($"⏳ 显示加载动画（设备内部能量流）| PumpId:{PumpId}");
 
             try
             {
-                // 清除错误状态
                 ClearError();
+
+                // 停止正常动画
+                if (_pistonStoryboard != null && IsRunning)
+                {
+                    _pistonStoryboard.Pause(this);
+                }
 
                 // 启动加载动画
                 if (_loadingAnimation != null)
                 {
                     _loadingAnimation.Begin(this, true);
-                }
-
-                // 显示加载指示器
-                if (LoadingIndicatorContainer != null)
-                {
-                    LoadingIndicatorContainer.Opacity = 1;
-                }
-
-                // 显示脉冲圆环
-                if (LoadingPulse != null)
-                {
-                    LoadingPulse.Opacity = 0.3;
                 }
             }
             catch (Exception ex)
@@ -573,154 +568,165 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
+
         /// <summary>
         /// 隐藏加载动画
         /// </summary>
         public void HideLoading()
         {
             if (!_isLoading) return;
-
             _isLoading = false;
             Debug.WriteLine($"✅ 隐藏加载动画 | PumpId:{PumpId}");
 
             try
             {
-                // 停止动画
+                // 停止加载动画
                 if (_loadingAnimation != null)
                 {
                     _loadingAnimation.Stop(this);
                 }
 
-                // 淡出效果
-                var fadeOut = new DoubleAnimation
+                // 恢复正常动画
+                if (_pistonStoryboard != null && IsRunning)
                 {
-                    From = LoadingOverlay?.Opacity ?? 0,
-                    To = 0,
-                    Duration = TimeSpan.FromMilliseconds(200)
-                };
-
-                var fadeOutIndicator = new DoubleAnimation
-                {
-                    From = LoadingIndicatorContainer?.Opacity ?? 0,
-                    To = 0,
-                    Duration = TimeSpan.FromMilliseconds(200)
-                };
-
-                var fadeOutPulse = new DoubleAnimation
-                {
-                    From = LoadingPulse?.Opacity ?? 0,
-                    To = 0,
-                    Duration = TimeSpan.FromMilliseconds(200)
-                };
-
-                LoadingOverlay?.BeginAnimation(OpacityProperty, fadeOut);
-                LoadingIndicatorContainer?.BeginAnimation(OpacityProperty, fadeOutIndicator);
-                LoadingPulse?.BeginAnimation(OpacityProperty, fadeOutPulse);
-
-                // 重置旋转角度
-                if (LoadingIndicatorRotation != null)
-                {
-                    LoadingIndicatorRotation.Angle = 0;
+                    _pistonStoryboard.Resume(this);
                 }
+
+                // 重置柱塞杆颜色
+                ResetPistonColors();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 隐藏加载动画失败: {ex.Message}");
             }
         }
+        // 新增：重置柱塞杆颜色
+        private void ResetPistonColors()
+        {
+            var piston1 = this.FindName("Piston1Rod") as Rectangle;
+            var piston2 = this.FindName("Piston2Rod") as Rectangle;
+            var piston3 = this.FindName("Piston3Rod") as Rectangle;
+
+            if (piston1 != null) piston1.Fill = new SolidColorBrush(Color.FromRgb(176, 188, 195));
+            if (piston2 != null) piston2.Fill = new SolidColorBrush(Color.FromRgb(176, 188, 195));
+            if (piston3 != null) piston3.Fill = new SolidColorBrush(Color.FromRgb(176, 188, 195));
+        }
+
 
         /// <summary>
         /// 显示操作失败动画
         /// </summary>
         public void ShowOperationFailure()
         {
-            Debug.WriteLine($"🚨 显示操作失败动画 | PumpId:{PumpId}");
+            Debug.WriteLine($"🚨 显示操作失败动画（整体设备红色警报）| PumpId:{PumpId}");
 
             try
             {
-                // 隐藏加载动画
                 HideLoading();
 
-                // 停止之前的错误动画
-                if (_errorBlinkAnimation != null)
+                // 停止正常动画
+                if (_pistonStoryboard != null && IsRunning)
                 {
-                    _errorBlinkAnimation.Stop(this);
+                    _pistonStoryboard.Stop(this);
                 }
 
-                // 从资源加载动画（如果未加载）
-                if (_errorBlinkAnimation == null)
-                {
-                    _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
-                }
+                // ✅ 停止之前的错误状态保持动画
+                _errorStateHoldAnimation?.Stop(this);
 
-                // 启动闪烁动画
+                // 启动错误闪烁动画
                 if (_errorBlinkAnimation != null)
                 {
+                    _errorBlinkAnimation.Completed -= OnErrorBlinkCompleted; // 防止重复绑定
+                    _errorBlinkAnimation.Completed += OnErrorBlinkCompleted;
                     _errorBlinkAnimation.Begin(this, true);
                 }
 
-                // 同时显示错误边框
-                if (ErrorBorder != null)
-                {
-                    var borderBlinkAnimation = new DoubleAnimationUsingKeyFrames
-                    {
-                        Duration = TimeSpan.FromSeconds(1.5),
-                        RepeatBehavior = new RepeatBehavior(3)
-                    };
-                    borderBlinkAnimation.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0))));
-                    borderBlinkAnimation.KeyFrames.Add(new LinearDoubleKeyFrame(0.8, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.3))));
-                    borderBlinkAnimation.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.6))));
-                    borderBlinkAnimation.KeyFrames.Add(new LinearDoubleKeyFrame(0.8, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.9))));
-                    borderBlinkAnimation.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.2))));
-                    borderBlinkAnimation.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5))));
-
-                    ErrorBorder.BeginAnimation(OpacityProperty, borderBlinkAnimation);
-                }
-
-                // 启动自动重置定时器
-                _errorResetTimer?.Stop();
-                _errorResetTimer?.Start();
+                // ✅ 不再启动自动重置定时器（改为手动清除）
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 显示操作失败动画失败: {ex.Message}");
             }
         }
+        // 添加新方法：错误闪烁完成后，启动持续状态动画
+        private void OnErrorBlinkCompleted(object sender, EventArgs e)
+        {
+            Debug.WriteLine($"🚨 错误闪烁完成，进入持续错误状态 | PumpId:{PumpId}");
+
+            // ✅ 启动持续的红色脉冲动画
+            _errorStateHoldAnimation?.Begin(this, true);
+        }
         /// <summary>
         /// 清除错误状态
         /// </summary>
         public void ClearError()
         {
-            Debug.WriteLine($"✅ 清除错误状态 | PumpId:{PumpId}");
+            Debug.WriteLine($"✅ 手动清除错误状态 | PumpId:{PumpId}");
 
             try
             {
                 // 停止错误动画
-                if (_errorBlinkAnimation != null)
+                _errorBlinkAnimation?.Stop(this);
+                _errorStateHoldAnimation?.Stop(this);
+
+                // 重置所有光效
+                ResetAllGlowEffects();
+
+                // 恢复正常动画
+                if (_pistonStoryboard != null && IsRunning)
                 {
-                    _errorBlinkAnimation.Stop(this);
+                    _pistonStoryboard.Begin(this, true);
                 }
 
-                // 重置覆盖层透明度
-                if (ErrorOverlay != null)
-                {
-                    ErrorOverlay.Opacity = 0;
-                }
-
-                if (ErrorBorder != null)
-                {
-                    ErrorBorder.Opacity = 0;
-                }
-
-                // 停止定时器
-                _errorResetTimer?.Stop();
+                // 重置柱塞杆颜色
+                ResetPistonColors();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ 清除错误状态失败: {ex.Message}");
             }
         }
+        private void ResetAllGlowEffects()
+        {
+            try
+            {
+                var shellGlow = this.FindName("ShellGlow") as DropShadowEffect;
+                var baseGlow = this.FindName("BaseGlow") as DropShadowEffect;
+                var cylinder1Glow = this.FindName("Cylinder1Glow") as DropShadowEffect;
+                var cylinder2Glow = this.FindName("Cylinder2Glow") as DropShadowEffect;
+                var cylinder3Glow = this.FindName("Cylinder3Glow") as DropShadowEffect;
 
+                if (shellGlow != null)
+                {
+                    shellGlow.Color = Colors.Transparent;
+                    shellGlow.BlurRadius = 0;
+                }
+                if (baseGlow != null)
+                {
+                    baseGlow.Color = Colors.Transparent;
+                    baseGlow.BlurRadius = 0;
+                }
+                if (cylinder1Glow != null)
+                {
+                    cylinder1Glow.Color = Colors.Transparent;
+                    cylinder1Glow.BlurRadius = 0;
+                }
+                if (cylinder2Glow != null)
+                {
+                    cylinder2Glow.Color = Colors.Transparent;
+                    cylinder2Glow.BlurRadius = 0;
+                }
+                if (cylinder3Glow != null)
+                {
+                    cylinder3Glow.Color = Colors.Transparent;
+                    cylinder3Glow.BlurRadius = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 重置光效失败: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// 重置错误状态

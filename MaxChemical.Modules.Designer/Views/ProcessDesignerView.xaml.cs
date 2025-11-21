@@ -3236,6 +3236,43 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleSolenoidValveStateChange(deviceElement, e);
                     }
+
+                    // 查找柱塞泵控件
+                    var pumpControl = FindVisualChild<PistonPumpControl>(deviceElement);
+                    if (pumpControl == null)
+                    {
+                        Debug.WriteLine($"⚠️ 未找到柱塞泵控件: {e.DeviceId}");
+                        return;
+                    }
+
+                    // ✅ 处理不同类型的状态变化
+                    switch (e.StateName)
+                    {
+                        case "PumpSpeed":
+                            // 更新泵速
+                            if (e.StateValue is int speed)
+                            {
+                                pumpControl.PumpSpeed = speed;
+                                Debug.WriteLine($"✅ 泵速已更新: {speed}");
+                            }
+                            break;
+
+                        case "IsRunning":
+                            // 更新运行状态
+                            if (e.StateValue is bool isRunning)
+                            {
+                                pumpControl.IsRunning = isRunning;
+                                Debug.WriteLine($"✅ 运行状态已更新: {isRunning}");
+                            }
+                            break;
+
+                        case "CommandState_启动泵":
+                        case "CommandState_设置泵速":
+                        case "CommandState_停止泵":
+                            // 处理命令执行状态
+                            HandleCommandState(pumpControl, e);
+                            break;
+                    }
                 }));
             }
             catch (Exception ex)
@@ -3307,6 +3344,52 @@ namespace MaxChemical.Modules.Designer.Views
                     break;
             }
         }
+
+
+        // ✅ 新增：处理柱塞泵命令执行状态
+        private void HandleCommandState(PistonPumpControl pumpControl, DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+            {
+                Debug.WriteLine($"⚠️ 状态值类型错误: {e.StateValue?.GetType().Name}");
+                return;
+            }
+
+            Debug.WriteLine($"🔔 命令状态: {e.StateName} -> {state}");
+
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    // 显示加载动画
+                    pumpControl.ShowLoading();
+                    UpdateStatusBar("⏳ 正在执行命令...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    // 隐藏加载，命令成功
+                    pumpControl.HideLoading();
+                    UpdateStatusBar("✅ 命令执行成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                    // 隐藏加载，显示失败动画
+                    pumpControl.HideLoading();
+                    pumpControl.ShowOperationFailure();
+                    UpdateStatusBar("❌ 命令执行失败");
+                    break;
+
+                case CommandExecutionState.Error:
+                    // 隐藏加载，显示错误动画
+                    pumpControl.HideLoading();
+                    pumpControl.ShowOperationFailure();
+                    var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                        ? e.AdditionalData["ErrorMessage"]?.ToString()
+                        : "未知错误";
+                    UpdateStatusBar($"⚠️ 命令异常: {errorMsg}");
+                    break;
+            }
+        }
+
         /// <summary>
         /// ✅ 辅助方法：更新状态栏
         /// </summary>
