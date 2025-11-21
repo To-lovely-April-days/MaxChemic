@@ -114,11 +114,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private DispatcherTimer _rotationLabelTimer;
         // ✅ 新增：错误状态动画
         private Storyboard _errorBlinkAnimation;
-        private DispatcherTimer _errorResetTimer;
+        //private DispatcherTimer _errorResetTimer;
 
         // ✅ 新增：加载状态动画
         private Storyboard _loadingAnimation;
         private bool _isLoading = false;
+
+        // ✅ 新增：错误保持动画
+        private Storyboard _errorStateHoldAnimation;
+
         public string ValveId { get; set; }
 
         #endregion
@@ -142,7 +146,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (!isInDesignMode)
             {
-                // 旋转标签定时器
+                // 旋转标签定时器（保留原有代码）
                 _rotationLabelTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromSeconds(2)
@@ -153,16 +157,31 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _rotationLabelTimer.Stop();
                 };
 
-                // ✅ 新增：错误状态重置定时器
-                _errorResetTimer = new DispatcherTimer
+                //// ✅ 新增：错误状态重置定时器
+                //_errorResetTimer = new DispatcherTimer
+                //{
+                //    Interval = TimeSpan.FromSeconds(4.5) // 3次闪烁 × 1.5秒
+                //};
+                //_errorResetTimer.Tick += (s, e) =>
+                //{
+                //    IsError = false;
+                //    _errorResetTimer.Stop();
+                //    Debug.WriteLine($"⏱️ 错误状态已自动重置 | ValveId:{ValveId}");
+                //};
+
+                // ✅ 新增：加载动画资源初始化
+                _loadingAnimation = (Storyboard)this.Resources["LoadingAnimation"];
+                _errorBlinkAnimation = (Storyboard)this.Resources["ErrorBlinkAnimation"];
+                _errorStateHoldAnimation = (Storyboard)this.Resources["ErrorStateHoldAnimation"];
+
+                // ✅ 新增：错误动画完成后自动切换到保持动画
+                _errorBlinkAnimation.Completed += (s, e) =>
                 {
-                    Interval = TimeSpan.FromSeconds(4.5) // 3次闪烁 × 1.5秒
-                };
-                _errorResetTimer.Tick += (s, e) =>
-                {
-                    IsError = false;
-                    _errorResetTimer.Stop();
-                    Debug.WriteLine($"⏱️ 错误状态已自动重置 | ValveId:{ValveId}");
+                    if (IsError)
+                    {
+                        _errorStateHoldAnimation.Begin(this, true);
+                        Debug.WriteLine($"⏱️ 错误闪烁完成，切换到持续脉冲 | ValveId:{ValveId}");
+                    }
                 };
 
                 this.MouseEnter += OnValveMouseEnter;
@@ -647,39 +666,42 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 Debug.WriteLine($"🚨 显示错误状态 | ValveId:{ValveId}");
 
-                // 停止之前的动画
+                // 停止所有动画
+                _loadingAnimation?.Stop();
                 _errorBlinkAnimation?.Stop();
-
-                // 从资源加载动画
-                _errorBlinkAnimation = (Storyboard)this.Resources["ErrorBlinkAnimation"];
+                _errorStateHoldAnimation?.Stop();
 
                 // 启动闪烁动画
                 _errorBlinkAnimation.Begin(this, true);
 
-                // 启动自动重置定时器
-                _errorResetTimer?.Stop();
-                _errorResetTimer?.Start();
+                //// 启动自动重置定时器（可选）
+                //_errorResetTimer?.Stop();
+                //_errorResetTimer?.Start();
             }
             else
             {
                 Debug.WriteLine($"✅ 清除错误状态 | ValveId:{ValveId}");
 
-                // 停止动画
+                // 停止所有动画
                 _errorBlinkAnimation?.Stop();
+                _errorStateHoldAnimation?.Stop();
 
-                // 重置覆盖层透明度
-                if (ErrorOverlay != null)
+                // 重置所有覆盖层
+                var fadeOut = new DoubleAnimation
                 {
-                    ErrorOverlay.Opacity = 0;
-                }
+                    From = ErrorOverlay.Opacity,
+                    To = 0,
+                    Duration = TimeSpan.FromMilliseconds(300)
+                };
 
-                if (ErrorCenterOverlay != null)
-                {
-                    ErrorCenterOverlay.Opacity = 0;
-                }
+                ErrorOverlay.BeginAnimation(OpacityProperty, fadeOut);
+                ErrorCenterOverlay.BeginAnimation(OpacityProperty, fadeOut);
+                ErrorWarningIcon.BeginAnimation(OpacityProperty, fadeOut);
 
-                // 停止定时器
-                _errorResetTimer?.Stop();
+                // 重置震动
+                ValveShakeTransform.X = 0;
+
+                //_errorResetTimer?.Stop();
             }
         }
 
@@ -713,19 +735,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _isLoading = true;
             Debug.WriteLine($"⏳ 显示加载动画 | ValveId:{ValveId}");
 
-            // 停止错误动画（如果正在播放）
+            // 停止错误动画
             if (IsError)
             {
                 IsError = false;
             }
 
-            // 加载动画
-            _loadingAnimation = (Storyboard)this.Resources["LoadingAnimation"];
+            // 启动加载动画
             _loadingAnimation.Begin(this, true);
-
-            // 显示加载轮盘容器
             LoadingWheelContainer.Opacity = 1;
         }
+
 
         /// <summary>
         /// ✅ 隐藏加载动画
@@ -762,21 +782,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Duration = TimeSpan.FromMilliseconds(200)
             };
 
-            var fadeOutPulse = new DoubleAnimation
-            {
-                From = LoadingPulse.Opacity,
-                To = 0,
-                Duration = TimeSpan.FromMilliseconds(200)
-            };
-
             LoadingOverlay.BeginAnimation(OpacityProperty, fadeOut);
             LoadingCenterOverlay.BeginAnimation(OpacityProperty, fadeOutCenter);
             LoadingWheelContainer.BeginAnimation(OpacityProperty, fadeOutWheel);
-            LoadingPulse.BeginAnimation(OpacityProperty, fadeOutPulse);
 
             // 重置旋转角度
             LoadingWheelRotation.Angle = 0;
         }
+
 
         /// <summary>
         /// ✅ 公共属性：是否正在加载
