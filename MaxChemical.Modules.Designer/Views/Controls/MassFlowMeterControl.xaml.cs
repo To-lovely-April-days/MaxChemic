@@ -745,7 +745,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (PointerRotation == null) return;
 
             double normalizedValue = Math.Max(0, Math.Min(flowValue, MaxFlow));
-            double angle = (normalizedValue / MaxFlow) * 270 - 135;
+            double angle = (normalizedValue / MaxFlow) * 270 - 90;
 
             var animation = new DoubleAnimation
             {

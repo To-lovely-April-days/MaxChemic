@@ -861,7 +861,7 @@
                       RenderOptions.EdgeMode="Aliased"/>
             </Canvas>
 
-            <TextBlock Canvas.Left="77" Canvas.Top="78" Text="kg/h" FontSize="15" FontWeight="Bold" 
+            <TextBlock Canvas.Left="77" Canvas.Top="78" Text="g/min" FontSize="15" FontWeight="Bold" 
                       Foreground="#7F8C8D" HorizontalAlignment="Center"/>
 
             <Ellipse Canvas.Left="91" Canvas.Top="91" Width="13" Height="13" Fill="#34495E">
