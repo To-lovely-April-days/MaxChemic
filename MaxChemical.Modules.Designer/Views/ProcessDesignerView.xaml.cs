@@ -3239,45 +3239,44 @@ namespace MaxChemical.Modules.Designer.Views
                   
                     // 查找柱塞泵控件
                     var pumpControl = FindVisualChild<PistonPumpControl>(deviceElement);
-                    //if (pumpControl == null)
-                    //{
-                    //    Debug.WriteLine($"⚠️ 未找到柱塞泵控件: {e.DeviceId}");
-                    //    return;
-                    //}
+                    if (pumpControl!=null)
+                    {
+                        // ✅ 处理不同类型的状态变化
+                        switch (e.StateName)
+                        {
+                            case "PumpSpeed":
+                                // 更新泵速
+                                if (e.StateValue is int speed)
+                                {
+                                    pumpControl.PumpSpeed = speed;
+                                    Debug.WriteLine($"✅ 泵速已更新: {speed}");
+                                }
+                                break;
+
+                            case "IsRunning":
+                                // 更新运行状态
+                                if (e.StateValue is bool isRunning)
+                                {
+                                    pumpControl.IsRunning = isRunning;
+                                    Debug.WriteLine($"✅ 运行状态已更新: {isRunning}");
+                                }
+                                break;
+
+                            case "CommandState_启动泵":
+                            case "CommandState_设置泵速":
+                            case "CommandState_停止泵":
+                                // 处理命令执行状态
+                                HandleCommandState(pumpControl, e);
+                                break;
+                        }
+                    }
                     // ✅ 新增：处理流量计状态
                     var meterControl = FindVisualChild<MassFlowMeterControl>(deviceElement);
                     if (meterControl != null)
                     {
                         HandleFlowMeterControlState(meterControl, e);
                     }
-                    // ✅ 处理不同类型的状态变化
-                    switch (e.StateName)
-                    {
-                        case "PumpSpeed":
-                            // 更新泵速
-                            if (e.StateValue is int speed)
-                            {
-                                pumpControl.PumpSpeed = speed;
-                                Debug.WriteLine($"✅ 泵速已更新: {speed}");
-                            }
-                            break;
-
-                        case "IsRunning":
-                            // 更新运行状态
-                            if (e.StateValue is bool isRunning)
-                            {
-                                pumpControl.IsRunning = isRunning;
-                                Debug.WriteLine($"✅ 运行状态已更新: {isRunning}");
-                            }
-                            break;
-
-                        case "CommandState_启动泵":
-                        case "CommandState_设置泵速":
-                        case "CommandState_停止泵":
-                            // 处理命令执行状态
-                            HandleCommandState(pumpControl, e);
-                            break;
-                    }
+                   
                 }));
             }
             catch (Exception ex)
@@ -6069,12 +6068,25 @@ namespace MaxChemical.Modules.Designer.Views
                 var device = _canvasDataService.RestoreDeviceFromData(deviceData);
                 if (device == null)
                 {
-                    Debug.WriteLine($"⚠️ 无法恢复设备: {deviceData.DeviceName}");
+                    Debug.WriteLine($"无法恢复设备: {deviceData.DeviceName}");
                     return;
                 }
 
                 var independentDevice = ReflectionDeviceDeepCopyService.DeepClone(device);
-
+                try
+                {
+                    // 尝试通过反射设置 DeviceId 属性
+                    var deviceIdProperty = independentDevice.GetType().GetProperty("DeviceId");
+                    if (deviceIdProperty != null && deviceIdProperty.CanWrite)
+                    {
+                        deviceIdProperty.SetValue(independentDevice, deviceData.DeviceId);
+                        Debug.WriteLine($" 已恢复内部设备ID: {deviceData.DeviceId}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($" 注入 DeviceId 失败: {ex.Message}");
+                }
                 // 获取显示名
                 string displayName;
                 if (_deviceDisplayNames.TryGetValue(deviceData.DeviceId, out var existingDisplayName))

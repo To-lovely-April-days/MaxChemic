@@ -22,7 +22,7 @@ namespace DevicePlugins.Devices
         private Timer? _heartbeatTimer;
         private int _connectionTimeout = 30; // 默认30秒超时
         private bool _disposed = false;
-        protected bool _isSimulationMode = false;
+        protected bool _isSimulationMode = true;
 
         // 新增字段
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();

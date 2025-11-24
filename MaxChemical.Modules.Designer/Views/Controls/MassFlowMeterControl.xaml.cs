@@ -726,7 +726,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 double newValue = (double)e.NewValue;
                 meter.UpdatePointerAngle(newValue);
                 meter.UpdateCurrentValueText(newValue);
-                Debug.WriteLine($"流量计 {meter.MeterId} 当前流量: {newValue:F1} kg/h");
+                Debug.WriteLine($"流量计 {meter.MeterId} 当前流量: {newValue:F1} g/min");
             }
         }
 
@@ -736,7 +736,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 double newValue = (double)e.NewValue;
                 meter.UpdateTargetValueText(newValue);
-                Debug.WriteLine($"流量计 {meter.MeterId} 目标流量: {newValue:F1} kg/h");
+                Debug.WriteLine($"流量计 {meter.MeterId} 目标流量: {newValue:F1} g/min");
             }
         }
 
@@ -761,7 +761,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (CurrentValueText != null)
             {
-                CurrentValueText.Text = $"{value:F1} kg/h";
+                CurrentValueText.Text = $"{value:F1} g/min";
             }
         }
 
