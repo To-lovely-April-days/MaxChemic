@@ -149,7 +149,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             InitializeComponent();
 
             MeterId = Guid.NewGuid().ToString();
-            Debug.WriteLine($"✅ MassFlowMeterControl 构造: MeterId={MeterId}");
+            Debug.WriteLine($" MassFlowMeterControl 构造: MeterId={MeterId}");
 
             _rotateTransform = new RotateTransform(0);
             _transformGroup = new TransformGroup();
@@ -173,7 +173,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     }
                     _rotationLabelTimer.Stop();
                 };
-                // ✅ 初始化加载/错误资源
+                //  初始化加载/错误资源
                 this.Loaded += OnControlLoaded;
 
                 _errorResetTimer = new DispatcherTimer
@@ -191,7 +191,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.MouseLeave += OnMeterMouseLeave;
                 SetupRotateAnchorEvents();
 
-                // ========== ✅ 硬件加速配置 ==========
+                // ==========  硬件加速配置 ==========
 
                 // 1. 高质量渲染
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
@@ -214,13 +214,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.SnapsToDevicePixels = true;
                 this.UseLayoutRounding = true;
 
-                // ✅ 5. 液体动画层禁用缓存（使用 GPU）
+                //  5. 液体动画层禁用缓存（使用 GPU）
                 if (FluidFlowContainer != null)
                 {
                     FluidFlowContainer.CacheMode = null;
                 }
 
-                // ✅ 6. 指针禁用缓存（使用硬件加速变换）
+                //  6. 指针禁用缓存（使用硬件加速变换）
                 if (CurrentPointer != null)
                 {
                     CurrentPointer.CacheMode = null;
@@ -242,11 +242,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             // 数据发光动画始终运行
             _dataGlowAnimation = this.Resources["DataGlowAnimation"] as Storyboard;
-            // ✅ 加载动画资源
+            //  加载动画资源
             _loadingAnimation = this.Resources["LoadingAnimation"] as Storyboard;
             _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
             _errorStateHoldAnimation = this.Resources["ErrorStateHoldAnimation"] as Storyboard;
-            // ✅ 绑定错误闪烁完成事件
+            //  绑定错误闪烁完成事件
             if (_errorBlinkAnimation != null)
             {
                 _errorBlinkAnimation.Completed += OnErrorBlinkCompleted;
@@ -254,11 +254,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _dataGlowAnimation?.Begin();
 
             // 验证关键元素
-            Debug.WriteLine($"FluidFlowContainer: {(FluidFlowContainer != null ? "✅" : "❌")}");
-            Debug.WriteLine($"FluidGradientTransform: {(FluidGradientTransform != null ? "✅" : "❌")}");
-            Debug.WriteLine($"WaveTransform1: {(WaveTransform1 != null ? "✅" : "❌")}");
-            Debug.WriteLine($"WaveTransform2: {(WaveTransform2 != null ? "✅" : "❌")}");
-            Debug.WriteLine($"Bubble1: {(Bubble1 != null ? "✅" : "❌")}");
+            Debug.WriteLine($"FluidFlowContainer: {(FluidFlowContainer != null ? "" : "")}");
+            Debug.WriteLine($"FluidGradientTransform: {(FluidGradientTransform != null ? "" : "")}");
+            Debug.WriteLine($"WaveTransform1: {(WaveTransform1 != null ? "" : "")}");
+            Debug.WriteLine($"WaveTransform2: {(WaveTransform2 != null ? "" : "")}");
+            Debug.WriteLine($"Bubble1: {(Bubble1 != null ? "" : "")}");
 
             // 根据 IsFlowing 状态决定是否显示液体动画
             UpdateFlowAnimationState(IsFlowing);
@@ -270,7 +270,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         
 
-        #region ✅ 新增：加载和错误动画方法
+        #region  新增：加载和错误动画方法
 
         /// <summary>
         /// 显示加载动画
@@ -299,7 +299,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 显示加载动画失败: {ex.Message}");
+                Debug.WriteLine($" 显示加载动画失败: {ex.Message}");
             }
         }
 
@@ -310,7 +310,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (!_isLoading) return;
             _isLoading = false;
-            Debug.WriteLine($"✅ 隐藏加载动画 | MeterId:{MeterId}");
+            Debug.WriteLine($" 隐藏加载动画 | MeterId:{MeterId}");
 
             try
             {
@@ -328,7 +328,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 隐藏加载动画失败: {ex.Message}");
+                Debug.WriteLine($" 隐藏加载动画失败: {ex.Message}");
             }
         }
 
@@ -360,7 +360,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 显示失败动画失败: {ex.Message}");
+                Debug.WriteLine($" 显示失败动画失败: {ex.Message}");
             }
         }
 
@@ -378,7 +378,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         public void ClearError()
         {
-            Debug.WriteLine($"✅ 清除错误状态 | MeterId:{MeterId}");
+            Debug.WriteLine($" 清除错误状态 | MeterId:{MeterId}");
 
             try
             {
@@ -396,7 +396,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 清除错误状态失败: {ex.Message}");
+                Debug.WriteLine($" 清除错误状态失败: {ex.Message}");
             }
         }
 
@@ -422,13 +422,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 重置光效失败: {ex.Message}");
+                Debug.WriteLine($" 重置光效失败: {ex.Message}");
             }
         }
 
         private void ResetErrorState()
         {
-            Debug.WriteLine($"✅ 重置错误状态");
+            Debug.WriteLine($" 重置错误状态");
         }
 
         #endregion
@@ -449,7 +449,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     IsFlowing = isFlowing
                 });
 
-                Debug.WriteLine($"🔄 流量计 {meter.MeterId} 流动状态变更: {(isFlowing ? "✅ 启动" : "❌ 停止")}");
+                Debug.WriteLine($"🔄 流量计 {meter.MeterId} 流动状态变更: {(isFlowing ? " 启动" : " 停止")}");
             }
         }
 
@@ -459,17 +459,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (FluidFlowContainer == null)
             {
-                Debug.WriteLine("❌ FluidFlowContainer 为 NULL!");
+                Debug.WriteLine(" FluidFlowContainer 为 NULL!");
                 return;
             }
 
-            Debug.WriteLine($"✅ FluidFlowContainer 存在, Children={FluidFlowContainer.Children.Count}");
+            Debug.WriteLine($" FluidFlowContainer 存在, Children={FluidFlowContainer.Children.Count}");
 
             if (isFlowing)
             {
                 // 显示容器
                 FluidFlowContainer.Visibility = Visibility.Visible;
-                Debug.WriteLine("✅ 容器已显示");
+                Debug.WriteLine(" 容器已显示");
 
                 // 创建并启动动画
                 CreateAndStartFluidAnimation();
@@ -496,7 +496,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 RepeatBehavior = RepeatBehavior.Forever
             };
 
-            // ✅ 设置动画帧率为30fps（降低CPU占用）
+            //  设置动画帧率为30fps（降低CPU占用）
             Timeline.SetDesiredFrameRate(_fluidFlowAnimation, 30);
 
             // 1. 渐变流动动画
@@ -512,7 +512,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Storyboard.SetTarget(gradientAnim, FluidGradientTransform);
                 Storyboard.SetTargetProperty(gradientAnim, new PropertyPath("X"));
                 _fluidFlowAnimation.Children.Add(gradientAnim);
-                Debug.WriteLine("✅ 渐变动画已添加");
+                Debug.WriteLine(" 渐变动画已添加");
             }
 
             // 2. 波浪动画
@@ -558,7 +558,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 动画启动失败: {ex.Message}");
+                Debug.WriteLine($" 动画启动失败: {ex.Message}");
             }
         }
 
@@ -597,7 +597,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Storyboard.SetTargetProperty(topAnim, new PropertyPath("(Canvas.Top)"));
             _fluidFlowAnimation.Children.Add(topAnim);
 
-            Debug.WriteLine($"✅ 气泡动画已添加: {bubble.Name ?? "未命名气泡"}");
+            Debug.WriteLine($" 气泡动画已添加: {bubble.Name ?? "未命名气泡"}");
         }
 
         private void StopAllFluidAnimations()
@@ -784,10 +784,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 double newFlow = Math.Min(TargetFlow + 1, MaxFlow);
                 Debug.WriteLine($"⬆️ 增加流量: {TargetFlow:F1} → {newFlow:F1}");
 
-                // ✅ 显示加载动画
+                //  显示加载动画
                 ShowLoading();
 
-                // ✅ 触发目标流量变化请求事件
+                //  触发目标流量变化请求事件
                 TargetFlowChangeRequested?.Invoke(this, new FlowMeterTargetFlowChangeRequestEventArgs
                 {
                     MeterId = this.MeterId,
@@ -802,11 +802,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             if (!success)
                             {
                                 ShowOperationFailure();
-                                Debug.WriteLine($"❌ 流量增加失败");
+                                Debug.WriteLine($" 流量增加失败");
                             }
                             else
                             {
-                                Debug.WriteLine($"✅ 流量增加成功: {newFlow:F1}");
+                                Debug.WriteLine($" 流量增加成功: {newFlow:F1}");
                             }
                         }));
                     }
@@ -816,7 +816,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 增加流量失败: {ex.Message}");
+                Debug.WriteLine($" 增加流量失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -827,7 +827,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 double newFlow = Math.Max(TargetFlow - 1, 0);
-                Debug.WriteLine($"⬇️ 减少流量: {TargetFlow:F1} → {newFlow:F1}");
+                Debug.WriteLine($" 减少流量: {TargetFlow:F1} → {newFlow:F1}");
 
                 ShowLoading();
 
@@ -854,7 +854,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 减少流量失败: {ex.Message}");
+                Debug.WriteLine($" 减少流量失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -864,11 +864,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                Debug.WriteLine($"🎯 SET按钮点击: 目标流量={TargetFlow:F1}");
+                Debug.WriteLine($" SET按钮点击: 目标流量={TargetFlow:F1}");
 
                 ShowLoading();
 
-                // ✅ 触发状态切换请求（启动流量控制）
+                //  触发状态切换请求（启动流量控制）
                 StateChangeRequested?.Invoke(this, new FlowMeterStateChangeRequestEventArgs
                 {
                     MeterId = this.MeterId,
@@ -896,7 +896,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ SET按钮处理失败: {ex.Message}");
+                Debug.WriteLine($" SET按钮处理失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -937,7 +937,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
-                    Debug.WriteLine("✅ 超过阈值,开始拖拽模式");
+                    Debug.WriteLine(" 超过阈值,开始拖拽模式");
                     _isDragging = true;
 
                     if (((UIElement)sender).IsMouseCaptured)
@@ -977,11 +977,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    Debug.WriteLine($"🖱️ 点击切换流动状态");
+                    Debug.WriteLine($"点击切换流动状态");
 
                     ShowLoading();
 
-                    // ✅ 触发状态切换请求
+                    //  触发状态切换请求
                     StateChangeRequested?.Invoke(this, new FlowMeterStateChangeRequestEventArgs
                     {
                         MeterId = this.MeterId,
@@ -1033,7 +1033,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.IsSelected = false;
                 MeterDeselected?.Invoke(this, this.MeterId);
                 autoHideTimer.Stop();
-                Debug.WriteLine("✅ 流量计选中效果已自动取消");
+                Debug.WriteLine(" 流量计选中效果已自动取消");
             };
 
             autoHideTimer.Start();
@@ -1100,7 +1100,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _dragStartPoint = e.GetPosition(canvas);
                 }
 
-                // ✅ 旋转时禁用缓存
+                //  旋转时禁用缓存
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -1130,7 +1130,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             _isRotating = false;
 
-            // ✅ 旋转结束后恢复缓存
+            //  旋转结束后恢复缓存
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {

@@ -196,7 +196,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道已删除");
 
-                // ✅ 新增：管道删除完成，标记四叉树需要重建
+                //  新增：管道删除完成，标记四叉树需要重建
                 if (_pipeSnapService is PipeSnapService snapService)
                 {
                     snapService.MarkQuadTreeDirty();
@@ -250,11 +250,11 @@ namespace MaxChemical.Modules.Designer.Views
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _pipeConnectionService = pipeConnectionService ?? throw new ArgumentNullException(nameof(pipeConnectionService));
             _pipeSnapService = pipeSnapService ?? throw new ArgumentNullException(nameof(pipeSnapService));
-            _deviceManager = deviceManager ?? throw new ArgumentNullException(nameof(deviceManager)); // ✅ 新增
+            _deviceManager = deviceManager ?? throw new ArgumentNullException(nameof(deviceManager)); //  新增
 
             // 初始化界面组件
             InitializeComponent();
-            // ✅ 新增：初始化布局更新定时器
+            //  新增：初始化布局更新定时器
             InitializeLayoutUpdateTimer();
             Debug.WriteLine("ProcessDesignerView 构造函数被调用");
 
@@ -270,13 +270,13 @@ namespace MaxChemical.Modules.Designer.Views
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
 
-            // ========== ✅ 硬件加速配置 ==========
+            // ==========  硬件加速配置 ==========
             ConfigureHardwareAcceleration();
         }
 
         #region 硬件加速
         /// <summary>
-        /// ✅ 新增：配置硬件加速
+        ///  新增：配置硬件加速
         /// </summary>
         private void ConfigureHardwareAcceleration()
         {
@@ -303,7 +303,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 硬件加速配置失败: {ex.Message}");
+                Debug.WriteLine($" 硬件加速配置失败: {ex.Message}");
             }
         }
 
@@ -319,7 +319,7 @@ namespace MaxChemical.Modules.Designer.Views
                 if (hwndSource != null)
                 {
                     hwndSource.CompositionTarget.RenderMode = RenderMode.Default; // 硬件渲染
-                    Debug.WriteLine("✅ 强制启用硬件渲染");
+                    Debug.WriteLine(" 强制启用硬件渲染");
                 }
                 else
                 {
@@ -330,14 +330,14 @@ namespace MaxChemical.Modules.Designer.Views
                         if (source != null)
                         {
                             source.CompositionTarget.RenderMode = RenderMode.Default;
-                            Debug.WriteLine("✅ 延迟启用硬件渲染");
+                            Debug.WriteLine(" 延迟启用硬件渲染");
                         }
                     };
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"⚠️ 启用硬件渲染失败: {ex.Message}");
+                Debug.WriteLine($"启用硬件渲染失败: {ex.Message}");
             }
         }
 
@@ -359,7 +359,7 @@ namespace MaxChemical.Modules.Designer.Views
             DesignCanvas.SnapsToDevicePixels = true;
             DesignCanvas.UseLayoutRounding = true;
 
-            Debug.WriteLine("✅ 画布级别优化完成");
+            Debug.WriteLine(" 画布级别优化完成");
         }
 
         /// <summary>
@@ -377,7 +377,7 @@ namespace MaxChemical.Modules.Designer.Views
                 CanvasScrollViewer.SnapsToDevicePixels = true;
                 CanvasScrollViewer.UseLayoutRounding = true;
 
-                Debug.WriteLine("✅ 滚动容器优化完成");
+                Debug.WriteLine(" 滚动容器优化完成");
             }
         }
 
@@ -388,7 +388,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // ✅ 关键：启用 GPU 分层合成
+                //  关键：启用 GPU 分层合成
                 DesignCanvas.IsVisibleChanged += (s, e) =>
                 {
                     if (DesignCanvas.IsVisible)
@@ -402,11 +402,11 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 };
 
-                Debug.WriteLine("✅ GPU 合成已启用");
+                Debug.WriteLine(" GPU 合成已启用");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"⚠️ GPU 合成启用失败: {ex.Message}");
+                Debug.WriteLine($"GPU 合成启用失败: {ex.Message}");
             }
         }
 
@@ -418,7 +418,7 @@ namespace MaxChemical.Modules.Designer.Views
             this.SnapsToDevicePixels = true;
             this.UseLayoutRounding = true;
 
-            Debug.WriteLine("✅ 像素对齐配置完成");
+            Debug.WriteLine(" 像素对齐配置完成");
         }
 
         #endregion
@@ -483,7 +483,7 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<GetDeviceDisplayNamesRequestEvent>()?.Subscribe(OnGetDeviceDisplayNamesRequest);
             _eventAggregator?.GetEvent<RestoreDeviceDisplayNamesEvent>()?.Subscribe(OnRestoreDeviceDisplayNames);
 
-            // ✅ 新增：订阅监控卡片位置事件
+            //  新增：订阅监控卡片位置事件
             _eventAggregator?.GetEvent<GetMonitoringCardPositionsRequestEvent>()?.Subscribe(OnGetMonitoringCardPositionsRequest);
             _eventAggregator?.GetEvent<RestoreMonitoringCardPositionsEvent>()?.Subscribe(OnRestoreMonitoringCardPositions);
         }
@@ -575,7 +575,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                     if (!found)
                     {
-                        Debug.WriteLine($"⚠️ 警告：参数 {parameterName} 在设备 {deviceId} 中未找到对应命令");
+                        Debug.WriteLine($"警告：参数 {parameterName} 在设备 {deviceId} 中未找到对应命令");
                     }
                 }
             }
@@ -1014,15 +1014,15 @@ namespace MaxChemical.Modules.Designer.Views
             // *** 新增：订阅监控参数状态事件 ***
             SubscribeToMonitoringParameterEvents();
 
-            // ✅ 新增:订阅管道工具箱事件
+            //  新增:订阅管道工具箱事件
             SubscribeToPipeToolboxEvents();
             //初始化吸附服务
             _pipeSnapService.Initialize(DesignCanvas);
 
-            // ✅ 新增: 订阅语音创建设备事件
+            //  新增: 订阅语音创建设备事件
             SubscribeToVoiceAssistantEvents();
 
-            // ✅ 新增：标记四叉树需要初始化
+            //  新增：标记四叉树需要初始化
             (_pipeSnapService as PipeSnapService)?.MarkQuadTreeDirty();
         }
         /*
@@ -1194,12 +1194,12 @@ namespace MaxChemical.Modules.Designer.Views
             UnsubscribeFromViewModelEvents();
             UnsubscribeFromCanvasEvents();
             UnsubscribeFromKeyboardEvents();
-            UnsubscribeFromPipeToolboxEvents(); // ✅ 新增
-                                                // ✅ 新增: 取消订阅语音助手事件
+            UnsubscribeFromPipeToolboxEvents(); //  新增
+                                                //  新增: 取消订阅语音助手事件
             _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Unsubscribe(OnVoiceCreateDevice);
-            // ✅ 新增:取消订阅监控卡片更新
+            //  新增:取消订阅监控卡片更新
             _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Unsubscribe(OnMonitoringCardUpdate);
-            // ✅ 新增：停止布局更新定时器
+            //  新增：停止布局更新定时器
             _layoutUpdateTimer?.Stop();
         }
         /// <summary>
@@ -1209,7 +1209,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (PipeToolbox != null)
             {
-                PipeToolbox.PipeDragStarted += OnToolboxPipeDragStarted; // ✅ 改名
+                PipeToolbox.PipeDragStarted += OnToolboxPipeDragStarted; //  改名
                 Debug.WriteLine("管道工具箱事件已订阅");
             }
         }
@@ -1221,7 +1221,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (PipeToolbox != null)
             {
-                PipeToolbox.PipeDragStarted -= OnToolboxPipeDragStarted; // ✅ 改名
+                PipeToolbox.PipeDragStarted -= OnToolboxPipeDragStarted; //  改名
             }
         }
 
@@ -1280,12 +1280,12 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Subscribe(OnNewCanvasCreated);
             _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Subscribe(OnLoadCanvasRequest);
             _eventAggregator?.GetEvent<CanvasLoadedEvent>()?.Subscribe(OnCanvasLoaded);
-            // ✅ 新增：订阅获取选中管道请求事件
+            //  新增：订阅获取选中管道请求事件
             _eventAggregator?.GetEvent<GetSelectedPipeRequestEvent>()?.Subscribe(OnGetSelectedPipeRequest);
 
-            // ✅ 新增：订阅删除选中管道事件
+            //  新增：订阅删除选中管道事件
             _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Subscribe(OnDeleteSelectedPipe);
-            // ✅ 新增：订阅管道数据收集和恢复事件
+            //  新增：订阅管道数据收集和恢复事件
             _eventAggregator?.GetEvent<CollectPipeDataRequestEvent>()?.Subscribe(OnCollectPipeDataRequest);
 
         }
@@ -1309,15 +1309,15 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<GetDeviceNameCountersRequestEvent>()?.Unsubscribe(OnGetDeviceNameCountersRequest);
             _eventAggregator?.GetEvent<RestoreDeviceNameCountersEvent>()?.Unsubscribe(OnRestoreDeviceNameCounters);
 
-            // ✅ 新增：取消订阅
+            //  新增：取消订阅
             _eventAggregator?.GetEvent<GetSelectedPipeRequestEvent>()?.Unsubscribe(OnGetSelectedPipeRequest);
             _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Unsubscribe(OnDeleteSelectedPipe);
 
-            // ✅ 新增：取消订阅
+            //  新增：取消订阅
             _eventAggregator?.GetEvent<CollectPipeDataRequestEvent>()?.Unsubscribe(OnCollectPipeDataRequest);
 
 
-            // ✅ 新增：取消订阅监控卡片位置事件
+            //  新增：取消订阅监控卡片位置事件
             _eventAggregator?.GetEvent<GetMonitoringCardPositionsRequestEvent>()?.Unsubscribe(OnGetMonitoringCardPositionsRequest);
             _eventAggregator?.GetEvent<RestoreMonitoringCardPositionsEvent>()?.Unsubscribe(OnRestoreMonitoringCardPositions);
         }
@@ -1353,7 +1353,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
                 }
 
-                // ✅ 调用已有的删除方法
+                //  调用已有的删除方法
                 if (pipeId == _selectedPipeId)
                 {
                     DeleteSelectedPipe();
@@ -1486,7 +1486,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             else if (!string.IsNullOrEmpty(_selectedPipeId))
             {
-                // ✅ 新增：有选中管道时删除管道
+                //  新增：有选中管道时删除管道
                 Debug.WriteLine($"通过Delete键删除选中管道: {_selectedPipeId}");
                 DeleteSelectedPipe();
             }
@@ -1673,7 +1673,7 @@ namespace MaxChemical.Modules.Designer.Views
                 deviceScale.ScaleY = scaleY;
                 deviceElement.RenderTransformOrigin = new Point(0.5, 0.5);
 
-                // ✅ 新增：调度延迟布局更新
+                //  新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
                 Debug.WriteLine($"ApplyDeviceScale: 设备 {deviceId} 缩放应用完成: {scaleX:F2}x{scaleY:F2}");
@@ -1992,7 +1992,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 发布删除完成事件
                 PublishDeviceDeletedEvent(deviceId, deviceName);
-                // ✅ 新增：设备删除完成，标记四叉树需要重建
+                //  新增：设备删除完成，标记四叉树需要重建
                 if (_pipeSnapService is PipeSnapService snapService)
                 {
                     snapService.MarkQuadTreeDirty();
@@ -2042,7 +2042,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 私有字段 拖放节流优化
 
-        // ✅ 拖放区域检测缓存
+        //  拖放区域检测缓存
         private bool? _dragRegionCheckResult = null; // 缓存本次拖放的区域检测结果
 
         #endregion
@@ -2056,18 +2056,18 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine("忽略外部拖拽，内部拖拽进行中");
                 e.Effects = DragDropEffects.None;
                 e.Handled = true;
-                _dragRegionCheckResult = null; // ✅ 清除缓存
+                _dragRegionCheckResult = null; //  清除缓存
                 return;
             }
 
-            // ✅ 处理管道拖拽
+            //  处理管道拖拽
             if (e.Data.GetDataPresent("PipeData"))
             {
                 var pipeData = e.Data.GetData("PipeData") as PipeDragData;
                 Debug.WriteLine($"管道拖拽进入: {pipeData?.PipeType}");
                 e.Effects = DragDropEffects.Copy;
                 DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 0, 255, 120));
-                _dragRegionCheckResult = null; // ✅ 管道不需要区域检测
+                _dragRegionCheckResult = null; //  管道不需要区域检测
                 e.Handled = true;
                 return;
             }
@@ -2079,9 +2079,9 @@ namespace MaxChemical.Modules.Designer.Views
                 var position = e.GetPosition(DesignCanvas);
                 Debug.WriteLine($"外部设备拖拽进入: {device?.Name}");
 
-                // ✅ 只在 DragEnter 时检测一次区域并缓存结果
+                //  只在 DragEnter 时检测一次区域并缓存结果
                 _dragRegionCheckResult = IsValidRegionForDevice(device, position);
-                Debug.WriteLine($"[DragEnter] 区域检测结果: {(_dragRegionCheckResult == true ? "有效区域" : "无效区域")}"); // ✅ 保留日志
+                Debug.WriteLine($"[DragEnter] 区域检测结果: {(_dragRegionCheckResult == true ? "有效区域" : "无效区域")}"); //  保留日志
 
                 if (_dragRegionCheckResult == true)
                 {
@@ -2097,7 +2097,7 @@ namespace MaxChemical.Modules.Designer.Views
             else
             {
                 e.Effects = DragDropEffects.None;
-                _dragRegionCheckResult = null; // ✅ 清除缓存
+                _dragRegionCheckResult = null; //  清除缓存
             }
 
             e.Handled = true;
@@ -2113,7 +2113,7 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ✅ 处理管道拖拽
+            //  处理管道拖拽
             if (e.Data.GetDataPresent("PipeData"))
             {
                 e.Effects = DragDropEffects.Copy;
@@ -2121,12 +2121,12 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ✅ 使用缓存的检测结果，不再重复检测
+            //  使用缓存的检测结果，不再重复检测
             if (e.Data.GetDataPresent("Device"))
             {
-                var position = e.GetPosition(DesignCanvas); // ✅ 保留位置日志需要
+                var position = e.GetPosition(DesignCanvas); //  保留位置日志需要
 
-                // ✅ 使用缓存结果
+                //  使用缓存结果
                 if (_dragRegionCheckResult == true)
                 {
                     e.Effects = DragDropEffects.Copy;
@@ -2138,7 +2138,7 @@ namespace MaxChemical.Modules.Designer.Views
                     DesignCanvas.Background = new SolidColorBrush(Color.FromArgb(20, 255, 0, 0));
                 }
 
-                // ✅ 保留原有位置日志（如果需要）
+                //  保留原有位置日志（如果需要）
                 Debug.WriteLine($"[DragOver] 位置: ({position.X:F0}, {position.Y:F0}), 效果: {e.Effects}");
             }
 
@@ -2149,7 +2149,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             Debug.WriteLine($"外部拖拽离开: 内部拖拽={_isInternalDragging}");
 
-            // ✅ 清除缓存
+            //  清除缓存
             _dragRegionCheckResult = null;
 
             // 如果正在进行内部拖拽则忽略
@@ -2185,7 +2185,7 @@ namespace MaxChemical.Modules.Designer.Views
             // 恢复画布背景
             DesignCanvas.Background = Brushes.White;
 
-            // ✅ 清除缓存
+            //  清除缓存
             var cachedResult = _dragRegionCheckResult;
             _dragRegionCheckResult = null;
 
@@ -2197,7 +2197,7 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ✅ 处理管道拖放
+            //  处理管道拖放
             if (e.Data.GetDataPresent("PipeData"))
             {
                 var pipeData = e.Data.GetData("PipeData") as PipeDragData;
@@ -2216,7 +2216,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var device = e.Data.GetData("Device") as IDevice;
                 var dropPosition = e.GetPosition(DesignCanvas);
 
-                // ✅ 使用缓存的检测结果
+                //  使用缓存的检测结果
                 if (cachedResult == true)
                 {
                     ProcessDeviceDrop(device, dropPosition);
@@ -2422,12 +2422,12 @@ namespace MaxChemical.Modules.Designer.Views
                 var canvasDevice = new CanvasDeviceViewModel
                 {
                     DeviceId = canvasDeviceId,
-                    Device = independentDevice, // ✅ 使用深拷贝的独立设备实例
+                    Device = independentDevice, //  使用深拷贝的独立设备实例
                     Position = position,
                     Width = 80,
                     Height = 60
                 };
-                // ✅ 关键修复：将画布ID传递给设备实例
+                //  关键修复：将画布ID传递给设备实例
                 if (independentDevice is IDeviceUIInteraction uiInteraction)
                 {
                     // 如果设备支持UI交互，设置其DeviceId属性
@@ -2499,7 +2499,7 @@ namespace MaxChemical.Modules.Designer.Views
                         CreateElbowPipe(position);
                         break;
 
-                    // ✅ 新增：Z 形管道创建
+                    //  新增：Z 形管道创建
                     case PipeType.ZShape:
                         CreateZShapePipe(position);
                         break;
@@ -2532,7 +2532,7 @@ namespace MaxChemical.Modules.Designer.Views
                     var clickPosition = e.GetPosition(DesignCanvas);
                     var hitElement = e.OriginalSource as FrameworkElement;
 
-                    // ✅ 只处理设备和空白区域
+                    //  只处理设备和空白区域
                     var deviceControl = FindDeviceControl(hitElement);
                     if (deviceControl?.Tag is string deviceId)
                     {
@@ -2540,7 +2540,7 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                     else
                     {
-                        // ⚠️ 点击空白区域时，清除所有选择
+                        // 点击空白区域时，清除所有选择
                         HandleCanvasEmptyAreaClick();
                     }
                 }
@@ -2607,11 +2607,11 @@ namespace MaxChemical.Modules.Designer.Views
         private void HandleCanvasEmptyAreaClick()
         {
             OnDeviceDeselected();
-            ClearPipeSelection(); // ✅ 新增：清除管道选择
-            ClearAllValveSelections(); // ✅ 新增：清除所有阀门选择
-            ClearAllFlowMeterSelections(); // ✅ 新增
-            ClearAllMicroreactorSelections(); // ✅ 新增
-            ClearAllHeatExchangerSelections(); // ✅ 新增：清除换热器选择
+            ClearPipeSelection(); //  新增：清除管道选择
+            ClearAllValveSelections(); //  新增：清除所有阀门选择
+            ClearAllFlowMeterSelections(); //  新增
+            ClearAllMicroreactorSelections(); //  新增
+            ClearAllHeatExchangerSelections(); //  新增：清除换热器选择
             CleanupDragState();
             this.Focus();
         }
@@ -2620,14 +2620,14 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var currentPosition = e.GetPosition(DesignCanvas);
 
-            // ✅ 优先处理拖拽状态（无需节流）
+            //  优先处理拖拽状态（无需节流）
             if (_isMouseDown && _mouseDownElement != null && e.LeftButton == MouseButtonState.Pressed)
             {
                 ProcessDeviceDragging(e);
-                return; // ⚠️ 重要：拖拽处理后直接返回，不受节流影响
+                return; // 重要：拖拽处理后直接返回，不受节流影响
             }
 
-            // ✅ 只对非拖拽的鼠标移动进行节流
+            //  只对非拖拽的鼠标移动进行节流
             var currentTime = DateTime.Now;
             var timeDelta = (currentTime - _lastMouseMoveTime).TotalMilliseconds;
             var distance = Math.Sqrt(Math.Pow(currentPosition.X - _lastMousePosition.X, 2) +
@@ -2669,7 +2669,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private bool ShouldStartDragging(Point currentPoint)
         {
-            // ✅ 直接计算距离，不依赖 _lastMousePosition
+            //  直接计算距离，不依赖 _lastMousePosition
             double dx = currentPoint.X - _dragStartPoint.X;
             double dy = currentPoint.Y - _dragStartPoint.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
@@ -2696,7 +2696,7 @@ namespace MaxChemical.Modules.Designer.Views
             DesignCanvas.CaptureMouse();
             AddDragVisualFeedback(_mouseDownElement);
 
-            // ✅ 拖拽时降低渲染质量
+            //  拖拽时降低渲染质量
             RenderOptions.SetBitmapScalingMode(DesignCanvas, BitmapScalingMode.LowQuality);
             DesignCanvas.CacheMode = null; // 禁用缓存
 
@@ -2733,7 +2733,7 @@ namespace MaxChemical.Modules.Designer.Views
             Canvas.SetTop(_mouseDownElement, boundedTop);
             _mouseDownElement.Opacity = 0.8;
 
-            // ✅ 新增：调度延迟布局更新
+            //  新增：调度延迟布局更新
             ScheduleLayoutUpdate();
 
             UpdateDragVisualFeedback(_mouseDownElement, true);
@@ -2821,13 +2821,13 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 RestoreDeviceToOriginalPosition(_mouseDownElement);
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    "⚠️ 设备不能放置在当前区域");
+                    "设备不能放置在当前区域");
             }
 
             _dragDropService.EndDrag(endPosition, isSuccessful, "Canvas");
             DesignCanvas.AllowDrop = true;
 
-            // ✅ 拖拽结束后恢复高质量
+            //  拖拽结束后恢复高质量
             RenderOptions.SetBitmapScalingMode(DesignCanvas, BitmapScalingMode.HighQuality);
             DesignCanvas.CacheMode = new BitmapCache
             {
@@ -2836,7 +2836,7 @@ namespace MaxChemical.Modules.Designer.Views
                 SnapsToDevicePixels = true
             };
 
-            Debug.WriteLine("✅ 已恢复高质量渲染");
+            Debug.WriteLine(" 已恢复高质量渲染");
         }
 
         /// <summary>
@@ -3048,7 +3048,7 @@ namespace MaxChemical.Modules.Designer.Views
             // 设置事件处理器
             AttachDeviceEventHandlers(deviceControl);
 
-            // ✅ 新增：如果设备包含阀门控件，订阅阀门事件
+            //  新增：如果设备包含阀门控件，订阅阀门事件
             SubscribeValveEventsInDevice(deviceControl);
 
             if (canvasDevice.Device?.Name?.Contains("锥形瓶") == true ||
@@ -3065,16 +3065,16 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             Debug.WriteLine($"设备视觉元素创建完成: {canvasDevice.Device.Name}, ID: {canvasDevice.DeviceId}");
-            // ✅ 订阅设备状态变化
+            //  订阅设备状态变化
             if (canvasDevice.Device is IDeviceUIInteraction uiInteraction)
             {
                 _deviceUIInteractions[canvasDevice.DeviceId] = uiInteraction;
                 uiInteraction.ControlStateChanged += OnDeviceStateChanged;
 
-                Debug.WriteLine($"✅ 已订阅设备UI交互: {canvasDevice.DeviceId}");
+                Debug.WriteLine($" 已订阅设备UI交互: {canvasDevice.DeviceId}");
             }
 
-            // ✅ 订阅控件交互事件
+            //  订阅控件交互事件
             SubscribeDeviceControlEvents(deviceControl, canvasDevice);
         }
         /// <summary>
@@ -3088,19 +3088,19 @@ namespace MaxChemical.Modules.Designer.Views
                 var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceControl);
                 if (solenoidValve != null)
                 {
-                    // ✅ 订阅状态切换请求事件
+                    //  订阅状态切换请求事件
                     solenoidValve.StateChangeRequested += async (s, e) =>
                     {
                         await HandleValveStateChangeRequestAsync(canvasDevice.Device, e);
                     };
-                    Debug.WriteLine($"✅ 已订阅电磁阀状态切换事件: {canvasDevice.DeviceId}");
+                    Debug.WriteLine($" 已订阅电磁阀状态切换事件: {canvasDevice.DeviceId}");
                 }
 
-                // ✅ 未来可扩展其他设备类型...
+                //  未来可扩展其他设备类型...
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 订阅设备控件事件失败: {ex.Message}");
+                Debug.WriteLine($" 订阅设备控件事件失败: {ex.Message}");
             }
         }
 
@@ -3117,7 +3117,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 1️⃣ 解析事件参数
                 if (eventArgs is not SolenoidValveControl.ValveStateChangeRequestEventArgs solenoidArgs)
                 {
-                    Debug.WriteLine("⚠️ 未知的事件参数类型");
+                    Debug.WriteLine("未知的事件参数类型");
                     return;
                 }
 
@@ -3129,7 +3129,7 @@ namespace MaxChemical.Modules.Designer.Views
                 solenoidValve = FindDeviceControl<SolenoidValveControl>(valveId);
                 if (solenoidValve == null)
                 {
-                    Debug.WriteLine($"⚠️ 未找到电磁阀控件: {valveId}");
+                    Debug.WriteLine($"未找到电磁阀控件: {valveId}");
                     return;
                 }
 
@@ -3141,7 +3141,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 2️⃣ 检查设备是否支持UI交互
                 if (device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine($"⚠️ 设备 {device.Name} 不支持UI交互");
+                    Debug.WriteLine($"设备 {device.Name} 不支持UI交互");
                     solenoidValve?.HideLoading();
                     return;
                 }
@@ -3159,17 +3159,17 @@ namespace MaxChemical.Modules.Designer.Views
                 // 6️⃣ 处理执行结果
                 if (result.Success)
                 {
-                    Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
+                    Debug.WriteLine($" 命令执行成功: {result.Message}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ {commandName}成功");
+                        $" {commandName}成功");
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+                    Debug.WriteLine($" 命令执行失败: {result.Message}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ {commandName}失败: {result.Message}");
+                        $" {commandName}失败: {result.Message}");
 
-                    // ✅ 显示失败动画
+                    //  显示失败动画
                     solenoidValve?.ShowOperationFailure();
                 }
 
@@ -3177,17 +3177,17 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理阀门状态切换请求失败: {ex.Message}");
+                Debug.WriteLine($" 处理阀门状态切换请求失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"❌ 操作失败: {ex.Message}");
+                    $" 操作失败: {ex.Message}");
 
-                // ✅ 隐藏加载 + 显示错误
+                //  隐藏加载 + 显示错误
                 solenoidValve?.HideLoading();
                 solenoidValve?.ShowOperationFailure();
             }
         }
         /// <summary>
-        /// ✅ 辅助方法：查找设备控件
+        ///  辅助方法：查找设备控件
         /// </summary>
         private T FindDeviceControl<T>(string valveId)  where T : UserControl
         {
@@ -3227,11 +3227,11 @@ namespace MaxChemical.Modules.Designer.Views
                     var deviceElement = FindDeviceElementInCanvas(e.DeviceId);
                     if (deviceElement == null)
                     {
-                        Debug.WriteLine($"⚠️ 未找到设备元素: {e.DeviceId}");
+                        Debug.WriteLine($"未找到设备元素: {e.DeviceId}");
                         return;
                     }
 
-                    // ✅ 统一处理电磁阀状态
+                    //  统一处理电磁阀状态
                     if (e.StateName == "ValveState")
                     {
                         HandleSolenoidValveStateChange(deviceElement, e);
@@ -3241,7 +3241,7 @@ namespace MaxChemical.Modules.Designer.Views
                     var pumpControl = FindVisualChild<PistonPumpControl>(deviceElement);
                     if (pumpControl!=null)
                     {
-                        // ✅ 处理不同类型的状态变化
+                        //  处理不同类型的状态变化
                         switch (e.StateName)
                         {
                             case "PumpSpeed":
@@ -3249,7 +3249,7 @@ namespace MaxChemical.Modules.Designer.Views
                                 if (e.StateValue is int speed)
                                 {
                                     pumpControl.PumpSpeed = speed;
-                                    Debug.WriteLine($"✅ 泵速已更新: {speed}");
+                                    Debug.WriteLine($" 泵速已更新: {speed}");
                                 }
                                 break;
 
@@ -3258,7 +3258,7 @@ namespace MaxChemical.Modules.Designer.Views
                                 if (e.StateValue is bool isRunning)
                                 {
                                     pumpControl.IsRunning = isRunning;
-                                    Debug.WriteLine($"✅ 运行状态已更新: {isRunning}");
+                                    Debug.WriteLine($" 运行状态已更新: {isRunning}");
                                 }
                                 break;
 
@@ -3270,7 +3270,7 @@ namespace MaxChemical.Modules.Designer.Views
                                 break;
                         }
                     }
-                    // ✅ 新增：处理流量计状态
+                    //  新增：处理流量计状态
                     var meterControl = FindVisualChild<MassFlowMeterControl>(deviceElement);
                     if (meterControl != null)
                     {
@@ -3281,11 +3281,11 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理设备状态变化失败: {ex.Message}");
+                Debug.WriteLine($" 处理设备状态变化失败: {ex.Message}");
             }
         }
         /// <summary>
-        /// ✅ 处理电磁阀状态变化（统一入口）
+        ///  处理电磁阀状态变化（统一入口）
         /// </summary>
         private void HandleSolenoidValveStateChange(
       FrameworkElement deviceElement,
@@ -3293,7 +3293,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.StateValue is not SolenoidValveState valveState)
             {
-                Debug.WriteLine($"⚠️ 状态值类型错误: {e.StateValue?.GetType().Name}");
+                Debug.WriteLine($"状态值类型错误: {e.StateValue?.GetType().Name}");
                 return;
             }
 
@@ -3301,13 +3301,13 @@ namespace MaxChemical.Modules.Designer.Views
             var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceElement);
             if (solenoidValve == null)
             {
-                Debug.WriteLine($"⚠️ 未找到电磁阀控件: {e.DeviceId}");
+                Debug.WriteLine($"未找到电磁阀控件: {e.DeviceId}");
                 return;
             }
 
             Debug.WriteLine($"🔔 电磁阀状态: {valveState}");
 
-            // ✅ 根据状态更新UI
+            //  根据状态更新UI
             switch (valveState)
             {
                 case SolenoidValveState.Opening:
@@ -3318,7 +3318,7 @@ namespace MaxChemical.Modules.Designer.Views
                 case SolenoidValveState.Open:
                     solenoidValve.HideLoading();
                     solenoidValve.IsOpen = true;
-                    UpdateStatusBar("✅ 电磁阀已打开");
+                    UpdateStatusBar(" 电磁阀已打开");
                     break;
 
                 case SolenoidValveState.Closing:
@@ -3329,13 +3329,13 @@ namespace MaxChemical.Modules.Designer.Views
                 case SolenoidValveState.Closed:
                     solenoidValve.HideLoading();
                     solenoidValve.IsOpen = false;
-                    UpdateStatusBar("✅ 电磁阀已关闭");
+                    UpdateStatusBar(" 电磁阀已关闭");
                     break;
 
                 case SolenoidValveState.Failed:
                     solenoidValve.HideLoading();
                     solenoidValve.ShowOperationFailure();
-                    UpdateStatusBar("❌ 电磁阀操作失败");
+                    UpdateStatusBar(" 电磁阀操作失败");
                     break;
 
                 case SolenoidValveState.Error:
@@ -3344,18 +3344,18 @@ namespace MaxChemical.Modules.Designer.Views
                     var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
                         ? e.AdditionalData["ErrorMessage"]?.ToString()
                         : "未知错误";
-                    UpdateStatusBar($"⚠️ 电磁阀错误: {errorMsg}");
+                    UpdateStatusBar($"电磁阀错误: {errorMsg}");
                     break;
             }
         }
 
 
-        // ✅ 新增：处理柱塞泵命令执行状态
+        //  新增：处理柱塞泵命令执行状态
         private void HandleCommandState(PistonPumpControl pumpControl, DeviceControlStateChangedEventArgs e)
         {
             if (e.StateValue is not CommandExecutionState state)
             {
-                Debug.WriteLine($"⚠️ 状态值类型错误: {e.StateValue?.GetType().Name}");
+                Debug.WriteLine($"状态值类型错误: {e.StateValue?.GetType().Name}");
                 return;
             }
 
@@ -3372,14 +3372,14 @@ namespace MaxChemical.Modules.Designer.Views
                 case CommandExecutionState.Succeeded:
                     // 隐藏加载，命令成功
                     pumpControl.HideLoading();
-                    UpdateStatusBar("✅ 命令执行成功");
+                    UpdateStatusBar(" 命令执行成功");
                     break;
 
                 case CommandExecutionState.Failed:
                     // 隐藏加载，显示失败动画
                     pumpControl.HideLoading();
                     pumpControl.ShowOperationFailure();
-                    UpdateStatusBar("❌ 命令执行失败");
+                    UpdateStatusBar(" 命令执行失败");
                     break;
 
                 case CommandExecutionState.Error:
@@ -3389,13 +3389,13 @@ namespace MaxChemical.Modules.Designer.Views
                     var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
                         ? e.AdditionalData["ErrorMessage"]?.ToString()
                         : "未知错误";
-                    UpdateStatusBar($"⚠️ 命令异常: {errorMsg}");
+                    UpdateStatusBar($"命令异常: {errorMsg}");
                     break;
             }
         }
 
         /// <summary>
-        /// ✅ 新增：处理流量计控件状态
+        ///  新增：处理流量计控件状态
         /// </summary>
         private void HandleFlowMeterControlState(MassFlowMeterControl meterControl, DeviceControlStateChangedEventArgs e)
         {
@@ -3405,7 +3405,7 @@ namespace MaxChemical.Modules.Designer.Views
                     if (e.StateValue is double currentFlow)
                     {
                         meterControl.CurrentFlow = currentFlow;
-                        Debug.WriteLine($"✅ 当前流量已更新: {currentFlow:F2}");
+                        Debug.WriteLine($" 当前流量已更新: {currentFlow:F2}");
                     }
                     break;
 
@@ -3413,7 +3413,7 @@ namespace MaxChemical.Modules.Designer.Views
                     if (e.StateValue is double targetFlow)
                     {
                         meterControl.TargetFlow = targetFlow;
-                        Debug.WriteLine($"✅ 目标流量已更新: {targetFlow:F2}");
+                        Debug.WriteLine($" 目标流量已更新: {targetFlow:F2}");
                     }
                     break;
 
@@ -3421,7 +3421,7 @@ namespace MaxChemical.Modules.Designer.Views
                     if (e.StateValue is bool isFlowing)
                     {
                         meterControl.IsFlowing = isFlowing;
-                        Debug.WriteLine($"✅ 流动状态已更新: {isFlowing}");
+                        Debug.WriteLine($" 流动状态已更新: {isFlowing}");
                     }
                     break;
 
@@ -3429,7 +3429,7 @@ namespace MaxChemical.Modules.Designer.Views
                     // 可选：如果UI需要显示密度
                     if (e.StateValue is double density)
                     {
-                        Debug.WriteLine($"✅ 密度已更新: {density:F2}");
+                        Debug.WriteLine($" 密度已更新: {density:F2}");
                     }
                     break;
 
@@ -3443,13 +3443,13 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：处理流量计命令执行状态
+        ///  新增：处理流量计命令执行状态
         /// </summary>
         private void HandleFlowMeterCommandState(MassFlowMeterControl meterControl, DeviceControlStateChangedEventArgs e)
         {
             if (e.StateValue is not CommandExecutionState state)
             {
-                Debug.WriteLine($"⚠️ 状态值类型错误: {e.StateValue?.GetType().Name}");
+                Debug.WriteLine($"状态值类型错误: {e.StateValue?.GetType().Name}");
                 return;
             }
 
@@ -3464,13 +3464,13 @@ namespace MaxChemical.Modules.Designer.Views
 
                 case CommandExecutionState.Succeeded:
                     meterControl.HideLoading();
-                    UpdateStatusBar("✅ 命令执行成功");
+                    UpdateStatusBar(" 命令执行成功");
                     break;
 
                 case CommandExecutionState.Failed:
                     meterControl.HideLoading();
                     meterControl.ShowOperationFailure();
-                    UpdateStatusBar("❌ 命令执行失败");
+                    UpdateStatusBar(" 命令执行失败");
                     break;
 
                 case CommandExecutionState.Error:
@@ -3479,12 +3479,12 @@ namespace MaxChemical.Modules.Designer.Views
                     var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
                         ? e.AdditionalData["ErrorMessage"]?.ToString()
                         : "未知错误";
-                    UpdateStatusBar($"⚠️ 命令异常: {errorMsg}");
+                    UpdateStatusBar($"命令异常: {errorMsg}");
                     break;
             }
         }
         /// <summary>
-        /// ✅ 辅助方法：更新状态栏
+        ///  辅助方法：更新状态栏
         /// </summary>
         private void UpdateStatusBar(string message)
         {
@@ -3492,7 +3492,7 @@ namespace MaxChemical.Modules.Designer.Views
             Debug.WriteLine($"📊 状态栏: {message}");
         }
         /// <summary>
-        /// ✅ 新增：处理命令执行状态变化
+        ///  新增：处理命令执行状态变化
         /// </summary>
         private void HandleCommandStateChange(DeviceControlStateChangedEventArgs e)
         {
@@ -3500,7 +3500,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (e.StateValue is not CommandExecutionState executionState)
                 {
-                    Debug.WriteLine($"⚠️ 命令状态值类型错误: {e.StateValue?.GetType().Name}");
+                    Debug.WriteLine($"命令状态值类型错误: {e.StateValue?.GetType().Name}");
                     return;
                 }
 
@@ -3519,12 +3519,12 @@ namespace MaxChemical.Modules.Designer.Views
 
                     case CommandExecutionState.Succeeded:
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"✅ {commandName} 成功");
+                            $" {commandName} 成功");
                         break;
 
                     case CommandExecutionState.Failed:
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"❌ {commandName} 失败");
+                            $" {commandName} 失败");
                         break;
 
                     case CommandExecutionState.Error:
@@ -3532,13 +3532,13 @@ namespace MaxChemical.Modules.Designer.Views
                             ? e.AdditionalData["ErrorMessage"]?.ToString()
                             : "未知错误";
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"⚠️ {commandName} 异常: {errorMessage}");
+                            $"{commandName} 异常: {errorMessage}");
                         break;
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理命令状态变化失败: {ex.Message}");
+                Debug.WriteLine($" 处理命令状态变化失败: {ex.Message}");
             }
         }
 
@@ -3584,7 +3584,7 @@ namespace MaxChemical.Modules.Designer.Views
                 AllowDrop = false
             };
 
-            // ✅ 启用设备级别缓存
+            //  启用设备级别缓存
             RenderOptions.SetCachingHint(deviceControl, CachingHint.Cache);
             deviceControl.CacheMode = new BitmapCache
             {
@@ -3649,7 +3649,8 @@ namespace MaxChemical.Modules.Designer.Views
 
             Canvas.SetLeft(deviceControl, left);
             Canvas.SetTop(deviceControl, top);
-
+            // 【修改】强制设置设备的 ZIndex 为 100，确保在管道(10)之上
+            Panel.SetZIndex(deviceControl, 100);
             DesignCanvas.Children.Add(deviceControl);
 
             // 恢复选择状态
@@ -3948,7 +3949,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 double cardLeft, cardTop;
 
-                // ✅ 优先使用保存的位置
+                //  优先使用保存的位置
                 if (_monitoringCardPositions.TryGetValue(deviceId, out var savedPosition))
                 {
                     cardLeft = savedPosition.X;
@@ -3957,7 +3958,7 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    // ✅ 使用默认位置（设备右侧）
+                    //  使用默认位置（设备右侧）
                     var deviceLeft = Canvas.GetLeft(deviceElement);
                     var deviceTop = Canvas.GetTop(deviceElement);
                     var deviceWidth = deviceElement.ActualWidth;
@@ -3980,7 +3981,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"监控卡片已添加到画布: 位置({cardLeft:F0}, {cardTop:F0})");
 
-                // ✅ 启用监控卡片缓存
+                //  启用监控卡片缓存
                 RenderOptions.SetCachingHint(monitoringCard, CachingHint.Cache);
                 monitoringCard.CacheMode = new BitmapCache
                 {
@@ -4320,7 +4321,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"设备 {deviceId} 视觉位置已更新到: ({elementLeft:F1}, {elementTop:F1})");
 
-                // ✅ 新增：调度延迟布局更新
+                //  新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
                 // 更新监控卡片位置
@@ -4341,14 +4342,14 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var currentPosition = e.GetPosition(DesignCanvas);
 
-                // ✅ 如果是拖拽状态，立即处理，不节流
+                //  如果是拖拽状态，立即处理，不节流
                 if (_isMouseDown && _currentDraggingDeviceId == deviceId && e.LeftButton == MouseButtonState.Pressed)
                 {
                     HandleDeviceMouseMove(deviceElement, e);
-                    return; // ⚠️ 重要：直接返回，不受节流影响
+                    return; // 重要：直接返回，不受节流影响
                 }
 
-                // ✅ 只对非拖拽的鼠标移动进行节流
+                //  只对非拖拽的鼠标移动进行节流
                 var currentTime = DateTime.Now;
                 var timeDelta = (currentTime - _lastMouseMoveTime).TotalMilliseconds;
                 var distance = Math.Sqrt(Math.Pow(currentPosition.X - _lastMousePosition.X, 2) +
@@ -4554,12 +4555,12 @@ namespace MaxChemical.Modules.Designer.Views
                     Debug.WriteLine($"未找到设备 {deviceId} 的视觉元素");
                 }
 
-                // ✅ 取消订阅
+                //  取消订阅
                 if (_deviceUIInteractions.TryGetValue(deviceId, out var uiInteraction))
                 {
                     uiInteraction.ControlStateChanged -= OnDeviceStateChanged;
                     _deviceUIInteractions.Remove(deviceId);
-                    Debug.WriteLine($"✅ 已取消设备UI交互订阅: {deviceId}");
+                    Debug.WriteLine($" 已取消设备UI交互订阅: {deviceId}");
                 }
             }
             catch (Exception ex)
@@ -4597,7 +4598,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
                 string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
-                // ✅ 自定义控件尺寸处理
+                //  自定义控件尺寸处理
                 if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
                 {
                     string controlType = imageLocation.Replace("CUSTOM_CONTROL:", "");
@@ -4611,7 +4612,7 @@ namespace MaxChemical.Modules.Designer.Views
                             Debug.WriteLine($"锥形瓶尺寸: {flaskWidth:F0}x{flaskHeight:F0}");
                             return new Size(flaskWidth, flaskHeight);
 
-                        // ✅ 新增：柱塞泵尺寸
+                        //  新增：柱塞泵尺寸
                         case "PistonPumpControl":
                             // 根据你的 XAML：Width="880" Height="600"
                             // 但画布上需要缩小显示
@@ -4622,7 +4623,7 @@ namespace MaxChemical.Modules.Designer.Views
                             Debug.WriteLine($"柱塞泵尺寸: {pumpWidth:F0}x{pumpHeight:F0}");
                             return new Size(pumpWidth, pumpHeight);
 
-                        // ✅ 新增：阀门尺寸
+                        //  新增：阀门尺寸
                         case "ValveControl":
                             double valveWidth = 200 * 0.5;   // 100（阀门原尺寸200x200，缩小到一半）
                             double valveHeight = 200 * 0.5;  // 100
@@ -4749,7 +4750,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
                 string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
-                // ✅ 新增：检查是否为自定义控件
+                //  新增：检查是否为自定义控件
                 if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
                 {
                     return CreateCustomControlIcon(imageLocation, targetWidth, targetHeight);
@@ -4785,18 +4786,18 @@ namespace MaxChemical.Modules.Designer.Views
                     case "ConicalFlaskControl":
                         return CreateConicalFlaskIcon(targetWidth, targetHeight);
 
-                    // ✅ 新增：柱塞泵控件
+                    //  新增：柱塞泵控件
                     case "PistonPumpControl":
                         return CreatePistonPumpIcon(targetWidth, targetHeight);
 
-                    // ✅ 新增：阀门控件
+                    //  新增：阀门控件
                     case "ValveControl":
                         return CreateValveIcon(targetWidth, targetHeight);
 
                     case "SolenoidValveControl":
                         return CreateSolenoidValveIcon(targetWidth, targetHeight);
 
-                    // ✅ 新增：流量计控件
+                    //  新增：流量计控件
                     case "MassFlowMeterControl":
                         return CreateMassFlowMeterIcon(targetWidth, targetHeight);
                     //微反应器
@@ -4835,36 +4836,36 @@ namespace MaxChemical.Modules.Designer.Views
                 // 隐藏交互元素
                 HideFlaskInteractiveElements(flaskControl);
 
-                // ✅ 关键修复：使用 Loaded 事件而不是 SizeChanged
+                //  关键修复：使用 Loaded 事件而不是 SizeChanged
                 flaskControl.Loaded += (s, e) =>
                 {
                     try
                     {
                         Debug.WriteLine("锥形瓶 Loaded 事件触发");
 
-                        // ✅ 方法1：直接设置液体（推荐）
+                        //  方法1：直接设置液体（推荐）
                         flaskControl.SetLiquidColor(96, 176, 224, 180);  // 增加透明度到180
                         flaskControl.SetLiquidLevel(65, animated: true);
                         //flaskControl.IsWaveAnimationEnabled = true;
 
-                        // ✅ 强制更新布局和几何
+                        //  强制更新布局和几何
                         flaskControl.UpdateLayout();
 
-                        // ✅ 延迟调用，确保控件完全渲染
+                        //  延迟调用，确保控件完全渲染
                         System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                         {
                             flaskControl.InvalidateVisual();
                             flaskControl.DebugLiquidGeometry();
-                            Debug.WriteLine("✅ 液体初始化完成");
+                            Debug.WriteLine(" 液体初始化完成");
                         }), System.Windows.Threading.DispatcherPriority.Loaded);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"❌ 锥形瓶液体初始化失败: {ex.Message}");
+                        Debug.WriteLine($" 锥形瓶液体初始化失败: {ex.Message}");
                     }
                 };
 
-                // ✅ 包装在 Viewbox 中
+                //  包装在 Viewbox 中
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -4880,7 +4881,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建锥形瓶图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建锥形瓶图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "锥形瓶");
             }
         }
@@ -4892,16 +4893,16 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // ✅ 创建柱塞泵控件实例 - 允许交互
+                //  创建柱塞泵控件实例 - 允许交互
                 var pumpControl = new PistonPumpControl
                 {
-                    IsHitTestVisible = true,  // ✅ 改为 true，允许按钮点击
+                    IsHitTestVisible = true,  //  改为 true，允许按钮点击
                     Cursor = System.Windows.Input.Cursors.Hand,
                     IsRunning = false,
                     PumpSpeed = 20
                 };
                 SubscribePistonPumpEvents(pumpControl);
-                // ✅ 包装在 Viewbox 中 - 也要允许交互
+                //  包装在 Viewbox 中 - 也要允许交互
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -4909,7 +4910,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Stretch = System.Windows.Media.Stretch.Uniform,
                     StretchDirection = System.Windows.Controls.StretchDirection.Both,
                     Child = pumpControl,
-                    IsHitTestVisible = true  // ✅ 改为 true
+                    IsHitTestVisible = true  //  改为 true
                 };
 
                 Debug.WriteLine($"创建柱塞泵图标容器（画布可交互）: {targetWidth}x{targetHeight}");
@@ -4917,7 +4918,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建柱塞泵图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建柱塞泵图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "柱塞泵");
             }
         }
@@ -4931,23 +4932,23 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // ✅ 订阅状态切换请求事件
+                //  订阅状态切换请求事件
                 pump.StateChangeRequested += async (s, e) =>
                 {
                     await HandlePumpStateChangeRequestAsync(pump, e);
                 };
 
-                // ✅ 订阅速度变化请求事件
+                //  订阅速度变化请求事件
                 pump.SpeedChangeRequested += async (s, e) =>
                 {
                     await HandlePumpSpeedChangeRequestAsync(pump, e);
                 };
 
-                Debug.WriteLine($"✅ 柱塞泵事件已订阅: {pump.PumpId}");
+                Debug.WriteLine($" 柱塞泵事件已订阅: {pump.PumpId}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 订阅柱塞泵事件失败: {ex.Message}");
+                Debug.WriteLine($" 订阅柱塞泵事件失败: {ex.Message}");
             }
         }
 
@@ -4977,7 +4978,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (canvasDevice?.Device == null)
                 {
-                    Debug.WriteLine($"⚠️ 未找到泵对应的设备");
+                    Debug.WriteLine($"未找到泵对应的设备");
                     pump.HideLoading();
                     return;
                 }
@@ -4985,7 +4986,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 2. 检查设备是否支持UI交互
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine($"⚠️ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    Debug.WriteLine($"设备 {canvasDevice.Device.Name} 不支持UI交互");
                     pump.HideLoading();
                     return;
                 }
@@ -5003,34 +5004,34 @@ namespace MaxChemical.Modules.Designer.Views
                 // 6. 处理执行结果
                 if (result.Success)
                 {
-                    Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
+                    Debug.WriteLine($" 命令执行成功: {result.Message}");
 
-                    // ✅ 更新UI状态 (设备驱动 → UI)
+                    //  更新UI状态 (设备驱动 → UI)
                     pump.IsRunning = e.RequestedState;
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ {commandName}成功");
+                        $" {commandName}成功");
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+                    Debug.WriteLine($" 命令执行失败: {result.Message}");
 
                     pump.ShowOperationFailure();
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ {commandName}失败: {result.Message}");
+                        $" {commandName}失败: {result.Message}");
                 }
 
                 Debug.WriteLine($"==========================================");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理泵状态切换请求失败: {ex.Message}");
+                Debug.WriteLine($" 处理泵状态切换请求失败: {ex.Message}");
                 pump.HideLoading();
                 pump.ShowOperationFailure();
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"❌ 操作失败: {ex.Message}");
+                    $" 操作失败: {ex.Message}");
             }
         }
 
@@ -5061,7 +5062,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (canvasDevice?.Device == null)
                 {
-                    Debug.WriteLine($"⚠️ 未找到泵对应的设备");
+                    Debug.WriteLine($"未找到泵对应的设备");
                     e.OnCompleted?.Invoke(false);
                     return;
                 }
@@ -5069,15 +5070,15 @@ namespace MaxChemical.Modules.Designer.Views
                 // 2. 检查设备是否支持UI交互
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine($"⚠️ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    Debug.WriteLine($"设备 {canvasDevice.Device.Name} 不支持UI交互");
                     e.OnCompleted?.Invoke(false);
                     return;
                 }
 
-                // ✅✅✅ 关键：确保参数类型一致
+                //  关键：确保参数类型一致
                 var parameters = new Dictionary<string, object>
                 {
-                    ["TargetSpeed"] = (double)e.RequestedSpeed // ✅ 强制转换为 double
+                    ["TargetSpeed"] = (double)e.RequestedSpeed //  强制转换为 double
                 };
 
                 Debug.WriteLine($"📤 向设备发送参数: TargetSpeed={parameters["TargetSpeed"]}");
@@ -5088,33 +5089,33 @@ namespace MaxChemical.Modules.Designer.Views
                 // 5. 处理执行结果
                 if (result.Success)
                 {
-                    Debug.WriteLine($"✅ 速度设置成功: {e.RequestedSpeed}");
+                    Debug.WriteLine($" 速度设置成功: {e.RequestedSpeed}");
 
-                    // ✅ 更新UI状态 (设备驱动 → UI)
+                    //  更新UI状态 (设备驱动 → UI)
                     pump.PumpSpeed = e.RequestedSpeed;
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ 泵速度设置为 {e.RequestedSpeed}");
+                        $" 泵速度设置为 {e.RequestedSpeed}");
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 速度设置失败: {result.Message}");
+                    Debug.WriteLine($" 速度设置失败: {result.Message}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ 设置速度失败: {result.Message}");
+                        $" 设置速度失败: {result.Message}");
                 }
 
-                // ✅ 调用回调
+                //  调用回调
                 e.OnCompleted?.Invoke(result.Success);
 
                 Debug.WriteLine($"==========================================");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理泵速度变化请求失败: {ex.Message}");
+                Debug.WriteLine($" 处理泵速度变化请求失败: {ex.Message}");
                 e.OnCompleted?.Invoke(false);
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"❌ 操作失败: {ex.Message}");
+                    $" 操作失败: {ex.Message}");
             }
         }
 
@@ -5395,26 +5396,26 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine("========== 开始清空画布 ==========");
 
-                // ✅ 1. 清空监控相关
+                //  1. 清空监控相关
                 ClearAllMonitoringStates();
 
-                // ✅ 2. 清空设备相关状态
+                //  2. 清空设备相关状态
                 ClearDeviceStates();
 
-                // ✅ 3. 清空管道
+                //  3. 清空管道
                 ClearAllPipes();
 
-                // ✅ 4. 强制清空画布视觉元素（先清视图）
+                //  4. 强制清空画布视觉元素（先清视图）
                 ClearCanvasVisualElements();
 
-                // ✅ 5. 清空数据模型（后清数据）
+                //  5. 清空数据模型（后清数据）
                 ClearViewModelData();
 
-                // ✅ 6. 清空选择状态
+                //  6. 清空选择状态
                 ClearDeviceSelection();
                 ClearPipeSelection();
 
-                // ✅ 7. 重置画布状态
+                //  7. 重置画布状态
                 ResetCanvasState();
 
                 Debug.WriteLine("========== 画布清空完成 ==========");
@@ -5422,7 +5423,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 清空画布失败: {ex.Message}");
+                Debug.WriteLine($" 清空画布失败: {ex.Message}");
             }
         }
 
@@ -5597,7 +5598,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 清空画布视觉元素失败: {ex.Message}");
+                Debug.WriteLine($" 清空画布视觉元素失败: {ex.Message}");
             }
         }
 
@@ -5647,7 +5648,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var (scaleX, scaleY) = GetDeviceScaleInfo(canvasDevice.DeviceId);
 
-                // ✅ 获取控件旋转角度
+                //  获取控件旋转角度
                 var rotationAngle = GetDeviceRotationAngle(canvasDevice.DeviceId);
 
                 var deviceData = new CanvasDeviceData
@@ -5662,7 +5663,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Height = canvasDevice.Height,
                     ScaleX = scaleX,
                     ScaleY = scaleY,
-                    RotationAngle = rotationAngle // ✅ 保存旋转角度
+                    RotationAngle = rotationAngle //  保存旋转角度
                 };
 
                 // 收集设备参数
@@ -5674,7 +5675,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：获取设备内控件的旋转角度
+        ///  新增：获取设备内控件的旋转角度
         /// </summary>
         private double GetDeviceRotationAngle(string deviceId)
         {
@@ -5770,7 +5771,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 更新画布尺寸
                 UpdateCanvasSize(canvasDocument);
 
-                // ✅ 使用异步分批加载
+                //  使用异步分批加载
                 LoadCanvasContentAsync(canvasDocument);
             }
             catch (Exception ex)
@@ -5780,7 +5781,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：异步分批加载画布内容
+        ///  新增：异步分批加载画布内容
         /// </summary>
         private async void LoadCanvasContentAsync(CanvasDocument canvasDocument)
         {
@@ -5816,7 +5817,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：分批恢复设备
+        ///  新增：分批恢复设备
         /// </summary>
         private async System.Threading.Tasks.Task RestoreDevicesBatchAsync(List<CanvasDeviceData> deviceDataList)
         {
@@ -5851,12 +5852,12 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }, System.Windows.Threading.DispatcherPriority.Background);
 
-                // ✅ 更新进度
+                //  更新进度
                 var progress = (i + 1) * 100 / totalBatches;
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     $"正在加载设备... {progress}%");
 
-                // ✅ 每批之间让出UI线程
+                //  每批之间让出UI线程
                 if (i < totalBatches - 1)
                 {
                     await System.Threading.Tasks.Task.Delay(1);
@@ -5865,7 +5866,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             Debug.WriteLine($"设备恢复完成，当前设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
-            // ✅ 新增：批量恢复完成，立即重建四叉树
+            //  新增：批量恢复完成，立即重建四叉树
             if (_pipeSnapService is PipeSnapService snapService)
             {
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -5877,7 +5878,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：分批恢复管道
+        ///  新增：分批恢复管道
         /// </summary>
         private async System.Threading.Tasks.Task RestorePipesBatchAsync(List<CanvasPipeData> pipesData)
         {
@@ -5919,12 +5920,12 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }, System.Windows.Threading.DispatcherPriority.Background);
 
-                // ✅ 更新进度
+                //  更新进度
                 var progress = (i + 1) * 100 / totalBatches;
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     $"正在加载管道... {progress}%");
 
-                // ✅ 每批之间让出UI线程
+                //  每批之间让出UI线程
                 if (i < totalBatches - 1)
                 {
                     await System.Threading.Tasks.Task.Delay(1);
@@ -5933,7 +5934,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             Debug.WriteLine($"管道恢复完成: 成功 {successCount}/{pipesData.Count}");
 
-            // ✅ 新增：批量恢复完成，立即重建四叉树
+            //  新增：批量恢复完成，立即重建四叉树
             if (_pipeSnapService is PipeSnapService snapService)
             {
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -5984,7 +5985,10 @@ namespace MaxChemical.Modules.Designer.Views
                     // 设置位置和层级
                     Canvas.SetLeft(pipeControl, pipeData.X);
                     Canvas.SetTop(pipeControl, pipeData.Y);
-                    Panel.SetZIndex(pipeControl, pipeData.ZIndex);
+                    //Panel.SetZIndex(pipeControl, pipeData.ZIndex);
+                    // 【修改】强制设置 ZIndex 为 10，忽略保存文件中的值(pipeData.ZIndex)
+                    // 这样可以保证即便旧文件数据混乱，加载后层级也是正确的
+                    Panel.SetZIndex(pipeControl, 10);
 
                     // 添加到画布
                     DesignCanvas.Children.Add(pipeControl);
@@ -5999,13 +6003,13 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 恢复管道失败: {ex.Message}");
+                Debug.WriteLine($" 恢复管道失败: {ex.Message}");
                 return false;
             }
         }
 
         /// <summary>
-        /// ✅ 新增:清空已存在的相同管道ID,避免重复创建
+        ///  新增:清空已存在的相同管道ID,避免重复创建
         /// </summary>
         private void ClearExistingPipesBeforeRestore(List<CanvasPipeData> pipesData)
         {
@@ -6109,16 +6113,16 @@ namespace MaxChemical.Modules.Designer.Views
                     Height = deviceData.Height > 0 ? deviceData.Height : 60
                 };
 
-                // ✅ 直接添加到ViewModel
+                //  直接添加到ViewModel
                 _viewModel?.CanvasDevices.Add(canvasDeviceViewModel);
 
-                // ✅ 延迟恢复缩放
+                //  延迟恢复缩放
                 if (deviceData.ScaleX != 1.0 || deviceData.ScaleY != 1.0)
                 {
                     ScheduleDeviceScaleRestoration(deviceData.DeviceId, deviceData.ScaleX, deviceData.ScaleY);
                 }
 
-                // ✅ 新增：延迟恢复旋转角度
+                //  新增：延迟恢复旋转角度
                 if (Math.Abs(deviceData.RotationAngle) > 0.01)
                 {
                     ScheduleDeviceRotationRestoration(deviceData.DeviceId, deviceData.RotationAngle);
@@ -6128,11 +6132,11 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 恢复设备失败: {ex.Message}");
+                Debug.WriteLine($" 恢复设备失败: {ex.Message}");
             }
         }
         /// <summary>
-        /// ✅ 新增：安排设备旋转角度恢复
+        ///  新增：安排设备旋转角度恢复
         /// </summary>
         private void ScheduleDeviceRotationRestoration(string deviceId, double rotationAngle)
         {
@@ -6143,7 +6147,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：恢复设备旋转角度
+        ///  新增：恢复设备旋转角度
         /// </summary>
         private void RestoreDeviceRotation(string deviceId, double rotationAngle)
         {
@@ -6166,7 +6170,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     valve.RotationAngle = rotationAngle;
                     restored = true;
-                    Debug.WriteLine($"✅ 阀门旋转角度已恢复: {rotationAngle:F1}°");
+                    Debug.WriteLine($" 阀门旋转角度已恢复: {rotationAngle:F1}°");
                 }
 
                 var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceElement);
@@ -6174,7 +6178,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     solenoidValve.RotationAngle = rotationAngle;
                     restored = true;
-                    Debug.WriteLine($"✅ 电磁阀旋转角度已恢复: {rotationAngle:F1}°");
+                    Debug.WriteLine($" 电磁阀旋转角度已恢复: {rotationAngle:F1}°");
                 }
 
                 var flowMeter = FindVisualChild<MassFlowMeterControl>(deviceElement);
@@ -6182,7 +6186,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     flowMeter.RotationAngle = rotationAngle;
                     restored = true;
-                    Debug.WriteLine($"✅ 流量计旋转角度已恢复: {rotationAngle:F1}°");
+                    Debug.WriteLine($" 流量计旋转角度已恢复: {rotationAngle:F1}°");
                 }
 
                 var heatExchanger = FindVisualChild<HeatExchangerControl>(deviceElement);
@@ -6190,14 +6194,14 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     heatExchanger.RotationAngle = rotationAngle;
                     restored = true;
-                    Debug.WriteLine($"✅ 换热器旋转角度已恢复: {rotationAngle:F1}°");
+                    Debug.WriteLine($" 换热器旋转角度已恢复: {rotationAngle:F1}°");
                 }
 
                 // 其他控件...
 
                 if (!restored)
                 {
-                    Debug.WriteLine($"⚠️ 设备 {deviceId} 中未找到可旋转的控件");
+                    Debug.WriteLine($"设备 {deviceId} 中未找到可旋转的控件");
                 }
             }
             catch (Exception ex)
@@ -6294,7 +6298,7 @@ namespace MaxChemical.Modules.Designer.Views
                 deviceScale.ScaleY = scaleY;
                 deviceElement.RenderTransformOrigin = new Point(0.5, 0.5);
 
-                // ✅ 新增：调度延迟布局更新
+                //  新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
                 Debug.WriteLine($"设备 {deviceId} 缩放恢复完成");
@@ -6314,12 +6318,12 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"画布加载完成: {canvasDocument.Name}");
                 Debug.WriteLine($"最终设备数量: {_viewModel?.CanvasDevices?.Count ?? 0}");
-                Debug.WriteLine($"最终管道数量: {_pipes.Count}"); // ✅ 新增
+                Debug.WriteLine($"最终管道数量: {_pipes.Count}"); //  新增
 
                 // 强制更新布局
                 DesignCanvas.UpdateLayout();
 
-                // ✅ 新增：最终确认管道状态
+                //  新增：最终确认管道状态
                 ScheduleFinalPipeValidation();
 
                 Debug.WriteLine("画布加载处理完成");
@@ -6330,7 +6334,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         /// <summary>
-        /// ✅ 新增：安排最终管道验证
+        ///  新增：安排最终管道验证
         /// </summary>
         private void ScheduleFinalPipeValidation()
         {
@@ -6341,7 +6345,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：验证管道状态
+        ///  新增：验证管道状态
         /// </summary>
         private void ValidatePipesState()
         {
@@ -6359,7 +6363,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (pipesInCanvas != _pipes.Count)
                 {
-                    Debug.WriteLine($"⚠️ 警告：管道数量不匹配");
+                    Debug.WriteLine($"警告：管道数量不匹配");
                 }
 
                 Debug.WriteLine("========== 管道状态验证完成 ==========");
@@ -6644,7 +6648,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var pipe = sender as StraightPipeControl;
                 if (pipe == null) return;
 
-                // ✅ 记录原始位置用于撤销
+                //  记录原始位置用于撤销
                 var left = Canvas.GetLeft(pipe);
                 var top = Canvas.GetTop(pipe);
                 _pipeOriginalPosition = new Point(
@@ -6666,7 +6670,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnPipeDragging(object sender, PipeDragEventArgs e)
         {
-            // ✅ 节流检查：避免过于频繁的吸附检测
+            //  节流检查：避免过于频繁的吸附检测
             var now = DateTime.Now;
             if ((now - _lastMouseMoveTime).TotalMilliseconds < 16) // ~60 FPS
             {
@@ -6690,7 +6694,7 @@ namespace MaxChemical.Modules.Designer.Views
                     pipeTop + pipe.ActualHeight / 2
                 );
 
-                // ✅ 使用 QuadTree 优化的吸附检测
+                //  使用 QuadTree 优化的吸附检测
                 var snapSolution = _pipeSnapService.FindBestSnapSolution(
                     pipe,
                     currentCenter,
@@ -6734,7 +6738,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 var currentPosition = new Point(currentLeft, currentTop);
 
-                // ✅ 如果有吸附方案，应用吸附
+                //  如果有吸附方案，应用吸附
                 if (_currentSnapSolution != null && _currentSnapSolution.HasSnap)
                 {
                     var newCenter = _currentSnapSolution.NewCenterPosition;
@@ -6743,7 +6747,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                     var newPosition = new Point(newLeft, newTop);
 
-                    // ✅ 如果位置发生了变化，创建移动命令
+                    //  如果位置发生了变化，创建移动命令
                     if (Math.Abs(currentPosition.X - newPosition.X) > 1 ||
                         Math.Abs(currentPosition.Y - newPosition.Y) > 1)
                     {
@@ -6763,7 +6767,7 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    // ✅ 没有吸附，但位置可能已经改变，创建移动命令
+                    //  没有吸附，但位置可能已经改变，创建移动命令
                     if (Math.Abs(currentPosition.X - _pipeOriginalPosition.X) > 1 ||
                         Math.Abs(currentPosition.Y - _pipeOriginalPosition.Y) > 1)
                     {
@@ -6784,7 +6788,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 标记画布已修改
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道移动完成");
-                // ✅ 新增：标记四叉树需要重建
+                //  新增：标记四叉树需要重建
                 if (_pipeSnapService is PipeSnapService snapService)
                 {
                     snapService.MarkQuadTreeDirty();
@@ -6937,7 +6941,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnElbowPipeDragging(object sender, ElbowPipeDragEventArgs e)
         {
-            // ✅ 节流检查
+            //  节流检查
             var now = DateTime.Now;
             if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
             {
@@ -7003,7 +7007,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Canvas.SetLeft(pipe, newLeft);
                     Canvas.SetTop(pipe, newTop);
 
-                    Debug.WriteLine($"✅ 弯管道已吸附到位置: 中心({newCenter.X:F0}, {newCenter.Y:F0})");
+                    Debug.WriteLine($" 弯管道已吸附到位置: 中心({newCenter.X:F0}, {newCenter.Y:F0})");
 
                     var snapTypes = string.Join(", ",
                         _currentSnapSolution.EndPointSnaps.Select(s => s.SnapTarget.Type));
@@ -7018,7 +7022,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("弯管道移动完成");
-                // ✅ 新增：弯管道拖拽完成，标记四叉树需要重建
+                //  新增：弯管道拖拽完成，标记四叉树需要重建
                 if (_pipeSnapService is PipeSnapService snapService)
                 {
                     snapService.MarkQuadTreeDirty();
@@ -7186,7 +7190,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnZShapePipeDragging(object sender, ZPipeDragEventArgs e)
         {
-            // ✅ 节流检查
+            //  节流检查
             var now = DateTime.Now;
             if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
             {
@@ -7266,7 +7270,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("Z形管道移动完成");
-                // ✅ 新增：Z形管道拖拽完成，标记四叉树需要重建
+                //  新增：Z形管道拖拽完成，标记四叉树需要重建
                 if (_pipeSnapService is PipeSnapService snapService)
                 {
                     snapService.MarkQuadTreeDirty();
@@ -7433,7 +7437,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnTShapePipeDragging(object sender, TPipeDragEventArgs e)
         {
-            // ✅ 节流检查
+            //  节流检查
             var now = DateTime.Now;
             if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
             {
@@ -7513,7 +7517,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("T型管道移动完成");
 
-                // ✅ 标记四叉树需要重建
+                //  标记四叉树需要重建
                 if (_pipeSnapService is PipeSnapService snapService)
                 {
                     snapService.MarkQuadTreeDirty();
@@ -7774,7 +7778,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 收集管道数据失败: {ex.Message}");
+                Debug.WriteLine($" 收集管道数据失败: {ex.Message}");
             }
 
             callback?.Invoke(pipeDataList);
@@ -8006,8 +8010,10 @@ namespace MaxChemical.Modules.Designer.Views
                 PipeLength = 80,
                 PipeWidth = 8
             };
+            // 【修改】设置管道 ZIndex 为 10
+            Panel.SetZIndex(pipe, 10);
 
-            // ✅ 启用管道级别缓存
+            //  启用管道级别缓存
             RenderOptions.SetCachingHint(pipe, CachingHint.Cache);
             pipe.CacheMode = new BitmapCache
             {
@@ -8058,7 +8064,7 @@ namespace MaxChemical.Modules.Designer.Views
             pipe.PipeRotateStarted += OnPipeRotateStarted;
             pipe.PipeRotating += OnPipeRotating;
             pipe.PipeRotateCompleted += OnPipeRotateCompleted;
-            // ✅ 订阅管道选中事件（新增）
+            //  订阅管道选中事件（新增）
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
         }
@@ -8078,26 +8084,26 @@ namespace MaxChemical.Modules.Designer.Views
                 var pipeElement = sender as FrameworkElement;
                 if (pipeElement == null)
                 {
-                    Debug.WriteLine("⚠️ 警告：发送者不是 FrameworkElement");
+                    Debug.WriteLine("警告：发送者不是 FrameworkElement");
                     return;
                 }
 
-                // ✅ 清除其他选择
+                //  清除其他选择
                 ClearDeviceSelection();
                 ClearAllPipeSelectionsExcept(pipeId);
 
-                // ✅ 记录选中状态
+                //  记录选中状态
                 _selectedPipeId = pipeId;
                 _selectedPipeElement = pipeElement;
 
-                Debug.WriteLine($"✅ 画布已确认管道选中: {pipeId}");
+                Debug.WriteLine($" 画布已确认管道选中: {pipeId}");
 
                 // 更新状态栏
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中管道: {pipeId}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理管道选中通知失败: {ex.Message}");
+                Debug.WriteLine($" 处理管道选中通知失败: {ex.Message}");
             }
         }
 
@@ -8142,7 +8148,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     zPipe.IsSelected = false;
                 }
-                else if (child is TShapePipeControl tPipe && tPipe.PipeId != exceptPipeId)  // ✅ 新增
+                else if (child is TShapePipeControl tPipe && tPipe.PipeId != exceptPipeId)  //  新增
                 {
                     tPipe.IsSelected = false;
                 }
@@ -8161,11 +8167,13 @@ namespace MaxChemical.Modules.Designer.Views
                 VerticalLength = 42,
                 PipeWidth = 8
             };
+            // 【修改】设置管道 ZIndex 为 10
+            Panel.SetZIndex(pipe, 10);
 
             // 订阅事件
             SubscribeElbowPipeEvents(pipe);
 
-            // ✅ 使用命令创建管道
+            //  使用命令创建管道
             var addCommand = new AddPipeCommand(
                 DesignCanvas,
                 pipe,
@@ -8198,7 +8206,7 @@ namespace MaxChemical.Modules.Designer.Views
             pipe.PipeRotateStarted += OnElbowPipeRotateStarted;
             pipe.PipeRotating += OnElbowPipeRotating;
             pipe.PipeRotateCompleted += OnElbowPipeRotateCompleted;
-            // ✅ 订阅选中事件
+            //  订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
         }
@@ -8216,11 +8224,12 @@ namespace MaxChemical.Modules.Designer.Views
                 VerticalOffset = 40,
                 PipeWidth = 8
             };
-
+            // 【修改】设置管道 ZIndex 为 10
+            Panel.SetZIndex(pipe, 10);
             // 订阅事件
             SubscribeZShapePipeEvents(pipe);
 
-            // ✅ 使用命令创建管道
+            //  使用命令创建管道
             var addCommand = new AddPipeCommand(
                 DesignCanvas,
                 pipe,
@@ -8253,7 +8262,7 @@ namespace MaxChemical.Modules.Designer.Views
             pipe.PipeRotateStarted += OnZShapePipeRotateStarted;
             pipe.PipeRotating += OnZShapePipeRotating;
             pipe.PipeRotateCompleted += OnZShapePipeRotateCompleted;
-            // ✅ 订阅选中事件
+            //  订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
         }
@@ -8271,8 +8280,9 @@ namespace MaxChemical.Modules.Designer.Views
                 BranchPosition = 20,     
                 PipeWidth = 8             
             };
-
-            // ✅ 启用管道级别缓存
+            // 【修改】设置管道 ZIndex 为 10
+            Panel.SetZIndex(pipe, 10);
+            //  启用管道级别缓存
             RenderOptions.SetCachingHint(pipe, CachingHint.Cache);
             pipe.CacheMode = new BitmapCache
             {
@@ -8322,7 +8332,7 @@ namespace MaxChemical.Modules.Designer.Views
             pipe.PipeRotateStarted += OnTShapePipeRotateStarted;
             pipe.PipeRotating += OnTShapePipeRotating;
             pipe.PipeRotateCompleted += OnTShapePipeRotateCompleted;
-            // ✅ 订阅选中事件
+            //  订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
         }
@@ -8341,15 +8351,15 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var valveControl = new ValveControl
                 {
-                    IsHitTestVisible = true,  // ✅ 阀门需要交互（点击切换状态）
+                    IsHitTestVisible = true,  //  阀门需要交互（点击切换状态）
                     Cursor = System.Windows.Input.Cursors.Hand,
                     IsOpen = false  // 初始为关闭状态
                 };
 
-                // ✅ 移除：Loaded 事件中的边框隐藏逻辑
+                //  移除：Loaded 事件中的边框隐藏逻辑
                 // 因为设备库中的阀门不需要选择功能，画布上的阀门才需要
 
-                // ✅ 包装在 Viewbox 中
+                //  包装在 Viewbox 中
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -8357,7 +8367,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Stretch = System.Windows.Media.Stretch.Uniform,
                     StretchDirection = System.Windows.Controls.StretchDirection.Both,
                     Child = valveControl,
-                    IsHitTestVisible = true  // ✅ 允许交互
+                    IsHitTestVisible = true  //  允许交互
                 };
 
                 Debug.WriteLine($"创建阀门图标容器: {targetWidth}x{targetHeight}");
@@ -8365,7 +8375,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建阀门图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建阀门图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "阀门");
             }
         }
@@ -8382,16 +8392,16 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     Debug.WriteLine($"发现手动阀门控件，准备订阅事件: {valve.ValveId}");
                     SubscribeValveEvents(valve);
-                    Debug.WriteLine($"✅ 手动阀门事件订阅完成: {valve.ValveId}");
+                    Debug.WriteLine($" 手动阀门事件订阅完成: {valve.ValveId}");
                 }
 
-                // ✅ 新增：查找电磁阀
+                //  新增：查找电磁阀
                 var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceControl);
                 if (solenoidValve != null)
                 {
                     Debug.WriteLine($"发现电磁阀控件，准备订阅事件: {solenoidValve.ValveId}");
                     SubscribeSolenoidValveEvents(solenoidValve);
-                    Debug.WriteLine($"✅ 电磁阀事件订阅完成: {solenoidValve.ValveId}");
+                    Debug.WriteLine($" 电磁阀事件订阅完成: {solenoidValve.ValveId}");
                 }
             }
             catch (Exception ex)
@@ -8414,7 +8424,7 @@ namespace MaxChemical.Modules.Designer.Views
                     IsOpen = false  // 初始为关闭状态
                 };
 
-                // ✅ 包装在 Viewbox 中
+                //  包装在 Viewbox 中
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -8430,7 +8440,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建电磁阀图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建电磁阀图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "电磁阀");
             }
         }
@@ -8447,7 +8457,7 @@ namespace MaxChemical.Modules.Designer.Views
             valve.ValveDragging += OnValveDragging;
             valve.ValveDragCompleted += OnValveDragCompleted;
 
-            // ✅ 旋转事件
+            //  旋转事件
             valve.ValveRotateStarted += OnValveRotateStarted;
             valve.ValveRotating += OnValveRotating;
             valve.ValveRotateCompleted += OnValveRotateCompleted;
@@ -8611,7 +8621,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         /// <summary>
-        /// ✅ 新增：清除所有阀门选择
+        ///  新增：清除所有阀门选择
         /// </summary>
         private void ClearAllValveSelections()
         {
@@ -8625,7 +8635,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Debug.WriteLine($"清除手动阀门选择: {valve.ValveId}");
                 }
 
-                // ✅ 清除电磁阀
+                //  清除电磁阀
                 var solenoidValves = FindAllSolenoidValvesInCanvas();
                 foreach (var solenoidValve in solenoidValves)
                 {
@@ -8642,7 +8652,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：查找画布中所有阀门控件
+        ///  新增：查找画布中所有阀门控件
         /// </summary>
         private List<ValveControl> FindAllValvesInCanvas()
         {
@@ -8672,7 +8682,7 @@ namespace MaxChemical.Modules.Designer.Views
             return valves;
         }
         /// <summary>
-        /// ✅ 新增：查找画布中所有电磁阀控件
+        ///  新增：查找画布中所有电磁阀控件
         /// </summary>
         private List<SolenoidValveControl> FindAllSolenoidValvesInCanvas()
         {
@@ -8764,7 +8774,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var meterControl = new MassFlowMeterControl
                 {
-                    IsHitTestVisible = true,  // ✅ 允许交互（点击切换流动状态）
+                    IsHitTestVisible = true,  //  允许交互（点击切换流动状态）
                     Cursor = System.Windows.Input.Cursors.Hand,
                     CurrentFlow = 0.0,        // 初始流量为0
                     TargetFlow = 125.0,       // 默认目标流量
@@ -8772,10 +8782,10 @@ namespace MaxChemical.Modules.Designer.Views
                     IsFlowing = false         // 初始为关闭状态
                 };
 
-                // ✅ 订阅流量计事件（如果需要）
+                //  订阅流量计事件（如果需要）
                 SubscribeMassFlowMeterEvents(meterControl);
 
-                // ✅ 包装在 Viewbox 中
+                //  包装在 Viewbox 中
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -8783,7 +8793,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Stretch = System.Windows.Media.Stretch.Uniform,
                     StretchDirection = System.Windows.Controls.StretchDirection.Both,
                     Child = meterControl,
-                    IsHitTestVisible = true  // ✅ 允许交互
+                    IsHitTestVisible = true  //  允许交互
                 };
 
                 Debug.WriteLine($"创建流量计图标容器: {targetWidth}x{targetHeight}");
@@ -8791,7 +8801,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建流量计图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建流量计图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "流量计");
             }
         }
@@ -8819,7 +8829,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 // 目标流量变化事件
                 meter.TargetFlowChanged += OnMassFlowMeterTargetFlowChanged;
-                // ✅ 新增：订阅状态切换和流量设置请求事件
+                //  新增：订阅状态切换和流量设置请求事件
                 meter.StateChangeRequested += async (s, e) =>
                 {
                     await HandleFlowMeterStateChangeRequestAsync(meter, e);
@@ -8851,7 +8861,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ClearDeviceSelection();
                 ClearAllPipeSelectionsExcept(null);
                 ClearAllValveSelections();
-                ClearAllHeatExchangerSelections(); // ✅ 清除换热器选择
+                ClearAllHeatExchangerSelections(); //  清除换热器选择
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中流量计: {meterId}");
             }
             catch (Exception ex)
@@ -8998,7 +9008,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (canvasDevice?.Device == null)
                 {
-                    Debug.WriteLine($"⚠️ 未找到流量计对应的设备");
+                    Debug.WriteLine($"未找到流量计对应的设备");
                     meter.HideLoading();
                     e.OnCompleted?.Invoke(false);
                     return;
@@ -9007,7 +9017,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 2. 检查设备是否支持UI交互
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine($"⚠️ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    Debug.WriteLine($"设备 {canvasDevice.Device.Name} 不支持UI交互");
                     meter.HideLoading();
                     e.OnCompleted?.Invoke(false);
                     return;
@@ -9024,7 +9034,7 @@ namespace MaxChemical.Modules.Designer.Views
                     // 获取当前密度（可从UI或默认值）
                     double density = 1.0; // 默认水的密度
 
-                    // ✅ 尝试从设备获取当前密度
+                    //  尝试从设备获取当前密度
                     var currentState = uiInteraction.GetCurrentState();
                     if (currentState?.States?.ContainsKey("Density") == true)
                     {
@@ -9055,24 +9065,24 @@ namespace MaxChemical.Modules.Designer.Views
                 // 6. 处理执行结果
                 if (result.Success)
                 {
-                    Debug.WriteLine($"✅ 命令执行成功: {result.Message}");
+                    Debug.WriteLine($" 命令执行成功: {result.Message}");
 
-                    // ✅ UI状态将通过 OnDeviceStateChanged 自动更新
+                    //  UI状态将通过 OnDeviceStateChanged 自动更新
                     // meter.IsFlowing = e.RequestedState; // 不需要手动设置
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ {commandName}成功");
+                        $" {commandName}成功");
 
                     e.OnCompleted?.Invoke(true);
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+                    Debug.WriteLine($" 命令执行失败: {result.Message}");
 
                     meter.ShowOperationFailure();
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ {commandName}失败: {result.Message}");
+                        $" {commandName}失败: {result.Message}");
 
                     e.OnCompleted?.Invoke(false);
                 }
@@ -9081,13 +9091,13 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理流量计状态切换请求失败: {ex.Message}");
+                Debug.WriteLine($" 处理流量计状态切换请求失败: {ex.Message}");
                 meter.HideLoading();
                 meter.ShowOperationFailure();
                 e.OnCompleted?.Invoke(false);
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"❌ 操作失败: {ex.Message}");
+                    $" 操作失败: {ex.Message}");
             }
         }
 
@@ -9121,7 +9131,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
                 }
 
-                // ✅ 如果流量控制正在运行，更新目标流量
+                //  如果流量控制正在运行，更新目标流量
                 if (meter.IsFlowing)
                 {
                     var currentState = uiInteraction.GetCurrentState();
@@ -9142,9 +9152,9 @@ namespace MaxChemical.Modules.Designer.Views
 
                     if (result.Success)
                     {
-                        // ✅ UI 将通过 OnDeviceStateChanged 自动更新
+                        //  UI 将通过 OnDeviceStateChanged 自动更新
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"✅ 目标流量设置为 {e.RequestedTargetFlow:F1}");
+                            $" 目标流量设置为 {e.RequestedTargetFlow:F1}");
                     }
 
                     e.OnCompleted?.Invoke(result.Success);
@@ -9160,14 +9170,14 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理目标流量变化失败: {ex.Message}");
+                Debug.WriteLine($" 处理目标流量变化失败: {ex.Message}");
                 e.OnCompleted?.Invoke(false);
             }
         }
         #endregion
 
         /// <summary>
-        /// ✅ 新增：清除所有流量计选择
+        ///  新增：清除所有流量计选择
         /// </summary>
         private void ClearAllFlowMeterSelections()
         {
@@ -9189,7 +9199,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：查找画布中所有流量计控件
+        ///  新增：查找画布中所有流量计控件
         /// </summary>
         private List<MassFlowMeterControl> FindAllFlowMetersInCanvas()
         {
@@ -9228,7 +9238,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var reactorControl = new MicroreactorControl
                 {
-                    IsHitTestVisible = true,  // ✅ 允许交互
+                    IsHitTestVisible = true,  //  允许交互
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Temperature1 = 85.5,
                     Temperature2 = 92.3,
@@ -9239,10 +9249,10 @@ namespace MaxChemical.Modules.Designer.Views
                     //IsFlow3Enabled = true,
                     FlowRate = 100.0         // 默认流速
                 };
-                // ✅ 订阅微反应器事件
+                //  订阅微反应器事件
                 SubscribeMicroreactorEvents(reactorControl);
 
-                // ✅ 包装在 Viewbox 中
+                //  包装在 Viewbox 中
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -9250,7 +9260,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Stretch = System.Windows.Media.Stretch.Uniform,
                     StretchDirection = System.Windows.Controls.StretchDirection.Both,
                     Child = reactorControl,
-                    IsHitTestVisible = true  // ✅ 允许交互
+                    IsHitTestVisible = true  //  允许交互
                 };
 
                 Debug.WriteLine($"创建微反应器图标容器: {targetWidth}x{targetHeight}");
@@ -9258,7 +9268,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建微反应器图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建微反应器图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "微反应器");
             }
         }
@@ -9313,8 +9323,8 @@ namespace MaxChemical.Modules.Designer.Views
                 ClearAllPipeSelectionsExcept(null);
                 ClearAllValveSelections();
                 ClearAllFlowMeterSelections();
-                ClearAllMicroreactorSelections(); // ✅ 清除其他微反应器选择（保留当前）
-                ClearAllHeatExchangerSelections(); // ✅ 新增
+                ClearAllMicroreactorSelections(); //  清除其他微反应器选择（保留当前）
+                ClearAllHeatExchangerSelections(); //  新增
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中微反应器: {reactorId}");
             }
             catch (Exception ex)
@@ -9389,7 +9399,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"========== 微反应器流量状态变化 ==========");
                 Debug.WriteLine($"反应器ID: {e.ReactorId}");
                 Debug.WriteLine($"流体路径: {e.FlowPath}");
-                Debug.WriteLine($"状态: {(e.IsEnabled ? "✅ 启动" : "❌ 停止")}");
+                Debug.WriteLine($"状态: {(e.IsEnabled ? " 启动" : " 停止")}");
                 Debug.WriteLine($"=========================================");
 
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
@@ -9404,7 +9414,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：清除所有微反应器选择
+        ///  新增：清除所有微反应器选择
         /// </summary>
         private void ClearAllMicroreactorSelections()
         {
@@ -9426,7 +9436,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增:查找画布中所有微反应器控件
+        ///  新增:查找画布中所有微反应器控件
         /// </summary>
         private List<MicroreactorControl> FindAllMicroreactorsInCanvas()
         {
@@ -9466,17 +9476,17 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var exchangerControl = new HeatExchangerControl
                 {
-                    IsHitTestVisible = true,  // ✅ 允许交互
+                    IsHitTestVisible = true,  //  允许交互
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Temperature = 85.0,       // 默认温度
                     Pressure = 2.5,           // 默认压力
                     IsOperating = false       // 初始为关闭状态
                 };
 
-                // ✅ 订阅换热器事件
+                //  订阅换热器事件
                 SubscribeHeatExchangerEvents(exchangerControl);
 
-                // ✅ 包装在 Viewbox 中
+                //  包装在 Viewbox 中
                 var viewbox = new System.Windows.Controls.Viewbox
                 {
                     Width = targetWidth,
@@ -9484,7 +9494,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Stretch = System.Windows.Media.Stretch.Uniform,
                     StretchDirection = System.Windows.Controls.StretchDirection.Both,
                     Child = exchangerControl,
-                    IsHitTestVisible = true  // ✅ 允许交互
+                    IsHitTestVisible = true  //  允许交互
                 };
 
                 Debug.WriteLine($"创建换热器图标容器: {targetWidth}x{targetHeight}");
@@ -9492,7 +9502,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建换热器图标失败: {ex.Message}");
+                Debug.WriteLine($" 创建换热器图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "换热器");
             }
         }
@@ -9542,7 +9552,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ClearAllValveSelections();
                 ClearAllFlowMeterSelections();
                 ClearAllMicroreactorSelections();
-                ClearAllHeatExchangerSelections(); // ✅ 清除其他换热器选择
+                ClearAllHeatExchangerSelections(); //  清除其他换热器选择
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中换热器: {exchangerId}");
             }
@@ -9645,7 +9655,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：清除所有换热器选择
+        ///  新增：清除所有换热器选择
         /// </summary>
         private void ClearAllHeatExchangerSelections()
         {
@@ -9667,7 +9677,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ✅ 新增：查找画布中所有换热器控件
+        ///  新增：查找画布中所有换热器控件
         /// </summary>
         private List<HeatExchangerControl> FindAllHeatExchangersInCanvas()
         {
@@ -9707,7 +9717,7 @@ namespace MaxChemical.Modules.Designer.Views
                 OnVoiceCreateDevice,
                 ThreadOption.UIThread);
 
-            Debug.WriteLine("✅ 语音助手事件已订阅");
+            Debug.WriteLine(" 语音助手事件已订阅");
         }
 
         /// <summary>
@@ -9726,7 +9736,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var device = FindDeviceByName(args.DeviceName);
                 if (device == null)
                 {
-                    Debug.WriteLine($"❌ 未找到设备: {args.DeviceName}");
+                    Debug.WriteLine($" 未找到设备: {args.DeviceName}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                         $"未找到 {args.DeviceName}");
                     return;
@@ -9738,13 +9748,13 @@ namespace MaxChemical.Modules.Designer.Views
                 // 3. 创建设备
                 CreateDeviceFromVoiceCommand(device, dropPosition);
 
-                Debug.WriteLine($"✅ 语音创建设备成功: {args.DeviceName}");
+                Debug.WriteLine($" 语音创建设备成功: {args.DeviceName}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     $"已创建 {args.DeviceName}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 语音创建设备失败: {ex.Message}");
+                Debug.WriteLine($" 语音创建设备失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     "创建设备失败");
             }
@@ -9761,7 +9771,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var allDevices = _deviceManager?.GetAllDevices();
                 if (allDevices == null || !allDevices.Any())
                 {
-                    Debug.WriteLine("⚠️ 设备管理器中没有设备");
+                    Debug.WriteLine("设备管理器中没有设备");
                     return null;
                 }
 
@@ -9772,7 +9782,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (device != null)
                 {
-                    Debug.WriteLine($"✅ 找到设备: {device.Name} ({device.GetType().Name})");
+                    Debug.WriteLine($" 找到设备: {device.Name} ({device.GetType().Name})");
                 }
 
                 return device;
@@ -9823,7 +9833,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var canvasDevice = CreateCanvasDeviceViewModel(device, position);
                 if (canvasDevice == null)
                 {
-                    Debug.WriteLine("❌ 创建设备视图模型失败");
+                    Debug.WriteLine(" 创建设备视图模型失败");
                     return;
                 }
 
@@ -9831,12 +9841,12 @@ namespace MaxChemical.Modules.Designer.Views
                 var addCommand = new AddDeviceCommand(_viewModel, canvasDevice);
                 _commandHistory.ExecuteCommand(addCommand);
 
-                Debug.WriteLine($"✅ 设备创建完成: {device.Name}, ID: {canvasDevice.DeviceId}");
+                Debug.WriteLine($" 设备创建完成: {device.Name}, ID: {canvasDevice.DeviceId}");
 
                 // 标记画布已修改
                 _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
 
-                // ✅ 选中新创建的设备
+                //  选中新创建的设备
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     OnDeviceSelected(canvasDevice.DeviceId);
@@ -9844,7 +9854,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建设备失败: {ex.Message}");
+                Debug.WriteLine($" 创建设备失败: {ex.Message}");
                 throw;
             }
         }
