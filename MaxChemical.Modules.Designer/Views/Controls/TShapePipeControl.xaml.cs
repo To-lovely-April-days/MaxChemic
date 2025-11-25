@@ -674,12 +674,24 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                // ========== 1. 定义基准线（主管道中心线） ==========
-                const double MAIN_PIPE_CENTER_Y = 70;  // 固定主管道中心线位置
+                // =======================================================================
+                //  1. 尺寸常数定义 (与 StraightPipeControl 保持完全一致)
+                // =======================================================================
+                // 法兰宽度 (固定)
+                const double FLANGE_WIDTH = 2.54;
+                // 法兰左侧/上侧间隙
+                const double FLANGE_OFFSET = 0.35;
+                // 法兰比管道宽出的总长度 (StraightPipeControl 是 5.8)
+                const double FLANGE_EXTENSION = 5.8;
+                // 主管道中心线 Y 坐标
+                const double MAIN_PIPE_CENTER_Y = 70;
 
-                // ========== 2. 计算主管道位置 ==========
-                double mainPipeLeft = FlangeOffset + FlangeWidth + FlangeSpacing;  // 左侧起点
-                double mainPipeTop = MAIN_PIPE_CENTER_Y - _pipeWidth / 2;         // 基于中心线
+                // =======================================================================
+                //  2. 计算主水平管道 (Main Pipe)
+                // =======================================================================
+                // 主管道左侧起点 = 间隙 + 左法兰宽
+                double mainPipeLeft = FLANGE_OFFSET + FLANGE_WIDTH;
+                double mainPipeTop = MAIN_PIPE_CENTER_Y - _pipeWidth / 2;
 
                 MainHorizontalPipe.Width = _mainPipeLength;
                 MainHorizontalPipe.Height = _pipeWidth;
@@ -688,47 +700,51 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 // 主管道边缘线
                 MainHorizontalTopEdge.X1 = mainPipeLeft;
-                MainHorizontalTopEdge.Y1 = mainPipeTop;
+                MainHorizontalTopEdge.Y1 = mainPipeTop + 0.32; // 微调线条位置
                 MainHorizontalTopEdge.X2 = mainPipeLeft + _mainPipeLength;
-                MainHorizontalTopEdge.Y2 = mainPipeTop;
+                MainHorizontalTopEdge.Y2 = mainPipeTop + 0.32;
 
                 MainHorizontalBottomEdge.X1 = mainPipeLeft;
-                MainHorizontalBottomEdge.Y1 = mainPipeTop + _pipeWidth;
+                MainHorizontalBottomEdge.Y1 = mainPipeTop + _pipeWidth - 0.32;
                 MainHorizontalBottomEdge.X2 = mainPipeLeft + _mainPipeLength;
-                MainHorizontalBottomEdge.Y2 = mainPipeTop + _pipeWidth;
+                MainHorizontalBottomEdge.Y2 = mainPipeTop + _pipeWidth - 0.32;
 
-                // ========== 3. 左侧法兰（基于主管道中心对齐） ==========
-                double leftFlangeHeight = _pipeWidth + 4;
-                double leftFlangeTop = MAIN_PIPE_CENTER_Y - leftFlangeHeight / 2;
+                // =======================================================================
+                //  3. 左侧法兰 (Left Flange)
+                // =======================================================================
+                double flangeHeight = _pipeWidth + FLANGE_EXTENSION; // 统一高度计算
+                double sideFlangeTop = MAIN_PIPE_CENTER_Y - flangeHeight / 2;
 
-                Canvas.SetLeft(LeftFlangeGroup, FlangeOffset);
-                Canvas.SetTop(LeftFlangeGroup, leftFlangeTop);
-                LeftFlangeGroup.Width = FlangeWidth;
-                LeftFlangeGroup.Height = leftFlangeHeight;
+                Canvas.SetLeft(LeftFlangeGroup, FLANGE_OFFSET);
+                Canvas.SetTop(LeftFlangeGroup, sideFlangeTop);
+                LeftFlangeGroup.Width = FLANGE_WIDTH;
+                LeftFlangeGroup.Height = flangeHeight;
 
-                LeftFlangeBase.Height = leftFlangeHeight;
-                LeftFlangeGradient.Height = leftFlangeHeight;
-                LeftFlangeBorder.Height = leftFlangeHeight;
+                LeftFlangeBase.Height = flangeHeight;
+                LeftFlangeGradient.Height = flangeHeight;
+                LeftFlangeBorder.Height = flangeHeight;
 
-                // ========== 4. 右侧法兰（基于主管道中心对齐） ==========
+                // =======================================================================
+                //  4. 右侧法兰 (Right Flange)
+                // =======================================================================
                 double rightFlangeX = mainPipeLeft + _mainPipeLength;
-                double rightFlangeHeight = _pipeWidth + 4;
-                double rightFlangeTop = MAIN_PIPE_CENTER_Y - rightFlangeHeight / 2;
 
                 Canvas.SetLeft(RightFlangeGroup, rightFlangeX);
-                Canvas.SetTop(RightFlangeGroup, rightFlangeTop);
-                RightFlangeGroup.Width = FlangeWidth;
-                RightFlangeGroup.Height = rightFlangeHeight;
+                Canvas.SetTop(RightFlangeGroup, sideFlangeTop);
+                RightFlangeGroup.Width = FLANGE_WIDTH;
+                RightFlangeGroup.Height = flangeHeight;
 
-                RightFlangeBase.Height = rightFlangeHeight;
-                RightFlangeGradient.Height = rightFlangeHeight;
-                RightFlangeBorder.Height = rightFlangeHeight;
+                RightFlangeBase.Height = flangeHeight;
+                RightFlangeGradient.Height = flangeHeight;
+                RightFlangeBorder.Height = flangeHeight;
 
-                // ========== 5. 支管垂直管道（与主管道中心线对齐） ==========
+                // =======================================================================
+                //  5. 支管垂直管道 (Branch Pipe)
+                // =======================================================================
                 double branchCenterX = mainPipeLeft + _branchPosition;
                 double branchPipeLeft = branchCenterX - _pipeWidth / 2;
 
-                // ✅ 关键修复：支管底部与主管道顶部对齐
+                // 支管底部与主管道顶部重合
                 double branchPipeBottom = mainPipeTop;
                 double branchPipeTop = branchPipeBottom - _branchPipeLength;
 
@@ -738,52 +754,64 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Canvas.SetTop(BranchVerticalPipe, branchPipeTop);
 
                 // 支管边缘线
-                BranchLeftEdge.X1 = branchPipeLeft;
+                BranchLeftEdge.X1 = branchPipeLeft + 0.32;
                 BranchLeftEdge.Y1 = branchPipeTop;
-                BranchLeftEdge.X2 = branchPipeLeft;
+                BranchLeftEdge.X2 = branchPipeLeft + 0.32;
                 BranchLeftEdge.Y2 = branchPipeBottom;
 
-                BranchRightEdge.X1 = branchPipeLeft + _pipeWidth;
+                BranchRightEdge.X1 = branchPipeLeft + _pipeWidth - 0.32;
                 BranchRightEdge.Y1 = branchPipeTop;
-                BranchRightEdge.X2 = branchPipeLeft + _pipeWidth;
+                BranchRightEdge.X2 = branchPipeLeft + _pipeWidth - 0.32;
                 BranchRightEdge.Y2 = branchPipeBottom;
 
-                // ========== 6. 顶部法兰（支管） ==========
-                double topFlangeWidth = _pipeWidth + 4;
+                // =======================================================================
+                //  6. 顶部法兰 (Top Flange) - 尺寸与侧面法兰逻辑对应
+                // =======================================================================
+                // 顶部法兰宽度 = 管道宽 + 延伸量 (与侧面法兰高度一致)
+                double topFlangeWidth = _pipeWidth + FLANGE_EXTENSION;
                 double topFlangeLeft = branchCenterX - topFlangeWidth / 2;
-                double topFlangeTop = branchPipeTop - FlangeWidth - FlangeSpacing;
+                double topFlangeTop = branchPipeTop - FLANGE_WIDTH; // 紧贴支管顶部
 
                 Canvas.SetLeft(TopFlangeGroup, topFlangeLeft);
                 Canvas.SetTop(TopFlangeGroup, topFlangeTop);
                 TopFlangeGroup.Width = topFlangeWidth;
-                TopFlangeGroup.Height = FlangeWidth;
+                TopFlangeGroup.Height = FLANGE_WIDTH;
 
                 TopFlangeBase.Width = topFlangeWidth;
                 TopFlangeGradient.Width = topFlangeWidth;
                 TopFlangeBorder.Width = topFlangeWidth;
 
-                // ========== 7. T型连接处加强（精确定位到交叉点） ==========
-                double junctionSize = Math.Min(_pipeWidth * 0.5, 10);
+                // =======================================================================
+                //  7. T型连接处 (Junction) - 视觉修复
+                // =======================================================================
+                double junctionSize = _pipeWidth - 2;
                 Canvas.SetLeft(TJunction, branchCenterX - junctionSize / 2);
-                Canvas.SetTop(TJunction, MAIN_PIPE_CENTER_Y - junctionSize / 2);  // 使用中心线
+                Canvas.SetTop(TJunction, MAIN_PIPE_CENTER_Y - junctionSize / 2);
                 TJunction.Width = junctionSize;
                 TJunction.Height = junctionSize;
 
-                // ========== 8. 更新锚点位置 ==========
+                // =======================================================================
+                //  8. 更新控件总尺寸 & 选中框
+                // =======================================================================
+                // 宽度 = 右法兰X坐标 + 法兰宽 + 预留间隙
+                double totalWidth = rightFlangeX + FLANGE_WIDTH + 4;
+                // 高度 = 主管道底部Y + 延伸量的一半 + 预留间隙
+                // 这里为了包裹住下方可能存在的锚点区域，给一些余量
+                double totalHeight = (mainPipeTop + _pipeWidth) + (FLANGE_EXTENSION / 2) + 20;
+
+                this.Width = Math.Max(totalWidth, 100); // 最小宽度防止消失
+                this.Height = Math.Max(totalHeight, 100);
+
+                SelectionBorder.Width = this.Width;
+                SelectionBorder.Height = this.Height;
+
+                // =======================================================================
+                //  9. 更新锚点位置
+                // =======================================================================
                 UpdateAnchorPositions(
                     rightFlangeX, mainPipeTop,
                     branchPipeLeft, branchPipeTop,
                     branchCenterX, MAIN_PIPE_CENTER_Y);
-
-                // ========== 9. 更新控件总尺寸 ==========
-                double totalWidth = rightFlangeX + FlangeWidth + 8;
-                double totalHeight = mainPipeTop + _pipeWidth + 8;
-
-                this.Width = totalWidth;
-                this.Height = totalHeight;
-
-                SelectionBorder.Width = totalWidth + 4;
-                SelectionBorder.Height = totalHeight + 4;
             }
             catch (Exception ex)
             {
@@ -794,11 +822,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void UpdateAnchorPositions(
         double rightFlangeX, double mainPipeTop,
         double branchPipeLeft, double branchPipeTop,
-        double branchCenterX, double mainPipeCenterY)  // ✅ 改用中心线参数
+        double branchCenterX, double mainPipeCenterY)  //  改用中心线参数
         {
             // 主管道长度锚点（右侧）
             Canvas.SetLeft(MainLengthAnchor, rightFlangeX + 8);
-            Canvas.SetTop(MainLengthAnchor, mainPipeCenterY - 6);  // ✅ 使用中心线
+            Canvas.SetTop(MainLengthAnchor, mainPipeCenterY - 6);  //  使用中心线
 
             // 支管长度锚点（顶部）
             Canvas.SetLeft(BranchLengthAnchor, branchCenterX - 6);
@@ -806,7 +834,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             // 支管位置锚点（左侧，主管道上）
             Canvas.SetLeft(BranchPositionAnchor, branchCenterX - 26);
-            Canvas.SetTop(BranchPositionAnchor, mainPipeCenterY - 6);  // ✅ 使用中心线
+            Canvas.SetTop(BranchPositionAnchor, mainPipeCenterY - 6);  //  使用中心线
 
             // 管道宽度锚点（底部）
             Canvas.SetLeft(PipeWidthAnchor, branchCenterX - 6);
@@ -877,6 +905,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region IPipeSnapPoints 实现
 
+        /// <summary>
+        /// ✅ 获取精确的 T型管吸附点
+        /// </summary>
         public List<PipeSnapPoint> GetSnapPoints()
         {
             var snapPoints = new List<PipeSnapPoint>();
@@ -884,52 +915,99 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var parent = this.Parent as Canvas;
             if (parent == null) return snapPoints;
 
+            // 1. 获取控件在画布上的位置
             var pipeLeft = Canvas.GetLeft(this);
             var pipeTop = Canvas.GetTop(this);
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
+            // 2. 几何常量 (必须与 UpdatePipeGeometry 保持完全一致)
+            const double FLANGE_WIDTH = 2.54;
+            const double FLANGE_OFFSET = 0.35;
+            const double MAIN_PIPE_CENTER_Y = 70; // 主管道中心线固定 Y 坐标
+
+            // 3. 计算控件中心点 (旋转的基准点)
             Point center = new Point(
-                pipeLeft + this.ActualWidth / 2,
-                pipeTop + this.ActualHeight / 2
+                pipeLeft + this.Width / 2,
+                pipeTop + this.Height / 2
             );
 
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // 左侧法兰吸附点
-            double leftFlangeX = 4 - this.ActualWidth / 2;
-            double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
-            Point leftWorld = RotatePoint(new Point(leftFlangeX, leftFlangeY), radians);
+            // =================================================================
+            // 📍 左侧吸附点 (Left Snap)
+            // =================================================================
+            // 位置：左侧法兰的最左边缘中心
+            // X = 偏移量 (即法兰的左边缘)
+            // Y = 主管道中心线
+            double leftSnapLocalX = FLANGE_OFFSET;
+            double leftSnapLocalY = MAIN_PIPE_CENTER_Y;
+
+            // 转换为相对于控件中心的坐标
+            Point leftRelPoint = new Point(
+                leftSnapLocalX - this.Width / 2,
+                leftSnapLocalY - this.Height / 2
+            );
+
+            // 旋转并转换到世界坐标
+            Point leftWorld = RotatePoint(leftRelPoint, radians);
 
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(center.X + leftWorld.X, center.Y + leftWorld.Y),
-                Direction = GetSnapDirectionFromAngle(radians + Math.PI),
-                Description = $"T型管道左法兰 (主管:{_mainPipeLength:F0})"
+                Direction = GetSnapDirectionFromAngle(radians + Math.PI), // 方向向左 (180度) + 旋转
+                Description = "T型左端口"
             });
 
-            // 右侧法兰吸附点
-            double rightFlangeX = Canvas.GetLeft(RightFlangeGroup) + 2 - this.ActualWidth / 2;
-            double rightFlangeY = Canvas.GetTop(RightFlangeGroup) + RightFlangeGroup.Height / 2 - this.ActualHeight / 2;
-            Point rightWorld = RotatePoint(new Point(rightFlangeX, rightFlangeY), radians);
+            // =================================================================
+            // 📍 右侧吸附点 (Right Snap)
+            // =================================================================
+            // 位置：右侧法兰的最右边缘中心
+            // X = 偏移 + 左法兰宽 + 管道长 + 右法兰宽
+            double rightSnapLocalX = FLANGE_OFFSET + FLANGE_WIDTH + _mainPipeLength + FLANGE_WIDTH;
+            double rightSnapLocalY = MAIN_PIPE_CENTER_Y;
+
+            // 转换为相对于控件中心的坐标
+            Point rightRelPoint = new Point(
+                rightSnapLocalX - this.Width / 2,
+                rightSnapLocalY - this.Height / 2
+            );
+
+            Point rightWorld = RotatePoint(rightRelPoint, radians);
 
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(center.X + rightWorld.X, center.Y + rightWorld.Y),
-                Direction = GetSnapDirectionFromAngle(radians),
-                Description = $"T型管道右法兰 (主管:{_mainPipeLength:F0})"
+                Direction = GetSnapDirectionFromAngle(radians), // 方向向右 (0度) + 旋转
+                Description = "T型右端口"
             });
 
-            // 顶部法兰吸附点（支管）
-            double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - this.ActualWidth / 2;
-            double topFlangeY = 2 - this.ActualHeight / 2;
-            Point topWorld = RotatePoint(new Point(topFlangeX, topFlangeY), radians);
+            // =================================================================
+            // 📍 顶部吸附点 (Top/Branch Snap)
+            // =================================================================
+            // X = 偏移 + 左法兰宽 + 支管位置
+            double branchCenterX = FLANGE_OFFSET + FLANGE_WIDTH + _branchPosition;
+
+            // Y计算逻辑：
+            // 主管道顶部 = 中心线 - 半径
+            // 支管顶部 = 主管道顶部 - 支管长度
+            // 法兰顶部边缘 = 支管顶部 - 法兰宽度 (注意：顶部法兰是横向的，高度由 FLANGE_WIDTH 决定)
+            double mainPipeTopY = MAIN_PIPE_CENTER_Y - _pipeWidth / 2;
+            double branchTopY = mainPipeTopY - _branchPipeLength;
+            double topSnapLocalY = branchTopY - FLANGE_WIDTH; // 吸附点在法兰最上沿
+
+            Point topRelPoint = new Point(
+                branchCenterX - this.Width / 2,
+                topSnapLocalY - this.Height / 2
+            );
+
+            Point topWorld = RotatePoint(topRelPoint, radians);
 
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(center.X + topWorld.X, center.Y + topWorld.Y),
-                Direction = GetSnapDirectionFromAngle(radians - Math.PI / 2),
-                Description = $"T型管道支管 (支管:{_branchPipeLength:F0})"
+                Direction = GetSnapDirectionFromAngle(radians - Math.PI / 2), // 方向向上 (-90度) + 旋转
+                Description = "T型支管端口"
             });
 
             return snapPoints;

@@ -11,9 +11,28 @@
              Cursor="SizeAll"
              ClipToBounds="False">
 
+    <UserControl.Resources>
+        <LinearGradientBrush x:Key="LeftEndCapGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#D9D9D9" Offset="0"/>
+            <GradientStop Color="#A0A0A0" Offset="0.5"/>
+            <GradientStop Color="#D9D9D9" Offset="1"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="RightEndCapGradient" StartPoint="1,0.5" EndPoint="0,0.5">
+            <GradientStop Color="#D9D9D9" Offset="0"/>
+            <GradientStop Color="#A0A0A0" Offset="0.5"/>
+            <GradientStop Color="#D9D9D9" Offset="1"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="TopEndCapGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#D9D9D9" Offset="0"/>
+            <GradientStop Color="#A0A0A0" Offset="0.5"/>
+            <GradientStop Color="#D9D9D9" Offset="1"/>
+        </LinearGradientBrush>
+    </UserControl.Resources>
+
     <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
 
-        <!-- ✅ 左侧法兰组 -->
         <Canvas x:Name="LeftFlangeGroup" 
                 Canvas.Left="4" 
                 Canvas.Top="58"
@@ -30,17 +49,10 @@
             <Rectangle x:Name="LeftFlangeGradient"
                        Width="2.54"
                        Height="24"
+                       Fill="{StaticResource LeftEndCapGradient}"
                        Opacity="0.6"
                        RadiusX="1.27" 
-                       RadiusY="1.27">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                        <GradientStop Color="#D9D9D9" Offset="0"/>
-                        <GradientStop Color="#A0A0A0" Offset="0.5"/>
-                        <GradientStop Color="#D9D9D9" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+                       RadiusY="1.27"/>
 
             <Rectangle x:Name="LeftFlangeBorder"
                        Width="2.54"
@@ -52,7 +64,6 @@
                        Fill="Transparent"/>
         </Canvas>
 
-        <!-- ✅ 主水平管道 -->
         <Rectangle x:Name="MainHorizontalPipe" 
                    Canvas.Left="6" 
                    Canvas.Top="60"
@@ -71,7 +82,6 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- 边缘线 -->
         <Line x:Name="MainHorizontalTopEdge" 
               X1="6" Y1="60" 
               X2="126" Y2="60"
@@ -90,7 +100,6 @@
               StrokeStartLineCap="Round"
               StrokeEndLineCap="Round"/>
 
-        <!-- ✅ 右侧法兰组 -->
         <Canvas x:Name="RightFlangeGroup" 
                 Canvas.Left="126"
                 Canvas.Top="58"
@@ -107,17 +116,10 @@
             <Rectangle x:Name="RightFlangeGradient" 
                        Width="2.54"
                        Height="24"
+                       Fill="{StaticResource RightEndCapGradient}"
                        Opacity="0.6"
                        RadiusX="1.27" 
-                       RadiusY="1.27">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                        <GradientStop Color="#D9D9D9" Offset="0"/>
-                        <GradientStop Color="#A0A0A0" Offset="0.5"/>
-                        <GradientStop Color="#D9D9D9" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+                       RadiusY="1.27"/>
 
             <Rectangle x:Name="RightFlangeBorder" 
                        Width="2.54"
@@ -129,7 +131,6 @@
                        Fill="Transparent"/>
         </Canvas>
 
-        <!-- ✅ 顶部法兰组（支管） -->
         <Canvas x:Name="TopFlangeGroup" 
                 Canvas.Left="58"
                 Canvas.Top="3.4"
@@ -146,17 +147,10 @@
             <Rectangle x:Name="TopFlangeGradient" 
                        Width="24"
                        Height="2.54"
+                       Fill="{StaticResource TopEndCapGradient}"
                        Opacity="0.6"
                        RadiusX="1.27" 
-                       RadiusY="1.27">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                        <GradientStop Color="#D9D9D9" Offset="0"/>
-                        <GradientStop Color="#A0A0A0" Offset="0.5"/>
-                        <GradientStop Color="#D9D9D9" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+                       RadiusY="1.27"/>
 
             <Rectangle x:Name="TopFlangeBorder" 
                        Width="24"
@@ -168,7 +162,6 @@
                        Fill="Transparent"/>
         </Canvas>
 
-        <!-- ✅ 支管垂直管道 -->
         <Rectangle x:Name="BranchVerticalPipe" 
                    Canvas.Left="60"
                    Canvas.Top="6"
@@ -205,9 +198,6 @@
               StrokeStartLineCap="Round"
               StrokeEndLineCap="Round"/>
 
-        <!-- ✅ 连接处遮盖 -->
-       
-        <!-- ✅ T 型连接处加强（可选） -->
         <Ellipse x:Name="TJunction"
                  Canvas.Left="65"
                  Canvas.Top="65"
@@ -216,7 +206,6 @@
                  Fill="#8A8A8A"
                  Opacity="0.3"/>
 
-        <!-- 调整锚点 -->
         <Ellipse x:Name="MainLengthAnchor" 
                  Canvas.Left="134"
                  Canvas.Top="64"
@@ -295,7 +284,6 @@
               StrokeDashArray="2,2" 
               Opacity="0"/>
 
-        <!-- 旋转角度显示标签 -->
         <Border x:Name="RotationLabel"
                 Canvas.Left="60"
                 Canvas.Top="-60"
@@ -309,7 +297,6 @@
                        Text="0°"/>
         </Border>
 
-        <!-- 选中边框 -->
         <Rectangle x:Name="SelectionBorder" 
                    Canvas.Left="-2"
                    Canvas.Top="-2"

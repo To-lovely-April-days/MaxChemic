@@ -386,8 +386,4 @@
 	  </None>
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="bin\Debug\net8.0-windows\Resources\Icon\" />
-	</ItemGroup>
-
 </Project>
