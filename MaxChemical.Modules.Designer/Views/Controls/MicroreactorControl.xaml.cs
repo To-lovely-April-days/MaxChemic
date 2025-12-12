@@ -143,7 +143,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private DispatcherTimer _temperatureUpdateTimer;
         private Random _random = new Random();
 
-        // ✅ 为每个通道单独管理Storyboard
+        //  为每个通道单独管理Storyboard
         private Storyboard _valveFlowStoryboard1;
         private Storyboard _valveFlowStoryboard2;
         private Storyboard _valveFlowStoryboard3;
@@ -155,7 +155,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public string ReactorId { get; set; }
         private bool _isLoaded = false;
 
-        // ✅ 特斯拉阀液体元素数组
+        //  特斯拉阀液体元素数组
         private Path[] _valveFluidPaths = new Path[9];
         private SolidColorBrush[] _valveFluidBrushes = new SolidColorBrush[9];
         // 添加小气泡数组
@@ -172,7 +172,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             InitializeComponent();
 
             ReactorId = Guid.NewGuid().ToString();
-            Debug.WriteLine($"✅ MicroreactorControl 构造: ReactorId={ReactorId}");
+            Debug.WriteLine($" MicroreactorControl 构造: ReactorId={ReactorId}");
 
             _rotateTransform = new RotateTransform(0);
             _transformGroup = new TransformGroup();
@@ -212,7 +212,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             _isLoaded = true;
 
-            // ✅ 初始化特斯拉阀液体元素引用
+            //  初始化特斯拉阀液体元素引用
             InitializeValveFluidReferences();
 
             UpdateTemperatureDisplays();
@@ -221,7 +221,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 初始化特斯拉阀液体元素引用
+        ///  初始化特斯拉阀液体元素引用
         /// </summary>
         private void InitializeValveFluidReferences()
         {
@@ -235,7 +235,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _valveFluidPaths[7] = ValveFluid_3_2;
             _valveFluidPaths[8] = ValveFluid_3_3;
 
-            // ✅ 初始化渐变变换
+            //  初始化渐变变换
             _valveFluidTransforms[0] = ValveFluidTransform_1_1;
             _valveFluidTransforms[1] = ValveFluidTransform_1_2;
             _valveFluidTransforms[2] = ValveFluidTransform_1_3;
@@ -246,12 +246,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _valveFluidTransforms[7] = ValveFluidTransform_3_2;
             _valveFluidTransforms[8] = ValveFluidTransform_3_3;
 
-            // ✅ 初始化流动粒子
+            //  初始化流动粒子
             _flowParticles[0] = new[] { Particle1_1, Particle1_2, Particle1_3, Particle1_4, Particle1_5 };
             _flowParticles[1] = new[] { Particle2_1, Particle2_2, Particle2_3, Particle2_4, Particle2_5 };
             _flowParticles[2] = new[] { Particle3_1, Particle3_2, Particle3_3, Particle3_4, Particle3_5 };
 
-            Debug.WriteLine("✅ 特斯拉阀液体流动元素初始化完成");
+            Debug.WriteLine(" 特斯拉阀液体流动元素初始化完成");
         }
 
 
@@ -289,11 +289,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlow1State(bool isEnabled)
         {
-            Debug.WriteLine($"🌊 UpdateFlow1State: isEnabled={isEnabled}");
+            Debug.WriteLine($" UpdateFlow1State: isEnabled={isEnabled}");
 
             if (!_isLoaded)
             {
-                Debug.WriteLine("⚠️ 控件未加载,延迟启动");
+                Debug.WriteLine(" 控件未加载,延迟启动");
                 Dispatcher.BeginInvoke(new Action(() => UpdateFlow1State(isEnabled)), DispatcherPriority.Loaded);
                 return;
             }
@@ -302,15 +302,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 InputPipeFluid1Container.Visibility = Visibility.Visible;
                 StartInputPipeAnimation(1);
-                UpdateValveFlowState(1, true); // ✅ 只控制通道1
-                Debug.WriteLine("✅ 进料1流动已启动");
+                UpdateValveFlowState(1, true); //  只控制通道1
+                Debug.WriteLine(" 进料1流动已启动");
             }
             else
             {
                 StopInputPipeAnimation(1);
                 InputPipeFluid1Container.Visibility = Visibility.Collapsed;
-                UpdateValveFlowState(1, false); // ✅ 只控制通道1
-                Debug.WriteLine("⏹️ 进料1流动已停止");
+                UpdateValveFlowState(1, false); //  只控制通道1
+                Debug.WriteLine(" 进料1流动已停止");
             }
 
             FlowStateChanged?.Invoke(this, new MicroreactorFlowStateChangedEventArgs
@@ -323,11 +323,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlow2State(bool isEnabled)
         {
-            Debug.WriteLine($"🌊 UpdateFlow2State: isEnabled={isEnabled}");
+            Debug.WriteLine($" UpdateFlow2State: isEnabled={isEnabled}");
 
             if (!_isLoaded)
             {
-                Debug.WriteLine("⚠️ 控件未加载,延迟启动");
+                Debug.WriteLine(" 控件未加载,延迟启动");
                 Dispatcher.BeginInvoke(new Action(() => UpdateFlow2State(isEnabled)), DispatcherPriority.Loaded);
                 return;
             }
@@ -336,15 +336,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 InputPipeFluid2Container.Visibility = Visibility.Visible;
                 StartInputPipeAnimation(2);
-                UpdateValveFlowState(2, true); // ✅ 只控制通道2
-                Debug.WriteLine("✅ 进料2流动已启动");
+                UpdateValveFlowState(2, true); //  只控制通道2
+                Debug.WriteLine(" 进料2流动已启动");
             }
             else
             {
                 StopInputPipeAnimation(2);
                 InputPipeFluid2Container.Visibility = Visibility.Collapsed;
-                UpdateValveFlowState(2, false); // ✅ 只控制通道2
-                Debug.WriteLine("⏹️ 进料2流动已停止");
+                UpdateValveFlowState(2, false); //  只控制通道2
+                Debug.WriteLine(" 进料2流动已停止");
             }
 
             FlowStateChanged?.Invoke(this, new MicroreactorFlowStateChangedEventArgs
@@ -357,11 +357,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlow3State(bool isEnabled)
         {
-            Debug.WriteLine($"🌊 UpdateFlow3State: isEnabled={isEnabled}");
+            Debug.WriteLine($" UpdateFlow3State: isEnabled={isEnabled}");
 
             if (!_isLoaded)
             {
-                Debug.WriteLine("⚠️ 控件未加载,延迟启动");
+                Debug.WriteLine(" 控件未加载,延迟启动");
                 Dispatcher.BeginInvoke(new Action(() => UpdateFlow3State(isEnabled)), DispatcherPriority.Loaded);
                 return;
             }
@@ -370,15 +370,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 InputPipeFluid3Container.Visibility = Visibility.Visible;
                 StartInputPipeAnimation(3);
-                UpdateValveFlowState(3, true); // ✅ 只控制通道3
-                Debug.WriteLine("✅ 进料3流动已启动");
+                UpdateValveFlowState(3, true); //  只控制通道3
+                Debug.WriteLine(" 进料3流动已启动");
             }
             else
             {
                 StopInputPipeAnimation(3);
                 InputPipeFluid3Container.Visibility = Visibility.Collapsed;
-                UpdateValveFlowState(3, false); // ✅ 只控制通道3
-                Debug.WriteLine("⏹️ 进料3流动已停止");
+                UpdateValveFlowState(3, false); //  只控制通道3
+                Debug.WriteLine(" 进料3流动已停止");
             }
 
             FlowStateChanged?.Invoke(this, new MicroreactorFlowStateChangedEventArgs
@@ -390,7 +390,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 更新特定通道的特斯拉阀流动状态
+        ///  更新特定通道的特斯拉阀流动状态
         /// </summary>
         private void UpdateValveFlowState(int channel, bool isEnabled)
         {
@@ -405,7 +405,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     StartOutputPipeAnimation();
                 }
 
-                Debug.WriteLine($"✅ 通道{channel}特斯拉阀流动动画已启动");
+                Debug.WriteLine($" 通道{channel}特斯拉阀流动动画已启动");
             }
             else
             {
@@ -418,7 +418,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     ValveFluidLayerContainer.Visibility = Visibility.Collapsed;
                 }
 
-                Debug.WriteLine($"⏹️ 通道{channel}特斯拉阀流动动画已停止");
+                Debug.WriteLine($" 通道{channel}特斯拉阀流动动画已停止");
             }
         }
 
@@ -427,7 +427,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region 进料管道动画
 
         /// <summary>
-        /// ✅ 启动进料管道动画
+        ///  启动进料管道动画
         /// </summary>
         private void StartInputPipeAnimation(int pipeIndex)
         {
@@ -452,11 +452,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             storyboard.Begin();
             SaveInputPipeStoryboard(pipeIndex, storyboard);
 
-            Debug.WriteLine($"✅ 进料管道{pipeIndex}动画已启动");
+            Debug.WriteLine($" 进料管道{pipeIndex}动画已启动");
         }
 
         /// <summary>
-        /// ✅ 停止进料管道动画
+        ///  停止进料管道动画
         /// </summary>
         private void StopInputPipeAnimation(int pipeIndex)
         {
@@ -464,7 +464,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (storyboard != null)
             {
                 storyboard.Stop();
-                Debug.WriteLine($"⏹️ 进料管道{pipeIndex}动画已停止");
+                Debug.WriteLine($" 进料管道{pipeIndex}动画已停止");
             }
 
             TranslateTransform transform = GetInputPipeTransform(pipeIndex);
@@ -509,7 +509,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region 特斯拉阀流动动画（核心）
 
         /// <summary>
-        /// ✅ 启动特斯拉阀流动动画（波浪式依次点亮）
+        ///  启动特斯拉阀流动动画（波浪式依次点亮）
         /// </summary>
         private void StartValveFlowAnimation(int channel)
         {
@@ -523,7 +523,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             int startIndex = (channel - 1) * 3;
 
-            // ✅ 为该通道的3个特斯拉阀创建流动动画
+            //  为该通道的3个特斯拉阀创建流动动画
             for (int i = 0; i < 3; i++)
             {
                 int valveIndex = startIndex + i;
@@ -533,7 +533,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 double delay = i * valveDelay;
 
-                // ✅ 透明度动画（快速出现，持续显示）
+                //  透明度动画（快速出现，持续显示）
                 var opacityAnim = new DoubleAnimationUsingKeyFrames
                 {
                     BeginTime = TimeSpan.FromSeconds(delay),
@@ -551,7 +551,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
                 storyboard.Children.Add(opacityAnim);
 
-                // ✅ 水流渐变移动动画（营造流动感）
+                //  水流渐变移动动画（营造流动感）
                 var gradientAnim = new DoubleAnimation
                 {
                     From = -2.0,
@@ -567,7 +567,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 storyboard.Children.Add(gradientAnim);
             }
 
-            // ✅ 添加流动粒子动画
+            //  添加流动粒子动画
             AddFlowParticlesAnimation(storyboard, channel);
 
             storyboard.Begin();
@@ -579,10 +579,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 case 3: _valveFlowStoryboard3 = storyboard; break;
             }
 
-            Debug.WriteLine($"🌊 通道{channel}水流动画已启动");
+            Debug.WriteLine($" 通道{channel}水流动画已启动");
         }
         /// <summary>
-        /// ✅ 添加流动粒子动画
+        ///  添加流动粒子动画
         /// </summary>
         private void AddFlowParticlesAnimation(Storyboard storyboard, int channel)
         {
@@ -647,7 +647,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
       
 
         /// <summary>
-        /// ✅ 停止指定通道的特斯拉阀流动动画
+        ///  停止指定通道的特斯拉阀流动动画
         /// </summary>
         private void StopValveFlowAnimation(int channel)
         {
@@ -686,10 +686,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 case 3: _valveFlowStoryboard3 = null; break;
             }
 
-            Debug.WriteLine($"⏹️ 通道{channel}水流动画已停止");
+            Debug.WriteLine($" 通道{channel}水流动画已停止");
         }
         /// <summary>
-        /// ✅ 重置指定通道的粒子
+        ///  重置指定通道的粒子
         /// </summary>
         private void ResetParticlesForChannel(int channel)
         {
@@ -715,17 +715,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
 
         /// <summary>
-        /// ✅ 添加增强气泡动画（水平穿过特斯拉阀）
+        ///  添加增强气泡动画（水平穿过特斯拉阀）
         /// </summary>
         /// <summary>
-        /// ✅ 增强气泡动画（更明显的效果）
+        ///  增强气泡动画（更明显的效果）
         /// </summary>
         private void AddEnhancedBubbleAnimation(Storyboard storyboard, Ellipse bubble,
             double centerTop, double duration, double delay, bool isBigBubble)
         {
             if (bubble == null) return;
 
-            // ✅ 水平移动动画
+            //  水平移动动画
             var leftAnim = new DoubleAnimation
             {
                 From = -30,
@@ -739,7 +739,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Storyboard.SetTargetProperty(leftAnim, new PropertyPath("(Canvas.Left)"));
             storyboard.Children.Add(leftAnim);
 
-            // ✅ 垂直波动（大气泡波动更大）
+            //  垂直波动（大气泡波动更大）
             double verticalRange = isBigBubble ? 10 : 6;
             var topAnim = new DoubleAnimation
             {
@@ -754,7 +754,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Storyboard.SetTargetProperty(topAnim, new PropertyPath("(Canvas.Top)"));
             storyboard.Children.Add(topAnim);
 
-            // ✅ 透明度闪烁（更明显）
+            //  透明度闪烁（更明显）
             var opacityAnim = new DoubleAnimation
             {
                 From = 0.7,
@@ -767,7 +767,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
             storyboard.Children.Add(opacityAnim);
 
-            // ✅ 大小脉动（气泡呼吸效果）
+            //  大小脉动（气泡呼吸效果）
             if (isBigBubble)
             {
                 var scaleTransform = new ScaleTransform(1, 1, 0.5, 0.5);
@@ -826,7 +826,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region 产品出口动画
 
         /// <summary>
-        /// ✅ 启动产品出口动画
+        ///  启动产品出口动画
         /// </summary>
         private void StartOutputPipeAnimation()
         {
@@ -852,11 +852,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             storyboard.Begin();
             _outputPipeStoryboard = storyboard;
 
-            Debug.WriteLine("✅ 产品出口动画已启动");
+            Debug.WriteLine(" 产品出口动画已启动");
         }
 
         /// <summary>
-        /// ✅ 停止产品出口动画
+        ///  停止产品出口动画
         /// </summary>
         private void StopOutputPipeAnimation()
         {
@@ -871,7 +871,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             OutputPipeFluidContainer.Visibility = Visibility.Collapsed;
 
-            Debug.WriteLine("⏹️ 产品出口动画已停止");
+            Debug.WriteLine(" 产品出口动画已停止");
         }
 
         #endregion
@@ -896,7 +896,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateStoryboardDuration(_inputPipeStoryboard2, baseDuration * 0.8);
             UpdateStoryboardDuration(_inputPipeStoryboard3, baseDuration * 0.8);
 
-            // ✅ 更新每个通道的特斯拉阀流动速度
+            //  更新每个通道的特斯拉阀流动速度
             UpdateStoryboardDuration(_valveFlowStoryboard1, baseDuration);
             UpdateStoryboardDuration(_valveFlowStoryboard2, baseDuration);
             UpdateStoryboardDuration(_valveFlowStoryboard3, baseDuration);
@@ -904,7 +904,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             // 更新产品出口速度
             UpdateStoryboardDuration(_outputPipeStoryboard, baseDuration * 0.7);
 
-            Debug.WriteLine($"🚀 流速更新: {flowRate} kg/h → 基础周期 {baseDuration:F1}秒");
+            Debug.WriteLine($" 流速更新: {flowRate} kg/h → 基础周期 {baseDuration:F1}秒");
         }
 
         private void UpdateStoryboardDuration(Storyboard storyboard, double durationSeconds)
@@ -1009,7 +1009,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     IsReacting = isReacting
                 });
 
-                Debug.WriteLine($"🔄 反应器 {reactor.ReactorId} 状态: {(isReacting ? "✅ 运行" : "❌ 停止")}");
+                Debug.WriteLine($"🔄 反应器 {reactor.ReactorId} 状态: {(isReacting ? " 运行" : " 停止")}");
             }
         }
 
@@ -1041,11 +1041,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (isSelected)
             {
-                Debug.WriteLine($"✅ 反应器 {ReactorId} 已选中");
+                Debug.WriteLine($" 反应器 {ReactorId} 已选中");
             }
             else
             {
-                Debug.WriteLine($"❌ 反应器 {ReactorId} 取消选中");
+                Debug.WriteLine($" 反应器 {ReactorId} 取消选中");
             }
         }
 

@@ -657,7 +657,7 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- ✅ 新的动态图表容器 -->
+                        <!--  新的动态图表容器 -->
                         <Grid x:Name="TimelineChartsPanel"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch">

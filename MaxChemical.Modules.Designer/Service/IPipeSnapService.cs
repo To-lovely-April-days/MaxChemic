@@ -77,7 +77,7 @@ namespace MaxChemical.Modules.Designer.Service
     /// </summary>
     public enum PipeEndPointType
     {
-        Generic,           // ✅ 新增：通用端点类型
+        Generic,           //  新增：通用端点类型
         StraightLeft,
         StraightRight,
         ElbowLeft,

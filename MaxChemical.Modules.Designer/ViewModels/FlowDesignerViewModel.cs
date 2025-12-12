@@ -1054,7 +1054,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
 
         /// <summary>
-        /// ✅ 修复：清空流程请求处理（包括设备）
+        ///  修复：清空流程请求处理（包括设备）
         /// </summary>
         private void OnClearFlowRequest()
         {
@@ -1066,37 +1066,37 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     Connections?.Count ?? 0,
                     CanvasDevices?.Count ?? 0);
 
-                // ✅ 1. 清空所有命令节点
+                //  1. 清空所有命令节点
                 if (CommandNodes != null && CommandNodes.Count > 0)
                 {
                     _logger.LogDebug("清除 {Count} 个命令节点", CommandNodes.Count);
                     CommandNodes.Clear();
                 }
 
-                // ✅ 2. 清空所有连接
+                //  2. 清空所有连接
                 if (Connections != null && Connections.Count > 0)
                 {
                     _logger.LogDebug("清除 {Count} 个连接", Connections.Count);
                     Connections.Clear();
                 }
 
-                // ✅ 3. 清空所有画布设备（这是关键！）
+                //  3. 清空所有画布设备（这是关键！）
                 if (CanvasDevices != null && CanvasDevices.Count > 0)
                 {
                     _logger.LogDebug("清除 {Count} 个画布设备", CanvasDevices.Count);
                     CanvasDevices.Clear();
                 }
 
-                // ✅ 4. 重置画布属性
+                //  4. 重置画布属性
                 CanvasWidth = 1200;
                 CanvasHeight = 800;
                 StartNodeX = (CanvasWidth - 231) / 2;
                 StartNodeY = 20;
 
-                // ✅ 5. 清空选择状态
+                //  5. 清空选择状态
                 SelectedNode = null;
 
-                // ✅ 6. 清空设备选项
+                //  6. 清空设备选项
                 DeviceOptionsForSelectedNode?.Clear();
 
                 _logger.LogDebug("  清空后 - 节点: {NodeCount}, 连接: {ConnectionCount}, 设备: {DeviceCount}",

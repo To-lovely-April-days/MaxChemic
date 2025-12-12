@@ -227,19 +227,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (isOpen)
             {
-                // ✅ 使用资源中定义的打开状态渐变
+                //  使用资源中定义的打开状态渐变
                 BodyColor = (LinearGradientBrush)this.Resources["OpenBodyGradient"];
                 CenterColor = (RadialGradientBrush)this.Resources["OpenCenterGradient"];
 
-                Debug.WriteLine($"✅ 阀门打开 | 角度:{_rotationAngle:F0}°");
+                Debug.WriteLine($" 阀门打开 | 角度:{_rotationAngle:F0}°");
             }
             else
             {
-                // ✅ 使用资源中定义的关闭状态渐变
+                //  使用资源中定义的关闭状态渐变
                 BodyColor = (LinearGradientBrush)this.Resources["BodyGradient"];
                 CenterColor = (RadialGradientBrush)this.Resources["CenterGradient"];
 
-                Debug.WriteLine($"❌ 阀门关闭 | 角度:{_rotationAngle:F0}°");
+                Debug.WriteLine($" 阀门关闭 | 角度:{_rotationAngle:F0}°");
             }
         }
 
@@ -303,7 +303,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
 
-                // ✅ 先捕获鼠标
+                //  先捕获鼠标
                 ((UIElement)sender).CaptureMouse();
                 e.Handled = true;
             }
@@ -320,25 +320,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
-                    Debug.WriteLine("✅ 超过阈值，开始拖拽模式");
+                    Debug.WriteLine(" 超过阈值，开始拖拽模式");
                     _isDragging = true;
 
-                    // ✅ 释放阀门的鼠标捕获
+                    //  释放阀门的鼠标捕获
                     if (((UIElement)sender).IsMouseCaptured)
                     {
                         ((UIElement)sender).ReleaseMouseCapture();
                     }
 
-                    // ✅ 查找并触发设备容器的拖拽
+                    //  查找并触发设备容器的拖拽
                     var deviceBorder = FindParentOfType<Border>(this);
                     if (deviceBorder != null && deviceBorder.Tag is string deviceId)
                     {
                         Debug.WriteLine($"将拖拽交给设备容器: {deviceId}");
 
-                        // ✅ 让设备容器捕获鼠标
+                        //  让设备容器捕获鼠标
                         deviceBorder.CaptureMouse();
 
-                        // ✅ 创建新的鼠标事件参数，传递给设备容器
+                        //  创建新的鼠标事件参数，传递给设备容器
                         var canvas = FindParentOfType<Canvas>(deviceBorder);
                         var canvasPosition = e.GetPosition(canvas);
 
@@ -351,7 +351,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     }
                 }
 
-                // ✅ 不处理这个事件，因为如果是拖拽，已经释放了捕获
+                //  不处理这个事件，因为如果是拖拽，已经释放了捕获
                 // 如果是点击（未超过阈值），保持捕获
             }
         }
@@ -372,7 +372,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    Debug.WriteLine("✅ 确认是点击 - 切换阀门状态");
+                    Debug.WriteLine(" 确认是点击 - 切换阀门状态");
                     IsOpen = !IsOpen;
                     ShowTemporarySelection();
                 }
@@ -391,7 +391,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
 
         /// <summary>
-        /// ✅ 显示临时选中效果（自动消失）
+        ///  显示临时选中效果（自动消失）
         /// </summary>
         private void ShowTemporarySelection()
         {
@@ -409,7 +409,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 ValveDeselected?.Invoke(this, this.ValveId);
                 autoHideTimer.Stop();
 
-                Debug.WriteLine("✅ 阀门选中效果已自动取消");
+                Debug.WriteLine(" 阀门选中效果已自动取消");
             };
 
             autoHideTimer.Start();
@@ -603,7 +603,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             set
             {
                 _rotationAngle = value % 360;
-                if (_rotationAngle < 0) _rotationAngle += 360;  // ✅ 修正：使用 _rotationAngle
+                if (_rotationAngle < 0) _rotationAngle += 360;  //  修正：使用 _rotationAngle
                 UpdateRotation();
             }
         }

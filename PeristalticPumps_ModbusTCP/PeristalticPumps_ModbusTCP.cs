@@ -237,7 +237,7 @@ namespace PeristalticPumps_ModbusTCP
 
         #endregion
 
-        #region ✅ 新增: IDeviceUIInteraction 实现
+        #region  新增: IDeviceUIInteraction 实现
 
         /// <summary>
         /// 执行 UI 命令 (UI → 设备驱动)
@@ -270,7 +270,7 @@ namespace PeristalticPumps_ModbusTCP
 
                         // 关键修复：正确转换参数类型
                         var targetSpeed = Convert.ToDouble(parameters["TargetSpeed"]);
-                        InfoLog($"📥 从UI接收到目标速度: {targetSpeed}"); // ✅ 添加日志
+                        InfoLog($"📥 从UI接收到目标速度: {targetSpeed}"); //  添加日志
 
                         return await SetSpeedAsync(targetSpeed);
 
@@ -313,7 +313,7 @@ namespace PeristalticPumps_ModbusTCP
 
         #endregion
 
-        #region ✅ 新增: UI 命令内部实现
+        #region  新增: UI 命令内部实现
 
         /// <summary>
         /// 启动泵 (内部实现)
@@ -353,17 +353,17 @@ namespace PeristalticPumps_ModbusTCP
                         _isRunning = true;
                     }
 
-                    // ✅ 通知UI：泵已启动
+                    //  通知UI：泵已启动
                     RaiseControlStateChanged("IsRunning", true);
 
-                    // ✅ 通知UI：命令执行成功
+                    //  通知UI：命令执行成功
                     RaiseControlStateChanged("CommandState_启动泵", CommandExecutionState.Succeeded);
 
                     AddActiveState("PumpRunning", "启动泵", "停止泵");
                 }
                 else
                 {
-                    // ✅ 通知UI：命令执行失败
+                    //  通知UI：命令执行失败
                     RaiseControlStateChanged("CommandState_启动泵", CommandExecutionState.Failed);
                 }
 
@@ -380,7 +380,7 @@ namespace PeristalticPumps_ModbusTCP
             }
             catch (Exception ex)
             {
-                // ✅ 通知UI：命令执行异常
+                //  通知UI：命令执行异常
                 RaiseControlStateChanged("CommandState_启动泵", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 
@@ -428,10 +428,10 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     RemoveActiveState("PumpRunning");
                 }
-                // ✅ 通知UI：泵已停止
+                //  通知UI：泵已停止
                 RaiseControlStateChanged("IsRunning", false);
 
-                // ✅ 通知UI：命令执行成功
+                //  通知UI：命令执行成功
                 RaiseControlStateChanged("CommandState_停止泵", CommandExecutionState.Succeeded);
                 return new CommandExecutionResult
                 {
@@ -445,7 +445,7 @@ namespace PeristalticPumps_ModbusTCP
                 };
             }
             catch (Exception ex)
-            {   // ✅ 通知UI：命令执行异常
+            {   //  通知UI：命令执行异常
                 RaiseControlStateChanged("CommandState_停止泵", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"停止泵失败: {ex.Message}");
@@ -499,15 +499,15 @@ namespace PeristalticPumps_ModbusTCP
                         _currentSpeed = targetSpeed;
                     }
 
-                    // ✅ 通知UI：泵速已更新
+                    //  通知UI：泵速已更新
                     RaiseControlStateChanged("PumpSpeed", (int)targetSpeed);
 
-                    // ✅ 通知UI：命令执行成功
+                    //  通知UI：命令执行成功
                     RaiseControlStateChanged("CommandState_设置泵速", CommandExecutionState.Succeeded);
                 }
                 else
                 {
-                    // ✅ 通知UI：命令执行失败
+                    //  通知UI：命令执行失败
                     RaiseControlStateChanged("CommandState_设置泵速", CommandExecutionState.Failed);
                 }
 
@@ -540,7 +540,7 @@ namespace PeristalticPumps_ModbusTCP
 
         #endregion
 
-        // ✅ 触发状态变化事件的辅助方法
+        //  触发状态变化事件的辅助方法
         private void RaiseControlStateChanged(string stateName, object stateValue, Dictionary<string, object> additionalData = null)
         {
             ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
@@ -640,10 +640,10 @@ namespace PeristalticPumps_ModbusTCP
                         {
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
-                        // ✅ 通知UI：泵已启动
+                        //  通知UI：泵已启动
                         RaiseControlStateChanged("IsRunning", true);
 
-                        // ✅ 通知UI：命令执行成功
+                        //  通知UI：命令执行成功
                         RaiseControlStateChanged("CommandState_启动泵", CommandExecutionState.Succeeded);
                         // *** 移除活跃状态 ***
                         //if (success)
@@ -791,10 +791,10 @@ namespace PeristalticPumps_ModbusTCP
                         {
                             RemoveActiveState("PumpRunning");
                         }
-                        // ✅ 通知UI：泵速已更新
+                        //  通知UI：泵速已更新
                         RaiseControlStateChanged("PumpSpeed", (int)targetSpeed);
 
-                        // ✅ 通知UI：命令执行成功
+                        //  通知UI：命令执行成功
                         RaiseControlStateChanged("CommandState_设置泵速", CommandExecutionState.Succeeded);
                     }
                     catch (Exception ex)
@@ -864,14 +864,14 @@ namespace PeristalticPumps_ModbusTCP
                         {
                             RemoveActiveState("PumpRunning");
                         }
-                        // ✅ 通知UI：泵已停止
+                        //  通知UI：泵已停止
                         RaiseControlStateChanged("IsRunning", false);
 
-                        // ✅ 通知UI：命令执行成功
+                        //  通知UI：命令执行成功
                         RaiseControlStateChanged("CommandState_停止泵", CommandExecutionState.Succeeded);
                     }
                     catch (Exception ex)
-                    { // ✅ 通知UI：命令执行异常
+                    { //  通知UI：命令执行异常
                         RaiseControlStateChanged("CommandState_停止泵", CommandExecutionState.Error,
                             new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                         ErrorLog($"停止泵失败: {ex.Message}");

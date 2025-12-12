@@ -22,7 +22,7 @@ namespace MaxChemical.Modules.Designer.Converters
                     LogicCommandType.If => "🔀",
                     LogicCommandType.Loop => "🔄",
                     LogicCommandType.Parallel => "⫸",
-                    LogicCommandType.Wait => "⏳",
+                    LogicCommandType.Wait => "",
                     LogicCommandType.WaitIf => "⏱",
                     LogicCommandType.SetVariable => "📝",
                     _ => "⚙"

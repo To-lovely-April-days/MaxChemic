@@ -90,7 +90,7 @@ namespace MaxChemical.Shell.Services
                 }
             }
 
-            _logger.LogInformation($"✅ 使用 TTS 引擎: {engine.EngineName}");
+            _logger.LogInformation($" 使用 TTS 引擎: {engine.EngineName}");
             return engine;
         }
 
@@ -112,11 +112,11 @@ namespace MaxChemical.Shell.Services
                 _recognizer.SpeechRecognitionRejected += OnSpeechRejected;
                 _recognizer.RecognizeCompleted += OnRecognizeCompleted;
 
-                _logger.LogInformation("✅ 语音识别引擎初始化成功");
+                _logger.LogInformation(" 语音识别引擎初始化成功");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 初始化语音识别引擎失败: {ex.Message}");
+                _logger.LogError($" 初始化语音识别引擎失败: {ex.Message}");
                 throw;
             }
         }
@@ -186,11 +186,11 @@ namespace MaxChemical.Shell.Services
                 _isAwake = false;
 
                 ListeningStateChanged?.Invoke(this, true);
-                _logger.LogInformation("✅ 语音助手已启动");
+                _logger.LogInformation(" 语音助手已启动");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 启动语音助手失败: {ex.Message}");
+                _logger.LogError($" 启动语音助手失败: {ex.Message}");
                 throw;
             }
         }
@@ -213,11 +213,11 @@ namespace MaxChemical.Shell.Services
                 StopSpeaking();
 
                 ListeningStateChanged?.Invoke(this, false);
-                _logger.LogInformation("✅ 语音助手已停止");
+                _logger.LogInformation(" 语音助手已停止");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 停止语音助手失败: {ex.Message}");
+                _logger.LogError($" 停止语音助手失败: {ex.Message}");
             }
         }
 
@@ -269,7 +269,7 @@ namespace MaxChemical.Shell.Services
             ResetAutoSleepTimer();
             CommandRecognized?.Invoke(this, command);
 
-            // ✅ 检查是否是创建设备命令
+            //  检查是否是创建设备命令
             if (command.Contains("创建") && command.Contains("柱塞泵"))
             {
                 HandleCreateDeviceCommand("柱塞泵");
@@ -296,7 +296,7 @@ namespace MaxChemical.Shell.Services
             else
             {
                 // 非特定命令，重复用户说的话
-                _logger.LogInformation($"📢 复述用户指令: {command}");
+                _logger.LogInformation($" 复述用户指令: {command}");
                 SpeakAsync($"您说的是:{command}");
             }
         }
@@ -323,7 +323,7 @@ namespace MaxChemical.Shell.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 处理创建设备命令失败: {ex.Message}");
+                _logger.LogError($" 处理创建设备命令失败: {ex.Message}");
                 SpeakAsync("创建设备失败,请稍后重试");
             }
         }
@@ -475,14 +475,14 @@ namespace MaxChemical.Shell.Services
 
         private void OnSpeechRejected(object? sender, SpeechRecognitionRejectedEventArgs e)
         {
-            _logger.LogDebug("❌ 语音识别被拒绝");
+            _logger.LogDebug(" 语音识别被拒绝");
         }
 
         private void OnRecognizeCompleted(object? sender, RecognizeCompletedEventArgs e)
         {
             if (e.Error != null)
             {
-                _logger.LogError($"❌ 语音识别错误: {e.Error.Message}");
+                _logger.LogError($" 语音识别错误: {e.Error.Message}");
             }
         }
 

@@ -54,12 +54,12 @@ namespace MaxChemical.Shell.Services
 
             if (IsAvailable)
             {
-                _logger.LogInformation($"✅ {EngineName} 已就绪");
+                _logger.LogInformation($" {EngineName} 已就绪");
                 _logger.LogInformation($"   - 模型: {Path.GetFileName(_modelPath)}");
             }
             else
             {
-                _logger.LogWarning($"❌ {EngineName} 不可用");
+                _logger.LogWarning($" {EngineName} 不可用");
                 if (!piperExists)
                     _logger.LogWarning($"   - Piper 未找到: {_piperPath}");
                 if (!modelExists)
@@ -82,7 +82,7 @@ namespace MaxChemical.Shell.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ [{EngineName}] 语音输出失败: {ex.Message}");
+                _logger.LogError($" [{EngineName}] 语音输出失败: {ex.Message}");
             }
         }
 
@@ -103,7 +103,7 @@ namespace MaxChemical.Shell.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"❌ [{EngineName}] 异步语音输出失败: {ex.Message}");
+                    _logger.LogError($" [{EngineName}] 异步语音输出失败: {ex.Message}");
                 }
             });
         }
@@ -154,14 +154,14 @@ namespace MaxChemical.Shell.Services
                         {
                             if (error.Contains("[error]") || error.Contains("Error:"))
                             {
-                                _logger.LogError($"❌ Piper 错误: {error}");
+                                _logger.LogError($" Piper 错误: {error}");
                                 return;
                             }
                         }
 
                         if (process.ExitCode != 0)
                         {
-                            _logger.LogError($"❌ Piper 退出代码: {process.ExitCode}");
+                            _logger.LogError($" Piper 退出代码: {process.ExitCode}");
                             return;
                         }
 
@@ -175,20 +175,20 @@ namespace MaxChemical.Shell.Services
                             }
                             else
                             {
-                                _logger.LogError($"❌ 音频文件为空");
+                                _logger.LogError($" 音频文件为空");
                                 File.Delete(tempWavFile);
                             }
                         }
                         else
                         {
-                            _logger.LogError($"❌ 未生成音频文件");
+                            _logger.LogError($" 未生成音频文件");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 执行 Piper 失败: {ex.Message}");
+                _logger.LogError($" 执行 Piper 失败: {ex.Message}");
                 DeleteTempFile(tempWavFile);
             }
         }
@@ -235,7 +235,7 @@ namespace MaxChemical.Shell.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 播放音频失败: {ex.Message}");
+                _logger.LogError($" 播放音频失败: {ex.Message}");
                 CleanupPlaybackResources();
                 DeleteTempFile(wavFile);
             }

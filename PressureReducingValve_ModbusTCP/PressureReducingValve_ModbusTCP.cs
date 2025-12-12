@@ -181,7 +181,7 @@ namespace PressureReducingValve_ModbusTCP
             await Task.Delay(500); // 模拟操作耗时
             _isOpen = true;
 
-            // ✅ 通知UI更新
+            //  通知UI更新
             OnStateChanged("IsOpen", true);
 
             InfoLog("阀门已打开");
@@ -207,7 +207,7 @@ namespace PressureReducingValve_ModbusTCP
             await Task.Delay(500);
             _isOpen = false;
 
-            // ✅ 通知UI更新
+            //  通知UI更新
             OnStateChanged("IsOpen", false);
 
             InfoLog("阀门已关闭");
@@ -223,7 +223,7 @@ namespace PressureReducingValve_ModbusTCP
             };
         }
 
-        // ✅ 触发状态变化事件
+        //  触发状态变化事件
         protected virtual void OnStateChanged(string stateName, object stateValue)
         {
             ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs

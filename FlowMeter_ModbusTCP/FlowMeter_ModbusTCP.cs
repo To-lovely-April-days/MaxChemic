@@ -85,7 +85,7 @@ namespace FlowMeter_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
-        // ✅ 新增：状态变化事件（设备驱动 → UI）
+        //  新增：状态变化事件（设备驱动 → UI）
         public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
 
         //模拟相关
@@ -105,7 +105,7 @@ namespace FlowMeter_ModbusTCP
             {
                 InfoLog($"收到UI命令: {commandName}");
 
-                // ✅ 查找对应的 DeviceCommand
+                //  查找对应的 DeviceCommand
                 var command = Commands?.FirstOrDefault(c => c.Name == commandName);
 
                 if (command?.Action == null)
@@ -117,13 +117,13 @@ namespace FlowMeter_ModbusTCP
                     };
                 }
 
-                // ✅ 转换参数格式
+                //  转换参数格式
                 var deviceParams = ConvertToDeviceParameters(parameters, command.InputParameters);
 
-                // ✅ 直接执行 Command.Action
+                //  直接执行 Command.Action
                 var outputParams = await Task.Run(() => command.Action(deviceParams));
 
-                // ✅ 从 OutputParameters 提取结果
+                //  从 OutputParameters 提取结果
                 return ConvertToCommandResult(outputParams, commandName);
             }
             catch (Exception ex)
@@ -261,7 +261,7 @@ namespace FlowMeter_ModbusTCP
 
         #endregion
 
-        #region ✅ 新增：UI 命令内部实现
+        #region  新增：UI 命令内部实现
 
       
 
@@ -341,7 +341,7 @@ namespace FlowMeter_ModbusTCP
                 while ((DateTime.Now - startTime).TotalMilliseconds < remainingWaitMs)
                 {
                     double currentFlow = await ReadCurrentFlowAsync();
-                    // ✅ 通知UI：当前流量已更新
+                    //  通知UI：当前流量已更新
                     RaiseControlStateChanged("CurrentFlow", currentFlow);
                     readingCount++;
                     recentFlows.Enqueue(currentFlow);
@@ -374,7 +374,7 @@ namespace FlowMeter_ModbusTCP
                                 int requiredConsecutiveStable = speedLevel == "高速" ? 3 : 2;
                                 if (consecutiveStableCount >= requiredConsecutiveStable)
                                 {
-                                    AddCycleLog($"│ ✅ 连续{consecutiveStableCount}次稳定! 变化率{variation:F2}% < {STABILITY_THRESHOLD}%");
+                                    AddCycleLog($"│  连续{consecutiveStableCount}次稳定! 变化率{variation:F2}% < {STABILITY_THRESHOLD}%");
                                     AddCycleLog($"│ 稳定流量: {avgFlow:F2} g/min");
                                     AddCycleLog($"│ 实际等待: {elapsedSeconds:F1}秒 (预设{adaptiveWaitTimeMs / 1000}秒)");
                                     return (avgFlow, elapsedSeconds, readingCount);
@@ -405,7 +405,7 @@ namespace FlowMeter_ModbusTCP
             }
             catch (Exception ex)
             {
-                AddCycleLog($"│ ❌ 智能检测异常: {ex.Message}");
+                AddCycleLog($"│  智能检测异常: {ex.Message}");
                 var errorWaitTime = (DateTime.Now - startTime).TotalSeconds + preWaitMs / 1000.0;
                 return (lastFlow, errorWaitTime, readingCount);
             }
@@ -672,7 +672,7 @@ namespace FlowMeter_ModbusTCP
             {
                 if (!_isOvershootMode)
                 {
-                    AddCycleLog($"│ 🚨 检测到超调: {overshootPercent:F2}% (>{UPPER_PROTECTION_PERCENT}%)");
+                    AddCycleLog($"│  检测到超调: {overshootPercent:F2}% (>{UPPER_PROTECTION_PERCENT}%)");
                     _isOvershootMode = true;
                     _overshootProtectionCount = 0;
                 }
@@ -689,7 +689,7 @@ namespace FlowMeter_ModbusTCP
             {
                 _isOvershootMode = false;
                 _overshootProtectionCount = 0;
-                AddCycleLog($"│ ✅ 退出超调保护模式");
+                AddCycleLog($"│  退出超调保护模式");
             }
         }
 
@@ -862,7 +862,7 @@ namespace FlowMeter_ModbusTCP
             AddCycleLog($"│   最终输出: {finalSpeed:F1} RPM");
             if (_isOvershootMode)
             {
-                AddCycleLog($"│   🚨 超调保护模式激活 (第{_overshootProtectionCount}次)");
+                AddCycleLog($"│    超调保护模式激活 (第{_overshootProtectionCount}次)");
             }
             AddCycleLog($"└──────────────");
         }
@@ -1094,7 +1094,7 @@ namespace FlowMeter_ModbusTCP
                     firstSetupSpeed = Math.Max(0, Math.Min(MAX_PUMP_SPEED, firstSetupSpeed));
 
                     AddCycleLog("┌── 密度修正首次积极起步策略 ──");
-                    AddCycleLog($"│ 🚀 首次设置使用密度修正98%积极起步");
+                    AddCycleLog($"│  首次设置使用密度修正98%积极起步");
                     AddCycleLog($"│ 目标质量流量: {targetFlow:F2} g/min");
                     AddCycleLog($"│ 液体密度: {currentDensity:F2} g/cm³");
                     AddCycleLog($"│ 所需体积流量: {requiredVolumeFlow:F2} cm³/min");
@@ -1112,12 +1112,12 @@ namespace FlowMeter_ModbusTCP
                     {
                         _lastPumpSpeedOutput = firstSetupSpeed;
                         _previousPumpSpeed = firstSetupSpeed;
-                        AddCycleLog($"│ ✅ 密度修正首次设置成功: {firstSetupSpeed:F1} RPM (耗时: {firstSetDuration.TotalMilliseconds:F0}ms)");
+                        AddCycleLog($"│  密度修正首次设置成功: {firstSetupSpeed:F1} RPM (耗时: {firstSetDuration.TotalMilliseconds:F0}ms)");
                         EndCycleLog($"密度修正首次98%积极起步: {firstSetupSpeed:F1} RPM (密度{currentDensity:F2})");
                     }
                     else
                     {
-                        AddCycleLog($"│ ❌ 密度修正首次设置失败: {firstSetupSpeed:F1} RPM");
+                        AddCycleLog($"│  密度修正首次设置失败: {firstSetupSpeed:F1} RPM");
                         EndCycleLog($"密度修正首次泵速设置失败: {firstSetupSpeed:F1} RPM");
                     }
                     AddCycleLog($"└─ 密度修正首次设置结果: {(firstSetSuccess ? "成功" : "失败")}");
@@ -1173,7 +1173,7 @@ namespace FlowMeter_ModbusTCP
                 if (errorPercent <= DEAD_ZONE_PERCENT)
                 {
                     _stableCount++;
-                    AddCycleLog($"│ ✅ 判断: 在死区内 ({errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%)");
+                    AddCycleLog($"│  判断: 在死区内 ({errorPercent:F3}% ≤ {DEAD_ZONE_PERCENT}%)");
                     AddCycleLog($"│ 稳定计数: {_stableCount}");
 
                     var oldIntegral = _integralError;
@@ -1189,7 +1189,7 @@ namespace FlowMeter_ModbusTCP
                 if (errorPercent <= FLOW_TOLERANCE_PERCENT)
                 {
                     _stableCount++;
-                    AddCycleLog($"│ ✅ 判断: 在容差内 ({errorPercent:F3}% ≤ {FLOW_TOLERANCE_PERCENT}%)");
+                    AddCycleLog($"│  判断: 在容差内 ({errorPercent:F3}% ≤ {FLOW_TOLERANCE_PERCENT}%)");
                     AddCycleLog($"│ 稳定计数: {_stableCount}/{STABLE_CYCLES_REQUIRED}");
 
                     if (_stableCount >= STABLE_CYCLES_REQUIRED)
@@ -1203,12 +1203,12 @@ namespace FlowMeter_ModbusTCP
                     }
                     else
                     {
-                        AddCycleLog($"│ ⏳ 需要连续{STABLE_CYCLES_REQUIRED}次稳定，当前{_stableCount}次");
+                        AddCycleLog($"│  需要连续{STABLE_CYCLES_REQUIRED}次稳定，当前{_stableCount}次");
                     }
                 }
                 else
                 {
-                    AddCycleLog($"│ ⚠️ 判断: 超出容差 ({errorPercent:F3}% > {FLOW_TOLERANCE_PERCENT}%)");
+                    AddCycleLog($"│  判断: 超出容差 ({errorPercent:F3}% > {FLOW_TOLERANCE_PERCENT}%)");
                     _stableCount = 0;
                     AddCycleLog($"│ 稳定计数已重置: {_stableCount}");
                 }
@@ -1226,7 +1226,7 @@ namespace FlowMeter_ModbusTCP
                     // 合理性检查
                     if (isTargetChanged && Math.Abs(currentPumpSpeed - _lastPumpSpeedOutput) > 10)
                     {
-                        AddCycleLog($"│ ⚠️ 检测到泵速异常变化: 上次输出{_lastPumpSpeedOutput:F1} → 当前读取{currentPumpSpeed:F1} RPM");
+                        AddCycleLog($"│  检测到泵速异常变化: 上次输出{_lastPumpSpeedOutput:F1} → 当前读取{currentPumpSpeed:F1} RPM");
                         AddCycleLog($"│ 目标流量刚切换，使用上次输出值作为起点");
                         currentPumpSpeed = _lastPumpSpeedOutput;
                     }
@@ -1255,9 +1255,9 @@ namespace FlowMeter_ModbusTCP
                 {
                     _lastPumpSpeedOutput = newPumpSpeed;
                     _previousPumpSpeed = newPumpSpeed;
-                    // ✅ 可选：通知UI泵速变化（如果流量计显示泵速）
+                    //  可选：通知UI泵速变化（如果流量计显示泵速）
                      RaiseControlStateChanged("PumpSpeed", newPumpSpeed);
-                    AddCycleLog($"│ ✅ 设置成功: {newPumpSpeed:F1} RPM (耗时: {pumpSetDuration.TotalMilliseconds:F0}ms)");
+                    AddCycleLog($"│  设置成功: {newPumpSpeed:F1} RPM (耗时: {pumpSetDuration.TotalMilliseconds:F0}ms)");
                     AddCycleLog($"│ 泵速变化: {currentPumpSpeed:F1} → {newPumpSpeed:F1} RPM");
 
                     var summary = $"密度修正防超调调整: {currentPumpSpeed:F1}→{newPumpSpeed:F1}RPM, 流量偏差: {errorPercent:F3}%, 密度: {currentDensity:F2}";
@@ -1269,7 +1269,7 @@ namespace FlowMeter_ModbusTCP
                 }
                 else
                 {
-                    AddCycleLog($"│ ❌ 设置失败: {newPumpSpeed:F1} RPM");
+                    AddCycleLog($"│  设置失败: {newPumpSpeed:F1} RPM");
                     EndCycleLog($"密度修正泵速设置失败: {newPumpSpeed:F1} RPM");
                 }
                 AddCycleLog($"└─ 设置结果: {(adjustSuccess ? "成功" : "失败")}");
@@ -1644,11 +1644,11 @@ namespace FlowMeter_ModbusTCP
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
 
-                        // ✅ 通知UI：当前流量已更新
+                        //  通知UI：当前流量已更新
                         RaiseControlStateChanged("CurrentFlow", baseFlow);
                     }
                     catch (Exception ex)
-                    { // ✅ 通知UI：命令执行异常
+                    { //  通知UI：命令执行异常
                         RaiseControlStateChanged("CommandState_获取基准流量", CommandExecutionState.Error,
                             new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                         ErrorLog($"获取基准流量失败: {ex.Message}");
@@ -1698,7 +1698,7 @@ namespace FlowMeter_ModbusTCP
                 },
                 Action = WrapAction("设置基准流量", async delegate (DeviceParameters parameters)
                 {
-                    // ✅ 1. 通知UI：开始执行
+                    //  1. 通知UI：开始执行
                     RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Running);
 
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -1727,7 +1727,7 @@ namespace FlowMeter_ModbusTCP
                             _currentDensity = density;
                         }
 
-                        // ✅ 2. 通知UI：参数已更新
+                        //  2. 通知UI：参数已更新
                         RaiseControlStateChanged("TargetFlow", targetFlow);
                         RaiseControlStateChanged("Density", density);
 
@@ -1747,7 +1747,7 @@ namespace FlowMeter_ModbusTCP
                                 InfoLog($"密度修正初始泵速设置成功: {calculatedSpeed} RPM");
                                 success = true;
 
-                                // ✅ 3. 通知UI：流动状态已启动
+                                //  3. 通知UI：流动状态已启动
                                 RaiseControlStateChanged("IsFlowing", true);
 
                                 if (enableAutoControl)
@@ -1757,14 +1757,14 @@ namespace FlowMeter_ModbusTCP
                                     InfoLog($"密度修正防超调智能PID控制已启动 - 目标质量流量: {targetFlow} g/min, 密度: {density} g/cm³, 三档动态等待策略");
                                 }
 
-                                // ✅ 4. 通知UI：命令执行成功
+                                //  4. 通知UI：命令执行成功
                                 RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Succeeded);
                             }
                             else
                             {
                                 WarnLog($"密度修正初始泵速设置失败: {calculatedSpeed} RPM");
 
-                                // ✅ 5. 通知UI：命令执行失败
+                                //  5. 通知UI：命令执行失败
                                 RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Failed);
                             }
 
@@ -1780,7 +1780,7 @@ namespace FlowMeter_ModbusTCP
                             RemoveActiveState("FlowControlActive");
                             success = true;
 
-                            // ✅ 通知UI：流动已停止
+                            //  通知UI：流动已停止
                             RaiseControlStateChanged("IsFlowing", false);
                             RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Succeeded);
 
@@ -1791,7 +1791,7 @@ namespace FlowMeter_ModbusTCP
                     {
                         ErrorLog($"设置密度修正基准流量失败: {ex.Message}");
 
-                        // ✅ 通知UI：命令执行异常
+                        //  通知UI：命令执行异常
                         RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Error,
                             new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 
@@ -1829,7 +1829,7 @@ namespace FlowMeter_ModbusTCP
                 },
                 Action = WrapAction("停止流量控制", async delegate (DeviceParameters parameters)
                 {
-                    // ✅ 1. 通知UI：开始执行
+                    //  1. 通知UI：开始执行
                     RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Running);
 
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -1854,17 +1854,17 @@ namespace FlowMeter_ModbusTCP
                         {
                             RemoveActiveState("FlowControlActive");
 
-                            // ✅ 2. 通知UI：流动已停止
+                            //  2. 通知UI：流动已停止
                             RaiseControlStateChanged("IsFlowing", false);
                             RaiseControlStateChanged("TargetFlow", 0.0);
                             RaiseControlStateChanged("CurrentFlow", 0.0);
 
-                            // ✅ 3. 通知UI：命令执行成功
+                            //  3. 通知UI：命令执行成功
                             RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Succeeded);
                         }
                         else
                         {
-                            // ✅ 通知UI：命令执行失败
+                            //  通知UI：命令执行失败
                             RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Failed);
                         }
                     }
@@ -1872,7 +1872,7 @@ namespace FlowMeter_ModbusTCP
                     {
                         ErrorLog($"停止密度修正流量控制失败: {ex.Message}");
 
-                        // ✅ 通知UI：命令执行异常
+                        //  通知UI：命令执行异常
                         RaiseControlStateChanged("CommandState_停止流量控制", CommandExecutionState.Error,
                             new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 
@@ -2057,7 +2057,7 @@ namespace FlowMeter_ModbusTCP
                 },
                 Action = WrapAction("设置液体密度", async delegate (DeviceParameters parameters)
                 {
-                    // ✅ 1. 通知UI：开始执行
+                    //  1. 通知UI：开始执行
                     RaiseControlStateChanged("CommandState_设置液体密度", CommandExecutionState.Running);
 
                     double newDensity = parameters.GetValue<double>("Density");
@@ -2078,7 +2078,7 @@ namespace FlowMeter_ModbusTCP
                         success = true;
                         InfoLog($"液体密度已更新: {previousDensity:F2} → {newDensity:F2} g/cm³");
 
-                        // ✅ 2. 通知UI：密度已更新
+                        //  2. 通知UI：密度已更新
                         RaiseControlStateChanged("Density", newDensity);
 
                         // 如果控制正在运行，记录密度变化对控制的影响
@@ -2105,7 +2105,7 @@ namespace FlowMeter_ModbusTCP
                             }
                         }
 
-                        // ✅ 3. 通知UI：命令执行成功
+                        //  3. 通知UI：命令执行成功
                         RaiseControlStateChanged("CommandState_设置液体密度", CommandExecutionState.Succeeded);
                     }
                     catch (Exception ex)
@@ -2117,7 +2117,7 @@ namespace FlowMeter_ModbusTCP
                             previousDensity = _currentDensity;
                         }
 
-                        // ✅ 通知UI：命令执行异常
+                        //  通知UI：命令执行异常
                         RaiseControlStateChanged("CommandState_设置液体密度", CommandExecutionState.Error,
                             new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 

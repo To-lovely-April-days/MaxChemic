@@ -10,9 +10,9 @@
              RenderOptions.BitmapScalingMode="HighQuality"
              RenderOptions.EdgeMode="Unspecified">
 
-    <!-- ✅ 样式资源 -->
+    <!--  样式资源 -->
     <UserControl.Resources>
-        <!-- ✅ 优化：高性能 ScrollViewer 样式 -->
+        <!--  优化：高性能 ScrollViewer 样式 -->
         <Style x:Key="ThinScrollViewerStyle" TargetType="ScrollViewer">
             <Setter Property="Template">
                 <Setter.Value>
@@ -63,7 +63,7 @@
 
     <Border Background="White" BorderBrush="#E0E0E0">
         <Grid>
-            <!-- ✅ 管道工具箱（最高层级，不缓存） -->
+            <!--  管道工具箱（最高层级，不缓存） -->
             <local:PipeToolboxPanel x:Name="PipeToolbox"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Top"
@@ -71,7 +71,7 @@
                                     Panel.ZIndex="1000"
                                     IsHitTestVisible="True"/>
 
-            <!-- ✅ 画布滚动容器（硬件加速） -->
+            <!--  画布滚动容器（硬件加速） -->
             <ScrollViewer x:Name="CanvasScrollViewer"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
@@ -84,7 +84,7 @@
                           RenderOptions.BitmapScalingMode="HighQuality"
                           RenderOptions.EdgeMode="Unspecified">
 
-                <!-- ✅ 设计画布（核心优化） -->
+                <!--  设计画布（核心优化） -->
                 <Canvas x:Name="DesignCanvas"
                         Background="White"
                         ClipToBounds="True"
@@ -94,7 +94,7 @@
                         RenderOptions.EdgeMode="Unspecified"
                         RenderOptions.CachingHint="Cache">
 
-                    <!-- ✅ 画布级别缓存配置（仅在静止时生效） -->
+                    <!--  画布级别缓存配置（仅在静止时生效） -->
                     <Canvas.CacheMode>
                         <BitmapCache EnableClearType="False" 
                                      RenderAtScale="1" 
@@ -104,7 +104,7 @@
 
             </ScrollViewer>
 
-            <!-- ✅ 水印和提示信息（不缓存） -->
+            <!--  水印和提示信息（不缓存） -->
             <StackPanel HorizontalAlignment="Center" 
                         VerticalAlignment="Center"
                         IsHitTestVisible="False"

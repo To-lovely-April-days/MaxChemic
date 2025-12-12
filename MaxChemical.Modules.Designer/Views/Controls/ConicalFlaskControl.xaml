@@ -16,7 +16,7 @@
              RenderOptions.EdgeMode="Unspecified"
              RenderOptions.CachingHint="Cache">
 
-    <!-- ✅ 根级别缓存配置 -->
+    <!--  根级别缓存配置 -->
     <UserControl.CacheMode>
         <BitmapCache RenderAtScale="1.0" 
                      SnapsToDevicePixels="True" 
@@ -70,7 +70,7 @@
 
     <Canvas x:Name="FlaskCanvas" Background="Transparent" ClipToBounds="False">
 
-        <!-- ✅ 静态层：地面阴影（使用性能模式） -->
+        <!--  静态层：地面阴影（使用性能模式） -->
         <Ellipse x:Name="FlaskGroundShadow"
                  Canvas.Left="4"
                  Canvas.Top="114"
@@ -91,7 +91,7 @@
             </Ellipse.Effect>
         </Ellipse>
 
-        <!-- ✅ 静态层：瓶口（缓存） -->
+        <!--  静态层：瓶口（缓存） -->
         <Rectangle x:Name="FlaskNeck"
                    Canvas.Left="28"
                    Canvas.Top="2"
@@ -145,7 +145,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 静态层：瓶颈过渡（缓存） -->
+        <!--  静态层：瓶颈过渡（缓存） -->
         <Path x:Name="FlaskNeckTransition" 
               Panel.ZIndex="5"
               RenderOptions.CachingHint="Cache">
@@ -177,7 +177,7 @@
             <Path.StrokeThickness>0.7</Path.StrokeThickness>
         </Path>
 
-        <!-- ✅ 动画层：液体容器（禁用缓存，启用硬件渲染） -->
+        <!--  动画层：液体容器（禁用缓存，启用硬件渲染） -->
         <Canvas x:Name="LiquidContainer" 
                 Canvas.Left="0" 
                 Canvas.Top="0"
@@ -187,7 +187,7 @@
                 ClipToBounds="False"
                 RenderOptions.BitmapScalingMode="LowQuality">
 
-            <!-- ⚠️ 液体层不使用 CacheMode -->
+            <!--  液体层不使用 CacheMode -->
 
             <!-- 液体主体 -->
             <Path x:Name="FlaskLiquid" Visibility="Collapsed">
@@ -241,7 +241,7 @@
             </Ellipse>
         </Canvas>
 
-        <!-- ✅ 静态层：瓶身主体（缓存 + 阴影优化） -->
+        <!--  静态层：瓶身主体（缓存 + 阴影优化） -->
         <Path x:Name="FlaskBody" Panel.ZIndex="5"
               RenderOptions.CachingHint="Cache">
             <!-- ... 原有 Data、Fill、Stroke 保持不变 ... -->

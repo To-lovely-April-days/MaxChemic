@@ -1059,7 +1059,7 @@ namespace MaxChemical.Shell.ViewModels
             {
                 System.Diagnostics.Debug.WriteLine("执行删除命令");
 
-                // ✅ 1. 优先检查是否有选中的管道
+                //  1. 优先检查是否有选中的管道
                 var selectedPipeId = GetCurrentSelectedPipe();
 
                 if (!string.IsNullOrEmpty(selectedPipeId))
@@ -1077,10 +1077,10 @@ namespace MaxChemical.Shell.ViewModels
                         _eventAggregator?.GetEvent<DeleteSelectedPipeEvent>()?.Publish(selectedPipeId);
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道已删除");
                     }
-                    return; // ✅ 删除管道后直接返回
+                    return; //  删除管道后直接返回
                 }
 
-                // ✅ 2. 检查是否有选中的设备
+                //  2. 检查是否有选中的设备
                 var selectedDeviceId = GetCurrentSelectedDevice();
 
                 if (!string.IsNullOrEmpty(selectedDeviceId))
@@ -1100,7 +1100,7 @@ namespace MaxChemical.Shell.ViewModels
                 }
                 else
                 {
-                    // ✅ 3. 没有选中设备和管道，尝试删除选中的连接线
+                    //  3. 没有选中设备和管道，尝试删除选中的连接线
                     System.Diagnostics.Debug.WriteLine("没有选中设备或管道，尝试删除选中的连接线");
                     _eventAggregator?.GetEvent<DeleteSelectedConnectionsEvent>()?.Publish();
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("已删除选中的连接线");

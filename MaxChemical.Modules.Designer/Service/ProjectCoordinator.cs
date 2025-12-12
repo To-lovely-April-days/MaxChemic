@@ -57,7 +57,7 @@ namespace MaxChemical.Modules.Designer.Service
 
                 callback?.Invoke(projectDocument);
                 Debug.WriteLine($"项目数据收集完成: 画布设备{projectDocument.CanvasDesign.Devices.Count}个, " +
-                              $"管道{projectDocument.CanvasDesign.Pipes.Count}个, " + // ✅ 新增
+                              $"管道{projectDocument.CanvasDesign.Pipes.Count}个, " + //  新增
                               $"流程节点{projectDocument.FlowDesign.CommandNodes.Count}个");
             }
             catch (Exception ex)
@@ -89,7 +89,7 @@ namespace MaxChemical.Modules.Designer.Service
                     projectDocument.CanvasDesign.Devices = canvasDocument.Devices ?? new List<CanvasDeviceData>();
                     projectDocument.CanvasDesign.Connections = canvasDocument.Connections ?? new List<ConnectionData>();
 
-                    // ✅ 新增：复制管道数据
+                    //  新增：复制管道数据
                     projectDocument.CanvasDesign.Pipes = canvasDocument.Pipes ?? new List<CanvasPipeData>();
 
                     projectDocument.CanvasDesign.CanvasWidth = canvasDocument.CanvasWidth;
@@ -102,7 +102,7 @@ namespace MaxChemical.Modules.Designer.Service
                 // 收集监控参数状态
                 CollectMonitoringParameterStates(projectDocument.CanvasDesign);
 
-                // ✅ 新增：收集管道数据
+                //  新增：收集管道数据
                 CollectPipeData(projectDocument.CanvasDesign);
 
                 // 获取画布状态信息
@@ -110,7 +110,7 @@ namespace MaxChemical.Modules.Designer.Service
 
                 Debug.WriteLine($"画布数据收集完成: 设备{projectDocument.CanvasDesign.Devices.Count}个, " +
                               $"连接{projectDocument.CanvasDesign.Connections.Count}个, " +
-                              $"管道{projectDocument.CanvasDesign.Pipes.Count}个"); // ✅ 新增
+                              $"管道{projectDocument.CanvasDesign.Pipes.Count}个"); //  新增
             }
             catch (Exception ex)
             {
@@ -186,7 +186,7 @@ namespace MaxChemical.Modules.Designer.Service
                     }
                 });
 
-                // ✅ 新增：收集监控卡片位置
+                //  新增：收集监控卡片位置
                 _eventAggregator?.GetEvent<GetMonitoringCardPositionsRequestEvent>()?.Publish(positions =>
                 {
                     if (positions != null && positions.Count > 0)
@@ -205,7 +205,7 @@ namespace MaxChemical.Modules.Designer.Service
         }
 
         /// <summary>
-        /// ✅ 新增：收集管道数据
+        ///  新增：收集管道数据
         /// </summary>
         private void CollectPipeData(CanvasDesignData canvasDesign)
         {
@@ -229,7 +229,7 @@ namespace MaxChemical.Modules.Designer.Service
                     if (pipeDataList != null && pipeDataList.Count > 0)
                     {
                         canvasDesign.Pipes = new List<CanvasPipeData>(pipeDataList);
-                        Debug.WriteLine($"✅ 收集到 {pipeDataList.Count} 个管道");
+                        Debug.WriteLine($" 收集到 {pipeDataList.Count} 个管道");
 
                         // 详细日志
                         foreach (var pipe in pipeDataList)
@@ -245,7 +245,7 @@ namespace MaxChemical.Modules.Designer.Service
                 }
                 else
                 {
-                    Debug.WriteLine("⚠️ 收集管道数据超时");
+                    Debug.WriteLine(" 收集管道数据超时");
                     canvasDesign.Pipes = new List<CanvasPipeData>();
                 }
 
@@ -254,7 +254,7 @@ namespace MaxChemical.Modules.Designer.Service
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 收集管道数据失败: {ex.Message}");
+                Debug.WriteLine($" 收集管道数据失败: {ex.Message}");
                 canvasDesign.Pipes = new List<CanvasPipeData>();
             }
         }
@@ -367,10 +367,10 @@ namespace MaxChemical.Modules.Designer.Service
                 // 先清空现有内容
                 OnClearProjectRequest();
 
-                // ✅ 显示加载进度
+                //  显示加载进度
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在加载项目...");
 
-                // ✅ 异步加载，避免阻塞UI
+                //  异步加载，避免阻塞UI
                 System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(async () =>
                 {
                     await LoadProjectAsync(projectDocument);
@@ -384,7 +384,7 @@ namespace MaxChemical.Modules.Designer.Service
         }
 
         /// <summary>
-        /// ✅ 新增：异步加载项目
+        ///  新增：异步加载项目
         /// </summary>
         private async System.Threading.Tasks.Task LoadProjectAsync(ProjectDocument projectDocument)
         {
@@ -400,7 +400,7 @@ namespace MaxChemical.Modules.Designer.Service
                 // 步骤2：加载画布设计（包含设备和管道）
                 LoadCanvasDesignAsync(projectDocument.CanvasDesign);
 
-                // ✅ 等待画布加载完成
+                //  等待画布加载完成
                 await System.Threading.Tasks.Task.Delay(100);
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在加载流程...");
@@ -408,7 +408,7 @@ namespace MaxChemical.Modules.Designer.Service
                 // 步骤3：加载流程设计
                 LoadFlowDesign(projectDocument.FlowDesign);
 
-                // ✅ 等待流程加载完成
+                //  等待流程加载完成
                 await System.Threading.Tasks.Task.Delay(50);
 
                 // 步骤4：发布项目加载完成事件
@@ -426,7 +426,7 @@ namespace MaxChemical.Modules.Designer.Service
         }
 
         /// <summary>
-        /// ✅ 修改：异步加载画布设计
+        ///  修改：异步加载画布设计
         /// </summary>
         private void LoadCanvasDesignAsync(CanvasDesignData canvasDesign)
         {
@@ -449,7 +449,7 @@ namespace MaxChemical.Modules.Designer.Service
                     CanvasHeight = canvasDesign.CanvasHeight
                 };
 
-                // ✅ 发布加载请求（异步处理）
+                //  发布加载请求（异步处理）
                 _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Publish(canvasDocument);
 
                 // 恢复区域布局
@@ -492,7 +492,7 @@ namespace MaxChemical.Modules.Designer.Service
                     RegionLayout = canvasDesign.RegionLayout,
                     Devices = canvasDesign.Devices,
                     Connections = canvasDesign.Connections,
-                    Pipes = canvasDesign.Pipes ?? new List<CanvasPipeData>(), // ✅ 包含管道数据
+                    Pipes = canvasDesign.Pipes ?? new List<CanvasPipeData>(), //  包含管道数据
                     CanvasWidth = canvasDesign.CanvasWidth,
                     CanvasHeight = canvasDesign.CanvasHeight
                 };
@@ -503,10 +503,10 @@ namespace MaxChemical.Modules.Designer.Service
                 // 恢复监控参数状态
                 RestoreMonitoringParameterStates(canvasDesign);
 
-                // ✅ 修改:同步发布加载画布请求(包含管道数据)
+                //  修改:同步发布加载画布请求(包含管道数据)
                 _eventAggregator?.GetEvent<LoadCanvasRequestEvent>()?.Publish(canvasDocument);
 
-                // ✅ 删除:不再单独调用 RestorePipeData
+                //  删除:不再单独调用 RestorePipeData
                 // if (canvasDesign.Pipes != null && canvasDesign.Pipes.Count > 0)
                 // {
                 //     RestorePipeData(canvasDesign.Pipes);
@@ -550,7 +550,7 @@ namespace MaxChemical.Modules.Designer.Service
                     Debug.WriteLine($"发布恢复 {processedSelections.Count} 个设备的监控参数选择状态");
                 }
 
-                // ✅ 步骤2：恢复监控卡片位置（在卡片状态之前）
+                //  步骤2：恢复监控卡片位置（在卡片状态之前）
                 if (canvasDesign.MonitoringCardPositions != null && canvasDesign.MonitoringCardPositions.Count > 0)
                 {
                     _eventAggregator?.GetEvent<RestoreMonitoringCardPositionsEvent>()?.Publish(canvasDesign.MonitoringCardPositions);

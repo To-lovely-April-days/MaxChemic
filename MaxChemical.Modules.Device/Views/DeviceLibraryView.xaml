@@ -9,7 +9,7 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:BoolToAngleConverter x:Key="BoolToAngleConverter"/>
-        <!-- ✅ 添加新的转换器 -->
+        <!--  添加新的转换器 -->
         <converters:DeviceToControlConverter x:Key="DeviceToControlConverter"/>
         <converters:IsCustomControlConverter x:Key="IsCustomControlConverter"/>
         <!-- 定义颜色资源 -->

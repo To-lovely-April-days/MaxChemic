@@ -151,8 +151,8 @@ namespace MaxChemical.Modules.Designer.Views
                 var grid = new Grid
                 {
                     Margin = new Thickness(0),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,  // ✅ 水平拉伸
-                    VerticalAlignment = VerticalAlignment.Stretch       // ✅ 垂直拉伸
+                    HorizontalAlignment = HorizontalAlignment.Stretch,  //  水平拉伸
+                    VerticalAlignment = VerticalAlignment.Stretch       //  垂直拉伸
                 };
 
                 // 定义行（使用 Star 均分）
@@ -160,7 +160,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     grid.RowDefinitions.Add(new RowDefinition
                     {
-                        Height = new GridLength(1, GridUnitType.Star)  // ✅ 均分高度
+                        Height = new GridLength(1, GridUnitType.Star)  //  均分高度
                     });
                 }
 
@@ -169,7 +169,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     grid.ColumnDefinitions.Add(new ColumnDefinition
                     {
-                        Width = new GridLength(1, GridUnitType.Star)   // ✅ 均分宽度
+                        Width = new GridLength(1, GridUnitType.Star)   //  均分宽度
                     });
                 }
 
@@ -183,7 +183,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Grid.SetRow(chartCard, position.Row);
                     Grid.SetColumn(chartCard, position.Column);
 
-                    // ✅ 如果是最后一行且只有一个元素，跨越所有列
+                    //  如果是最后一行且只有一个元素，跨越所有列
                     if (IsLastRowSingleItem(enabledParameters.Count, layout, i))
                     {
                         Grid.SetColumnSpan(chartCard, layout.Columns);
@@ -1071,7 +1071,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             var icon = new TextBlock
             {
-                Text = "📊",
+                Text = "",
                 FontSize = 40,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 12)

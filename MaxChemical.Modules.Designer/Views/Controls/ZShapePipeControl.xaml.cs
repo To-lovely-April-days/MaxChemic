@@ -29,7 +29,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ZPipeRotateEventArgs> PipeRotating;
         public event EventHandler<ZPipeRotateEventArgs> PipeRotateCompleted;
 
-        // ✅ 新增：管道选中事件
+        //  新增：管道选中事件
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
 
@@ -62,13 +62,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
-        // ✅ 与 ElbowPipeControl 保持一致
+        //  与 ElbowPipeControl 保持一致
         private const double FlangeWidth = 2.54;      // 法兰宽度
         private const double FlangeOffset = 0.35;     // 法兰偏移
         private const double FlangeSpacing = 2.0;     // 法兰与管道间距
         #endregion
 
-        #region ✅ IsSelected 依赖属性
+        #region  IsSelected 依赖属性
 
         /// <summary>
         /// 是否选中的依赖属性
@@ -287,7 +287,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 更新选中视觉效果（取消选中时完全恢复原样）
+        ///  更新选中视觉效果（取消选中时完全恢复原样）
         /// </summary>
         private void UpdateSelectionVisual(bool isSelected)
         {
@@ -299,7 +299,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             else
             {
-                // ========== ✅ 取消选中时：完全恢复原始状态 ==========
+                // ==========  取消选中时：完全恢复原始状态 ==========
                 SelectionBorder.Visibility = Visibility.Collapsed;
 
                 if (!this.IsMouseOver && !_isResizing && !_isRotating)
@@ -404,10 +404,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     return;
                 }
 
-                // ✅ 新增：通知画布管道被选中
+                //  新增：通知画布管道被选中
                 PipeSelected?.Invoke(this, this.PipeId);
 
-                // ✅ 设置选中状态
+                //  设置选中状态
                 this.IsSelected = true;
 
                 _isDraggingPipe = true;
@@ -692,7 +692,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                // ✅ 1. 尺寸常数定义 (与 Elbow/Straight/TShape 保持完全一致)
+                //  1. 尺寸常数定义 (与 Elbow/Straight/TShape 保持完全一致)
                 // =======================================================================
                 const double FLANGE_WIDTH = 2.54;
                 const double FLANGE_OFFSET = 0.35;
@@ -1069,7 +1069,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // ✅ 左侧法兰中心位置：Canvas.Left=2, 法兰宽度=4, 中心=2+2=4
+            //  左侧法兰中心位置：Canvas.Left=2, 法兰宽度=4, 中心=2+2=4
             double leftFlangeX = 4 - this.ActualWidth / 2;  // 相对于中心
             double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
@@ -1086,7 +1086,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"Z形管道左上法兰 (上段:{_topHorizontalLength:F0})"
             });
 
-            // ✅ 右侧法兰中心位置：Canvas.Left + 法兰宽度/2
+            //  右侧法兰中心位置：Canvas.Left + 法兰宽度/2
             double rightFlangeX = Canvas.GetLeft(RightFlangeGroup) + 2 - this.ActualWidth / 2;  // 法兰宽度4/2=2
             double rightFlangeY = Canvas.GetTop(RightFlangeGroup) + RightFlangeGroup.Height / 2 - this.ActualHeight / 2;
 

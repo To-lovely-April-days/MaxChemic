@@ -36,17 +36,17 @@ namespace MaxChemical.Core
         public object StateValue { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
-        // ✅ 新增：命令执行状态（可选）
+        //  新增：命令执行状态（可选）
         public CommandExecutionState? ExecutionState { get; set; }
 
-        // ✅ 新增：关联的命令名称（可选）
+        //  新增：关联的命令名称（可选）
         public string CommandName { get; set; }
 
-        // ✅ 新增：额外数据（可选）
+        //  新增：额外数据（可选）
         public Dictionary<string, object> AdditionalData { get; set; }
     }
     /// <summary>
-    /// ✅ 新增：命令执行状态枚举
+    ///  新增：命令执行状态枚举
     /// </summary>
     public enum CommandExecutionState
     {
@@ -81,7 +81,7 @@ namespace MaxChemical.Core
         public Dictionary<string, object> States { get; set; } = new Dictionary<string, object>();
     }
 
-    #region ✅ 新增：事件参数类
+    #region  新增：事件参数类
 
     /// <summary>
     /// 流量计状态切换请求事件参数（UI → 设备驱动）

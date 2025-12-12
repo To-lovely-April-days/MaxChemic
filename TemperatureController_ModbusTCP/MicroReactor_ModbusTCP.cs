@@ -838,7 +838,7 @@ namespace MicroReactor_ModbusTCP
                 statusLines.Add($"├─ {sensorName}: {phase} - {stateInfo}");
             }
 
-            statusLines.Add($"└─ 整体稳定: {(_stabilityStatus.IsSystemStable ? "🎉 全部稳定" : "⏳ 调节中...")}");
+            statusLines.Add($"└─ 整体稳定: {(_stabilityStatus.IsSystemStable ? "🎉 全部稳定" : " 调节中...")}");
 
             return string.Join("\n", statusLines);
         }
@@ -1295,9 +1295,9 @@ namespace MicroReactor_ModbusTCP
                     case ControlPhase.WaitingForEffect:
                         var waitTime = (DateTime.Now - _lastCirculatorAdjustTime).TotalSeconds;
                         var requiredWait = _config.MinWaitAfterAdjustment.TotalSeconds;
-                        return $"⏳ 等待温度生效 ({waitTime:F0}/{requiredWait}秒)";
+                        return $" 等待温度生效 ({waitTime:F0}/{requiredWait}秒)";
                     case ControlPhase.CollectingData:
-                        return $"📊 收集数据 ({_stabilityCheckData.Count}/{_config.MinStabilityDataPoints}点)";
+                        return $" 收集数据 ({_stabilityCheckData.Count}/{_config.MinStabilityDataPoints}点)";
                     case ControlPhase.CheckingStability:
                         return "🔍 检查稳定性";
                     case ControlPhase.CheckingTarget:
@@ -1305,7 +1305,7 @@ namespace MicroReactor_ModbusTCP
                     case ControlPhase.FineAdjusting:
                         return "🔧 精确微调中";
                     case ControlPhase.Stable:
-                        return "✅ 已稳定达标";
+                        return " 已稳定达标";
                     case ControlPhase.Stopped:
                         return "已停止";
                     default:
@@ -1403,7 +1403,7 @@ namespace MicroReactor_ModbusTCP
         /// </summary>
         private async Task HandleInitializingPhase(double currentTemp, DateTime now)
         {
-            _controlLogger.LogInfo($"🚀 开始智能控制 {_sensorName}",
+            _controlLogger.LogInfo($" 开始智能控制 {_sensorName}",
                 $"物料当前: {currentTemp:F2}℃ → 目标: {_config.TargetTemperature:F2}℃");
 
             // 计算98%接近温度
@@ -1422,7 +1422,7 @@ namespace MicroReactor_ModbusTCP
             }
             else
             {
-                _controlLogger.LogError($"❌ 启动快速接近失败 {_sensorName}", null);
+                _controlLogger.LogError($" 启动快速接近失败 {_sensorName}", null);
             }
         }
 
@@ -1474,7 +1474,7 @@ namespace MicroReactor_ModbusTCP
                 if (timeElapsed >= _config.StabilityTime.TotalSeconds)
                 {
                     _currentPhase = ControlPhase.CheckingStability;
-                    _controlLogger.LogInfo($"📊 数据收集完成 {_sensorName}",
+                    _controlLogger.LogInfo($" 数据收集完成 {_sensorName}",
                         $"收集了 {_stabilityCheckData.Count} 个数据点, 时长: {timeElapsed:F0}秒");
                 }
             }
@@ -1490,7 +1490,7 @@ namespace MicroReactor_ModbusTCP
             if (stabilityResult.IsStable)
             {
                 _currentPhase = ControlPhase.CheckingTarget;
-                _controlLogger.LogSuccess($"✅ 物料温度已稳定 {_sensorName}", stabilityResult.Details);
+                _controlLogger.LogSuccess($" 物料温度已稳定 {_sensorName}", stabilityResult.Details);
             }
             else
             {
@@ -1502,7 +1502,7 @@ namespace MicroReactor_ModbusTCP
                     _stabilityCheckData.Clear();
                 }
 
-                _controlLogger.LogWarning($"⏳ 物料温度未稳定,重新收集数据 {_sensorName}", stabilityResult.Details);
+                _controlLogger.LogWarning($" 物料温度未稳定,重新收集数据 {_sensorName}", stabilityResult.Details);
             }
         }
 
@@ -1562,7 +1562,7 @@ namespace MicroReactor_ModbusTCP
                 _currentPhase = ControlPhase.FineAdjusting;
                 UpdateStabilityStatus(false);
 
-                _controlLogger.LogWarning($"⚠️ 失去稳定状态 {_sensorName}",
+                _controlLogger.LogWarning($" 失去稳定状态 {_sensorName}",
                     $"物料偏差: {tempError:F2}℃ > 容差: ±{_config.Tolerance * 1.5:F2}℃");
             }
             else
@@ -1688,7 +1688,7 @@ namespace MicroReactor_ModbusTCP
 
             var recentPoints = data.TakeLast(4).ToList();
 
-            // ✅ 正确逻辑：检查最近4个点之间的波动
+            //  正确逻辑：检查最近4个点之间的波动
             double recentRange = recentPoints.Max() - recentPoints.Min();
             bool smallFluctuation = recentRange <= 0.2; // 最近4个点波动 ≤ 0.2℃
 
@@ -1859,7 +1859,7 @@ namespace MicroReactor_ModbusTCP
 
                 if (heatStopResult)
                 {
-                    _controlLogger.LogInfo($"✅ 循环器加热功能已停止: {heatCommand} = false");
+                    _controlLogger.LogInfo($" 循环器加热功能已停止: {heatCommand} = false");
                 }
 
                 await Task.Delay(300);
@@ -1870,7 +1870,7 @@ namespace MicroReactor_ModbusTCP
 
                 if (coolStopResult)
                 {
-                    _controlLogger.LogInfo($"✅ 循环器制冷功能已停止: {coolCommand} = false");
+                    _controlLogger.LogInfo($" 循环器制冷功能已停止: {coolCommand} = false");
                 }
 
                 await Task.Delay(300);
@@ -1881,7 +1881,7 @@ namespace MicroReactor_ModbusTCP
 
                 if (cycleStopResult)
                 {
-                    _controlLogger.LogInfo($"✅ 循环器循环功能已停止: {cycleCommand} = false");
+                    _controlLogger.LogInfo($" 循环器循环功能已停止: {cycleCommand} = false");
                 }
 
                 _controlLogger.LogSuccess($"🎉 循环器{_circulatorDeviceId}已完全停止",
@@ -2023,12 +2023,12 @@ namespace MicroReactor_ModbusTCP
 
         public void LogControlStart(string deviceId, string circulatorId)
         {
-            WriteLog("INFO", $"🚀 启动智能温度控制系统", $"设备ID: {deviceId}, 循环器ID: {circulatorId}");
+            WriteLog("INFO", $" 启动智能温度控制系统", $"设备ID: {deviceId}, 循环器ID: {circulatorId}");
         }
 
         public void LogControllerStart(string sensorName, double targetTemp, double tolerance, int interval)
         {
-            WriteLog("INFO", $"📊 启动{sensorName}智能控制器",
+            WriteLog("INFO", $" 启动{sensorName}智能控制器",
                 $"目标温度: {targetTemp}℃, 容差: ±{tolerance}℃, 间隔: {interval}秒");
         }
 
@@ -2046,7 +2046,7 @@ namespace MicroReactor_ModbusTCP
 
         public void LogStabilityCheck(string sensorName, bool isStable, string details)
         {
-            string emoji = isStable ? "✅" : "⏳";
+            string emoji = isStable ? "" : "";
             WriteLog("STABILITY", $"{emoji} {sensorName}稳定性检查",
                 $"稳定: {(isStable ? "是" : "否")}, 详情: {details}");
         }
@@ -2058,13 +2058,13 @@ namespace MicroReactor_ModbusTCP
 
         public void LogWarning(string message, string details = "")
         {
-            WriteLog("WARN", $"⚠️ {message}", details);
+            WriteLog("WARN", $" {message}", details);
         }
 
         public void LogError(string message, Exception ex = null)
         {
             string details = ex != null ? $"异常信息: {ex.Message}\n堆栈: {ex.StackTrace}" : "";
-            WriteLog("ERROR", $"❌ {message}", details);
+            WriteLog("ERROR", $" {message}", details);
         }
 
         public void LogInfo(string message, string details = "")
@@ -2074,7 +2074,7 @@ namespace MicroReactor_ModbusTCP
 
         public void LogSuccess(string message, string details = "")
         {
-            WriteLog("SUCCESS", $"✅ {message}", details);
+            WriteLog("SUCCESS", $" {message}", details);
         }
 
         public void LogDebug(string message, string details = "")
@@ -2182,7 +2182,7 @@ namespace MicroReactor_ModbusTCP
 ├─ TT1001: {(_tt1001Stable ? "✓ 稳定" : "⚠ 调节中")}
 ├─ TT1002: {(_tt1002Stable ? "✓ 稳定" : "⚠ 调节中")}
 ├─ TT1003: {(_tt1003Stable ? "✓ 稳定" : "⚠ 调节中")}
-└─ 整体: {(IsSystemStable ? "🎉 全部稳定，可开始反应" : "⏳ 智能调节中...")}";
+└─ 整体: {(IsSystemStable ? "🎉 全部稳定，可开始反应" : " 智能调节中...")}";
         }
     }
 

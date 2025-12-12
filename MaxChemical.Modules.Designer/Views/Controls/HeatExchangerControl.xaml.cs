@@ -115,7 +115,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             InitializeComponent();
 
             ExchangerId = Guid.NewGuid().ToString();
-            Debug.WriteLine($"✅ HeatExchangerControl 构造: ExchangerId={ExchangerId}");
+            Debug.WriteLine($" HeatExchangerControl 构造: ExchangerId={ExchangerId}");
 
             _rotateTransform = new RotateTransform(0);
             _transformGroup = new TransformGroup();
@@ -145,7 +145,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.MouseLeave += OnExchangerMouseLeave;
                 SetupRotateAnchorEvents();
 
-                // ========== ✅ 硬件加速配置 ==========
+                // ==========  硬件加速配置 ==========
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
                 RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
                 RenderOptions.SetCachingHint(this, CachingHint.Cache);
@@ -162,7 +162,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.SnapsToDevicePixels = true;
                 this.UseLayoutRounding = true;
 
-                // ✅ 液体动画层禁用缓存（使用 GPU）
+                //  液体动画层禁用缓存（使用 GPU）
                 if (HotFluidFlowContainer != null)
                 {
                     HotFluidFlowContainer.CacheMode = null;
@@ -207,7 +207,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     IsOperating = isOperating
                 });
 
-                Debug.WriteLine($"🔄 换热器 {exchanger.ExchangerId} 运行状态变更: {(isOperating ? "✅ 启动" : "❌ 停止")}");
+                Debug.WriteLine($"🔄 换热器 {exchanger.ExchangerId} 运行状态变更: {(isOperating ? " 启动" : " 停止")}");
             }
         }
 
@@ -478,7 +478,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
 
-        // ✅ 新增方法：热交换核心粒子动画
+        //  新增方法：热交换核心粒子动画
         private void StartHeatExchangeAnimation()
         {
             if (HeatFlowContainer != null)
@@ -579,7 +579,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 }
             }
 
-            Debug.WriteLine("💧🔥 增强版热交换核心动画已启动!");
+            Debug.WriteLine("🔥 增强版热交换核心动画已启动!");
         }
 
         private void StopAllFluidAnimations()
@@ -605,7 +605,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (ColdFluidOutletContainer != null)
                 ColdFluidOutletContainer.Visibility = Visibility.Collapsed;
 
-            Debug.WriteLine("⏹️ 液体动画已停止");
+            Debug.WriteLine(" 液体动画已停止");
         }
 
         #endregion
@@ -757,7 +757,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
-                    Debug.WriteLine("✅ 超过阈值,开始拖拽模式");
+                    Debug.WriteLine(" 超过阈值,开始拖拽模式");
                     _isDragging = true;
 
                     if (((UIElement)sender).IsMouseCaptured)
@@ -798,7 +798,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (isClick && !_isDragging)
                 {
                     IsOperating = !IsOperating;
-                    Debug.WriteLine($"🖱️ 点击切换运行状态: {(IsOperating ? "✅ 启动" : "❌ 停止")}");
+                    Debug.WriteLine($"🖱️ 点击切换运行状态: {(IsOperating ? " 启动" : " 停止")}");
                     ShowTemporarySelection();
                 }
 

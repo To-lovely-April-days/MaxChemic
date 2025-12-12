@@ -3220,7 +3220,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                Debug.WriteLine($"📢 设备状态变化: {e.DeviceId} - {e.StateName} = {e.StateValue}");
+                Debug.WriteLine($" 设备状态变化: {e.DeviceId} - {e.StateName} = {e.StateValue}");
 
                 Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                 {
@@ -3305,14 +3305,14 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            Debug.WriteLine($"🔔 电磁阀状态: {valveState}");
+            Debug.WriteLine($" 电磁阀状态: {valveState}");
 
             //  根据状态更新UI
             switch (valveState)
             {
                 case SolenoidValveState.Opening:
                     solenoidValve.ShowLoading();
-                    UpdateStatusBar("⏳ 正在打开电磁阀...");
+                    UpdateStatusBar(" 正在打开电磁阀...");
                     break;
 
                 case SolenoidValveState.Open:
@@ -3323,7 +3323,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 case SolenoidValveState.Closing:
                     solenoidValve.ShowLoading();
-                    UpdateStatusBar("⏳ 正在关闭电磁阀...");
+                    UpdateStatusBar(" 正在关闭电磁阀...");
                     break;
 
                 case SolenoidValveState.Closed:
@@ -3359,14 +3359,14 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            Debug.WriteLine($"🔔 命令状态: {e.StateName} -> {state}");
+            Debug.WriteLine($" 命令状态: {e.StateName} -> {state}");
 
             switch (state)
             {
                 case CommandExecutionState.Running:
                     // 显示加载动画
                     pumpControl.ShowLoading();
-                    UpdateStatusBar("⏳ 正在执行命令...");
+                    UpdateStatusBar(" 正在执行命令...");
                     break;
 
                 case CommandExecutionState.Succeeded:
@@ -3453,13 +3453,13 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            Debug.WriteLine($"🔔 流量计命令状态: {e.StateName} -> {state}");
+            Debug.WriteLine($" 流量计命令状态: {e.StateName} -> {state}");
 
             switch (state)
             {
                 case CommandExecutionState.Running:
                     meterControl.ShowLoading();
-                    UpdateStatusBar("⏳ 正在执行命令...");
+                    UpdateStatusBar(" 正在执行命令...");
                     break;
 
                 case CommandExecutionState.Succeeded:
@@ -3489,7 +3489,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void UpdateStatusBar(string message)
         {
             _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(message);
-            Debug.WriteLine($"📊 状态栏: {message}");
+            Debug.WriteLine($" 状态栏: {message}");
         }
         /// <summary>
         ///  新增：处理命令执行状态变化
@@ -3507,14 +3507,14 @@ namespace MaxChemical.Modules.Designer.Views
                 // 提取命令名称
                 var commandName = e.StateName.Replace("CommandState_", "");
 
-                Debug.WriteLine($"🔔 命令状态变化: {commandName} -> {executionState}");
+                Debug.WriteLine($" 命令状态变化: {commandName} -> {executionState}");
 
                 // 根据执行状态更新UI
                 switch (executionState)
                 {
                     case CommandExecutionState.Running:
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"⏳ 正在执行 {commandName}...");
+                            $" 正在执行 {commandName}...");
                         break;
 
                     case CommandExecutionState.Succeeded:
@@ -9244,8 +9244,8 @@ namespace MaxChemical.Modules.Designer.Views
                     Temperature2 = 92.3,
                     Temperature3 = 98.7,
                     IsReacting = false,  // 初始为关闭状态
-                    //IsFlow1Enabled = true,
-                    //IsFlow2Enabled = true,
+                    IsFlow1Enabled = true,
+                    IsFlow2Enabled = true,
                     //IsFlow3Enabled = true,
                     FlowRate = 100.0         // 默认流速
                 };

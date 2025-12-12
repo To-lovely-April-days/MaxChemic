@@ -139,7 +139,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var pipeData = new PipeDragData
                 {
-                    PipeType = PipeType.Tee,  // ✅ 使用已定义的 Tee 类型
+                    PipeType = PipeType.Tee,  //  使用已定义的 Tee 类型
                     Width = 160,
                     Height = 140
                 };

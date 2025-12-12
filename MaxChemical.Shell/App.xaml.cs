@@ -112,14 +112,14 @@ public partial class App : PrismApplication
         // ========== Prism日志服务 ==========
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
 
-        // ========== ✅ 新增：注册配置服务 ==========
+        // ==========  新增：注册配置服务 ==========
         if (_host != null)
         {
             try
             {
                 var configuration = _host.Services.GetRequiredService<IConfiguration>();
                 containerRegistry.RegisterInstance<IConfiguration>(configuration);
-                _logger?.LogInformation("✅ IConfiguration 已从 Host 注册到 Prism 容器");
+                _logger?.LogInformation(" IConfiguration 已从 Host 注册到 Prism 容器");
             }
             catch (Exception ex)
             {
@@ -127,7 +127,7 @@ public partial class App : PrismApplication
             }
         }
 
-        // ========== ✅ 注册语音助手服务 ==========
+        // ==========  注册语音助手服务 ==========
         containerRegistry.RegisterSingleton<IVoiceAssistantService, PiperVoiceAssistantService>();
 
         // ========== 数据库相关服务 ==========

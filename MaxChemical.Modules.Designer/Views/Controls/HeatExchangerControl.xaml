@@ -23,7 +23,7 @@
     </UserControl.CacheMode>
 
     <UserControl.Resources>
-        <!-- ✅ 热交换脉动动画 -->
+        <!--  热交换脉动动画 -->
         <Storyboard x:Key="HeatExchangePulse" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="HeatCoreGlow"
                            Storyboard.TargetProperty="Opacity"
@@ -32,7 +32,7 @@
                            Timeline.DesiredFrameRate="30"/>
         </Storyboard>
 
-        <!-- ✅ 温度指示器脉动 -->
+        <!--  温度指示器脉动 -->
         <Storyboard x:Key="TempIndicatorPulse" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="TempIndicator"
                            Storyboard.TargetProperty="Opacity"
@@ -41,7 +41,7 @@
                            Timeline.DesiredFrameRate="30"/>
         </Storyboard>
 
-        <!-- ✅ 青铜金属质感 -->
+        <!--  青铜金属质感 -->
         <LinearGradientBrush x:Key="MetalBrush" StartPoint="0,0" EndPoint="1,0">
             <GradientStop Color="#593D2B1F" Offset="0"/>
             <GradientStop Color="#1F3D2B1F" Offset="0.03"/>
@@ -52,7 +52,7 @@
             <GradientStop Color="#593D2B1F" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 主体渐变 -->
+        <!--  主体渐变 -->
         <LinearGradientBrush x:Key="ShellGradient" StartPoint="0,0" EndPoint="1,0">
             <GradientStop Color="#6B4423" Offset="0"/>
             <GradientStop Color="#8B6F47" Offset="0.2"/>
@@ -63,7 +63,7 @@
             <GradientStop Color="#6B4423" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 顶盖渐变 -->
+        <!--  顶盖渐变 -->
         <RadialGradientBrush x:Key="TopCapGradient" GradientOrigin="0.5,0.2" Center="0.5,0.5" RadiusX="0.9" RadiusY="1.3">
             <GradientStop Color="#E8D4B0" Offset="0"/>
             <GradientStop Color="#D4B896" Offset="0.25"/>
@@ -73,7 +73,7 @@
             <GradientStop Color="#6B4423" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- ✅ 管道渐变 -->
+        <!--  管道渐变 -->
         <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#5D4037" Offset="0"/>
             <GradientStop Color="#6B4423" Offset="0.15"/>
@@ -84,7 +84,7 @@
             <GradientStop Color="#5D4037" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 底座渐变 -->
+        <!--  底座渐变 -->
         <LinearGradientBrush x:Key="BaseGradient" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#4D3E2723" Offset="0"/>
             <GradientStop Color="#664E342E" Offset="0.35"/>
@@ -110,7 +110,7 @@
             <GradientStop Color="#4D2E86C1" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ✅ 热交换核心渐变 -->
+        <!--  热交换核心渐变 -->
         <RadialGradientBrush x:Key="HeatCoreGradient">
             <GradientStop Color="#FFFF9800" Offset="0"/>
             <GradientStop Color="#FFFF5722" Offset="0.4"/>
@@ -118,7 +118,7 @@
             <GradientStop Color="#4D2E86C1" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- ✅ 状态指示灯闪烁动画 -->
+        <!--  状态指示灯闪烁动画 -->
         <Storyboard x:Key="StatusLightPulse" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="TempStatusLight"
                    Storyboard.TargetProperty="Opacity"
@@ -134,7 +134,7 @@
     </UserControl.Resources>
 
     <Canvas Background="Transparent">
-        <!-- ✅ 可拖拽区域 -->
+        <!--  可拖拽区域 -->
         <Rectangle x:Name="DraggableArea"
                    Canvas.Left="0" Canvas.Top="0"
                    Width="280" Height="420"
@@ -145,7 +145,7 @@
                    MouseLeftButtonUp="OnOverlayMouseUp"
                    MouseMove="OnOverlayMouseMove"/>
 
-        <!-- ✅ 地面阴影 -->
+        <!--  地面阴影 -->
         <Ellipse Canvas.Left="50" Canvas.Top="413"
                  Width="180" Height="5" Opacity="0.3">
             <Ellipse.Fill>
@@ -160,7 +160,7 @@
             </Ellipse.Effect>
         </Ellipse>
 
-        <!-- ✅ 底座 -->
+        <!--  底座 -->
         <Rectangle Canvas.Left="45" Canvas.Top="397" Width="190" Height="23" RadiusX="6" RadiusY="6"
                    Panel.ZIndex="1" Fill="{StaticResource BaseGradient}"
                    Stroke="#3E2723" StrokeThickness="2">
@@ -184,7 +184,7 @@
         <Polygon Points="75,377 205,377 220,397 60,397" Panel.ZIndex="1"
                  Fill="{StaticResource BaseGradient}" Stroke="#3E2723" StrokeThickness="2"/>
 
-        <!-- ========== ✅ 换热器主体 ========== -->
+        <!-- ==========  换热器主体 ========== -->
         <Rectangle Canvas.Left="70" Canvas.Top="70" Width="140" Height="307" RadiusX="10" RadiusY="10" 
                    Fill="{StaticResource ShellGradient}" Panel.ZIndex="3">
             <Rectangle.Effect>
@@ -197,7 +197,7 @@
                    Fill="{StaticResource MetalBrush}" Panel.ZIndex="4"
                    Stroke="#4E342E" StrokeThickness="2"/>
 
-        <!-- ========== ✅ 半球形顶盖 ========== -->
+        <!-- ==========  半球形顶盖 ========== -->
         <Path Panel.ZIndex="5" Fill="{StaticResource TopCapGradient}">
             <Path.Data>
                 <PathGeometry>
@@ -241,7 +241,7 @@
             </Ellipse.Fill>
         </Ellipse>
 
-        <!-- ========== ✅ 换热核心可视化 ========== -->
+        <!-- ==========  换热核心可视化 ========== -->
         <!-- 核心容器裁剪区域 -->
         <Border Canvas.Left="75" Canvas.Top="110" Width="130" Height="220" 
                 CornerRadius="8" ClipToBounds="True" Panel.ZIndex="8">
@@ -259,7 +259,7 @@
                 <Rectangle Canvas.Left="0" Canvas.Top="73" Width="130" Height="3" Fill="#6B4423" Opacity="0.5"/>
                 <Rectangle Canvas.Left="0" Canvas.Top="147" Width="130" Height="3" Fill="#6B4423" Opacity="0.5"/>
 
-                <!-- ✅ 热交换核心发光效果 -->
+                <!--  热交换核心发光效果 -->
                 <Rectangle x:Name="HeatCoreGlow" 
                           Canvas.Left="0" Canvas.Top="0" 
                           Width="130" Height="220" 
@@ -271,7 +271,7 @@
                     </Rectangle.Effect>
                 </Rectangle>
 
-                <!-- ✅ 热流动画容器（从上到下） -->
+                <!--  热流动画容器（从上到下） -->
                 <Canvas x:Name="HeatFlowContainer" 
                        Canvas.Left="0" Canvas.Top="0" 
                        Width="130" Height="220" 
@@ -287,7 +287,7 @@
                     <Ellipse x:Name="HeatParticle5" Width="6" Height="6" Fill="#FFFF9800" Opacity="0.7" Canvas.Top="-90"/>
                 </Canvas>
 
-                <!-- ✅ 冷流动画容器（从下到上） -->
+                <!--  冷流动画容器（从下到上） -->
                 <Canvas x:Name="ColdFlowContainer" 
                        Canvas.Left="0" Canvas.Top="0" 
                        Width="130" Height="220" 
@@ -315,9 +315,9 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ========== ✅ 管道系统（缩短） ========== -->
+        <!-- ==========  管道系统（缩短） ========== -->
 
-        <!-- ========== ✅ 热侧进口管道（带内部液体） ========== -->
+        <!-- ==========  热侧进口管道（带内部液体） ========== -->
         <Rectangle Canvas.Left="35" Canvas.Top="105" Width="35" Height="25" 
            Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
            Stroke="#4E342E" StrokeThickness="2">
@@ -336,7 +336,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 热液体流动层（在管道内） -->
+        <!--  热液体流动层（在管道内） -->
         <Border Canvas.Left="37" Canvas.Top="110" 
         Width="31" Height="18"
         CornerRadius="2"
@@ -453,7 +453,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ========== ✅ 热侧出口管道（带内部液体） ========== -->
+        <!-- ==========  热侧出口管道（带内部液体） ========== -->
         <Rectangle Canvas.Left="210" Canvas.Top="105" Width="35" Height="25" 
            Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
            Stroke="#4E342E" StrokeThickness="2">
@@ -471,7 +471,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 热液体流动层（出口） -->
+        <!--  热液体流动层（出口） -->
         <Border Canvas.Left="212" Canvas.Top="110" 
         Width="31" Height="18"
         CornerRadius="2"
@@ -525,7 +525,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ========== ✅ 冷侧进口管道（带内部液体） ========== -->
+        <!-- ==========  冷侧进口管道（带内部液体） ========== -->
         <Rectangle Canvas.Left="35" Canvas.Top="310" Width="35" Height="25" 
            Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
            Stroke="#4E342E" StrokeThickness="2">
@@ -543,7 +543,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 冷液体流动层（在管道内） -->
+        <!--  冷液体流动层（在管道内） -->
         <Border Canvas.Left="37" Canvas.Top="315" 
         Width="31" Height="18"
         CornerRadius="2"
@@ -659,7 +659,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ========== ✅ 冷侧出口管道（带内部液体） ========== -->
+        <!-- ==========  冷侧出口管道（带内部液体） ========== -->
         <Rectangle Canvas.Left="210" Canvas.Top="310" Width="35" Height="25" 
            Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
            Stroke="#4E342E" StrokeThickness="2">
@@ -677,7 +677,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 冷液体流动层（出口，温度升高后） -->
+        <!--  冷液体流动层（出口，温度升高后） -->
         <Border Canvas.Left="212" Canvas.Top="315" 
         Width="31" Height="18"
         CornerRadius="2"
@@ -731,7 +731,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ========== ✅ 温度压力显示（极简高对比版） ========== -->
+        <!-- ==========  温度压力显示（极简高对比版） ========== -->
 
         <!-- 温度显示 -->
         <Border Canvas.Left="75" Canvas.Top="155" Panel.ZIndex="15"
@@ -879,7 +879,7 @@
             </Grid>
         </Border>
 
-        <!-- ✅ 装饰螺丝 -->
+        <!--  装饰螺丝 -->
         <Ellipse Canvas.Left="80" Canvas.Top="80" Width="6" Height="6"
                  Fill="#8B6F47" Stroke="#4E342E" StrokeThickness="0.5" Panel.ZIndex="16">
             <Ellipse.Effect>
@@ -916,7 +916,7 @@
         <Line Canvas.Left="196" Canvas.Top="367" X1="0" Y1="0" X2="2" Y2="0" 
               Stroke="#4E342E" StrokeThickness="0.6" Panel.ZIndex="17"/>
 
-        <!-- ✅ 选中边框 -->
+        <!--  选中边框 -->
         <Rectangle x:Name="SelectionBorder" 
                    Canvas.Left="-2" Canvas.Top="-2"
                    Width="284" Height="424"
@@ -933,7 +933,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ✅ 旋转锚点 -->
+        <!--  旋转锚点 -->
         <Ellipse x:Name="RotateAnchor"
                  Canvas.Left="124"
                  Canvas.Top="-40"

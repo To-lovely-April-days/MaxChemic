@@ -36,7 +36,7 @@ namespace MaxChemical.Shell.Services
                 // 检查 API Key 是否配置
                 if (string.IsNullOrWhiteSpace(_settings.SubscriptionKey))
                 {
-                    _logger.LogWarning($"❌ {EngineName} 未配置 API Key");
+                    _logger.LogWarning($" {EngineName} 未配置 API Key");
                     IsAvailable = false;
                     return;
                 }
@@ -52,13 +52,13 @@ namespace MaxChemical.Shell.Services
                 _synthesizer = new SpeechSynthesizer(_speechConfig);
 
                 IsAvailable = true;
-                _logger.LogInformation($"✅ {EngineName} 已就绪");
+                _logger.LogInformation($" {EngineName} 已就绪");
                 _logger.LogInformation($"   - 区域: {_settings.Region}");
                 _logger.LogInformation($"   - 语音: {_settings.DefaultVoice}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ {EngineName} 初始化失败: {ex.Message}");
+                _logger.LogError($" {EngineName} 初始化失败: {ex.Message}");
                 IsAvailable = false;
             }
         }
@@ -82,7 +82,7 @@ namespace MaxChemical.Shell.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ [{EngineName}] 语音输出失败: {ex.Message}");
+                _logger.LogError($" [{EngineName}] 语音输出失败: {ex.Message}");
             }
         }
 
@@ -107,7 +107,7 @@ namespace MaxChemical.Shell.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"❌ [{EngineName}] 异步语音输出失败: {ex.Message}");
+                    _logger.LogError($" [{EngineName}] 异步语音输出失败: {ex.Message}");
                 }
             });
         }
@@ -131,12 +131,12 @@ namespace MaxChemical.Shell.Services
             switch (result.Reason)
             {
                 case ResultReason.SynthesizingAudioCompleted:
-                    _logger.LogInformation($"✅ [{EngineName}] 语音输出完成");
+                    _logger.LogInformation($" [{EngineName}] 语音输出完成");
                     break;
 
                 case ResultReason.Canceled:
                     var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
-                    _logger.LogError($"❌ [{EngineName}] 语音合成被取消: {cancellation.Reason}");
+                    _logger.LogError($" [{EngineName}] 语音合成被取消: {cancellation.Reason}");
                     if (cancellation.Reason == CancellationReason.Error)
                     {
                         _logger.LogError($"   错误代码: {cancellation.ErrorCode}");

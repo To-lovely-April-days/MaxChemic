@@ -23,7 +23,7 @@ namespace MaxChemical.Modules.Designer.Models
         public List<ConnectionData> Connections { get; set; } = new List<ConnectionData>();
 
         /// <summary>
-        /// ✅ 新增：管道数据
+        ///  新增：管道数据
         /// </summary>
         public List<CanvasPipeData> Pipes { get; set; } = new List<CanvasPipeData>();
 
@@ -49,7 +49,7 @@ namespace MaxChemical.Modules.Designer.Models
         // 设备缩放
         public double ScaleX { get; set; } = 1.0;
         public double ScaleY { get; set; } = 1.0;
-        // ✅ 新增：控件旋转角度
+        //  新增：控件旋转角度
         public double RotationAngle { get; set; } = 0.0;
         public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
     }
@@ -69,7 +69,7 @@ namespace MaxChemical.Modules.Designer.Models
     }
 
     /// <summary>
-    /// ✅ 新增：画布管道数据（用于序列化保存）
+    ///  新增：画布管道数据（用于序列化保存）
     /// </summary>
     [Serializable]
     public class CanvasPipeData

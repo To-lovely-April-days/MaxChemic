@@ -67,7 +67,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double MinPipeWidth = 8;
         private const double MaxPipeWidth = 100;
 
-        // ✅ 默认管道长度和宽度（匹配XAML初始值）
+        //  默认管道长度和宽度（匹配XAML初始值）
         private double _pipeLength = 85.9;  // SVG: 372 * 0.230833
         private double _pipeWidth = 16.6;   // SVG: 72 * 0.230833
         private double _rotationAngle = 0;
@@ -76,7 +76,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
 
-        // ✅ SVG坐标系常量
+        //  SVG坐标系常量
         private const double SCALE_FACTOR = 0.230833;
         private const double LEFT_FLANGE_LEFT = 0.35;      // SVG: 1.5 * 0.230833
         private const double LEFT_FLANGE_WIDTH = 2.54;     // SVG: 11 * 0.230833
@@ -242,15 +242,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdatePipeGeometry()
         {
-            // ✅ 控件总宽度 = 左法兰left + 左法兰宽 + 管道宽 + 右法兰宽
+            //  控件总宽度 = 左法兰left + 左法兰宽 + 管道宽 + 右法兰宽
             this.Width = LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH + _pipeLength + RIGHT_FLANGE_WIDTH;
 
-            // ✅ 控件总高度根据管道宽度动态计算
+            //  控件总高度根据管道宽度动态计算
             // 端盖高度 = 管道宽度 + 上下各延伸部分
             double flangeExtension = 5.8;  // SVG中端盖比管道多出的高度 (97-72)/2 * 0.230833 ≈ 2.9 * 2
             this.Height = _pipeWidth + flangeExtension;
 
-            // ✅ 管道背景和主体位置
+            //  管道背景和主体位置
             double pipeTopOffset = flangeExtension / 2;  // 管道距离顶部的偏移
 
             PipeBackground.Width = _pipeLength;
@@ -263,7 +263,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(MainPipe, PIPE_LEFT);
             Canvas.SetTop(MainPipe, pipeTopOffset);
 
-            // ✅ 顶部和底部边缘线
+            //  顶部和底部边缘线
             double edgeLeft = PIPE_LEFT + 0.38;
             double edgeRight = PIPE_LEFT + _pipeLength - 0.38;
             double topEdgeY = pipeTopOffset + 0.32;
@@ -281,7 +281,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             UpdateFlanges();
 
-            // ✅ 选择边框
+            //  选择边框
             SelectionBorder.Width = _pipeLength + 4;
             SelectionBorder.Height = _pipeWidth + 4;
             Canvas.SetLeft(SelectionBorder, PIPE_LEFT - 2);
@@ -293,19 +293,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlanges()
         {
-            // ✅ 法兰高度 = 管道宽度 + 上下延伸
+            //  法兰高度 = 管道宽度 + 上下延伸
             double flangeExtension = 5.8;  // 上下各延伸 2.9
             double flangeHeight = _pipeWidth + flangeExtension;
             double flangeTop = 0;  // 法兰从控件顶部开始
 
-            // ✅ 左侧法兰
+            //  左侧法兰
             Canvas.SetLeft(LeftFlangeGroup, LEFT_FLANGE_LEFT);
             Canvas.SetTop(LeftFlangeGroup, flangeTop);
             LeftFlangeBase.Height = flangeHeight;
             LeftFlangeGradient.Height = flangeHeight;
             LeftFlangeBorder.Height = flangeHeight;
 
-            // ✅ 右侧法兰 - 动态计算位置
+            //  右侧法兰 - 动态计算位置
             double rightFlangeLeft = LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH + _pipeLength + (PIPE_LEFT - LEFT_FLANGE_LEFT - LEFT_FLANGE_WIDTH);
             Canvas.SetLeft(RightFlangeGroup, rightFlangeLeft);
             Canvas.SetTop(RightFlangeGroup, flangeTop);
@@ -786,7 +786,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region 辅助方法
 
         /// <summary>
-        /// ✅ 获取锚点位置（考虑SVG布局）
+        ///  获取锚点位置（考虑SVG布局）
         /// </summary>
         public Point GetAnchorPosition(PipeAnchorPosition position)
         {
@@ -830,7 +830,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region IPipeSnapPoints 实现
 
         /// <summary>
-        /// ✅ 获取直管的两个法兰吸附点（SVG精确坐标）
+        ///  获取直管的两个法兰吸附点（SVG精确坐标）
         /// </summary>
         public List<PipeSnapPoint> GetSnapPoints()
         {
@@ -854,7 +854,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
 
-            // ✅ 左侧法兰中心（相对控件中心）
+            //  左侧法兰中心（相对控件中心）
             double leftFlangeX = (LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH / 2) - this.ActualWidth / 2;
             double leftFlangeY = 0;
 
@@ -871,7 +871,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"直管左法兰 (长度:{_pipeLength:F0})"
             });
 
-            // ✅ 右侧法兰中心（相对控件中心）
+            //  右侧法兰中心（相对控件中心）
             double rightFlangeX = this.ActualWidth - RIGHT_FLANGE_WIDTH / 2 - this.ActualWidth / 2;
             double rightFlangeY = 0;
 

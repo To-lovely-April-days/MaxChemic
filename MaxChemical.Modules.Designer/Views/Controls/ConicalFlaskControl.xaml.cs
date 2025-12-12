@@ -217,14 +217,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 // 获取动画资源
                 _waveStoryboard = this.Resources["WaveAnimation"] as Storyboard;
 
-                // ✅ 新增：优化波动动画的硬件加速
+                //  新增：优化波动动画的硬件加速
                 if (_waveStoryboard != null)
                 {
                     Timeline.SetDesiredFrameRate(_waveStoryboard, 30); // 限制帧率
                 }
             };
 
-            // ========== ✅ 硬件加速配置（新增） ==========
+            // ==========  硬件加速配置（新增） ==========
 
             // 1. 高质量渲染
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
@@ -447,12 +447,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 if (_waveStoryboard != null && !_waveAnimationRunning && _isWaveAnimationEnabled)
                 {
-                    // ✅ 动画时禁用液体容器缓存
+                    //  动画时禁用液体容器缓存
                     LiquidContainer.CacheMode = null;
 
                     _waveStoryboard.Begin(this, true);
                     _waveAnimationRunning = true;
-                    Debug.WriteLine("💧 液体波动动画已启动（GPU 加速）");
+                    Debug.WriteLine(" 液体波动动画已启动（GPU 加速）");
                 }
             }
             catch (Exception ex)
@@ -471,11 +471,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _waveStoryboard.Stop(this);
                     _waveAnimationRunning = false;
 
-                    // ✅ 动画停止后恢复液体容器缓存（可选）
+                    //  动画停止后恢复液体容器缓存（可选）
                     // 注意：如果液体频繁变化，保持 null
                     // LiquidContainer.CacheMode = new BitmapCache { RenderAtScale = 1.0 };
 
-                    Debug.WriteLine("💧 液体波动动画已停止");
+                    Debug.WriteLine(" 液体波动动画已停止");
                 }
             }
             catch (Exception ex)
@@ -654,7 +654,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
 
-                // ✅ 拖拽时禁用缓存
+                //  拖拽时禁用缓存
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -735,7 +735,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             this.Opacity = 1.0;
             _isDraggingFlask = false;
 
-            // ✅ 拖拽结束后恢复缓存
+            //  拖拽结束后恢复缓存
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {
@@ -770,7 +770,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
 
-                // ✅ 调整大小时禁用缓存
+                //  调整大小时禁用缓存
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -864,7 +864,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _isResizing = false;
             _resizingAnchor = null;
 
-            // ✅ 调整大小结束后恢复缓存
+            //  调整大小结束后恢复缓存
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {
@@ -959,7 +959,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             topHighlightGeometry.Figures.Add(topHighlightFigure);
             TopHighlight.Data = topHighlightGeometry;
 
-            // ========== ✅ 修正：刻度线位置计算 ==========
+            // ==========  修正：刻度线位置计算 ==========
             double bodyHeight = bodyBottom - bodyTop;
 
             // 100ml 刻度线（接近顶部 5%）
@@ -1105,45 +1105,45 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double bodyBottomLeft = (_flaskWidth - bodyBottomWidth) / 2;
             double bodyBottom = _flaskHeight - 12;
 
-            // ========== ✅ 修复：顶部吸附点（瓶口正上方外侧） ==========
+            // ==========  修复：顶部吸附点（瓶口正上方外侧） ==========
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(
                     flaskLeft + _flaskWidth / 2,  // 水平中心
-                    flaskTop + 0  // ✅ 紧贴瓶口顶部外边缘
+                    flaskTop + 0  //  紧贴瓶口顶部外边缘
                 ),
                 Direction = SnapDirection.Up,
                 Description = $"锥形瓶顶部（瓶口）"
             });
 
-            // ========== ✅ 修复：左侧吸附点（瓶颈底部左外侧） ==========
+            // ==========  修复：左侧吸附点（瓶颈底部左外侧） ==========
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(
-                    flaskLeft + neckLeft - 5,  // ✅ 瓶颈左边缘外侧 5px
+                    flaskLeft + neckLeft - 5,  //  瓶颈左边缘外侧 5px
                     flaskTop + bodyTop
                 ),
                 Direction = SnapDirection.Left,
                 Description = $"锥形瓶左侧（瓶颈）"
             });
 
-            // ========== ✅ 修复：右侧吸附点（瓶颈底部右外侧） ==========
+            // ==========  修复：右侧吸附点（瓶颈底部右外侧） ==========
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(
-                    flaskLeft + neckLeft + neckWidth + 5,  // ✅ 瓶颈右边缘外侧 5px
+                    flaskLeft + neckLeft + neckWidth + 5,  //  瓶颈右边缘外侧 5px
                     flaskTop + bodyTop
                 ),
                 Direction = SnapDirection.Right,
                 Description = $"锥形瓶右侧（瓶颈）"
             });
 
-            // ========== ✅ 修复：底部吸附点（瓶底正下方外侧） ==========
+            // ==========  修复：底部吸附点（瓶底正下方外侧） ==========
             snapPoints.Add(new PipeSnapPoint
             {
                 WorldPosition = new Point(
                     flaskLeft + _flaskWidth / 2,
-                    flaskTop + _flaskHeight + 5  // ✅ 瓶底外侧 5px
+                    flaskTop + _flaskHeight + 5  //  瓶底外侧 5px
                 ),
                 Direction = SnapDirection.Down,
                 Description = $"锥形瓶底部"
@@ -1152,7 +1152,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Debug.WriteLine($"🔬 锥形瓶 {FlaskId} 提供 {snapPoints.Count} 个吸附点:");
             foreach (var point in snapPoints)
             {
-                Debug.WriteLine($"  📍 {point.Description} at ({point.WorldPosition.X:F1}, {point.WorldPosition.Y:F1}) 方向:{point.Direction}");
+                Debug.WriteLine($"  {point.Description} at ({point.WorldPosition.X:F1}, {point.WorldPosition.Y:F1}) 方向:{point.Direction}");
             }
 
             return snapPoints;

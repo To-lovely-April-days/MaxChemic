@@ -42,7 +42,7 @@ namespace MaxChemical.Shell.Services
 
                 if (voices == null || !voices.Any())
                 {
-                    _logger.LogError("❌ 无法获取语音列表");
+                    _logger.LogError(" 无法获取语音列表");
                     IsAvailable = false;
                     return;
                 }
@@ -69,14 +69,14 @@ namespace MaxChemical.Shell.Services
                 var name = voiceType.GetProperty("Name")?.GetValue(_selectedVoice)?.ToString() ?? "Unknown";
                 var friendlyName = voiceType.GetProperty("FriendlyName")?.GetValue(_selectedVoice)?.ToString() ?? "Unknown";
 
-                _logger.LogInformation($"✅ {EngineName} 已就绪");
+                _logger.LogInformation($" {EngineName} 已就绪");
                 _logger.LogInformation($"   - 语音: {name}");
                 _logger.LogInformation($"   - 友好名称: {friendlyName}");
                 _logger.LogInformation($"   - 语速: {_settings.SpeakingRate}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ {EngineName} 初始化失败: {ex.Message}");
+                _logger.LogError($" {EngineName} 初始化失败: {ex.Message}");
                 IsAvailable = false;
             }
         }
@@ -101,11 +101,11 @@ namespace MaxChemical.Shell.Services
                 // 直接播放（使用 PlayText 方法）
                 Edge_tts.PlayText(option, _selectedVoice);
 
-                _logger.LogDebug("✅ 播放完成");
+                _logger.LogDebug(" 播放完成");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ [{EngineName}] 语音输出失败: {ex.Message}");
+                _logger.LogError($" [{EngineName}] 语音输出失败: {ex.Message}");
             }
         }
 
@@ -131,11 +131,11 @@ namespace MaxChemical.Shell.Services
                     // 直接播放
                     Edge_tts.PlayText(option, _selectedVoice);
 
-                    _logger.LogDebug("✅ 异步播放已启动");
+                    _logger.LogDebug(" 异步播放已启动");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"❌ [{EngineName}] 异步语音输出失败: {ex.Message}");
+                    _logger.LogError($" [{EngineName}] 异步语音输出失败: {ex.Message}");
                 }
             });
         }

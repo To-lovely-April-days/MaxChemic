@@ -30,7 +30,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<string> PumpDeselected;
         public event EventHandler<PumpStateChangedEventArgs> PumpStateChanged;
 
-        // ✅ 新增: UI → 设备驱动的请求事件
+        //  新增: UI → 设备驱动的请求事件
         public event EventHandler<PumpStateChangeRequestEventArgs> StateChangeRequested;
         public event EventHandler<PumpSpeedChangeRequestEventArgs> SpeedChangeRequested;
 
@@ -49,7 +49,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private int _pumpSpeed = 20;
         private Storyboard _pistonStoryboard;
 
-        // ✅ 新增: 加载和错误状态
+        //  新增: 加载和错误状态
         private bool _isLoading = false;
         private DispatcherTimer _errorResetTimer;
         private Storyboard _errorBlinkAnimation;
@@ -158,12 +158,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             this.Loaded += OnPumpControlLoaded;
 
             if (!isInDesignMode)
-            { // ✅ 初始化错误重置定时器
+            { //  初始化错误重置定时器
                 _errorResetTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromSeconds(4.5) // 3次闪烁 × 1.5秒
                 };
-                // ✅ 初始化错误重置定时器
+                //  初始化错误重置定时器
                 _errorResetTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromSeconds(3)
@@ -191,10 +191,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.SnapsToDevicePixels = true;
                 this.UseLayoutRounding = true;
 
-                Debug.WriteLine($"✅ 柱塞泵 {PumpId} 硬件加速已启用");
+                Debug.WriteLine($" 柱塞泵 {PumpId} 硬件加速已启用");
             }
 
-            Debug.WriteLine($"✅ 柱塞泵控件 {PumpId} 已创建");
+            Debug.WriteLine($" 柱塞泵控件 {PumpId} 已创建");
         }
 
         private void OnPumpControlLoaded(object sender, RoutedEventArgs e)
@@ -203,28 +203,28 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 _pistonStoryboard = this.Resources["PistonMotionStoryboard"] as Storyboard;
 
-                // ✅ 加载动画资源
+                //  加载动画资源
                 _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
                 _loadingAnimation = this.Resources["LoadingAnimation"] as Storyboard;
                 _errorStateHoldAnimation = this.Resources["ErrorStateHoldAnimation"] as Storyboard;
                 if (_pistonStoryboard == null)
                 {
-                    Debug.WriteLine("⚠️ 警告: 柱塞动画资源未找到");
+                    Debug.WriteLine(" 警告: 柱塞动画资源未找到");
                 }
 
                 if (_errorBlinkAnimation == null || _loadingAnimation == null)
                 {
-                    Debug.WriteLine("⚠️ 警告: 错误/加载动画资源未找到");
+                    Debug.WriteLine(" 警告: 错误/加载动画资源未找到");
                 }
 
                 UpdatePumpSpeedDisplay();
                 UpdatePumpRunningState();
 
-                Debug.WriteLine($"✅ 柱塞泵控件 {PumpId} 已加载完成");
+                Debug.WriteLine($" 柱塞泵控件 {PumpId} 已加载完成");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 柱塞泵控件加载失败: {ex.Message}");
+                Debug.WriteLine($" 柱塞泵控件加载失败: {ex.Message}");
             }
         }
 
@@ -244,7 +244,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 启动柱塞泵失败: {ex.Message}");
+                Debug.WriteLine($" 启动柱塞泵失败: {ex.Message}");
             }
         }
 
@@ -255,12 +255,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (IsRunning)
                 {
                     IsRunning = false;
-                    Debug.WriteLine($"🔴 柱塞泵 {PumpId} 已停止");
+                    Debug.WriteLine($"柱塞泵 {PumpId} 已停止");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 停止柱塞泵失败: {ex.Message}");
+                Debug.WriteLine($" 停止柱塞泵失败: {ex.Message}");
             }
         }
 
@@ -269,11 +269,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 PumpSpeed = speed;
-                Debug.WriteLine($"⚙️ 柱塞泵 {PumpId} 速度设置为: {PumpSpeed}");
+                Debug.WriteLine($" 柱塞泵 {PumpId} 速度设置为: {PumpSpeed}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 设置柱塞泵速度失败: {ex.Message}");
+                Debug.WriteLine($" 设置柱塞泵速度失败: {ex.Message}");
             }
         }
 
@@ -294,12 +294,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     {
                         Timeline.SetDesiredFrameRate(_pistonStoryboard, 30);
                         _pistonStoryboard.Begin(this, true);
-                        Debug.WriteLine("🔄 柱塞动画已启动（30fps GPU加速）");
+                        Debug.WriteLine(" 柱塞动画已启动（30fps GPU加速）");
                     }
                     else
                     {
                         _pistonStoryboard.Stop(this);
-                        Debug.WriteLine("⏸️ 柱塞动画已停止");
+                        Debug.WriteLine("柱塞动画已停止");
                     }
                 }
 
@@ -307,7 +307,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 更新泵运行状态失败: {ex.Message}");
+                Debug.WriteLine($" 更新泵运行状态失败: {ex.Message}");
             }
         }
 
@@ -345,7 +345,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 更新电源按钮颜色失败: {ex.Message}");
+                Debug.WriteLine($" 更新电源按钮颜色失败: {ex.Message}");
             }
         }
 
@@ -356,11 +356,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                Debug.WriteLine($"📊 泵速度显示更新为: {PumpSpeed}");
+                Debug.WriteLine($"泵速度显示更新为: {PumpSpeed}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 更新速度显示失败: {ex.Message}");
+                Debug.WriteLine($" 更新速度显示失败: {ex.Message}");
             }
         }
 
@@ -375,18 +375,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 {
                     double speedRatio = 0.5 + (PumpSpeed / 100.0) * 1.5;
                     _pistonStoryboard.SetSpeedRatio(this, speedRatio);
-                    Debug.WriteLine($"⚡ 动画速率调整为: {speedRatio:F2}x (速度: {PumpSpeed})");
+                    Debug.WriteLine($" 动画速率调整为: {speedRatio:F2}x (速度: {PumpSpeed})");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 更新动画速度失败: {ex.Message}");
+                Debug.WriteLine($" 更新动画速度失败: {ex.Message}");
             }
         }
 
         #endregion
 
-        #region ✅ 新增: 按钮事件处理 (UI → 设备驱动)
+        #region  新增: 按钮事件处理 (UI → 设备驱动)
 
         /// <summary>
         /// 电源按钮点击 - 请求切换泵的运行状态
@@ -395,12 +395,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                Debug.WriteLine($"💡 电源按钮点击 | PumpId:{PumpId}, 当前状态:{IsRunning}");
+                Debug.WriteLine($" 电源按钮点击 | PumpId:{PumpId}, 当前状态:{IsRunning}");
 
-                // ✅ 显示加载动画
+                //  显示加载动画
                 ShowLoading();
 
-                // ✅ 触发状态切换请求事件（带完成回调）
+                //  触发状态切换请求事件（带完成回调）
                 StateChangeRequested?.Invoke(this, new PumpStateChangeRequestEventArgs
                 {
                     PumpId = this.PumpId,
@@ -415,11 +415,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             if (!success)
                             {
                                 ShowOperationFailure();
-                                Debug.WriteLine($"❌ 电源状态切换失败 | PumpId:{PumpId}");
+                                Debug.WriteLine($" 电源状态切换失败 | PumpId:{PumpId}");
                             }
                             else
                             {
-                                Debug.WriteLine($"✅ 电源状态切换成功 | PumpId:{PumpId}, 新状态:{!IsRunning}");
+                                Debug.WriteLine($" 电源状态切换成功 | PumpId:{PumpId}, 新状态:{!IsRunning}");
                             }
                         }));
                     }
@@ -429,7 +429,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 电源按钮点击处理失败: {ex.Message}");
+                Debug.WriteLine($" 电源按钮点击处理失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -443,12 +443,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 int newSpeed = PumpSpeed + 10;
-                Debug.WriteLine($"⬆️ 增加速度按钮点击: {PumpSpeed} → {newSpeed}");
+                Debug.WriteLine($" 增加速度按钮点击: {PumpSpeed} → {newSpeed}");
 
-                // ✅ 显示加载动画
+                //  显示加载动画
                 ShowLoading();
 
-                // ✅ 触发速度变化请求事件（带完成回调）
+                //  触发速度变化请求事件（带完成回调）
                 SpeedChangeRequested?.Invoke(this, new PumpSpeedChangeRequestEventArgs
                 {
                     PumpId = this.PumpId,
@@ -464,11 +464,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             if (!success)
                             {
                                 ShowOperationFailure();
-                                Debug.WriteLine($"❌ 速度增加失败 | PumpId:{PumpId}");
+                                Debug.WriteLine($" 速度增加失败 | PumpId:{PumpId}");
                             }
                             else
                             {
-                                Debug.WriteLine($"✅ 速度增加成功 | PumpId:{PumpId}, 新速度:{newSpeed}");
+                                Debug.WriteLine($" 速度增加成功 | PumpId:{PumpId}, 新速度:{newSpeed}");
                             }
                         }));
                     }
@@ -478,7 +478,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 增加速度按钮点击处理失败: {ex.Message}");
+                Debug.WriteLine($" 增加速度按钮点击处理失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -492,12 +492,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 int newSpeed = PumpSpeed - 10;
-                Debug.WriteLine($"⬇️ 减少速度按钮点击: {PumpSpeed} → {newSpeed}");
+                Debug.WriteLine($" 减少速度按钮点击: {PumpSpeed} → {newSpeed}");
 
-                // ✅ 显示加载动画
+                //  显示加载动画
                 ShowLoading();
 
-                // ✅ 触发速度变化请求事件（带完成回调）
+                //  触发速度变化请求事件（带完成回调）
                 SpeedChangeRequested?.Invoke(this, new PumpSpeedChangeRequestEventArgs
                 {
                     PumpId = this.PumpId,
@@ -513,11 +513,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             if (!success)
                             {
                                 ShowOperationFailure();
-                                Debug.WriteLine($"❌ 速度减少失败 | PumpId:{PumpId}");
+                                Debug.WriteLine($" 速度减少失败 | PumpId:{PumpId}");
                             }
                             else
                             {
-                                Debug.WriteLine($"✅ 速度减少成功 | PumpId:{PumpId}, 新速度:{newSpeed}");
+                                Debug.WriteLine($" 速度减少成功 | PumpId:{PumpId}, 新速度:{newSpeed}");
                             }
                         }));
                     }
@@ -527,7 +527,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 减少速度按钮点击处理失败: {ex.Message}");
+                Debug.WriteLine($" 减少速度按钮点击处理失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -535,7 +535,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region ✅ 新增: 加载和错误动画
+        #region  新增: 加载和错误动画
 
         /// <summary>
         /// 显示加载动画
@@ -544,7 +544,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (_isLoading) return;
             _isLoading = true;
-            Debug.WriteLine($"⏳ 显示加载动画（设备内部能量流）| PumpId:{PumpId}");
+            Debug.WriteLine($" 显示加载动画（设备内部能量流）| PumpId:{PumpId}");
 
             try
             {
@@ -564,7 +564,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 显示加载动画失败: {ex.Message}");
+                Debug.WriteLine($" 显示加载动画失败: {ex.Message}");
             }
         }
 
@@ -576,7 +576,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (!_isLoading) return;
             _isLoading = false;
-            Debug.WriteLine($"✅ 隐藏加载动画 | PumpId:{PumpId}");
+            Debug.WriteLine($" 隐藏加载动画 | PumpId:{PumpId}");
 
             try
             {
@@ -597,7 +597,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 隐藏加载动画失败: {ex.Message}");
+                Debug.WriteLine($" 隐藏加载动画失败: {ex.Message}");
             }
         }
         // 新增：重置柱塞杆颜色
@@ -618,7 +618,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         public void ShowOperationFailure()
         {
-            Debug.WriteLine($"🚨 显示操作失败动画（整体设备红色警报）| PumpId:{PumpId}");
+            Debug.WriteLine($" 显示操作失败动画（整体设备红色警报）| PumpId:{PumpId}");
 
             try
             {
@@ -630,7 +630,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _pistonStoryboard.Stop(this);
                 }
 
-                // ✅ 停止之前的错误状态保持动画
+                //  停止之前的错误状态保持动画
                 _errorStateHoldAnimation?.Stop(this);
 
                 // 启动错误闪烁动画
@@ -641,19 +641,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _errorBlinkAnimation.Begin(this, true);
                 }
 
-                // ✅ 不再启动自动重置定时器（改为手动清除）
+                //  不再启动自动重置定时器（改为手动清除）
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 显示操作失败动画失败: {ex.Message}");
+                Debug.WriteLine($" 显示操作失败动画失败: {ex.Message}");
             }
         }
         // 添加新方法：错误闪烁完成后，启动持续状态动画
         private void OnErrorBlinkCompleted(object sender, EventArgs e)
         {
-            Debug.WriteLine($"🚨 错误闪烁完成，进入持续错误状态 | PumpId:{PumpId}");
+            Debug.WriteLine($" 错误闪烁完成，进入持续错误状态 | PumpId:{PumpId}");
 
-            // ✅ 启动持续的红色脉冲动画
+            //  启动持续的红色脉冲动画
             _errorStateHoldAnimation?.Begin(this, true);
         }
         /// <summary>
@@ -661,7 +661,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         public void ClearError()
         {
-            Debug.WriteLine($"✅ 手动清除错误状态 | PumpId:{PumpId}");
+            Debug.WriteLine($" 手动清除错误状态 | PumpId:{PumpId}");
 
             try
             {
@@ -683,7 +683,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 清除错误状态失败: {ex.Message}");
+                Debug.WriteLine($" 清除错误状态失败: {ex.Message}");
             }
         }
         private void ResetAllGlowEffects()
@@ -724,7 +724,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 重置光效失败: {ex.Message}");
+                Debug.WriteLine($" 重置光效失败: {ex.Message}");
             }
         }
 
@@ -733,7 +733,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         private void ResetErrorState()
         {
-            Debug.WriteLine($"✅ 重置错误状态 | PumpId:{PumpId}");
+            Debug.WriteLine($" 重置错误状态 | PumpId:{PumpId}");
             // 可以在这里重置UI状态
         }
 
@@ -780,7 +780,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 鼠标按下事件处理失败: {ex.Message}");
+                Debug.WriteLine($" 鼠标按下事件处理失败: {ex.Message}");
             }
         }
 
@@ -816,7 +816,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 鼠标移动事件处理失败: {ex.Message}");
+                Debug.WriteLine($" 鼠标移动事件处理失败: {ex.Message}");
             }
         }
 
@@ -836,7 +836,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 鼠标释放事件处理失败: {ex.Message}");
+                Debug.WriteLine($" 鼠标释放事件处理失败: {ex.Message}");
             }
         }
 
@@ -854,7 +854,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 鼠标离开事件处理失败: {ex.Message}");
+                Debug.WriteLine($" 鼠标离开事件处理失败: {ex.Message}");
             }
         }
 
@@ -884,11 +884,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     EnableClearType = false
                 };
 
-                Debug.WriteLine($"✅ 柱塞泵 {PumpId} 拖拽完成: ({finalPosition.X:F0}, {finalPosition.Y:F0})");
+                Debug.WriteLine($" 柱塞泵 {PumpId} 拖拽完成: ({finalPosition.X:F0}, {finalPosition.Y:F0})");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 完成拖拽失败: {ex.Message}");
+                Debug.WriteLine($" 完成拖拽失败: {ex.Message}");
             }
         }
 
@@ -898,16 +898,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 if (isSelected)
                 {
-                    Debug.WriteLine($"✅ 柱塞泵 {PumpId} 已选中");
+                    Debug.WriteLine($" 柱塞泵 {PumpId} 已选中");
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 柱塞泵 {PumpId} 取消选中");
+                    Debug.WriteLine($" 柱塞泵 {PumpId} 取消选中");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 更新选中视觉效果失败: {ex.Message}");
+                Debug.WriteLine($" 更新选中视觉效果失败: {ex.Message}");
             }
         }
 
@@ -924,7 +924,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 var parent = this.Parent as Canvas;
                 if (parent == null)
                 {
-                    Debug.WriteLine("⚠️ 柱塞泵未添加到Canvas，无法获取吸附点");
+                    Debug.WriteLine(" 柱塞泵未添加到Canvas，无法获取吸附点");
                     return snapPoints;
                 }
 
@@ -961,11 +961,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     Description = $"柱塞泵底部"
                 });
 
-                Debug.WriteLine($"⚙️ 柱塞泵 {PumpId} 提供 {snapPoints.Count} 个吸附点");
+                Debug.WriteLine($" 柱塞泵 {PumpId} 提供 {snapPoints.Count} 个吸附点");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 获取吸附点失败: {ex.Message}");
+                Debug.WriteLine($" 获取吸附点失败: {ex.Message}");
             }
 
             return snapPoints;
@@ -983,7 +983,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
     }
 
-    #region ✅ 新增: 事件参数类
+    #region  新增: 事件参数类
 
     /// <summary>
     /// 泵状态切换请求事件参数 (UI → 设备驱动)
@@ -1007,7 +1007,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public int RequestedSpeed { get; set; }    // 请求的速度
         public SpeedChangeType ChangeType { get; set; } // 增加/减少/设置
 
-        // ✅ 新增：操作完成回调
+        //  新增：操作完成回调
         public Action<bool> OnCompleted { get; set; }
     }
 

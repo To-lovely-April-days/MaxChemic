@@ -11,7 +11,7 @@
              ClipToBounds="False">
 
     <UserControl.Resources>
-        <!-- ✅ 保持所有资源不变 -->
+        <!--  保持所有资源不变 -->
         <LinearGradientBrush x:Key="BodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
             <GradientStop Color="#B0BCC3" Offset="0"/>
             <GradientStop Color="#C4CFD6" Offset="0.1"/>
@@ -73,7 +73,7 @@
         </RadialGradientBrush>
     </UserControl.Resources>
 
-    <!-- ✅ 核心修改：整个 Canvas 旋转 90 度 -->
+    <!--  核心修改：整个 Canvas 旋转 90 度 -->
     <Canvas x:Name="ValveCanvas" Background="Transparent" ClipToBounds="False">
         <Canvas.RenderTransform>
             <RotateTransform Angle="90" CenterX="100" CenterY="100"/>
@@ -240,7 +240,7 @@
 
             <Canvas.RenderTransform>
                 <TransformGroup>
-                    <!-- ✅ 手柄初始角度改为 0（水平向右） -->
+                    <!--  手柄初始角度改为 0（水平向右） -->
                     <RotateTransform x:Name="HandleRotation" Angle="0" CenterX="100" CenterY="100"/>
                 </TransformGroup>
             </Canvas.RenderTransform>

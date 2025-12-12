@@ -279,7 +279,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (_isLoading) return;
             _isLoading = true;
-            Debug.WriteLine($"⏳ 显示加载动画 | MeterId:{MeterId}");
+            Debug.WriteLine($" 显示加载动画 | MeterId:{MeterId}");
 
             try
             {
@@ -337,7 +337,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         public void ShowOperationFailure()
         {
-            Debug.WriteLine($"🚨 显示操作失败动画 | MeterId:{MeterId}");
+            Debug.WriteLine($" 显示操作失败动画 | MeterId:{MeterId}");
 
             try
             {
@@ -369,7 +369,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         private void OnErrorBlinkCompleted(object sender, EventArgs e)
         {
-            Debug.WriteLine($"🚨 错误闪烁完成，进入持续错误状态");
+            Debug.WriteLine($" 错误闪烁完成，进入持续错误状态");
             _errorStateHoldAnimation?.Begin(this, true);
         }
 
@@ -455,7 +455,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlowAnimationState(bool isFlowing)
         {
-            Debug.WriteLine($"🚀 UpdateFlowAnimationState 调用: isFlowing={isFlowing}");
+            Debug.WriteLine($" UpdateFlowAnimationState 调用: isFlowing={isFlowing}");
 
             if (FluidFlowContainer == null)
             {
@@ -481,7 +481,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 // 隐藏容器
                 FluidFlowContainer.Visibility = Visibility.Collapsed;
-                Debug.WriteLine("⏹️ 容器已隐藏");
+                Debug.WriteLine(" 容器已隐藏");
             }
         }
 
@@ -554,7 +554,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 _fluidFlowAnimation.Begin();
-                Debug.WriteLine("💧💧💧 液体流动动画已启动（30fps GPU加速）! 💧💧💧");
+                Debug.WriteLine(" 液体流动动画已启动（30fps GPU加速）! ");
             }
             catch (Exception ex)
             {
@@ -567,7 +567,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (bubble == null)
             {
-                Debug.WriteLine("⚠️ 气泡元素为 NULL,跳过");
+                Debug.WriteLine(" 气泡元素为 NULL,跳过");
                 return;
             }
 
@@ -606,7 +606,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 _fluidFlowAnimation.Stop();
                 _fluidFlowAnimation = null;
-                Debug.WriteLine("⏹️ 液体动画已停止");
+                Debug.WriteLine(" 液体动画已停止");
             }
 
             // 重置所有 Transform 位置

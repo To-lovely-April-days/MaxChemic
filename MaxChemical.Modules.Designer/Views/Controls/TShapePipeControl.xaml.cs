@@ -906,7 +906,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region IPipeSnapPoints 实现
 
         /// <summary>
-        /// ✅ 获取精确的 T型管吸附点
+        ///  获取精确的 T型管吸附点
         /// </summary>
         public List<PipeSnapPoint> GetSnapPoints()
         {
@@ -935,7 +935,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double radians = _rotationAngle * Math.PI / 180.0;
 
             // =================================================================
-            // 📍 左侧吸附点 (Left Snap)
+            // 左侧吸附点 (Left Snap)
             // =================================================================
             // 位置：左侧法兰的最左边缘中心
             // X = 偏移量 (即法兰的左边缘)
@@ -960,7 +960,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             });
 
             // =================================================================
-            // 📍 右侧吸附点 (Right Snap)
+            // 右侧吸附点 (Right Snap)
             // =================================================================
             // 位置：右侧法兰的最右边缘中心
             // X = 偏移 + 左法兰宽 + 管道长 + 右法兰宽
@@ -983,7 +983,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             });
 
             // =================================================================
-            // 📍 顶部吸附点 (Top/Branch Snap)
+            // 顶部吸附点 (Top/Branch Snap)
             // =================================================================
             // X = 偏移 + 左法兰宽 + 支管位置
             double branchCenterX = FLANGE_OFFSET + FLANGE_WIDTH + _branchPosition;

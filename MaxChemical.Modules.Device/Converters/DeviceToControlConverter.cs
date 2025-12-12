@@ -28,7 +28,7 @@ namespace MaxChemical.Modules.Device.Converters
                             {
                                 FlaskWidth = 80,
                                 FlaskHeight = 120,
-                                IsHitTestVisible = false,  // ✅ 允许交互
+                                IsHitTestVisible = false,  //  允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -39,7 +39,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = flaskControl,
-                                IsHitTestVisible = true  // ✅ 允许交互
+                                IsHitTestVisible = true  //  允许交互
                             };
 
                             return flaskViewbox;
@@ -49,7 +49,7 @@ namespace MaxChemical.Modules.Device.Converters
                         case "PistonPumpControl":
                             var pumpControl = new PistonPumpControl
                             {
-                                IsHitTestVisible = false,  // ✅ 允许交互
+                                IsHitTestVisible = false,  //  允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -60,7 +60,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = pumpControl,
-                                IsHitTestVisible = true  // ✅ 允许交互
+                                IsHitTestVisible = true  //  允许交互
                             };
 
                             return pumpViewbox;
@@ -70,7 +70,7 @@ namespace MaxChemical.Modules.Device.Converters
                         case "ValveControl":
                             var valveControl = new ValveControl
                             {
-                                IsHitTestVisible = false,  // ✅ 允许交互
+                                IsHitTestVisible = false,  //  允许交互
                                 Cursor = System.Windows.Input.Cursors.Hand,
                                 IsOpen = false  // 初始为关闭状态
                             };
@@ -82,7 +82,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = valveControl,
-                                IsHitTestVisible = true  // ✅ 允许交互
+                                IsHitTestVisible = true  //  允许交互
                             };
 
                             return valveViewbox;

@@ -225,7 +225,7 @@
             </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
-        <!-- ✅ 数据发光动画（原有） -->
+        <!--  数据发光动画（原有） -->
         <Storyboard x:Key="DataGlowAnimation" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="ValueGlow"
                            Storyboard.TargetProperty="Opacity"
@@ -343,7 +343,7 @@
     </UserControl.Resources>
 
     <Canvas Background="Transparent">
-        <!-- ✅ 可拖拽区域（不缓存） -->
+        <!--  可拖拽区域（不缓存） -->
         <Rectangle x:Name="DraggableArea"
                    Canvas.Left="0" Canvas.Top="0"
                    Width="400" Height="500"
@@ -354,7 +354,7 @@
                    MouseLeftButtonUp="OnOverlayMouseUp"
                    MouseMove="OnOverlayMouseMove"/>
 
-        <!-- ✅ 静态层：地面阴影 -->
+        <!--  静态层：地面阴影 -->
         <Ellipse Canvas.Left="100" Canvas.Top="492"
                  Width="200" Height="6" Opacity="0.15"
                  RenderOptions.CachingHint="Cache">
@@ -370,7 +370,7 @@
             </Ellipse.Effect>
         </Ellipse>
 
-        <!-- ✅ 静态层：底座矩形 -->
+        <!--  静态层：底座矩形 -->
         <Rectangle Canvas.Left="80" Canvas.Top="471" Width="240" Height="29" RadiusX="7" RadiusY="7"
                    Panel.ZIndex="1" Fill="{StaticResource BaseGradient}"
                    RenderOptions.CachingHint="Cache">
@@ -410,7 +410,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 静态层：底座梯形 -->
+        <!--  静态层：底座梯形 -->
         <Polygon Points="120,445 280,445 300,471 100,471" Panel.ZIndex="1"
                  Fill="{StaticResource BaseGradient}"
                  RenderOptions.CachingHint="Cache">
@@ -420,9 +420,9 @@
             <Polygon.StrokeThickness>2.5</Polygon.StrokeThickness>
         </Polygon>
 
-        <!-- ========== ✅ 关键修改：主外壳组（支持震动） ========== -->
+        <!-- ==========  关键修改：主外壳组（支持震动） ========== -->
         <Canvas x:Name="MainBodyGroup" Panel.ZIndex="3">
-            <!-- ⚠️ 震动变换 -->
+            <!--  震动变换 -->
             <Canvas.RenderTransform>
                 <TranslateTransform x:Name="ShellShakeTransform" X="0" Y="0"/>
             </Canvas.RenderTransform>
@@ -432,7 +432,7 @@
                        Fill="#F0F4F6"
                        RenderOptions.CachingHint="Cache">
                 <Rectangle.Effect>
-                    <!-- ⚠️ 关键：带光效的阴影 -->
+                    <!--  关键：带光效的阴影 -->
                     <DropShadowEffect x:Name="ShellGlow" 
                                       Color="Transparent" 
                                       Opacity="0.8" 
@@ -502,7 +502,7 @@
             </Rectangle>
         </Canvas>
 
-        <!-- ✅ 静态层：左侧进口管道 -->
+        <!--  静态层：左侧进口管道 -->
         <Rectangle Canvas.Left="-16" Canvas.Top="385" Width="102" Height="37" 
                    Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
                    RenderOptions.CachingHint="Cache">
@@ -541,7 +541,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- ✅ 液体流动层：调整到正确的层级，不遮挡实时流量 -->
+        <!--  液体流动层：调整到正确的层级，不遮挡实时流量 -->
         <Canvas x:Name="FluidFlowContainer" 
                 Canvas.Left="-16" Canvas.Top="385" 
                 Width="432" Height="37" 
@@ -634,7 +634,7 @@
             </Rectangle>
         </Canvas>
 
-        <!-- ✅ 静态层：管道接口 -->
+        <!--  静态层：管道接口 -->
         <Rectangle Canvas.Left="-30" Canvas.Top="380" Width="14" Height="47" RadiusX="7" RadiusY="7" 
                    Fill="#C4CFD6" Stroke="#7A8A95" StrokeThickness="2.5" Panel.ZIndex="6"
                    RenderOptions.CachingHint="Cache">
@@ -678,7 +678,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ✅ 设定值显示区域 -->
+        <!--  设定值显示区域 -->
         <StackPanel Canvas.Left="70" Canvas.Top="18" Panel.ZIndex="10" HorizontalAlignment="Center"
                     RenderOptions.CachingHint="Cache">
             <TextBlock Text="SET POINT" FontSize="13" Foreground="#7F8C8D" FontWeight="Bold" 
@@ -738,7 +738,7 @@
             </StackPanel>
         </StackPanel>
 
-        <!-- ✅ 仪表盘区域 -->
+        <!--  仪表盘区域 -->
         <Canvas Canvas.Left="100" Canvas.Top="125" Panel.ZIndex="7"
                 RenderOptions.CachingHint="Cache">
 
@@ -871,7 +871,7 @@
                 </Ellipse.Effect>
             </Ellipse>
 
-            <!-- ✅ 指针（不缓存，使用硬件加速变换） -->
+            <!--  指针（不缓存，使用硬件加速变换） -->
             <Path x:Name="CurrentPointer" Fill="#E74C3C" Stroke="#C0392B" StrokeThickness="1.5"
                   Data="M 97.5,102 L 94,35 L 97.5,29 L 101,35 Z">
                 <Path.RenderTransform>
@@ -920,7 +920,7 @@
             </Grid.Effect>
         </Grid>
 
-        <!-- ✅ 实时流量显示 - 确保在最上层，不被遮挡 -->
+        <!--  实时流量显示 - 确保在最上层，不被遮挡 -->
         <StackPanel Canvas.Left="90" Canvas.Top="335" Width="220" Panel.ZIndex="30">
             <TextBlock Text="CURRENT FLOW" FontSize="13" Foreground="#7F8C8D" FontWeight="Bold" 
                       HorizontalAlignment="Center" Margin="0,0,0,6"/>
@@ -940,7 +940,7 @@
             </TextBlock>
         </StackPanel>
 
-        <!-- ✅ 装饰螺丝 -->
+        <!--  装饰螺丝 -->
         <Ellipse Canvas.Left="45" Canvas.Top="10" Width="8" Height="8"
                  Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11"
                  RenderOptions.CachingHint="Cache">
@@ -985,7 +985,7 @@
         <Line X1="349" Y1="431" X2="353" Y2="431" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"
               RenderOptions.EdgeMode="Aliased"/>
 
-        <!-- ✅ 选中边框 -->
+        <!--  选中边框 -->
         <Rectangle x:Name="SelectionBorder" 
                    Canvas.Left="-2" Canvas.Top="-2"
                    Width="404" Height="504"
@@ -1003,7 +1003,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- ✅ 旋转锚点 -->
+        <!--  旋转锚点 -->
         <Ellipse x:Name="RotateAnchor"
                  Canvas.Left="184"
                  Canvas.Top="-50"

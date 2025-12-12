@@ -135,7 +135,7 @@ namespace MaxChemical.Modules.Designer.Service
         #region 管道相关
 
         /// <summary>
-        /// ✅ 从管道数据恢复管道控件
+        ///  从管道数据恢复管道控件
         /// </summary>
         public FrameworkElement RestorePipeFromData(CanvasPipeData pipeData)
         {
@@ -162,7 +162,7 @@ namespace MaxChemical.Modules.Designer.Service
                             IsSelected = false // 恢复时不选中
                         };
                         pipeControl = straightPipe;
-                        System.Diagnostics.Debug.WriteLine($"✅ 恢复直管道: {pipeData.PipeId}, 长度={pipeData.PipeLength}");
+                        System.Diagnostics.Debug.WriteLine($" 恢复直管道: {pipeData.PipeId}, 长度={pipeData.PipeLength}");
                         break;
 
                     case "Elbow":
@@ -176,7 +176,7 @@ namespace MaxChemical.Modules.Designer.Service
                             IsSelected = false
                         };
                         pipeControl = elbowPipe;
-                        System.Diagnostics.Debug.WriteLine($"✅ 恢复弯管道: {pipeData.PipeId}, H={pipeData.HorizontalLength}, V={pipeData.VerticalLength}");
+                        System.Diagnostics.Debug.WriteLine($" 恢复弯管道: {pipeData.PipeId}, H={pipeData.HorizontalLength}, V={pipeData.VerticalLength}");
                         break;
 
                     case "ZShape":
@@ -191,11 +191,11 @@ namespace MaxChemical.Modules.Designer.Service
                             IsSelected = false
                         };
                         pipeControl = zPipe;
-                        System.Diagnostics.Debug.WriteLine($"✅ 恢复Z形管道: {pipeData.PipeId}");
+                        System.Diagnostics.Debug.WriteLine($" 恢复Z形管道: {pipeData.PipeId}");
                         break;
 
                     default:
-                        System.Diagnostics.Debug.WriteLine($"⚠️ 未知管道类型: {pipeData.PipeType}");
+                        System.Diagnostics.Debug.WriteLine($" 未知管道类型: {pipeData.PipeType}");
                         return null;
                 }
 
@@ -203,13 +203,13 @@ namespace MaxChemical.Modules.Designer.Service
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 恢复管道失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($" 恢复管道失败: {ex.Message}");
                 return null;
             }
         }
 
         /// <summary>
-        /// ✅ 新增：收集画布上的所有管道数据
+        ///  新增：收集画布上的所有管道数据
         /// </summary>
         public List<CanvasPipeData> CollectPipeData()
         {
@@ -228,13 +228,13 @@ namespace MaxChemical.Modules.Designer.Service
                 // 等待2秒
                 if (!waitHandle.Wait(2000))
                 {
-                    System.Diagnostics.Debug.WriteLine("⚠️ 收集管道数据超时");
+                    System.Diagnostics.Debug.WriteLine(" 收集管道数据超时");
                     return new List<CanvasPipeData>();
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 收集管道数据失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($" 收集管道数据失败: {ex.Message}");
             }
             finally
             {
@@ -245,7 +245,7 @@ namespace MaxChemical.Modules.Designer.Service
         }
 
         /// <summary>
-        /// ✅ 新增：恢复管道数据到画布
+        ///  新增：恢复管道数据到画布
         /// </summary>
         public void RestorePipeData(List<CanvasPipeData> pipesData)
         {
@@ -264,7 +264,7 @@ namespace MaxChemical.Modules.Designer.Service
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 恢复管道数据失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($" 恢复管道数据失败: {ex.Message}");
             }
         }
 
@@ -315,13 +315,13 @@ namespace MaxChemical.Modules.Designer.Service
                 var json = JsonSerializer.Serialize(document, options);
                 File.WriteAllText(filePath, json);
 
-                System.Diagnostics.Debug.WriteLine($"✅ 画布已保存到: {filePath}");
+                System.Diagnostics.Debug.WriteLine($" 画布已保存到: {filePath}");
                 return true;
             }
             catch (Exception ex)
             {
                 // 记录错误日志
-                System.Diagnostics.Debug.WriteLine($"❌ 保存画布失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($" 保存画布失败: {ex.Message}");
                 return false;
             }
         }
@@ -332,23 +332,23 @@ namespace MaxChemical.Modules.Designer.Service
             {
                 if (!File.Exists(filePath))
                 {
-                    System.Diagnostics.Debug.WriteLine($"⚠️ 文件不存在: {filePath}");
+                    System.Diagnostics.Debug.WriteLine($" 文件不存在: {filePath}");
                     return null;
                 }
 
                 var json = File.ReadAllText(filePath);
                 var document = JsonSerializer.Deserialize<CanvasDocument>(json);
 
-                System.Diagnostics.Debug.WriteLine($"✅ 画布已加载: {filePath}");
+                System.Diagnostics.Debug.WriteLine($" 画布已加载: {filePath}");
                 System.Diagnostics.Debug.WriteLine($"  - 设备数量: {document?.Devices?.Count ?? 0}");
                 System.Diagnostics.Debug.WriteLine($"  - 连接数量: {document?.Connections?.Count ?? 0}");
-                System.Diagnostics.Debug.WriteLine($"  - 管道数量: {document?.Pipes?.Count ?? 0}"); // ✅ 新增
+                System.Diagnostics.Debug.WriteLine($"  - 管道数量: {document?.Pipes?.Count ?? 0}"); //  新增
 
                 return document;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 加载画布失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($" 加载画布失败: {ex.Message}");
                 return null;
             }
         }
@@ -369,7 +369,7 @@ namespace MaxChemical.Modules.Designer.Service
 
                 if (!waitHandle.Wait(5000)) // 5秒超时
                 {
-                    System.Diagnostics.Debug.WriteLine("⚠️ 获取画布数据超时");
+                    System.Diagnostics.Debug.WriteLine(" 获取画布数据超时");
                     return null;
                 }
 
@@ -377,7 +377,7 @@ namespace MaxChemical.Modules.Designer.Service
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ 获取画布数据失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($" 获取画布数据失败: {ex.Message}");
                 return null;
             }
             finally

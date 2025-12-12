@@ -41,7 +41,7 @@ namespace MaxChemical.Modules.Designer.Models
         public List<CanvasDeviceData> Devices { get; set; } = new List<CanvasDeviceData>();
         public List<ConnectionData> Connections { get; set; } = new List<ConnectionData>();
 
-        // ✅ 新增：管道数据集合
+        //  新增：管道数据集合
         public List<CanvasPipeData> Pipes { get; set; } = new List<CanvasPipeData>();
 
         public double CanvasWidth { get; set; } = 1200;

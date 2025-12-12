@@ -42,7 +42,7 @@ namespace MaxChemical.Modules.Designer.Service
         /// </summary>
         IDevice RestoreDeviceFromData(CanvasDeviceData deviceData);
 
-        // ✅ 新增：恢复管道方法
+        //  新增：恢复管道方法
         FrameworkElement RestorePipeFromData(CanvasPipeData pipeData);
     }
 }

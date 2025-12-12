@@ -22,10 +22,10 @@ namespace SolenoidValves_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
-        private bool _isOpen = false; // ✅ 新增：当前设备的开关状态
+        private bool _isOpen = false; //  新增：当前设备的开关状态
         // 电磁阀状态跟踪
         private readonly Dictionary<string, bool> _valveStates = new Dictionary<string, bool>();
-        // ✅ 新增：当前状态字段
+        //  新增：当前状态字段
         private SolenoidValveState _currentState = SolenoidValveState.Closed;
         #region IDeviceUIInteraction 实现
 
@@ -72,7 +72,7 @@ namespace SolenoidValves_ModbusTCP
             {
                 States = new Dictionary<string, object>
                 {
-                    ["ValveState"] = _currentState, // ✅ 返回业务状态
+                    ["ValveState"] = _currentState, //  返回业务状态
                     ["IsOpen"] = _isOpen,
                     ["ComId"] = this.ComId
                 }
@@ -126,7 +126,7 @@ namespace SolenoidValves_ModbusTCP
                 {
                     _isOpen = true;
 
-                    // ✅ 触发状态变化事件（通知UI更新）
+                    //  触发状态变化事件（通知UI更新）
                     OnStateChanged("IsOpen", true);
 
                     InfoLog($"电磁阀 {valveId} 已打开");
@@ -201,7 +201,7 @@ namespace SolenoidValves_ModbusTCP
                 {
                     _isOpen = false;
 
-                    // ✅ 触发状态变化事件（通知UI更新）
+                    //  触发状态变化事件（通知UI更新）
                     OnStateChanged("IsOpen", false);
 
                     InfoLog($"电磁阀 {valveId} 已关闭");
@@ -553,36 +553,36 @@ namespace SolenoidValves_ModbusTCP
             };
         },
 
-        // ✅ 开始执行：正在打开
+        //  开始执行：正在打开
         onStartStateSync: () =>
         {
             _currentState = SolenoidValveState.Opening;
-            OnStateChanged("ValveState", SolenoidValveState.Opening); // ✅ 使用枚举
+            OnStateChanged("ValveState", SolenoidValveState.Opening); //  使用枚举
             Debug.WriteLine("🔄 电磁阀开始打开");
         },
 
-        // ✅ 成功：已打开
+        //  成功：已打开
         onSuccessStateSync: (output) =>
         {
             _currentState = SolenoidValveState.Open;
-            OnStateChanged("ValveState", SolenoidValveState.Open); // ✅ 使用枚举
-            Debug.WriteLine("✅ 电磁阀成功打开");
+            OnStateChanged("ValveState", SolenoidValveState.Open); //  使用枚举
+            Debug.WriteLine(" 电磁阀成功打开");
         },
 
-        // ✅ 失败：操作失败
+        //  失败：操作失败
         onFailureStateSync: (output) =>
         {
             _currentState = SolenoidValveState.Failed;
-            OnStateChanged("ValveState", SolenoidValveState.Failed); // ✅ 使用枚举
-            Debug.WriteLine("❌ 电磁阀打开失败");
+            OnStateChanged("ValveState", SolenoidValveState.Failed); //  使用枚举
+            Debug.WriteLine(" 电磁阀打开失败");
         },
 
-        // ✅ 异常：通讯错误
+        //  异常：通讯错误
         onErrorStateSync: (errorMessage) =>
         {
             _currentState = SolenoidValveState.Failed;
-            OnStateChanged("ValveState", SolenoidValveState.Error); // ✅ 使用枚举
-            Debug.WriteLine($"⚠️ 电磁阀打开异常: {errorMessage}");
+            OnStateChanged("ValveState", SolenoidValveState.Error); //  使用枚举
+            Debug.WriteLine($" 电磁阀打开异常: {errorMessage}");
         }
     )
             });
@@ -649,28 +649,28 @@ namespace SolenoidValves_ModbusTCP
                             }
                         };
                     },
-        // ✅ 开始执行：正在关闭
+        //  开始执行：正在关闭
         onStartStateSync: () =>
         {
             _currentState = SolenoidValveState.Closing;
             OnStateChanged("ValveState", SolenoidValveState.Closing);
         },
 
-        // ✅ 成功：已关闭
+        //  成功：已关闭
         onSuccessStateSync: (output) =>
         {
             _currentState = SolenoidValveState.Closed;
             OnStateChanged("ValveState", SolenoidValveState.Closed);
         },
 
-        // ✅ 失败：操作失败
+        //  失败：操作失败
         onFailureStateSync: (output) =>
         {
             _currentState = SolenoidValveState.Failed;
             OnStateChanged("ValveState", SolenoidValveState.Failed);
         },
 
-        // ✅ 异常：通讯错误
+        //  异常：通讯错误
         onErrorStateSync: (errorMessage) =>
         {
             _currentState = SolenoidValveState.Error;

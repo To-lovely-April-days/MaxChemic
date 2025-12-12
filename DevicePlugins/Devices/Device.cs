@@ -22,7 +22,7 @@ namespace DevicePlugins.Devices
         private Timer? _heartbeatTimer;
         private int _connectionTimeout = 30; // 默认30秒超时
         private bool _disposed = false;
-        protected bool _isSimulationMode = true;
+        protected bool _isSimulationMode = false;
 
         // 新增字段
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
@@ -45,7 +45,7 @@ namespace DevicePlugins.Devices
                 OnSimulationModeChanged(value);
             }
         }
-        // ✅ 实现接口事件
+        //  实现接口事件
         public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
 
         protected Device()
@@ -1056,7 +1056,7 @@ namespace DevicePlugins.Devices
 
         #endregion
         /// <summary>
-        /// ✅ 虚方法：执行UI命令（子类可重写）
+        ///  虚方法：执行UI命令（子类可重写）
         /// </summary>
         public virtual async Task<CommandExecutionResult> ExecuteUICommandAsync(
             string commandName,
@@ -1106,7 +1106,7 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// ✅ 虚方法：获取当前状态（子类可重写）
+        ///  虚方法：获取当前状态（子类可重写）
         /// </summary>
         public virtual DeviceState GetCurrentState()
         {
@@ -1139,7 +1139,7 @@ namespace DevicePlugins.Devices
                 try
                 {
                     // 1️⃣ 发送"执行中"状态
-                    OnCommandStateChanged(commandName, CommandExecutionState.Running); // ✅ 直接传枚举
+                    OnCommandStateChanged(commandName, CommandExecutionState.Running); //  直接传枚举
                     onStartStateSync?.Invoke();
 
                     // 2️⃣ 执行命令
@@ -1152,12 +1152,12 @@ namespace DevicePlugins.Devices
                     if (success)
                     {
                         onSuccessStateSync?.Invoke(output);
-                        OnCommandStateChanged(commandName, CommandExecutionState.Succeeded, output); // ✅ 传枚举 + 输出
+                        OnCommandStateChanged(commandName, CommandExecutionState.Succeeded, output); //  传枚举 + 输出
                     }
                     else
                     {
                         onFailureStateSync?.Invoke(output);
-                        OnCommandStateChanged(commandName, CommandExecutionState.Failed, output); // ✅ 传枚举 + 输出
+                        OnCommandStateChanged(commandName, CommandExecutionState.Failed, output); //  传枚举 + 输出
                     }
 
                     return output;
@@ -1167,7 +1167,7 @@ namespace DevicePlugins.Devices
                     sw.Stop();
                     onErrorStateSync?.Invoke(ex.Message);
                     OnCommandStateChanged(commandName, CommandExecutionState.Error,
-                        errorMessage: ex.Message); // ✅ 传枚举 + 错误 + 异常
+                        errorMessage: ex.Message); //  传枚举 + 错误 + 异常
 
                     throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
@@ -1175,7 +1175,7 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// ✅ 触发命令执行状态事件
+        ///  触发命令执行状态事件
         /// </summary>
         protected virtual void OnCommandStateChanged(
             string commandName,
@@ -1207,7 +1207,7 @@ namespace DevicePlugins.Devices
                     eventArgs.AdditionalData["ErrorMessage"] = errorMessage;
                 }
 
-                // ✅ 直接触发事件
+                //  直接触发事件
                 ControlStateChanged?.Invoke(this, eventArgs);
             }
             catch (Exception ex)
@@ -1217,7 +1217,7 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// ✅ 触发设备状态变化事件
+        ///  触发设备状态变化事件
         /// </summary>
         protected virtual void OnStateChanged(string stateName, object stateValue)
         {

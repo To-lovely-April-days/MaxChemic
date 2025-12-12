@@ -29,13 +29,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ElbowPipeEventArgs> PipeDeleted;
         public event EventHandler<ElbowPipeEventArgs> ShowPipeProperties;
 
-        // ✅ 管道选中事件
+        //  管道选中事件
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
 
         #endregion
 
-        #region ✅ IsSelected 依赖属性
+        #region  IsSelected 依赖属性
 
         /// <summary>
         /// 是否选中的依赖属性
@@ -88,7 +88,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double MinPipeWidth = 8;
         private const double MaxPipeWidth = 60;
 
-        // ✅ 法兰尺寸常量（与直管道统一）
+        //  法兰尺寸常量（与直管道统一）
         private const double FlangeWidth = 2.54;
         private const double FlangeOffset = 0.35;
         private const double FlangeSpacing = 2.0; // 法兰与管道之间的间距
@@ -194,7 +194,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Dispatcher.BeginInvoke(new Action(() => UpdatePipeGeometry()),
                 System.Windows.Threading.DispatcherPriority.Loaded);
 
-            // ========== ✅ 硬件加速配置（优化版） ==========
+            // ==========  硬件加速配置（优化版） ==========
 
             // 1. 高质量渲染
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
@@ -217,7 +217,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             this.SnapsToDevicePixels = true;
             this.UseLayoutRounding = true;
 
-            // ✅ 5. 弯头路径优化（禁用缓存，使用 GPU）
+            //  5. 弯头路径优化（禁用缓存，使用 GPU）
             ElbowPath.CacheMode = null;
             ElbowOuterEdge.CacheMode = null;
             ElbowHighlight.CacheMode = null;
@@ -266,7 +266,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 更新选中视觉效果
+        ///  更新选中视觉效果
         /// </summary>
         private void UpdateSelectionVisual(bool isSelected)
         {
@@ -464,7 +464,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdatePipeGeometry()
         {
-            // ✅ 开始批量更新
+            //  开始批量更新
             PipeCanvas.BeginInit();
 
             // =======================================================================
@@ -588,7 +588,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateAnchorPositions(horizontalCenterY, verticalCenterX);
             UpdateRotationLabelPosition();
 
-            // ✅ 结束批量更新
+            //  结束批量更新
             PipeCanvas.EndInit();
         }
 
@@ -598,7 +598,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateHorizontalPipe(double centerY, double elbowCenterX, double elbowRadius)
         {
-            // ✅ 修改：pipeLeft = 法兰宽度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
+            //  修改：pipeLeft = 法兰宽度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
             double pipeLeft = FlangeWidth + FlangeSpacing + FlangeOffset;
             double pipeWidth = Math.Max(0, elbowCenterX - elbowRadius - pipeLeft);
             double pipeTop = centerY - _pipeWidth / 2;
@@ -608,7 +608,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(HorizontalPipe, pipeLeft);
             Canvas.SetTop(HorizontalPipe, pipeTop);
 
-            // ✅ 边缘线位置微调
+            //  边缘线位置微调
             double edgeOffset = 0.38; // (3.58 - 3.2) = 0.38
             HorizontalTopEdge.X1 = pipeLeft + edgeOffset;
             HorizontalTopEdge.X2 = pipeLeft + pipeWidth - edgeOffset;
@@ -623,7 +623,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateVerticalPipe(double centerX, double elbowCenterY, double elbowRadius)
         {
-            // ✅ 修改：pipeTop = 法兰高度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
+            //  修改：pipeTop = 法兰高度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
             double pipeTop = FlangeWidth + FlangeSpacing + FlangeOffset;
             double pipeHeight = Math.Max(0, elbowCenterY - elbowRadius - pipeTop);
             double pipeLeft = centerX - _pipeWidth / 2;
@@ -633,7 +633,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(VerticalPipe, pipeLeft);
             Canvas.SetTop(VerticalPipe, pipeTop);
 
-            // ✅ 边缘线位置微调
+            //  边缘线位置微调
             double edgeOffset = 0.38;
             VerticalLeftEdge.X1 = pipeLeft + 0.32;
             VerticalLeftEdge.X2 = pipeLeft + 0.32;
@@ -653,11 +653,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             PathGeometry elbowGeometry = new PathGeometry();
             PathFigure figure = new PathFigure();
 
-            // ✅ 外弧起点：弯头左侧底部（水平管道右端底部）
+            //  外弧起点：弯头左侧底部（水平管道右端底部）
             Point outerStart = new Point(centerX - radius, centerY + _pipeWidth / 2);
             figure.StartPoint = outerStart;
 
-            // ✅ 外弧：从左下到右上（逆时针）
+            //  外弧：从左下到右上（逆时针）
             // 外弧半径 = 弯头中心半径 + 管道宽度一半
             ArcSegment outerArc = new ArcSegment(
                 new Point(centerX + _pipeWidth / 2, centerY - radius),
@@ -665,12 +665,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 0, false, SweepDirection.Counterclockwise, true);
             figure.Segments.Add(outerArc);
 
-            // ✅ 顶部横线：从外弧终点到内弧起点
+            //  顶部横线：从外弧终点到内弧起点
             LineSegment toInner = new LineSegment(
                 new Point(centerX - _pipeWidth / 2, centerY - radius), true);
             figure.Segments.Add(toInner);
 
-            // ✅ 内弧：从右上到左下（顺时针）
+            //  内弧：从右上到左下（顺时针）
             // 内弧半径 = 弯头中心半径 - 管道宽度一半
             ArcSegment innerArc = new ArcSegment(
                 new Point(centerX - radius, centerY - _pipeWidth / 2),
@@ -678,7 +678,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 0, false, SweepDirection.Clockwise, true);
             figure.Segments.Add(innerArc);
 
-            // ✅ 封闭路径
+            //  封闭路径
             figure.IsClosed = true;
             elbowGeometry.Figures.Add(figure);
             ElbowPath.Data = elbowGeometry;
@@ -689,7 +689,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 PathGeometry outerEdgeGeometry = new PathGeometry();
                 PathFigure outerEdgeFigure = new PathFigure();
 
-                // ✅ 外侧边缘略微偏移（视觉强化）
+                //  外侧边缘略微偏移（视觉强化）
                 double edgeOffset = 0.5;
                 Point edgeStart = new Point(centerX - radius, centerY + _pipeWidth / 2 - edgeOffset);
                 outerEdgeFigure.StartPoint = edgeStart;
@@ -710,7 +710,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 PathGeometry highlightGeometry = new PathGeometry();
                 PathFigure highlightFigure = new PathFigure();
 
-                // ✅ 高光位置：从内弧偏移一定距离
+                //  高光位置：从内弧偏移一定距离
                 double highlightOffset = _pipeWidth * 0.25;
                 double highlightRadius = radius - highlightOffset;
 
@@ -732,7 +732,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateFlanges(double horizontalY, double verticalX)
         {
-            // ✅ 法兰高度/宽度 = 管道宽度 + 4（上下/左右各多出2px）
+            //  法兰高度/宽度 = 管道宽度 + 4（上下/左右各多出2px）
             double flangeHeight = _pipeWidth + 4;
             double flangeWidth = _pipeWidth + 4;
 
@@ -749,7 +749,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             LeftFlangeBorder.Width = FlangeWidth;
             LeftFlangeBorder.Height = flangeHeight;
 
-            // ✅ 移除螺栓更新
+            //  移除螺栓更新
             // UpdateFlangeBoltsVertical(LeftBolt1, LeftBolt2, LeftBolt3, flangeHeight);
 
             // 顶部法兰（水平方向）
@@ -765,7 +765,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             TopFlangeBorder.Width = flangeWidth;
             TopFlangeBorder.Height = FlangeWidth;
 
-            // ✅ 移除螺栓更新
+            //  移除螺栓更新
             // UpdateFlangeBoltsHorizontal(TopBolt1, TopBolt2, TopBolt3, flangeWidth);
         }
 
@@ -804,13 +804,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void UpdateConnections(double horizontalY, double verticalX)
         {
             LeftConnection.Height = _pipeWidth;
-            // ✅ 左连接位置 = 法兰宽度2.54 + 偏移0.35 = 2.89
+            //  左连接位置 = 法兰宽度2.54 + 偏移0.35 = 2.89
             Canvas.SetLeft(LeftConnection, FlangeWidth + FlangeOffset);
             Canvas.SetTop(LeftConnection, horizontalY - _pipeWidth / 2);
 
             TopConnection.Width = _pipeWidth;
             Canvas.SetLeft(TopConnection, verticalX - _pipeWidth / 2);
-            // ✅ 顶连接位置 = 法兰高度2.54 + 偏移0.35 = 2.89
+            //  顶连接位置 = 法兰高度2.54 + 偏移0.35 = 2.89
             Canvas.SetTop(TopConnection, FlangeWidth + FlangeOffset);
         }
 
@@ -867,7 +867,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
 
-                // ✅ 拖拽时禁用缓存，降低质量
+                //  拖拽时禁用缓存，降低质量
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -943,7 +943,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             this.Opacity = 1.0;
             _isDraggingPipe = false;
 
-            // ✅ 拖拽结束后恢复缓存和高质量
+            //  拖拽结束后恢复缓存和高质量
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {
@@ -991,7 +991,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     Debug.WriteLine($"开始调整弯管大小: 锚点={position}, 固定点=({_fixedPoint.X:F1}, {_fixedPoint.Y:F1})");
                 }
 
-                // ✅ 调整大小时禁用缓存
+                //  调整大小时禁用缓存
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -1220,7 +1220,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _isResizing = false;
             _resizingAnchor = null;
 
-            // ✅ 调整大小结束后恢复缓存
+            //  调整大小结束后恢复缓存
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {
@@ -1246,7 +1246,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (parent != null)
                     _dragStartPoint = e.GetPosition(parent);
 
-                // ✅ 旋转时禁用缓存（关键优化）
+                //  旋转时禁用缓存（关键优化）
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -1298,7 +1298,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             _isRotating = false;
 
-            // ✅ 旋转结束后恢复缓存（关键优化）
+            //  旋转结束后恢复缓存（关键优化）
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {
@@ -1338,7 +1338,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // ✅ 左侧法兰中心位置：Canvas.Left=0.35, 法兰宽度=2.54, 中心X=0.35+1.27=1.62
+            //  左侧法兰中心位置：Canvas.Left=0.35, 法兰宽度=2.54, 中心X=0.35+1.27=1.62
             double leftFlangeX = FlangeOffset + FlangeWidth / 2 - this.ActualWidth / 2;
             double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
 
@@ -1355,7 +1355,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"弯管水平法兰 (水平:{_horizontalLength:F0})"
             });
 
-            // ✅ 顶部法兰中心位置：Canvas.Top=0.35, 法兰高度=2.54, 中心Y=0.35+1.27=1.62
+            //  顶部法兰中心位置：Canvas.Top=0.35, 法兰高度=2.54, 中心Y=0.35+1.27=1.62
             double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - this.ActualWidth / 2;
             double topFlangeY = FlangeOffset + FlangeWidth / 2 - this.ActualHeight / 2;
 

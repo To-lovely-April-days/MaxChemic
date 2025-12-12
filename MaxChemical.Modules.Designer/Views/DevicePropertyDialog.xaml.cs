@@ -244,7 +244,7 @@ namespace MaxChemical.Modules.Designer.Views
             try
             {
                 Debug.WriteLine("使用参数名格式恢复状态（向后兼容，可能有歧义）");
-                Debug.WriteLine("⚠️ 警告：使用参数名格式可能导致跨命令参数误选，建议升级到完整键名格式");
+                Debug.WriteLine(" 警告：使用参数名格式可能导致跨命令参数误选，建议升级到完整键名格式");
 
                 // *** 关键修复：不使用有问题的预处理方法 ***
                 // 这里应该让外部调用者提供正确的完整键名格式
@@ -1827,7 +1827,7 @@ namespace MaxChemical.Modules.Designer.Views
                     // 确认这是实际硬件操作
                     var confirmResult = MessageBox.Show(
                         $"即将执行命令 '{_selectedCommand.Name}'\n\n" +
-                        "⚠️ 注意：此操作将直接控制真实硬件设备，可能会对设备状态产生实际影响。\n\n" +
+                        " 注意：此操作将直接控制真实硬件设备，可能会对设备状态产生实际影响。\n\n" +
                         "确定要继续执行吗？",
                         "确认执行命令",
                         MessageBoxButton.YesNo,
@@ -1848,7 +1848,7 @@ namespace MaxChemical.Modules.Designer.Views
                         var selectedMonitorParams = GetSelectedMonitorParameters();
 
                         var message = $"命令 '{_selectedCommand.Name}' 执行成功！\n" +
-                                     $"✅ 实际硬件操作完成\n" +
+                                     $" 实际硬件操作完成\n" +
                                      $"选中的监控参数: {selectedMonitorParams.Count} 个\n" +
                                      $"执行时间: {result.ExecutionTime:HH:mm:ss}";
 

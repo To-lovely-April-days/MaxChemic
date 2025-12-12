@@ -19,7 +19,7 @@ namespace MaxChemical.Modules.Designer.Commands
         private readonly string _pipeType;
         private readonly IPipeConnectionService _pipeConnectionService;
 
-        // ✅ 新增：保存管道的完整状态
+        //  新增：保存管道的完整状态
         private readonly PipeState _pipeState;
 
         public DeletePipeCommand(
@@ -31,17 +31,17 @@ namespace MaxChemical.Modules.Designer.Commands
             _pipe = pipe ?? throw new ArgumentNullException(nameof(pipe));
             _pipeConnectionService = pipeConnectionService ?? throw new ArgumentNullException(nameof(pipeConnectionService));
 
-            // ✅ 记录原始位置
+            //  记录原始位置
             var left = Canvas.GetLeft(pipe);
             var top = Canvas.GetTop(pipe);
             _originalPosition = new Point(
                 double.IsNaN(left) ? 0 : left,
                 double.IsNaN(top) ? 0 : top);
 
-            // ✅ 记录 ZIndex
+            //  记录 ZIndex
             _originalZIndex = Panel.GetZIndex(pipe);
 
-            // ✅ 保存管道状态
+            //  保存管道状态
             _pipeState = SavePipeState(pipe);
 
             // 获取管道类型
@@ -62,16 +62,16 @@ namespace MaxChemical.Modules.Designer.Commands
                 if (_canvas.Children.Contains(_pipe))
                 {
                     _canvas.Children.Remove(_pipe);
-                    Debug.WriteLine($"✅ 执行删除管道: {GetPipeId()}");
+                    Debug.WriteLine($" 执行删除管道: {GetPipeId()}");
                 }
                 else
                 {
-                    Debug.WriteLine($"⚠️ 管道不在画布中: {GetPipeId()}");
+                    Debug.WriteLine($" 管道不在画布中: {GetPipeId()}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 执行删除管道失败: {ex.Message}");
+                Debug.WriteLine($" 执行删除管道失败: {ex.Message}");
                 throw;
             }
         }
@@ -82,40 +82,40 @@ namespace MaxChemical.Modules.Designer.Commands
             {
                 Debug.WriteLine($"开始撤销删除管道: {GetPipeId()}");
 
-                // ✅ 恢复管道到画布（直接操作，不依赖服务）
+                //  恢复管道到画布（直接操作，不依赖服务）
                 if (!_canvas.Children.Contains(_pipe))
                 {
-                    // ✅ 先恢复状态
+                    //  先恢复状态
                     RestorePipeState(_pipe, _pipeState);
 
-                    // ✅ 直接设置位置
+                    //  直接设置位置
                     Canvas.SetLeft(_pipe, _originalPosition.X);
                     Canvas.SetTop(_pipe, _originalPosition.Y);
                     Panel.SetZIndex(_pipe, _originalZIndex);
 
-                    // ✅ 添加到画布
+                    //  添加到画布
                     _canvas.Children.Add(_pipe);
 
-                    // ✅ 强制更新布局
+                    //  强制更新布局
                     _pipe.UpdateLayout();
 
-                    Debug.WriteLine($"✅ 撤销删除管道成功: {GetPipeId()}");
+                    Debug.WriteLine($" 撤销删除管道成功: {GetPipeId()}");
                     Debug.WriteLine($"   恢复位置: Left={_originalPosition.X:F0}, Top={_originalPosition.Y:F0}");
                     Debug.WriteLine($"   恢复 ZIndex: {_originalZIndex}");
 
-                    // ✅ 验证位置
+                    //  验证位置
                     var verifyLeft = Canvas.GetLeft(_pipe);
                     var verifyTop = Canvas.GetTop(_pipe);
                     Debug.WriteLine($"   验证位置: Left={verifyLeft:F0}, Top={verifyTop:F0}");
                 }
                 else
                 {
-                    Debug.WriteLine($"⚠️ 管道已在画布中: {GetPipeId()}");
+                    Debug.WriteLine($" 管道已在画布中: {GetPipeId()}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 撤销删除管道失败: {ex.Message}");
+                Debug.WriteLine($" 撤销删除管道失败: {ex.Message}");
                 throw;
             }
         }
@@ -142,7 +142,7 @@ namespace MaxChemical.Modules.Designer.Commands
             return "管道";
         }
 
-        // ✅ 新增：保存管道状态
+        //  新增：保存管道状态
         private PipeState SavePipeState(FrameworkElement pipe)
         {
             var state = new PipeState();
@@ -188,7 +188,7 @@ namespace MaxChemical.Modules.Designer.Commands
             return state;
         }
 
-        // ✅ 新增：恢复管道状态
+        //  新增：恢复管道状态
         private void RestorePipeState(FrameworkElement pipe, PipeState state)
         {
             try
@@ -227,7 +227,7 @@ namespace MaxChemical.Modules.Designer.Commands
             }
         }
 
-        // ✅ 新增：管道状态数据类
+        //  新增：管道状态数据类
         private class PipeState
         {
             public string PipeId { get; set; }

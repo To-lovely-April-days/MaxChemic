@@ -85,7 +85,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
 
         #region 事件定义
-        // ✅ 新增：请求状态切换事件（控件 → 外部）
+        //  新增：请求状态切换事件（控件 → 外部）
         public event EventHandler<ValveStateChangeRequestEventArgs> StateChangeRequested;
         public event EventHandler<string> ValveSelected;
         public event EventHandler<string> ValveDeselected;
@@ -112,15 +112,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
-        // ✅ 新增：错误状态动画
+        //  新增：错误状态动画
         private Storyboard _errorBlinkAnimation;
         //private DispatcherTimer _errorResetTimer;
 
-        // ✅ 新增：加载状态动画
+        //  新增：加载状态动画
         private Storyboard _loadingAnimation;
         private bool _isLoading = false;
 
-        // ✅ 新增：错误保持动画
+        //  新增：错误保持动画
         private Storyboard _errorStateHoldAnimation;
 
         public string ValveId { get; set; }
@@ -157,7 +157,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _rotationLabelTimer.Stop();
                 };
 
-                //// ✅ 新增：错误状态重置定时器
+                ////  新增：错误状态重置定时器
                 //_errorResetTimer = new DispatcherTimer
                 //{
                 //    Interval = TimeSpan.FromSeconds(4.5) // 3次闪烁 × 1.5秒
@@ -169,12 +169,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 //    Debug.WriteLine($"⏱️ 错误状态已自动重置 | ValveId:{ValveId}");
                 //};
 
-                // ✅ 新增：加载动画资源初始化
+                //  新增：加载动画资源初始化
                 _loadingAnimation = (Storyboard)this.Resources["LoadingAnimation"];
                 _errorBlinkAnimation = (Storyboard)this.Resources["ErrorBlinkAnimation"];
                 _errorStateHoldAnimation = (Storyboard)this.Resources["ErrorStateHoldAnimation"];
 
-                // ✅ 新增：错误动画完成后自动切换到保持动画
+                //  新增：错误动画完成后自动切换到保持动画
                 _errorBlinkAnimation.Completed += (s, e) =>
                 {
                     if (IsError)
@@ -297,13 +297,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 BodyColor = (LinearGradientBrush)this.Resources["OpenBodyGradient"];
                 CenterColor = (RadialGradientBrush)this.Resources["OpenCenterGradient"];
-                Debug.WriteLine($"✅ 电磁阀打开 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
+                Debug.WriteLine($" 电磁阀打开 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
             }
             else
             {
                 BodyColor = (LinearGradientBrush)this.Resources["ClosedBodyGradient"];
                 CenterColor = (RadialGradientBrush)this.Resources["ClosedCenterGradient"];
-                Debug.WriteLine($"❌ 电磁阀关闭 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
+                Debug.WriteLine($" 电磁阀关闭 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
             }
         }
 
@@ -342,7 +342,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
-                    Debug.WriteLine("✅ 超过阈值，开始拖拽模式");
+                    Debug.WriteLine(" 超过阈值，开始拖拽模式");
                     _isDragging = true;
 
                     if (((UIElement)sender).IsMouseCaptured)
@@ -382,9 +382,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (isClick && !_isDragging)
                 {
-                    Debug.WriteLine($"✅ 电磁阀点击 | ValveId:{ValveId}, 当前状态:{IsOpen}");
+                    Debug.WriteLine($" 电磁阀点击 | ValveId:{ValveId}, 当前状态:{IsOpen}");
 
-                    // ✅ 显示加载动画
+                    //  显示加载动画
                     ShowLoading();
 
                     // 触发状态切换请求
@@ -431,7 +431,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 ValveDeselected?.Invoke(this, this.ValveId);
                 autoHideTimer.Stop();
 
-                Debug.WriteLine("✅ 电磁阀选中效果已自动取消");
+                Debug.WriteLine(" 电磁阀选中效果已自动取消");
             };
 
             autoHideTimer.Start();
@@ -664,7 +664,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (isError)
             {
-                Debug.WriteLine($"🚨 显示错误状态 | ValveId:{ValveId}");
+                Debug.WriteLine($" 显示错误状态 | ValveId:{ValveId}");
 
                 // 停止所有动画
                 _loadingAnimation?.Stop();
@@ -680,7 +680,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             else
             {
-                Debug.WriteLine($"✅ 清除错误状态 | ValveId:{ValveId}");
+                Debug.WriteLine($" 清除错误状态 | ValveId:{ValveId}");
 
                 // 停止所有动画
                 _errorBlinkAnimation?.Stop();
@@ -706,7 +706,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 公共方法：显示操作失败动画
+        ///  公共方法：显示操作失败动画
         /// </summary>
         public void ShowOperationFailure()
         {
@@ -714,7 +714,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// ✅ 公共方法：清除错误状态
+        ///  公共方法：清除错误状态
         /// </summary>
         public void ClearError()
         {
@@ -726,14 +726,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #region 加载状态处理
 
         /// <summary>
-        /// ✅ 显示加载动画
+        ///  显示加载动画
         /// </summary>
         public void ShowLoading()
         {
             if (_isLoading) return;
 
             _isLoading = true;
-            Debug.WriteLine($"⏳ 显示加载动画 | ValveId:{ValveId}");
+            Debug.WriteLine($" 显示加载动画 | ValveId:{ValveId}");
 
             // 停止错误动画
             if (IsError)
@@ -748,14 +748,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
 
         /// <summary>
-        /// ✅ 隐藏加载动画
+        ///  隐藏加载动画
         /// </summary>
         public void HideLoading()
         {
             if (!_isLoading) return;
 
             _isLoading = false;
-            Debug.WriteLine($"✅ 隐藏加载动画 | ValveId:{ValveId}");
+            Debug.WriteLine($" 隐藏加载动画 | ValveId:{ValveId}");
 
             // 停止动画
             _loadingAnimation?.Stop();
@@ -792,7 +792,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
 
         /// <summary>
-        /// ✅ 公共属性：是否正在加载
+        ///  公共属性：是否正在加载
         /// </summary>
         public bool IsLoading
         {
