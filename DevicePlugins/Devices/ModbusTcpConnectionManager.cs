@@ -111,9 +111,8 @@ namespace DevicePlugins.Devices
                 }
             }
         }
-
         /// <summary>
-        /// 创建新的ModbusTCP连接 - 每次都是全新的
+        /// 创建新的ModbusTCP连接 - 增强版本
         /// </summary>
         private async Task<DisposableConnection> CreateConnectionAsync()
         {
@@ -124,7 +123,11 @@ namespace DevicePlugins.Devices
                 tcpClient.NoDelay = true;
                 tcpClient.ReceiveTimeout = OPERATION_TIMEOUT_MS;
                 tcpClient.SendTimeout = OPERATION_TIMEOUT_MS;
-                tcpClient.LingerState = new LingerOption(false, 0); // 不等待，立即关闭
+                tcpClient.LingerState = new LingerOption(false, 0);
+
+                // *** 设置接收缓冲区大小 ***
+                tcpClient.ReceiveBufferSize = 8192;
+                tcpClient.SendBufferSize = 8192;
 
                 var settings = DeviceConnectionConfig.ModbusTcpSettings;
 
@@ -133,8 +136,29 @@ namespace DevicePlugins.Devices
                 await tcpClient.ConnectAsync(settings.IpAddress, settings.Port)
                     .WaitAsync(TimeSpan.FromMilliseconds(CONNECTION_TIMEOUT_MS));
 
+                // *** 关键：等待TCP连接稳定 ***
+                await Task.Delay(50); // 给TCP连接时间稳定
+
+                // *** 验证连接状态 ***
+                if (!tcpClient.Connected)
+                {
+                    throw new InvalidOperationException("TCP连接建立失败");
+                }
+
                 // *** 创建ModbusMaster ***
                 var modbusMaster = CreateModbusMaster(tcpClient);
+
+                // *** 连接预热：尝试读取一个安全的寄存器 ***
+                try
+                {
+                    await Task.Run(() => modbusMaster.ReadHoldingRegisters(1, 0, 1));
+                    _logger.LogDebug("连接预热成功");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"连接预热失败（可忽略）: {ex.Message}");
+                    // 某些设备地址0可能不存在，这是正常的
+                }
 
                 _logger.LogDebug("新ModbusTCP连接创建成功");
                 return new DisposableConnection(tcpClient, modbusMaster, _logger);
@@ -428,31 +452,38 @@ namespace DevicePlugins.Devices
 
                 object result = null;
 
-                // *** 添加操作前连接验证 ***
+                // *** 验证ModbusMaster ***
                 if (modbusMaster == null)
                 {
                     throw new InvalidOperationException("ModbusMaster为null");
                 }
 
+                // *** 添加短暂延迟，避免连续操作冲突 ***
+                await Task.Delay(10);
+
                 switch (addressInfo.RegisterType)
                 {
                     case ModbusRegisterType.Coil:
-                        var coils = await Task.Run(() => modbusMaster.ReadCoils(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
+                        var coils = await ReadWithTimeoutAsync(() =>
+                            modbusMaster.ReadCoils(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
                         result = coils[0];
                         break;
 
                     case ModbusRegisterType.DiscreteInput:
-                        var inputs = await Task.Run(() => modbusMaster.ReadInputs(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
+                        var inputs = await ReadWithTimeoutAsync(() =>
+                            modbusMaster.ReadInputs(addressInfo.SlaveId, (ushort)addressInfo.Address, 1));
                         result = inputs[0];
                         break;
 
                     case ModbusRegisterType.InputRegister:
-                        var inputRegisters = await Task.Run(() => modbusMaster.ReadInputRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
+                        var inputRegisters = await ReadWithTimeoutAsync(() =>
+                            modbusMaster.ReadInputRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
                         result = ConvertRegistersToValue<T>(inputRegisters);
                         break;
 
                     case ModbusRegisterType.HoldingRegister:
-                        var holdingRegisters = await Task.Run(() => modbusMaster.ReadHoldingRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
+                        var holdingRegisters = await ReadWithTimeoutAsync(() =>
+                            modbusMaster.ReadHoldingRegisters(addressInfo.SlaveId, (ushort)addressInfo.Address, GetRegisterCount<T>()));
                         result = ConvertRegistersToValue<T>(holdingRegisters);
                         break;
 
@@ -468,6 +499,26 @@ namespace DevicePlugins.Devices
             {
                 _logger.LogError(ex, "【ModbusTCP读取异常】设备={DeviceId} 命令={Command}", deviceId, command);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// 带超时控制的读取操作
+        /// </summary>
+        private async Task<TResult> ReadWithTimeoutAsync<TResult>(Func<TResult> readOperation)
+        {
+            var cts = new CancellationTokenSource(OPERATION_TIMEOUT_MS);
+            try
+            {
+                return await Task.Run(readOperation, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new TimeoutException($"Modbus读取操作超时（{OPERATION_TIMEOUT_MS}ms）");
+            }
+            finally
+            {
+                cts.Dispose();
             }
         }
 
@@ -935,6 +986,43 @@ namespace DevicePlugins.Devices
                     ["YY_Cycle_2"] = "40164",
                     ["YY_Heat_2"] = "40165",
                     ["YY_Cool_2"] = "40166"
+                }
+            });
+            //添加电子称映射
+            _deviceMappings.TryAdd("S0101", new ModbusDeviceMapping
+            {
+                ComId = "S0101",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    // 循环器2
+                    ["_S0101_g"] = "40012",
+                    ["_S0101_Add_g"] = "40014",
+                   
+                }
+            });
+            _deviceMappings.TryAdd("S0111", new ModbusDeviceMapping
+            {
+                ComId = "S0111",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    // 循环器2
+                    ["_S0111_g"] = "40050",
+                    ["_S0111_Add_g"] = "40052",
+
+                }
+            });
+            _deviceMappings.TryAdd("S0121", new ModbusDeviceMapping
+            {
+                ComId = "S0121",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    // 循环器2
+                    ["_S0121_g"] = "40088",
+                    ["_S0121_Add_g"] = "40090",
+
                 }
             });
             _logger.LogInformation("已加载 {Count} 个设备的ModbusTcp地址映射", _deviceMappings.Count);

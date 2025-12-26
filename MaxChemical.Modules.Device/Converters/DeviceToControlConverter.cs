@@ -1,7 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
-using System.Windows.Data;
 using System.Windows.Controls;
+using System.Windows.Data;
 using DevicePlugins.Devices;
 using MaxChemical.Modules.Designer.Views.Controls;
 
@@ -117,7 +118,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 IsHitTestVisible = false,
                                 Cursor = System.Windows.Input.Cursors.Hand,
                                 CurrentFlow = 0.0,
-                                TargetFlow = 125.0,
+                                TargetFlow = 20.0,
                                 MaxFlow = 150.0,
                                 IsFlowing = false
                             };
@@ -183,6 +184,27 @@ namespace MaxChemical.Modules.Device.Converters
 
                             return exchangerViewbox;
                         #endregion
+                        case "DigitalScaleControl":
+                            var scaleControl = new DigitalScaleControl
+                            {
+                                IsHitTestVisible = true,  // 允许交互
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                IsPoweredOn = false,      // 初始为关闭状态
+                                WeightValue = 0.0,        // 初始重量为0
+                                CurrentUnit = "g",        // 默认单位为克
+                                IsTared = false           // 初始未去皮
+                            };
+                            // 包装在 Viewbox 中
+                            var ScaleViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 45 ,
+                                Height = 23,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = scaleControl,
+                                IsHitTestVisible = false  // 允许交互
+                            };
+                            return ScaleViewbox;
                         default:
                             return null;
                     }

@@ -23,216 +23,75 @@
     </UserControl.CacheMode>
 
     <UserControl.Resources>
-        <!-- ========== 🆕 改进的加载动画：参考柱塞泵 ========== -->
+        <!-- 运行状态颜色渐变(与电磁阀一致) -->
+
+        <!-- 运行状态: 蓝绿色外壳渐变 -->
+        <LinearGradientBrush x:Key="RunningShellGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#7FB89D" Offset="0"/>
+            <GradientStop Color="#9AC9B3" Offset="0.1"/>
+            <GradientStop Color="#B5D9C8" Offset="0.2"/>
+            <GradientStop Color="#CFE8DC" Offset="0.35"/>
+            <GradientStop Color="#E5F4ED" Offset="0.5"/>
+            <GradientStop Color="#CFE8DC" Offset="0.65"/>
+            <GradientStop Color="#B5D9C8" Offset="0.8"/>
+            <GradientStop Color="#9AC9B3" Offset="0.9"/>
+            <GradientStop Color="#7FB89D" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 运行状态: 仪表盘径向渐变 -->
+        <RadialGradientBrush x:Key="RunningDialGradient">
+            <GradientStop Color="#E5F4ED" Offset="0"/>
+            <GradientStop Color="#CFE8DC" Offset="0.7"/>
+            <GradientStop Color="#B5D9C8" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- 停止状态: 灰色外壳渐变(保持原样) -->
+        <LinearGradientBrush x:Key="StoppedShellGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#B0BCC3" Offset="0"/>
+            <GradientStop Color="#C4CFD6" Offset="0.1"/>
+            <GradientStop Color="#D8E0E5" Offset="0.2"/>
+            <GradientStop Color="#E8EEF1" Offset="0.35"/>
+            <GradientStop Color="#F4F7F9" Offset="0.5"/>
+            <GradientStop Color="#E8EEF1" Offset="0.65"/>
+            <GradientStop Color="#D8E0E5" Offset="0.8"/>
+            <GradientStop Color="#C4CFD6" Offset="0.9"/>
+            <GradientStop Color="#B0BCC3" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 停止状态: 仪表盘径向渐变(保持原样) -->
+        <RadialGradientBrush x:Key="StoppedDialGradient">
+            <GradientStop Color="#FAFAFA" Offset="0"/>
+            <GradientStop Color="#E8E8E8" Offset="0.7"/>
+            <GradientStop Color="#D0D0D0" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- 注释: 加载动画已禁用 -->
+        <!--
         <Storyboard x:Key="LoadingAnimation" RepeatBehavior="Forever">
-            <!-- 1. 显示加载层 -->
-            <DoubleAnimation Storyboard.TargetName="LoadingOverlay"
-                             Storyboard.TargetProperty="Opacity"
-                             To="1" Duration="0:0:0.2"/>
-
-            <!-- 2. 🎯 蓝色扫描光效：在外壳上来回移动 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ScannerTranslate"
-                                          Storyboard.TargetProperty="X"
-                                          Duration="0:0:2">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="-400"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="400"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="-400"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 3. 仪表盘四角的旋转光圈 -->
-            <DoubleAnimation Storyboard.TargetName="LoadingRing1Rotate"
-                             Storyboard.TargetProperty="Angle"
-                             From="0" To="360" Duration="0:0:1.5"/>
-            <DoubleAnimation Storyboard.TargetName="LoadingRing2Rotate"
-                             Storyboard.TargetProperty="Angle"
-                             From="90" To="450" Duration="0:0:1.5"/>
-            <DoubleAnimation Storyboard.TargetName="LoadingRing3Rotate"
-                             Storyboard.TargetProperty="Angle"
-                             From="180" To="540" Duration="0:0:1.5"/>
-            <DoubleAnimation Storyboard.TargetName="LoadingRing4Rotate"
-                             Storyboard.TargetProperty="Angle"
-                             From="270" To="630" Duration="0:0:1.5"/>
-
-            <!-- 4. 管道内部流光效果 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="PipeFlowGradient"
-                                          Storyboard.TargetProperty="Offset"
-                                          Duration="0:0:1">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 5. 整体轻微呼吸 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ShellGlow"
-                                          Storyboard.TargetProperty="BlurRadius"
-                                          Duration="0:0:1.5">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="10"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="0"/>
-            </DoubleAnimationUsingKeyFrames>
-            <ColorAnimationUsingKeyFrames Storyboard.TargetName="ShellGlow"
-                                         Storyboard.TargetProperty="Color"
-                                         Duration="0:0:1.5">
-                <LinearColorKeyFrame KeyTime="0:0:0" Value="#00FFFFFF"/>
-                <LinearColorKeyFrame KeyTime="0:0:0.75" Value="#662196F3"/>
-                <LinearColorKeyFrame KeyTime="0:0:1.5" Value="#00FFFFFF"/>
-            </ColorAnimationUsingKeyFrames>
+            ...
         </Storyboard>
+        -->
 
-        <!-- ========== 🆕 改进的错误闪烁动画：参考柱塞泵 ========== -->
+        <!-- 注释: 错误闪烁动画已禁用 -->
+        <!--
         <Storyboard x:Key="ErrorBlinkAnimation" RepeatBehavior="3x">
-            <!-- 1. 显示错误层 -->
-            <DoubleAnimation Storyboard.TargetName="ErrorOverlay"
-                             Storyboard.TargetProperty="Opacity"
-                             To="1" Duration="0:0:0.1"/>
-
-            <!-- 2. 剧烈震动效果 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ShellShakeTransform"
-                                          Storyboard.TargetProperty="X"
-                                          Duration="0:0:0.1" RepeatBehavior="5x">
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.00" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.02" Value="-5"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.04" Value="5"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.06" Value="-5"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.08" Value="5"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.10" Value="0"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 3. 🎯 红色扫描光效：急促来回移动 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorScannerTranslate"
-                                          Storyboard.TargetProperty="X"
-                                          Duration="0:0:0.5">
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="-400"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.1" Value="400"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.25" Value="-400"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.4" Value="400"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="-400"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 4. 红色警报灯急促闪烁 -->
-            <ColorAnimationUsingKeyFrames Storyboard.TargetName="ShellGlow"
-                                         Storyboard.TargetProperty="Color"
-                                         Duration="0:0:0.5">
-                <DiscreteColorKeyFrame KeyTime="0:0:0" Value="Transparent"/>
-                <DiscreteColorKeyFrame KeyTime="0:0:0.1" Value="#FFD32F2F"/>
-                <DiscreteColorKeyFrame KeyTime="0:0:0.25" Value="Transparent"/>
-                <DiscreteColorKeyFrame KeyTime="0:0:0.4" Value="#FFD32F2F"/>
-                <DiscreteColorKeyFrame KeyTime="0:0:0.5" Value="Transparent"/>
-            </ColorAnimationUsingKeyFrames>
-
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ShellGlow"
-                                          Storyboard.TargetProperty="BlurRadius"
-                                          Duration="0:0:0.5">
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.1" Value="40"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.25" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.4" Value="40"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="0"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 5. 🎯 底座指示灯闪烁 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIndicator1"
-                                          Storyboard.TargetProperty="Opacity"
-                                          Duration="0:0:0.5">
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.1" Value="1"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.25" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.4" Value="1"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="0"/>
-            </DoubleAnimationUsingKeyFrames>
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIndicator2"
-                                          Storyboard.TargetProperty="Opacity"
-                                          Duration="0:0:0.5">
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.1" Value="1"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.25" Value="0"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.4" Value="1"/>
-                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="0"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 6. 🎯 警告图标缩放弹跳 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIconScale"
-                                          Storyboard.TargetProperty="ScaleX"
-                                          Duration="0:0:0.5">
-                <SplineDoubleKeyFrame KeyTime="0:0:0" Value="0.5"/>
-                <SplineDoubleKeyFrame KeyTime="0:0:0.2" Value="1.2"/>
-                <SplineDoubleKeyFrame KeyTime="0:0:0.4" Value="1.0"/>
-            </DoubleAnimationUsingKeyFrames>
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIconScale"
-                                          Storyboard.TargetProperty="ScaleY"
-                                          Duration="0:0:0.5">
-                <SplineDoubleKeyFrame KeyTime="0:0:0" Value="0.5"/>
-                <SplineDoubleKeyFrame KeyTime="0:0:0.2" Value="1.2"/>
-                <SplineDoubleKeyFrame KeyTime="0:0:0.4" Value="1.0"/>
-            </DoubleAnimationUsingKeyFrames>
+            ...
         </Storyboard>
+        -->
 
-        <!-- ========== 🆕 改进的错误保持动画：参考柱塞泵 ========== -->
+        <!-- 注释: 错误保持动画已禁用 -->
+        <!--
         <Storyboard x:Key="ErrorStateHoldAnimation" RepeatBehavior="Forever">
-            <!-- 保持错误层显示 -->
-            <DoubleAnimation Storyboard.TargetName="ErrorOverlay"
-                             Storyboard.TargetProperty="Opacity"
-                             To="1" Duration="0"/>
-
-            <!-- 🎯 红色扫描光效：持续缓慢移动 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorScannerTranslate"
-                                          Storyboard.TargetProperty="X"
-                                          Duration="0:0:3">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="-400"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="400"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:3" Value="-400"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 柔和的红色呼吸 -->
-            <ColorAnimationUsingKeyFrames Storyboard.TargetName="ShellGlow"
-                                         Storyboard.TargetProperty="Color"
-                                         Duration="0:0:2">
-                <LinearColorKeyFrame KeyTime="0:0:0" Value="#66D32F2F"/>
-                <LinearColorKeyFrame KeyTime="0:0:1" Value="#B3D32F2F"/>
-                <LinearColorKeyFrame KeyTime="0:0:2" Value="#66D32F2F"/>
-            </ColorAnimationUsingKeyFrames>
-
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ShellGlow"
-                                          Storyboard.TargetProperty="BlurRadius"
-                                          Duration="0:0:2">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="15"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="30"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="15"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 底座指示灯持续呼吸 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIndicator1"
-                                          Storyboard.TargetProperty="Opacity"
-                                          Duration="0:0:1">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.6"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:0.5" Value="1"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0.6"/>
-            </DoubleAnimationUsingKeyFrames>
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIndicator2"
-                                          Storyboard.TargetProperty="Opacity"
-                                          Duration="0:0:1">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.6"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:0.5" Value="1"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0.6"/>
-            </DoubleAnimationUsingKeyFrames>
-
-            <!-- 🎯 图标透明度呼吸 -->
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIcon"
-                                          Storyboard.TargetProperty="Opacity"
-                                          Duration="0:0:1.5">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.8"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="1"/>
-                <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="0.8"/>
-            </DoubleAnimationUsingKeyFrames>
+            ...
         </Storyboard>
+        -->
 
-        <!--  数据发光动画（原有） -->
+        <!-- 注释: 数据发光动画已禁用 -->
+        <!--
         <Storyboard x:Key="DataGlowAnimation" RepeatBehavior="Forever">
-            <DoubleAnimation Storyboard.TargetName="ValueGlow"
-                           Storyboard.TargetProperty="Opacity"
-                           From="0.4" To="0.8" Duration="0:0:2"
-                           AutoReverse="True"
-                           Timeline.DesiredFrameRate="30"/>
+            ...
         </Storyboard>
+        -->
 
         <!-- 其他资源保持不变 -->
         <LinearGradientBrush x:Key="MetalBrush" StartPoint="0,0" EndPoint="1,0">
@@ -268,7 +127,7 @@
             <GradientStop Color="#D0D0D0" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- 按钮样式（保持不变） -->
+        <!-- 按钮样式(保持不变) -->
         <Style x:Key="SmallButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
@@ -343,7 +202,7 @@
     </UserControl.Resources>
 
     <Canvas Background="Transparent">
-        <!--  可拖拽区域（不缓存） -->
+        <!-- 可拖拽区域(不缓存) -->
         <Rectangle x:Name="DraggableArea"
                    Canvas.Left="0" Canvas.Top="0"
                    Width="400" Height="500"
@@ -354,7 +213,7 @@
                    MouseLeftButtonUp="OnOverlayMouseUp"
                    MouseMove="OnOverlayMouseMove"/>
 
-        <!--  静态层：地面阴影 -->
+        <!-- 静态层: 地面阴影 -->
         <Ellipse Canvas.Left="100" Canvas.Top="492"
                  Width="200" Height="6" Opacity="0.15"
                  RenderOptions.CachingHint="Cache">
@@ -370,7 +229,7 @@
             </Ellipse.Effect>
         </Ellipse>
 
-        <!--  静态层：底座矩形 -->
+        <!-- 静态层: 底座矩形 -->
         <Rectangle Canvas.Left="80" Canvas.Top="471" Width="240" Height="29" RadiusX="7" RadiusY="7"
                    Panel.ZIndex="1" Fill="{StaticResource BaseGradient}"
                    RenderOptions.CachingHint="Cache">
@@ -384,19 +243,17 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 🎯 底座上的嵌入式错误指示灯 -->
+        <!-- 注释: 底座错误指示灯已禁用 -->
+        <!--
         <Ellipse x:Name="ErrorIndicator1" Canvas.Left="95" Canvas.Top="478" Width="15" Height="15" 
                  Fill="#D32F2F" Opacity="0" Panel.ZIndex="2">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="#D32F2F" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
-            </Ellipse.Effect>
+            ...
         </Ellipse>
         <Ellipse x:Name="ErrorIndicator2" Canvas.Left="290" Canvas.Top="478" Width="15" Height="15" 
                  Fill="#D32F2F" Opacity="0" Panel.ZIndex="2">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="#D32F2F" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
-            </Ellipse.Effect>
+            ...
         </Ellipse>
+        -->
 
         <!-- 底座高光 -->
         <Rectangle Canvas.Left="82" Canvas.Top="473" Width="236" Height="8" RadiusX="6" RadiusY="6"
@@ -410,7 +267,7 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!--  静态层：底座梯形 -->
+        <!-- 静态层: 底座梯形 -->
         <Polygon Points="120,445 280,445 300,471 100,471" Panel.ZIndex="1"
                  Fill="{StaticResource BaseGradient}"
                  RenderOptions.CachingHint="Cache">
@@ -420,19 +277,24 @@
             <Polygon.StrokeThickness>2.5</Polygon.StrokeThickness>
         </Polygon>
 
-        <!-- ==========  关键修改：主外壳组（支持震动） ========== -->
+        <!-- 主外壳组 -->
         <Canvas x:Name="MainBodyGroup" Panel.ZIndex="3">
-            <!--  震动变换 -->
+            <!-- 注释: 震动变换已禁用 -->
+            <!--
             <Canvas.RenderTransform>
                 <TranslateTransform x:Name="ShellShakeTransform" X="0" Y="0"/>
             </Canvas.RenderTransform>
+            -->
 
-            <!-- 主外壳底色 -->
-            <Rectangle Canvas.Left="30" Canvas.Top="0" Width="340" Height="445" RadiusX="12" RadiusY="12" 
+            <!-- 主外壳底色 - 使用动态颜色绑定 -->
+            <Rectangle x:Name="MeterShell" 
+                       Canvas.Left="30" Canvas.Top="0" 
+                       Width="340" Height="445" 
+                       RadiusX="12" RadiusY="12" 
                        Fill="#F0F4F6"
                        RenderOptions.CachingHint="Cache">
                 <Rectangle.Effect>
-                    <!--  关键：带光效的阴影 -->
+                    <!-- 注释: 光效已禁用 -->
                     <DropShadowEffect x:Name="ShellGlow" 
                                       Color="Transparent" 
                                       Opacity="0.8" 
@@ -442,41 +304,19 @@
                 </Rectangle.Effect>
             </Rectangle>
 
-            <!-- 🎯 蓝色加载状态：扫描光效层 -->
+            <!-- 注释: 加载状态扫描光效层已禁用 -->
+            <!--
             <Canvas x:Name="LoadingOverlay" Opacity="0" IsHitTestVisible="False">
-                <Rectangle Canvas.Left="30" Canvas.Top="0" Width="340" Height="445" RadiusX="12" RadiusY="12">
-                    <Rectangle.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="Transparent" Offset="0"/>
-                            <GradientStop Color="#402196F3" Offset="0.45"/>
-                            <GradientStop Color="#8064B5F6" Offset="0.5"/>
-                            <GradientStop Color="#402196F3" Offset="0.55"/>
-                            <GradientStop Color="Transparent" Offset="1"/>
-                            <LinearGradientBrush.Transform>
-                                <TranslateTransform x:Name="ScannerTranslate" X="-400"/>
-                            </LinearGradientBrush.Transform>
-                        </LinearGradientBrush>
-                    </Rectangle.Fill>
-                </Rectangle>
+                ...
             </Canvas>
+            -->
 
-            <!-- 🎯 红色错误状态：扫描光效层 -->
+            <!-- 注释: 错误状态扫描光效层已禁用 -->
+            <!--
             <Canvas x:Name="ErrorOverlay" Opacity="0" IsHitTestVisible="False">
-                <Rectangle Canvas.Left="30" Canvas.Top="0" Width="340" Height="445" RadiusX="12" RadiusY="12">
-                    <Rectangle.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="Transparent" Offset="0"/>
-                            <GradientStop Color="#66D32F2F" Offset="0.45"/>
-                            <GradientStop Color="#B3FF5252" Offset="0.5"/>
-                            <GradientStop Color="#66D32F2F" Offset="0.55"/>
-                            <GradientStop Color="Transparent" Offset="1"/>
-                            <LinearGradientBrush.Transform>
-                                <TranslateTransform x:Name="ErrorScannerTranslate" X="-400"/>
-                            </LinearGradientBrush.Transform>
-                        </LinearGradientBrush>
-                    </Rectangle.Fill>
-                </Rectangle>
+                ...
             </Canvas>
+            -->
 
             <!-- 金属纹理 -->
             <Rectangle Canvas.Left="30" Canvas.Top="0" Width="340" Height="445" RadiusX="12" RadiusY="12" 
@@ -502,7 +342,7 @@
             </Rectangle>
         </Canvas>
 
-        <!--  静态层：左侧进口管道 -->
+        <!-- 静态层: 左侧进口管道 -->
         <Rectangle Canvas.Left="-16" Canvas.Top="385" Width="102" Height="37" 
                    Fill="{StaticResource PipeGradient}" Panel.ZIndex="2"
                    RenderOptions.CachingHint="Cache">
@@ -516,19 +356,14 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 🎯 管道内部流光效果（加载时） -->
+        <!-- 注释: 管道内部流光效果已禁用 -->
+        <!--
         <Rectangle Canvas.Left="-16" Canvas.Top="385" Width="102" Height="37" 
                    Panel.ZIndex="3" IsHitTestVisible="False"
                    Opacity="{Binding Opacity, ElementName=LoadingOverlay}">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="Transparent" Offset="0"/>
-                    <GradientStop Color="#332196F3" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                    <GradientStop x:Name="PipeFlowGradient" Color="Transparent" Offset="0"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
+            ...
         </Rectangle>
+        -->
 
         <Rectangle Canvas.Left="-14" Canvas.Top="387" Width="98" Height="15"
                    Opacity="0.5" Panel.ZIndex="4"
@@ -541,7 +376,8 @@
             </Rectangle.Fill>
         </Rectangle>
 
-        <!--  液体流动层：调整到正确的层级，不遮挡实时流量 -->
+        <!-- 注释: 液体流动层已禁用 -->
+        <!--
         <Canvas x:Name="FluidFlowContainer" 
                 Canvas.Left="-16" Canvas.Top="385" 
                 Width="432" Height="37" 
@@ -549,92 +385,11 @@
                 ClipToBounds="True"  
                 Visibility="Collapsed"
                 RenderOptions.BitmapScalingMode="LowQuality">
-
-            <Rectangle x:Name="FluidRectangle" Width="432" Height="37">
-                <Rectangle.Fill>
-                    <LinearGradientBrush x:Name="FluidGradientBrush" StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
-                        <LinearGradientBrush.RelativeTransform>
-                            <TranslateTransform x:Name="FluidGradientTransform" X="0"/>
-                        </LinearGradientBrush.RelativeTransform>
-                        <GradientStop Color="#4D2E86C1" Offset="0"/>
-                        <GradientStop Color="#803498DB" Offset="0.25"/>
-                        <GradientStop Color="#CC5DADE2" Offset="0.5"/>
-                        <GradientStop Color="#803498DB" Offset="0.75"/>
-                        <GradientStop Color="#4D2E86C1" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
-
-            <!-- 波动路径 -->
-            <Path x:Name="WavePath1" 
-                  Data="M -50,0 Q -25,3 0,0 T 50,0 T 100,0 T 150,0 T 200,0 T 250,0 T 300,0 T 350,0 T 400,0 T 450,0 T 500,0"
-                  Stroke="#85C1F0" StrokeThickness="1.5" Canvas.Top="8" Opacity="0.6">
-                <Path.RenderTransform>
-                    <TranslateTransform x:Name="WaveTransform1" X="0"/>
-                </Path.RenderTransform>
-            </Path>
-
-            <Path x:Name="WavePath2"
-                  Data="M -50,0 Q -25,-2 0,0 T 50,0 T 100,0 T 150,0 T 200,0 T 250,0 T 300,0 T 350,0 T 400,0 T 450,0 T 500,0"
-                  Stroke="#AED6F1" StrokeThickness="1.2" Canvas.Top="28" Opacity="0.5">
-                <Path.RenderTransform>
-                    <TranslateTransform x:Name="WaveTransform2" X="0"/>
-                </Path.RenderTransform>
-            </Path>
-
-            <!-- 气泡 -->
-            <Ellipse x:Name="Bubble1" Width="6" Height="6" Fill="White" Opacity="0.5" Canvas.Left="-10" Canvas.Top="20">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="2" RenderingBias="Performance"/>
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <Ellipse x:Name="Bubble2" Width="5" Height="5" Fill="White" Opacity="0.4" Canvas.Left="-10" Canvas.Top="24">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="1.5" RenderingBias="Performance"/>
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <Ellipse x:Name="Bubble3" Width="4" Height="4" Fill="White" Opacity="0.6" Canvas.Left="-10" Canvas.Top="16">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="1" RenderingBias="Performance"/>
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <Ellipse x:Name="Bubble4" Width="7" Height="7" Fill="White" Opacity="0.3" Canvas.Left="-10" Canvas.Top="22">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="2.5" RenderingBias="Performance"/>
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <Ellipse x:Name="Bubble5" Width="5" Height="5" Fill="White" Opacity="0.5" Canvas.Left="-10" Canvas.Top="18">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="1.8" RenderingBias="Performance"/>
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <!-- 高光反射 -->
-            <Rectangle Width="432" Height="12" Canvas.Top="2" Opacity="0.3">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#FFFFFF" Offset="0"/>
-                        <GradientStop Color="Transparent" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
-
-            <!-- 底部阴影 -->
-            <Rectangle Width="432" Height="8" Canvas.Top="29" Opacity="0.2">
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="Transparent" Offset="0"/>
-                        <GradientStop Color="#1A2E4A" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+            ...
         </Canvas>
+        -->
 
-        <!--  静态层：管道接口 -->
+        <!-- 静态层: 管道接口 -->
         <Rectangle Canvas.Left="-30" Canvas.Top="380" Width="14" Height="47" RadiusX="7" RadiusY="7" 
                    Fill="#C4CFD6" Stroke="#7A8A95" StrokeThickness="2.5" Panel.ZIndex="6"
                    RenderOptions.CachingHint="Cache">
@@ -678,7 +433,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!--  设定值显示区域 -->
+        <!-- 设定值显示区域 -->
         <StackPanel Canvas.Left="70" Canvas.Top="18" Panel.ZIndex="10" HorizontalAlignment="Center"
                     RenderOptions.CachingHint="Cache">
             <TextBlock Text="SET POINT" FontSize="13" Foreground="#7F8C8D" FontWeight="Bold" 
@@ -720,7 +475,7 @@
                         <DropShadowEffect Color="#2A4A68" Opacity="0.18" BlurRadius="5" ShadowDepth="2" Direction="315"
                                           RenderingBias="Performance"/>
                     </Border.Effect>
-                    <TextBlock x:Name="TargetValueText" Text="125.0" 
+                    <TextBlock x:Name="TargetValueText" Text="20.0" 
                               FontSize="32" FontWeight="Bold" 
                               Foreground="#3498DB" 
                               TextAlignment="Center" 
@@ -738,7 +493,7 @@
             </StackPanel>
         </StackPanel>
 
-        <!--  仪表盘区域 -->
+        <!-- 仪表盘区域 -->
         <Canvas Canvas.Left="100" Canvas.Top="125" Panel.ZIndex="7"
                 RenderOptions.CachingHint="Cache">
 
@@ -751,84 +506,23 @@
                 </Ellipse.Effect>
             </Ellipse>
 
-            <Ellipse Canvas.Left="4.5" Canvas.Top="4.5" Width="191" Height="191" 
-                    Fill="{StaticResource DialGradient}"
-                    Stroke="#999999" StrokeThickness="3.5"/>
+            <!-- 仪表盘内圈 - 使用动态颜色绑定 -->
+            <Ellipse x:Name="DialInnerCircle" 
+                     Canvas.Left="4.5" Canvas.Top="4.5" 
+                     Width="191" Height="191" 
+                     Fill="{StaticResource DialGradient}"
+                     Stroke="#999999" StrokeThickness="3.5"/>
 
             <Ellipse Canvas.Left="12" Canvas.Top="12" Width="176" Height="176" 
                     Fill="White"
                     Stroke="#DDDDDD" StrokeThickness="2"/>
 
-            <!-- 🎯 仪表盘四角的嵌入式加载指示灯 -->
+            <!-- 注释: 仪表盘加载指示灯已禁用 -->
+            <!--
             <Canvas x:Name="LoadingIndicators" Opacity="{Binding Opacity, ElementName=LoadingOverlay}">
-                <!-- 左上角（0点位置） -->
-                <Ellipse Canvas.Left="91" Canvas.Top="23" Width="18" Height="18">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#2196F3" Offset="0"/>
-                            <GradientStop Color="#64B5F6" Offset="0.5"/>
-                            <GradientStop Color="Transparent" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.RenderTransform>
-                        <RotateTransform x:Name="LoadingRing1Rotate" Angle="0" CenterX="9" CenterY="9"/>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Effect>
-                        <BlurEffect Radius="8"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 右上角（90度） -->
-                <Ellipse Canvas.Left="168" Canvas.Top="91" Width="18" Height="18">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#2196F3" Offset="0"/>
-                            <GradientStop Color="#64B5F6" Offset="0.5"/>
-                            <GradientStop Color="Transparent" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.RenderTransform>
-                        <RotateTransform x:Name="LoadingRing2Rotate" Angle="90" CenterX="9" CenterY="9"/>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Effect>
-                        <BlurEffect Radius="8"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 右下角（180度） -->
-                <Ellipse Canvas.Left="91" Canvas.Top="168" Width="18" Height="18">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#2196F3" Offset="0"/>
-                            <GradientStop Color="#64B5F6" Offset="0.5"/>
-                            <GradientStop Color="Transparent" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.RenderTransform>
-                        <RotateTransform x:Name="LoadingRing3Rotate" Angle="180" CenterX="9" CenterY="9"/>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Effect>
-                        <BlurEffect Radius="8"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-
-                <!-- 左下角（270度） -->
-                <Ellipse Canvas.Left="14" Canvas.Top="91" Width="18" Height="18">
-                    <Ellipse.Fill>
-                        <RadialGradientBrush>
-                            <GradientStop Color="#2196F3" Offset="0"/>
-                            <GradientStop Color="#64B5F6" Offset="0.5"/>
-                            <GradientStop Color="Transparent" Offset="1"/>
-                        </RadialGradientBrush>
-                    </Ellipse.Fill>
-                    <Ellipse.RenderTransform>
-                        <RotateTransform x:Name="LoadingRing4Rotate" Angle="270" CenterX="9" CenterY="9"/>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Effect>
-                        <BlurEffect Radius="8"/>
-                    </Ellipse.Effect>
-                </Ellipse>
+                ...
             </Canvas>
+            -->
 
             <!-- 刻度盘 -->
             <Canvas Width="191" Height="191" Canvas.Left="4.5" Canvas.Top="4.5">
@@ -871,7 +565,7 @@
                 </Ellipse.Effect>
             </Ellipse>
 
-            <!--  指针（不缓存，使用硬件加速变换） -->
+            <!-- 指针(不缓存, 使用硬件加速变换) -->
             <Path x:Name="CurrentPointer" Fill="#E74C3C" Stroke="#C0392B" StrokeThickness="1.5"
                   Data="M 97.5,102 L 94,35 L 97.5,29 L 101,35 Z">
                 <Path.RenderTransform>
@@ -889,38 +583,16 @@
             <Ellipse Canvas.Left="94.5" Canvas.Top="94.5" Width="7" Height="7" Fill="#95A5A6"/>
         </Canvas>
 
-        <!-- 🎯 错误警告图标（嵌入在仪表盘中央）- 超大版 -->
+        <!-- 注释: 错误警告图标已禁用 -->
+        <!--
         <Grid Canvas.Left="100" Canvas.Top="125" Width="200" Height="200" 
               x:Name="ErrorIcon" Opacity="0" IsHitTestVisible="False"
               Panel.ZIndex="20">
-            <Grid.RenderTransform>
-                <ScaleTransform x:Name="ErrorIconScale" ScaleX="1" ScaleY="1" CenterX="100" CenterY="100"/>
-            </Grid.RenderTransform>
-
-            <!-- 半透明红色圆形背景 -->
-            <Ellipse Fill="#66D32F2F" Width="200" Height="200">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="30"/>
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <!-- 警告三角形图标 - 超大清晰 -->
-            <Viewbox Width="120" Height="120">
-                <Canvas Width="1024" Height="1024">
-                    <!-- 三角形背景 -->
-                    <Path Data="M512 128l384 640H128z" Fill="#D32F2F" Stroke="White" StrokeThickness="40" StrokeLineJoin="Round"/>
-                    <!-- 感叹号 -->
-                    <Path Data="M512 320v256M512 672v64" Stroke="White" StrokeThickness="60" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                </Canvas>
-            </Viewbox>
-
-            <!-- Grid 的整体投影效果 -->
-            <Grid.Effect>
-                <DropShadowEffect Color="#D32F2F" BlurRadius="35" ShadowDepth="0" Opacity="1"/>
-            </Grid.Effect>
+            ...
         </Grid>
+        -->
 
-        <!--  实时流量显示 - 确保在最上层，不被遮挡 -->
+        <!-- 实时流量显示 - 确保在最上层 -->
         <StackPanel Canvas.Left="90" Canvas.Top="335" Width="220" Panel.ZIndex="30">
             <TextBlock Text="CURRENT FLOW" FontSize="13" Foreground="#7F8C8D" FontWeight="Bold" 
                       HorizontalAlignment="Center" Margin="0,0,0,6"/>
@@ -929,6 +601,8 @@
                       Foreground="#1A1A1A"  
                       TextAlignment="Center" 
                       FontFamily="Segoe UI, Arial">
+                <!-- 注释: 数据发光效果已禁用 -->
+                <!--
                 <TextBlock.Effect>
                     <DropShadowEffect x:Name="ValueGlow" 
                                     Color="#555555" 
@@ -937,10 +611,11 @@
                                     ShadowDepth="0"
                                     RenderingBias="Performance"/>
                 </TextBlock.Effect>
+                -->
             </TextBlock>
         </StackPanel>
 
-        <!--  装饰螺丝 -->
+        <!-- 装饰螺丝 -->
         <Ellipse Canvas.Left="45" Canvas.Top="10" Width="8" Height="8"
                  Fill="#96A5AE" Stroke="#5A6870" StrokeThickness="0.5" Panel.ZIndex="11"
                  RenderOptions.CachingHint="Cache">
@@ -985,7 +660,7 @@
         <Line X1="349" Y1="431" X2="353" Y2="431" Stroke="#5A6870" StrokeThickness="0.8" Panel.ZIndex="12"
               RenderOptions.EdgeMode="Aliased"/>
 
-        <!--  选中边框 -->
+        <!-- 选中边框 -->
         <Rectangle x:Name="SelectionBorder" 
                    Canvas.Left="-2" Canvas.Top="-2"
                    Width="404" Height="504"
@@ -1003,7 +678,7 @@
             </Rectangle.Effect>
         </Rectangle>
 
-        <!--  旋转锚点 -->
+        <!-- 旋转锚点 -->
         <Ellipse x:Name="RotateAnchor"
                  Canvas.Left="184"
                  Canvas.Top="-50"
@@ -1023,7 +698,7 @@
                                   RenderingBias="Performance"/>
             </Ellipse.Effect>
             <Ellipse.ToolTip>
-                <ToolTip Content="拖动旋转流量计 (按住Shift=15°步进)" 
+                <ToolTip Content="拖动旋转流量计 (按住Shift=15度步进)" 
                          FontSize="16" 
                          FontWeight="Bold"
                          Background="#E8EEF1"

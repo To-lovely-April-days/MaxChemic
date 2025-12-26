@@ -2612,6 +2612,7 @@ namespace MaxChemical.Modules.Designer.Views
             ClearAllFlowMeterSelections(); //  新增
             ClearAllMicroreactorSelections(); //  新增
             ClearAllHeatExchangerSelections(); //  新增：清除换热器选择
+            ClearAllDigitalScaleSelections(); // 新增
             CleanupDragState();
             this.Focus();
         }
@@ -3276,7 +3277,12 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleFlowMeterControlState(meterControl, e);
                     }
-                   
+                    //  新增：处理电子秤状态
+                    var scaleControl = FindVisualChild<DigitalScaleControl>(deviceElement);
+                    if (scaleControl != null)
+                    {
+                        HandleDigitalScaleControlState(scaleControl, e);
+                    }
                 }));
             }
             catch (Exception ex)
@@ -3483,6 +3489,97 @@ namespace MaxChemical.Modules.Designer.Views
                     break;
             }
         }
+
+        /// <summary>
+        /// 处理电子秤控件状态（设备 → UI）
+        /// </summary>
+        private void HandleDigitalScaleControlState(DigitalScaleControl scaleControl, DeviceControlStateChangedEventArgs e)
+        {
+            switch (e.StateName)
+            {
+                case "WeightValue":
+                    if (e.StateValue is double weight)
+                    {
+                        scaleControl.WeightValue = weight;
+                        Debug.WriteLine($" 电子秤重量已更新: {weight:F2}");
+                    }
+                    break;
+
+                case "IsPoweredOn":
+                    if (e.StateValue is bool isPoweredOn)
+                    {
+                        scaleControl.IsPoweredOn = isPoweredOn;
+                        Debug.WriteLine($" 电子秤电源状态已更新: {isPoweredOn}");
+                    }
+                    break;
+
+                case "IsTared":
+                    if (e.StateValue is bool isTared)
+                    {
+                        scaleControl.IsTared = isTared;
+                        Debug.WriteLine($" 电子秤去皮状态已更新: {isTared}");
+                    }
+                    break;
+
+                case "CurrentUnit":
+                    if (e.StateValue is string unit)
+                    {
+                        scaleControl.CurrentUnit = unit;
+                        Debug.WriteLine($" 电子秤单位已更新: {unit}");
+                    }
+                    break;
+
+                case "CommandState_开机":
+                case "CommandState_关机":
+                case "CommandState_去皮":
+                case "CommandState_切换单位":
+                    HandleDigitalScaleCommandState(scaleControl, e);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 处理电子秤命令执行状态
+        /// </summary>
+        private void HandleDigitalScaleCommandState(DigitalScaleControl scaleControl, DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+            {
+                Debug.WriteLine($"状态值类型错误: {e.StateValue?.GetType().Name}");
+                return;
+            }
+
+            var commandName = e.StateName.Replace("CommandState_", "");
+            Debug.WriteLine($" 电子秤命令状态: {commandName} -> {state}");
+
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    scaleControl.ShowLoading();
+                    UpdateStatusBar($" 正在执行 {commandName}...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    scaleControl.HideLoading();
+                    UpdateStatusBar($" {commandName} 成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                    scaleControl.HideLoading();
+                    scaleControl.ShowOperationFailure();
+                    UpdateStatusBar($"❌ {commandName} 失败");
+                    break;
+
+                case CommandExecutionState.Error:
+                    scaleControl.HideLoading();
+                    scaleControl.ShowOperationFailure();
+                    var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                        ? e.AdditionalData["ErrorMessage"]?.ToString()
+                        : "未知错误";
+                    UpdateStatusBar($"❌ {commandName} 异常: {errorMsg}");
+                    break;
+            }
+        }
         /// <summary>
         ///  辅助方法：更新状态栏
         /// </summary>
@@ -3634,6 +3731,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Foreground = Brushes.DarkBlue,
                 Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
                 Padding = new Thickness(2, 1, 2, 1),
+                Margin = new Thickness(0, 0, 0, 15), //  新增：底部边距 5 像素
                 IsHitTestVisible = false,
                 MaxHeight = 20
             };
@@ -4657,6 +4755,12 @@ namespace MaxChemical.Modules.Designer.Views
                             double exchangerHeight = 600 * 0.3;  // 180
                             Debug.WriteLine($"换热器尺寸: {exchangerWidth:F0}x{exchangerHeight:F0}");
                             return new Size(exchangerWidth, exchangerHeight);
+                        case "DigitalScaleControl":
+                            // 电子秤原尺寸 400x400，缩小到画布显示
+                            double scaleWidth = 450 * 0.4;   
+                            double scaleHeight = 230 * 0.4;  
+                            Debug.WriteLine($"电子秤尺寸: {scaleWidth:F0}x{scaleHeight:F0}");
+                            return new Size(scaleWidth, scaleHeight);
                     }
                 }
                 // 普通图片尺寸处理
@@ -4806,6 +4910,10 @@ namespace MaxChemical.Modules.Designer.Views
                     // 未来可以添加其他自定义控件
                     case "HeatExchangerControl":
                         return CreateHeatExchangerIcon(targetWidth, targetHeight);
+                        //添加电子秤
+                    case "DigitalScaleControl":
+                        return CreateDigitalScaleIcon(targetWidth, targetHeight);
+
                     default:
                         Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
                         return CreateDefaultIcon(targetWidth, targetHeight, "自定义");
@@ -8777,7 +8885,7 @@ namespace MaxChemical.Modules.Designer.Views
                     IsHitTestVisible = true,  //  允许交互（点击切换流动状态）
                     Cursor = System.Windows.Input.Cursors.Hand,
                     CurrentFlow = 0.0,        // 初始流量为0
-                    TargetFlow = 125.0,       // 默认目标流量
+                    TargetFlow = 20.0,       // 默认目标流量
                     MaxFlow = 150.0,          // 最大流量
                     IsFlowing = false         // 初始为关闭状态
                 };
@@ -9244,8 +9352,8 @@ namespace MaxChemical.Modules.Designer.Views
                     Temperature2 = 92.3,
                     Temperature3 = 98.7,
                     IsReacting = false,  // 初始为关闭状态
-                    IsFlow1Enabled = true,
-                    IsFlow2Enabled = true,
+                    IsFlow1Enabled = false,
+                    IsFlow2Enabled = false,
                     //IsFlow3Enabled = true,
                     FlowRate = 100.0         // 默认流速
                 };
@@ -9706,6 +9814,473 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+        #region 电子秤
+
+        /// <summary>
+        /// 创建电子秤图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateDigitalScaleIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var scaleControl = new DigitalScaleControl
+                {
+                    IsHitTestVisible = true,  // 允许交互
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    IsPoweredOn = true,      // 初始为关闭状态
+                    WeightValue = 0.0,        // 初始重量为0
+                    CurrentUnit = "g",        // 默认单位为克
+                    IsTared = false           // 初始未去皮
+                };
+
+                // 订阅电子秤事件
+                SubscribeDigitalScaleEvents(scaleControl);
+
+                // 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = scaleControl,
+                    IsHitTestVisible = true  // 允许交互
+                };
+
+                Debug.WriteLine($"创建电子秤图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 创建电子秤图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "电子秤");
+            }
+        }
+
+        #endregion
+        #region 电子秤事件处理
+
+        /// <summary>
+        /// 订阅电子秤控件事件
+        /// </summary>
+        private void SubscribeDigitalScaleEvents(DigitalScaleControl scale)
+        {
+            try
+            {
+                // 选中事件
+                scale.ScaleSelected += OnDigitalScaleSelectedFromControl;
+                scale.ScaleDeselected += OnDigitalScaleDeselectedFromControl;
+
+                // 拖动事件
+                scale.ScaleDragStarted += OnDigitalScaleDragStarted;
+                scale.ScaleDragging += OnDigitalScaleDragging;
+                scale.ScaleDragCompleted += OnDigitalScaleDragCompleted;
+
+                // UI请求事件（UI → 设备驱动）
+                scale.PowerStateChangeRequested += async (s, e) =>
+                {
+                    await HandleScalePowerStateChangeRequestAsync(scale, e);
+                };
+
+                scale.TareRequested += async (s, e) =>
+                {
+                    await HandleScaleTareRequestAsync(scale, e);
+                };
+
+                scale.UnitChangeRequested += async (s, e) =>
+                {
+                    await HandleScaleUnitChangeRequestAsync(scale, e);
+                };
+
+                Debug.WriteLine($" 电子秤事件已订阅: {scale.ScaleId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 订阅电子秤事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 电子秤选中
+        /// </summary>
+        private void OnDigitalScaleSelectedFromControl(object sender, string scaleId)
+        {
+            try
+            {
+                Debug.WriteLine($"电子秤被选中: {scaleId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections();
+                ClearAllFlowMeterSelections();
+                ClearAllMicroreactorSelections();
+                ClearAllHeatExchangerSelections();
+                ClearAllDigitalScaleSelections(); // 清除其他电子秤选择
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中电子秤: {scaleId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理电子秤选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 电子秤取消选中
+        /// </summary>
+        private void OnDigitalScaleDeselectedFromControl(object sender, string scaleId)
+        {
+            try
+            {
+                Debug.WriteLine($"电子秤取消选中: {scaleId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理电子秤取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 电子秤拖动开始
+        /// </summary>
+        private void OnDigitalScaleDragStarted(object sender, ScaleDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"电子秤拖动开始: {e.ScaleId}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动电子秤...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 电子秤拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 电子秤拖动中（节流优化）
+        /// </summary>
+        private void OnDigitalScaleDragging(object sender, ScaleDragEventArgs e)
+        {
+            // 节流检查
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
+            {
+                return;
+            }
+            _lastMouseMoveTime = now;
+
+            try
+            {
+                // 可以添加吸附逻辑（与管道类似）
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 电子秤拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 电子秤拖动完成
+        /// </summary>
+        private void OnDigitalScaleDragCompleted(object sender, ScaleDragEventArgs e)
+        {
+            try
+            {
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("电子秤移动完成");
+
+                Debug.WriteLine($"电子秤拖动完成: {e.ScaleId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 电子秤拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理电子秤电源状态切换请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleScalePowerStateChangeRequestAsync(
+            DigitalScaleControl scale,
+            PowerStateChangeRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理电子秤电源状态切换 ==========");
+                Debug.WriteLine($"ScaleId: {e.ScaleId}");
+                Debug.WriteLine($"当前状态: {e.CurrentState}");
+                Debug.WriteLine($"请求状态: {e.RequestedState}");
+
+                // 1. 查找对应的设备
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var scaleInDevice = FindVisualChild<DigitalScaleControl>(deviceElement);
+                    return scaleInDevice?.ScaleId == e.ScaleId;
+                });
+
+                if (canvasDevice?.Device == null)
+                {
+                    Debug.WriteLine($"❌ 未找到电子秤对应的设备");
+                    scale.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 2. 检查设备是否支持UI交互
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"❌ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    scale.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 3. 确定命令名称（根据你的驱动实现调整）
+                string commandName = e.RequestedState ? "开机" : "关机";
+                Debug.WriteLine($"执行命令: {commandName}");
+
+                // 4. 调用设备命令
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                // 5. 隐藏加载动画
+                scale.HideLoading();
+
+                // 6. 处理执行结果
+                if (result.Success)
+                {
+                    Debug.WriteLine($" 命令执行成功: {result.Message}");
+
+                    // UI状态将通过 OnDeviceStateChanged 自动更新
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $" {commandName}成功");
+
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+
+                    scale.ShowOperationFailure();
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ {commandName}失败: {result.Message}");
+
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理电子秤电源状态切换失败: {ex.Message}");
+                scale.HideLoading();
+                scale.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"❌ 操作失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理电子秤去皮请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleScaleTareRequestAsync(
+            DigitalScaleControl scale,
+            TareRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理电子秤去皮请求 ==========");
+                Debug.WriteLine($"ScaleId: {e.ScaleId}");
+                Debug.WriteLine($"当前重量: {e.CurrentWeight}");
+
+                // 查找设备（逻辑同上）
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var scaleInDevice = FindVisualChild<DigitalScaleControl>(deviceElement);
+                    return scaleInDevice?.ScaleId == e.ScaleId;
+                });
+
+                if (canvasDevice?.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    scale.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 调用去皮命令
+                var result = await uiInteraction.ExecuteUICommandAsync("去皮");
+
+                scale.HideLoading();
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($" 去皮成功");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(" 电子秤已去皮");
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 去皮失败: {result.Message}");
+                    scale.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"❌ 去皮失败: {result.Message}");
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理去皮请求失败: {ex.Message}");
+                scale.HideLoading();
+                scale.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+            }
+        }
+
+        /// <summary>
+        /// 处理电子秤单位切换请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleScaleUnitChangeRequestAsync(
+            DigitalScaleControl scale,
+            UnitChangeRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理电子秤单位切换 ==========");
+                Debug.WriteLine($"ScaleId: {e.ScaleId}");
+                Debug.WriteLine($"当前单位: {e.CurrentUnit}");
+                Debug.WriteLine($"请求单位: {e.RequestedUnit}");
+
+                // 查找设备（逻辑同上）
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var scaleInDevice = FindVisualChild<DigitalScaleControl>(deviceElement);
+                    return scaleInDevice?.ScaleId == e.ScaleId;
+                });
+
+                if (canvasDevice?.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    scale.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 调用切换单位命令（带参数）
+                var parameters = new Dictionary<string, object>
+                {
+                    ["TargetUnit"] = MapUnitStringToEnum(e.RequestedUnit) // 需要实现单位映射
+                };
+
+                var result = await uiInteraction.ExecuteUICommandAsync("切换单位", parameters);
+
+                scale.HideLoading();
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($" 单位切换成功: {e.RequestedUnit}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($" 单位已切换为 {e.RequestedUnit}");
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 单位切换失败: {result.Message}");
+                    scale.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"❌ 切换单位失败: {result.Message}");
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 处理单位切换请求失败: {ex.Message}");
+                scale.HideLoading();
+                scale.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+            }
+        }
+
+        /// <summary>
+        /// 单位字符串映射到枚举（根据你的驱动调整）
+        /// </summary>
+        private object MapUnitStringToEnum(string unitStr)
+        {
+            // 假设驱动中有 WeightUnit 枚举
+            return unitStr switch
+            {
+                "g" => 0,   // WeightUnit.Gram
+                "kg" => 1,  // WeightUnit.Kilogram
+                "lb" => 2,  // WeightUnit.Pound
+                "oz" => 3,  // WeightUnit.Ounce
+                _ => 0
+            };
+        }
+
+        /// <summary>
+        /// 清除所有电子秤选择
+        /// </summary>
+        private void ClearAllDigitalScaleSelections()
+        {
+            try
+            {
+                var scales = FindAllDigitalScalesInCanvas();
+                foreach (var scale in scales)
+                {
+                    scale.IsSelected = false;
+                    Debug.WriteLine($"清除电子秤选择: {scale.ScaleId}");
+                }
+
+                Debug.WriteLine($"清除了 {scales.Count} 个电子秤的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 清除电子秤选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 查找画布中所有电子秤控件
+        /// </summary>
+        private List<DigitalScaleControl> FindAllDigitalScalesInCanvas()
+        {
+            var scales = new List<DigitalScaleControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var scale = FindVisualChild<DigitalScaleControl>(deviceBorder);
+                        if (scale != null)
+                        {
+                            scales.Add(scale);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 查找电子秤控件失败: {ex.Message}");
+            }
+
+            return scales;
+        }
+
+        #endregion
+
         #region 语音助手事件处理
 
         /// <summary>
@@ -9713,9 +10288,9 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void SubscribeToVoiceAssistantEvents()
         {
-            _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Subscribe(
-                OnVoiceCreateDevice,
-                ThreadOption.UIThread);
+            //_eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Subscribe(
+            //    OnVoiceCreateDevice,
+            //    ThreadOption.UIThread);
 
             Debug.WriteLine(" 语音助手事件已订阅");
         }
@@ -9725,39 +10300,39 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnVoiceCreateDevice(VoiceCreateDeviceEventArgs args)
         {
-            try
-            {
-                Debug.WriteLine($"========== 语音创建设备 ==========");
-                Debug.WriteLine($"设备名称: {args.DeviceName}");
-                Debug.WriteLine($"语音命令: {args.Command}");
-                Debug.WriteLine($"时间戳: {args.Timestamp}");
+            //try
+            //{
+            //    Debug.WriteLine($"========== 语音创建设备 ==========");
+            //    Debug.WriteLine($"设备名称: {args.DeviceName}");
+            //    Debug.WriteLine($"语音命令: {args.Command}");
+            //    Debug.WriteLine($"时间戳: {args.Timestamp}");
 
-                // 1. 从设备管理器中查找设备
-                var device = FindDeviceByName(args.DeviceName);
-                if (device == null)
-                {
-                    Debug.WriteLine($" 未找到设备: {args.DeviceName}");
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"未找到 {args.DeviceName}");
-                    return;
-                }
+            //    // 1. 从设备管理器中查找设备
+            //    var device = FindDeviceByName(args.DeviceName);
+            //    if (device == null)
+            //    {
+            //        Debug.WriteLine($" 未找到设备: {args.DeviceName}");
+            //        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+            //            $"未找到 {args.DeviceName}");
+            //        return;
+            //    }
 
-                // 2. 计算放置位置（画布中心）
-                var dropPosition = CalculateCenterPosition();
+            //    // 2. 计算放置位置（画布中心）
+            //    var dropPosition = CalculateCenterPosition();
 
-                // 3. 创建设备
-                CreateDeviceFromVoiceCommand(device, dropPosition);
+            //    // 3. 创建设备
+            //    CreateDeviceFromVoiceCommand(device, dropPosition);
 
-                Debug.WriteLine($" 语音创建设备成功: {args.DeviceName}");
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"已创建 {args.DeviceName}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($" 语音创建设备失败: {ex.Message}");
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    "创建设备失败");
-            }
+            //    Debug.WriteLine($" 语音创建设备成功: {args.DeviceName}");
+            //    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+            //        $"已创建 {args.DeviceName}");
+            //}
+            //catch (Exception ex)
+            //{
+            //    Debug.WriteLine($" 语音创建设备失败: {ex.Message}");
+            //    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+            //        "创建设备失败");
+            //}
         }
 
         /// <summary>

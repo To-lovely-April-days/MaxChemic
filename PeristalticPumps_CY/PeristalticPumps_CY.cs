@@ -708,6 +708,7 @@ namespace PeristalticPumps_CY
             Category = DeviceCategories.Pumps;
             ComId = "COM1"; // 这个ID需要与PLC映射中的设备ID匹配
                                    // 初始化连接管理器
+
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
             AllowedRegions = new List<RegionType>()
             {

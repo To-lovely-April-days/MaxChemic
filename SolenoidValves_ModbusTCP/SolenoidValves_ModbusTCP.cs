@@ -400,7 +400,13 @@ namespace SolenoidValves_ModbusTCP
                 {
                     _valveStates.Clear();
                 }
-
+                //  自动获取当前状态
+                var getStatusCommand = Commands.FirstOrDefault(c => c.Name == "获取电磁阀状态");
+                if (getStatusCommand?.Action != null)
+                {
+                    var result = await Task.Run(() => getStatusCommand.Action(new DeviceParameters()));
+                    InfoLog("流程启动时已自动获取电磁阀状态");
+                }
                 InfoLog("ModbusTCP电磁阀设备已准备好执行流程");
                 return true;
             }
@@ -718,6 +724,10 @@ namespace SolenoidValves_ModbusTCP
                             valveState = deviceValue;
                             InfoLog($"读取电磁阀 {valveId} 原始值: {deviceValue}, 转换后状态: {valveState}");
                             success = true;
+                            _isOpen = valveState;  // 更新内部状态
+                            // 触发状态变化事件，通知UI更新
+                            OnStateChanged("ValveState", valveState ? SolenoidValveState.Open : SolenoidValveState.Closed);
+                            OnStateChanged("IsOpen", valveState);
                         }
                         else if (IsSimulationMode)
                         {

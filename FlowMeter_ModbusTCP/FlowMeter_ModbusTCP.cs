@@ -1740,6 +1740,11 @@ namespace FlowMeter_ModbusTCP
                             InfoLog($"密度修正计算: 目标质量流量={targetFlow}g/min, 密度={density}g/cm³ → 所需体积流量={requiredVolumeFlow:F2}cm³/min → 初始泵速={calculatedSpeed}RPM");
 
                             var pumpDeviceId = Parameters.GetValue<string>("PumpDeviceId");
+                            //先启动泵
+                            if (!await ConnectionManager.ReadAsync<bool>(pumpDeviceId, "P0101启动"))
+                            {
+                                await ConnectionManager.WriteAsync(pumpDeviceId, "P0101启动", true);
+                            } 
                             var pumpSetSuccess = await SetPumpSpeedAsync(pumpDeviceId, calculatedSpeed);
 
                             if (pumpSetSuccess)

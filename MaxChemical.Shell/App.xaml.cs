@@ -68,7 +68,7 @@ public partial class App : PrismApplication
 
                     // 如果您的ILogService需要特定的实现，可以这样注册
                     // services.AddSingleton<ILogService, YourLogServiceImplementation>();
-
+                    
                     // 注册配置相关服务
                     services.AddSingleton<IDatabaseConfigService, DatabaseConfigService>();
                     services.AddSingleton<ICustomVariablePersistenceService, CustomVariableDatabaseService>();

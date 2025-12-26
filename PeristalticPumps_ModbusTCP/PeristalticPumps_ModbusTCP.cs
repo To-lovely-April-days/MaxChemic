@@ -28,6 +28,10 @@ namespace PeristalticPumps_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
+
+        private CancellationTokenSource _statusPollingCts;
+        private Task _statusPollingTask;
+        private const int StatusPollingIntervalMs = 1000; // 每1秒轮询一次
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -175,6 +179,13 @@ namespace PeristalticPumps_ModbusTCP
         {
             try
             {
+                InfoLog($"========== 流程启动 ==========");
+                InfoLog($"设备ID: {this.DeviceId}");        // ⭐ 新增
+                InfoLog($"ComId: {this.ComId}");            // ⭐ 新增
+                InfoLog($"设备哈希: {this.GetHashCode()}"); // ⭐ 新增
+                InfoLog($"流程名称: {context.FlowName}");
+                InfoLog($"================================");
+
                 InfoLog($"ModbusTCP蠕动泵流程开始: {context.FlowName}");
 
                 lock (_statesLock)
@@ -193,6 +204,9 @@ namespace PeristalticPumps_ModbusTCP
                     WarnLog("ModbusTCP蠕动泵设备未连接，但流程已开始");
                 }
 
+                // ⭐ 启动状态轮询
+                StartStatusPolling();
+
                 InfoLog("ModbusTCP蠕动泵设备已准备好执行流程");
                 return true;
             }
@@ -203,11 +217,16 @@ namespace PeristalticPumps_ModbusTCP
             }
         }
 
+
         public virtual async Task<bool> OnFlowCompletedAsync(FlowCompletionContext context)
         {
             try
             {
                 InfoLog($"ModbusTCP蠕动泵流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
+
+                // 停止状态轮询
+                await StopStatusPollingAsync();
+
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP蠕动泵流程完成处理结束");
                 return true;
@@ -224,6 +243,10 @@ namespace PeristalticPumps_ModbusTCP
             try
             {
                 ErrorLog($"ModbusTCP蠕动泵流程失败: {context.FlowName}, 错误: {context.ErrorMessage}");
+
+                //  停止状态轮询
+                await StopStatusPollingAsync();
+
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP蠕动泵流程失败处理完成");
                 return true;
@@ -232,6 +255,184 @@ namespace PeristalticPumps_ModbusTCP
             {
                 ErrorLog("ModbusTCP蠕动泵流程失败处理异常", ex);
                 return false;
+            }
+        }
+
+
+        #endregion
+        // ========== 新增：状态轮询方法 ==========
+        #region 状态轮询相关
+
+        /// <summary>
+        /// 启动状态轮询
+        /// </summary>
+        private void StartStatusPolling()
+        {
+            try
+            {
+                // 如果已经在轮询，先停止
+                if (_statusPollingTask != null && !_statusPollingTask.IsCompleted)
+                {
+                    InfoLog("检测到已有轮询任务，先停止");
+                    StopStatusPollingAsync().Wait(TimeSpan.FromSeconds(2));
+                }
+
+                // 创建新的取消令牌
+                _statusPollingCts = new CancellationTokenSource();
+
+                // 启动后台轮询任务
+                _statusPollingTask = Task.Run(async () =>
+                {
+                    await StatusPollingLoopAsync(_statusPollingCts.Token);
+                }, _statusPollingCts.Token);
+
+                InfoLog("状态轮询已启动");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("启动状态轮询失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 停止状态轮询
+        /// </summary>
+        private async Task StopStatusPollingAsync()
+        {
+            try
+            {
+                if (_statusPollingCts != null)
+                {
+                    InfoLog("正在停止状态轮询...");
+                    _statusPollingCts.Cancel();
+
+                    // 等待轮询任务结束（最多等待2秒）
+                    if (_statusPollingTask != null)
+                    {
+                        await Task.WhenAny(_statusPollingTask, Task.Delay(2000));
+                    }
+
+                    _statusPollingCts.Dispose();
+                    _statusPollingCts = null;
+                    _statusPollingTask = null;
+
+                    InfoLog("状态轮询已停止");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("停止状态轮询失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 状态轮询循环（后台线程）
+        /// </summary>
+        private async Task StatusPollingLoopAsync(CancellationToken cancellationToken)
+        {
+            InfoLog("状态轮询线程已启动");
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        // 1️⃣ 读取泵启动状态
+                        await PollPumpRunningStateAsync(cancellationToken);
+
+                        // 2   等待下次轮询（带取消检查）
+                        await Task.Delay(StatusPollingIntervalMs, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        InfoLog("状态轮询被取消");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        // 单次轮询失败不中断整个循环
+                        ErrorLog($"状态轮询异常: {ex.Message}");
+
+                        // 失败后稍微等待，避免疯狂重试
+                        try
+                        {
+                            await Task.Delay(2000, cancellationToken);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("状态轮询线程异常退出", ex);
+            }
+            finally
+            {
+                InfoLog("状态轮询线程已退出");
+            }
+        }
+
+        /// <summary>
+        /// 轮询泵启动状态
+        /// </summary>
+        private async Task PollPumpRunningStateAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (cancellationToken.IsCancellationRequested) return;
+
+                bool isRunning = false;
+
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
+                {
+                    // 读取设备启动状态
+                    isRunning = await ConnectionManager.ReadAsync<bool>(ComId, "P0101启动");
+                    //InfoLog($"轮询泵启动状态: {isRunning}");
+                }
+                else if (IsSimulationMode)
+                {
+                    lock (_stateLock)
+                    {
+                        isRunning = _isRunning;
+                    }
+                }
+
+                // 检查状态是否变化
+                bool stateChanged = false;
+                lock (_stateLock)
+                {
+                    if (_isRunning != isRunning)
+                    {
+                        _isRunning = isRunning;
+                        stateChanged = true;
+                    }
+                }
+
+                // 状态变化时通知UI
+                if (stateChanged)
+                {
+                    InfoLog($"泵运行状态变化: {isRunning}");
+                    RaiseControlStateChanged("IsRunning", isRunning);
+
+                    // 同步更新活跃状态列表
+                    if (isRunning)
+                    {
+                        AddActiveState("PumpRunning", "启动泵", "停止泵");
+                    }
+                    else
+                    {
+                        RemoveActiveState("PumpRunning");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"轮询泵启动状态失败: {ex.Message}");
             }
         }
 
@@ -1350,6 +1551,10 @@ namespace PeristalticPumps_ModbusTCP
 
             try
             {
+                // 先停止状态轮询
+                var stopPollingTask = StopStatusPollingAsync();
+                stopPollingTask.Wait(TimeSpan.FromSeconds(3));
+
                 var stopTask = StopAllActiveStatesAsync();
                 stopTask.Wait(TimeSpan.FromSeconds(5));
 

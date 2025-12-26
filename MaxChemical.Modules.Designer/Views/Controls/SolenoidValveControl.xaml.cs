@@ -157,18 +157,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _rotationLabelTimer.Stop();
                 };
 
-                ////  新增：错误状态重置定时器
-                //_errorResetTimer = new DispatcherTimer
-                //{
-                //    Interval = TimeSpan.FromSeconds(4.5) // 3次闪烁 × 1.5秒
-                //};
-                //_errorResetTimer.Tick += (s, e) =>
-                //{
-                //    IsError = false;
-                //    _errorResetTimer.Stop();
-                //    Debug.WriteLine($"⏱️ 错误状态已自动重置 | ValveId:{ValveId}");
-                //};
-
+                // ===== 注释掉动画资源初始化 =====
+                /*
                 //  新增：加载动画资源初始化
                 _loadingAnimation = (Storyboard)this.Resources["LoadingAnimation"];
                 _errorBlinkAnimation = (Storyboard)this.Resources["ErrorBlinkAnimation"];
@@ -183,6 +173,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                         Debug.WriteLine($"⏱️ 错误闪烁完成，切换到持续脉冲 | ValveId:{ValveId}");
                     }
                 };
+                */
 
                 this.MouseEnter += OnValveMouseEnter;
                 this.MouseLeave += OnValveMouseLeave;
@@ -280,7 +271,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateVisualState(bool isOpen)
         {
-            // 轮盘旋转动画：开启时0°，关闭时90°
+            // ===== 注释掉轮盘旋转动画，改为直接设置角度 =====
+            // 原动画代码：
+            /*
             double targetAngle = isOpen ? 0 : 90;
 
             var rotateAnimation = new DoubleAnimation
@@ -292,18 +285,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             WheelRotation.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
             SpokesRotation.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
+            */
 
+            // 新代码：直接设置角度，无动画
+            double targetAngle = isOpen ? 0 : 90;
+            WheelRotation.Angle = targetAngle;
+            SpokesRotation.Angle = targetAngle;
+
+            // 保留颜色状态切换（无动画）
             if (isOpen)
             {
                 BodyColor = (LinearGradientBrush)this.Resources["OpenBodyGradient"];
                 CenterColor = (RadialGradientBrush)this.Resources["OpenCenterGradient"];
-                Debug.WriteLine($" 电磁阀打开 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
+                Debug.WriteLine($"电磁阀打开 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
             }
             else
             {
                 BodyColor = (LinearGradientBrush)this.Resources["ClosedBodyGradient"];
                 CenterColor = (RadialGradientBrush)this.Resources["ClosedCenterGradient"];
-                Debug.WriteLine($" 电磁阀关闭 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
+                Debug.WriteLine($"电磁阀关闭 | ValveId:{ValveId}, 角度:{_rotationAngle:F0}°");
             }
         }
 
@@ -664,8 +664,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (isError)
             {
-                Debug.WriteLine($" 显示错误状态 | ValveId:{ValveId}");
+                Debug.WriteLine($"显示错误状态 | ValveId:{ValveId}");
 
+                // ===== 注释掉动画，改为直接显示 =====
+                /*
                 // 停止所有动画
                 _loadingAnimation?.Stop();
                 _errorBlinkAnimation?.Stop();
@@ -673,20 +675,24 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 // 启动闪烁动画
                 _errorBlinkAnimation.Begin(this, true);
+                */
 
-                //// 启动自动重置定时器（可选）
-                //_errorResetTimer?.Stop();
-                //_errorResetTimer?.Start();
+                // 新代码：直接显示错误覆盖层
+                ErrorOverlay.Opacity = 0.4;
+                ErrorCenterOverlay.Opacity = 0.4;
+                ErrorWarningIcon.Opacity = 1.0;
             }
             else
             {
-                Debug.WriteLine($" 清除错误状态 | ValveId:{ValveId}");
+                Debug.WriteLine($"清除错误状态 | ValveId:{ValveId}");
 
+                // ===== 注释掉动画，改为直接隐藏 =====
+                /*
                 // 停止所有动画
                 _errorBlinkAnimation?.Stop();
                 _errorStateHoldAnimation?.Stop();
 
-                // 重置所有覆盖层
+                // 淡出动画
                 var fadeOut = new DoubleAnimation
                 {
                     From = ErrorOverlay.Opacity,
@@ -697,11 +703,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 ErrorOverlay.BeginAnimation(OpacityProperty, fadeOut);
                 ErrorCenterOverlay.BeginAnimation(OpacityProperty, fadeOut);
                 ErrorWarningIcon.BeginAnimation(OpacityProperty, fadeOut);
+                */
+
+                // 新代码：直接隐藏
+                ErrorOverlay.Opacity = 0;
+                ErrorCenterOverlay.Opacity = 0;
+                ErrorWarningIcon.Opacity = 0;
 
                 // 重置震动
                 ValveShakeTransform.X = 0;
-
-                //_errorResetTimer?.Stop();
             }
         }
 
@@ -733,8 +743,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (_isLoading) return;
 
             _isLoading = true;
-            Debug.WriteLine($" 显示加载动画 | ValveId:{ValveId}");
+            Debug.WriteLine($"显示加载状态 | ValveId:{ValveId}");
 
+            // ===== 注释掉动画，改为直接显示覆盖层 =====
+            /*
             // 停止错误动画
             if (IsError)
             {
@@ -744,7 +756,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             // 启动加载动画
             _loadingAnimation.Begin(this, true);
             LoadingWheelContainer.Opacity = 1;
+            */
+
+            // 新代码：直接显示加载覆盖层，无动画
+            LoadingOverlay.Opacity = 0.3;
+            LoadingCenterOverlay.Opacity = 0.3;
+            LoadingWheelContainer.Opacity = 1;
         }
+
 
 
         /// <summary>
@@ -752,11 +771,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         public void HideLoading()
         {
+
             if (!_isLoading) return;
 
             _isLoading = false;
-            Debug.WriteLine($" 隐藏加载动画 | ValveId:{ValveId}");
+            Debug.WriteLine($"✅ 隐藏加载状态 | ValveId:{ValveId}");
 
+            // ===== 注释掉动画，改为直接隐藏 =====
+            /*
             // 停止动画
             _loadingAnimation?.Stop();
 
@@ -785,6 +807,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             LoadingOverlay.BeginAnimation(OpacityProperty, fadeOut);
             LoadingCenterOverlay.BeginAnimation(OpacityProperty, fadeOutCenter);
             LoadingWheelContainer.BeginAnimation(OpacityProperty, fadeOutWheel);
+            */
+
+            // 新代码：直接隐藏
+            LoadingOverlay.Opacity = 0;
+            LoadingCenterOverlay.Opacity = 0;
+            LoadingWheelContainer.Opacity = 0;
 
             // 重置旋转角度
             LoadingWheelRotation.Angle = 0;
