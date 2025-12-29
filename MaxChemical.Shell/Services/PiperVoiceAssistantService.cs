@@ -61,8 +61,11 @@ namespace MaxChemical.Shell.Services
             {
                 "edge" => new EdgeTtsEngine(_logger, voiceSettings.EdgeTts),
                 "azure" => new AzureTtsEngine(_logger, voiceSettings.AzureTts),
-                "piper" or _ => new PiperTtsEngine(_logger, voiceSettings.Piper)
+                "piper" => new PiperTtsEngine(_logger, voiceSettings.Piper),
+                "sherpa" => new SherpaOnnxTtsEngine(_logger, voiceSettings.SherpaOnnx),
+                _ => new SherpaOnnxTtsEngine(_logger, voiceSettings.SherpaOnnx) // 默认使用 Sherpa
             };
+
 
             if (!engine.IsAvailable)
             {

@@ -10288,9 +10288,9 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void SubscribeToVoiceAssistantEvents()
         {
-            //_eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Subscribe(
-            //    OnVoiceCreateDevice,
-            //    ThreadOption.UIThread);
+            _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Subscribe(
+                OnVoiceCreateDevice,
+                ThreadOption.UIThread);
 
             Debug.WriteLine(" 语音助手事件已订阅");
         }
@@ -10300,39 +10300,39 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnVoiceCreateDevice(VoiceCreateDeviceEventArgs args)
         {
-            //try
-            //{
-            //    Debug.WriteLine($"========== 语音创建设备 ==========");
-            //    Debug.WriteLine($"设备名称: {args.DeviceName}");
-            //    Debug.WriteLine($"语音命令: {args.Command}");
-            //    Debug.WriteLine($"时间戳: {args.Timestamp}");
+            try
+            {
+                Debug.WriteLine($"========== 语音创建设备 ==========");
+                Debug.WriteLine($"设备名称: {args.DeviceName}");
+                Debug.WriteLine($"语音命令: {args.Command}");
+                Debug.WriteLine($"时间戳: {args.Timestamp}");
 
-            //    // 1. 从设备管理器中查找设备
-            //    var device = FindDeviceByName(args.DeviceName);
-            //    if (device == null)
-            //    {
-            //        Debug.WriteLine($" 未找到设备: {args.DeviceName}");
-            //        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-            //            $"未找到 {args.DeviceName}");
-            //        return;
-            //    }
+                // 1. 从设备管理器中查找设备
+                var device = FindDeviceByName(args.DeviceName);
+                if (device == null)
+                {
+                    Debug.WriteLine($" 未找到设备: {args.DeviceName}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"未找到 {args.DeviceName}");
+                    return;
+                }
 
-            //    // 2. 计算放置位置（画布中心）
-            //    var dropPosition = CalculateCenterPosition();
+                // 2. 计算放置位置（画布中心）
+                var dropPosition = CalculateCenterPosition();
 
-            //    // 3. 创建设备
-            //    CreateDeviceFromVoiceCommand(device, dropPosition);
+                // 3. 创建设备
+                CreateDeviceFromVoiceCommand(device, dropPosition);
 
-            //    Debug.WriteLine($" 语音创建设备成功: {args.DeviceName}");
-            //    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-            //        $"已创建 {args.DeviceName}");
-            //}
-            //catch (Exception ex)
-            //{
-            //    Debug.WriteLine($" 语音创建设备失败: {ex.Message}");
-            //    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-            //        "创建设备失败");
-            //}
+                Debug.WriteLine($" 语音创建设备成功: {args.DeviceName}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"已创建 {args.DeviceName}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($" 语音创建设备失败: {ex.Message}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    "创建设备失败");
+            }
         }
 
         /// <summary>

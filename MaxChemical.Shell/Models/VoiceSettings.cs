@@ -2,11 +2,17 @@
 {
     public class VoiceSettings
     {
-        public string TtsProvider { get; set; } = "edge"; // "edge", "azure", "piper"
+        /// <summary>
+        /// TTS提供商: "edge", "azure", "piper", "sherpa"
+        /// </summary>
+        public string TtsProvider { get; set; } = "sherpa";
+
         public EdgeTtsSettings EdgeTts { get; set; } = new();
         public AzureTtsSettings AzureTts { get; set; } = new();
         public PiperSettings Piper { get; set; } = new();
+        public SherpaOnnxSettings SherpaOnnx { get; set; } = new();
     }
+
 
     /// <summary>
     /// Edge TTS 配置（无需 Python，纯 C# 实现）
@@ -43,4 +49,23 @@
         public float SpeakingRate { get; set; } = 1.0f;
         public float NoiseFactor { get; set; } = 0.667f;
     }
+
+    public class SherpaOnnxSettings
+    {
+        /// <summary>
+        /// 模型路径
+        /// </summary>
+        public string ModelPath { get; set; } = @"C:\Users\it192\Desktop\vits-melo-tts-zh_en\vits-melo-tts-zh_en";
+
+        /// <summary>
+        /// 说话人ID (默认 0)
+        /// </summary>
+        public int SpeakerId { get; set; } = 0;
+
+        /// <summary>
+        /// 语速 (0.5 - 2.0)
+        /// </summary>
+        public float SpeakingRate { get; set; } = 1.0f;
+    }
+
 }
