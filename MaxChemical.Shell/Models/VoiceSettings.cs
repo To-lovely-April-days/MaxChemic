@@ -55,7 +55,7 @@
         /// <summary>
         /// 模型路径
         /// </summary>
-        public string ModelPath { get; set; } = @"C:\Users\it192\Desktop\vits-melo-tts-zh_en\vits-melo-tts-zh_en";
+        public string ModelPath { get; set; } = @"vits-melo-tts-zh_en";
 
         /// <summary>
         /// 说话人ID (默认 0)
