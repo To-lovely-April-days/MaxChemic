@@ -4,8 +4,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="420" 
-             d:DesignWidth="270"
+             d:DesignHeight="340" 
+             d:DesignWidth="260"
              Background="Transparent"
              Cursor="SizeAll"
              SnapsToDevicePixels="True"
@@ -144,12 +144,12 @@
     </UserControl.Resources>
 
     <Viewbox Stretch="Fill">
-        <Canvas Width="270" Height="420">
+        <Canvas Width="260" Height="340">
 
             <!-- 可拖拽区域 -->
             <Border x:Name="DraggableArea"
                     Canvas.Left="0" Canvas.Top="0"
-                    Width="270" Height="420"
+                    Width="260" Height="340"
                     Background="Transparent"
                     Panel.ZIndex="100"
                     Cursor="SizeAll"
@@ -159,28 +159,28 @@
                     MouseLeave="OnDraggableAreaMouseLeave"/>
 
             <!-- 3D背景矩形 -->
-            <Border Canvas.Left="23" Canvas.Top="-15" Width="240" Height="360" 
+            <Border Canvas.Left="23" Canvas.Top="-15" Width="230" Height="300" 
                     CornerRadius="10" Background="#E0E0E0"
                     Panel.ZIndex="0"/>
 
             <!-- 3D顶部 -->
             <Path Fill="{StaticResource TopGradient}" Panel.ZIndex="1">
                 <Path.Data>
-                    <PathGeometry Figures="M 12,0 L 35,-15 L 251,-15 L 228,0 Z"/>
+                    <PathGeometry Figures="M 12,0 L 35,-15 L 241,-15 L 218,0 Z"/>
                 </Path.Data>
             </Path>
 
             <!-- 3D右侧面 -->
             <Path Fill="{StaticResource SideGradient}" Panel.ZIndex="1">
                 <Path.Data>
-                    <PathGeometry Figures="M 240,12 L 263,-3 L 263,345 L 240,360 Z"/>
+                    <PathGeometry Figures="M 230,12 L 253,-3 L 253,285 L 230,300 Z"/>
                 </Path.Data>
             </Path>
 
             <!-- 3D底部右角 -->
             <Path Fill="#CCC" Panel.ZIndex="1">
                 <Path.Data>
-                    <PathGeometry Figures="M 240,360 L 263,345 L 251,345 L 228,360 Z"/>
+                    <PathGeometry Figures="M 230,300 L 253,285 L 241,285 L 218,300 Z"/>
                 </Path.Data>
             </Path>
 
@@ -194,37 +194,37 @@
             <!-- 3D右上圆角 -->
             <Path Fill="#F5F5F5" Panel.ZIndex="1">
                 <Path.Data>
-                    <PathGeometry Figures="M 228,0 L 251,-15 Q 263,-15 263,-3 L 240,12 Q 240,0 228,0 Z"/>
+                    <PathGeometry Figures="M 218,0 L 241,-15 Q 253,-15 253,-3 L 230,12 Q 230,0 218,0 Z"/>
                 </Path.Data>
             </Path>
 
             <!-- 3D右下圆角 -->
             <Path Fill="#D0D0D0" Panel.ZIndex="1">
                 <Path.Data>
-                    <PathGeometry Figures="M 240,348 Q 240,360 228,360 L 251,345 Q 263,345 263,333 Z"/>
+                    <PathGeometry Figures="M 230,288 Q 230,300 218,300 L 241,285 Q 253,285 253,273 Z"/>
                 </Path.Data>
             </Path>
 
             <!-- 底座 -->
-            <Path Canvas.Top="360" Fill="{StaticResource BaseGradient}" Panel.ZIndex="3">
+            <Path Canvas.Top="300" Fill="{StaticResource BaseGradient}" Panel.ZIndex="3">
                 <Path.Data>
-                    <PathGeometry Figures="M 15,0 L 225,0 L 225,11 L 15,11 Z"/>
+                    <PathGeometry Figures="M 15,0 L 215,0 L 215,10 L 15,10 Z"/>
                 </Path.Data>
             </Path>
 
             <!-- 底座侧面 -->
-            <Path Canvas.Top="360" Fill="#2C3136" Panel.ZIndex="3">
+            <Path Canvas.Top="300" Fill="#2C3136" Panel.ZIndex="3">
                 <Path.Data>
-                    <PathGeometry Figures="M 225,0 L 248,-15 L 248,-4 L 225,11 Z"/>
+                    <PathGeometry Figures="M 215,0 L 238,-15 L 238,-5 L 215,10 Z"/>
                 </Path.Data>
             </Path>
 
             <!-- 底座脚垫 -->
-            <Border Canvas.Left="105" Canvas.Top="363" Width="30" Height="5" 
+            <Border Canvas.Left="100" Canvas.Top="303" Width="30" Height="5" 
                     CornerRadius="2.5" Background="#6C757D" Panel.ZIndex="3"/>
 
             <!-- 主面板 -->
-            <Border Canvas.Left="0" Canvas.Top="0" Width="240" Height="360" 
+            <Border Canvas.Left="0" Canvas.Top="0" Width="230" Height="300" 
                     CornerRadius="10"
                     Background="{StaticResource WhitePanelGradient}" 
                     BorderBrush="#D9D9D9" BorderThickness="1"
@@ -235,14 +235,14 @@
             </Border>
 
             <!-- 白色高光 -->
-            <Border Canvas.Left="1.5" Canvas.Top="1.5" Width="237" Height="357" 
+            <Border Canvas.Left="1.5" Canvas.Top="1.5" Width="227" Height="297" 
                     CornerRadius="9"
                     BorderBrush="#FFFFFF" BorderThickness="1.5" 
                     Background="Transparent" Opacity="0.8"
                     Panel.ZIndex="2" IsHitTestVisible="False"/>
 
             <!-- 标题区域 -->
-            <Canvas Canvas.Left="18" Canvas.Top="18" Panel.ZIndex="10">
+            <Canvas Canvas.Left="12" Canvas.Top="10" Panel.ZIndex="10">
                 <TextBlock FontFamily="Helvetica Neue, Microsoft YaHei" 
                            FontSize="11" FontWeight="Light" Foreground="#262626">
                     <Run>高</Run><Run Text=" "/><Run>低</Run><Run Text=" "/><Run>温</Run><Run Text=" "/><Run>循</Run><Run Text=" "/><Run>环</Run><Run Text=" "/><Run>装</Run><Run Text=" "/><Run>置</Run>
@@ -252,7 +252,7 @@
                 </TextBlock>
 
                 <!-- 运行指示灯 -->
-                <Canvas Canvas.Left="176" Canvas.Top="-2">
+                <Canvas Canvas.Left="166" Canvas.Top="-2">
                     <Ellipse Width="8" Height="8" Fill="#52C41A">
                         <Ellipse.Effect>
                             <DropShadowEffect Color="#52C41A" BlurRadius="5" ShadowDepth="0" Opacity="0.8"/>
@@ -266,7 +266,7 @@
             </Canvas>
 
             <!-- 显示屏区域 -->
-            <Border Canvas.Left="15" Canvas.Top="42" Width="210" Height="158" 
+            <Border Canvas.Left="12" Canvas.Top="32" Width="206" Height="148" 
                     CornerRadius="5" Background="{StaticResource ScreenBgGradient}"
                     BorderThickness="1.5" BorderBrush="#0A0F14"
                     Panel.ZIndex="10">
@@ -276,13 +276,13 @@
 
                 <Canvas>
                     <!-- 屏幕内边框 -->
-                    <Border Width="207" Height="155" Canvas.Left="1.5" Canvas.Top="1.5" 
+                    <Border Width="203" Height="145" Canvas.Left="1.5" Canvas.Top="1.5" 
                             CornerRadius="4"
                             BorderBrush="#2A3B4A" BorderThickness="1" 
                             Background="Transparent" Opacity="0.5"/>
 
                     <!-- 主设置温度显示 -->
-                    <Border Canvas.Left="15" Canvas.Top="15" Width="180" Height="56" 
+                    <Border Canvas.Left="13" Canvas.Top="12" Width="180" Height="54" 
                             CornerRadius="3" Background="{StaticResource DisplayCardGradient}"
                             BorderThickness="1" BorderBrush="#2D3E4F">
 
@@ -292,17 +292,17 @@
                                        Margin="9,6,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                                        VerticalAlignment="Center" Margin="13,7,0,0">
+                                        VerticalAlignment="Center" Margin="13,6,0,0">
                                 <TextBlock x:Name="SetTempValue" 
                                            Text="{Binding SetTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                           FontFamily="Consolas" FontSize="32" 
+                                           FontFamily="Consolas" FontSize="30" 
                                            Foreground="#4A90E2" FontWeight="SemiBold">
                                     <TextBlock.Effect>
                                         <DropShadowEffect Color="#4A90E2" BlurRadius="6" ShadowDepth="0" Opacity="0.6"/>
                                     </TextBlock.Effect>
                                 </TextBlock>
-                                <TextBlock Text="°C" FontFamily="Helvetica Neue" FontSize="14" 
-                                           Foreground="#6BA3D8" FontWeight="Normal" Margin="3,6,0,0"/>
+                                <TextBlock Text="°C" FontFamily="Helvetica Neue" FontSize="13" 
+                                           Foreground="#6BA3D8" FontWeight="Normal" Margin="3,5,0,0"/>
                             </StackPanel>
 
                             <!-- 调节按钮 -->
@@ -321,18 +321,18 @@
                     </Border>
 
                     <!-- 当前温度显示 -->
-                    <Border Canvas.Left="15" Canvas.Top="82" Width="86" Height="53" 
+                    <Border Canvas.Left="13" Canvas.Top="76" Width="90" Height="56" 
                             CornerRadius="3" Background="{StaticResource DisplayCardGradient}"
                             BorderThickness="1" BorderBrush="#2D3E4F">
                         <Grid>
                             <TextBlock Text="CURRENT" FontFamily="Helvetica Neue" FontSize="6" 
                                        Foreground="#8C8C8C" FontWeight="Normal"
-                                       Margin="6,4.5,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                       Margin="6,5,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                                        VerticalAlignment="Center" Margin="7.5,6,0,0">
+                                        VerticalAlignment="Center" Margin="8,7,0,0">
                                 <TextBlock Text="{Binding CurrentTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                           FontFamily="Consolas" FontSize="20" 
+                                           FontFamily="Consolas" FontSize="21" 
                                            Foreground="#F5F5F5" FontWeight="Medium"/>
                                 <TextBlock Text="°C" FontFamily="Helvetica Neue" FontSize="8" 
                                            Foreground="#D9D9D9" Margin="2,3,0,0"/>
@@ -341,18 +341,18 @@
                     </Border>
 
                     <!-- 出口温度显示 -->
-                    <Border Canvas.Left="109" Canvas.Top="82" Width="86" Height="53" 
+                    <Border Canvas.Left="109" Canvas.Top="76" Width="84" Height="56" 
                             CornerRadius="3" Background="{StaticResource DisplayCardGradient}"
                             BorderThickness="1" BorderBrush="#2D3E4F">
                         <Grid>
                             <TextBlock Text="OUTLET" FontFamily="Helvetica Neue" FontSize="6" 
                                        Foreground="#8C8C8C" FontWeight="Normal"
-                                       Margin="6,4.5,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                       Margin="6,5,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                                        VerticalAlignment="Center" Margin="7.5,6,0,0">
+                                        VerticalAlignment="Center" Margin="7,7,0,0">
                                 <TextBlock Text="{Binding OutletTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                           FontFamily="Consolas" FontSize="20" 
+                                           FontFamily="Consolas" FontSize="21" 
                                            Foreground="#F5F5F5" FontWeight="Medium"/>
                                 <TextBlock Text="°C" FontFamily="Helvetica Neue" FontSize="8" 
                                            Foreground="#D9D9D9" Margin="2,3,0,0"/>
@@ -363,15 +363,15 @@
             </Border>
 
             <!-- 控制按钮区 -->
-            <Canvas Canvas.Left="15" Canvas.Top="214" Panel.ZIndex="10">
+            <Canvas Canvas.Left="12" Canvas.Top="188" Panel.ZIndex="10">
                 <!-- 循环按钮 -->
-                <Button Width="64" Height="27" Style="{StaticResource ControlButtonStyle}"
+                <Button Width="64" Height="26" Style="{StaticResource ControlButtonStyle}"
                         Background="{StaticResource GreenBtnGradient}"
                         Click="OnCirculationClick">
                     <StackPanel Orientation="Horizontal">
-                        <Canvas Width="12" Height="12" Margin="0,0,6,0">
-                            <Ellipse Width="10.5" Height="10.5" Stroke="White" StrokeThickness="1.5" Canvas.Left="0.75" Canvas.Top="0.75"/>
-                            <Path Data="M 3.75,-4.5 L 7.5,-0.75 L 3.75,3" Stroke="White" StrokeThickness="1.2" Canvas.Left="3.75" Canvas.Top="6"/>
+                        <Canvas Width="11" Height="11" Margin="0,0,5,0">
+                            <Ellipse Width="10" Height="10" Stroke="White" StrokeThickness="1.5" Canvas.Left="0.5" Canvas.Top="0.5"/>
+                            <Path Data="M 3.5,-4 L 7,-0.5 L 3.5,3" Stroke="White" StrokeThickness="1.2" Canvas.Left="3.5" Canvas.Top="5.5"/>
                         </Canvas>
                         <TextBlock Text="循环" FontFamily="Helvetica Neue" FontSize="10" 
                                    Foreground="White" FontWeight="Medium" VerticalAlignment="Center"/>
@@ -379,13 +379,13 @@
                 </Button>
 
                 <!-- 加热按钮 -->
-                <Button Canvas.Left="73" Width="64" Height="27" 
+                <Button Canvas.Left="71" Width="64" Height="26" 
                         Style="{StaticResource ControlButtonStyle}"
                         Background="{StaticResource OrangeBtnGradient}"
                         Click="OnHeatingClick">
                     <StackPanel Orientation="Horizontal">
-                        <Path Data="M 0,-6 Q -3,-3 -3,0 Q -3,3.75 0,6.75 Q 3,3.75 3,0 Q 3,-3 0,-6 Z" 
-                              Fill="White" Margin="0,0,6,0" Width="12" Height="12" 
+                        <Path Data="M 0,-6 Q -3,-3 -3,0 Q -3,3.5 0,6.5 Q 3,3.5 3,0 Q 3,-3 0,-6 Z" 
+                              Fill="White" Margin="0,0,5,0" Width="11" Height="11" 
                               Stretch="Uniform" Opacity="0.9"/>
                         <TextBlock Text="加热" FontFamily="Helvetica Neue" FontSize="10" 
                                    Foreground="White" FontWeight="Medium" VerticalAlignment="Center"/>
@@ -393,14 +393,14 @@
                 </Button>
 
                 <!-- 制冷按钮 -->
-                <Button Canvas.Left="146" Width="64" Height="27" 
+                <Button Canvas.Left="142" Width="64" Height="26" 
                         Style="{StaticResource ControlButtonStyle}"
                         Background="{StaticResource BlueBtnGradient}"
                         Click="OnCoolingClick">
                     <StackPanel Orientation="Horizontal">
-                        <Canvas Width="12" Height="12" Margin="0,0,6,0">
-                            <Path Data="M 6,1.5 L 6,10.5 M 1.5,6 L 10.5,6 M 3,3 L 9,9 M 3,9 L 9,3" 
-                                  Stroke="White" StrokeThickness="1.5"/>
+                        <Canvas Width="11" Height="11" Margin="0,0,5,0">
+                            <Path Data="M 5.5,1.5 L 5.5,9.5 M 1.5,5.5 L 9.5,5.5 M 2.5,2.5 L 8.5,8.5 M 2.5,8.5 L 8.5,2.5" 
+                                  Stroke="White" StrokeThickness="1.3"/>
                         </Canvas>
                         <TextBlock Text="制冷" FontFamily="Helvetica Neue" FontSize="10" 
                                    Foreground="White" FontWeight="Medium" VerticalAlignment="Center"/>
@@ -409,7 +409,7 @@
             </Canvas>
 
             <!-- 通风窗 -->
-            <Border Canvas.Left="15" Canvas.Top="255" Width="210" Height="60" 
+            <Border Canvas.Left="12" Canvas.Top="222" Width="206" Height="56" 
                     CornerRadius="3" Background="{StaticResource VentPanelGradient}"
                     BorderThickness="1" BorderBrush="#D9D9D9"
                     Panel.ZIndex="10">
@@ -419,49 +419,49 @@
 
                 <Canvas>
                     <!-- 顶部高光 -->
-                    <Border Width="207" Height="0.75" Canvas.Left="1.5" Canvas.Top="1.5" 
+                    <Border Width="203" Height="0.75" Canvas.Left="1.5" Canvas.Top="1.5" 
                             Background="#FFFFFF" Opacity="0.8"/>
 
                     <!-- 底部阴影 -->
-                    <Border Width="207" Height="0.75" Canvas.Left="1.5" Canvas.Top="57.75" 
+                    <Border Width="203" Height="0.75" Canvas.Left="1.5" Canvas.Top="53.75" 
                             Background="#000000" Opacity="0.05"/>
 
                     <!-- 左侧通风槽 -->
-                    <ItemsControl Canvas.Left="11" Canvas.Top="10.5">
+                    <ItemsControl Canvas.Left="10" Canvas.Top="9">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel/>
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.Items>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
                             <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}"/>
                         </ItemsControl.Items>
                     </ItemsControl>
 
                     <!-- 中间分隔线 -->
-                    <Line X1="105" Y1="7.5" X2="105" Y2="52.5" Stroke="#D9D9D9" StrokeThickness="0.75" Opacity="0.4"/>
-                    <Line X1="105.75" Y1="7.5" X2="105.75" Y2="52.5" Stroke="#FFFFFF" StrokeThickness="0.75" Opacity="0.6"/>
+                    <Line X1="103" Y1="7" X2="103" Y2="49" Stroke="#D9D9D9" StrokeThickness="0.75" Opacity="0.4"/>
+                    <Line X1="103.75" Y1="7" X2="103.75" Y2="49" Stroke="#FFFFFF" StrokeThickness="0.75" Opacity="0.6"/>
 
                     <!-- 右侧通风槽 -->
-                    <ItemsControl Canvas.Left="109" Canvas.Top="10.5">
+                    <ItemsControl Canvas.Left="106" Canvas.Top="9">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel/>
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.Items>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
-                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4.5"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
+                            <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}" Margin="0,0,0,4"/>
                             <Border Width="90" Height="1.5" CornerRadius="0.75" Background="{StaticResource VentSlotGradient}"/>
                         </ItemsControl.Items>
                     </ItemsControl>
@@ -469,7 +469,7 @@
             </Border>
 
             <!-- 底部型号 -->
-            <TextBlock Canvas.Left="120" Canvas.Top="350" FontFamily="Helvetica Neue" FontSize="5.5" 
+            <TextBlock Canvas.Left="115" Canvas.Top="286" FontFamily="Helvetica Neue" FontSize="5.5" 
                        Foreground="#BFBFBF" FontWeight="Light" TextAlignment="Center">
                 <Run>M</Run><Run Text=" "/><Run>o</Run><Run Text=" "/><Run>d</Run><Run Text=" "/><Run>e</Run><Run Text=" "/><Run>l</Run><Run>:</Run><Run Text="  "/><Run>T</Run><Run Text=" "/><Run>C</Run><Run>-</Run><Run>2</Run><Run Text=" "/><Run>0</Run><Run Text=" "/><Run>0</Run><Run Text=" "/><Run>0</Run>
             </TextBlock>
@@ -477,7 +477,7 @@
             <!-- 选择边框 -->
             <Border x:Name="SelectionBorder"
                     Canvas.Left="0" Canvas.Top="0" 
-                    Width="240" Height="360" 
+                    Width="230" Height="300" 
                     CornerRadius="10"
                     BorderBrush="#2196F3" BorderThickness="2"
                     Visibility="Collapsed"
@@ -500,7 +500,7 @@
             <!-- 加载覆盖层 -->
             <Border x:Name="LoadingOverlay"
                     Canvas.Left="0" Canvas.Top="0"
-                    Width="240" Height="360"
+                    Width="230" Height="300"
                     CornerRadius="10"
                     Background="#95FFFFFF"
                     Visibility="Collapsed"
