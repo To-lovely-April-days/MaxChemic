@@ -154,3 +154,37 @@ public class VoiceCreateDeviceEventArgs
 public class VoiceCreateDeviceEvent : PubSubEvent<VoiceCreateDeviceEventArgs>
 {
 }
+/// <summary>
+/// 语音设置设备参数事件参数
+/// </summary>
+public class VoiceSetParameterEventArgs
+{
+    public string DeviceType { get; set; }      // 设备类型 (柱塞泵、流量计等)
+    public string ParameterName { get; set; }   // 参数名称 (TargetSpeed、TargetFlow等)
+    public double ParameterValue { get; set; }  // 参数值
+    public string Command { get; set; }         // 原始语音命令
+    public DateTime Timestamp { get; set; }
+}
+
+/// <summary>
+/// 语音控制设备状态事件参数
+/// </summary>
+public class VoiceControlStateEventArgs
+{
+    public string DeviceType { get; set; }      // 设备类型
+    public bool TargetState { get; set; }       // 目标状态 (true=启动/打开, false=停止/关闭)
+    public string Command { get; set; }         // 原始语音命令
+    public DateTime Timestamp { get; set; }
+}
+
+
+
+/// <summary>
+/// 语音设置设备参数事件
+/// </summary>
+public class VoiceSetDeviceParameterEvent : PubSubEvent<VoiceSetParameterEventArgs> { }
+
+/// <summary>
+/// 语音控制设备状态事件
+/// </summary>
+public class VoiceControlDeviceStateEvent : PubSubEvent<VoiceControlStateEventArgs> { }

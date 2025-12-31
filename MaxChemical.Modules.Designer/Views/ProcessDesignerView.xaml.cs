@@ -1197,6 +1197,9 @@ namespace MaxChemical.Modules.Designer.Views
             UnsubscribeFromPipeToolboxEvents(); //  新增
                                                 //  新增: 取消订阅语音助手事件
             _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Unsubscribe(OnVoiceCreateDevice);
+            // ========== 新增：取消订阅新事件 ==========
+            _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Unsubscribe(OnVoiceSetDeviceParameter);
+            _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Unsubscribe(OnVoiceControlDeviceState);
             //  新增:取消订阅监控卡片更新
             _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Unsubscribe(OnMonitoringCardUpdate);
             //  新增：停止布局更新定时器
@@ -10291,7 +10294,15 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Subscribe(
                 OnVoiceCreateDevice,
                 ThreadOption.UIThread);
+            // ========== 新增：设置参数事件 ==========
+            _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Subscribe(
+                OnVoiceSetDeviceParameter,
+                ThreadOption.UIThread);
 
+            // ========== 新增：控制状态事件 ==========
+            _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Subscribe(
+                OnVoiceControlDeviceState,
+                ThreadOption.UIThread);
             Debug.WriteLine(" 语音助手事件已订阅");
         }
 
@@ -10311,30 +10322,640 @@ namespace MaxChemical.Modules.Designer.Views
                 var device = FindDeviceByName(args.DeviceName);
                 if (device == null)
                 {
-                    Debug.WriteLine($" 未找到设备: {args.DeviceName}");
+                    Debug.WriteLine($"❌ 未找到设备: {args.DeviceName}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                         $"未找到 {args.DeviceName}");
                     return;
                 }
 
-                // 2. 计算放置位置（画布中心）
-                var dropPosition = CalculateCenterPosition();
+                // 2. 计算放置位置（智能避让）
+                var dropPosition = CalculateSmartPosition();
 
                 // 3. 创建设备
                 CreateDeviceFromVoiceCommand(device, dropPosition);
 
-                Debug.WriteLine($" 语音创建设备成功: {args.DeviceName}");
+                Debug.WriteLine($"✅ 语音创建设备成功: {args.DeviceName}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"已创建 {args.DeviceName}");
+                    $"✅ 已创建 {args.DeviceName}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($" 语音创建设备失败: {ex.Message}");
+                Debug.WriteLine($"❌ 语音创建设备失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     "创建设备失败");
             }
         }
+        // ========== 新增：智能计算位置（避免重叠）==========
+        private Point CalculateSmartPosition()
+        {
+            try
+            {
+                var canvasWidth = DesignCanvas.ActualWidth > 0 ? DesignCanvas.ActualWidth : 1200;
+                var canvasHeight = DesignCanvas.ActualHeight > 0 ? DesignCanvas.ActualHeight : 800;
 
+                // 策略1：如果画布为空，放在中心
+                if (_viewModel?.CanvasDevices?.Count == 0)
+                {
+                    Debug.WriteLine("📍 画布为空，放置在中心位置");
+                    return new Point(canvasWidth / 2, canvasHeight / 2);
+                }
+
+                // 策略2：尝试在中心附近螺旋查找空位
+                var centerPosition = new Point(canvasWidth / 2, canvasHeight / 2);
+                var emptyPosition = FindEmptyPositionSpiral(centerPosition);
+
+                if (emptyPosition != null)
+                {
+                    Debug.WriteLine($"📍 找到空位: ({emptyPosition.Value.X:F0}, {emptyPosition.Value.Y:F0})");
+                    return emptyPosition.Value;
+                }
+
+                // 策略3：如果中心附近都满了，随机放置在边缘区域
+                var edgePosition = FindEmptyPositionInEdgeArea();
+                Debug.WriteLine($"📍 使用边缘位置: ({edgePosition.X:F0}, {edgePosition.Y:F0})");
+
+                return edgePosition;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 计算位置失败: {ex.Message}");
+                // 降级方案：完全随机
+                var random = new Random();
+                return new Point(
+                    random.Next(100, (int)DesignCanvas.ActualWidth - 100),
+                    random.Next(100, (int)DesignCanvas.ActualHeight - 100)
+                );
+            }
+        }
+
+        // ========== 新增：螺旋查找空位 ==========
+        private Point? FindEmptyPositionSpiral(Point center, int maxRadius = 300, int step = 50)
+        {
+            try
+            {
+                const double deviceSpacing = 120.0; // 设备间最小间距
+
+                // 从内到外螺旋搜索
+                for (int radius = step; radius <= maxRadius; radius += step)
+                {
+                    // 每个半径上测试多个角度
+                    int angleSteps = Math.Max(8, radius / 20); // 半径越大，测试点越多
+
+                    for (int i = 0; i < angleSteps; i++)
+                    {
+                        double angle = (360.0 / angleSteps) * i;
+                        double radians = angle * Math.PI / 180.0;
+
+                        var testPosition = new Point(
+                            center.X + radius * Math.Cos(radians),
+                            center.Y + radius * Math.Sin(radians)
+                        );
+
+                        // 检查位置是否有效
+                        if (!IsValidDropPosition(testPosition))
+                        {
+                            continue;
+                        }
+
+                        // 检查是否与现有设备重叠
+                        if (!IsPositionOccupiedWithSpacing(testPosition, deviceSpacing))
+                        {
+                            Debug.WriteLine($"🎯 螺旋搜索找到空位: 半径={radius}, 角度={angle:F1}°");
+                            return testPosition;
+                        }
+                    }
+                }
+
+                Debug.WriteLine("⚠ 螺旋搜索未找到空位");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 螺旋搜索失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        // ========== 新增：在边缘区域查找空位 ==========
+        private Point FindEmptyPositionInEdgeArea()
+        {
+            try
+            {
+                var canvasWidth = DesignCanvas.ActualWidth > 0 ? DesignCanvas.ActualWidth : 1200;
+                var canvasHeight = DesignCanvas.ActualHeight > 0 ? DesignCanvas.ActualHeight : 800;
+                var random = new Random();
+
+                const int maxAttempts = 50;
+                const double edgeMargin = 100.0;
+                const double deviceSpacing = 120.0;
+
+                // 定义四个边缘区域
+                var edgeAreas = new[]
+                {
+            new { Name = "上边缘", MinX = edgeMargin, MaxX = canvasWidth - edgeMargin,
+                  MinY = edgeMargin, MaxY = canvasHeight * 0.25 },
+            new { Name = "下边缘", MinX = edgeMargin, MaxX = canvasWidth - edgeMargin,
+                  MinY = canvasHeight * 0.75, MaxY = canvasHeight - edgeMargin },
+            new { Name = "左边缘", MinX = edgeMargin, MaxX = canvasWidth * 0.25,
+                  MinY = edgeMargin, MaxY = canvasHeight - edgeMargin },
+            new { Name = "右边缘", MinX = canvasWidth * 0.75, MaxX = canvasWidth - edgeMargin,
+                  MinY = edgeMargin, MaxY = canvasHeight - edgeMargin }
+        };
+
+                // 随机尝试不同边缘区域
+                var shuffledAreas = edgeAreas.OrderBy(_ => random.Next()).ToArray();
+
+                foreach (var area in shuffledAreas)
+                {
+                    for (int attempt = 0; attempt < maxAttempts; attempt++)
+                    {
+                        var testPosition = new Point(
+                            random.Next((int)area.MinX, (int)area.MaxX),
+                            random.Next((int)area.MinY, (int)area.MaxY)
+                        );
+
+                        if (!IsPositionOccupiedWithSpacing(testPosition, deviceSpacing))
+                        {
+                            Debug.WriteLine($"🎯 在{area.Name}找到空位: ({testPosition.X:F0}, {testPosition.Y:F0})");
+                            return testPosition;
+                        }
+                    }
+                }
+
+                // 如果还是没找到，返回一个安全的随机位置
+                Debug.WriteLine("⚠ 边缘区域也满了，使用随机位置");
+                return new Point(
+                    random.Next(100, (int)canvasWidth - 100),
+                    random.Next(100, (int)canvasHeight - 100)
+                );
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 边缘位置查找失败: {ex.Message}");
+                var random = new Random();
+                return new Point(
+                    random.Next(100, 1100),
+                    random.Next(100, 700)
+                );
+            }
+        }
+
+        // ========== 新增：检查位置是否被占用（带间距）==========
+        private bool IsPositionOccupiedWithSpacing(Point position, double minSpacing = 100.0)
+        {
+            try
+            {
+                if (_viewModel?.CanvasDevices == null)
+                {
+                    return false;
+                }
+
+                foreach (var existingDevice in _viewModel.CanvasDevices)
+                {
+                    // 计算距离
+                    double dx = position.X - existingDevice.Position.X;
+                    double dy = position.Y - existingDevice.Position.Y;
+                    double distance = Math.Sqrt(dx * dx + dy * dy);
+
+                    if (distance < minSpacing)
+                    {
+                        // 位置太近，视为占用
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 检查位置占用失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ========== 新增：语音设置设备参数处理 ==========
+        private void OnVoiceSetDeviceParameter(VoiceSetParameterEventArgs args)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 语音设置设备参数 ==========");
+                Debug.WriteLine($"设备类型: {args.DeviceType}");
+                Debug.WriteLine($"参数名称: {args.ParameterName}");
+                Debug.WriteLine($"参数值: {args.ParameterValue}");
+                Debug.WriteLine($"语音命令: {args.Command}");
+
+                // 1. 查找画布上第一个匹配类型的设备
+                var targetDevice = FindDeviceByType(args.DeviceType);
+                if (targetDevice == null)
+                {
+                    Debug.WriteLine($"❌ 画布上没有 {args.DeviceType}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"画布上没有 {args.DeviceType}");
+                    return;
+                }
+
+                Debug.WriteLine($"✅ 找到目标设备: {targetDevice.DeviceId}");
+
+                // 2. 根据设备类型调用对应的设置方法
+                if (args.DeviceType == "柱塞泵")
+                {
+                    SetPumpParameter(targetDevice, args);
+                }
+                else if (args.DeviceType == "流量计")
+                {
+                    SetFlowMeterParameter(targetDevice, args);
+                }
+                else if (args.DeviceType == "换热器")
+                {
+                    SetHeatExchangerParameter(targetDevice, args);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 语音设置设备参数失败: {ex.Message}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("设置参数失败");
+            }
+        }
+
+        // ========== 新增：设置柱塞泵参数 ==========
+        private async void SetPumpParameter(CanvasDeviceViewModel canvasDevice, VoiceSetParameterEventArgs args)
+        {
+            try
+            {
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine("❌ 设备不支持UI交互");
+                    return;
+                }
+
+                // 查找柱塞泵控件
+                var deviceElement = FindDeviceElementInCanvas(canvasDevice.DeviceId);
+                var pumpControl = FindVisualChild<PistonPumpControl>(deviceElement);
+
+                if (pumpControl == null)
+                {
+                    Debug.WriteLine("❌ 未找到柱塞泵控件");
+                    return;
+                }
+
+                // 显示加载动画
+                pumpControl.ShowLoading();
+                
+                // 构造参数字典
+                var parameters = new Dictionary<string, object>
+                {
+                    [args.ParameterName] = args.ParameterValue
+                };
+                pumpControl.PumpSpeed = (int)args.ParameterValue;
+                Debug.WriteLine($"📤 调用设备命令: 设置泵速, 参数={args.ParameterValue}");
+
+                // 调用设备驱动
+                var result = await uiInteraction.ExecuteUICommandAsync("设置泵速", parameters);
+                
+                pumpControl.HideLoading();
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($"✅ 参数设置成功");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ 柱塞泵流量已设置为 {args.ParameterValue}");
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ 参数设置失败: {result.Message}");
+                    pumpControl.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ 设置失败: {result.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 设置柱塞泵参数失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：设置流量计参数 ==========
+        private async void SetFlowMeterParameter(CanvasDeviceViewModel canvasDevice, VoiceSetParameterEventArgs args)
+        {
+            try
+            {
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine("❌ 设备不支持UI交互");
+                    return;
+                }
+
+                var deviceElement = FindDeviceElementInCanvas(canvasDevice.DeviceId);
+                var meterControl = FindVisualChild<MassFlowMeterControl>(deviceElement);
+
+                if (meterControl == null)
+                {
+                    Debug.WriteLine("❌ 未找到流量计控件");
+                    return;
+                }
+
+                meterControl.ShowLoading();
+
+                // 获取当前密度
+                double density = 1.0;
+                var currentState = uiInteraction.GetCurrentState();
+                if (currentState?.States?.ContainsKey("Density") == true)
+                {
+                    density = Convert.ToDouble(currentState.States["Density"]);
+                }
+
+                var parameters = new Dictionary<string, object>
+                {
+                    ["TargetFlow"] = args.ParameterValue,
+                    ["Density"] = density,
+                    ["EnableAutoControl"] = true
+                };
+
+                var result = await uiInteraction.ExecuteUICommandAsync("设置基准流量", parameters);
+
+                meterControl.HideLoading();
+
+                if (result.Success)
+                {
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ 流量计目标流量已设置为 {args.ParameterValue}");
+                }
+                else
+                {
+                    meterControl.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ 设置失败: {result.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 设置流量计参数失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：设置换热器参数 ==========
+        private async void SetHeatExchangerParameter(CanvasDeviceViewModel canvasDevice, VoiceSetParameterEventArgs args)
+        {
+            try
+            {
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine("❌ 设备不支持UI交互");
+                    return;
+                }
+
+                var deviceElement = FindDeviceElementInCanvas(canvasDevice.DeviceId);
+                var exchangerControl = FindVisualChild<HeatExchangerControl>(deviceElement);
+
+                if (exchangerControl == null)
+                {
+                    Debug.WriteLine("❌ 未找到换热器控件");
+                    return;
+                }
+
+                var parameters = new Dictionary<string, object>
+                {
+                    [args.ParameterName] = args.ParameterValue
+                };
+
+                // 假设换热器有 "设置温度" 命令
+                var result = await uiInteraction.ExecuteUICommandAsync("设置温度", parameters);
+
+                if (result.Success)
+                {
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"✅ 换热器温度已设置为 {args.ParameterValue}°C");
+                }
+                else
+                {
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"❌ 设置失败: {result.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 设置换热器参数失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：语音控制设备状态 ==========
+        private void OnVoiceControlDeviceState(VoiceControlStateEventArgs args)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 语音控制设备状态 ==========");
+                Debug.WriteLine($"设备类型: {args.DeviceType}");
+                Debug.WriteLine($"目标状态: {args.TargetState}");
+
+                var targetDevice = FindDeviceByType(args.DeviceType);
+                if (targetDevice == null)
+                {
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"画布上没有 {args.DeviceType}");
+                    return;
+                }
+
+                if (args.DeviceType == "柱塞泵")
+                {
+                    ControlPumpState(targetDevice, args.TargetState);
+                }
+                else if (args.DeviceType == "电磁阀")
+                {
+                    ControlSolenoidValveState(targetDevice, args.TargetState);
+                }
+                else if (args.DeviceType == "流量计")
+                {
+                    ControlFlowMeterState(targetDevice, args.TargetState);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 语音控制设备状态失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：控制柱塞泵状态 ==========
+        private async void ControlPumpState(CanvasDeviceViewModel canvasDevice, bool targetState)
+        {
+            try
+            {
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    return;
+                }
+
+                var deviceElement = FindDeviceElementInCanvas(canvasDevice.DeviceId);
+                var pumpControl = FindVisualChild<PistonPumpControl>(deviceElement);
+
+                if (pumpControl != null)
+                {
+                    pumpControl.ShowLoading();
+
+                    string commandName = targetState ? "启动泵" : "停止泵";
+                    var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                    pumpControl.HideLoading();
+
+                    if (result.Success)
+                    {
+                        pumpControl.IsRunning = targetState;
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"✅ 柱塞泵已{(targetState ? "启动" : "停止")}");
+                    }
+                    else
+                    {
+                        pumpControl.ShowOperationFailure();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 控制柱塞泵状态失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：控制电磁阀状态 ==========
+        private async void ControlSolenoidValveState(CanvasDeviceViewModel canvasDevice, bool targetState)
+        {
+            try
+            {
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    return;
+                }
+
+                var deviceElement = FindDeviceElementInCanvas(canvasDevice.DeviceId);
+                var solenoidValve = FindVisualChild<SolenoidValveControl>(deviceElement);
+
+                if (solenoidValve != null)
+                {
+                    solenoidValve.ShowLoading();
+
+                    string commandName = targetState ? "打开电磁阀" : "关闭电磁阀";
+                    var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                    solenoidValve.HideLoading();
+
+                    if (result.Success)
+                    {
+                        solenoidValve.IsOpen = targetState;
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"✅ 电磁阀已{(targetState ? "打开" : "关闭")}");
+                    }
+                    else
+                    {
+                        solenoidValve.ShowOperationFailure();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 控制电磁阀状态失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：控制流量计状态 ==========
+        private async void ControlFlowMeterState(CanvasDeviceViewModel canvasDevice, bool targetState)
+        {
+            try
+            {
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    return;
+                }
+
+                var deviceElement = FindDeviceElementInCanvas(canvasDevice.DeviceId);
+                var meterControl = FindVisualChild<MassFlowMeterControl>(deviceElement);
+
+                if (meterControl != null)
+                {
+                    meterControl.ShowLoading();
+
+                    string commandName;
+                    Dictionary<string, object> parameters = null;
+
+                    if (targetState)
+                    {
+                        commandName = "设置基准流量";
+                        parameters = new Dictionary<string, object>
+                        {
+                            ["TargetFlow"] = meterControl.TargetFlow,
+                            ["Density"] = 1.0,
+                            ["EnableAutoControl"] = true
+                        };
+                    }
+                    else
+                    {
+                        commandName = "停止流量控制";
+                    }
+
+                    var result = await uiInteraction.ExecuteUICommandAsync(commandName, parameters);
+
+                    meterControl.HideLoading();
+
+                    if (result.Success)
+                    {
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                            $"✅ 流量计已{(targetState ? "启动" : "停止")}");
+                    }
+                    else
+                    {
+                        meterControl.ShowOperationFailure();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 控制流量计状态失败: {ex.Message}");
+            }
+        }
+
+        // ========== 新增：根据设备类型查找设备 ==========
+        private CanvasDeviceViewModel FindDeviceByType(string deviceType)
+        {
+            try
+            {
+                // 支持模糊匹配
+                var keywords = new Dictionary<string, string[]>
+                {
+                    ["柱塞泵"] = new[] { "柱塞泵", "Piston", "Pump" },
+                    ["流量计"] = new[] { "流量计", "FlowMeter", "Flow" },
+                    ["电磁阀"] = new[] { "电磁阀", "Solenoid", "Valve" },
+                    ["换热器"] = new[] { "换热器", "HeatExchanger", "Exchanger" }
+                };
+
+                if (!keywords.TryGetValue(deviceType, out var searchKeys))
+                {
+                    searchKeys = new[] { deviceType };
+                }
+
+                // 先尝试精确匹配
+                var exactMatch = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                    searchKeys.Any(key => d.Device?.Name?.Contains(key) == true));
+
+                if (exactMatch != null)
+                {
+                    Debug.WriteLine($"✅ 精确匹配到设备: {exactMatch.Device.Name}");
+                    return exactMatch;
+                }
+
+                // 尝试类型名称匹配
+                var typeMatch = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                    searchKeys.Any(key => d.Device?.GetType().Name.Contains(key) == true));
+
+                if (typeMatch != null)
+                {
+                    Debug.WriteLine($"✅ 类型匹配到设备: {typeMatch.Device.GetType().Name}");
+                }
+
+                return typeMatch;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 查找设备失败: {ex.Message}");
+                return null;
+            }
+        }
         /// <summary>
         /// 根据名称查找设备
         /// </summary>
@@ -10369,9 +10990,11 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        // ========== 保留原有方法（用于向后兼容）==========
         /// <summary>
-        /// 计算画布中心位置
+        /// 计算画布中心位置（已废弃，保留用于兼容）
         /// </summary>
+        [Obsolete("请使用 CalculateSmartPosition() 代替")]
         private Point CalculateCenterPosition()
         {
             var canvasWidth = DesignCanvas.ActualWidth > 0 ? DesignCanvas.ActualWidth : 1200;
@@ -10387,6 +11010,7 @@ namespace MaxChemical.Modules.Designer.Views
                 canvasHeight / 2 + offsetY
             );
         }
+
 
         /// <summary>
         /// 从语音命令创建设备
@@ -10435,38 +11059,62 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 查找附近的空位置
+        /// 查找附近的空位置（优化版）
         /// </summary>
         private Point FindNearbyEmptyPosition(Point originalPosition)
         {
-            const int searchRadius = 100;
-            const int step = 20;
-            var random = new Random();
+            const int maxRadius = 200;       // 最大搜索半径
+            const int radiusStep = 30;       // 半径步进
+            const double minSpacing = 120.0; // 最小间距
 
-            for (int radius = step; radius <= searchRadius; radius += step)
+            try
             {
-                for (int angle = 0; angle < 360; angle += 45)
+                // 先尝试螺旋搜索
+                var spiralPosition = FindEmptyPositionSpiral(originalPosition, maxRadius, radiusStep);
+                if (spiralPosition != null)
                 {
-                    var radians = angle * Math.PI / 180;
-                    var testPosition = new Point(
-                        originalPosition.X + radius * Math.Cos(radians),
-                        originalPosition.Y + radius * Math.Sin(radians)
-                    );
+                    return spiralPosition.Value;
+                }
 
-                    if (!IsPositionOccupied(testPosition) && IsValidDropPosition(testPosition))
+                // 如果螺旋搜索失败，使用网格搜索
+                Debug.WriteLine("⚠ 螺旋搜索失败，尝试网格搜索");
+
+                for (int radius = radiusStep; radius <= maxRadius; radius += radiusStep)
+                {
+                    for (int angle = 0; angle < 360; angle += 45)
                     {
-                        Debug.WriteLine($"找到空位置: ({testPosition.X:F0}, {testPosition.Y:F0})");
-                        return testPosition;
+                        var radians = angle * Math.PI / 180;
+                        var testPosition = new Point(
+                            originalPosition.X + radius * Math.Cos(radians),
+                            originalPosition.Y + radius * Math.Sin(radians)
+                        );
+
+                        if (!IsPositionOccupiedWithSpacing(testPosition, minSpacing) &&
+                            IsValidDropPosition(testPosition))
+                        {
+                            Debug.WriteLine($"🎯 网格搜索找到空位: ({testPosition.X:F0}, {testPosition.Y:F0})");
+                            return testPosition;
+                        }
                     }
                 }
-            }
 
-            // 如果没找到，返回随机偏移的位置
-            return new Point(
-                originalPosition.X + random.Next(-100, 100),
-                originalPosition.Y + random.Next(-100, 100)
-            );
+                // 如果还是没找到，使用边缘区域
+                Debug.WriteLine("⚠ 网格搜索也失败，使用边缘区域");
+                return FindEmptyPositionInEdgeArea();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ 查找附近空位置失败: {ex.Message}");
+
+                // 最终降级方案：完全随机
+                var random = new Random();
+                return new Point(
+                    originalPosition.X + random.Next(-200, 200),
+                    originalPosition.Y + random.Next(-200, 200)
+                );
+            }
         }
+
 
         #endregion
     }

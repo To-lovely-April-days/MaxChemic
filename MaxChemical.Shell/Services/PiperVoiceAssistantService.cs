@@ -159,7 +159,43 @@ namespace MaxChemical.Shell.Services
             choices.Add("取消静音");
             choices.Add("休眠");
             choices.Add("再见");
+            // 设备创建命令
             choices.Add("创建一个柱塞泵");
+            choices.Add("创建一个流量计");
+            choices.Add("创建一个电磁阀");
+
+            // ========== 新增：参数设置命令 ==========
+            // 柱塞泵参数设置
+            choices.Add("设置柱塞泵流量为10");
+            choices.Add("设置柱塞泵流量为20");
+            choices.Add("设置柱塞泵流量为30");
+            choices.Add("设置柱塞泵流量为50");
+            choices.Add("设置柱塞泵流量为100");
+
+            choices.Add("设置柱塞泵速度为10");
+            choices.Add("设置柱塞泵速度为20");
+            choices.Add("设置柱塞泵速度为30");
+            choices.Add("设置柱塞泵速度为50");
+            choices.Add("设置柱塞泵速度为100");
+
+            // 流量计参数设置
+            choices.Add("设置流量计目标流量为10");
+            choices.Add("设置流量计目标流量为20");
+            choices.Add("设置流量计目标流量为30");
+            choices.Add("设置流量计目标流量为50");
+
+            // 换热器参数设置
+            choices.Add("设置换热器温度为50");
+            choices.Add("设置换热器温度为80");
+            choices.Add("设置换热器温度为100");
+
+            // 设备状态控制
+            choices.Add("启动柱塞泵");
+            choices.Add("停止柱塞泵");
+            choices.Add("打开电磁阀");
+            choices.Add("关闭电磁阀");
+            choices.Add("启动流量计");
+            choices.Add("停止流量计");
             var gb = new GrammarBuilder();
             gb.Append(choices);
 
@@ -272,14 +308,53 @@ namespace MaxChemical.Shell.Services
             ResetAutoSleepTimer();
             CommandRecognized?.Invoke(this, command);
 
-            //  检查是否是创建设备命令
+            // ========== 新增：设备创建命令处理 ==========
             if (command.Contains("创建") && command.Contains("柱塞泵"))
             {
                 HandleCreateDeviceCommand("柱塞泵");
                 return;
             }
 
-            // 检查是否是特定命令
+            if (command.Contains("创建") && command.Contains("流量计"))
+            {
+                HandleCreateDeviceCommand("流量计");
+                return;
+            }
+
+            if (command.Contains("创建") && command.Contains("电磁阀"))
+            {
+                HandleCreateDeviceCommand("电磁阀");
+                return;
+            }
+
+            // ========== 新增：参数设置命令处理 ==========
+            if (command.Contains("设置") && command.Contains("柱塞泵"))
+            {
+                HandlePumpParameterCommand(command);
+                return;
+            }
+
+            if (command.Contains("设置") && command.Contains("流量计"))
+            {
+                HandleFlowMeterParameterCommand(command);
+                return;
+            }
+
+            if (command.Contains("设置") && command.Contains("换热器"))
+            {
+                HandleHeatExchangerParameterCommand(command);
+                return;
+            }
+
+            // ========== 新增：设备状态控制命令 ==========
+            if (command.Contains("启动") || command.Contains("停止") ||
+                command.Contains("打开") || command.Contains("关闭"))
+            {
+                HandleDeviceStateControlCommand(command);
+                return;
+            }
+
+            // 原有的特定命令处理
             if (IsSpecificCommand(command))
             {
                 string response = GetCommandResponse(command);
@@ -299,10 +374,11 @@ namespace MaxChemical.Shell.Services
             else
             {
                 // 非特定命令，重复用户说的话
-                _logger.LogInformation($" 复述用户指令: {command}");
+                _logger.LogInformation($"🔁 复述用户指令: {command}");
                 SpeakAsync($"您说的是:{command}");
             }
         }
+
 
         /// <summary>
         /// 处理创建设备命令
@@ -328,6 +404,235 @@ namespace MaxChemical.Shell.Services
             {
                 _logger.LogError($" 处理创建设备命令失败: {ex.Message}");
                 SpeakAsync("创建设备失败,请稍后重试");
+            }
+        }
+
+        // ========== 新增：柱塞泵参数设置处理 ==========
+        private void HandlePumpParameterCommand(string command)
+        {
+            try
+            {
+                _logger.LogInformation($"🎛 处理柱塞泵参数命令: {command}");
+
+                // 提取参数值
+                double? parameterValue = ExtractNumberFromCommand(command);
+                if (parameterValue == null)
+                {
+                    SpeakAsync("未能识别参数值");
+                    return;
+                }
+
+                string parameterName;
+                string parameterType;
+
+                if (command.Contains("流量"))
+                {
+                    parameterName = "TargetSpeed"; // 柱塞泵的参数名
+                    parameterType = "流量";
+                }
+                else if (command.Contains("速度"))
+                {
+                    parameterName = "TargetSpeed";
+                    parameterType = "速度";
+                }
+                else
+                {
+                    SpeakAsync("未能识别参数类型");
+                    return;
+                }
+
+                // 发布设置参数事件
+                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(new VoiceSetParameterEventArgs
+                {
+                    DeviceType = "柱塞泵",
+                    ParameterName = parameterName,
+                    ParameterValue = parameterValue.Value,
+                    Command = command,
+                    Timestamp = DateTime.Now
+                });
+
+                SpeakAsync($"好的,正在设置柱塞泵{parameterType}为{parameterValue.Value}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 处理柱塞泵参数命令失败: {ex.Message}");
+                SpeakAsync("设置参数失败");
+            }
+        }
+
+        // ========== 新增:流量计参数设置处理 ==========
+        private void HandleFlowMeterParameterCommand(string command)
+        {
+            try
+            {
+                _logger.LogInformation($"🎛 处理流量计参数命令: {command}");
+
+                double? targetFlow = ExtractNumberFromCommand(command);
+                if (targetFlow == null)
+                {
+                    SpeakAsync("未能识别流量值");
+                    return;
+                }
+
+                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(new VoiceSetParameterEventArgs
+                {
+                    DeviceType = "流量计",
+                    ParameterName = "TargetFlow",
+                    ParameterValue = targetFlow.Value,
+                    Command = command,
+                    Timestamp = DateTime.Now
+                });
+
+                SpeakAsync($"好的,正在设置流量计目标流量为{targetFlow.Value}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 处理流量计参数命令失败: {ex.Message}");
+                SpeakAsync("设置参数失败");
+            }
+        }
+
+        // ========== 新增:换热器参数设置处理 ==========
+        private void HandleHeatExchangerParameterCommand(string command)
+        {
+            try
+            {
+                _logger.LogInformation($"🎛 处理换热器参数命令: {command}");
+
+                double? temperature = ExtractNumberFromCommand(command);
+                if (temperature == null)
+                {
+                    SpeakAsync("未能识别温度值");
+                    return;
+                }
+
+                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(new VoiceSetParameterEventArgs
+                {
+                    DeviceType = "换热器",
+                    ParameterName = "TargetTemperature",
+                    ParameterValue = temperature.Value,
+                    Command = command,
+                    Timestamp = DateTime.Now
+                });
+
+                SpeakAsync($"好的,正在设置换热器温度为{temperature.Value}度");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 处理换热器参数命令失败: {ex.Message}");
+                SpeakAsync("设置参数失败");
+            }
+        }
+
+        // ========== 新增:设备状态控制命令处理 ==========
+        private void HandleDeviceStateControlCommand(string command)
+        {
+            try
+            {
+                _logger.LogInformation($"🎛 处理设备状态控制命令: {command}");
+
+                string deviceType = null;
+                bool targetState = false;
+
+                // 识别设备类型
+                if (command.Contains("柱塞泵"))
+                {
+                    deviceType = "柱塞泵";
+                    targetState = command.Contains("启动");
+                }
+                else if (command.Contains("电磁阀"))
+                {
+                    deviceType = "电磁阀";
+                    targetState = command.Contains("打开");
+                }
+                else if (command.Contains("流量计"))
+                {
+                    deviceType = "流量计";
+                    targetState = command.Contains("启动");
+                }
+                else
+                {
+                    SpeakAsync("未能识别设备类型");
+                    return;
+                }
+
+                // 发布状态控制事件
+                _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Publish(new VoiceControlStateEventArgs
+                {
+                    DeviceType = deviceType,
+                    TargetState = targetState,
+                    Command = command,
+                    Timestamp = DateTime.Now
+                });
+
+                string action = targetState ? "启动" : "停止";
+                if (deviceType == "电磁阀")
+                {
+                    action = targetState ? "打开" : "关闭";
+                }
+
+                SpeakAsync($"好的,正在{action}{deviceType}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 处理设备状态控制命令失败: {ex.Message}");
+                SpeakAsync("操作失败");
+            }
+        }
+
+        // ========== 新增:从命令中提取数字 ==========
+        private double? ExtractNumberFromCommand(string command)
+        {
+            try
+            {
+                // 支持中文数字和阿拉伯数字
+                var chineseNumbers = new Dictionary<char, int>
+        {
+            {'零', 0}, {'一', 1}, {'二', 2}, {'三', 3}, {'四', 4},
+            {'五', 5}, {'六', 6}, {'七', 7}, {'八', 8}, {'九', 9},
+            {'十', 10}, {'百', 100}, {'千', 1000}
+        };
+
+                // 先尝试提取阿拉伯数字
+                var numberMatch = System.Text.RegularExpressions.Regex.Match(command, @"\d+\.?\d*");
+                if (numberMatch.Success)
+                {
+                    if (double.TryParse(numberMatch.Value, out double value))
+                    {
+                        _logger.LogInformation($"✅ 提取到数字: {value}");
+                        return value;
+                    }
+                }
+
+                // 尝试解析中文数字 (简单实现)
+                if (command.Contains("十"))
+                {
+                    // 处理 "二十"、"三十" 等
+                    for (int i = 2; i <= 9; i++)
+                    {
+                        var chineseDigit = chineseNumbers.First(kv => kv.Value == i).Key;
+                        if (command.Contains($"{chineseDigit}十"))
+                        {
+                            _logger.LogInformation($"✅ 提取到中文数字: {i * 10}");
+                            return i * 10.0;
+                        }
+                    }
+
+                    // 处理 "十" (10)
+                    if (command.Contains("十") && !command.Contains("百"))
+                    {
+                        _logger.LogInformation($"✅ 提取到中文数字: 10");
+                        return 10.0;
+                    }
+                }
+
+                _logger.LogWarning($"⚠ 无法从命令中提取数字: {command}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 提取数字失败: {ex.Message}");
+                return null;
             }
         }
         private bool IsSpecificCommand(string command)

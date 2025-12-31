@@ -14,7 +14,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Edge_tts_sharp" Version="1.1.5" />
+		<PackageReference Include="edge-tts-net" Version="1.0.2" />
 		<PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.38.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />

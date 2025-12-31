@@ -191,8 +191,8 @@ namespace TemperatureCirculator_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/TemperatureCirculator.png";
-
+            //ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/TemperatureCirculator.png";
+            ImageLocation = "CUSTOM_CONTROL:TemperatureControlSystemControl";
             Parameters.Variables.Add(new StringParameter("DeviceId", "TC0101")
             {
                 Options = new ObservableCollection<string>(new List<string>()
