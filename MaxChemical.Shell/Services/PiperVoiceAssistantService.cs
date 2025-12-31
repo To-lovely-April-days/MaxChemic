@@ -1,7 +1,9 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Speech.Recognition;
+using System.IO;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Logging;
 using MaxChemical.Shell.Models;
@@ -10,19 +12,25 @@ using Prism.Events;
 
 namespace MaxChemical.Shell.Services
 {
+    /// <summary>
+    /// 基于阿里云的语音助手服务
+    /// </summary>
     public class PiperVoiceAssistantService : IVoiceAssistantService, IDisposable
     {
         private readonly ILogService _logger;
         private readonly IEventAggregator _eventAggregator;
         private readonly IConfiguration _configuration;
         private readonly ITtsEngine _ttsEngine;
+        private readonly OllamaLlmService _llmService;
+        private readonly AliyunRealtimeAsrEngine _aliyunEngine;  // ← 改为阿里云引擎
 
-        private SpeechRecognitionEngine? _recognizer;
         private bool _isListening;
         private bool _isAwake;
         private bool _isSpeechEnabled = true;
         private Timer? _autoSleepTimer;
         private readonly int _autoSleepSeconds = 30;
+
+        private CancellationTokenSource? _recognitionCts;
 
         public bool IsListening => _isListening;
 
@@ -44,10 +52,11 @@ namespace MaxChemical.Shell.Services
             _eventAggregator = eventAggregator;
             _configuration = configuration;
 
-            // 🎯 根据配置创建TTS引擎
+            _llmService = new OllamaLlmService(_logger);
             _ttsEngine = CreateTtsEngine();
+            _aliyunEngine = new AliyunRealtimeAsrEngine(_logger, _configuration);  // ← 改为阿里云引擎
 
-            InitializeRecognizer();
+            InitializeAliyunAsr();  // ← 改为阿里云初始化
         }
 
         private ITtsEngine CreateTtsEngine()
@@ -55,7 +64,7 @@ namespace MaxChemical.Shell.Services
             var voiceSettings = _configuration.GetSection("VoiceSettings").Get<VoiceSettings>()
                                ?? new VoiceSettings();
 
-            _logger.LogInformation($"🎤 配置的TTS提供商: {voiceSettings.TtsProvider}");
+            _logger.LogInformation($"配置的TTS提供商: {voiceSettings.TtsProvider}");
 
             ITtsEngine engine = voiceSettings.TtsProvider.ToLower() switch
             {
@@ -63,146 +72,61 @@ namespace MaxChemical.Shell.Services
                 "azure" => new AzureTtsEngine(_logger, voiceSettings.AzureTts),
                 "piper" => new PiperTtsEngine(_logger, voiceSettings.Piper),
                 "sherpa" => new SherpaOnnxTtsEngine(_logger, voiceSettings.SherpaOnnx),
-                _ => new SherpaOnnxTtsEngine(_logger, voiceSettings.SherpaOnnx) // 默认使用 Sherpa
+                _ => new SherpaOnnxTtsEngine(_logger, voiceSettings.SherpaOnnx)
             };
-
 
             if (!engine.IsAvailable)
             {
-                _logger.LogWarning($"⚠ {engine.EngineName} 不可用，尝试降级方案");
+                _logger.LogWarning($"{engine.EngineName} 不可用，尝试降级方案");
 
-                // 降级策略: Edge -> Piper -> Azure
                 if (voiceSettings.TtsProvider.ToLower() == "edge")
                 {
-                    _logger.LogInformation("🔄 切换到 Piper TTS");
+                    _logger.LogInformation("切换到 Piper TTS");
                     engine.Dispose();
                     engine = new PiperTtsEngine(_logger, voiceSettings.Piper);
 
                     if (!engine.IsAvailable)
                     {
-                        _logger.LogInformation("🔄 切换到 Azure TTS");
+                        _logger.LogInformation("切换到 Azure TTS");
                         engine.Dispose();
                         engine = new AzureTtsEngine(_logger, voiceSettings.AzureTts);
                     }
                 }
                 else if (voiceSettings.TtsProvider.ToLower() == "azure")
                 {
-                    _logger.LogInformation("🔄 切换到 Piper TTS");
+                    _logger.LogInformation("切换到 Piper TTS");
                     engine.Dispose();
                     engine = new PiperTtsEngine(_logger, voiceSettings.Piper);
                 }
             }
 
-            _logger.LogInformation($" 使用 TTS 引擎: {engine.EngineName}");
+            _logger.LogInformation($"使用 TTS 引擎: {engine.EngineName}");
             return engine;
         }
 
-        private void InitializeRecognizer()
+        // ← 改为阿里云初始化
+        private void InitializeAliyunAsr()
         {
             try
             {
-                _recognizer = new SpeechRecognitionEngine(new System.Globalization.CultureInfo("zh-CN"));
-
-                var wakeUpGrammar = CreateWakeUpGrammar();
-                _recognizer.LoadGrammar(wakeUpGrammar);
-
-                var commandGrammar = CreateCommandGrammar();
-                _recognizer.LoadGrammar(commandGrammar);
-
-                _recognizer.SetInputToDefaultAudioDevice();
-
-                _recognizer.SpeechRecognized += OnSpeechRecognized;
-                _recognizer.SpeechRecognitionRejected += OnSpeechRejected;
-                _recognizer.RecognizeCompleted += OnRecognizeCompleted;
-
-                _logger.LogInformation(" 语音识别引擎初始化成功");
+                _aliyunEngine.Initialize();
+                _aliyunEngine.TextRecognized += OnAliyunTextRecognized;  // ← 改事件名
+                _aliyunEngine.AudioLevelChanged += OnAudioLevelChanged;
+                _logger.LogInformation("阿里云语音识别引擎初始化成功");
             }
             catch (Exception ex)
             {
-                _logger.LogError($" 初始化语音识别引擎失败: {ex.Message}");
+                _logger.LogError($"初始化阿里云引擎失败: {ex.Message}");
                 throw;
             }
         }
 
-        private Grammar CreateWakeUpGrammar()
+        private void OnAudioLevelChanged(object? sender, AudioLevelEventArgs e)
         {
-            var choices = new Choices();
-            choices.Add("你好小桐");
-            choices.Add("小桐");
-            choices.Add("嘿小桐");
-
-            var gb = new GrammarBuilder();
-            gb.Append(choices);
-
-            var grammar = new Grammar(gb);
-            grammar.Name = "WakeUp";
-
-            return grammar;
-        }
-
-        private Grammar CreateCommandGrammar()
-        {
-            var choices = new Choices();
-            choices.Add("最大化窗口");
-            choices.Add("最小化窗口");
-            choices.Add("还原窗口");
-            choices.Add("关闭窗口");
-            choices.Add("打开首页");
-            choices.Add("打开设置");
-            choices.Add("返回");
-            choices.Add("退出登录");
-            choices.Add("切换语言");
-            choices.Add("现在几点");
-            choices.Add("今天星期几");
-            choices.Add("今天日期");
-            choices.Add("静音");
-            choices.Add("取消静音");
-            choices.Add("休眠");
-            choices.Add("再见");
-            // 设备创建命令
-            choices.Add("创建一个柱塞泵");
-            choices.Add("创建一个流量计");
-            choices.Add("创建一个电磁阀");
-
-            // ========== 新增：参数设置命令 ==========
-            // 柱塞泵参数设置
-            choices.Add("设置柱塞泵流量为10");
-            choices.Add("设置柱塞泵流量为20");
-            choices.Add("设置柱塞泵流量为30");
-            choices.Add("设置柱塞泵流量为50");
-            choices.Add("设置柱塞泵流量为100");
-
-            choices.Add("设置柱塞泵速度为10");
-            choices.Add("设置柱塞泵速度为20");
-            choices.Add("设置柱塞泵速度为30");
-            choices.Add("设置柱塞泵速度为50");
-            choices.Add("设置柱塞泵速度为100");
-
-            // 流量计参数设置
-            choices.Add("设置流量计目标流量为10");
-            choices.Add("设置流量计目标流量为20");
-            choices.Add("设置流量计目标流量为30");
-            choices.Add("设置流量计目标流量为50");
-
-            // 换热器参数设置
-            choices.Add("设置换热器温度为50");
-            choices.Add("设置换热器温度为80");
-            choices.Add("设置换热器温度为100");
-
-            // 设备状态控制
-            choices.Add("启动柱塞泵");
-            choices.Add("停止柱塞泵");
-            choices.Add("打开电磁阀");
-            choices.Add("关闭电磁阀");
-            choices.Add("启动流量计");
-            choices.Add("停止流量计");
-            var gb = new GrammarBuilder();
-            gb.Append(choices);
-
-            var grammar = new Grammar(gb);
-            grammar.Name = "Command";
-
-            return grammar;
+            if (e.Level > 0.01f)
+            {
+                _logger.LogDebug($"音频电平: {e.Level:F4}");
+            }
         }
 
         public void Start()
@@ -215,21 +139,20 @@ namespace MaxChemical.Shell.Services
 
             try
             {
-                if (_recognizer == null)
-                {
-                    throw new InvalidOperationException("语音识别引擎未初始化");
-                }
+                _recognitionCts = new CancellationTokenSource();
 
-                _recognizer.RecognizeAsync(RecognizeMode.Multiple);
+                // ← 改为阿里云引擎启动
+                Task.Run(async () => await _aliyunEngine.StartContinuousRecognitionAsync(_recognitionCts.Token));
+
                 _isListening = true;
                 _isAwake = false;
 
                 ListeningStateChanged?.Invoke(this, true);
-                _logger.LogInformation(" 语音助手已启动");
+                _logger.LogInformation("语音助手已启动（使用阿里云实时语音识别）");
             }
             catch (Exception ex)
             {
-                _logger.LogError($" 启动语音助手失败: {ex.Message}");
+                _logger.LogError($"启动语音助手失败: {ex.Message}");
                 throw;
             }
         }
@@ -244,7 +167,10 @@ namespace MaxChemical.Shell.Services
 
             try
             {
-                _recognizer?.RecognizeAsyncStop();
+                _recognitionCts?.Cancel();
+                _recognitionCts?.Dispose();
+                _recognitionCts = null;
+
                 _isListening = false;
                 _isAwake = false;
 
@@ -252,36 +178,97 @@ namespace MaxChemical.Shell.Services
                 StopSpeaking();
 
                 ListeningStateChanged?.Invoke(this, false);
-                _logger.LogInformation(" 语音助手已停止");
+                _logger.LogInformation("语音助手已停止");
             }
             catch (Exception ex)
             {
-                _logger.LogError($" 停止语音助手失败: {ex.Message}");
+                _logger.LogError($"停止语音助手失败: {ex.Message}");
             }
         }
 
-        private void OnSpeechRecognized(object? sender, SpeechRecognizedEventArgs e)
+        // ← 改事件处理器名称
+        private void OnAliyunTextRecognized(object? sender, WhisperTextRecognizedEventArgs e)
         {
-            var confidence = e.Result.Confidence;
-            var text = e.Result.Text;
-            var grammarName = e.Result.Grammar.Name;
+            var text = e.Text.Trim();
 
-            _logger.LogInformation($"🎤 识别: {text} (置信度: {confidence:P})");
+            _logger.LogInformation($"========================================");
+            _logger.LogInformation($"阿里云识别结果: {text}");
+            _logger.LogInformation($"置信度: {e.Confidence:P}");
+            _logger.LogInformation($"========================================");
 
-            if (confidence < 0.6)
+            if (string.IsNullOrWhiteSpace(text))
             {
-                _logger.LogWarning($"⚠ 置信度过低，忽略");
+                _logger.LogDebug("识别结果为空，忽略");
                 return;
             }
 
-            if (grammarName == "WakeUp")
+            if (ContainsWakeUpPhrase(text))
             {
                 HandleWakeUp(text);
+                return;
             }
-            else if (grammarName == "Command" && _isAwake)
+
+            if (_isAwake)
             {
-                HandleCommand(text);
+                Task.Run(async () => await HandleCommandAsync(text));
             }
+            else
+            {
+                _logger.LogInformation($"未唤醒状态，请先说唤醒词（如：小桐）");
+            }
+        }
+
+        private bool ContainsWakeUpPhrase(string text)
+        {
+            var wakeUpPhrases = new[]
+            {
+                // 基础唤醒词
+                "小桐", "小童", "小通", "晓桐", "晓童", "小彤", "晓彤",
+                
+                // 带问候语
+                "你好小桐", "嘿小桐", "喂小桐", "哎小桐",
+                "小桐你好", "小桐在吗", "小桐醒醒", "小桐帮忙",
+                
+                // 带称呼
+                "小桐助手", "小桐同学", "小桐老师", "桐桐", "桐宝",
+                
+                // 常见误识别
+                "消停", "小停", "小亭", "小婷", "晓停",
+                "消同", "肖桐", "萧桐",
+                
+                // 英文或混合
+                "hey桐", "hi小桐", "hello小桐",
+                
+                // 方言/口音变体
+                "小东", "小冬", "小同",
+                
+                // 紧急/强调
+                "小桐小桐", "快来小桐", "小桐快来",
+                "救命小桐", "帮帮忙小桐",
+                
+                // 简短指令型
+                "桐", "醒醒", "在吗", "听着",
+                
+                // 带动作
+                "小桐启动", "小桐开始", "小桐工作", "小桐听令",
+                
+                // 亲昵称呼
+                "桐宝宝", "小桐宝贝", "桐桐宝", "我的小桐",
+                
+                // 职能相关
+                "语音助手", "助手启动", "AI助手",
+                "智能助手", "开始工作", "开始服务"
+            };
+
+            bool found = wakeUpPhrases.Any(phrase =>
+                text.IndexOf(phrase, StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (found)
+            {
+                _logger.LogInformation($"✓ 检测到唤醒词: {text}");
+            }
+
+            return found;
         }
 
         private void HandleWakeUp(string text)
@@ -289,7 +276,7 @@ namespace MaxChemical.Shell.Services
             if (!_isAwake)
             {
                 _isAwake = true;
-                _logger.LogInformation($"语音助手已唤醒");
+                _logger.LogInformation("语音助手已唤醒");
                 CommandRecognized?.Invoke(this, "WAKE_UP");
                 SpeakAsync("我在");
                 StartAutoSleepTimer();
@@ -301,387 +288,236 @@ namespace MaxChemical.Shell.Services
             }
         }
 
-        private void HandleCommand(string command)
+        private async Task HandleCommandAsync(string text)
         {
-            _logger.LogInformation($"⚡ 执行命令: {command}");
+            _logger.LogInformation($"收到用户指令: {text}");
+            _logger.LogInformation("调用大模型进行意图理解...");
 
             ResetAutoSleepTimer();
-            CommandRecognized?.Invoke(this, command);
+            CommandRecognized?.Invoke(this, text);
 
-            // ========== 新增：设备创建命令处理 ==========
-            if (command.Contains("创建") && command.Contains("柱塞泵"))
+            var intent = await _llmService.UnderstandCommand(text);
+
+            if (intent == null || string.IsNullOrEmpty(intent.Action))
             {
-                HandleCreateDeviceCommand("柱塞泵");
+                _logger.LogWarning("大模型未能理解用户意图");
+                SpeakAsync("抱歉，我没听明白");
                 return;
             }
 
-            if (command.Contains("创建") && command.Contains("流量计"))
-            {
-                HandleCreateDeviceCommand("流量计");
-                return;
-            }
+            _logger.LogInformation($"意图识别成功: {intent.Action}");
 
-            if (command.Contains("创建") && command.Contains("电磁阀"))
+            switch (intent.Action)
             {
-                HandleCreateDeviceCommand("电磁阀");
-                return;
-            }
+                case "CreateDevice":
+                    HandleCreateDeviceIntent(intent);
+                    break;
 
-            // ========== 新增：参数设置命令处理 ==========
-            if (command.Contains("设置") && command.Contains("柱塞泵"))
-            {
-                HandlePumpParameterCommand(command);
-                return;
-            }
+                case "SetParameter":
+                    HandleSetParameterIntent(intent);
+                    break;
 
-            if (command.Contains("设置") && command.Contains("流量计"))
-            {
-                HandleFlowMeterParameterCommand(command);
-                return;
-            }
+                case "ControlState":
+                    HandleControlStateIntent(intent);
+                    break;
 
-            if (command.Contains("设置") && command.Contains("换热器"))
-            {
-                HandleHeatExchangerParameterCommand(command);
-                return;
-            }
+                case "SystemCommand":
+                    HandleSystemCommandIntent(intent);
+                    break;
 
-            // ========== 新增：设备状态控制命令 ==========
-            if (command.Contains("启动") || command.Contains("停止") ||
-                command.Contains("打开") || command.Contains("关闭"))
-            {
-                HandleDeviceStateControlCommand(command);
-                return;
-            }
+                case "Query":
+                    HandleQueryIntent(intent);
+                    break;
 
-            // 原有的特定命令处理
-            if (IsSpecificCommand(command))
-            {
-                string response = GetCommandResponse(command);
-                if (!string.IsNullOrEmpty(response))
-                {
-                    SpeakAsync(response);
-                }
+                case "Sleep":
+                    HandleSleepIntent();
+                    break;
 
-                if (command == "休眠" || command == "再见")
-                {
-                    _isAwake = false;
-                    StopAutoSleepTimer();
-                    CommandRecognized?.Invoke(this, "SLEEP");
-                    _logger.LogInformation("💤 语音助手已休眠");
-                }
-            }
-            else
-            {
-                // 非特定命令，重复用户说的话
-                _logger.LogInformation($"🔁 复述用户指令: {command}");
-                SpeakAsync($"您说的是:{command}");
+                case "Chat":
+                    HandleChatIntent(intent);
+                    break;
+
+                default:
+                    _logger.LogWarning($"未知的意图类型: {intent.Action}");
+                    SpeakAsync("抱歉，我还没学会这个操作");
+                    break;
             }
         }
 
-
-        /// <summary>
-        /// 处理创建设备命令
-        /// </summary>
-        private void HandleCreateDeviceCommand(string deviceName)
+        private void HandleCreateDeviceIntent(CommandIntent intent)
         {
             try
             {
-                _logger.LogInformation($"🎨 处理创建设备命令: {deviceName}");
+                _logger.LogInformation($"执行创建设备操作: {intent.DeviceType}");
 
-                // 发布创建设备事件
-                _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Publish(new VoiceCreateDeviceEventArgs
-                {
-                    DeviceName = deviceName,
-                    Command = $"创建一个{deviceName}",
-                    Timestamp = DateTime.Now
-                });
+                _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Publish(
+                    new VoiceCreateDeviceEventArgs
+                    {
+                        DeviceName = intent.DeviceType,
+                        Command = intent.RawCommand,
+                        Timestamp = DateTime.Now
+                    });
 
-                // 语音反馈
-                SpeakAsync($"正在为您创建{deviceName}");
+                SpeakAsync($"正在为您创建{intent.DeviceType}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($" 处理创建设备命令失败: {ex.Message}");
-                SpeakAsync("创建设备失败,请稍后重试");
+                _logger.LogError($"创建设备失败: {ex.Message}");
+                SpeakAsync("创建设备失败，请稍后重试");
             }
         }
 
-        // ========== 新增：柱塞泵参数设置处理 ==========
-        private void HandlePumpParameterCommand(string command)
+        private void HandleSetParameterIntent(CommandIntent intent)
         {
             try
             {
-                _logger.LogInformation($"🎛 处理柱塞泵参数命令: {command}");
-
-                // 提取参数值
-                double? parameterValue = ExtractNumberFromCommand(command);
-                if (parameterValue == null)
+                if (!intent.ParameterValue.HasValue)
                 {
                     SpeakAsync("未能识别参数值");
                     return;
                 }
 
-                string parameterName;
-                string parameterType;
+                _logger.LogInformation($"执行参数设置: {intent.DeviceType}.{intent.ParameterName} = {intent.ParameterValue}");
 
-                if (command.Contains("流量"))
-                {
-                    parameterName = "TargetSpeed"; // 柱塞泵的参数名
-                    parameterType = "流量";
-                }
-                else if (command.Contains("速度"))
-                {
-                    parameterName = "TargetSpeed";
-                    parameterType = "速度";
-                }
-                else
-                {
-                    SpeakAsync("未能识别参数类型");
-                    return;
-                }
+                string actualParamName = MapParameterName(intent.ParameterName, intent.DeviceType);
 
-                // 发布设置参数事件
-                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(new VoiceSetParameterEventArgs
-                {
-                    DeviceType = "柱塞泵",
-                    ParameterName = parameterName,
-                    ParameterValue = parameterValue.Value,
-                    Command = command,
-                    Timestamp = DateTime.Now
-                });
+                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(
+                    new VoiceSetParameterEventArgs
+                    {
+                        DeviceType = intent.DeviceType,
+                        ParameterName = actualParamName,
+                        ParameterValue = intent.ParameterValue.Value,
+                        Command = intent.RawCommand,
+                        Timestamp = DateTime.Now
+                    });
 
-                SpeakAsync($"好的,正在设置柱塞泵{parameterType}为{parameterValue.Value}");
+                SpeakAsync($"好的,正在设置{intent.DeviceType}{intent.ParameterName}为{intent.ParameterValue.Value}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 处理柱塞泵参数命令失败: {ex.Message}");
+                _logger.LogError($"设置参数失败: {ex.Message}");
                 SpeakAsync("设置参数失败");
             }
         }
 
-        // ========== 新增:流量计参数设置处理 ==========
-        private void HandleFlowMeterParameterCommand(string command)
+        private void HandleControlStateIntent(CommandIntent intent)
         {
             try
             {
-                _logger.LogInformation($"🎛 处理流量计参数命令: {command}");
-
-                double? targetFlow = ExtractNumberFromCommand(command);
-                if (targetFlow == null)
+                if (!intent.TargetState.HasValue)
                 {
-                    SpeakAsync("未能识别流量值");
+                    SpeakAsync("未能识别目标状态");
                     return;
                 }
 
-                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(new VoiceSetParameterEventArgs
-                {
-                    DeviceType = "流量计",
-                    ParameterName = "TargetFlow",
-                    ParameterValue = targetFlow.Value,
-                    Command = command,
-                    Timestamp = DateTime.Now
-                });
+                _logger.LogInformation($"执行状态控制: {intent.DeviceType} -> {(intent.TargetState.Value ? "开启" : "关闭")}");
 
-                SpeakAsync($"好的,正在设置流量计目标流量为{targetFlow.Value}");
+                _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Publish(
+                    new VoiceControlStateEventArgs
+                    {
+                        DeviceType = intent.DeviceType,
+                        TargetState = intent.TargetState.Value,
+                        Command = intent.RawCommand,
+                        Timestamp = DateTime.Now
+                    });
+
+                string action = intent.TargetState.Value ? "启动" : "停止";
+                if (intent.DeviceType == "电磁阀")
+                {
+                    action = intent.TargetState.Value ? "打开" : "关闭";
+                }
+
+                SpeakAsync($"好的,正在{action}{intent.DeviceType}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ 处理流量计参数命令失败: {ex.Message}");
-                SpeakAsync("设置参数失败");
-            }
-        }
-
-        // ========== 新增:换热器参数设置处理 ==========
-        private void HandleHeatExchangerParameterCommand(string command)
-        {
-            try
-            {
-                _logger.LogInformation($"🎛 处理换热器参数命令: {command}");
-
-                double? temperature = ExtractNumberFromCommand(command);
-                if (temperature == null)
-                {
-                    SpeakAsync("未能识别温度值");
-                    return;
-                }
-
-                _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Publish(new VoiceSetParameterEventArgs
-                {
-                    DeviceType = "换热器",
-                    ParameterName = "TargetTemperature",
-                    ParameterValue = temperature.Value,
-                    Command = command,
-                    Timestamp = DateTime.Now
-                });
-
-                SpeakAsync($"好的,正在设置换热器温度为{temperature.Value}度");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"❌ 处理换热器参数命令失败: {ex.Message}");
-                SpeakAsync("设置参数失败");
-            }
-        }
-
-        // ========== 新增:设备状态控制命令处理 ==========
-        private void HandleDeviceStateControlCommand(string command)
-        {
-            try
-            {
-                _logger.LogInformation($"🎛 处理设备状态控制命令: {command}");
-
-                string deviceType = null;
-                bool targetState = false;
-
-                // 识别设备类型
-                if (command.Contains("柱塞泵"))
-                {
-                    deviceType = "柱塞泵";
-                    targetState = command.Contains("启动");
-                }
-                else if (command.Contains("电磁阀"))
-                {
-                    deviceType = "电磁阀";
-                    targetState = command.Contains("打开");
-                }
-                else if (command.Contains("流量计"))
-                {
-                    deviceType = "流量计";
-                    targetState = command.Contains("启动");
-                }
-                else
-                {
-                    SpeakAsync("未能识别设备类型");
-                    return;
-                }
-
-                // 发布状态控制事件
-                _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Publish(new VoiceControlStateEventArgs
-                {
-                    DeviceType = deviceType,
-                    TargetState = targetState,
-                    Command = command,
-                    Timestamp = DateTime.Now
-                });
-
-                string action = targetState ? "启动" : "停止";
-                if (deviceType == "电磁阀")
-                {
-                    action = targetState ? "打开" : "关闭";
-                }
-
-                SpeakAsync($"好的,正在{action}{deviceType}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"❌ 处理设备状态控制命令失败: {ex.Message}");
+                _logger.LogError($"控制状态失败: {ex.Message}");
                 SpeakAsync("操作失败");
             }
         }
 
-        // ========== 新增:从命令中提取数字 ==========
-        private double? ExtractNumberFromCommand(string command)
+        private void HandleSystemCommandIntent(CommandIntent intent)
         {
-            try
+            _logger.LogInformation($"执行系统命令: {intent.SystemCommand}");
+
+            string response = intent.SystemCommand switch
             {
-                // 支持中文数字和阿拉伯数字
-                var chineseNumbers = new Dictionary<char, int>
-        {
-            {'零', 0}, {'一', 1}, {'二', 2}, {'三', 3}, {'四', 4},
-            {'五', 5}, {'六', 6}, {'七', 7}, {'八', 8}, {'九', 9},
-            {'十', 10}, {'百', 100}, {'千', 1000}
-        };
-
-                // 先尝试提取阿拉伯数字
-                var numberMatch = System.Text.RegularExpressions.Regex.Match(command, @"\d+\.?\d*");
-                if (numberMatch.Success)
-                {
-                    if (double.TryParse(numberMatch.Value, out double value))
-                    {
-                        _logger.LogInformation($"✅ 提取到数字: {value}");
-                        return value;
-                    }
-                }
-
-                // 尝试解析中文数字 (简单实现)
-                if (command.Contains("十"))
-                {
-                    // 处理 "二十"、"三十" 等
-                    for (int i = 2; i <= 9; i++)
-                    {
-                        var chineseDigit = chineseNumbers.First(kv => kv.Value == i).Key;
-                        if (command.Contains($"{chineseDigit}十"))
-                        {
-                            _logger.LogInformation($"✅ 提取到中文数字: {i * 10}");
-                            return i * 10.0;
-                        }
-                    }
-
-                    // 处理 "十" (10)
-                    if (command.Contains("十") && !command.Contains("百"))
-                    {
-                        _logger.LogInformation($"✅ 提取到中文数字: 10");
-                        return 10.0;
-                    }
-                }
-
-                _logger.LogWarning($"⚠ 无法从命令中提取数字: {command}");
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"❌ 提取数字失败: {ex.Message}");
-                return null;
-            }
-        }
-        private bool IsSpecificCommand(string command)
-        {
-            var specificCommands = new[]
-            {
-        "最大化窗口",
-        "最小化窗口",
-        "还原窗口",
-        "关闭窗口",
-        "打开首页",
-        "打开设置",
-        "返回",
-        "退出登录",
-        "切换语言",
-        "现在几点",
-        "今天星期几",
-        "今天日期",
-        "静音",
-        "取消静音",
-        "休眠",
-        "再见"
-    };
-
-            return Array.Exists(specificCommands, cmd => cmd == command);
-        }
-        private string GetCommandResponse(string command)
-        {
-            return command switch
-            {
-                "最大化窗口" => "好的，已经最大化了",
-                "最小化窗口" => "好的，已经最小化了",
-                "还原窗口" => "窗口已还原",
-                "关闭窗口" => "再见，下次再聊",
-                "打开首页" => "正在打开首页",
-                "打开设置" => "正在为您打开设置",
-                "返回" => "好的",
-                "退出登录" => "正在退出登录",
-                "切换语言" => "正在切换语言",
-                "现在几点" => $"现在是{DateTime.Now:HH点mm分}",
-                "今天星期几" => $"今天是星期{GetChineseWeekDay(DateTime.Now.DayOfWeek)}",
-                "今天日期" => $"今天是{DateTime.Now:yyyy年M月d日}",
-                "静音" => "好的，我先不说话了",
-                "取消静音" => "好的，我又回来啦",
-                "休眠" => "好的，需要的时候叫我哦",
-                "创建一个柱塞泵" => "好的，正在为您创建柱塞泵",
-                "再见" => "再见，有需要随时叫我",
+                "maximize" => "好的，已经最大化了",
+                "minimize" => "好的，已经最小化了",
+                "restore" => "窗口已还原",
+                "close" => "再见，下次再聊",
+                "settings" => "正在为您打开设置",
+                "home" => "正在打开首页",
                 _ => "好的"
             };
+
+            SpeakAsync(response);
+            CommandRecognized?.Invoke(this, intent.SystemCommand);
+        }
+
+        private void HandleQueryIntent(CommandIntent intent)
+        {
+            string response = intent.QueryType switch
+            {
+                "time" => $"现在是{DateTime.Now:HH点mm分}",
+                "date" => $"今天是{DateTime.Now:yyyy年M月d日}",
+                "weekday" => $"今天是星期{GetChineseWeekDay(DateTime.Now.DayOfWeek)}",
+                _ => "抱歉，我不知道"
+            };
+
+            SpeakAsync(response);
+        }
+
+        private void HandleSleepIntent()
+        {
+            _isAwake = false;
+            StopAutoSleepTimer();
+            CommandRecognized?.Invoke(this, "SLEEP");
+            SpeakAsync("好的，需要的时候叫我哦");
+            _logger.LogInformation("语音助手已进入休眠状态");
+        }
+
+        private void HandleChatIntent(CommandIntent intent)
+        {
+            if (!string.IsNullOrEmpty(intent.Response))
+            {
+                SpeakAsync(intent.Response);
+            }
+            else
+            {
+                SpeakAsync("嗯嗯，我在听");
+            }
+        }
+
+        private string MapParameterName(string llmParamName, string deviceType)
+        {
+            var mapping = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["柱塞泵"] = new Dictionary<string, string>
+                {
+                    ["流量"] = "TargetSpeed",
+                    ["速度"] = "TargetSpeed",
+                    ["压力"] = "Pressure"
+                },
+                ["流量计"] = new Dictionary<string, string>
+                {
+                    ["流量"] = "TargetFlow",
+                    ["目标流量"] = "TargetFlow"
+                },
+                ["换热器"] = new Dictionary<string, string>
+                {
+                    ["温度"] = "TargetTemperature"
+                }
+            };
+
+            if (mapping.ContainsKey(deviceType) &&
+                mapping[deviceType].ContainsKey(llmParamName))
+            {
+                return mapping[deviceType][llmParamName];
+            }
+
+            _logger.LogWarning($"未找到参数映射: {deviceType}.{llmParamName}，使用原名称");
+            return llmParamName;
         }
 
         private string GetChineseWeekDay(DayOfWeek dayOfWeek)
@@ -699,13 +535,11 @@ namespace MaxChemical.Shell.Services
             };
         }
 
-        #region 语音合成方法
-
         public void Speak(string text)
         {
             if (!_isSpeechEnabled)
             {
-                _logger.LogDebug($"🔇 语音已禁用");
+                _logger.LogDebug("语音输出已禁用");
                 return;
             }
 
@@ -717,7 +551,7 @@ namespace MaxChemical.Shell.Services
         {
             if (!_isSpeechEnabled)
             {
-                _logger.LogDebug($"🔇 语音已禁用");
+                _logger.LogDebug("语音输出已禁用");
                 return;
             }
 
@@ -728,17 +562,13 @@ namespace MaxChemical.Shell.Services
         public void StopSpeaking()
         {
             _ttsEngine.StopSpeaking();
-            _logger.LogInformation("⏹ 已停止语音输出");
+            _logger.LogInformation("已停止语音输出");
         }
 
         public void SetSpeakingRate(float rate)
         {
             _ttsEngine.SetSpeakingRate(rate);
         }
-
-        #endregion
-
-        #region 自动休眠
 
         private void StartAutoSleepTimer()
         {
@@ -751,7 +581,7 @@ namespace MaxChemical.Shell.Services
                 period: Timeout.InfiniteTimeSpan
             );
 
-            _logger.LogDebug($"⏰ 自动休眠计时: {_autoSleepSeconds}秒");
+            _logger.LogDebug($"启动自动休眠计时器: {_autoSleepSeconds}秒");
         }
 
         private void StopAutoSleepTimer()
@@ -773,31 +603,16 @@ namespace MaxChemical.Shell.Services
 
         private void AutoSleep()
         {
-            _logger.LogInformation("💤 自动休眠触发");
+            _logger.LogInformation("触发自动休眠");
             _isAwake = false;
             CommandRecognized?.Invoke(this, "AUTO_SLEEP");
             SpeakAsync("我先休息了，需要时叫我哦");
         }
 
-        #endregion
-
-        private void OnSpeechRejected(object? sender, SpeechRecognitionRejectedEventArgs e)
-        {
-            _logger.LogDebug(" 语音识别被拒绝");
-        }
-
-        private void OnRecognizeCompleted(object? sender, RecognizeCompletedEventArgs e)
-        {
-            if (e.Error != null)
-            {
-                _logger.LogError($" 语音识别错误: {e.Error.Message}");
-            }
-        }
-
         public void ExecuteCommand(string command)
         {
-            _logger.LogInformation($"⚡ 手动执行: {command}");
-            HandleCommand(command);
+            _logger.LogInformation($"手动执行命令: {command}");
+            Task.Run(async () => await HandleCommandAsync(command));
         }
 
         public void Dispose()
@@ -806,27 +621,44 @@ namespace MaxChemical.Shell.Services
 
             Stop();
             StopAutoSleepTimer();
-            _ttsEngine?.Dispose();
 
-            if (_recognizer != null)
+            if (_aliyunEngine != null)
             {
-                _recognizer.SpeechRecognized -= OnSpeechRecognized;
-                _recognizer.SpeechRecognitionRejected -= OnSpeechRejected;
-                _recognizer.RecognizeCompleted -= OnRecognizeCompleted;
-                _recognizer.Dispose();
-                _recognizer = null;
+                _aliyunEngine.TextRecognized -= OnAliyunTextRecognized;
+                _aliyunEngine.AudioLevelChanged -= OnAudioLevelChanged;
+                _aliyunEngine.Dispose();
             }
+
+            _ttsEngine?.Dispose();
+            _llmService?.Dispose();
 
             _logger.LogInformation("语音助手资源释放完成");
         }
 
-        /// <summary>
-        /// 测试语音功能
-        /// </summary>
         public void TestSpeak(string text = "这是一个测试")
         {
-            _logger.LogInformation($"🧪 开始测试语音: {text}");
+            _logger.LogInformation($"开始测试语音合成: {text}");
             Speak(text);
         }
+    }
+
+    // ← 保留这些事件类定义（兼容性）
+    public class AudioLevelEventArgs : EventArgs
+    {
+        public float Level { get; set; }
+    }
+
+    public class SpeechDetectedEventArgs : EventArgs
+    {
+        public bool IsActive { get; set; }
+        public float Energy { get; set; }
+    }
+
+    public class WhisperTextRecognizedEventArgs : EventArgs
+    {
+        public string Text { get; set; }
+        public DateTime Timestamp { get; set; }
+        public float Confidence { get; set; }
+        public float EnergyLevel { get; set; }
     }
 }
