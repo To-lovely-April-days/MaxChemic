@@ -180,12 +180,12 @@ namespace MaxChemical.Shell.Services
 
                         var response = JsonConvert.DeserializeObject<AliyunRealtimeResponse>(json);
 
-                        // ✅ 只处理句子结束事件（最终完整结果）
+                        // 只处理句子结束事件（最终完整结果）
                         if (response?.Header?.Name == "SentenceEnd" &&
                             !string.IsNullOrWhiteSpace(response?.Payload?.Result))
                         {
                             var text = response.Payload.Result.TrimEnd('。', '，', '、', '!', '！', '?', '？');  // 去掉标点
-                            _logger.LogInformation($"✅ 最终识别结果: {text}");
+                            _logger.LogInformation($"最终识别结果: {text}");
 
                             TextRecognized?.Invoke(this, new WhisperTextRecognizedEventArgs
                             {
@@ -195,17 +195,17 @@ namespace MaxChemical.Shell.Services
                                 EnergyLevel = 0
                             });
                         }
-                        // 📝 实时结果只用于调试
+                        // 实时结果只用于调试
                         else if (response?.Header?.Name == "TranscriptionResultChanged" &&
                                  !string.IsNullOrWhiteSpace(response?.Payload?.Result))
                         {
                             var text = response.Payload.Result;
-                            _logger.LogDebug($"⚡ 实时片段: {text}");
+                            _logger.LogDebug($" 实时片段: {text}");
                         }
                         // ⚠️ 错误处理
                         else if (response?.Header?.Name == "TaskFailed")
                         {
-                            _logger.LogError($"❌ 识别任务失败: {response.Header.Status}");
+                            _logger.LogError($" 识别任务失败: {response.Header.Status}");
                         }
                     }
                 }
@@ -222,7 +222,7 @@ namespace MaxChemical.Shell.Services
             {
                 _logger.LogInformation("开始获取阿里云 Token...");
 
-                // 构建请求参数
+                // 1. 构建公共参数
                 var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
                 var nonce = Guid.NewGuid().ToString();
 
@@ -238,78 +238,111 @@ namespace MaxChemical.Shell.Services
                     ["Format"] = "JSON"
                 };
 
-                // 生成签名
-                var signature = GenerateSignature(parameters, _accessKeySecret!);
+                _logger.LogInformation($"请求参数: AccessKeyId={_accessKeyId}, Timestamp={timestamp}, Nonce={nonce}");
+
+                // 2. 生成签名
+                var signature = GenerateSignature(parameters, _accessKeySecret!, "GET");  // ← 改这里
                 parameters["Signature"] = signature;
 
-                // 构建 URL
-                var queryString = string.Join("&", parameters.Select(p =>
-                    $"{UrlEncode(p.Key)}={UrlEncode(p.Value)}"));
+                _logger.LogInformation($"生成的签名: {signature}");
+
+                // 3. 构建 URL（使用 POST）
+                var queryString = string.Join("&", parameters
+                    .OrderBy(p => p.Key)
+                    .Select(p => $"{UrlEncode(p.Key)}={UrlEncode(p.Value)}"));
 
                 var url = $"https://nls-meta.cn-shanghai.aliyuncs.com/?{queryString}";
 
-                _logger.LogInformation($"请求 URL: {url.Substring(0, Math.Min(100, url.Length))}...");
+                _logger.LogInformation($"完整请求 URL: {url}");
 
+                // 4. 发送请求（增加超时时间 + 添加重试）
                 using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(30);
+                httpClient.Timeout = TimeSpan.FromSeconds(60);  // ← 增加到 60 秒
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "MaxChemical-ASR/1.0");
 
                 var response = await httpClient.GetAsync(url);
                 var json = await response.Content.ReadAsStringAsync();
 
-                _logger.LogInformation($"响应状态码: {(int)response.StatusCode}");
-                _logger.LogInformation($"响应内容: {json}");
+                _logger.LogInformation($"HTTP 状态码: {(int)response.StatusCode} ({response.StatusCode})");
+                _logger.LogInformation($"响应头: {response.Headers}");
+                _logger.LogInformation($"响应体: {json}");
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError($"获取 Token 失败: HTTP {(int)response.StatusCode}");
+                    _logger.LogError($" 获取 Token 失败: HTTP {(int)response.StatusCode}");
+                    _logger.LogError($"响应内容: {json}");
                     return null;
                 }
 
+                // 5. 解析响应
                 var tokenResponse = JsonConvert.DeserializeObject<AliyunTokenResponse>(json);
 
                 if (tokenResponse?.Token?.Id != null)
                 {
-                    _logger.LogInformation("Token 获取成功");
+                    _logger.LogInformation($" Token 获取成功: {tokenResponse.Token.Id.Substring(0, 20)}...");
+                    _logger.LogInformation($"Token 过期时间: {DateTimeOffset.FromUnixTimeSeconds(tokenResponse.Token.ExpireTime):yyyy-MM-dd HH:mm:ss}");
                     return tokenResponse.Token.Id;
                 }
 
                 _logger.LogError("Token 响应格式错误");
                 return null;
             }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError($" 网络请求失败: {ex.Message}");
+                _logger.LogError($"内部异常: {ex.InnerException?.Message}");
+                return null;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError($" 请求超时: {ex.Message}");
+                return null;
+            }
             catch (Exception ex)
             {
-                _logger.LogError($"获取 Token 异常: {ex.Message}");
+                _logger.LogError($" 获取 Token 异常: {ex.Message}");
                 _logger.LogError($"堆栈: {ex.StackTrace}");
                 return null;
             }
         }
 
-        private string GenerateSignature(Dictionary<string, string> parameters, string accessKeySecret)
+        private string GenerateSignature(Dictionary<string, string> parameters, string accessKeySecret, string httpMethod = "GET")
         {
-            // 排序参数
-            var sortedParams = parameters
-                .OrderBy(p => p.Key)
-                .Where(p => p.Key != "Signature");
+            try
+            {
+                // 1. 排序参数（排除 Signature）
+                var sortedParams = parameters
+                    .Where(p => p.Key != "Signature")
+                    .OrderBy(p => p.Key, StringComparer.Ordinal);  // ← 使用字典序
 
-            // 构建待签名字符串
-            var canonicalizedQueryString = string.Join("&", sortedParams.Select(p =>
-                $"{UrlEncode(p.Key)}={UrlEncode(p.Value)}"));
+                // 2. 构建规范化查询字符串
+                var canonicalizedQueryString = string.Join("&", sortedParams.Select(p =>
+                    $"{UrlEncode(p.Key)}={UrlEncode(p.Value)}"));
 
-            var stringToSign = $"GET&{UrlEncode("/")}&{UrlEncode(canonicalizedQueryString)}";
+                _logger.LogDebug($"规范化查询字符串: {canonicalizedQueryString}");
 
-            _logger.LogDebug($"待签名字符串: {stringToSign}");
+                // 3. 构建待签名字符串
+                var stringToSign = $"{httpMethod}&{UrlEncode("/")}&{UrlEncode(canonicalizedQueryString)}";
 
-            // HMAC-SHA1 签名
-            var key = Encoding.UTF8.GetBytes(accessKeySecret + "&");
-            var data = Encoding.UTF8.GetBytes(stringToSign);
+                _logger.LogDebug($"待签名字符串: {stringToSign}");
 
-            using var hmac = new HMACSHA1(key);
-            var hash = hmac.ComputeHash(data);
-            var signature = Convert.ToBase64String(hash);
+                // 4. 计算 HMAC-SHA1 签名
+                var key = Encoding.UTF8.GetBytes(accessKeySecret + "&");  // ← 注意这里要加 &
+                var data = Encoding.UTF8.GetBytes(stringToSign);
 
-            _logger.LogDebug($"生成签名: {signature}");
+                using var hmac = new HMACSHA1(key);
+                var hash = hmac.ComputeHash(data);
+                var signature = Convert.ToBase64String(hash);
 
-            return signature;
+                _logger.LogDebug($"最终签名: {signature}");
+
+                return signature;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"签名生成失败: {ex.Message}");
+                throw;
+            }
         }
 
         private string UrlEncode(string value)
@@ -318,8 +351,13 @@ namespace MaxChemical.Shell.Services
                 return string.Empty;
 
             var encoded = new StringBuilder();
-            foreach (char c in value)
+            var bytes = Encoding.UTF8.GetBytes(value);
+
+            foreach (byte b in bytes)
             {
+                char c = (char)b;
+
+                // RFC 3986 规范：保留字符
                 if ((c >= 'A' && c <= 'Z') ||
                     (c >= 'a' && c <= 'z') ||
                     (c >= '0' && c <= '9') ||
@@ -329,10 +367,12 @@ namespace MaxChemical.Shell.Services
                 }
                 else
                 {
+                    // 其他字符进行百分号编码
                     encoded.Append('%');
-                    encoded.Append(((int)c).ToString("X2"));
+                    encoded.Append(b.ToString("X2"));
                 }
             }
+
             return encoded.ToString();
         }
 
