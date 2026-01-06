@@ -2616,6 +2616,7 @@ namespace MaxChemical.Modules.Designer.Views
             ClearAllMicroreactorSelections(); //  新增
             ClearAllHeatExchangerSelections(); //  新增：清除换热器选择
             ClearAllDigitalScaleSelections(); // 新增
+            ClearAllTemperatureCirculatorSelections(); // 新增：清除高低温循环器选择
             CleanupDragState();
             this.Focus();
         }
@@ -3286,6 +3287,12 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleDigitalScaleControlState(scaleControl, e);
                     }
+                    // 新增：处理高低温循环器状态
+                    var circulatorControl = FindVisualChild<TemperatureControlSystemControl>(deviceElement);
+                    if (circulatorControl != null)
+                    {
+                        HandleTemperatureCirculatorControlState(circulatorControl, e);
+                    }
                 }));
             }
             catch (Exception ex)
@@ -3583,6 +3590,137 @@ namespace MaxChemical.Modules.Designer.Views
                     break;
             }
         }
+
+        /// <summary>
+        /// 处理高低温循环器控件状态（设备 → UI）
+        /// </summary>
+        private void HandleTemperatureCirculatorControlState(
+            TemperatureControlSystemControl circulatorControl,
+            DeviceControlStateChangedEventArgs e)
+        {
+            switch (e.StateName)
+            {
+                case "SetTemperature":
+                    if (e.StateValue is double setTemp)
+                    {
+                        circulatorControl.SetTargetTemperature(setTemp);
+                        Debug.WriteLine($"设定温度已更新: {setTemp:F1}℃");
+                    }
+                    break;
+
+                case "ActualTemperature":
+                    if (e.StateValue is double actualTemp)
+                    {
+                        circulatorControl.UpdateCurrentTemperature(actualTemp);
+                        Debug.WriteLine($"当前温度已更新: {actualTemp:F1}℃");
+                    }
+                    break;
+
+                case "IsCycleRunning":
+                    if (e.StateValue is bool isCycleRunning)
+                    {
+                        UpdateCirculatorButtonState(circulatorControl, "CirculationButton", isCycleRunning);
+                        Debug.WriteLine($"循环状态已更新: {isCycleRunning}");
+                    }
+                    break;
+
+                case "IsHeatingRunning":
+                    if (e.StateValue is bool isHeatingRunning)
+                    {
+                        UpdateCirculatorButtonState(circulatorControl, "HeatingButton", isHeatingRunning);
+                        Debug.WriteLine($"加热状态已更新: {isHeatingRunning}");
+                    }
+                    break;
+
+                case "IsCoolingRunning":
+                    if (e.StateValue is bool isCoolingRunning)
+                    {
+                        UpdateCirculatorButtonState(circulatorControl, "CoolingButton", isCoolingRunning);
+                        Debug.WriteLine($"制冷状态已更新: {isCoolingRunning}");
+                    }
+                    break;
+
+                case "CommandState_设置温度":
+                case "CommandState_启动循环":
+                case "CommandState_停止循环":
+                case "CommandState_启动加热":
+                case "CommandState_停止加热":
+                case "CommandState_启动制冷":
+                case "CommandState_停止制冷":
+                    HandleCirculatorCommandState(circulatorControl, e);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 更新高低温循环器按钮状态
+        /// </summary>
+        private void UpdateCirculatorButtonState(
+            TemperatureControlSystemControl circulator,
+            string buttonName,
+            bool isActive)
+        {
+            try
+            {
+                var button = circulator.FindName(buttonName) as Button;
+                if (button != null)
+                {
+                    button.Tag = isActive ? "Active" : null;
+                    Debug.WriteLine($"按钮 {buttonName} 状态已更新: {(isActive ? "激活" : "未激活")}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新按钮状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理高低温循环器命令执行状态
+        /// </summary>
+        private void HandleCirculatorCommandState(
+            TemperatureControlSystemControl circulator,
+            DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+            {
+                Debug.WriteLine($"状态值类型错误: {e.StateValue?.GetType().Name}");
+                return;
+            }
+
+            var commandName = e.StateName.Replace("CommandState_", "");
+            Debug.WriteLine($"高低温循环器命令状态: {commandName} -> {state}");
+
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    circulator.ShowLoading();
+                    UpdateStatusBar($"正在执行 {commandName}...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    circulator.HideLoading();
+                    UpdateStatusBar($"{commandName} 成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                    circulator.HideLoading();
+                    circulator.ShowOperationFailure();
+                    UpdateStatusBar($"{commandName} 失败");
+                    break;
+
+                case CommandExecutionState.Error:
+                    circulator.HideLoading();
+                    circulator.ShowOperationFailure();
+                    var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                        ? e.AdditionalData["ErrorMessage"]?.ToString()
+                        : "未知错误";
+                    UpdateStatusBar($"{commandName} 异常: {errorMsg}");
+                    break;
+            }
+        }
+
+
         /// <summary>
         ///  辅助方法：更新状态栏
         /// </summary>
@@ -3724,20 +3862,41 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private TextBlock CreateDeviceNameText(string deviceName)
         {
-            return new TextBlock
+            if (deviceName.Contains("高低温循环器"))
             {
-                Text = deviceName,
-                FontSize = 9,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Center,
-                Foreground = Brushes.DarkBlue,
-                Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
-                Padding = new Thickness(2, 1, 2, 1),
-                Margin = new Thickness(0, 0, 0, 15), //  新增：底部边距 5 像素
-                IsHitTestVisible = false,
-                MaxHeight = 20
-            };
+                return new TextBlock
+                {
+                    Text = deviceName,
+                    FontSize = 9,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextAlignment = TextAlignment.Center,
+                    Foreground = Brushes.DarkBlue,
+                    Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
+                    Padding = new Thickness(2, 1, 2, 1),
+                    //Margin = new Thickness(0, 0, 0, 15), //  新增：底部边距 15 像素
+                    IsHitTestVisible = false,
+                    MaxHeight = 20
+                };
+            }
+            else
+            {
+                return new TextBlock
+                {
+                    Text = deviceName,
+                    FontSize = 9,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextAlignment = TextAlignment.Center,
+                    Foreground = Brushes.DarkBlue,
+                    Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
+                    Padding = new Thickness(2, 1, 2, 1),
+                    Margin = new Thickness(0, 0, 0, 15), //  新增：底部边距 15 像素
+                    IsHitTestVisible = false,
+                    MaxHeight = 20
+                };
+            }
+            
         }
 
         /// <summary>
@@ -4764,6 +4923,12 @@ namespace MaxChemical.Modules.Designer.Views
                             double scaleHeight = 230 * 0.4;  
                             Debug.WriteLine($"电子秤尺寸: {scaleWidth:F0}x{scaleHeight:F0}");
                             return new Size(scaleWidth, scaleHeight);
+                        case "TemperatureControlSystemControl":
+                            // 高低温循环器原尺寸 260x310，缩小到画布显示
+                            double circulatorWidth = 260 * 0.6;   
+                            double circulatorHeight = 310 * 0.6;  
+                            Debug.WriteLine($"高低温循环器尺寸: {circulatorWidth:F0}x{circulatorHeight:F0}");
+                            return new Size(circulatorWidth, circulatorHeight);
                     }
                 }
                 // 普通图片尺寸处理
@@ -4916,7 +5081,8 @@ namespace MaxChemical.Modules.Designer.Views
                         //添加电子秤
                     case "DigitalScaleControl":
                         return CreateDigitalScaleIcon(targetWidth, targetHeight);
-
+                    case "TemperatureControlSystemControl":
+                        return CreateTemperatureCirculatorIcon(targetWidth, targetHeight);
                     default:
                         Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
                         return CreateDefaultIcon(targetWidth, targetHeight, "自定义");
@@ -10283,7 +10449,531 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+        #region 高低温循环器
 
+        /// <summary>
+        /// 创建高低温循环器图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateTemperatureCirculatorIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var circulatorControl = new TemperatureControlSystemControl
+                {
+                    IsHitTestVisible = true,  // 允许交互
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    SetTemperature = -40.0,
+                    CurrentTemperature = 24.5,
+                    OutletTemperature = -38.2
+                };
+
+                // 订阅高低温循环器事件
+                SubscribeTemperatureCirculatorEvents(circulatorControl);
+
+                // 包装在 Viewbox 中
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = circulatorControl,
+                    IsHitTestVisible = true  // 允许交互
+                };
+
+                Debug.WriteLine($"创建高低温循环器图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建高低温循环器图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "高低温循环器");
+            }
+        }
+
+        #endregion
+        #region 高低温循环器事件处理
+
+        /// <summary>
+        /// 订阅高低温循环器控件事件
+        /// </summary>
+        private void SubscribeTemperatureCirculatorEvents(TemperatureControlSystemControl circulator)
+        {
+            try
+            {
+                // 拖动事件
+                circulator.SystemDragStarted += OnCirculatorDragStarted;
+                circulator.SystemDragging += OnCirculatorDragging;
+                circulator.SystemDragCompleted += OnCirculatorDragCompleted;
+
+                // 选中事件
+                circulator.SystemSelected += OnCirculatorSelectedFromControl;
+                circulator.SystemDeselected += OnCirculatorDeselectedFromControl;
+
+                // UI请求事件（UI → 设备驱动）
+                circulator.TemperatureSetRequested += async (s, e) =>
+                {
+                    await HandleCirculatorTemperatureSetRequestAsync(circulator, e);
+                };
+
+                circulator.CirculationRequested += async (s, e) =>
+                {
+                    await HandleCirculatorCirculationRequestAsync(circulator, e);
+                };
+
+                circulator.HeatingRequested += async (s, e) =>
+                {
+                    await HandleCirculatorHeatingRequestAsync(circulator, e);
+                };
+
+                circulator.CoolingRequested += async (s, e) =>
+                {
+                    await HandleCirculatorCoolingRequestAsync(circulator, e);
+                };
+
+                Debug.WriteLine($"高低温循环器事件已订阅: {circulator.SystemId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅高低温循环器事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 高低温循环器拖动开始
+        /// </summary>
+        private void OnCirculatorDragStarted(object sender, TempSystemDragEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"高低温循环器拖动开始: {e.SystemId}");
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在移动高低温循环器...");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"高低温循环器拖动开始处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 高低温循环器拖动中
+        /// </summary>
+        private void OnCirculatorDragging(object sender, TempSystemDragEventArgs e)
+        {
+            // 节流检查
+            var now = DateTime.Now;
+            if ((now - _lastMouseMoveTime).TotalMilliseconds < 16)
+            {
+                return;
+            }
+            _lastMouseMoveTime = now;
+
+            try
+            {
+                // 实时显示位置
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"位置: ({e.CurrentPosition.X:F0}, {e.CurrentPosition.Y:F0})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"高低温循环器拖动处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 高低温循环器拖动完成
+        /// </summary>
+        private void OnCirculatorDragCompleted(object sender, TempSystemDragEventArgs e)
+        {
+            try
+            {
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("高低温循环器移动完成");
+
+                Debug.WriteLine($"高低温循环器拖动完成: {e.SystemId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"高低温循环器拖动完成处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 高低温循环器选中
+        /// </summary>
+        private void OnCirculatorSelectedFromControl(object sender, string systemId)
+        {
+            try
+            {
+                Debug.WriteLine($"高低温循环器被选中: {systemId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections();
+                ClearAllFlowMeterSelections();
+                ClearAllMicroreactorSelections();
+                ClearAllHeatExchangerSelections();
+                ClearAllDigitalScaleSelections();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"已选中高低温循环器: {systemId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理高低温循环器选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 高低温循环器取消选中
+        /// </summary>
+        private void OnCirculatorDeselectedFromControl(object sender, string systemId)
+        {
+            try
+            {
+                Debug.WriteLine($"高低温循环器取消选中: {systemId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理高低温循环器取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理温度设置请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleCirculatorTemperatureSetRequestAsync(
+            TemperatureControlSystemControl circulator,
+            TemperatureSetRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理高低温循环器温度设置 ==========");
+                Debug.WriteLine($"SystemId: {e.SystemId}");
+                Debug.WriteLine($"当前温度: {e.CurrentTemperature}℃");
+                Debug.WriteLine($"请求温度: {e.RequestedTemperature}℃");
+
+                // 1. 查找对应的设备
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var circulatorInDevice = FindVisualChild<TemperatureControlSystemControl>(deviceElement);
+                    return circulatorInDevice?.SystemId == e.SystemId;
+                });
+
+                if (canvasDevice?.Device == null)
+                {
+                    Debug.WriteLine($"未找到高低温循环器对应的设备");
+                    circulator.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 2. 检查设备是否支持UI交互
+                if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    Debug.WriteLine($"设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    circulator.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                // 3. 构造参数
+                var parameters = new Dictionary<string, object>
+                {
+                    ["TargetTemperature"] = e.RequestedTemperature
+                };
+
+                Debug.WriteLine($"执行命令: 设置温度, 参数={e.RequestedTemperature}℃");
+
+                // 4. 调用设备命令
+                var result = await uiInteraction.ExecuteUICommandAsync("设置温度", parameters);
+
+                // 5. 隐藏加载动画
+                circulator.HideLoading();
+
+                // 6. 处理执行结果
+                if (result.Success)
+                {
+                    Debug.WriteLine($"温度设置成功: {result.Message}");
+
+                    // UI状态将通过 OnDeviceStateChanged 自动更新
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"温度已设置为 {e.RequestedTemperature}℃");
+
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"温度设置失败: {result.Message}");
+
+                    circulator.ShowOperationFailure();
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"温度设置失败: {result.Message}");
+
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理温度设置请求失败: {ex.Message}");
+                circulator.HideLoading();
+                circulator.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"操作失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 处理循环请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleCirculatorCirculationRequestAsync(
+            TemperatureControlSystemControl circulator,
+            CirculationRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理循环状态切换 ==========");
+                Debug.WriteLine($"SystemId: {e.SystemId}");
+                Debug.WriteLine($"当前状态: {e.CurrentState}");
+                Debug.WriteLine($"请求状态: {e.RequestedState}");
+
+                var canvasDevice = FindCirculatorDevice(e.SystemId);
+                if (canvasDevice?.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    circulator.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                string commandName = e.RequestedState ? "启动循环" : "停止循环";
+                Debug.WriteLine($"执行命令: {commandName}");
+
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                circulator.HideLoading();
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($"命令执行成功: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"{commandName}成功");
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"命令执行失败: {result.Message}");
+                    circulator.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"{commandName}失败: {result.Message}");
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理循环请求失败: {ex.Message}");
+                circulator.HideLoading();
+                circulator.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+            }
+        }
+
+        /// <summary>
+        /// 处理加热请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleCirculatorHeatingRequestAsync(
+            TemperatureControlSystemControl circulator,
+            HeatingRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理加热状态切换 ==========");
+                Debug.WriteLine($"SystemId: {e.SystemId}");
+                Debug.WriteLine($"当前状态: {e.CurrentState}");
+                Debug.WriteLine($"请求状态: {e.RequestedState}");
+
+                var canvasDevice = FindCirculatorDevice(e.SystemId);
+                if (canvasDevice?.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    circulator.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                string commandName = e.RequestedState ? "启动加热" : "停止加热";
+                Debug.WriteLine($"执行命令: {commandName}");
+
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                circulator.HideLoading();
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($"命令执行成功: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"{commandName}成功");
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"命令执行失败: {result.Message}");
+                    circulator.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"{commandName}失败: {result.Message}");
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理加热请求失败: {ex.Message}");
+                circulator.HideLoading();
+                circulator.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+            }
+        }
+
+        /// <summary>
+        /// 处理制冷请求（UI → 设备驱动）
+        /// </summary>
+        private async Task HandleCirculatorCoolingRequestAsync(
+            TemperatureControlSystemControl circulator,
+            CoolingRequestEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"========== 处理制冷状态切换 ==========");
+                Debug.WriteLine($"SystemId: {e.SystemId}");
+                Debug.WriteLine($"当前状态: {e.CurrentState}");
+                Debug.WriteLine($"请求状态: {e.RequestedState}");
+
+                var canvasDevice = FindCirculatorDevice(e.SystemId);
+                if (canvasDevice?.Device is not IDeviceUIInteraction uiInteraction)
+                {
+                    circulator.HideLoading();
+                    e.OnCompleted?.Invoke(false);
+                    return;
+                }
+
+                string commandName = e.RequestedState ? "启动制冷" : "停止制冷";
+                Debug.WriteLine($"执行命令: {commandName}");
+
+                var result = await uiInteraction.ExecuteUICommandAsync(commandName);
+
+                circulator.HideLoading();
+
+                if (result.Success)
+                {
+                    Debug.WriteLine($"命令执行成功: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"{commandName}成功");
+                    e.OnCompleted?.Invoke(true);
+                }
+                else
+                {
+                    Debug.WriteLine($"命令执行失败: {result.Message}");
+                    circulator.ShowOperationFailure();
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                        $"{commandName}失败: {result.Message}");
+                    e.OnCompleted?.Invoke(false);
+                }
+
+                Debug.WriteLine($"==========================================");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理制冷请求失败: {ex.Message}");
+                circulator.HideLoading();
+                circulator.ShowOperationFailure();
+                e.OnCompleted?.Invoke(false);
+            }
+        }
+
+        /// <summary>
+        /// 查找高低温循环器设备
+        /// </summary>
+        private CanvasDeviceViewModel FindCirculatorDevice(string systemId)
+        {
+            try
+            {
+                return _viewModel?.CanvasDevices?.FirstOrDefault(d =>
+                {
+                    var deviceElement = FindDeviceElementInCanvas(d.DeviceId);
+                    if (deviceElement == null) return false;
+
+                    var circulatorInDevice = FindVisualChild<TemperatureControlSystemControl>(deviceElement);
+                    return circulatorInDevice?.SystemId == systemId;
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找高低温循环器设备失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 清除所有高低温循环器选择
+        /// </summary>
+        private void ClearAllTemperatureCirculatorSelections()
+        {
+            try
+            {
+                var circulators = FindAllTemperatureCirculatorsInCanvas();
+                foreach (var circulator in circulators)
+                {
+                    circulator.IsSelected = false;
+                    Debug.WriteLine($"清除高低温循环器选择: {circulator.SystemId}");
+                }
+
+                Debug.WriteLine($"清除了 {circulators.Count} 个高低温循环器的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除高低温循环器选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 查找画布中所有高低温循环器控件
+        /// </summary>
+        private List<TemperatureControlSystemControl> FindAllTemperatureCirculatorsInCanvas()
+        {
+            var circulators = new List<TemperatureControlSystemControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var circulator = FindVisualChild<TemperatureControlSystemControl>(deviceBorder);
+                        if (circulator != null)
+                        {
+                            circulators.Add(circulator);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找高低温循环器控件失败: {ex.Message}");
+            }
+
+            return circulators;
+        }
+
+        #endregion
         #region 语音助手事件处理
 
         /// <summary>

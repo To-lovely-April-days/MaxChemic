@@ -205,6 +205,30 @@ namespace MaxChemical.Modules.Device.Converters
                                 IsHitTestVisible = false  // 允许交互
                             };
                             return ScaleViewbox;
+
+                        case "TemperatureControlSystemControl":
+                            
+                            var circulatorControl = new TemperatureControlSystemControl
+                            {
+                                IsHitTestVisible = true,  // 允许交互
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                SetTemperature = -40.0,      // 默认设定温度
+                                CurrentTemperature = 24.5,    // 默认当前温度
+                                OutletTemperature = -38.2     // 默认出口温度
+                            };
+
+                            // 包装在 Viewbox 中
+                            var circulatorViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = circulatorControl,
+                                IsHitTestVisible = true  // 允许交互
+                            };
+
+                            return circulatorViewbox;
                         default:
                             return null;
                     }
