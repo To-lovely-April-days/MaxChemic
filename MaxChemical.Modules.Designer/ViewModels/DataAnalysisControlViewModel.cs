@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
@@ -11,16 +13,23 @@ using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.Views;
+using Microsoft.Win32;
 using Newtonsoft.Json;
+using OfficeOpenXml;
+using OfficeOpenXml.ConditionalFormatting;
 using OfficeOpenXml.Drawing;
+using OfficeOpenXml.Drawing.Chart;
+using OfficeOpenXml.Style;
 using OxyPlot;
 using OxyPlot.Annotations;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using OxyPlot.Wpf;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using Python.Runtime;
+using Color = System.Drawing.Color;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -151,8 +160,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             set => SetProperty(ref _modelStatus, value);
         }
 
-        private Brush _modelStatusBrush = Brushes.Orange;
-        public Brush ModelStatusBrush
+        private System.Windows.Media.Brush _modelStatusBrush = System.Windows.Media.Brushes.Orange;
+        public System.Windows.Media.Brush ModelStatusBrush
         {
             get => _modelStatusBrush;
             set => SetProperty(ref _modelStatusBrush, value);
@@ -245,7 +254,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         #endregion
 
-
         public DataAnalysisControlViewModel(
             IEventAggregator eventAggregator,
             IDialogService dialogService,
@@ -257,158 +265,155 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _logger = new LogService().ForContext<DataAnalysisControlViewModel>();
 
             _recommendations = new ObservableCollection<RecommendationItem>();
-            // 初始化反应场景
             InitializeReactionScenarios();
             InitializeCommands();
             InitializePython();
         }
-        // 添加初始化场景方法
+
         private void InitializeReactionScenarios()
         {
             ReactionScenarios = new ObservableCollection<ReactionScenario>
-    {
-        new ReactionScenario
-        {
-            Id = "hydrogenation",
-            Name = "硝化还原反应",
-            Description = "芳香硝基化合物的催化加氢还原",
-            Title = "硝化还原反应工艺分析",
-            Subtitle = "Hydrogenation Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
             {
-                { "Pressure", "12" },
-                { "Temperature", "140" },
-                { "H2Flow", "450" },
-                { "FeedFlow", "10.0" },
-                { "CatAmount", "4.0" },
-                { "ResidenceTime", "4.0" },
-                { "H2Equiv", "1.5" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "oxidation",
-            Name = "氧化反应",
-            Description = "有机物选择性氧化过程",
-            Title = "氧化反应工艺分析",
-            Subtitle = "Oxidation Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
-            {
-                { "Pressure", "8" },
-                { "Temperature", "120" },
-                { "H2Flow", "350" },
-                { "FeedFlow", "8.0" },
-                { "CatAmount", "3.5" },
-                { "ResidenceTime", "3.5" },
-                { "H2Equiv", "1.2" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "esterification",
-            Name = "酯化反应",
-            Description = "羧酸与醇的酯化缩合",
-            Title = "酯化反应工艺分析",
-            Subtitle = "Esterification Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
-            {
-                { "Pressure", "5" },
-                { "Temperature", "100" },
-                { "H2Flow", "200" },
-                { "FeedFlow", "12.0" },
-                { "CatAmount", "2.5" },
-                { "ResidenceTime", "5.0" },
-                { "H2Equiv", "1.0" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "alkylation",
-            Name = "烷基化反应",
-            Description = "芳烃或烯烃的烷基化",
-            Title = "烷基化反应工艺分析",
-            Subtitle = "Alkylation Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
-            {
-                { "Pressure", "15" },
-                { "Temperature", "160" },
-                { "H2Flow", "500" },
-                { "FeedFlow", "9.0" },
-                { "CatAmount", "5.0" },
-                { "ResidenceTime", "4.5" },
-                { "H2Equiv", "1.8" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "hydroformylation",
-            Name = "羰基化反应",
-            Description = "烯烃与一氧化碳和氢气的反应",
-            Title = "羰基化反应工艺分析",
-            Subtitle = "Hydroformylation Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
-            {
-                { "Pressure", "10" },
-                { "Temperature", "130" },
-                { "H2Flow", "400" },
-                { "FeedFlow", "11.0" },
-                { "CatAmount", "3.8" },
-                { "ResidenceTime", "3.8" },
-                { "H2Equiv", "1.3" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "polymerization",
-            Name = "聚合反应",
-            Description = "单体的催化聚合过程",
-            Title = "聚合反应工艺分析",
-            Subtitle = "Polymerization Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
-            {
-                { "Pressure", "6" },
-                { "Temperature", "90" },
-                { "H2Flow", "300" },
-                { "FeedFlow", "15.0" },
-                { "CatAmount", "2.0" },
-                { "ResidenceTime", "6.0" },
-                { "H2Equiv", "0.8" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "dehydrogenation",
-            Name = "脱氢反应",
-            Description = "饱和烃的催化脱氢",
-            Title = "脱氢反应工艺分析",
-            Subtitle = "Dehydrogenation Process Analysis",
-            DefaultParameters = new Dictionary<string, string>
-            {
-                { "Pressure", "3" },
-                { "Temperature", "180" },
-                { "H2Flow", "250" },
-                { "FeedFlow", "7.0" },
-                { "CatAmount", "4.5" },
-                { "ResidenceTime", "2.5" },
-                { "H2Equiv", "0.5" }
-            }
-        },
-        new ReactionScenario
-        {
-            Id = "custom",
-            Name = "自定义场景",
-            Description = "根据实际需求自定义参数",
-            Title = "自定义反应工艺分析",
-            Subtitle = "Custom Process Analysis",
-            DefaultParameters = null // 自定义场景不设置默认值
-        }
-    };
+                new ReactionScenario
+                {
+                    Id = "hydrogenation",
+                    Name = "硝化还原反应",
+                    Description = "芳香硝基化合物的催化加氢还原",
+                    Title = "硝化还原反应工艺分析",
+                    Subtitle = "Hydrogenation Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "12" },
+                        { "Temperature", "140" },
+                        { "H2Flow", "450" },
+                        { "FeedFlow", "10.0" },
+                        { "CatAmount", "4.0" },
+                        { "ResidenceTime", "4.0" },
+                        { "H2Equiv", "1.5" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "oxidation",
+                    Name = "氧化反应",
+                    Description = "有机物选择性氧化过程",
+                    Title = "氧化反应工艺分析",
+                    Subtitle = "Oxidation Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "8" },
+                        { "Temperature", "120" },
+                        { "H2Flow", "350" },
+                        { "FeedFlow", "8.0" },
+                        { "CatAmount", "3.5" },
+                        { "ResidenceTime", "3.5" },
+                        { "H2Equiv", "1.2" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "esterification",
+                    Name = "酯化反应",
+                    Description = "羧酸与醇的酯化缩合",
+                    Title = "酯化反应工艺分析",
+                    Subtitle = "Esterification Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "5" },
+                        { "Temperature", "100" },
+                        { "H2Flow", "200" },
+                        { "FeedFlow", "12.0" },
+                        { "CatAmount", "2.5" },
+                        { "ResidenceTime", "5.0" },
+                        { "H2Equiv", "1.0" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "alkylation",
+                    Name = "烷基化反应",
+                    Description = "芳烃或烯烃的烷基化",
+                    Title = "烷基化反应工艺分析",
+                    Subtitle = "Alkylation Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "15" },
+                        { "Temperature", "160" },
+                        { "H2Flow", "500" },
+                        { "FeedFlow", "9.0" },
+                        { "CatAmount", "5.0" },
+                        { "ResidenceTime", "4.5" },
+                        { "H2Equiv", "1.8" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "hydroformylation",
+                    Name = "羰基化反应",
+                    Description = "烯烃与一氧化碳和氢气的反应",
+                    Title = "羰基化反应工艺分析",
+                    Subtitle = "Hydroformylation Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "10" },
+                        { "Temperature", "130" },
+                        { "H2Flow", "400" },
+                        { "FeedFlow", "11.0" },
+                        { "CatAmount", "3.8" },
+                        { "ResidenceTime", "3.8" },
+                        { "H2Equiv", "1.3" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "polymerization",
+                    Name = "聚合反应",
+                    Description = "单体的催化聚合过程",
+                    Title = "聚合反应工艺分析",
+                    Subtitle = "Polymerization Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "6" },
+                        { "Temperature", "90" },
+                        { "H2Flow", "300" },
+                        { "FeedFlow", "15.0" },
+                        { "CatAmount", "2.0" },
+                        { "ResidenceTime", "6.0" },
+                        { "H2Equiv", "0.8" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "dehydrogenation",
+                    Name = "脱氢反应",
+                    Description = "饱和烃的催化脱氢",
+                    Title = "脱氢反应工艺分析",
+                    Subtitle = "Dehydrogenation Process Analysis",
+                    DefaultParameters = new Dictionary<string, string>
+                    {
+                        { "Pressure", "3" },
+                        { "Temperature", "180" },
+                        { "H2Flow", "250" },
+                        { "FeedFlow", "7.0" },
+                        { "CatAmount", "4.5" },
+                        { "ResidenceTime", "2.5" },
+                        { "H2Equiv", "0.5" }
+                    }
+                },
+                new ReactionScenario
+                {
+                    Id = "custom",
+                    Name = "自定义场景",
+                    Description = "根据实际需求自定义参数",
+                    Title = "自定义反应工艺分析",
+                    Subtitle = "Custom Process Analysis",
+                    DefaultParameters = null
+                }
+            };
 
-            // 默认选择第一个场景
             SelectedReactionScenario = ReactionScenarios.FirstOrDefault();
         }
 
-        // 添加场景切换处理方法
         private void OnReactionScenarioChanged()
         {
             if (SelectedReactionScenario == null) return;
@@ -417,23 +422,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogInformation("切换反应场景: {ScenarioName}", SelectedReactionScenario.Name);
 
-                // 更新标题
                 CurrentScenarioTitle = SelectedReactionScenario.Title;
                 CurrentScenarioSubtitle = SelectedReactionScenario.Subtitle;
 
-                // 如果有默认参数，则应用
                 if (SelectedReactionScenario.DefaultParameters != null)
                 {
                     ApplyDefaultParameters(SelectedReactionScenario.DefaultParameters);
-
-                    // 隐藏之前的预测结果
                     PredictionResultsVisibility = Visibility.Collapsed;
-
-                    //_dialogService?.ShowInfo($"已切换到 {SelectedReactionScenario.Name}，参数已重置为推荐值", "场景切换");
                 }
                 else
                 {
-                    // 自定义场景，保留当前参数
                     _dialogService?.ShowInfo("已切换到自定义场景，可自由设置参数", "场景切换");
                 }
 
@@ -446,7 +444,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
         }
 
-        // 添加应用默认参数方法
         private void ApplyDefaultParameters(Dictionary<string, string> parameters)
         {
             if (parameters.TryGetValue("Pressure", out var pressure))
@@ -486,7 +483,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogInformation("开始初始化Python模型");
 
-                // 使用全局单例管理器
                 if (!PythonEnvironmentManager.Instance.IsInitialized)
                 {
                     var success = PythonEnvironmentManager.Instance.Initialize();
@@ -496,23 +492,21 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     }
                 }
 
-                // 创建模型实例（每个ViewModel独立）
                 _pythonModel = PythonEnvironmentManager.Instance.CreateModel();
                 _isPythonInitialized = true;
 
                 ModelStatus = "已初始化";
-                ModelStatusBrush = new SolidColorBrush(Color.FromRgb(22, 198, 12));
+                ModelStatusBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 198, 12));
 
                 _logger.LogInformation("Python模型初始化成功");
 
-                // 自动加载图表
                 LoadChartsOnStartup();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Python模型初始化失败");
                 ModelStatus = "初始化失败";
-                ModelStatusBrush = new SolidColorBrush(Color.FromRgb(231, 72, 86));
+                ModelStatusBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(231, 72, 86));
 
                 _dialogService?.ShowError($"Python模型初始化失败: {ex.Message}", "初始化错误");
             }
@@ -845,7 +839,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     StrokeThickness = 1,
                     StrokeColor = OxyColors.Black,
                     LabelPlacement = LabelPlacement.Inside,
-                    LabelFormatString = "{0:F1}"
+                    LabelFormatString = "{0:F2}"  // 修改这里：从 {0:F1} 改为 {0:F2}
                 };
 
                 var topSensitivities = sensitivityData.Sensitivities.Take(6).ToList();
@@ -894,20 +888,838 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
         }
 
+        #region Excel导出功能
+
+        static DataAnalysisControlViewModel()
+        {
+            // 设置 EPPlus 许可证（只执行一次）
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
+
         private void ExecuteExportData()
         {
-            _dialogService?.ShowInfo("数据导出功能开发中...", "提示");
+            try
+            {
+                _logger.LogInformation("开始导出数据到Excel");
+
+                var saveFileDialog = new SaveFileDialog
+                {
+                    Filter = "Excel文件 (*.xlsx)|*.xlsx",
+                    FileName = $"工艺分析报告_{SelectedReactionScenario?.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx",
+                    Title = "导出工艺分析报告"
+                };
+
+                if (saveFileDialog.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                using (var package = new ExcelPackage())
+                {
+                    var summarySheet = package.Workbook.Worksheets.Add("分析摘要");
+                    var dataSheet = package.Workbook.Worksheets.Add("详细数据");
+                    var chartSheet = package.Workbook.Worksheets.Add("图表分析");
+
+                    FillSummarySheet(summarySheet);
+                    FillDataSheet(dataSheet);
+                    FillChartSheet(chartSheet, package);
+
+                    FileInfo fileInfo = new FileInfo(saveFileDialog.FileName);
+                    package.SaveAs(fileInfo);
+                }
+
+                _logger.LogInformation("数据导出成功: {FilePath}", saveFileDialog.FileName);
+
+                var result = _dialogService?.ShowConfirmation(
+                    $"数据已成功导出至:\n{saveFileDialog.FileName}\n\n是否立即打开文件?",
+                    "导出成功");
+
+                if (result == true)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = saveFileDialog.FileName,
+                        UseShellExecute = true
+                    });
+                }
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("数据导出完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "导出数据失败");
+                _dialogService?.ShowError($"导出失败: {ex.Message}", "错误");
+            }
         }
+
+        private void FillSummarySheet(ExcelWorksheet sheet)
+        {
+            // 设置列宽
+            sheet.Column(1).Width = 22;
+            sheet.Column(2).Width = 28;
+            sheet.Column(3).Width = 22;
+            sheet.Column(4).Width = 28;
+
+            int row = 1;
+
+            // 主标题
+            sheet.Cells[row, 1, row, 4].Merge = true;
+            sheet.Cells[row, 1].Value = "化工工艺分析报告";
+            sheet.Cells[row, 1].Style.Font.Size = 22;
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            sheet.Cells[row, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            sheet.Cells[row, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            sheet.Cells[row, 1].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(68, 114, 196));
+            sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.White);
+            sheet.Row(row).Height = 40;
+            row += 2;
+
+            // 基本信息
+            AddSectionHeader(sheet, ref row, "基本信息");
+            AddInfoRow(sheet, ref row, "报告生成时间", DateTime.Now.ToString("yyyy年MM月dd日 HH:mm:ss"));
+            AddInfoRow(sheet, ref row, "反应类型", SelectedReactionScenario?.Name ?? "未选择");
+            AddInfoRow(sheet, ref row, "场景描述", SelectedReactionScenario?.Description ?? "-");
+            AddInfoRow(sheet, ref row, "分析人员", Environment.UserName);
+            AddInfoRow(sheet, ref row, "报告版本", "V1.0");
+            row++;
+
+            // 获取最优工艺参数区域
+            if (_isPythonInitialized)
+            {
+                try
+                {
+                    using (Py.GIL())
+                    {
+                        dynamic windowInfo = _pythonModel.get_process_window_data();
+                        string windowJson = windowInfo.ToString();
+                        var windowData = JsonConvert.DeserializeObject<ProcessWindowData>(windowJson);
+
+                        if (windowData?.OptimalRegion != null)
+                        {
+                            AddSectionHeader(sheet, ref row, "最优工艺参数区域");
+
+                            // 温度范围
+                            AddParameterRangeRow(sheet, ref row, "反应温度",
+                                $"{windowData.OptimalRegion.TempMin:F1}",
+                                $"{windowData.OptimalRegion.TempMax:F1}",
+                                "°C");
+
+                            // 压力范围
+                            AddParameterRangeRow(sheet, ref row, "反应压力",
+                                $"{windowData.OptimalRegion.PressureMin:F1}",
+                                $"{windowData.OptimalRegion.PressureMax:F1}",
+                                "bar");
+
+                            // 预期转化率范围
+                            AddParameterRangeRow(sheet, ref row, "预期转化率",
+                                "85.0",
+                                "100.0",
+                                "%");
+
+                            // 推荐催化剂用量
+                            AddParameterRangeRow(sheet, ref row, "催化剂用量",
+                                "3.5",
+                                "5.0",
+                                "%");
+
+                            // 推荐停留时间
+                            AddParameterRangeRow(sheet, ref row, "停留时间",
+                                "3.5",
+                                "5.0",
+                                "min");
+
+                            // 推荐氢气当量
+                            AddParameterRangeRow(sheet, ref row, "氢气当量",
+                                "1.2",
+                                "1.8",
+                                "eq");
+
+                            row++;
+
+                            // 添加说明
+                            sheet.Cells[row, 1, row, 4].Merge = true;
+                            sheet.Cells[row, 1].Value = "注：以上参数区域基于历史数据分析和机器学习模型预测得出，实际应用时请结合具体工艺条件进行调整。";
+                            sheet.Cells[row, 1].Style.Font.Size = 9;
+                            sheet.Cells[row, 1].Style.Font.Italic = true;
+                            sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.FromArgb(100, 100, 100));
+                            sheet.Cells[row, 1].Style.WrapText = true;
+                            sheet.Row(row).Height = 30;
+                            row++;
+                        }
+                        else
+                        {
+                            // 如果没有最优区域数据，显示当前输入参数作为参考
+                            AddSectionHeader(sheet, ref row, "当前工艺参数（参考）");
+                            AddParameterRow(sheet, ref row, "反应压力", Pressure, "bar");
+                            AddParameterRow(sheet, ref row, "反应温度", Temperature, "°C");
+                            AddParameterRow(sheet, ref row, "氢气流量", H2Flow, "mL/min");
+                            AddParameterRow(sheet, ref row, "原料流量", FeedFlow, "g/min");
+                            AddParameterRow(sheet, ref row, "催化剂用量", CatAmount, "%");
+                            AddParameterRow(sheet, ref row, "停留时间", ResidenceTime, "min");
+                            AddParameterRow(sheet, ref row, "氢气当量", H2Equiv, "eq");
+                            row++;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "获取最优工艺参数失败");
+
+                    // 出错时显示当前参数
+                    AddSectionHeader(sheet, ref row, "当前工艺参数（参考）");
+                    AddParameterRow(sheet, ref row, "反应压力", Pressure, "bar");
+                    AddParameterRow(sheet, ref row, "反应温度", Temperature, "°C");
+                    AddParameterRow(sheet, ref row, "氢气流量", H2Flow, "mL/min");
+                    AddParameterRow(sheet, ref row, "原料流量", FeedFlow, "g/min");
+                    AddParameterRow(sheet, ref row, "催化剂用量", CatAmount, "%");
+                    AddParameterRow(sheet, ref row, "停留时间", ResidenceTime, "min");
+                    AddParameterRow(sheet, ref row, "氢气当量", H2Equiv, "eq");
+                    row++;
+                }
+            }
+            else
+            {
+                // Python未初始化时显示当前参数
+                AddSectionHeader(sheet, ref row, "当前工艺参数（参考）");
+                AddParameterRow(sheet, ref row, "反应压力", Pressure, "bar");
+                AddParameterRow(sheet, ref row, "反应温度", Temperature, "°C");
+                AddParameterRow(sheet, ref row, "氢气流量", H2Flow, "mL/min");
+                AddParameterRow(sheet, ref row, "原料流量", FeedFlow, "g/min");
+                AddParameterRow(sheet, ref row, "催化剂用量", CatAmount, "%");
+                AddParameterRow(sheet, ref row, "停留时间", ResidenceTime, "min");
+                AddParameterRow(sheet, ref row, "氢气当量", H2Equiv, "eq");
+                row++;
+            }
+
+            // 预测结果
+            if (PredictionResultsVisibility == Visibility.Visible)
+            {
+                AddSectionHeader(sheet, ref row, "预测结果");
+                AddResultRow(sheet, ref row, "预测转化率", PredictedConversion);
+                AddResultRow(sheet, ref row, "置信区间", ConfidenceRange);
+                AddResultRow(sheet, ref row, "预测精度", PredictionAccuracy);
+                AddResultRow(sheet, ref row, "工艺风险", ProcessRisk);
+                row++;
+
+                // 工艺建议
+                if (Recommendations?.Any() == true)
+                {
+                    AddSectionHeader(sheet, ref row, "工艺优化建议");
+                    foreach (var recommendation in Recommendations)
+                    {
+                        sheet.Cells[row, 1, row, 4].Merge = true;
+                        var text = recommendation.Text.Replace("•", "-").Trim();
+                        sheet.Cells[row, 1].Value = text;
+                        sheet.Cells[row, 1].Style.WrapText = true;
+                        sheet.Cells[row, 1].Style.Indent = 1;
+                        sheet.Cells[row, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                        sheet.Row(row).Height = 22;
+
+                        sheet.Cells[row, 1].Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                        sheet.Cells[row, 1].Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                        sheet.Cells[row, 1].Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                        sheet.Cells[row, 1].Style.Border.Left.Color.SetColor(Color.FromArgb(217, 217, 217));
+                        sheet.Cells[row, 1].Style.Border.Right.Color.SetColor(Color.FromArgb(217, 217, 217));
+                        sheet.Cells[row, 1].Style.Border.Bottom.Color.SetColor(Color.FromArgb(217, 217, 217));
+
+                        row++;
+                    }
+                }
+            }
+
+            // 页脚
+            row++;
+            sheet.Cells[row, 1, row, 4].Merge = true;
+            sheet.Cells[row, 1].Value = $"© {DateTime.Now.Year} 化工工艺分析系统 - 本报告仅供内部参考使用";
+            sheet.Cells[row, 1].Style.Font.Size = 9;
+            sheet.Cells[row, 1].Style.Font.Italic = true;
+            sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.Gray);
+            sheet.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+            // 设置整体边框
+            var dataRange = sheet.Cells[1, 1, row, 4];
+            dataRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+        }
+
+        private void AddParameterRangeRow(ExcelWorksheet sheet, ref int row, string parameter, string minValue, string maxValue, string unit)
+        {
+            sheet.Cells[row, 1].Value = parameter;
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            // 合并单元格显示范围
+            sheet.Cells[row, 2, row, 3].Merge = true;
+            sheet.Cells[row, 2].Value = $"{minValue} ~ {maxValue}";
+            sheet.Cells[row, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            sheet.Cells[row, 2].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            // 设置范围显示的背景色
+            sheet.Cells[row, 2].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            sheet.Cells[row, 2].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(226, 239, 218));
+            sheet.Cells[row, 2].Style.Font.Bold = true;
+
+            sheet.Cells[row, 4].Value = unit;
+            sheet.Cells[row, 4].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            sheet.Cells[row, 4].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            sheet.Cells[row, 4].Style.Font.Color.SetColor(Color.FromArgb(128, 128, 128));
+
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Color.SetColor(Color.FromArgb(217, 217, 217));
+
+            sheet.Row(row).Height = 22;
+            row++;
+        }
+
+        private void FillDataSheet(ExcelWorksheet sheet)
+        {
+            if (!_isPythonInitialized)
+            {
+                sheet.Cells[1, 1].Value = "Python环境未初始化，无法获取数据";
+                sheet.Cells[1, 1].Style.Font.Color.SetColor(Color.Red);
+                sheet.Cells[1, 1].Style.Font.Bold = true;
+                return;
+            }
+
+            try
+            {
+                using (Py.GIL())
+                {
+                    dynamic windowInfo = _pythonModel.get_process_window_data();
+                    string windowJson = windowInfo.ToString();
+                    var windowData = JsonConvert.DeserializeObject<ProcessWindowData>(windowJson);
+
+                    int row = 1;
+
+                    // 标题
+                    sheet.Cells[row, 1, row, 5].Merge = true;
+                    sheet.Cells[row, 1].Value = "工艺操作窗口详细数据";
+                    StyleMainHeader(sheet.Cells[row, 1, row, 5]);
+                    row += 2;
+
+                    // 表头
+                    string[] headers = { "压力 (bar)", "温度 (°C)", "转化率 (%)", "下限 (%)", "上限 (%)" };
+                    for (int i = 0; i < headers.Length; i++)
+                    {
+                        var cell = sheet.Cells[row, i + 1];
+                        cell.Value = headers[i];
+                        cell.Style.Font.Bold = true;
+                        cell.Style.Font.Size = 11;
+                        cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        cell.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(217, 217, 217));
+                        cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                        cell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                        cell.Style.Border.BorderAround(ExcelBorderStyle.Thin);
+                        sheet.Column(i + 1).Width = 16;
+                    }
+                    row++;
+
+                    int dataStartRow = row;
+
+                    // 数据填充
+                    foreach (var pressureData in windowData.PressureCurves)
+                    {
+                        for (int i = 0; i < pressureData.Temperatures.Count; i++)
+                        {
+                            sheet.Cells[row, 1].Value = pressureData.Pressure;
+                            sheet.Cells[row, 2].Value = pressureData.Temperatures[i];
+                            sheet.Cells[row, 3].Value = pressureData.Conversions[i];
+
+                            double conversion = pressureData.Conversions[i];
+                            sheet.Cells[row, 4].Value = Math.Max(0, conversion - 5);
+                            sheet.Cells[row, 5].Value = Math.Min(100, conversion + 5);
+
+                            for (int col = 1; col <= 5; col++)
+                            {
+                                sheet.Cells[row, col].Style.Numberformat.Format = "0.00";
+                                sheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                                sheet.Cells[row, col].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                                sheet.Cells[row, col].Style.Border.BorderAround(ExcelBorderStyle.Thin);
+                                sheet.Cells[row, col].Style.Border.BorderAround(ExcelBorderStyle.Thin, Color.FromArgb(217, 217, 217));
+                            }
+
+                            row++;
+                        }
+                    }
+
+                    // 条件格式化
+                    var conversionColumn = sheet.Cells[dataStartRow, 3, row - 1, 3];
+                    var colorScale = conversionColumn.ConditionalFormatting.AddThreeColorScale();
+                    colorScale.LowValue.Type = eExcelConditionalFormattingValueObjectType.Num;
+                    colorScale.LowValue.Value = 0;
+                    colorScale.LowValue.Color = Color.FromArgb(248, 105, 107);
+
+                    colorScale.MiddleValue.Type = eExcelConditionalFormattingValueObjectType.Num;
+                    colorScale.MiddleValue.Value = 70;
+                    colorScale.MiddleValue.Color = Color.FromArgb(255, 235, 132);
+
+                    colorScale.HighValue.Type = eExcelConditionalFormattingValueObjectType.Num;
+                    colorScale.HighValue.Value = 100;
+                    colorScale.HighValue.Color = Color.FromArgb(99, 190, 123);
+
+                    // 添加数据说明
+                    row += 2;
+                    sheet.Cells[row, 1].Value = "数据说明：";
+                    sheet.Cells[row, 1].Style.Font.Bold = true;
+                    row++;
+                    sheet.Cells[row, 1, row, 5].Merge = true;
+                    sheet.Cells[row, 1].Value = "1. 转化率数据基于机器学习模型预测生成";
+                    row++;
+                    sheet.Cells[row, 1, row, 5].Merge = true;
+                    sheet.Cells[row, 1].Value = "2. 置信区间表示预测值的可能波动范围";
+                    row++;
+                    sheet.Cells[row, 1, row, 5].Merge = true;
+                    sheet.Cells[row, 1].Value = "3. 建议结合实际工艺条件进行参数调整";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "填充详细数据失败");
+                sheet.Cells[1, 1].Value = $"数据加载失败: {ex.Message}";
+                sheet.Cells[1, 1].Style.Font.Color.SetColor(Color.Red);
+            }
+        }
+
+        private void FillChartSheet(ExcelWorksheet sheet, ExcelPackage package)
+        {
+            int row = 1;
+
+            // 标题
+            sheet.Cells[row, 1, row, 8].Merge = true;
+            sheet.Cells[row, 1].Value = "图表分析";
+            StyleMainHeader(sheet.Cells[row, 1, row, 8]);
+            row += 2;
+
+            try
+            {
+                // 工艺操作窗口图
+                if (ProcessWindowPlotModel != null)
+                {
+                    sheet.Cells[row, 1].Value = "1. 工艺操作窗口分析";
+                    sheet.Cells[row, 1].Style.Font.Bold = true;
+                    sheet.Cells[row, 1].Style.Font.Size = 14;
+                    sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.FromArgb(68, 114, 196));
+                    row++;
+
+                    var processImage = ExportPlotToImage(ProcessWindowPlotModel, 800, 500);
+                    if (processImage != null)
+                    {
+                        using (var ms = new MemoryStream())
+                        {
+                            processImage.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                            ms.Position = 0;
+
+                            var picture1 = sheet.Drawings.AddPicture("ProcessWindow", ms);
+                            picture1.SetPosition(row - 1, 0, 0, 0);
+                            picture1.SetSize(800, 500);
+                        }
+
+                        processImage.Dispose();
+                        row += 26;
+                    }
+                }
+
+                // 参数敏感性图
+                if (SensitivityPlotModel != null)
+                {
+                    sheet.Cells[row, 1].Value = "2. 参数敏感性分析";
+                    sheet.Cells[row, 1].Style.Font.Bold = true;
+                    sheet.Cells[row, 1].Style.Font.Size = 14;
+                    sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.FromArgb(68, 114, 196));
+                    row++;
+
+                    var sensitivityImage = ExportPlotToImage(SensitivityPlotModel, 600, 400);
+                    if (sensitivityImage != null)
+                    {
+                        using (var ms = new MemoryStream())
+                        {
+                            sensitivityImage.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                            ms.Position = 0;
+
+                            var picture2 = sheet.Drawings.AddPicture("Sensitivity", ms);
+                            picture2.SetPosition(row - 1, 0, 0, 0);
+                            picture2.SetSize(600, 400);
+                        }
+
+                        sensitivityImage.Dispose();
+                        row += 21;
+                    }
+                }
+
+                CreateNativeExcelCharts(sheet, package, ref row);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "填充图表失败");
+                sheet.Cells[row, 1].Value = $"图表生成失败: {ex.Message}";
+                sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.Red);
+            }
+        }
+
+        private Image ExportPlotToImage(PlotModel plotModel, int width, int height)
+        {
+            try
+            {
+                var pngExporter = new PngExporter
+                {
+                    Width = width,
+                    Height = height
+                };
+
+                using (var stream = new MemoryStream())
+                {
+                    pngExporter.Export(plotModel, stream);
+                    stream.Position = 0;
+                    return Image.FromStream(stream);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "导出图表为图片失败");
+                return null;
+            }
+        }
+
+        private void CreateNativeExcelCharts(ExcelWorksheet sheet, ExcelPackage package, ref int row)
+        {
+            if (!_isPythonInitialized) return;
+
+            try
+            {
+                using (Py.GIL())
+                {
+                    dynamic windowInfo = _pythonModel.get_process_window_data();
+                    string windowJson = windowInfo.ToString();
+                    var windowData = JsonConvert.DeserializeObject<ProcessWindowData>(windowJson);
+
+                    row += 2;
+                    sheet.Cells[row, 1].Value = "3. Excel原生图表 - 温度与转化率关系";
+                    sheet.Cells[row, 1].Style.Font.Bold = true;
+                    sheet.Cells[row, 1].Style.Font.Size = 14;
+                    sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.FromArgb(68, 114, 196));
+                    row += 2;
+
+                    int dataStartRow = row;
+                    int col = 1;
+
+                    // 表头
+                    sheet.Cells[row, col].Value = "温度 (°C)";
+                    sheet.Cells[row, col].Style.Font.Bold = true;
+                    sheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    sheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(217, 217, 217));
+                    sheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+                    var firstCurve = windowData.PressureCurves.FirstOrDefault();
+                    if (firstCurve != null)
+                    {
+                        // 温度列
+                        for (int i = 0; i < firstCurve.Temperatures.Count; i++)
+                        {
+                            sheet.Cells[row + 1 + i, col].Value = firstCurve.Temperatures[i];
+                            sheet.Cells[row + 1 + i, col].Style.Numberformat.Format = "0.0";
+                            sheet.Cells[row + 1 + i, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                        }
+                        col++;
+
+                        // 各压力下的转化率
+                        foreach (var pressureData in windowData.PressureCurves)
+                        {
+                            sheet.Cells[row, col].Value = $"{pressureData.Pressure} bar";
+                            sheet.Cells[row, col].Style.Font.Bold = true;
+                            sheet.Cells[row, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            sheet.Cells[row, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(217, 217, 217));
+                            sheet.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+                            for (int i = 0; i < pressureData.Conversions.Count; i++)
+                            {
+                                sheet.Cells[row + 1 + i, col].Value = pressureData.Conversions[i];
+                                sheet.Cells[row + 1 + i, col].Style.Numberformat.Format = "0.00";
+                                sheet.Cells[row + 1 + i, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                            }
+                            col++;
+                        }
+
+                        // 创建图表
+                        var chart = sheet.Drawings.AddChart("ConversionLineChart", eChartType.Line) as ExcelLineChart;
+                        chart.Title.Text = "不同压力下的温度-转化率关系曲线";
+                        chart.Title.Font.Bold = true;
+                        chart.Title.Font.Size = 14;
+
+                        chart.SetPosition(row + firstCurve.Temperatures.Count + 2, 0, 0, 0);
+                        chart.SetSize(800, 450);
+
+                        chart.Style = eChartStyle.Style2;
+                        chart.Legend.Position = eLegendPosition.Right;
+                        chart.XAxis.Title.Text = "温度 (°C)";
+                        chart.XAxis.Title.Font.Size = 11;
+                        chart.YAxis.Title.Text = "转化率 (%)";
+                        chart.YAxis.Title.Font.Size = 11;
+                        chart.YAxis.MinValue = 0;
+                        chart.YAxis.MaxValue = 100;
+
+                        chart.XAxis.MajorGridlines.Width = 1;
+                        chart.YAxis.MajorGridlines.Width = 1;
+
+                        // 添加系列
+                        for (int i = 2; i <= col - 1; i++)
+                        {
+                            var series = chart.Series.Add(
+                                sheet.Cells[row + 1, i, row + firstCurve.Temperatures.Count, i],
+                                sheet.Cells[row + 1, 1, row + firstCurve.Temperatures.Count, 1]
+                            );
+                            series.Header = sheet.Cells[row, i].Value.ToString();
+                        }
+
+                        row += firstCurve.Temperatures.Count + 28;
+
+                        CreateSensitivityBarChart(sheet, ref row);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "创建Excel原生图表失败");
+            }
+        }
+
+        private void CreateSensitivityBarChart(ExcelWorksheet sheet, ref int row)
+        {
+            try
+            {
+                using (Py.GIL())
+                {
+                    dynamic sensitivityInfo = _pythonModel.get_parameter_sensitivity();
+                    string sensitivityJson = sensitivityInfo.ToString();
+                    var sensitivityData = JsonConvert.DeserializeObject<SensitivityAnalysisData>(sensitivityJson);
+
+                    row += 2;
+                    sheet.Cells[row, 1].Value = "4. Excel原生图表 - 参数敏感性对比";
+                    sheet.Cells[row, 1].Style.Font.Bold = true;
+                    sheet.Cells[row, 1].Style.Font.Size = 14;
+                    sheet.Cells[row, 1].Style.Font.Color.SetColor(Color.FromArgb(68, 114, 196));
+                    row++;
+
+                    int dataStartRow = row;
+                    sheet.Cells[row, 1].Value = "参数名称";
+                    sheet.Cells[row, 2].Value = "敏感性系数";
+                    sheet.Cells[row, 1, row, 2].Style.Font.Bold = true;
+                    sheet.Cells[row, 1, row, 2].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    sheet.Cells[row, 1, row, 2].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(217, 217, 217));
+                    sheet.Cells[row, 1, row, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    row++;
+
+                    var topSensitivities = sensitivityData.Sensitivities.Take(6).ToList();
+                    foreach (var item in topSensitivities)
+                    {
+                        sheet.Cells[row, 1].Value = item.ParameterChinese;
+                        sheet.Cells[row, 2].Value = item.Sensitivity;
+                        sheet.Cells[row, 2].Style.Numberformat.Format = "0.00";
+                        sheet.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+                        sheet.Cells[row, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                        row++;
+                    }
+
+                    var barChart = sheet.Drawings.AddChart("SensitivityBarChart", eChartType.BarClustered) as ExcelBarChart;
+                    barChart.Title.Text = "参数敏感性分析对比";
+                    barChart.Title.Font.Bold = true;
+                    barChart.Title.Font.Size = 14;
+
+                    barChart.SetPosition(dataStartRow + topSensitivities.Count + 1, 0, 0, 0);
+                    barChart.SetSize(700, 400);
+                    barChart.Style = eChartStyle.Style3;
+
+                    var barSeries = barChart.Series.Add(
+                        sheet.Cells[dataStartRow + 1, 2, dataStartRow + topSensitivities.Count, 2],
+                        sheet.Cells[dataStartRow + 1, 1, dataStartRow + topSensitivities.Count, 1]
+                    );
+                    barSeries.Header = "敏感性系数";
+
+                    barChart.XAxis.Title.Text = "敏感性系数";
+                    barChart.YAxis.Title.Text = "工艺参数";
+                    barChart.Legend.Remove();
+
+                    barChart.DataLabel.ShowValue = true;
+
+                    row += 22;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "创建敏感性柱状图失败");
+            }
+        }
+
+        #region Excel样式辅助方法
+
+        private void AddSectionHeader(ExcelWorksheet sheet, ref int row, string title)
+        {
+            sheet.Cells[row, 1, row, 4].Merge = true;
+            var cell = sheet.Cells[row, 1];
+            cell.Value = title;
+            cell.Style.Font.Size = 12;
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            cell.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(217, 225, 242));
+            cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            cell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            cell.Style.Indent = 1;
+            cell.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            cell.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            cell.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            cell.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            cell.Style.Border.Top.Color.SetColor(Color.FromArgb(68, 114, 196));
+            cell.Style.Border.Bottom.Color.SetColor(Color.FromArgb(68, 114, 196));
+            cell.Style.Border.Left.Color.SetColor(Color.FromArgb(68, 114, 196));
+            cell.Style.Border.Right.Color.SetColor(Color.FromArgb(68, 114, 196));
+            sheet.Row(row).Height = 26;
+            row++;
+        }
+
+        private void AddInfoRow(ExcelWorksheet sheet, ref int row, string label, string value)
+        {
+            sheet.Cells[row, 1].Value = label;
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            sheet.Cells[row, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            sheet.Cells[row, 2, row, 4].Merge = true;
+            sheet.Cells[row, 2].Value = value;
+            sheet.Cells[row, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            sheet.Cells[row, 2].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Color.SetColor(Color.FromArgb(217, 217, 217));
+
+            sheet.Row(row).Height = 20;
+            row++;
+        }
+
+        private void AddParameterRow(ExcelWorksheet sheet, ref int row, string parameter, string value, string unit)
+        {
+            sheet.Cells[row, 1].Value = parameter;
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            sheet.Cells[row, 2].Value = value;
+            sheet.Cells[row, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            sheet.Cells[row, 2].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            sheet.Cells[row, 3].Value = unit;
+            sheet.Cells[row, 3].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            sheet.Cells[row, 3].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            sheet.Cells[row, 3].Style.Font.Color.SetColor(Color.FromArgb(128, 128, 128));
+
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Color.SetColor(Color.FromArgb(217, 217, 217));
+
+            sheet.Row(row).Height = 20;
+            row++;
+        }
+
+        private void AddResultRow(ExcelWorksheet sheet, ref int row, string label, string value)
+        {
+            sheet.Cells[row, 1].Value = label;
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            sheet.Cells[row, 2, row, 4].Merge = true;
+            sheet.Cells[row, 2].Value = value;
+            sheet.Cells[row, 2].Style.Font.Bold = true;
+            sheet.Cells[row, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            sheet.Cells[row, 2].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            // 根据结果类型设置颜色
+            if (label.Contains("转化率"))
+            {
+                if (double.TryParse(value.Replace("%", ""), out double conv))
+                {
+                    if (conv >= 85)
+                    {
+                        sheet.Cells[row, 2].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        sheet.Cells[row, 2].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(198, 239, 206));
+                        sheet.Cells[row, 2].Style.Font.Color.SetColor(Color.FromArgb(0, 97, 0));
+                    }
+                    else if (conv >= 70)
+                    {
+                        sheet.Cells[row, 2].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        sheet.Cells[row, 2].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(255, 235, 156));
+                        sheet.Cells[row, 2].Style.Font.Color.SetColor(Color.FromArgb(156, 101, 0));
+                    }
+                    else
+                    {
+                        sheet.Cells[row, 2].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        sheet.Cells[row, 2].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(255, 199, 206));
+                        sheet.Cells[row, 2].Style.Font.Color.SetColor(Color.FromArgb(156, 0, 6));
+                    }
+                }
+            }
+            else if (label.Contains("风险"))
+            {
+                if (value.Contains("低"))
+                    sheet.Cells[row, 2].Style.Font.Color.SetColor(Color.FromArgb(0, 176, 80));
+                else if (value.Contains("中"))
+                    sheet.Cells[row, 2].Style.Font.Color.SetColor(Color.FromArgb(255, 192, 0));
+                else if (value.Contains("高"))
+                    sheet.Cells[row, 2].Style.Font.Color.SetColor(Color.FromArgb(255, 0, 0));
+            }
+
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            sheet.Cells[row, 1, row, 4].Style.Border.Top.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Bottom.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Left.Color.SetColor(Color.FromArgb(217, 217, 217));
+            sheet.Cells[row, 1, row, 4].Style.Border.Right.Color.SetColor(Color.FromArgb(217, 217, 217));
+
+            sheet.Row(row).Height = 24;
+            row++;
+        }
+
+        private void StyleMainHeader(ExcelRange range)
+        {
+            range.Style.Font.Size = 16;
+            range.Style.Font.Bold = true;
+            range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            range.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            range.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(68, 114, 196));
+            range.Style.Font.Color.SetColor(Color.White);
+            range.Worksheet.Row(range.Start.Row).Height = 30;
+        }
+
+        #endregion
+
+        #endregion
 
         private void ExecuteSwitchToFlowDesigner()
         {
-            // 通过事件通知主窗口切换到流程设计器
             _eventAggregator?.GetEvent<SwitchToCanvasDesignerEvent>()?.Publish();
         }
 
         private void ExecuteSwitchToStepDesigner()
         {
-            // 通过事件通知主窗口切换到步骤设计器
             _eventAggregator?.GetEvent<SwitchToFlowDesignerEvent>()?.Publish();
         }
 
@@ -916,8 +1728,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 _logger.LogInformation("释放DataAnalysisControlViewModel资源");
-
-                // 只释放模型实例，不关闭全局Python环境
                 _pythonModel = null;
                 _isPythonInitialized = false;
             }
@@ -946,5 +1756,4 @@ namespace MaxChemical.Modules.Designer.ViewModels
     }
 
     #endregion
-
 }
