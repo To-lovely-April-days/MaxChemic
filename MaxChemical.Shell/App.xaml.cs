@@ -45,6 +45,9 @@ public partial class App : PrismApplication
         CreateHost();
 
         base.OnStartup(e);
+
+        // 应用启动时初始化Python环境
+        PythonEnvironmentManager.Instance.Initialize();
     }
 
     private void CreateHost()
@@ -171,6 +174,16 @@ public partial class App : PrismApplication
         _host?.Dispose();
 
         MaxChemical.Logging.LogManager.Shutdown();
+        try
+        {
+            //  应用退出时才关闭Python环境
+            PythonEnvironmentManager.Instance.Dispose();
+        }
+        catch (Exception ex)
+        {
+            // 记录错误但不影响程序退出
+            System.Diagnostics.Debug.WriteLine($"关闭Python环境失败: {ex.Message}");
+        }
         base.OnExit(e);
     }
 

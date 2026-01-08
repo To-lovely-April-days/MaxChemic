@@ -265,7 +265,7 @@ namespace MaxChemical.Shell.Services
 
             if (found)
             {
-                _logger.LogInformation($"✓ 检测到唤醒词: {text}");
+                _logger.LogInformation($" 检测到唤醒词: {text}");
             }
 
             return found;

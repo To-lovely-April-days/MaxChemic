@@ -280,6 +280,14 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Stretch="Uniform"/>
                 </Button>
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding PredictiveAssessmentCommand}"
+                        ToolTip="{Binding TooltipPredictiveAssessment}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/PredictiveAssessment.png" 
+                           Width="30" Height="30"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
             </StackPanel>
 
             <!-- 右侧播放控制组 -->

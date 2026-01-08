@@ -7,7 +7,9 @@
 	<UseWPF>true</UseWPF>
   </PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="OxyPlot.Wpf" Version="2.2.0" />
 		<PackageReference Include="Prism.Wpf" Version="8.1.97" />
+		<PackageReference Include="pythonnet" Version="3.0.5" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\MaxChemical.Data\MaxChemical.Data.csproj" />

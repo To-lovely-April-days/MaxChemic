@@ -31,6 +31,5 @@ public class DesignerModule : IModule
         containerRegistry.Register<ExperimentStatisticsViewModel>();
         containerRegistry.RegisterSingleton<ExperimentDetailWindow>();
         containerRegistry.RegisterSingleton<ExperimentDetailWindowViewModel>();
-
     }
 }

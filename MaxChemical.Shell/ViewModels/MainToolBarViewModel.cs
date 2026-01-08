@@ -70,6 +70,7 @@ namespace MaxChemical.Shell.ViewModels
         private string _tooltipCanvasSettings = string.Empty;
         private string _tooltipDataAnalysis = string.Empty;
         private string _tooltipLog = string.Empty;
+        private string _tooltipPredictiveAssessment = string.Empty;
         private string _tooltipStart = string.Empty;
         private string _tooltipPause = string.Empty;
         private string _tooltipStop = string.Empty;
@@ -201,7 +202,11 @@ namespace MaxChemical.Shell.ViewModels
             get => _tooltipLog;
             set => SetProperty(ref _tooltipLog, value);
         }
-
+        public string TooltipPredictiveAssessment
+        {
+            get => _tooltipPredictiveAssessment;
+            set => SetProperty(ref _tooltipPredictiveAssessment, value);
+        }
         public string TooltipStart
         {
             get => _tooltipStart;
@@ -317,7 +322,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand RedoCommand { get; private set; }
         public DelegateCommand FitToViewCommand { get; private set; } // 新增自适应命令
         public DelegateCommand SettingsCommand { get; private set; }
-
+        public DelegateCommand PredictiveAssessmentCommand { get; set; }//数据分析预测
         public DelegateCommand SettingsChartCommand { get; private set; }
         public DelegateCommand StartCommand { get; private set; }
         public DelegateCommand PauseCommand { get; private set; }
@@ -342,6 +347,7 @@ namespace MaxChemical.Shell.ViewModels
             DeleteCommand = new DelegateCommand(ExecuteDelete);
             SettingsCommand = new DelegateCommand(ExecuteSettings);
             SettingsChartCommand = new DelegateCommand(ShowParameterMonitorChart);
+            PredictiveAssessmentCommand = new DelegateCommand(PredictiveAssessment);
             StartCommand = new DelegateCommand(ExecuteStart, CanExecuteStart);
             PauseCommand = new DelegateCommand(ExecutePause, CanExecutePause);
             StopCommand = new DelegateCommand(ExecuteStop, CanExecuteStop);
@@ -366,6 +372,7 @@ namespace MaxChemical.Shell.ViewModels
             TooltipCanvasSettings = _localizationService.GetString("ToolTip_CanvasSettings");
             TooltipDataAnalysis = _localizationService.GetString("ToolTip_DataAnalysis");
             TooltipLog = _localizationService.GetString("ToolTip_Log");
+            TooltipPredictiveAssessment = _localizationService.GetString("ToolTip_PredictiveAssessment");
             TooltipStart = _localizationService.GetString("ToolTip_Start");
             TooltipPause = _localizationService.GetString("ToolTip_Pause");
             TooltipStop = _localizationService.GetString("ToolTip_Stop");
@@ -1647,6 +1654,108 @@ namespace MaxChemical.Shell.ViewModels
             {
                 _logger.LogError(ex, "创建参数监控图表窗口失败");
                 _dialogService?.ShowError($"打开参数监控图表失败: {ex.Message}", "错误");
+            }
+        }
+
+        private async void PredictiveAssessment()
+        {
+            LoadingWindow loadingWindow = null;
+
+            try
+            {
+                _logger.LogInformation("打开数据分析与预测评估窗口");
+
+                // 显示加载窗口
+                loadingWindow = new LoadingWindow
+                {
+                    Owner = Application.Current.MainWindow
+                };
+                loadingWindow.Show();
+
+                // 异步加载数据分析视图
+                await Task.Run(async () =>
+                {
+                    // 模拟初始化步骤
+                    await Task.Delay(300);
+                    loadingWindow.Dispatcher.Invoke(() =>
+                        loadingWindow.UpdateMessage("正在加载Python环境", "初始化机器学习模型..."));
+
+                    await Task.Delay(500);
+                    loadingWindow.Dispatcher.Invoke(() =>
+                        loadingWindow.UpdateMessage("正在准备数据", "加载历史实验数据..."));
+
+                    await Task.Delay(400);
+                    loadingWindow.Dispatcher.Invoke(() =>
+                        loadingWindow.UpdateMessage("正在生成图表", "构建可视化组件..."));
+
+                    await Task.Delay(300);
+                });
+
+                // 在UI线程创建视图
+                DataAnalysisControl dataAnalysisView = null;
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    dataAnalysisView = _container.Resolve<DataAnalysisControl>();
+                });
+
+                // 短暂延迟确保视图完全加载
+                await Task.Delay(200);
+
+                // 关闭加载窗口
+                loadingWindow.Dispatcher.Invoke(() =>
+                {
+                    loadingWindow.Close();
+                    loadingWindow = null;
+                });
+
+                // 显示主窗口
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var window = new Window
+                    {
+                        Title = "数据分析与预测评估",
+                        Content = dataAnalysisView,
+                        Width = 1600,
+                        Height = 800,
+                        MinWidth = 1400,
+                        MinHeight = 700,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                        Icon = Application.Current.MainWindow?.Icon
+                    };
+
+                    // 窗口淡入动画
+                    window.Opacity = 0;
+                    window.Show();
+
+                    var fadeIn = new System.Windows.Media.Animation.DoubleAnimation
+                    {
+                        From = 0,
+                        To = 1,
+                        Duration = TimeSpan.FromMilliseconds(300)
+                    };
+                    window.BeginAnimation(Window.OpacityProperty, fadeIn);
+
+                    // 窗口关闭时只释放ViewModel，不关闭Python环境
+                    window.Closed += (s, e) =>
+                    {
+                        if (dataAnalysisView.DataContext is IDisposable disposable)
+                        {
+                            disposable.Dispose(); // 只释放ViewModel
+                        }
+
+                        _logger.LogInformation("数据分析窗口已关闭");
+                    };
+
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("数据分析窗口已打开");
+                });
+            }
+            catch (Exception ex)
+            {
+                // 确保加载窗口被关闭
+                loadingWindow?.Dispatcher.Invoke(() => loadingWindow.Close());
+
+                _logger.LogError(ex, "打开数据分析窗口失败");
+                _dialogService?.ShowError($"打开数据分析失败: {ex.Message}", "错误");
             }
         }
         #endregion
