@@ -123,17 +123,21 @@
         <!-- 标签页头部 -->
         <Grid Grid.Row="0" Background="White">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <!-- 标签按钮 -->
+                <ColumnDefinition Width="*"/>
+                <!-- 项目名称（居中）-->
+                <ColumnDefinition Width="Auto"/>
+                <!-- 查看变量管理 -->
             </Grid.ColumnDefinitions>
 
-            <!-- 左侧：标签页按钮 -->
+            <!-- 左侧：标签页按钮（Column 0）-->
             <StackPanel Grid.Column="0" 
-                        Orientation="Horizontal" 
-                        HorizontalAlignment="Left">
+                Orientation="Horizontal" 
+                HorizontalAlignment="Left">
 
                 <Button Content="{Binding ProcessDesignerTabText}"
-                        Command="{Binding SelectProcessDesignerCommand}">
+                Command="{Binding SelectProcessDesignerCommand}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource LeftTabButtonStyle}">
                             <Style.Triggers>
@@ -149,7 +153,7 @@
                 </Button>
 
                 <Button Content="{Binding FlowDesignerTabText}"
-                        Command="{Binding SelectFlowDesignerCommand}">
+                Command="{Binding SelectFlowDesignerCommand}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource RightTabButtonStyle}">
                             <Style.Triggers>
@@ -166,27 +170,42 @@
 
             </StackPanel>
 
-            <!-- 右侧：查看变量管理 -->
-            <StackPanel Grid.Column="1"
-            Orientation="Horizontal" 
-            Margin="0,0,25,0"
-            VerticalAlignment="Center"
-            Visibility="{Binding IsVariableManagementVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+            <!-- 中间：项目名称 -->
+            <TextBlock Grid.Column="1"
+           Text="{Binding ProjectName}"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center"
+           FontSize="14"
+           FontWeight="Medium"
+           Foreground="#333333"
+           TextTrimming="CharacterEllipsis"
+           MaxWidth="400"
+           ToolTip="{Binding ProjectName}"
+           Visibility="{Binding IsProjectNameVisible, 
+                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <!-- 右侧：查看变量管理（Column 2）-->
+            <StackPanel Grid.Column="2"
+                Orientation="Horizontal" 
+                Margin="0,0,25,0"
+                VerticalAlignment="Center"
+                Visibility="{Binding IsVariableManagementVisible, 
+                             Converter={StaticResource BoolToVisibilityConverter}}">
 
                 <Button Content="查看变量管理"
-            Command="{Binding ViewVariableManagementCommand}"
-            Background="Transparent"
-            BorderThickness="0"
-            Foreground="#488EFF"
-            FontSize="16"
-            Padding="0"
-            Cursor="Hand"
-            VerticalAlignment="Center">
+                Command="{Binding ViewVariableManagementCommand}"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="#488EFF"
+                FontSize="16"
+                Padding="0"
+                Cursor="Hand"
+                VerticalAlignment="Center">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <ContentPresenter HorizontalAlignment="Center" 
-                                  VerticalAlignment="Center"
-                                  Content="{TemplateBinding Content}"/>
+                                      VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"/>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Opacity" Value="0.8"/>
@@ -198,34 +217,25 @@
 
                 <!-- 展开折叠箭头 -->
                 <Path Data="M0,0 L5.38,4.46 L0,8.92"
-          Stroke="#488EFF"
-          StrokeThickness="1"
-          Fill="Transparent"
-          Width="5.38"
-          Height="8.92"
-          VerticalAlignment="Center"
-          Margin="10,0,0,0">
-                    <Path.RenderTransform>
-                        <RotateTransform Angle="0"
-                             CenterX="2.69" 
-                             CenterY="4.46"/>
-                    </Path.RenderTransform>
+              Stroke="#488EFF"
+              StrokeThickness="1"
+              Fill="Transparent"
+              Width="5.38"
+              Height="8.92"
+              VerticalAlignment="Center"
+              Margin="10,0,0,0">
                     <Path.Style>
                         <Style TargetType="Path">
                             <Setter Property="RenderTransform">
                                 <Setter.Value>
-                                    <RotateTransform Angle="0"
-                                         CenterX="2.69" 
-                                         CenterY="4.46"/>
+                                    <RotateTransform Angle="0" CenterX="2.69" CenterY="4.46"/>
                                 </Setter.Value>
                             </Setter>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsVariableManagementExpanded}" Value="True">
                                     <Setter Property="RenderTransform">
                                         <Setter.Value>
-                                            <RotateTransform Angle="90"
-                                                 CenterX="2.69" 
-                                                 CenterY="4.46"/>
+                                            <RotateTransform Angle="90" CenterX="2.69" CenterY="4.46"/>
                                         </Setter.Value>
                                     </Setter>
                                 </DataTrigger>
@@ -237,7 +247,6 @@
             </StackPanel>
 
         </Grid>
-
         <!-- 标签页内容区域 -->
         <Border Grid.Row="1" 
                 Background="White"

@@ -3577,7 +3577,7 @@ namespace MaxChemical.Modules.Designer.Views
                 case CommandExecutionState.Failed:
                     scaleControl.HideLoading();
                     scaleControl.ShowOperationFailure();
-                    UpdateStatusBar($"❌ {commandName} 失败");
+                    UpdateStatusBar($"{commandName} 失败");
                     break;
 
                 case CommandExecutionState.Error:
@@ -3586,7 +3586,7 @@ namespace MaxChemical.Modules.Designer.Views
                     var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
                         ? e.AdditionalData["ErrorMessage"]?.ToString()
                         : "未知错误";
-                    UpdateStatusBar($"❌ {commandName} 异常: {errorMsg}");
+                    UpdateStatusBar($"{commandName} 异常: {errorMsg}");
                     break;
             }
         }
@@ -5358,7 +5358,7 @@ namespace MaxChemical.Modules.Designer.Views
                     ["TargetSpeed"] = (double)e.RequestedSpeed //  强制转换为 double
                 };
 
-                Debug.WriteLine($"📤 向设备发送参数: TargetSpeed={parameters["TargetSpeed"]}");
+                Debug.WriteLine($" 向设备发送参数: TargetSpeed={parameters["TargetSpeed"]}");
 
                 // 4. 调用设备命令
                 var result = await uiInteraction.ExecuteUICommandAsync("设置泵速", parameters);
@@ -10021,7 +10021,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 创建电子秤图标失败: {ex.Message}");
+                Debug.WriteLine($"创建电子秤图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "电子秤");
             }
         }
@@ -10065,7 +10065,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 订阅电子秤事件失败: {ex.Message}");
+                Debug.WriteLine($"订阅电子秤事件失败: {ex.Message}");
             }
         }
 
@@ -10091,7 +10091,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理电子秤选中失败: {ex.Message}");
+                Debug.WriteLine($"处理电子秤选中失败: {ex.Message}");
             }
         }
 
@@ -10106,7 +10106,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理电子秤取消选中失败: {ex.Message}");
+                Debug.WriteLine($"处理电子秤取消选中失败: {ex.Message}");
             }
         }
 
@@ -10122,7 +10122,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 电子秤拖动开始处理失败: {ex.Message}");
+                Debug.WriteLine($"电子秤拖动开始处理失败: {ex.Message}");
             }
         }
 
@@ -10145,7 +10145,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 电子秤拖动处理失败: {ex.Message}");
+                Debug.WriteLine($"电子秤拖动处理失败: {ex.Message}");
             }
         }
 
@@ -10163,7 +10163,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 电子秤拖动完成处理失败: {ex.Message}");
+                Debug.WriteLine($"电子秤拖动完成处理失败: {ex.Message}");
             }
         }
 
@@ -10193,7 +10193,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (canvasDevice?.Device == null)
                 {
-                    Debug.WriteLine($"❌ 未找到电子秤对应的设备");
+                    Debug.WriteLine($"未找到电子秤对应的设备");
                     scale.HideLoading();
                     e.OnCompleted?.Invoke(false);
                     return;
@@ -10202,7 +10202,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 2. 检查设备是否支持UI交互
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine($"❌ 设备 {canvasDevice.Device.Name} 不支持UI交互");
+                    Debug.WriteLine($"设备 {canvasDevice.Device.Name} 不支持UI交互");
                     scale.HideLoading();
                     e.OnCompleted?.Invoke(false);
                     return;
@@ -10231,12 +10231,12 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 命令执行失败: {result.Message}");
+                    Debug.WriteLine($"命令执行失败: {result.Message}");
 
                     scale.ShowOperationFailure();
 
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ {commandName}失败: {result.Message}");
+                        $"{commandName}失败: {result.Message}");
 
                     e.OnCompleted?.Invoke(false);
                 }
@@ -10245,13 +10245,13 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理电子秤电源状态切换失败: {ex.Message}");
+                Debug.WriteLine($"处理电子秤电源状态切换失败: {ex.Message}");
                 scale.HideLoading();
                 scale.ShowOperationFailure();
                 e.OnCompleted?.Invoke(false);
 
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"❌ 操作失败: {ex.Message}");
+                    $"操作失败: {ex.Message}");
             }
         }
 
@@ -10298,9 +10298,9 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 去皮失败: {result.Message}");
+                    Debug.WriteLine($"去皮失败: {result.Message}");
                     scale.ShowOperationFailure();
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"❌ 去皮失败: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"去皮失败: {result.Message}");
                     e.OnCompleted?.Invoke(false);
                 }
 
@@ -10308,7 +10308,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理去皮请求失败: {ex.Message}");
+                Debug.WriteLine($"处理去皮请求失败: {ex.Message}");
                 scale.HideLoading();
                 scale.ShowOperationFailure();
                 e.OnCompleted?.Invoke(false);
@@ -10364,9 +10364,9 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 单位切换失败: {result.Message}");
+                    Debug.WriteLine($"单位切换失败: {result.Message}");
                     scale.ShowOperationFailure();
-                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"❌ 切换单位失败: {result.Message}");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"切换单位失败: {result.Message}");
                     e.OnCompleted?.Invoke(false);
                 }
 
@@ -10374,7 +10374,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 处理单位切换请求失败: {ex.Message}");
+                Debug.WriteLine($"处理单位切换请求失败: {ex.Message}");
                 scale.HideLoading();
                 scale.ShowOperationFailure();
                 e.OnCompleted?.Invoke(false);
@@ -10415,7 +10415,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 清除电子秤选择失败: {ex.Message}");
+                Debug.WriteLine($"清除电子秤选择失败: {ex.Message}");
             }
         }
 
@@ -10442,7 +10442,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 查找电子秤控件失败: {ex.Message}");
+                Debug.WriteLine($"查找电子秤控件失败: {ex.Message}");
             }
 
             return scales;
@@ -11012,7 +11012,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var device = FindDeviceByName(args.DeviceName);
                 if (device == null)
                 {
-                    Debug.WriteLine($"❌ 未找到设备: {args.DeviceName}");
+                    Debug.WriteLine($"未找到设备: {args.DeviceName}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                         $"未找到 {args.DeviceName}");
                     return;
@@ -11024,13 +11024,13 @@ namespace MaxChemical.Modules.Designer.Views
                 // 3. 创建设备
                 CreateDeviceFromVoiceCommand(device, dropPosition);
 
-                Debug.WriteLine($"✅ 语音创建设备成功: {args.DeviceName}");
+                Debug.WriteLine($"语音创建设备成功: {args.DeviceName}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                    $"✅ 已创建 {args.DeviceName}");
+                    $"已创建 {args.DeviceName}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 语音创建设备失败: {ex.Message}");
+                Debug.WriteLine($"语音创建设备失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     "创建设备失败");
             }
@@ -11046,7 +11046,7 @@ namespace MaxChemical.Modules.Designer.Views
                 // 策略1：如果画布为空，放在中心
                 if (_viewModel?.CanvasDevices?.Count == 0)
                 {
-                    Debug.WriteLine("📍 画布为空，放置在中心位置");
+                    Debug.WriteLine(" 画布为空，放置在中心位置");
                     return new Point(canvasWidth / 2, canvasHeight / 2);
                 }
 
@@ -11056,19 +11056,19 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (emptyPosition != null)
                 {
-                    Debug.WriteLine($"📍 找到空位: ({emptyPosition.Value.X:F0}, {emptyPosition.Value.Y:F0})");
+                    Debug.WriteLine($" 找到空位: ({emptyPosition.Value.X:F0}, {emptyPosition.Value.Y:F0})");
                     return emptyPosition.Value;
                 }
 
                 // 策略3：如果中心附近都满了，随机放置在边缘区域
                 var edgePosition = FindEmptyPositionInEdgeArea();
-                Debug.WriteLine($"📍 使用边缘位置: ({edgePosition.X:F0}, {edgePosition.Y:F0})");
+                Debug.WriteLine($" 使用边缘位置: ({edgePosition.X:F0}, {edgePosition.Y:F0})");
 
                 return edgePosition;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 计算位置失败: {ex.Message}");
+                Debug.WriteLine($"计算位置失败: {ex.Message}");
                 // 降级方案：完全随机
                 var random = new Random();
                 return new Point(
@@ -11110,18 +11110,18 @@ namespace MaxChemical.Modules.Designer.Views
                         // 检查是否与现有设备重叠
                         if (!IsPositionOccupiedWithSpacing(testPosition, deviceSpacing))
                         {
-                            Debug.WriteLine($"🎯 螺旋搜索找到空位: 半径={radius}, 角度={angle:F1}°");
+                            Debug.WriteLine($" 螺旋搜索找到空位: 半径={radius}, 角度={angle:F1}°");
                             return testPosition;
                         }
                     }
                 }
 
-                Debug.WriteLine("⚠ 螺旋搜索未找到空位");
+                Debug.WriteLine(" 螺旋搜索未找到空位");
                 return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 螺旋搜索失败: {ex.Message}");
+                Debug.WriteLine($"螺旋搜索失败: {ex.Message}");
                 return null;
             }
         }
@@ -11166,14 +11166,14 @@ namespace MaxChemical.Modules.Designer.Views
 
                         if (!IsPositionOccupiedWithSpacing(testPosition, deviceSpacing))
                         {
-                            Debug.WriteLine($"🎯 在{area.Name}找到空位: ({testPosition.X:F0}, {testPosition.Y:F0})");
+                            Debug.WriteLine($" 在{area.Name}找到空位: ({testPosition.X:F0}, {testPosition.Y:F0})");
                             return testPosition;
                         }
                     }
                 }
 
                 // 如果还是没找到，返回一个安全的随机位置
-                Debug.WriteLine("⚠ 边缘区域也满了，使用随机位置");
+                Debug.WriteLine(" 边缘区域也满了，使用随机位置");
                 return new Point(
                     random.Next(100, (int)canvasWidth - 100),
                     random.Next(100, (int)canvasHeight - 100)
@@ -11181,7 +11181,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 边缘位置查找失败: {ex.Message}");
+                Debug.WriteLine($"边缘位置查找失败: {ex.Message}");
                 var random = new Random();
                 return new Point(
                     random.Next(100, 1100),
@@ -11218,7 +11218,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 检查位置占用失败: {ex.Message}");
+                Debug.WriteLine($"检查位置占用失败: {ex.Message}");
                 return false;
             }
         }
@@ -11238,13 +11238,13 @@ namespace MaxChemical.Modules.Designer.Views
                 var targetDevice = FindDeviceByType(args.DeviceType);
                 if (targetDevice == null)
                 {
-                    Debug.WriteLine($"❌ 画布上没有 {args.DeviceType}");
+                    Debug.WriteLine($"画布上没有 {args.DeviceType}");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                         $"画布上没有 {args.DeviceType}");
                     return;
                 }
 
-                Debug.WriteLine($"✅ 找到目标设备: {targetDevice.DeviceId}");
+                Debug.WriteLine($"找到目标设备: {targetDevice.DeviceId}");
 
                 // 2. 根据设备类型调用对应的设置方法
                 if (args.DeviceType == "柱塞泵")
@@ -11262,7 +11262,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 语音设置设备参数失败: {ex.Message}");
+                Debug.WriteLine($"语音设置设备参数失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("设置参数失败");
             }
         }
@@ -11274,7 +11274,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine("❌ 设备不支持UI交互");
+                    Debug.WriteLine("设备不支持UI交互");
                     return;
                 }
 
@@ -11284,7 +11284,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (pumpControl == null)
                 {
-                    Debug.WriteLine("❌ 未找到柱塞泵控件");
+                    Debug.WriteLine("未找到柱塞泵控件");
                     return;
                 }
 
@@ -11297,7 +11297,7 @@ namespace MaxChemical.Modules.Designer.Views
                     [args.ParameterName] = args.ParameterValue
                 };
                 pumpControl.PumpSpeed = (int)args.ParameterValue;
-                Debug.WriteLine($"📤 调用设备命令: 设置泵速, 参数={args.ParameterValue}");
+                Debug.WriteLine($" 调用设备命令: 设置泵速, 参数={args.ParameterValue}");
 
                 // 调用设备驱动
                 var result = await uiInteraction.ExecuteUICommandAsync("设置泵速", parameters);
@@ -11306,21 +11306,21 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (result.Success)
                 {
-                    Debug.WriteLine($"✅ 参数设置成功");
+                    Debug.WriteLine($"参数设置成功");
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ 柱塞泵流量已设置为 {args.ParameterValue}");
+                        $"柱塞泵流量已设置为 {args.ParameterValue}");
                 }
                 else
                 {
-                    Debug.WriteLine($"❌ 参数设置失败: {result.Message}");
+                    Debug.WriteLine($"参数设置失败: {result.Message}");
                     pumpControl.ShowOperationFailure();
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ 设置失败: {result.Message}");
+                        $"设置失败: {result.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 设置柱塞泵参数失败: {ex.Message}");
+                Debug.WriteLine($"设置柱塞泵参数失败: {ex.Message}");
             }
         }
 
@@ -11331,7 +11331,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine("❌ 设备不支持UI交互");
+                    Debug.WriteLine("设备不支持UI交互");
                     return;
                 }
 
@@ -11340,7 +11340,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (meterControl == null)
                 {
-                    Debug.WriteLine("❌ 未找到流量计控件");
+                    Debug.WriteLine("未找到流量计控件");
                     return;
                 }
 
@@ -11368,18 +11368,18 @@ namespace MaxChemical.Modules.Designer.Views
                 if (result.Success)
                 {
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ 流量计目标流量已设置为 {args.ParameterValue}");
+                        $"流量计目标流量已设置为 {args.ParameterValue}");
                 }
                 else
                 {
                     meterControl.ShowOperationFailure();
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ 设置失败: {result.Message}");
+                        $"设置失败: {result.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 设置流量计参数失败: {ex.Message}");
+                Debug.WriteLine($"设置流量计参数失败: {ex.Message}");
             }
         }
 
@@ -11390,7 +11390,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (canvasDevice.Device is not IDeviceUIInteraction uiInteraction)
                 {
-                    Debug.WriteLine("❌ 设备不支持UI交互");
+                    Debug.WriteLine("设备不支持UI交互");
                     return;
                 }
 
@@ -11399,7 +11399,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (exchangerControl == null)
                 {
-                    Debug.WriteLine("❌ 未找到换热器控件");
+                    Debug.WriteLine("未找到换热器控件");
                     return;
                 }
 
@@ -11414,17 +11414,17 @@ namespace MaxChemical.Modules.Designer.Views
                 if (result.Success)
                 {
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"✅ 换热器温度已设置为 {args.ParameterValue}°C");
+                        $"换热器温度已设置为 {args.ParameterValue}°C");
                 }
                 else
                 {
                     _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                        $"❌ 设置失败: {result.Message}");
+                        $"设置失败: {result.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 设置换热器参数失败: {ex.Message}");
+                Debug.WriteLine($"设置换热器参数失败: {ex.Message}");
             }
         }
 
@@ -11460,7 +11460,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 语音控制设备状态失败: {ex.Message}");
+                Debug.WriteLine($"语音控制设备状态失败: {ex.Message}");
             }
         }
 
@@ -11490,7 +11490,7 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         pumpControl.IsRunning = targetState;
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"✅ 柱塞泵已{(targetState ? "启动" : "停止")}");
+                            $"柱塞泵已{(targetState ? "启动" : "停止")}");
                     }
                     else
                     {
@@ -11500,7 +11500,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 控制柱塞泵状态失败: {ex.Message}");
+                Debug.WriteLine($"控制柱塞泵状态失败: {ex.Message}");
             }
         }
 
@@ -11530,7 +11530,7 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         solenoidValve.IsOpen = targetState;
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"✅ 电磁阀已{(targetState ? "打开" : "关闭")}");
+                            $"电磁阀已{(targetState ? "打开" : "关闭")}");
                     }
                     else
                     {
@@ -11540,7 +11540,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 控制电磁阀状态失败: {ex.Message}");
+                Debug.WriteLine($"控制电磁阀状态失败: {ex.Message}");
             }
         }
 
@@ -11586,7 +11586,7 @@ namespace MaxChemical.Modules.Designer.Views
                     if (result.Success)
                     {
                         _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
-                            $"✅ 流量计已{(targetState ? "启动" : "停止")}");
+                            $"流量计已{(targetState ? "启动" : "停止")}");
                     }
                     else
                     {
@@ -11596,7 +11596,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 控制流量计状态失败: {ex.Message}");
+                Debug.WriteLine($"控制流量计状态失败: {ex.Message}");
             }
         }
 
@@ -11625,7 +11625,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (exactMatch != null)
                 {
-                    Debug.WriteLine($"✅ 精确匹配到设备: {exactMatch.Device.Name}");
+                    Debug.WriteLine($"精确匹配到设备: {exactMatch.Device.Name}");
                     return exactMatch;
                 }
 
@@ -11635,14 +11635,14 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (typeMatch != null)
                 {
-                    Debug.WriteLine($"✅ 类型匹配到设备: {typeMatch.Device.GetType().Name}");
+                    Debug.WriteLine($"类型匹配到设备: {typeMatch.Device.GetType().Name}");
                 }
 
                 return typeMatch;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 查找设备失败: {ex.Message}");
+                Debug.WriteLine($"查找设备失败: {ex.Message}");
                 return null;
             }
         }
@@ -11767,7 +11767,7 @@ namespace MaxChemical.Modules.Designer.Views
                 }
 
                 // 如果螺旋搜索失败，使用网格搜索
-                Debug.WriteLine("⚠ 螺旋搜索失败，尝试网格搜索");
+                Debug.WriteLine(" 螺旋搜索失败，尝试网格搜索");
 
                 for (int radius = radiusStep; radius <= maxRadius; radius += radiusStep)
                 {
@@ -11782,19 +11782,19 @@ namespace MaxChemical.Modules.Designer.Views
                         if (!IsPositionOccupiedWithSpacing(testPosition, minSpacing) &&
                             IsValidDropPosition(testPosition))
                         {
-                            Debug.WriteLine($"🎯 网格搜索找到空位: ({testPosition.X:F0}, {testPosition.Y:F0})");
+                            Debug.WriteLine($" 网格搜索找到空位: ({testPosition.X:F0}, {testPosition.Y:F0})");
                             return testPosition;
                         }
                     }
                 }
 
                 // 如果还是没找到，使用边缘区域
-                Debug.WriteLine("⚠ 网格搜索也失败，使用边缘区域");
+                Debug.WriteLine(" 网格搜索也失败，使用边缘区域");
                 return FindEmptyPositionInEdgeArea();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ 查找附近空位置失败: {ex.Message}");
+                Debug.WriteLine($"查找附近空位置失败: {ex.Message}");
 
                 // 最终降级方案：完全随机
                 var random = new Random();

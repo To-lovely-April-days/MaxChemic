@@ -1,6 +1,7 @@
 ﻿using MaxChemical.Infrastructure.Constants;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Event;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -24,7 +25,11 @@ namespace MaxChemical.Shell.ViewModels
         private bool _isFlowDesignerSelected = false;
         private bool _isVariableManagementExpanded = false; // 新增
         private bool _isVariableManagementVisible = false; // 新增
-
+                                                           
+        private string _projectName = "未命名项目";
+        // 添加计算属性
+        public bool IsProjectNameVisible => !string.IsNullOrWhiteSpace(_projectName)
+                                            && _projectName != "未命名项目";
         public MainTabControlViewModel(
             IEventAggregator eventAggregator,
             ILocalizationService localizationService,
@@ -96,7 +101,14 @@ namespace MaxChemical.Shell.ViewModels
             get => _isVariableManagementVisible;
             set => SetProperty(ref _isVariableManagementVisible, value);
         }
+      
 
+        // 添加属性
+        public string ProjectName
+        {
+            get => _projectName;
+            set => SetProperty(ref _projectName, value);
+        }
         #endregion
 
         #region Commands
@@ -159,6 +171,8 @@ namespace MaxChemical.Shell.ViewModels
             try
             {
                 _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
+                //新增：订阅项目名称更新事件
+                _eventAggregator?.GetEvent<ProjectNameUpdatedEvent>()?.Subscribe(OnProjectNameUpdated);
                 Debug.WriteLine("Events 订阅完成");
             }
             catch (Exception ex)
@@ -342,6 +356,21 @@ namespace MaxChemical.Shell.ViewModels
         private void OnLanguageChanged(string cultureName)
         {
             InitializeProperties();
+        }
+
+        // 新增：处理项目名称更新
+        private void OnProjectNameUpdated(string projectName)
+        {
+            try
+            {
+                ProjectName = string.IsNullOrWhiteSpace(projectName) ? "未命名项目" : projectName;
+                RaisePropertyChanged(nameof(IsProjectNameVisible));
+                Debug.WriteLine($"项目名称已更新: {ProjectName}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新项目名称失败: {ex.Message}");
+            }
         }
     }
 }
