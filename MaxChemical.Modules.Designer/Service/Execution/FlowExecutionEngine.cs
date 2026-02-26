@@ -309,6 +309,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
                 resetEvent.Dispose();
+
             }
             catch (Exception ex)
             {

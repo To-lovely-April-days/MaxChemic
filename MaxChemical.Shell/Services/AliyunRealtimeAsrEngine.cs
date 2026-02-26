@@ -202,7 +202,7 @@ namespace MaxChemical.Shell.Services
                             var text = response.Payload.Result;
                             _logger.LogDebug($" 实时片段: {text}");
                         }
-                        // ⚠️ 错误处理
+                        // 错误处理
                         else if (response?.Header?.Name == "TaskFailed")
                         {
                             _logger.LogError($" 识别任务失败: {response.Header.Status}");

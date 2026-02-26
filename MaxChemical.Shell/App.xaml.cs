@@ -221,7 +221,6 @@ public partial class App : PrismApplication
                 await _host.StartAsync();
                 _logger?.LogInformation("Host启动完成");
             }
-
             // 在容器初始化完成后初始化数据库
             await InitializeDatabaseAsync();
             // 启动变量持久化后台服务
