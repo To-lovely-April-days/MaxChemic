@@ -1224,13 +1224,21 @@ namespace MaxChemical.Shell.ViewModels
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("执行画布自适应命令");
-                _eventAggregator?.GetEvent<FitCanvasToViewEvent>()?.Publish();
-                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("画布已自适应显示");
+                Debug.WriteLine("[Toolbar] 执行画布自适应命令");
+
+                // 先通过事件让 ProcessDesignerView 刷新 ScrollViewer 布局，
+                // 然后再触发 FitCanvasToViewEvent
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _eventAggregator?.GetEvent<FitCanvasToViewEvent>()?.Publish();
+                }), System.Windows.Threading.DispatcherPriority.Background);
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?
+                    .Publish("正在自适应画布...");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"画布自适应失败: {ex.Message}");
+                Debug.WriteLine($"画布自适应失败: {ex.Message}");
                 _dialogService?.ShowError($"画布自适应失败: {ex.Message}", "错误");
             }
         }

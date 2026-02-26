@@ -230,6 +230,13 @@ namespace MaxChemical.Modules.Designer.Views
 
         // ========== 新增：设备状态订阅管理 ==========
         private readonly Dictionary<string, IDeviceUIInteraction> _deviceUIInteractions = new();
+
+        #region 私有字段 自适应相关
+
+        private Window _parentWindow;                                        // 父窗口引用
+        private System.Windows.Threading.DispatcherTimer _fitDebounceTimer; // 防抖定时器
+
+        #endregion
         #region 构造函数和初始化
 
         public ProcessDesignerView(
@@ -1000,30 +1007,22 @@ namespace MaxChemical.Modules.Designer.Views
                 SetRegionOverlayContext();
             }
 
-            // 确保能接收键盘焦点
             this.Focus();
 
-            // 订阅画布操作相关事件
             SubscribeToCanvasEvents();
-            // SubscribeToExecutionEvents();
 
-            //  保留这个订阅(单独订阅,不通过 SubscribeToExecutionEvents)
             _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Subscribe(
                 OnMonitoringCardUpdate,
                 Prism.Events.ThreadOption.UIThread);
-            // *** 新增：订阅监控参数状态事件 ***
+
             SubscribeToMonitoringParameterEvents();
-
-            //  新增:订阅管道工具箱事件
             SubscribeToPipeToolboxEvents();
-            //初始化吸附服务
             _pipeSnapService.Initialize(DesignCanvas);
-
-            //  新增: 订阅语音创建设备事件
             SubscribeToVoiceAssistantEvents();
-
-            //  新增：标记四叉树需要初始化
             (_pipeSnapService as PipeSnapService)?.MarkQuadTreeDirty();
+
+            // 新增：订阅布局相关事件（面板切换、窗口变化）
+            SubscribeToLayoutFitEvents();
         }
         /*
         private void SubscribeToExecutionEvents()
@@ -1190,20 +1189,20 @@ namespace MaxChemical.Modules.Designer.Views
         }
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
-            // 清理所有事件订阅
             UnsubscribeFromViewModelEvents();
             UnsubscribeFromCanvasEvents();
             UnsubscribeFromKeyboardEvents();
-            UnsubscribeFromPipeToolboxEvents(); //  新增
-                                                //  新增: 取消订阅语音助手事件
+            UnsubscribeFromPipeToolboxEvents();
+
             _eventAggregator?.GetEvent<VoiceCreateDeviceEvent>()?.Unsubscribe(OnVoiceCreateDevice);
-            // ========== 新增：取消订阅新事件 ==========
             _eventAggregator?.GetEvent<VoiceSetDeviceParameterEvent>()?.Unsubscribe(OnVoiceSetDeviceParameter);
             _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Unsubscribe(OnVoiceControlDeviceState);
-            //  新增:取消订阅监控卡片更新
             _eventAggregator?.GetEvent<MonitoringCardUpdateEvent>()?.Unsubscribe(OnMonitoringCardUpdate);
-            //  新增：停止布局更新定时器
+
             _layoutUpdateTimer?.Stop();
+
+            //新增：清理布局自适应订阅
+            UnsubscribeFromLayoutFitEvents();
         }
         /// <summary>
         /// 订阅管道工具箱事件
@@ -1552,10 +1551,12 @@ namespace MaxChemical.Modules.Designer.Views
                 DesignCanvas.RenderTransform = _canvasScaleTransform;
             }
 
-            // 查找父级ScrollViewer
-            _canvasScrollViewer = FindParent<ScrollViewer>(this);
+            // 优先使用 XAML 中命名的 CanvasScrollViewer，找不到再向上查找
+            _canvasScrollViewer = CanvasScrollViewer
+                                  ?? FindParent<ScrollViewer>(DesignCanvas)
+                                  ?? FindParent<ScrollViewer>(this);
 
-            Debug.WriteLine("缩放组件初始化完成");
+            Debug.WriteLine($"缩放组件初始化: ScrollViewer={(_canvasScrollViewer != null ? $"已找到 {_canvasScrollViewer.ActualWidth:F0}x{_canvasScrollViewer.ActualHeight:F0}" : "未找到")}");
         }
 
         /// <summary>
@@ -1742,43 +1743,267 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 画布自适应视图
+        /// 画布自适应视图（事件入口）
+        /// FitCanvasToViewEvent 触发此方法，使用 Dispatcher 延迟确保布局已更新
         /// </summary>
         private void OnFitCanvasToView()
         {
+            Debug.WriteLine("[FitToView] 收到自适应请求");
+            // Background 优先级：等所有布局刷新完毕后执行
+            Dispatcher.BeginInvoke(
+                new Action(FitCanvasToViewInternal),
+                System.Windows.Threading.DispatcherPriority.Background);
+        }
+        /// <summary>
+        /// 画布自适应核心逻辑（两段式）
+        /// ① 画布 < 视口 → 扩展画布尺寸至视口，scale = 1.0（与新建项目完全一致）
+        /// ② 画布 > 视口 → 缩放使全部内容可见
+        /// </summary>
+        private void FitCanvasToViewInternal()
+        {
             try
             {
-                Debug.WriteLine("执行画布自适应");
+                Debug.WriteLine("========== FitCanvasToView 核心逻辑开始 ==========");
 
+                // ① 确保 ScrollViewer 引用有效
                 if (_canvasScrollViewer == null)
                 {
-                    Debug.WriteLine("没有找到 ScrollViewer，使用默认缩放");
-                    OnZoomCanvas(1.0);
+                    _canvasScrollViewer = CanvasScrollViewer
+                                          ?? FindParent<ScrollViewer>(DesignCanvas)
+                                          ?? FindParent<ScrollViewer>(this);
+                }
+                DesignCanvas.LayoutTransform = null;
+                // ② 强制刷新布局，获取最新视口尺寸
+                _canvasScrollViewer?.UpdateLayout();
+                UpdateLayout();
+
+                double viewportW = (_canvasScrollViewer?.ViewportWidth > 0)
+                    ? _canvasScrollViewer.ViewportWidth : ActualWidth;
+                double viewportH = (_canvasScrollViewer?.ViewportHeight > 0)
+                    ? _canvasScrollViewer.ViewportHeight : ActualHeight;
+
+                if (viewportW <= 0 || viewportH <= 0)
+                {
+                    Debug.WriteLine("视口尺寸无效，跳过自适应");
                     return;
                 }
 
-                // 计算合适的缩放比例
-                var viewportWidth = _canvasScrollViewer.ViewportWidth;
-                var viewportHeight = _canvasScrollViewer.ViewportHeight;
-                var canvasWidth = DesignCanvas.ActualWidth > 0 ? DesignCanvas.ActualWidth : 1200;
-                var canvasHeight = DesignCanvas.ActualHeight > 0 ? DesignCanvas.ActualHeight : 800;
+                // ③ 画布当前逻辑尺寸（Width 属性比 ActualWidth 更准确）
+                double canvasW = DesignCanvas.Width > 0 ? DesignCanvas.Width :
+                                 DesignCanvas.ActualWidth > 0 ? DesignCanvas.ActualWidth : 1200;
+                double canvasH = DesignCanvas.Height > 0 ? DesignCanvas.Height :
+                                 DesignCanvas.ActualHeight > 0 ? DesignCanvas.ActualHeight : 800;
 
-                var scaleX = viewportWidth / canvasWidth;
-                var scaleY = viewportHeight / canvasHeight;
-                var scale = Math.Min(scaleX, scaleY) * 0.9; // 留边距
+                Debug.WriteLine($"视口: {viewportW:F0} x {viewportH:F0}");
+                Debug.WriteLine($"画布: {canvasW:F0} x {canvasH:F0}");
 
-                // 限制缩放范围
-                scale = Math.Max(0.1, Math.Min(scale, 2.0));
+                // ④ 确保缩放变换已初始化
+                if (_canvasScaleTransform == null)
+                    InitializeZoomComponents();
 
-                Debug.WriteLine($"自适应缩放比例: {scale:F2}");
-                OnZoomCanvas(scale);
+                // ============================================================
+                // 关键判断：画布是否大于视口
+                // ============================================================
+                bool canvasExceedsViewport = canvasW > viewportW + 1 || canvasH > viewportH + 1;
+
+                if (canvasExceedsViewport)
+                {
+                    //// ---------- 情况 A：画布 > 视口 → 缩放以显示全部内容 ----------
+                    //Debug.WriteLine("情况A：画布大于视口，缩放适配");
+
+                    //// 不加 padding，避免不必要的缩小
+                    //var scaleX = viewportW / canvasW;
+                    //var scaleY = viewportH / canvasH;
+                    //var scale = Math.Max(0.05, Math.Min(Math.Min(scaleX, scaleY), 3.0));
+
+                    //if (_canvasScaleTransform != null)
+                    //{
+                    //    _canvasScaleTransform.ScaleX = scale;
+                    //    _canvasScaleTransform.ScaleY = scale;
+                    //}
+
+                    //// 居中滚动
+                    //if (_canvasScrollViewer != null)
+                    //{
+                    //    var scrollX = Math.Max(0, (canvasW * scale - viewportW) / 2.0);
+                    //    var scrollY = Math.Max(0, (canvasH * scale - viewportH) / 2.0);
+                    //    _canvasScrollViewer.ScrollToHorizontalOffset(scrollX);
+                    //    _canvasScrollViewer.ScrollToVerticalOffset(scrollY);
+                    //    Debug.WriteLine($"缩放: {scale:F3}，滚动偏移: ({scrollX:F1}, {scrollY:F1})");
+                    //}
+                }
+                else
+                {
+                    double newW = Math.Max(canvasW, viewportW);
+                    double newH = Math.Max(canvasH, viewportH);
+
+                    // 先算比例，再扩展
+                    double ratioX = (canvasW > 0) ? newW / canvasW : 1.0;
+                    double ratioY = (canvasH > 0) ? newH / canvasH : 1.0;
+
+                    Debug.WriteLine($"情况B - 扩展比例: ratioX={ratioX:F4}, ratioY={ratioY:F4}");
+
+                    // ① 缩放区域数据
+                    _viewModel?.CurrentRegionLayout?.ScaleLayout(ratioX, ratioY);
+
+                    // ② 扩展画布
+                    DesignCanvas.Width = newW;
+                    DesignCanvas.Height = newH;
+
+                    // ③ 刷新覆盖层（此时 Region 坐标已更新）
+                    RefreshRegionOverlay(newW, newH);
+
+                    Debug.WriteLine($"画布扩展至: {newW:F0} x {newH:F0}，scale = 1.0");
+
+                }
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?
+                    .Publish("画布已自适应");
+
+                Debug.WriteLine("========== FitCanvasToView 完成 ==========");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"画布自适应失败: {ex.Message}");
+                Debug.WriteLine($"FitCanvasToViewInternal 异常: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
+        /// <summary>
+        /// 画布尺寸变化后刷新区域覆盖层
+        /// </summary>
+        private void RefreshRegionOverlay(double newWidth, double newHeight)
+        {
+            try
+            {
+                if (_viewModel?.CurrentRegionLayout == null) return;
+
+                _regionOverlayService?.UpdateRegionOverlay(
+                    DesignCanvas,
+                    _viewModel.CurrentRegionLayout,
+                    1.0);
+
+                Debug.WriteLine($"区域覆盖层已刷新: {newWidth:F0} x {newHeight:F0}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"刷新区域覆盖层失败: {ex.Message}");
+            }
+        }
+        #region 布局自适应事件管理
+
+        /// <summary>
+        /// 订阅所有会影响画布可用空间的事件，触发自适应
+        /// </summary>
+        private void SubscribeToLayoutFitEvents()
+        {
+            try
+            {
+                // 左侧面板显隐（菜单按钮点击）
+                _eventAggregator?.GetEvent<PanelVisibilityEvent>()?
+                    .Subscribe(OnPanelVisibilityChangedForFit, Prism.Events.ThreadOption.UIThread);
+
+                _eventAggregator?.GetEvent<LeftPanelVisibilityChangedEvent>()?
+                    .Subscribe(OnLeftPanelVisibilityChangedForFit, Prism.Events.ThreadOption.UIThread);
+
+                // 订阅父窗口尺寸和位置变化（外接大屏等场景）
+                _parentWindow = Window.GetWindow(this);
+                if (_parentWindow != null)
+                {
+                    _parentWindow.SizeChanged += OnWindowSizeChangedForFit;
+                    _parentWindow.LocationChanged += OnWindowLocationChangedForFit;
+                    Debug.WriteLine("已订阅父窗口 SizeChanged / LocationChanged");
+                }
+
+                // 初始化防抖定时器（300ms）
+                _fitDebounceTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(300)
+                };
+                _fitDebounceTimer.Tick += (s, e) =>
+                {
+                    _fitDebounceTimer.Stop();
+                    FitCanvasToViewInternal();
+                };
+
+                Debug.WriteLine("布局自适应事件订阅完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅布局自适应事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 取消所有布局自适应事件订阅
+        /// </summary>
+        private void UnsubscribeFromLayoutFitEvents()
+        {
+            try
+            {
+                _eventAggregator?.GetEvent<PanelVisibilityEvent>()?
+                    .Unsubscribe(OnPanelVisibilityChangedForFit);
+
+                _eventAggregator?.GetEvent<LeftPanelVisibilityChangedEvent>()?
+                    .Unsubscribe(OnLeftPanelVisibilityChangedForFit);
+
+                if (_parentWindow != null)
+                {
+                    _parentWindow.SizeChanged -= OnWindowSizeChangedForFit;
+                    _parentWindow.LocationChanged -= OnWindowLocationChangedForFit;
+                    _parentWindow = null;
+                }
+
+                _fitDebounceTimer?.Stop();
+                _fitDebounceTimer = null;
+
+                Debug.WriteLine("布局自适应事件已取消订阅");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"取消布局自适应事件失败: {ex.Message}");
+            }
+        }
+
+        // ---- 事件处理器 ----
+
+        private void OnPanelVisibilityChangedForFit(bool isVisible)
+        {
+            Debug.WriteLine($"[FitToView] 面板可见性变化: {isVisible}，触发防抖自适应");
+            ScheduleDelayedFitToView();
+        }
+
+        private void OnLeftPanelVisibilityChangedForFit(bool isVisible)
+        {
+            Debug.WriteLine($"[FitToView] 左侧面板可见性变化: {isVisible}，触发防抖自适应");
+            ScheduleDelayedFitToView();
+        }
+
+        private void OnWindowSizeChangedForFit(object sender, SizeChangedEventArgs e)
+        {
+            Debug.WriteLine($"[FitToView] 窗口尺寸变化: {e.NewSize.Width:F0}x{e.NewSize.Height:F0}");
+            ScheduleDelayedFitToView();
+        }
+
+        private void OnWindowLocationChangedForFit(object sender, EventArgs e)
+        {
+            // 移动到不同分辨率/DPI 屏幕时触发
+            Debug.WriteLine("[FitToView] 窗口位置变化（可能切换到外接屏幕）");
+            ScheduleDelayedFitToView(delayMs: 500); // 切屏延迟稍长
+        }
+
+        /// <summary>
+        /// 防抖触发自适应：重置定时器，避免连续触发时重复计算
+        /// </summary>
+        private void ScheduleDelayedFitToView(int delayMs = 300)
+        {
+            if (_fitDebounceTimer == null) return;
+
+            _fitDebounceTimer.Stop();
+            _fitDebounceTimer.Interval = TimeSpan.FromMilliseconds(delayMs);
+            _fitDebounceTimer.Start();
+        }
+
+        #endregion
         /// <summary>
         /// 响应获取选中设备请求
         /// </summary>

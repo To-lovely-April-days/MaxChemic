@@ -485,7 +485,54 @@ namespace MaxChemical.Core
             return new Size(maxRight, maxBottom);
         }
 
+        /// <summary>
+        /// 按比例缩放整个区域布局（画布尺寸变化时调用）
+        /// </summary>
+        /// <param name="ratioX">水平缩放比例</param>
+        /// <param name="ratioY">垂直缩放比例</param>
+        public void ScaleLayout(double ratioX, double ratioY)
+        {
+            // 防止无意义缩放
+            if (Math.Abs(ratioX - 1.0) < 0.001 && Math.Abs(ratioY - 1.0) < 0.001) return;
 
+            // ① 缩放独立区域模式
+            if (UseIndependentRegions && IndependentRegions?.Count > 0)
+            {
+                foreach (var region in IndependentRegions)
+                {
+                    region.Left *= ratioX;
+                    region.Right *= ratioX;
+                    region.Top *= ratioY;
+                    region.Bottom *= ratioY;
+
+                    // 同步原始边界（如果有拖拽状态）
+                    region.OriginalLeft *= ratioX;
+                    region.OriginalRight *= ratioX;
+                    region.OriginalTop *= ratioY;
+                    region.OriginalBottom *= ratioY;
+                }
+            }
+
+            // ② 缩放网格模式
+            for (int i = 0; i < ColumnWidths.Count; i++)
+            {
+                ColumnWidths[i] *= ratioX;
+            }
+
+            for (int i = 0; i < RowHeights.Count; i++)
+            {
+                RowHeights[i] *= ratioY;
+            }
+
+            // ③ 重新计算合并区域边界（依赖 ColumnWidths/RowHeights，需刷新）
+            if (!UseIndependentRegions && MergedRegions?.Count > 0)
+            {
+                foreach (var merged in MergedRegions)
+                {
+                    merged.CalculateBounds(); // 边界用行列索引，无需缩放
+                }
+            }
+        }
     }
 
     /// <summary>
