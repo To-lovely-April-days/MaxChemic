@@ -5150,8 +5150,8 @@ namespace MaxChemical.Modules.Designer.Views
                             return new Size(scaleWidth, scaleHeight);
                         case "TemperatureControlSystemControl":
                             // 高低温循环器原尺寸 260x310，缩小到画布显示
-                            double circulatorWidth = 260 * 0.6;   
-                            double circulatorHeight = 310 * 0.6;  
+                            double circulatorWidth = 260 * 0.65;   
+                            double circulatorHeight = 310 * 0.65;  
                             Debug.WriteLine($"高低温循环器尺寸: {circulatorWidth:F0}x{circulatorHeight:F0}");
                             return new Size(circulatorWidth, circulatorHeight);
                     }
