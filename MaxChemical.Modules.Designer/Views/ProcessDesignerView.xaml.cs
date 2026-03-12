@@ -3518,6 +3518,13 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleTemperatureCirculatorControlState(circulatorControl, e);
                     }
+                    // 新增：微反应器温度更新
+                    var reactorControl = FindVisualChild<MicroreactorControl>(deviceElement);
+                    if (reactorControl != null)
+                    {
+                        HandleMicroreactorTemperatureState(reactorControl, e);
+                    }
+
                 }));
             }
             catch (Exception ex)
@@ -3945,7 +3952,47 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        /// <summary>
+        ///  新增：将温度状态写入 MicroreactorControl 的三个依赖属性
+        /// </summary>
+        private void HandleMicroreactorTemperatureState(
+            MicroreactorControl reactor,
+            DeviceControlStateChangedEventArgs e)
+        {
+            try
+            {
+                switch (e.StateName)
+                {
+                    case "TT1001_ActualTemp":
+                        if (e.StateValue is double t1)
+                        {
+                            reactor.Temperature1 = Math.Round(t1, 2);
+                            Debug.WriteLine($"微反应器 TT1001 温度已更新: {t1:F2}℃");
+                        }
+                        break;
 
+                    case "TT1002_ActualTemp":
+                        if (e.StateValue is double t2)
+                        {
+                            reactor.Temperature2 = Math.Round(t2, 2);
+                            Debug.WriteLine($"微反应器 TT1002 温度已更新: {t2:F2}℃");
+                        }
+                        break;
+
+                    case "TT1003_ActualTemp":
+                        if (e.StateValue is double t3)
+                        {
+                            reactor.Temperature3 = Math.Round(t3, 2);
+                            Debug.WriteLine($"微反应器 TT1003 温度已更新: {t3:F2}℃");
+                        }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理微反应器温度状态失败: {ex.Message}");
+            }
+        }
         /// <summary>
         ///  辅助方法：更新状态栏
         /// </summary>
@@ -10689,7 +10736,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Cursor = System.Windows.Input.Cursors.Hand,
                     SetTemperature = -40.0,
                     CurrentTemperature = 24.5,
-                    OutletTemperature = -38.2
+                    
                 };
 
                 // 订阅高低温循环器事件

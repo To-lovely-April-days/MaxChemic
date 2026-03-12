@@ -35,7 +35,7 @@ namespace TemperatureCirculator_ModbusTCP
         // 状态轮询相关
         private CancellationTokenSource _statusPollingCts;
         private Task _statusPollingTask;
-        private const int StatusPollingIntervalMs = 1000; // 每1秒轮询一次
+        private const int StatusPollingIntervalMs = 1000;
 
         #region IControllableDevice Implementation
 
@@ -209,6 +209,10 @@ namespace TemperatureCirculator_ModbusTCP
                     WarnLog("高低温循环器设备未连接，但流程已开始");
                 }
 
+                // ① 先立即读取一次当前设定温度，推送给 UI
+                await ReadAndPublishSetTemperatureAsync();
+
+                // ② 启动周期轮询（包含设定温度）
                 StartStatusPolling();
 
                 InfoLog("高低温循环器设备已准备好执行流程");
@@ -218,6 +222,56 @@ namespace TemperatureCirculator_ModbusTCP
             {
                 ErrorLog("高低温循环器流程开始处理失败", ex);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 单次读取设定温度并通过事件推送到 UI
+        /// 在流程启动时调用，确保 TemperatureControlSystemControl 立即显示正确的设定值
+        /// </summary>
+        private async Task ReadAndPublishSetTemperatureAsync()
+        {
+            try
+            {
+                double setTemp = _setTemperature; // 默认回退到内存值
+
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
+                    ConnectionManager != null && !IsSimulationMode)
+                {
+                    var deviceId = Parameters.GetValue<string>("DeviceId");
+                    // TC0101 读 YY_SV_Set_1，TC0201 读 YY_SV_Set_2
+                    string register = deviceId == "TC0101" ? "YY_SV_Set_1" : "YY_SV_Set_2";
+
+                    setTemp = await ConnectionManager.ReadAsync<double>(ComId, register);
+                    InfoLog($"流程启动时读取设定温度: 寄存器={register}, 值={setTemp:F1}℃");
+                }
+                else if (IsSimulationMode)
+                {
+                    lock (_stateLock)
+                    {
+                        setTemp = _setTemperature;
+                    }
+                    InfoLog($"模拟模式：使用内存设定温度 {setTemp:F1}℃");
+                }
+                else
+                {
+                    InfoLog("设备未连接且非模拟模式，跳过设定温度初始读取");
+                    return;
+                }
+
+                // 更新内存值
+                lock (_stateLock)
+                {
+                    _setTemperature = setTemp;
+                }
+
+                // 推送到 UI（触发 HandleTemperatureCirculatorControlState → SetTargetTemperature）
+                RaiseControlStateChanged("SetTemperature", setTemp);
+                InfoLog($"已推送设定温度到UI: {setTemp:F1}℃");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog($"读取初始设定温度失败: {ex.Message}");
             }
         }
 
@@ -367,6 +421,7 @@ namespace TemperatureCirculator_ModbusTCP
                 bool heatingRunning = false;
                 bool coolingRunning = false;
                 double actualTemp = 25.0;
+                double setTemp = _setTemperature; // 默认保持内存值
 
                 if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp &&
                     ConnectionManager != null && !IsSimulationMode)
@@ -379,7 +434,15 @@ namespace TemperatureCirculator_ModbusTCP
                     cycleRunning = await ConnectionManager.ReadAsync<bool>(ComId, $"YY_Cycle{prefix}");
                     heatingRunning = await ConnectionManager.ReadAsync<bool>(ComId, $"YY_Heat{prefix}");
                     coolingRunning = await ConnectionManager.ReadAsync<bool>(ComId, $"YY_Cool{prefix}");
-                    actualTemp = await ConnectionManager.ReadAsync<double>(ComId, deviceId == "TC0101" ? "YY_PV_Real_2" : "YY_PV_Real_4");
+
+                    // 读取实际温度
+                    actualTemp = await ConnectionManager.ReadAsync<double>(
+                        ComId,
+                        deviceId == "TC0101" ? "YY_PV_Real_2" : "YY_PV_Real_4");
+
+                    // ★ 新增：同步轮询设定温度
+                    string setRegister = deviceId == "TC0101" ? "YY_SV_Set_1" : "YY_SV_Set_2";
+                    setTemp = await ConnectionManager.ReadAsync<double>(ComId, setRegister);
                 }
                 else if (IsSimulationMode)
                 {
@@ -389,57 +452,53 @@ namespace TemperatureCirculator_ModbusTCP
                         heatingRunning = _isHeatingRunning;
                         coolingRunning = _isCoolingRunning;
                         actualTemp = _actualTemperature;
+                        setTemp = _setTemperature;
                     }
                 }
 
                 bool stateChanged = false;
                 lock (_stateLock)
                 {
-                    if (_isCycleRunning != cycleRunning || _isHeatingRunning != heatingRunning ||
-                        _isCoolingRunning != coolingRunning || Math.Abs(_actualTemperature - actualTemp) > 0.1)
+                    if (_isCycleRunning != cycleRunning ||
+                        _isHeatingRunning != heatingRunning ||
+                        _isCoolingRunning != coolingRunning ||
+                        Math.Abs(_actualTemperature - actualTemp) > 0.1 ||
+                        Math.Abs(_setTemperature - setTemp) > 0.1)   // ★ 新增设定温度变化检测
                     {
                         _isCycleRunning = cycleRunning;
                         _isHeatingRunning = heatingRunning;
                         _isCoolingRunning = coolingRunning;
                         _actualTemperature = actualTemp;
+                        _setTemperature = setTemp;   // ★ 更新内存设定温度
                         stateChanged = true;
                     }
                 }
 
                 if (stateChanged)
                 {
-                    InfoLog($"循环器状态变化 - 循环:{cycleRunning} 加热:{heatingRunning} 制冷:{coolingRunning} 温度:{actualTemp:F1}℃");
+                    InfoLog($"循环器状态变化 - 循环:{cycleRunning} 加热:{heatingRunning} " +
+                            $"制冷:{coolingRunning} 实际温度:{actualTemp:F1}℃ 设定温度:{setTemp:F1}℃");
+
                     RaiseControlStateChanged("IsCycleRunning", cycleRunning);
                     RaiseControlStateChanged("IsHeatingRunning", heatingRunning);
                     RaiseControlStateChanged("IsCoolingRunning", coolingRunning);
                     RaiseControlStateChanged("ActualTemperature", actualTemp);
+                    RaiseControlStateChanged("SetTemperature", setTemp);   // ★ 推送设定温度变化
 
                     if (cycleRunning)
-                    {
                         AddActiveState("CirculatorRunning", "启动循环", "停止循环");
-                    }
                     else
-                    {
                         RemoveActiveState("CirculatorRunning");
-                    }
 
                     if (heatingRunning)
-                    {
                         AddActiveState("HeatingRunning", "启动加热", "停止加热");
-                    }
                     else
-                    {
                         RemoveActiveState("HeatingRunning");
-                    }
 
                     if (coolingRunning)
-                    {
                         AddActiveState("CoolingRunning", "启动制冷", "停止制冷");
-                    }
                     else
-                    {
                         RemoveActiveState("CoolingRunning");
-                    }
                 }
             }
             catch (Exception ex)
@@ -553,19 +612,13 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _isCycleRunning = true;
-                    }
+                    lock (_stateLock) { _isCycleRunning = true; }
                     success = true;
                 }
 
                 if (success)
                 {
-                    lock (_stateLock)
-                    {
-                        _isCycleRunning = true;
-                    }
+                    lock (_stateLock) { _isCycleRunning = true; }
                     RaiseControlStateChanged("IsCycleRunning", true);
                     RaiseControlStateChanged("CommandState_启动循环", CommandExecutionState.Succeeded);
                     AddActiveState("CirculatorRunning", "启动循环", "停止循环");
@@ -591,12 +644,7 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_启动循环", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"启动循环失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
@@ -618,17 +666,11 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _isCycleRunning = false;
-                    }
+                    lock (_stateLock) { _isCycleRunning = false; }
                     success = true;
                 }
 
-                if (success)
-                {
-                    RemoveActiveState("CirculatorRunning");
-                }
+                if (success) RemoveActiveState("CirculatorRunning");
 
                 RaiseControlStateChanged("IsCycleRunning", false);
                 RaiseControlStateChanged("CommandState_停止循环", CommandExecutionState.Succeeded);
@@ -649,12 +691,7 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_停止循环", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"停止循环失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
@@ -676,19 +713,13 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _isHeatingRunning = true;
-                    }
+                    lock (_stateLock) { _isHeatingRunning = true; }
                     success = true;
                 }
 
                 if (success)
                 {
-                    lock (_stateLock)
-                    {
-                        _isHeatingRunning = true;
-                    }
+                    lock (_stateLock) { _isHeatingRunning = true; }
                     RaiseControlStateChanged("IsHeatingRunning", true);
                     RaiseControlStateChanged("CommandState_启动加热", CommandExecutionState.Succeeded);
                     AddActiveState("HeatingRunning", "启动加热", "停止加热");
@@ -714,12 +745,7 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_启动加热", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"启动加热失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
@@ -741,17 +767,11 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _isHeatingRunning = false;
-                    }
+                    lock (_stateLock) { _isHeatingRunning = false; }
                     success = true;
                 }
 
-                if (success)
-                {
-                    RemoveActiveState("HeatingRunning");
-                }
+                if (success) RemoveActiveState("HeatingRunning");
 
                 RaiseControlStateChanged("IsHeatingRunning", false);
                 RaiseControlStateChanged("CommandState_停止加热", CommandExecutionState.Succeeded);
@@ -772,12 +792,7 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_停止加热", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"停止加热失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
@@ -799,19 +814,13 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _isCoolingRunning = true;
-                    }
+                    lock (_stateLock) { _isCoolingRunning = true; }
                     success = true;
                 }
 
                 if (success)
                 {
-                    lock (_stateLock)
-                    {
-                        _isCoolingRunning = true;
-                    }
+                    lock (_stateLock) { _isCoolingRunning = true; }
                     RaiseControlStateChanged("IsCoolingRunning", true);
                     RaiseControlStateChanged("CommandState_启动制冷", CommandExecutionState.Succeeded);
                     AddActiveState("CoolingRunning", "启动制冷", "停止制冷");
@@ -837,12 +846,7 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_启动制冷", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"启动制冷失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
@@ -864,17 +868,11 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _isCoolingRunning = false;
-                    }
+                    lock (_stateLock) { _isCoolingRunning = false; }
                     success = true;
                 }
 
-                if (success)
-                {
-                    RemoveActiveState("CoolingRunning");
-                }
+                if (success) RemoveActiveState("CoolingRunning");
 
                 RaiseControlStateChanged("IsCoolingRunning", false);
                 RaiseControlStateChanged("CommandState_停止制冷", CommandExecutionState.Succeeded);
@@ -895,12 +893,7 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_停止制冷", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"停止制冷失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
@@ -923,19 +916,13 @@ namespace TemperatureCirculator_ModbusTCP
                 else if (IsSimulationMode)
                 {
                     await Task.Delay(1000);
-                    lock (_stateLock)
-                    {
-                        _setTemperature = targetTemperature;
-                    }
+                    lock (_stateLock) { _setTemperature = targetTemperature; }
                     success = true;
                 }
 
                 if (success)
                 {
-                    lock (_stateLock)
-                    {
-                        _setTemperature = targetTemperature;
-                    }
+                    lock (_stateLock) { _setTemperature = targetTemperature; }
                     RaiseControlStateChanged("SetTemperature", targetTemperature);
                     RaiseControlStateChanged("CommandState_设置温度", CommandExecutionState.Succeeded);
                 }
@@ -960,18 +947,14 @@ namespace TemperatureCirculator_ModbusTCP
                 RaiseControlStateChanged("CommandState_设置温度", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
                 ErrorLog($"设置温度失败: {ex.Message}");
-                return new CommandExecutionResult
-                {
-                    Success = false,
-                    Message = ex.Message,
-                    Exception = ex
-                };
+                return new CommandExecutionResult { Success = false, Message = ex.Message, Exception = ex };
             }
         }
 
         #endregion
 
-        private void RaiseControlStateChanged(string stateName, object stateValue, Dictionary<string, object> additionalData = null)
+        private void RaiseControlStateChanged(string stateName, object stateValue,
+            Dictionary<string, object> additionalData = null)
         {
             ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
             {
@@ -996,7 +979,6 @@ namespace TemperatureCirculator_ModbusTCP
             ComId = "TC0101";
 
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
-
 
             AllowedRegions = new List<RegionType>()
             {
@@ -1041,7 +1023,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new NumberParameter("SetTemperature", -80, 200, 0, "设置的温度(℃)") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("设置温度", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("设置温度", async delegate (DeviceParameters parameters)
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
                     double targetTemp = parameters.GetValue<double>("TargetTemperature");
@@ -1062,10 +1044,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _setTemperature = targetTemp;
-                            }
+                            lock (_stateLock) { _setTemperature = targetTemp; }
                             success = true;
                             InfoLog($"模拟模式设置温度: {targetTemp}℃");
                         }
@@ -1110,7 +1089,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new NumberParameter("ActualTemperature", -80, 200, 0, "实际温度(℃)") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("获取实际温度", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("获取实际温度", async delegate (DeviceParameters parameters)
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
                     double actualTemp = 0;
@@ -1127,10 +1106,7 @@ namespace TemperatureCirculator_ModbusTCP
                         }
                         else if (IsSimulationMode)
                         {
-                            lock (_stateLock)
-                            {
-                                actualTemp = _actualTemperature;
-                            }
+                            lock (_stateLock) { actualTemp = _actualTemperature; }
                             InfoLog($"模拟模式获取实际温度: {actualTemp}℃");
                         }
                         else
@@ -1148,7 +1124,8 @@ namespace TemperatureCirculator_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new NumberParameter("ActualTemperature", -80, 200, Math.Round(actualTemp, 1), "实际温度(℃)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("ActualTemperature", -80, 200,
+                                Math.Round(actualTemp, 1), "实际温度(℃)") { IsVisibleInVariableManager = true }
                         }
                     };
                 })
@@ -1168,7 +1145,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new BooleanParameter("Success", false, "启动成功") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("启动循环", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("启动循环", async delegate (DeviceParameters parameters)
                 {
                     AddActiveState("CirculatorRunning", "启动循环", "停止循环");
                     RaiseControlStateChanged("CommandState_启动循环", CommandExecutionState.Running);
@@ -1188,10 +1165,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _isCycleRunning = true;
-                            }
+                            lock (_stateLock) { _isCycleRunning = true; }
                             success = true;
                             InfoLog("模拟模式启动循环");
                         }
@@ -1234,7 +1208,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("停止循环", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("停止循环", async delegate (DeviceParameters parameters)
                 {
                     RaiseControlStateChanged("CommandState_停止循环", CommandExecutionState.Running);
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -1253,10 +1227,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _isCycleRunning = false;
-                            }
+                            lock (_stateLock) { _isCycleRunning = false; }
                             success = true;
                             InfoLog("模拟模式停止循环");
                         }
@@ -1265,10 +1236,7 @@ namespace TemperatureCirculator_ModbusTCP
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
 
-                        if (success)
-                        {
-                            RemoveActiveState("CirculatorRunning");
-                        }
+                        if (success) RemoveActiveState("CirculatorRunning");
 
                         RaiseControlStateChanged("IsCycleRunning", false);
                         RaiseControlStateChanged("CommandState_停止循环", CommandExecutionState.Succeeded);
@@ -1305,7 +1273,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new BooleanParameter("Success", false, "启动成功") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("启动加热", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("启动加热", async delegate (DeviceParameters parameters)
                 {
                     AddActiveState("HeatingRunning", "启动加热", "停止加热");
                     RaiseControlStateChanged("CommandState_启动加热", CommandExecutionState.Running);
@@ -1325,10 +1293,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _isHeatingRunning = true;
-                            }
+                            lock (_stateLock) { _isHeatingRunning = true; }
                             success = true;
                             InfoLog("模拟模式启动加热");
                         }
@@ -1372,7 +1337,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("停止加热", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("停止加热", async delegate (DeviceParameters parameters)
                 {
                     RaiseControlStateChanged("CommandState_停止加热", CommandExecutionState.Running);
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -1391,10 +1356,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _isHeatingRunning = false;
-                            }
+                            lock (_stateLock) { _isHeatingRunning = false; }
                             success = true;
                             InfoLog("模拟模式停止加热");
                         }
@@ -1403,10 +1365,7 @@ namespace TemperatureCirculator_ModbusTCP
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
 
-                        if (success)
-                        {
-                            RemoveActiveState("HeatingRunning");
-                        }
+                        if (success) RemoveActiveState("HeatingRunning");
 
                         RaiseControlStateChanged("IsHeatingRunning", false);
                         RaiseControlStateChanged("CommandState_停止加热", CommandExecutionState.Succeeded);
@@ -1443,7 +1402,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new BooleanParameter("Success", false, "启动成功") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("启动制冷", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("启动制冷", async delegate (DeviceParameters parameters)
                 {
                     AddActiveState("CoolingRunning", "启动制冷", "停止制冷");
                     RaiseControlStateChanged("CommandState_启动制冷", CommandExecutionState.Running);
@@ -1463,10 +1422,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _isCoolingRunning = true;
-                            }
+                            lock (_stateLock) { _isCoolingRunning = true; }
                             success = true;
                             InfoLog("模拟模式启动制冷");
                         }
@@ -1510,7 +1466,7 @@ namespace TemperatureCirculator_ModbusTCP
                         new BooleanParameter("Success", false, "停止成功") { IsVisibleInVariableManager = true }
                     }
                 },
-                Action = WrapAction("停止制冷", async delegate (DeviceParameters parameters)
+                AsyncAction = WrapAction("停止制冷", async delegate (DeviceParameters parameters)
                 {
                     RaiseControlStateChanged("CommandState_停止制冷", CommandExecutionState.Running);
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -1529,10 +1485,7 @@ namespace TemperatureCirculator_ModbusTCP
                         else if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            lock (_stateLock)
-                            {
-                                _isCoolingRunning = false;
-                            }
+                            lock (_stateLock) { _isCoolingRunning = false; }
                             success = true;
                             InfoLog("模拟模式停止制冷");
                         }
@@ -1541,10 +1494,7 @@ namespace TemperatureCirculator_ModbusTCP
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
 
-                        if (success)
-                        {
-                            RemoveActiveState("CoolingRunning");
-                        }
+                        if (success) RemoveActiveState("CoolingRunning");
 
                         RaiseControlStateChanged("IsCoolingRunning", false);
                         RaiseControlStateChanged("CommandState_停止制冷", CommandExecutionState.Succeeded);
@@ -1641,9 +1591,7 @@ namespace TemperatureCirculator_ModbusTCP
                 InfoLog($"暂停高低温循环器状态: {state.StateName}");
 
                 if (!string.IsNullOrEmpty(state.PauseCommand))
-                {
                     await ExecuteDeviceCommandByNameAsync(state.PauseCommand);
-                }
 
                 lock (_statesLock)
                 {
@@ -1668,9 +1616,7 @@ namespace TemperatureCirculator_ModbusTCP
                 InfoLog($"恢复高低温循环器状态: {state.StateName}");
 
                 if (!string.IsNullOrEmpty(state.ResumeCommand))
-                {
                     await ExecuteDeviceCommandByNameAsync(state.ResumeCommand);
-                }
 
                 lock (_statesLock)
                 {
@@ -1696,9 +1642,7 @@ namespace TemperatureCirculator_ModbusTCP
                 InfoLog($"停止高低温循环器状态: {state.StateName}");
 
                 if (!string.IsNullOrEmpty(state.DeactivateCommand))
-                {
                     await ExecuteDeviceCommandByNameAsync(state.DeactivateCommand);
-                }
 
                 return true;
             }
@@ -1709,7 +1653,8 @@ namespace TemperatureCirculator_ModbusTCP
             }
         }
 
-        private async Task ExecuteDeviceCommandByNameAsync(string commandName, DeviceParameters parameters = null)
+        private async Task ExecuteDeviceCommandByNameAsync(string commandName,
+            DeviceParameters parameters = null)
         {
             var command = Commands?.FirstOrDefault(c => c.Name == commandName);
             if (command?.Action != null)
@@ -1813,25 +1758,27 @@ namespace TemperatureCirculator_ModbusTCP
 
         #endregion
 
-        private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
+        private Func<DeviceParameters, Task<DeviceParameters>> WrapAction(
+            string commandName,
+            Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
-            return (DeviceParameters parameters) =>
+            return async (DeviceParameters parameters) =>
             {
-                _logger.LogInformation($"[高低温循环器命令-开始] Device={Name} Command={commandName}");
-
+                _logger.LogInformation("[命令-开始] Device={Name} Command={CommandName}", Name, commandName);
                 var sw = Stopwatch.StartNew();
                 try
                 {
-                    var output = innerAsync(parameters).GetAwaiter().GetResult();
+                    var output = await innerAsync(parameters).ConfigureAwait(false);
                     sw.Stop();
-
-                    _logger.LogInformation($"[高低温循环器命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogInformation("[命令-完成] Device={Name} Command={CommandName} DurationMs={Ms}",
+                        Name, commandName, sw.ElapsedMilliseconds);
                     return output;
                 }
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    _logger.LogError(ex, $"[高低温循环器命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogError(ex, "[命令-异常] Device={Name} Command={CommandName} DurationMs={Ms}",
+                        Name, commandName, sw.ElapsedMilliseconds);
                     throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
             };

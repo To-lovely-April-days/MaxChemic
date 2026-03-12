@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace DevicePlugins.Devices
 {
@@ -78,9 +79,14 @@ namespace DevicePlugins.Devices
         public DeviceParameters OutputParameters { get; set; } = new DeviceParameters();
 
         /// <summary>
-        /// 命令执行动作
+        /// 同步命令执行动作（保留向后兼容）
         /// </summary>
         public Func<DeviceParameters, DeviceParameters>? Action { get; set; }
+
+        /// <summary>
+        /// 异步命令执行动作（推荐使用，配合 ExecuteAsync）
+        /// </summary>
+        public Func<DeviceParameters, Task<DeviceParameters>>? AsyncAction { get; set; }
 
         /// <summary>
         /// 命令执行前的验证动作
@@ -88,17 +94,14 @@ namespace DevicePlugins.Devices
         public Func<DeviceParameters, bool>? CanExecute { get; set; }
 
         /// <summary>
-        /// 执行命令
+        /// 执行命令（同步，保留向后兼容）
         /// </summary>
-        /// <param name="parameters">输入参数</param>
-        /// <returns>执行结果</returns>
         public DeviceCommandResult Execute(DeviceParameters? parameters = null)
         {
             var result = new DeviceCommandResult();
 
             try
             {
-                // 检查命令是否启用
                 if (!IsEnabled)
                 {
                     result.Success = false;
@@ -106,10 +109,8 @@ namespace DevicePlugins.Devices
                     return result;
                 }
 
-                // 合并输入参数
                 var inputParams = parameters ?? new DeviceParameters();
 
-                // 验证参数
                 if (!inputParams.ValidateAll())
                 {
                     result.Success = false;
@@ -118,7 +119,6 @@ namespace DevicePlugins.Devices
                     return result;
                 }
 
-                // 检查是否可以执行
                 if (CanExecute != null && !CanExecute(inputParams))
                 {
                     result.Success = false;
@@ -126,11 +126,81 @@ namespace DevicePlugins.Devices
                     return result;
                 }
 
-                // 执行命令
                 if (Action != null)
                 {
                     result.OutputParameters = Action(inputParams);
                     result.Success = true;
+                    result.ExecutionTime = DateTime.Now;
+                }
+                else if (AsyncAction != null)
+                {
+                    // 同步调用异步方法时，用 Task.Run 避免死锁
+                    result.OutputParameters = Task.Run(() => AsyncAction(inputParams)).GetAwaiter().GetResult();
+                    result.Success = true;
+                    result.ExecutionTime = DateTime.Now;
+                }
+                else
+                {
+                    result.Success = false;
+                    result.ErrorMessage = "命令动作未定义";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.ErrorMessage = ex.Message;
+                result.Exception = ex;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 异步执行命令（推荐在 async 调用链中使用，避免死锁）
+        /// </summary>
+        public async Task<DeviceCommandResult> ExecuteAsync(DeviceParameters? parameters = null)
+        {
+            var result = new DeviceCommandResult();
+
+            try
+            {
+                if (!IsEnabled)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = "命令已禁用";
+                    return result;
+                }
+
+                var inputParams = parameters ?? new DeviceParameters();
+
+                if (!inputParams.ValidateAll())
+                {
+                    result.Success = false;
+                    result.ErrorMessage = "输入参数验证失败";
+                    result.ValidationErrors = inputParams.GetValidationErrors();
+                    return result;
+                }
+
+                if (CanExecute != null && !CanExecute(inputParams))
+                {
+                    result.Success = false;
+                    result.ErrorMessage = "命令执行条件不满足";
+                    return result;
+                }
+
+                if (AsyncAction != null)
+                {
+                    // 直接 await，不阻塞调用线程
+                    result.OutputParameters = await AsyncAction(inputParams).ConfigureAwait(false);
+                    result.Success = true;
+                    result.ExecutionTime = DateTime.Now;
+                }
+                else if (Action != null)
+                {
+                    // 兼容只设置了同步 Action 的命令，放到线程池执行
+                    result.OutputParameters = await Task.Run(() => Action(inputParams)).ConfigureAwait(false);
+                    result.Success = true;
+                    result.ExecutionTime = DateTime.Now;
                 }
                 else
                 {

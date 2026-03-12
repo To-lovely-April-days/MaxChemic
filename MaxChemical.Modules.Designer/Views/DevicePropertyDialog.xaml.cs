@@ -1795,7 +1795,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private void ExecuteButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -1839,7 +1839,7 @@ namespace MaxChemical.Modules.Designer.Views
                         return;
                     }
 
-                    var result = _selectedCommand.Execute();
+                    var result = await  _selectedCommand.ExecuteAsync();
 
                     if (result.Success)
                     {

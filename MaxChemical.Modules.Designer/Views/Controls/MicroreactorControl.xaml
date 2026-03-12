@@ -1160,8 +1160,12 @@
                 </Ellipse.Effect>
             </Ellipse>
 
-            <TextBlock Canvas.Left="15" Canvas.Top="48" Text="85.5" 
-                       Foreground="#2A3A4A" FontSize="44" FontWeight="Bold" FontFamily="Consolas">
+            <TextBlock x:Name="TempDisplay1"
+           Canvas.Left="15" Canvas.Top="48" 
+           Text="{Binding Temperature1, 
+                  RelativeSource={RelativeSource AncestorType=UserControl}, 
+                  StringFormat=F1}" 
+           Foreground="#2A3A4A" FontSize="44" FontWeight="Bold" FontFamily="Consolas">
                 <TextBlock.Effect>
                     <DropShadowEffect Color="#FFFFFF" Opacity="0.5" BlurRadius="1" ShadowDepth="1" Direction="135" RenderingBias="Performance"/>
                 </TextBlock.Effect>
@@ -1214,8 +1218,12 @@
                 </Ellipse.Effect>
             </Ellipse>
 
-            <TextBlock Canvas.Left="15" Canvas.Top="48" Text="92.3" 
-                       Foreground="#2A3A4A" FontSize="44" FontWeight="Bold" FontFamily="Consolas">
+            <TextBlock x:Name="TempDisplay2"
+           Canvas.Left="15" Canvas.Top="48"
+           Text="{Binding Temperature2, 
+                  RelativeSource={RelativeSource AncestorType=UserControl}, 
+                  StringFormat=F1}"
+           Foreground="#2A3A4A" FontSize="44" FontWeight="Bold" FontFamily="Consolas">
                 <TextBlock.Effect>
                     <DropShadowEffect Color="#FFFFFF" Opacity="0.5" BlurRadius="1" ShadowDepth="1" Direction="135" RenderingBias="Performance"/>
                 </TextBlock.Effect>
@@ -1268,8 +1276,12 @@
                 </Ellipse.Effect>
             </Ellipse>
 
-            <TextBlock Canvas.Left="15" Canvas.Top="48" Text="98.7" 
-                       Foreground="#2A3A4A" FontSize="44" FontWeight="Bold" FontFamily="Consolas">
+            <TextBlock x:Name="TempDisplay3"
+           Canvas.Left="15" Canvas.Top="48"
+           Text="{Binding Temperature3, 
+                  RelativeSource={RelativeSource AncestorType=UserControl}, 
+                  StringFormat=F1}"
+           Foreground="#2A3A4A" FontSize="44" FontWeight="Bold" FontFamily="Consolas">
                 <TextBlock.Effect>
                     <DropShadowEffect Color="#FFFFFF" Opacity="0.5" BlurRadius="1" ShadowDepth="1" Direction="135" RenderingBias="Performance"/>
                 </TextBlock.Effect>

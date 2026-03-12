@@ -497,7 +497,7 @@
 
                         <!-- 主设置温度显示 -->
                         <Border Canvas.Left="7" Canvas.Top="8" Width="180" Height="56" 
-        CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
+                                CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                                     <GradientStop Color="#EEF2F7" Offset="0"/>
@@ -508,34 +508,34 @@
 
                             <Grid>
                                 <TextBlock Text="设定温度" FontFamily="Microsoft YaHei" FontSize="9" 
-                   Foreground="#5D6B7A" FontWeight="Medium"
-                   Margin="10,7,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                           Foreground="#5D6B7A" FontWeight="Medium"
+                                           Margin="10,7,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                    VerticalAlignment="Center" Margin="14,8,0,0">
+                                            VerticalAlignment="Center" Margin="14,8,0,0">
                                     <TextBlock x:Name="SetTempValue" 
-                       Text="{Binding SetTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                       FontFamily="Consolas" FontSize="32" 
-                       Foreground="#8B3535" FontWeight="Bold">
+                                               Text="{Binding SetTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                               FontFamily="Consolas" FontSize="32" 
+                                               Foreground="#8B3535" FontWeight="Bold">
                                         <TextBlock.Effect>
                                             <DropShadowEffect Color="#8B3535" BlurRadius="2" ShadowDepth="0" Opacity="0.12"
-                                      RenderingBias="Performance"/>
+                                                              RenderingBias="Performance"/>
                                         </TextBlock.Effect>
                                     </TextBlock>
                                     <TextBlock Text="°C" FontFamily="Consolas" FontSize="16" 
-                       Foreground="#A05050" FontWeight="Bold" Margin="4,6,0,0"/>
+                                               Foreground="#A05050" FontWeight="Bold" Margin="4,6,0,0"/>
                                 </StackPanel>
 
                                 <StackPanel Orientation="Vertical" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,9,0">
                                     <Button Width="28" Height="13" Style="{StaticResource AdjustButtonStyle}"
-                    Click="OnTempUpClick">
+                                            Click="OnTempUpClick">
                                         <Viewbox Width="8" Height="5">
                                             <Path Data="M 4,0 L 0,5 L 8,5 Z" Fill="#5D6369" Stroke="#5D6369" StrokeThickness="0.5"/>
                                         </Viewbox>
                                     </Button>
                                     <Button Width="28" Height="13" Margin="0,3,0,0" 
-                    Style="{StaticResource AdjustButtonStyle}"
-                    Click="OnTempDownClick">
+                                            Style="{StaticResource AdjustButtonStyle}"
+                                            Click="OnTempDownClick">
                                         <Viewbox Width="8" Height="5">
                                             <Path Data="M 4,5 L 0,0 L 8,0 Z" Fill="#5D6369" Stroke="#5D6369" StrokeThickness="0.5"/>
                                         </Viewbox>
@@ -544,9 +544,9 @@
                             </Grid>
                         </Border>
 
-                        <!-- 当前温度显示 -->
-                        <Border Canvas.Left="7" Canvas.Top="72" Width="90" Height="56" 
-        CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
+                        <!-- 当前温度显示 - 扩展至全宽 -->
+                        <Border Canvas.Left="7" Canvas.Top="72" Width="180" Height="56" 
+                                CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                                     <GradientStop Color="#EEF2F7" Offset="0"/>
@@ -555,56 +555,26 @@
                                 </LinearGradientBrush>
                             </Border.Background>
                             <Grid>
-                                <TextBlock Text="当前" FontFamily="Microsoft YaHei" FontSize="8" 
-                   Foreground="#5D6B7A" FontWeight="Medium"
-                   Margin="7,6,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                <TextBlock Text="当前温度" FontFamily="Microsoft YaHei" FontSize="9" 
+                                           Foreground="#5D6B7A" FontWeight="Medium"
+                                           Margin="10,7,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                    VerticalAlignment="Center" Margin="9,9,0,0">
+                                            VerticalAlignment="Center" Margin="14,8,0,0">
                                     <TextBlock Text="{Binding CurrentTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                       FontFamily="Consolas" FontSize="24" 
-                       Foreground="#3A5F7A" FontWeight="Bold">
+                                               FontFamily="Consolas" FontSize="32" 
+                                               Foreground="#3A5F7A" FontWeight="Bold">
                                         <TextBlock.Effect>
                                             <DropShadowEffect Color="#3A5F7A" BlurRadius="2" ShadowDepth="0" Opacity="0.10"
-                                      RenderingBias="Performance"/>
+                                                              RenderingBias="Performance"/>
                                         </TextBlock.Effect>
                                     </TextBlock>
-                                    <TextBlock Text="°C" FontFamily="Consolas" FontSize="10" 
-                       Foreground="#5A7F9A" FontWeight="Bold" Margin="2,4,0,0"/>
+                                    <TextBlock Text="°C" FontFamily="Consolas" FontSize="16" 
+                                               Foreground="#5A7F9A" FontWeight="Bold" Margin="4,6,0,0"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
 
-                        <!-- 出口温度显示 -->
-                        <Border Canvas.Left="103" Canvas.Top="72" Width="84" Height="56" 
-        CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#EEF2F7" Offset="0"/>
-                                    <GradientStop Color="#E3E8EF" Offset="0.5"/>
-                                    <GradientStop Color="#D8DEE7" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <Grid>
-                                <TextBlock Text="出口" FontFamily="Microsoft YaHei" FontSize="8" 
-                   Foreground="#5D6B7A" FontWeight="Medium"
-                   Margin="7,6,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                    VerticalAlignment="Center" Margin="8,9,0,0">
-                                    <TextBlock Text="{Binding OutletTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                       FontFamily="Consolas" FontSize="24" 
-                       Foreground="#3D6B52" FontWeight="Bold">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect Color="#3D6B52" BlurRadius="2" ShadowDepth="0" Opacity="0.10"
-                                      RenderingBias="Performance"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                    <TextBlock Text="°C" FontFamily="Consolas" FontSize="10" 
-                       Foreground="#5D8B72" FontWeight="Bold" Margin="2,4,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
                     </Canvas>
                 </Border>
 

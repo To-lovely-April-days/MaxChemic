@@ -112,25 +112,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 control.OnPropertyChanged(nameof(CurrentTemperature));
         }
 
-        public static readonly DependencyProperty OutletTemperatureProperty =
-            DependencyProperty.Register(
-                nameof(OutletTemperature),
-                typeof(double),
-                typeof(TemperatureControlSystemControl),
-                new PropertyMetadata(-38.2, OnOutletTemperatureChanged));
-
-        public double OutletTemperature
-        {
-            get => (double)GetValue(OutletTemperatureProperty);
-            set => SetValue(OutletTemperatureProperty, value);
-        }
-
-        private static void OnOutletTemperatureChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TemperatureControlSystemControl control)
-                control.OnPropertyChanged(nameof(OutletTemperature));
-        }
-
         public static readonly DependencyProperty IsSelectedProperty =
             DependencyProperty.Register(
                 nameof(IsSelected),
@@ -232,22 +213,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         private void ApplyIdleVisual()
         {
-            // LCD 边框
             SetLCDFrame(
                 this.Resources["IdleFrameGradient"] as Brush,
                 Color.FromRgb(45, 50, 56),
                 Colors.Transparent, 0, 0);
 
-            // 指示灯
             SetIndicator(
                 Color.FromRgb(158, 158, 158),
                 Colors.Transparent, 0,
                 "就绪", Color.FromRgb(93, 99, 105));
 
-            // 标题装饰条
             SetAccentBar(this.Resources["AccentRedGradient"] as Brush);
-
-            // 屏幕覆盖层
             SetScreenOverlay(Colors.Transparent, 0);
         }
 
@@ -256,22 +232,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         private void ApplyRunningVisual()
         {
-            // LCD 边框 - 明亮青色 + 外发光
             SetLCDFrame(
                 this.Resources["RunningFrameGradient"] as Brush,
                 Color.FromRgb(0, 105, 92),
                 Color.FromRgb(0, 137, 123), 15, 0.7);
 
-            // 指示灯 - 明亮绿色
             SetIndicator(
                 Color.FromRgb(76, 175, 80),
                 Color.FromRgb(76, 175, 80), 10,
                 "运行", Color.FromRgb(46, 125, 50));
 
-            // 标题装饰条 - 变青色
             SetAccentBar(new SolidColorBrush(Color.FromRgb(0, 137, 123)));
-
-            // 屏幕覆盖层 - 微弱青色
             SetScreenOverlay(Color.FromRgb(0, 137, 123), 0.06);
         }
 
@@ -280,22 +251,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         private void ApplyLoadingVisual()
         {
-            // LCD 边框 - 明亮琥珀色 + 强外发光
             SetLCDFrame(
                 this.Resources["LoadingFrameGradient"] as Brush,
                 Color.FromRgb(184, 134, 11),
                 Color.FromRgb(230, 168, 23), 18, 0.8);
 
-            // 指示灯 - 明亮琥珀色
             SetIndicator(
                 Color.FromRgb(255, 193, 7),
                 Color.FromRgb(255, 193, 7), 12,
                 "处理", Color.FromRgb(200, 150, 0));
 
-            // 标题装饰条 - 琥珀色
             SetAccentBar(new SolidColorBrush(Color.FromRgb(230, 168, 23)));
-
-            // 屏幕覆盖层 - 琥珀色叠加
             SetScreenOverlay(Color.FromRgb(255, 193, 7), 0.08);
         }
 
@@ -305,22 +271,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         /// </summary>
         private void ApplyErrorVisual()
         {
-            // LCD 边框 - 明亮红色 + 强外发光
             SetLCDFrame(
                 this.Resources["ErrorFrameGradient"] as Brush,
                 Color.FromRgb(198, 40, 40),
                 Color.FromRgb(229, 57, 53), 20, 0.85);
 
-            // 指示灯 - 明亮红色
             SetIndicator(
                 Color.FromRgb(244, 67, 54),
                 Color.FromRgb(244, 67, 54), 14,
                 "异常", Color.FromRgb(211, 47, 47));
 
-            // 标题装饰条 - 红色
             SetAccentBar(new SolidColorBrush(Color.FromRgb(229, 57, 53)));
-
-            // 屏幕覆盖层 - 红色叠加
             SetScreenOverlay(Color.FromRgb(244, 67, 54), 0.10);
         }
 
@@ -452,21 +413,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void RefreshVisualState()
         {
             if (_isError)
-            {
                 ApplyVisualState(DeviceVisualState.Error);
-            }
             else if (_isLoading)
-            {
                 ApplyVisualState(DeviceVisualState.Loading);
-            }
             else if (IsAnyModeRunning())
-            {
                 ApplyVisualState(DeviceVisualState.Running);
-            }
             else
-            {
                 ApplyVisualState(DeviceVisualState.Idle);
-            }
         }
 
         #endregion
@@ -481,11 +434,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public void UpdateCurrentTemperature(double temperature)
         {
             CurrentTemperature = Math.Round(temperature, 1);
-        }
-
-        public void UpdateOutletTemperature(double temperature)
-        {
-            OutletTemperature = Math.Round(temperature, 1);
         }
 
         #endregion
@@ -687,9 +635,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     {
                         HideLoading();
                         if (!success)
-                        {
                             ShowOperationFailure();
-                        }
                     }));
                 }
             });

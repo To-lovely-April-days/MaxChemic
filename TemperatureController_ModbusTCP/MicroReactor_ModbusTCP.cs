@@ -15,7 +15,7 @@ using MaxChemical.Logging;
 namespace MicroReactor_ModbusTCP
 {
     [Export(typeof(IDevice))]
-    public class MicroReactor_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
+    public class MicroReactor_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware, IDeviceUIInteraction
     {
         private readonly ILogService _logger;
         private readonly object _stateLock = new object();
@@ -36,6 +36,244 @@ namespace MicroReactor_ModbusTCP
 
         // 系统稳定性状态 - 使用线程安全访问
         private volatile SystemStabilityStatus _stabilityStatus = new SystemStabilityStatus();
+        // ============ 新增：IDeviceUIInteraction 所需字段 ============
+
+        /// <summary>
+        /// 画布 GUID，由 ProcessDesignerView 通过反射注入
+        /// </summary>
+        public string DeviceId { get; set; }
+
+        /// <summary>
+        /// IDeviceUIInteraction 核心事件
+        /// </summary>
+        public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
+
+        // 温度轮询相关字段
+        private CancellationTokenSource _temperaturePollingCts;
+        private Task _temperaturePollingTask;
+        private static readonly TimeSpan TemperaturePollingInterval = TimeSpan.FromSeconds(2);
+
+        // ============================================================
+        // IDeviceUIInteraction 接口实现（与蠕动泵保持一致的风格）
+        // ============================================================
+
+        /// <summary>
+        /// 触发状态变化事件（与蠕动泵完全一致的辅助方法）
+        /// </summary>
+        private void RaiseControlStateChanged(
+            string stateName,
+            object stateValue,
+            Dictionary<string, object> additionalData = null)
+        {
+            ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
+            {
+                DeviceId = this.DeviceId,
+                ComId = this.ComId,
+                StateName = stateName,
+                StateValue = stateValue,
+                Timestamp = DateTime.Now,
+                AdditionalData = additionalData ?? new Dictionary<string, object>()
+            });
+        }
+
+        /// <summary>
+        /// 执行UI命令（微反应器暂不支持从UI直接触发命令）
+        /// </summary>
+        public async Task<CommandExecutionResult> ExecuteUICommandAsync(
+            string commandName,
+            Dictionary<string, object> parameters = null)
+        {
+            return new CommandExecutionResult
+            {
+                Success = false,
+                Message = $"命令 {commandName} 不支持通过UI直接调用"
+            };
+        }
+
+        /// <summary>
+        /// 获取当前设备状态（与蠕动泵的 override 风格一致）
+        /// </summary>
+        public override DeviceState GetCurrentState()
+        {
+            var deviceId = ComId;
+            var states = new Dictionary<string, object>();
+
+            if (_deviceData.TryGetValue($"{deviceId}_TT1001_Actual", out double t1))
+                states["TT1001_ActualTemp"] = t1;
+            if (_deviceData.TryGetValue($"{deviceId}_TT1002_Actual", out double t2))
+                states["TT1002_ActualTemp"] = t2;
+            if (_deviceData.TryGetValue($"{deviceId}_TT1003_Actual", out double t3))
+                states["TT1003_ActualTemp"] = t3;
+
+            if (_stabilityStatus != null)
+            {
+                states["TT1001_Stable"] = _stabilityStatus.TT1001_Stable;
+                states["TT1002_Stable"] = _stabilityStatus.TT1002_Stable;
+                states["TT1003_Stable"] = _stabilityStatus.TT1003_Stable;
+                states["SystemStable"] = _stabilityStatus.IsSystemStable;
+            }
+
+            return new DeviceState { States = states };
+        }
+        // ============================================================
+        // 温度轮询（与蠕动泵的状态轮询风格完全一致）
+        // ============================================================
+
+        /// <summary>
+        /// 启动温度轮询（对应蠕动泵的 StartStatusPolling）
+        /// </summary>
+        private void StartTemperaturePolling()
+        {
+            try
+            {
+                // 如果已经在轮询，先停止
+                if (_temperaturePollingTask != null && !_temperaturePollingTask.IsCompleted)
+                {
+                    InfoLog("检测到已有温度轮询任务，先停止");
+                    StopTemperaturePollingAsync().Wait(TimeSpan.FromSeconds(2));
+                }
+
+                _temperaturePollingCts = new CancellationTokenSource();
+
+                _temperaturePollingTask = Task.Run(async () =>
+                {
+                    await TemperaturePollingLoopAsync(_temperaturePollingCts.Token);
+                }, _temperaturePollingCts.Token);
+
+                InfoLog("温度轮询已启动");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("启动温度轮询失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 停止温度轮询（对应蠕动泵的 StopStatusPollingAsync）
+        /// </summary>
+        private async Task StopTemperaturePollingAsync()
+        {
+            try
+            {
+                if (_temperaturePollingCts != null)
+                {
+                    InfoLog("正在停止温度轮询...");
+                    _temperaturePollingCts.Cancel();
+
+                    if (_temperaturePollingTask != null)
+                    {
+                        await Task.WhenAny(_temperaturePollingTask, Task.Delay(2000));
+                    }
+
+                    _temperaturePollingCts.Dispose();
+                    _temperaturePollingCts = null;
+                    _temperaturePollingTask = null;
+
+                    InfoLog("温度轮询已停止");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("停止温度轮询失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 温度轮询主循环（对应蠕动泵的 StatusPollingLoopAsync）
+        /// </summary>
+        private async Task TemperaturePollingLoopAsync(CancellationToken cancellationToken)
+        {
+            InfoLog("温度轮询线程已启动");
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await PollAndPublishTemperaturesAsync(cancellationToken);
+
+                        await Task.Delay((int)TemperaturePollingInterval.TotalMilliseconds, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        InfoLog("温度轮询被取消");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        // 单次失败不中断整个循环
+                        ErrorLog($"温度轮询异常: {ex.Message}");
+
+                        try
+                        {
+                            await Task.Delay(2000, cancellationToken);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("温度轮询线程异常退出", ex);
+            }
+            finally
+            {
+                InfoLog("温度轮询线程已退出");
+            }
+        }
+
+        /// <summary>
+        /// 单次轮询：读取三个温度并通过事件推送到UI
+        /// （对应蠕动泵的 PollPumpRunningStateAsync）
+        /// </summary>
+        private async Task PollAndPublishTemperaturesAsync(CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested) return;
+
+            ComId = Parameters.GetValue<string>("DeviceId");
+            string deviceId = ComId;
+
+            double tt1001 = 0, tt1002 = 0, tt1003 = 0;
+
+            if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp
+                && ConnectionManager != null && !IsSimulationMode)
+            {
+                var t1Task = ConnectionManager.ReadAsync<double>(deviceId, "TT1001_℃");
+                var t2Task = ConnectionManager.ReadAsync<double>(deviceId, "TT1002_℃");
+                var t3Task = ConnectionManager.ReadAsync<double>(deviceId, "TT1003_℃");
+
+                await Task.WhenAll(t1Task, t2Task, t3Task);
+
+                tt1001 = await t1Task;
+                tt1002 = await t2Task;
+                tt1003 = await t3Task;
+            }
+            else if (IsSimulationMode)
+            {
+                var random = new Random();
+                tt1001 = GetSimulatedTemperature(deviceId, "TT1001", random);
+                tt1002 = GetSimulatedTemperature(deviceId, "TT1002", random);
+                tt1003 = GetSimulatedTemperature(deviceId, "TT1003", random);
+            }
+            else
+            {
+                return;
+            }
+
+            // 缓存实际温度
+            _deviceData[$"{deviceId}_TT1001_Actual"] = tt1001;
+            _deviceData[$"{deviceId}_TT1002_Actual"] = tt1002;
+            _deviceData[$"{deviceId}_TT1003_Actual"] = tt1003;
+
+            // 通过事件推送到UI（与蠕动泵的 RaiseControlStateChanged 完全一致）
+            RaiseControlStateChanged("TT1001_ActualTemp", tt1001);
+            RaiseControlStateChanged("TT1002_ActualTemp", tt1002);
+            RaiseControlStateChanged("TT1003_ActualTemp", tt1003);
+        }
 
         #region IControllableDevice Implementation
 
@@ -116,17 +354,19 @@ namespace MicroReactor_ModbusTCP
                 if (!_activeStates.Any() && !_pausedStates.Any())
                 {
                     InfoLog("ModbusTCP微反应器设备没有活跃或暂停的状态需要停止");
+                    // 即使没有活跃状态，也确保停止轮询
+                    StopTemperaturePollingAsync().Wait(TimeSpan.FromSeconds(2));
                     return true;
                 }
-                InfoLog($"停止ModbusTCP微反应器设备的 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
-
+                InfoLog($"停止 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
                 _activeStates.Clear();
                 _pausedStates.Clear();
             }
 
-            // 停止所有温度控制器
-            var stopTasks = _temperatureControllers.Values.Select(controller => controller.StopAsync());
+            //  停止温度轮询
+            await StopTemperaturePollingAsync();
 
+            var stopTasks = _temperatureControllers.Values.Select(c => c.StopAsync());
             await Task.WhenAll(stopTasks);
             _temperatureControllers.Clear();
 
@@ -155,11 +395,12 @@ namespace MicroReactor_ModbusTCP
                 _deviceData.Clear();
                 _temperatureControllers.Clear();
                 _stabilityStatus = new SystemStabilityStatus();
-
-                // 初始化控制日志
                 _controlLogger.Initialize(context.FlowName);
 
-                InfoLog("ModbusTCP微反应器设备已准备好执行流程");
+                //  启动温度轮询（与蠕动泵的 StartStatusPolling 对应）
+                StartTemperaturePolling();
+
+                InfoLog("ModbusTCP微反应器设备已准备好执行流程，温度实时轮询已启动");
                 return true;
             }
             catch (Exception ex)
@@ -174,6 +415,10 @@ namespace MicroReactor_ModbusTCP
             try
             {
                 InfoLog($"ModbusTCP微反应器设备流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
+
+                //  停止温度轮询
+                await StopTemperaturePollingAsync();
+
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP微反应器设备流程完成处理结束");
                 return true;
@@ -190,6 +435,10 @@ namespace MicroReactor_ModbusTCP
             try
             {
                 ErrorLog($"ModbusTCP微反应器设备流程失败: {context.FlowName}, 错误: {context.ErrorMessage}");
+
+                //  停止温度轮询
+                await StopTemperaturePollingAsync();
+
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP微反应器设备流程失败处理完成");
                 return true;
@@ -613,7 +862,18 @@ namespace MicroReactor_ModbusTCP
                         {
                             throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
                         }
+                        if (success)
+                        {
+                            //  新增：命令执行成功时也推送一次，立即刷新UI
+                            RaiseControlStateChanged("TT1001_ActualTemp", tt1001Actual);
+                            RaiseControlStateChanged("TT1002_ActualTemp", tt1002Actual);
+                            RaiseControlStateChanged("TT1003_ActualTemp", tt1003Actual);
 
+                            // 同时更新缓存
+                            _deviceData[$"{deviceId}_TT1001_Actual"] = tt1001Actual;
+                            _deviceData[$"{deviceId}_TT1002_Actual"] = tt1002Actual;
+                            _deviceData[$"{deviceId}_TT1003_Actual"] = tt1003Actual;
+                        }
                         // 获取智能控制状态
                         string controlStatus = GetIntelligentControlStatus();
                     }

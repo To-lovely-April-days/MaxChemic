@@ -214,7 +214,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Cursor = System.Windows.Input.Cursors.Hand,
                                 SetTemperature = -40.0,      // 默认设定温度
                                 CurrentTemperature = 24.5,    // 默认当前温度
-                                OutletTemperature = -38.2     // 默认出口温度
+                                
                             };
 
                             // 包装在 Viewbox 中
