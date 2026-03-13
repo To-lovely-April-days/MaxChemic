@@ -23,13 +23,13 @@ namespace DigitalScale_ModbusTCP
         private readonly ILogService _logger;
 
         // 电子秤状态 - 每个实例只管理一个秤
-        private double _currentWeight = 0.0;      // 当前重量（原始值）
-        private double _totalWeight = 0.0;        // 累计重量（原始值）
-        private double _tareWeight = 0.0;         // 去皮值（偏移量）
-        private double _initialTotalWeight = 0.0; // 初始累计值（用于重置）
-        private string _currentUnit = "g";        // 当前单位
-        private bool _isTared = false;            // 是否已去皮
-        private bool _isPoweredOn = false;        // 电源状态
+        private double _currentWeight = 0.0;
+        private double _totalWeight = 0.0;
+        private double _tareWeight = 0.0;
+        private double _initialTotalWeight = 0.0;
+        private string _currentUnit = "g";
+        private bool _isTared = false;
+        private bool _isPoweredOn = false;
         private readonly object _stateLock = new object();
 
         // 状态跟踪相关字段
@@ -38,24 +38,18 @@ namespace DigitalScale_ModbusTCP
         private readonly object _statesLock = new object();
 
         // 设备配置
-        private string _scaleId = "S0101"; // 默认为S0101，由参数配置
+        private string _scaleId = "S0101";
         private readonly string[] _supportedUnits = { "g", "kg", "lb", "oz" };
 
         // 状态轮询相关
         private CancellationTokenSource _statusPollingCts;
         private Task _statusPollingTask;
-        private const int WeightPollingIntervalMs = 500; // 每500ms轮询一次重量
+        private const int WeightPollingIntervalMs = 500;
 
         #region IDeviceUIInteraction 实现
 
-        /// <summary>
-        /// UI控件状态变化事件（设备驱动 → UI）
-        /// </summary>
         public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
 
-        /// <summary>
-        /// 执行 UI 命令（UI → 设备驱动）
-        /// </summary>
         public async Task<CommandExecutionResult> ExecuteUICommandAsync(
             string commandName,
             Dictionary<string, object> parameters = null)
@@ -111,9 +105,6 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 获取当前设备状态（设备驱动 → UI）
-        /// </summary>
         public override DeviceState GetCurrentState()
         {
             return new DeviceState
@@ -134,27 +125,20 @@ namespace DigitalScale_ModbusTCP
 
         #region UI 命令内部实现
 
-        /// <summary>
-        /// 开机（内部实现）
-        /// </summary>
         private async Task<CommandExecutionResult> PowerOnAsync()
         {
             try
             {
-                // 通知UI：开始加载
                 RaiseControlStateChanged("CommandState_开机", CommandExecutionState.Running);
 
-                await Task.Delay(300); // 模拟开机延迟
+                await Task.Delay(300);
 
                 lock (_stateLock)
                 {
                     _isPoweredOn = true;
                 }
 
-                // 通知UI：电源已开启
                 RaiseControlStateChanged("IsPoweredOn", true);
-
-                // 通知UI：命令执行成功
                 RaiseControlStateChanged("CommandState_开机", CommandExecutionState.Succeeded);
 
                 InfoLog("电子秤已开机");
@@ -172,7 +156,6 @@ namespace DigitalScale_ModbusTCP
             }
             catch (Exception ex)
             {
-                // 通知UI：命令执行异常
                 RaiseControlStateChanged("CommandState_开机", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 
@@ -186,27 +169,20 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 关机（内部实现）
-        /// </summary>
         private async Task<CommandExecutionResult> PowerOffAsync()
         {
             try
             {
-                // 通知UI：开始加载
                 RaiseControlStateChanged("CommandState_关机", CommandExecutionState.Running);
 
-                await Task.Delay(300); // 模拟关机延迟
+                await Task.Delay(300);
 
                 lock (_stateLock)
                 {
                     _isPoweredOn = false;
                 }
 
-                // 通知UI：电源已关闭
                 RaiseControlStateChanged("IsPoweredOn", false);
-
-                // 通知UI：命令执行成功
                 RaiseControlStateChanged("CommandState_关机", CommandExecutionState.Succeeded);
 
                 InfoLog("电子秤已关机");
@@ -224,7 +200,6 @@ namespace DigitalScale_ModbusTCP
             }
             catch (Exception ex)
             {
-                // 通知UI：命令执行异常
                 RaiseControlStateChanged("CommandState_关机", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 
@@ -238,19 +213,15 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 去皮（内部实现）
-        /// </summary>
         private async Task<CommandExecutionResult> TareAsync()
         {
             try
             {
-                // 通知UI：开始加载
                 RaiseControlStateChanged("CommandState_去皮", CommandExecutionState.Running);
 
                 double currentWeight = 0;
 
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                 {
                     currentWeight = await ConnectionManager.ReadAsync<double>(ComId, $"_{_scaleId}_g");
                 }
@@ -268,13 +239,9 @@ namespace DigitalScale_ModbusTCP
                     _isTared = true;
                 }
 
-                // 通知UI：去皮状态已更新
                 RaiseControlStateChanged("IsTared", true);
-
-                // 通知UI：命令执行成功
                 RaiseControlStateChanged("CommandState_去皮", CommandExecutionState.Succeeded);
 
-                // 添加去皮状态
                 AddActiveState(
                     stateName: $"ScaleTared_{_scaleId}",
                     activateCommand: "去皮",
@@ -298,7 +265,6 @@ namespace DigitalScale_ModbusTCP
             }
             catch (Exception ex)
             {
-                // 通知UI：命令执行异常
                 RaiseControlStateChanged("CommandState_去皮", CommandExecutionState.Error,
                     new Dictionary<string, object> { ["ErrorMessage"] = ex.Message });
 
@@ -312,14 +278,11 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 取消去皮（内部实现）
-        /// </summary>
         private async Task<CommandExecutionResult> CancelTareAsync()
         {
             try
             {
-                await Task.Delay(50); // 模拟操作延迟
+                await Task.Delay(50);
 
                 lock (_stateLock)
                 {
@@ -327,10 +290,7 @@ namespace DigitalScale_ModbusTCP
                     _isTared = false;
                 }
 
-                // 通知UI：去皮状态已更新
                 RaiseControlStateChanged("IsTared", false);
-
-                // 移除去皮状态
                 RemoveActiveState($"ScaleTared_{_scaleId}");
 
                 InfoLog("电子秤已取消去皮");
@@ -358,9 +318,6 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 切换单位（内部实现）
-        /// </summary>
         private async Task<CommandExecutionResult> SwitchUnitAsync(object targetUnit)
         {
             try
@@ -369,15 +326,14 @@ namespace DigitalScale_ModbusTCP
 
                 string newUnit = "g";
 
-                // 处理整数类型的单位枚举
                 if (targetUnit is int unitIndex)
                 {
                     newUnit = unitIndex switch
                     {
-                        0 => "g",   // Gram
-                        1 => "kg",  // Kilogram
-                        2 => "lb",  // Pound
-                        3 => "oz",  // Ounce
+                        0 => "g",
+                        1 => "kg",
+                        2 => "lb",
+                        3 => "oz",
                         _ => "g"
                     };
                 }
@@ -395,7 +351,6 @@ namespace DigitalScale_ModbusTCP
                     _currentUnit = newUnit;
                 }
 
-                // 通知UI：单位已更新
                 RaiseControlStateChanged("CurrentUnit", newUnit);
 
                 InfoLog($"单位已切换为: {_currentUnit}");
@@ -427,24 +382,18 @@ namespace DigitalScale_ModbusTCP
 
         #region 状态轮询相关
 
-        /// <summary>
-        /// 启动状态轮询
-        /// </summary>
         private void StartWeightPolling()
         {
             try
             {
-                // 如果已经在轮询，先停止
                 if (_statusPollingTask != null && !_statusPollingTask.IsCompleted)
                 {
                     InfoLog("检测到已有轮询任务，先停止");
                     StopWeightPollingAsync().Wait(TimeSpan.FromSeconds(2));
                 }
 
-                // 创建新的取消令牌
                 _statusPollingCts = new CancellationTokenSource();
 
-                // 启动后台轮询任务
                 _statusPollingTask = Task.Run(async () =>
                 {
                     await WeightPollingLoopAsync(_statusPollingCts.Token);
@@ -458,9 +407,6 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 停止状态轮询
-        /// </summary>
         private async Task StopWeightPollingAsync()
         {
             try
@@ -470,7 +416,6 @@ namespace DigitalScale_ModbusTCP
                     InfoLog("正在停止重量轮询...");
                     _statusPollingCts.Cancel();
 
-                    // 等待轮询任务结束（最多等待2秒）
                     if (_statusPollingTask != null)
                     {
                         await Task.WhenAny(_statusPollingTask, Task.Delay(2000));
@@ -489,9 +434,6 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 重量轮询循环（后台线程）
-        /// </summary>
         private async Task WeightPollingLoopAsync(CancellationToken cancellationToken)
         {
             InfoLog("重量轮询线程已启动");
@@ -502,23 +444,19 @@ namespace DigitalScale_ModbusTCP
                 {
                     try
                     {
-                        // 如果电子秤未开机，跳过本次轮询
-                        bool isPoweredOn = false;
-                        lock (_stateLock)
-                        {
-                            isPoweredOn = _isPoweredOn;
-                        }
+                        //bool isPoweredOn = false;
+                        //lock (_stateLock)
+                        //{
+                        //    isPoweredOn = _isPoweredOn;
+                        //}
 
-                        if (!isPoweredOn)
-                        {
-                            await Task.Delay(WeightPollingIntervalMs, cancellationToken);
-                            continue;
-                        }
+                        //if (!isPoweredOn)
+                        //{
+                        //    await Task.Delay(WeightPollingIntervalMs, cancellationToken);
+                        //    continue;
+                        //}
 
-                        // 读取称重值
                         await PollWeightValueAsync(cancellationToken);
-
-                        // 等待下次轮询（带取消检查）
                         await Task.Delay(WeightPollingIntervalMs, cancellationToken);
                     }
                     catch (OperationCanceledException)
@@ -528,10 +466,7 @@ namespace DigitalScale_ModbusTCP
                     }
                     catch (Exception ex)
                     {
-                        // 单次轮询失败不中断整个循环
                         ErrorLog($"重量轮询异常: {ex.Message}");
-
-                        // 失败后稍微等待，避免疯狂重试
                         try
                         {
                             await Task.Delay(2000, cancellationToken);
@@ -553,9 +488,6 @@ namespace DigitalScale_ModbusTCP
             }
         }
 
-        /// <summary>
-        /// 轮询称重值
-        /// </summary>
         private async Task PollWeightValueAsync(CancellationToken cancellationToken)
         {
             try
@@ -565,15 +497,13 @@ namespace DigitalScale_ModbusTCP
                 double currentWeight = 0;
                 double totalWeight = 0;
 
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode && !IsSimulationMode)
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                 {
-                    // 从PLC读取原始数据
-                    currentWeight = await ConnectionManager.ReadAsync<double>(ComId, $"_{_scaleId}_g");
-                    totalWeight = await ConnectionManager.ReadAsync<double>(ComId, $"_{_scaleId}_Add_g");
+                    currentWeight = await ConnectionManager.ReadAsync<double>(_scaleId, $"_{_scaleId}_g");
+                    totalWeight = await ConnectionManager.ReadAsync<double>(_scaleId, $"_{_scaleId}_Add_g");
                 }
                 else if (IsSimulationMode)
                 {
-                    // 模拟模式
                     lock (_stateLock)
                     {
                         currentWeight = _currentWeight + new Random().NextDouble() * 10 - 5;
@@ -581,7 +511,6 @@ namespace DigitalScale_ModbusTCP
                     }
                 }
 
-                // 检查状态是否变化
                 bool weightChanged = false;
                 lock (_stateLock)
                 {
@@ -594,10 +523,8 @@ namespace DigitalScale_ModbusTCP
                     }
                 }
 
-                // 重量变化时通知UI
                 if (weightChanged)
                 {
-                    // 通知UI：重量已更新
                     RaiseControlStateChanged("WeightValue", currentWeight);
                 }
             }
@@ -611,9 +538,6 @@ namespace DigitalScale_ModbusTCP
 
         #region 触发状态变化事件的辅助方法
 
-        /// <summary>
-        /// 触发控件状态变化事件（设备驱动 → UI）
-        /// </summary>
         private void RaiseControlStateChanged(string stateName, object stateValue, Dictionary<string, object> additionalData = null)
         {
             ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
@@ -625,8 +549,6 @@ namespace DigitalScale_ModbusTCP
                 Timestamp = DateTime.Now,
                 AdditionalData = additionalData ?? new Dictionary<string, object>()
             });
-
-            // DebugLog($"状态变化通知: {stateName} = {stateValue}");
         }
 
         #endregion
@@ -659,7 +581,6 @@ namespace DigitalScale_ModbusTCP
                 InfoLog($"暂停电子秤的 {_activeStates.Count} 个活跃状态");
             }
 
-            // 电子秤暂停 = 停止读取（实际上读取是被动的，这里只是状态标记）
             var pauseTasks = new List<Task<bool>>();
             DeviceActiveState[] statesToPause;
 
@@ -670,7 +591,7 @@ namespace DigitalScale_ModbusTCP
 
             foreach (var state in statesToPause)
             {
-                pauseTasks.Add(Task.FromResult(true)); // 电子秤无需实际暂停操作
+                pauseTasks.Add(Task.FromResult(true));
             }
 
             var results = await Task.WhenAll(pauseTasks);
@@ -754,26 +675,23 @@ namespace DigitalScale_ModbusTCP
         {
             try
             {
-               
-                // 1. 清空之前的状态
                 lock (_statesLock)
                 {
                     _activeStates.Clear();
                     _pausedStates.Clear();
                 }
 
-                // 2. 重置电子秤状态
                 lock (_stateLock)
                 {
                     _tareWeight = 0;
                     _isTared = false;
                 }
 
-                // 3. 记录初始累计值（用于计算流程期间的增量）
                 try
                 {
-                    if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
+                    if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                     {
+                        // ★ 改为直接读取 string 参数，与 TemperatureCirculator 保持一致
                         _scaleId = Parameters.GetValue<string>("ScaleId");
                         _initialTotalWeight = await ConnectionManager.ReadAsync<double>(_scaleId, $"_{_scaleId}_Add_g");
                         InfoLog($"记录初始累计重量: {_initialTotalWeight}g");
@@ -784,7 +702,6 @@ namespace DigitalScale_ModbusTCP
                     WarnLog($"读取初始累计值失败: {ex.Message}");
                 }
 
-                // 4. 启动重量轮询
                 StartWeightPolling();
 
                 InfoLog("电子秤已准备好执行流程");
@@ -803,16 +720,12 @@ namespace DigitalScale_ModbusTCP
             {
                 InfoLog($"流程完成处理开始: {context.FlowName}, 成功: {context.IsSuccessful}, 持续时间: {context.Duration}");
 
-                // 1. 停止重量轮询
                 await StopWeightPollingAsync();
-
-                // 2. 停止所有活跃状态
                 await StopAllActiveStatesAsync();
 
-                // 3. 记录最终累计值
                 try
                 {
-                    if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
+                    if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                     {
                         var finalTotal = await ConnectionManager.ReadAsync<double>(ComId, $"_{_scaleId}_Add_g");
                         var flowIncrement = finalTotal - _initialTotalWeight;
@@ -825,7 +738,6 @@ namespace DigitalScale_ModbusTCP
                     WarnLog($"读取最终累计值失败: {ex.Message}");
                 }
 
-                // 4. 清理状态
                 lock (_stateLock)
                 {
                     _tareWeight = 0;
@@ -849,13 +761,9 @@ namespace DigitalScale_ModbusTCP
             {
                 ErrorLog($"流程失败处理: {context.FlowName}, 失败节点: {context.FailedNodeName}, 错误: {context.ErrorMessage}");
 
-                // 停止重量轮询
                 await StopWeightPollingAsync();
-
-                // 停止所有操作
                 await StopAllActiveStatesAsync();
 
-                // 清理状态
                 lock (_stateLock)
                 {
                     _tareWeight = 0;
@@ -884,7 +792,7 @@ namespace DigitalScale_ModbusTCP
             Name = "电子秤";
             Manufacturer = "电子秤_CY";
             Category = DeviceCategories.ElectronicScales;
-            ComId = "S0101"; // 默认为S0101
+            ComId = "S0101";
 
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
 
@@ -899,9 +807,10 @@ namespace DigitalScale_ModbusTCP
 
             ImageLocation = "CUSTOM_CONTROL:DigitalScaleControl";
 
-            // 添加设备参数 - 选择具体的秤
-            Parameters.Variables.Add(new EnumParameter("ScaleId", typeof(ScaleIdentifier), ScaleIdentifier.S0101, "电子秤编号")
+            // ★ 改为与 TemperatureCirculator 相同的 StringParameter + Options 形式，去掉 ScaleIdentifier 枚举
+            Parameters.Variables.Add(new StringParameter("ScaleId", "S0101")
             {
+                Options = new ObservableCollection<string>(new List<string>() { "S0101", "S0111", "S0121" }),
                 HelpText = "选择要控制的电子秤（S0101/S0111/S0121）"
             });
 
@@ -914,7 +823,6 @@ namespace DigitalScale_ModbusTCP
 
         private void InitializeCommands()
         {
-            // 1. 获取称重值 - 核心命令
             Commands.Add(new DeviceCommand
             {
                 Name = "获取称重值",
@@ -946,12 +854,14 @@ namespace DigitalScale_ModbusTCP
 
                     double currentWeight = 0;
                     double totalWeight = 0;
+
+                    // ★ 改为直接读取 string 参数
                     _scaleId = Parameters.GetValue<string>("ScaleId");
+
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                         {
-                            // 从PLC读取原始数据
                             currentWeight = await ConnectionManager.ReadAsync<double>(_scaleId, $"_{_scaleId}_g");
                             totalWeight = await ConnectionManager.ReadAsync<double>(_scaleId, $"_{_scaleId}_Add_g");
 
@@ -959,7 +869,6 @@ namespace DigitalScale_ModbusTCP
                         }
                         else if (IsSimulationMode)
                         {
-                            // 模拟模式
                             lock (_stateLock)
                             {
                                 currentWeight = _currentWeight + new Random().NextDouble() * 10 - 5;
@@ -972,7 +881,6 @@ namespace DigitalScale_ModbusTCP
                             throw new InvalidOperationException("设备未连接且非模拟模式");
                         }
 
-                        // 更新内部状态
                         lock (_stateLock)
                         {
                             _currentWeight = currentWeight;
@@ -985,10 +893,8 @@ namespace DigitalScale_ModbusTCP
                         throw new InvalidOperationException($"获取称重值失败: {ex.Message}", ex);
                     }
 
-                    // 应用去皮
                     double netWeight = applyTare && _isTared ? currentWeight - _tareWeight : currentWeight;
 
-                    // 单位转换
                     double displayCurrent = ConvertWeight(currentWeight, WeightUnit.Gram, unit);
                     double displayTotal = ConvertWeight(totalWeight, WeightUnit.Gram, unit);
                     double displayNet = ConvertWeight(netWeight, WeightUnit.Gram, unit);
@@ -1008,234 +914,6 @@ namespace DigitalScale_ModbusTCP
                     };
                 })
             });
-
-            //// 2. 去皮命令
-            //Commands.Add(new DeviceCommand
-            //{
-            //    Name = "去皮",
-            //    ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/tare.png",
-            //    HelpText = "记录当前重量作为去皮值（软件去皮）",
-            //    InputParameters = new DeviceParameters(),
-            //    OutputParameters = new DeviceParameters
-            //    {
-            //        Variables = new ObservableCollection<ParameterBase>
-            //        {
-            //            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            //            new NumberParameter("TareValue", -1000, 10000, 0, "去皮值(g)") { IsVisibleInVariableManager = true },
-            //            new BooleanParameter("IsTared", false, "是否已去皮") { IsVisibleInVariableManager = false },
-            //            new StringParameter("Timestamp", "", "去皮时间") { IsVisibleInVariableManager = false }
-            //        }
-            //    },
-            //    Action = WrapAction("去皮", async delegate (DeviceParameters parameters)
-            //    {
-            //        double currentWeight = 0;
-
-            //        try
-            //        {
-            //            if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
-            //            {
-            //                currentWeight = await ConnectionManager.ReadAsync<double>(ComId, $"_{_scaleId}_g");
-            //            }
-            //            else if (IsSimulationMode)
-            //            {
-            //                lock (_stateLock)
-            //                {
-            //                    currentWeight = _currentWeight;
-            //                }
-            //            }
-
-            //            lock (_stateLock)
-            //            {
-            //                _tareWeight = currentWeight;
-            //                _isTared = true;
-            //            }
-
-            //            // 通知UI：去皮状态已更新
-            //            RaiseControlStateChanged("IsTared", true);
-
-            //            InfoLog($"电子秤已去皮 - 去皮值:{_tareWeight}g");
-
-            //            // 添加去皮状态
-            //            AddActiveState(
-            //                stateName: $"ScaleTared_{_scaleId}",
-            //                activateCommand: "去皮",
-            //                deactivateCommand: "取消去皮",
-            //                stateData: new ScaleStateData { TareValue = _tareWeight, ScaleId = _scaleId }
-            //            );
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            ErrorLog($"去皮失败: {ex.Message}");
-            //            throw;
-            //        }
-
-            //        return new DeviceParameters
-            //        {
-            //            Variables = new ObservableCollection<ParameterBase>
-            //            {
-            //                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-            //                new NumberParameter("TareValue", -1000, 10000, Math.Round(_tareWeight, 3), "去皮值(g)") { IsVisibleInVariableManager = true },
-            //                new BooleanParameter("IsTared", true, "") { IsVisibleInVariableManager = false },
-            //                new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false }
-            //            }
-            //        };
-            //    })
-            //});
-
-            //// 3. 取消去皮命令
-            //Commands.Add(new DeviceCommand
-            //{
-            //    Name = "取消去皮",
-            //    ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/cancel_tare.png",
-            //    HelpText = "清除去皮值，恢复原始重量显示",
-            //    InputParameters = new DeviceParameters(),
-            //    OutputParameters = new DeviceParameters
-            //    {
-            //        Variables = new ObservableCollection<ParameterBase>
-            //        {
-            //            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            //            new BooleanParameter("IsTared", true, "是否已去皮") { IsVisibleInVariableManager = false },
-            //            new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
-            //        }
-            //    },
-            //    Action = WrapAction("取消去皮", async delegate (DeviceParameters parameters)
-            //    {
-            //        await Task.Delay(50); // 模拟操作延迟
-
-            //        lock (_stateLock)
-            //        {
-            //            _tareWeight = 0;
-            //            _isTared = false;
-            //        }
-
-            //        // 通知UI：去皮状态已更新
-            //        RaiseControlStateChanged("IsTared", false);
-
-            //        // 移除去皮状态
-            //        RemoveActiveState($"ScaleTared_{_scaleId}");
-
-            //        InfoLog("电子秤已取消去皮");
-
-            //        return new DeviceParameters
-            //        {
-            //            Variables = new ObservableCollection<ParameterBase>
-            //            {
-            //                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-            //                new BooleanParameter("IsTared", false, "") { IsVisibleInVariableManager = false },
-            //                new StringParameter("Message", "去皮已取消", "") { IsVisibleInVariableManager = false }
-            //            }
-            //        };
-            //    })
-            //});
-
-            //// 4. 重置累计值命令
-            //Commands.Add(new DeviceCommand
-            //{
-            //    Name = "重置累计值",
-            //    ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/reset.png",
-            //    HelpText = "记录当前累计值作为新的基准（软件重置）",
-            //    InputParameters = new DeviceParameters(),
-            //    OutputParameters = new DeviceParameters
-            //    {
-            //        Variables = new ObservableCollection<ParameterBase>
-            //        {
-            //            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            //            new NumberParameter("InitialTotal", 0, 999999, 0, "初始累计值(g)") { IsVisibleInVariableManager = false },
-            //            new StringParameter("Timestamp", "", "重置时间") { IsVisibleInVariableManager = false }
-            //        }
-            //    },
-            //    Action = WrapAction("重置累计值", async delegate (DeviceParameters parameters)
-            //    {
-            //        double currentTotal = 0;
-
-            //        try
-            //        {
-            //            if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
-            //            {
-            //                currentTotal = await ConnectionManager.ReadAsync<double>(ComId, $"_{_scaleId}_Add_g");
-            //            }
-            //            else if (IsSimulationMode)
-            //            {
-            //                lock (_stateLock)
-            //                {
-            //                    currentTotal = _totalWeight;
-            //                }
-            //            }
-
-            //            lock (_stateLock)
-            //            {
-            //                _initialTotalWeight = currentTotal;
-            //            }
-
-            //            InfoLog($"累计值已重置 - 初始值:{_initialTotalWeight}g");
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            ErrorLog($"重置累计值失败: {ex.Message}");
-            //            throw;
-            //        }
-
-            //        return new DeviceParameters
-            //        {
-            //            Variables = new ObservableCollection<ParameterBase>
-            //            {
-            //                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-            //                new NumberParameter("InitialTotal", 0, 999999, Math.Round(_initialTotalWeight, 2), "初始累计值(g)") { IsVisibleInVariableManager = false },
-            //                new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false }
-            //            }
-            //        };
-            //    })
-            //});
-
-            //// 5. 切换单位命令
-            //Commands.Add(new DeviceCommand
-            //{
-            //    Name = "切换单位",
-            //    ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/unit.png",
-            //    HelpText = "切换重量显示单位",
-            //    InputParameters = new DeviceParameters
-            //    {
-            //        Variables = new ObservableCollection<ParameterBase>
-            //        {
-            //            new EnumParameter("TargetUnit", typeof(WeightUnit), WeightUnit.Gram, "目标单位")
-            //        }
-            //    },
-            //    OutputParameters = new DeviceParameters
-            //    {
-            //        Variables = new ObservableCollection<ParameterBase>
-            //        {
-            //            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            //            new StringParameter("CurrentUnit", "g", "当前单位") { IsVisibleInVariableManager = false },
-            //            new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
-            //        }
-            //    },
-            //    Action = WrapAction("切换单位", async delegate (DeviceParameters parameters)
-            //    {
-            //        await Task.Delay(50);
-
-            //        var targetUnit = parameters.GetValue<WeightUnit>("TargetUnit");
-
-            //        lock (_stateLock)
-            //        {
-            //            _currentUnit = GetUnitString(targetUnit);
-            //        }
-
-            //        // 通知UI：单位已更新
-            //        RaiseControlStateChanged("CurrentUnit", _currentUnit);
-
-            //        InfoLog($"单位已切换为: {_currentUnit}");
-
-            //        return new DeviceParameters
-            //        {
-            //            Variables = new ObservableCollection<ParameterBase>
-            //            {
-            //                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-            //                new StringParameter("CurrentUnit", _currentUnit, "") { IsVisibleInVariableManager = false },
-            //                new StringParameter("Message", $"单位已切换为 {_currentUnit}", "") { IsVisibleInVariableManager = false }
-            //            }
-            //        };
-            //    })
-            //});
         }
 
         #endregion
@@ -1246,7 +924,6 @@ namespace DigitalScale_ModbusTCP
         {
             if (fromUnit == toUnit) return valueInGrams;
 
-            // 先转换为克
             double grams = fromUnit switch
             {
                 WeightUnit.Gram => valueInGrams,
@@ -1256,7 +933,6 @@ namespace DigitalScale_ModbusTCP
                 _ => valueInGrams
             };
 
-            // 再转换为目标单位
             return toUnit switch
             {
                 WeightUnit.Gram => grams,
@@ -1359,8 +1035,8 @@ namespace DigitalScale_ModbusTCP
             {
                 base.Initialize();
 
-                // 从参数中获取秤的ID
-                _scaleId = Parameters.GetValue<ScaleIdentifier>("ScaleId").ToString();
+                // ★ 改为直接读取 string 参数，不再需要 .ToString() 转换
+                _scaleId = Parameters.GetValue<string>("ScaleId");
                 ComId = _scaleId;
 
                 lock (_stateLock)
@@ -1394,7 +1070,6 @@ namespace DigitalScale_ModbusTCP
 
             try
             {
-                // 先停止重量轮询
                 var stopPollingTask = StopWeightPollingAsync();
                 stopPollingTask.Wait(TimeSpan.FromSeconds(3));
 
@@ -1422,10 +1097,9 @@ namespace DigitalScale_ModbusTCP
                     return true;
                 }
 
-                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null&&!IsSimulationMode)
+                if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                 {
                     InfoLog($"连接到PLC电子秤: {_scaleId}");
-                    // PLC模式下，连接由ConnectionManager管理
                     return await ConnectionManager.ConnectAsync(ComId);
                 }
 
@@ -1575,12 +1249,7 @@ namespace DigitalScale_ModbusTCP
 
         #region 枚举和数据类
 
-        public enum ScaleIdentifier
-        {
-            S0101,
-            S0111,
-            S0121
-        }
+        // ScaleIdentifier 枚举已删除，改用 StringParameter + Options
 
         public enum WeightUnit
         {

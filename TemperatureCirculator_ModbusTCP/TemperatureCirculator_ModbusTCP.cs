@@ -440,7 +440,7 @@ namespace TemperatureCirculator_ModbusTCP
                         ComId,
                         deviceId == "TC0101" ? "YY_PV_Real_2" : "YY_PV_Real_4");
 
-                    // ★ 新增：同步轮询设定温度
+                    //  新增：同步轮询设定温度
                     string setRegister = deviceId == "TC0101" ? "YY_SV_Set_1" : "YY_SV_Set_2";
                     setTemp = await ConnectionManager.ReadAsync<double>(ComId, setRegister);
                 }
