@@ -1,15 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Linq;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using DevicePlugins.Devices;
+﻿using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
@@ -21,6 +10,19 @@ using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views.Controls;
 using Prism.Events;
+using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using static MaxChemical.Modules.Designer.Views.Controls.SolenoidValveControl;
 
 namespace MaxChemical.Modules.Designer.Views
@@ -4598,7 +4600,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 查找设备元素
                 var deviceElement = FindDeviceElementInCanvas(deviceId);
                 if (deviceElement == null)
                 {
@@ -4608,39 +4609,26 @@ namespace MaxChemical.Modules.Designer.Views
 
                 double cardLeft, cardTop;
 
-                //  优先使用保存的位置
                 if (_monitoringCardPositions.TryGetValue(deviceId, out var savedPosition))
                 {
                     cardLeft = savedPosition.X;
                     cardTop = savedPosition.Y;
-                    Debug.WriteLine($"使用保存的位置: {deviceId} at ({cardLeft:F0}, {cardTop:F0})");
                 }
                 else
                 {
-                    //  使用默认位置（设备右侧）
                     var deviceLeft = Canvas.GetLeft(deviceElement);
                     var deviceTop = Canvas.GetTop(deviceElement);
                     var deviceWidth = deviceElement.ActualWidth;
 
                     cardLeft = deviceLeft + deviceWidth + 15;
                     cardTop = deviceTop;
-                    Debug.WriteLine($"使用默认位置: {deviceId} at ({cardLeft:F0}, {cardTop:F0})");
                 }
 
-                // 设置卡片位置
                 Canvas.SetLeft(monitoringCard, cardLeft);
                 Canvas.SetTop(monitoringCard, cardTop);
                 Canvas.SetZIndex(monitoringCard, 500);
-
-                // 设置卡片标识
                 monitoringCard.Tag = $"MonitoringCard_{deviceId}";
 
-                // 添加到画布
-                DesignCanvas.Children.Add(monitoringCard);
-
-                Debug.WriteLine($"监控卡片已添加到画布: 位置({cardLeft:F0}, {cardTop:F0})");
-
-                //  启用监控卡片缓存
                 RenderOptions.SetCachingHint(monitoringCard, CachingHint.Cache);
                 monitoringCard.CacheMode = new BitmapCache
                 {
@@ -4649,15 +4637,61 @@ namespace MaxChemical.Modules.Designer.Views
                     SnapsToDevicePixels = true
                 };
 
-                Canvas.SetLeft(monitoringCard, cardLeft);
-                Canvas.SetTop(monitoringCard, cardTop);
-                Canvas.SetZIndex(monitoringCard, 500);
-
-                monitoringCard.Tag = $"MonitoringCard_{deviceId}";
-
                 DesignCanvas.Children.Add(monitoringCard);
 
-                Debug.WriteLine($"监控卡片已添加（带缓存）: 位置({cardLeft:F0}, {cardTop:F0})");
+                // ── 监听卡片位置变化，实时更新折线 ────────────────────────────
+                var localDeviceId = deviceId; // 捕获闭包变量
+
+                EventHandler leftChangedHandler = (s, e) =>
+                {
+                    // 同步保存最新位置，确保保存/加载时坐标正确
+                    if (_monitoringCards.TryGetValue(localDeviceId, out var card))
+                    {
+                        var l = Canvas.GetLeft(card);
+                        var t = Canvas.GetTop(card);
+                        if (!double.IsNaN(l) && !double.IsNaN(t))
+                            _monitoringCardPositions[localDeviceId] = new Point(l, t);
+                    }
+                    UpdateMonitoringConnectionLine(localDeviceId);
+                };
+
+                EventHandler topChangedHandler = (s, e) =>
+                {
+                    if (_monitoringCards.TryGetValue(localDeviceId, out var card))
+                    {
+                        var l = Canvas.GetLeft(card);
+                        var t = Canvas.GetTop(card);
+                        if (!double.IsNaN(l) && !double.IsNaN(t))
+                            _monitoringCardPositions[localDeviceId] = new Point(l, t);
+                    }
+                    UpdateMonitoringConnectionLine(localDeviceId);
+                };
+
+                DependencyPropertyDescriptor
+                    .FromProperty(Canvas.LeftProperty, typeof(UIElement))
+                    .AddValueChanged(monitoringCard, leftChangedHandler);
+
+                DependencyPropertyDescriptor
+                    .FromProperty(Canvas.TopProperty, typeof(UIElement))
+                    .AddValueChanged(monitoringCard, topChangedHandler);
+
+                // 保存处理器引用，供移除时使用
+                _monitoringCardLeftHandlers[deviceId] = leftChangedHandler;
+                _monitoringCardTopHandlers[deviceId] = topChangedHandler;
+
+                // ── 监控卡片渲染完成后，创建虚线连接 ────────────────────────────
+                monitoringCard.SizeChanged += (s, e) =>
+                {
+                    if (e.NewSize.Width > 0 && e.NewSize.Height > 0)
+                        UpdateMonitoringConnectionLine(localDeviceId);
+                };
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    UpdateMonitoringConnectionLine(deviceId);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+                Debug.WriteLine($"监控卡片已添加（带缓存和虚线）: 位置({cardLeft:F0}, {cardTop:F0})");
             }
             catch (Exception ex)
             {
@@ -4674,20 +4708,38 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (_monitoringCards.TryGetValue(deviceId, out var card))
                 {
-                    // 从画布移除
+                    // ── 取消位置监听 ──────────────────────────────────────────
+                    if (_monitoringCardLeftHandlers.TryGetValue(deviceId, out var leftHandler))
+                    {
+                        DependencyPropertyDescriptor
+                            .FromProperty(Canvas.LeftProperty, typeof(UIElement))
+                            .RemoveValueChanged(card, leftHandler);
+                        _monitoringCardLeftHandlers.Remove(deviceId);
+                    }
+
+                    if (_monitoringCardTopHandlers.TryGetValue(deviceId, out var topHandler))
+                    {
+                        DependencyPropertyDescriptor
+                            .FromProperty(Canvas.TopProperty, typeof(UIElement))
+                            .RemoveValueChanged(card, topHandler);
+                        _monitoringCardTopHandlers.Remove(deviceId);
+                    }
+
                     DesignCanvas.Children.Remove(card);
-
-                    // 从字典移除
                     _monitoringCards.Remove(deviceId);
-
-                    Debug.WriteLine($"移除监控卡片: {deviceId}");
                 }
+
+                // ── 同步移除虚线 ──────────────────────────────────────────────
+                RemoveMonitoringConnectionLine(deviceId);
+
+                Debug.WriteLine($"移除监控卡片及连接线: {deviceId}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"移除监控卡片失败: {ex.Message}");
             }
         }
+
         /// <summary>
         /// 更新设备位置时同步更新监控卡片位置
         /// </summary>
@@ -4695,32 +4747,29 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                if (!_monitoringCards.TryGetValue(deviceId, out var card))
-                    return;
+                if (!_monitoringCards.TryGetValue(deviceId, out var card)) return;
 
                 var deviceElement = FindDeviceElementInCanvas(deviceId);
-                if (deviceElement == null)
-                    return;
+                if (deviceElement == null) return;
 
-                // 重新计算位置
                 var deviceLeft = Canvas.GetLeft(deviceElement);
                 var deviceTop = Canvas.GetTop(deviceElement);
                 var deviceWidth = deviceElement.ActualWidth;
 
-                var cardLeft = deviceLeft + deviceWidth + 15;
-                var cardTop = deviceTop;
+                Canvas.SetLeft(card, deviceLeft + deviceWidth + 15);
+                Canvas.SetTop(card, deviceTop);
 
-                // 更新卡片位置
-                Canvas.SetLeft(card, cardLeft);
-                Canvas.SetTop(card, cardTop);
+                // ── 同步更新虚线 ───────────────────────────────────────
+                UpdateMonitoringConnectionLine(deviceId);
 
-                Debug.WriteLine($"更新监控卡片位置: {deviceId}");
+                Debug.WriteLine($"更新监控卡片及连接线位置: {deviceId}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"更新监控卡片位置失败: {ex.Message}");
             }
         }
+
 
 
         /// <summary>
@@ -4964,27 +5013,18 @@ namespace MaxChemical.Modules.Designer.Views
             try
             {
                 var deviceElement = FindDeviceElementInCanvas(deviceId);
-                if (deviceElement == null)
-                {
-                    Debug.WriteLine($"UpdateDeviceVisualPosition: 未找到设备元素 {deviceId}");
-                    return;
-                }
+                if (deviceElement == null) return;
 
-                // 计算左上角位置
-                var elementLeft = newPosition.X - deviceElement.ActualWidth / 2;
-                var elementTop = newPosition.Y - deviceElement.ActualHeight / 2;
+                Canvas.SetLeft(deviceElement, newPosition.X - deviceElement.ActualWidth / 2);
+                Canvas.SetTop(deviceElement, newPosition.Y - deviceElement.ActualHeight / 2);
 
-                // 更新位置
-                Canvas.SetLeft(deviceElement, elementLeft);
-                Canvas.SetTop(deviceElement, elementTop);
-
-                Debug.WriteLine($"设备 {deviceId} 视觉位置已更新到: ({elementLeft:F1}, {elementTop:F1})");
-
-                //  新增：调度延迟布局更新
                 ScheduleLayoutUpdate();
 
                 // 更新监控卡片位置
                 UpdateMonitoringCardPosition(deviceId);
+
+                // ── 再次同步虚线（设备自身也移动了）────────────────────
+                UpdateMonitoringConnectionLine(deviceId);
             }
             catch (Exception ex)
             {
@@ -8582,7 +8622,12 @@ namespace MaxChemical.Modules.Designer.Views
         /// 监控卡片位置字典 - DeviceId -> Position
         /// </summary>
         private readonly Dictionary<string, Point> _monitoringCardPositions = new();
+        // 监控卡片连接虚线字典 - DeviceId -> Line
+        private readonly Dictionary<string, Polyline> _monitoringCardLines = new();
 
+        // 监控卡片位置变更处理器（用于取消订阅，避免内存泄漏）
+        private readonly Dictionary<string, EventHandler> _monitoringCardLeftHandlers = new();
+        private readonly Dictionary<string, EventHandler> _monitoringCardTopHandlers = new();
         /// <summary>
         /// 获取监控卡片位置
         /// </summary>
@@ -8648,6 +8693,157 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        /// <summary>
+        /// 更新设备与监控卡片之间的直角折线连接（自动创建或更新）
+        /// </summary>
+        private void UpdateMonitoringConnectionLine(string deviceId)
+        {
+            try
+            {
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null) return;
+
+                if (!_monitoringCards.TryGetValue(deviceId, out var card)) return;
+
+                // ── 设备包围盒 ──────────────────────────────────────────
+                var deviceLeft = Canvas.GetLeft(deviceElement);
+                var deviceTop = Canvas.GetTop(deviceElement);
+                if (double.IsNaN(deviceLeft)) deviceLeft = 0;
+                if (double.IsNaN(deviceTop)) deviceTop = 0;
+
+                var dw = deviceElement.ActualWidth > 0 ? deviceElement.ActualWidth : 80;
+                var dh = deviceElement.ActualHeight > 0 ? deviceElement.ActualHeight : 60;
+
+                // ── 卡片包围盒 ──────────────────────────────────────────
+                var cardLeft = Canvas.GetLeft(card);
+                var cardTop = Canvas.GetTop(card);
+                if (double.IsNaN(cardLeft)) cardLeft = 0;
+                if (double.IsNaN(cardTop)) cardTop = 0;
+
+                var cw = card.ActualWidth > 0 ? card.ActualWidth : 200;
+                var ch = card.ActualHeight > 0 ? card.ActualHeight : 120;
+
+                // ── 根据相对位置选择锚点 + 计算直角折点 ─────────────────
+                PointCollection points;
+
+                bool cardIsRight = cardLeft >= deviceLeft + dw - 5;
+                bool cardIsLeft = cardLeft + cw <= deviceLeft + 5;
+                bool cardIsBottom = !cardIsRight && !cardIsLeft && cardTop >= deviceTop + dh - 5;
+                // 其余情况视为"上方或重叠"
+
+                if (cardIsRight)
+                {
+                    // 设备右边缘 → 水平走半程 → 垂直对齐 → 卡片左边缘
+                    double x1 = deviceLeft + dw;
+                    double y1 = deviceTop + dh / 2;
+                    double x2 = cardLeft;
+                    double y2 = cardTop + ch / 2;
+                    double midX = x1 + (x2 - x1) / 2.0;
+
+                    points = new PointCollection
+            {
+                new Point(x1,   y1),
+                new Point(midX, y1),
+                new Point(midX, y2),
+                new Point(x2,   y2)
+            };
+                }
+                else if (cardIsLeft)
+                {
+                    // 设备左边缘 → 水平走半程 → 垂直对齐 → 卡片右边缘
+                    double x1 = deviceLeft;
+                    double y1 = deviceTop + dh / 2;
+                    double x2 = cardLeft + cw;
+                    double y2 = cardTop + ch / 2;
+                    double midX = x2 + (x1 - x2) / 2.0;
+
+                    points = new PointCollection
+            {
+                new Point(x1,   y1),
+                new Point(midX, y1),
+                new Point(midX, y2),
+                new Point(x2,   y2)
+            };
+                }
+                else if (cardIsBottom)
+                {
+                    // 设备下边缘 → 垂直走半程 → 水平对齐 → 卡片上边缘
+                    double x1 = deviceLeft + dw / 2;
+                    double y1 = deviceTop + dh;
+                    double x2 = cardLeft + cw / 2;
+                    double y2 = cardTop;
+                    double midY = y1 + (y2 - y1) / 2.0;
+
+                    points = new PointCollection
+            {
+                new Point(x1, y1),
+                new Point(x1, midY),
+                new Point(x2, midY),
+                new Point(x2, y2)
+            };
+                }
+                else
+                {
+                    // 卡片在设备上方
+                    double x1 = deviceLeft + dw / 2;
+                    double y1 = deviceTop;
+                    double x2 = cardLeft + cw / 2;
+                    double y2 = cardTop + ch;
+                    double midY = y2 + (y1 - y2) / 2.0;
+
+                    points = new PointCollection
+            {
+                new Point(x1, y1),
+                new Point(x1, midY),
+                new Point(x2, midY),
+                new Point(x2, y2)
+            };
+                }
+
+                // ── 创建或更新 Polyline ─────────────────────────────────
+                if (_monitoringCardLines.TryGetValue(deviceId, out var existingPolyline))
+                {
+                    existingPolyline.Points = points;
+                }
+                else
+                {
+                    var polyline = new Polyline
+                    {
+                        Points = points,
+                        Stroke = new SolidColorBrush(Color.FromArgb(180, 90, 140, 220)),
+                        StrokeThickness = 1.5,
+                        StrokeDashArray = new DoubleCollection { 6, 4 },
+                        StrokeLineJoin = PenLineJoin.Round,
+                        StrokeEndLineCap = PenLineCap.Round,
+                        Fill = Brushes.Transparent,
+                        IsHitTestVisible = false,
+                        Opacity = 0.85
+                    };
+                    Panel.SetZIndex(polyline, 50);
+                    DesignCanvas.Children.Add(polyline);
+                    _monitoringCardLines[deviceId] = polyline;
+
+                    Debug.WriteLine($"创建监控连接直角折线: {deviceId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新监控连接直角折线失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 移除设备与监控卡片之间的虚线连接
+        /// </summary>
+        private void RemoveMonitoringConnectionLine(string deviceId)
+        {
+            if (_monitoringCardLines.TryGetValue(deviceId, out var line))
+            {
+                DesignCanvas.Children.Remove(line);
+                _monitoringCardLines.Remove(deviceId);
+                Debug.WriteLine($"移除监控连接虚线: {deviceId}");
+            }
+        }
         #endregion
 
         #region 布局更新优化
