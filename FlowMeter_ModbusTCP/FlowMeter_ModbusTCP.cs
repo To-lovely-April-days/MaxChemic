@@ -1030,7 +1030,7 @@ namespace FlowMeter_ModbusTCP
                 if (Math.Abs(targetFlow - _lastTargetFlow) > 0.01)
                 {
                     isTargetChanged = true;
-                    AddCycleLog($"🔄 检测到目标流量切换: {_lastTargetFlow:F2} → {targetFlow:F2} g/min");
+                    AddCycleLog($"检测到目标流量切换: {_lastTargetFlow:F2} → {targetFlow:F2} g/min");
                     _lastTargetFlow = targetFlow;
                 }
             }
@@ -1039,7 +1039,7 @@ namespace FlowMeter_ModbusTCP
             if (isTargetChanged)
             {
                 ResetControlState();
-                AddCycleLog($"🔄 目标流量切换，重置控制状态");
+                AddCycleLog($"目标流量切换，重置控制状态");
             }
             lock (_densityLock)
             {

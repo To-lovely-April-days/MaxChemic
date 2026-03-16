@@ -53,6 +53,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoboticArmTest_ModbusTCP", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DigitalScale_ModbusTCP", "DigitalScale_ModbusTCP\DigitalScale_ModbusTCP.csproj", "{0B2AA6D1-4BCE-6671-D812-B00BCDDF24EE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TubularReactor_ModbusTCP", "TubularReactor_ModbusTCP\TubularReactor_ModbusTCP.csproj", "{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -155,6 +157,10 @@ Global
 		{0B2AA6D1-4BCE-6671-D812-B00BCDDF24EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B2AA6D1-4BCE-6671-D812-B00BCDDF24EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B2AA6D1-4BCE-6671-D812-B00BCDDF24EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -174,6 +180,7 @@ Global
 		{09D2A2BF-FF23-4C87-97EC-685A46840995} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{D77E9EB3-214D-42A5-9D0E-B97490A63AF0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{0B2AA6D1-4BCE-6671-D812-B00BCDDF24EE} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {72D8DB25-9C37-4F38-B4CF-213BB0AEEFF7}

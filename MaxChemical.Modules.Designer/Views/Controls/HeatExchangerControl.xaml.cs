@@ -207,7 +207,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     IsOperating = isOperating
                 });
 
-                Debug.WriteLine($"🔄 换热器 {exchanger.ExchangerId} 运行状态变更: {(isOperating ? " 启动" : " 停止")}");
+                Debug.WriteLine($"换热器 {exchanger.ExchangerId} 运行状态变更: {(isOperating ? " 启动" : " 停止")}");
             }
         }
 
@@ -798,7 +798,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (isClick && !_isDragging)
                 {
                     IsOperating = !IsOperating;
-                    Debug.WriteLine($"🖱️ 点击切换运行状态: {(IsOperating ? " 启动" : " 停止")}");
+                    Debug.WriteLine($" 点击切换运行状态: {(IsOperating ? " 启动" : " 停止")}");
                     ShowTemporarySelection();
                 }
 

@@ -2842,7 +2842,9 @@ namespace MaxChemical.Modules.Designer.Views
             ClearAllHeatExchangerSelections(); //  新增：清除换热器选择
             ClearAllDigitalScaleSelections(); // 新增
             ClearAllTemperatureCirculatorSelections(); // 新增：清除高低温循环器选择
+            ClearAllTubularReactorSelections();
             CleanupDragState();
+
             this.Focus();
         }
 
@@ -3524,6 +3526,12 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleMicroreactorTemperatureState(reactorControl, e);
                     }
+                    //// 新增：处理管式反应器状态
+                    //var tubularReactorControl = FindVisualChild<TubularReactorControl>(deviceElement);
+                    //if (tubularReactorControl != null)
+                    //{
+                    //    HandleTubularReactorControlState(tubularReactorControl, e);
+                    //}
 
                 }));
             }
@@ -3991,6 +3999,125 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"处理微反应器温度状态失败: {ex.Message}");
+            }
+        }
+
+        ///// <summary>
+        ///// 处理管式反应器控件状态（设备驱动 → UI）
+        ///// </summary>
+        //private void HandleTubularReactorControlState(
+        //    TubularReactorControl reactorControl,
+        //    DeviceControlStateChangedEventArgs e)
+        //{
+        //    try
+        //    {
+        //        switch (e.StateName)
+        //        {
+        //            // ---- 温度更新 ----
+        //            case "Temperature":
+        //            case "OutletTemperature":
+        //                if (e.StateValue is double temperature)
+        //                {
+        //                    reactorControl.Temperature = Math.Round(temperature, 1);
+        //                    Debug.WriteLine($"管式反应器温度已更新: {temperature:F1}°C");
+        //                }
+        //                break;
+
+        //            // ---- 压力更新 ----
+        //            case "Pressure":
+        //            case "OutletPressure":
+        //                if (e.StateValue is double pressure)
+        //                {
+        //                    reactorControl.Pressure = Math.Round(pressure, 2);
+        //                    Debug.WriteLine($"管式反应器压力已更新: {pressure:F2} MPa");
+        //                }
+        //                break;
+
+        //            // ---- 反应运行状态 ----
+        //            case "IsReacting":
+        //                if (e.StateValue is bool isReacting)
+        //                {
+        //                    reactorControl.IsReacting = isReacting;
+        //                    Debug.WriteLine($"管式反应器反应状态已更新: {isReacting}");
+        //                }
+        //                break;
+
+        //            // ---- 流动启停状态 ----
+        //            case "IsFlowEnabled":
+        //                if (e.StateValue is bool isFlowEnabled)
+        //                {
+        //                    reactorControl.IsFlowEnabled = isFlowEnabled;
+        //                    Debug.WriteLine($"管式反应器流动状态已更新: {isFlowEnabled}");
+        //                }
+        //                break;
+
+        //            // ---- 流量更新 ----
+        //            case "FlowRate":
+        //                if (e.StateValue is double flowRate)
+        //                {
+        //                    reactorControl.SetFlowRate(flowRate);
+        //                    Debug.WriteLine($"管式反应器流量已更新: {flowRate:F1} kg/h");
+        //                }
+        //                break;
+
+        //            // ---- 命令执行状态 ----
+        //            case "CommandState_启动反应":
+        //            case "CommandState_停止反应":
+        //            case "CommandState_启动流动":
+        //            case "CommandState_停止流动":
+        //            case "CommandState_设置流量":
+        //                HandleTubularReactorCommandState(reactorControl, e);
+        //                break;
+
+        //            default:
+        //                Debug.WriteLine($"管式反应器未处理的状态: {e.StateName}");
+        //                break;
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine($"处理管式反应器控件状态失败: {ex.Message}");
+        //    }
+        //}
+
+        /// <summary>
+        /// 处理管式反应器命令执行状态
+        /// </summary>
+        private void HandleTubularReactorCommandState(
+            TubularReactorControl reactorControl,
+            DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+            {
+                Debug.WriteLine($"状态值类型错误: {e.StateValue?.GetType().Name}");
+                return;
+            }
+
+            var commandName = e.StateName.Replace("CommandState_", "");
+            Debug.WriteLine($"管式反应器命令状态: {commandName} -> {state}");
+
+            // TubularReactorControl 暂无 ShowLoading/HideLoading，
+            // 仅通过状态栏向用户反馈
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    UpdateStatusBar($"正在执行 {commandName}...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    UpdateStatusBar($"{commandName} 成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                    UpdateStatusBar($"{commandName} 失败");
+                    break;
+
+                case CommandExecutionState.Error:
+                    var errorMsg = e.AdditionalData?.ContainsKey("ErrorMessage") == true
+                        ? e.AdditionalData["ErrorMessage"]?.ToString()
+                        : "未知错误";
+                    UpdateStatusBar($"{commandName} 异常: {errorMsg}");
+                    break;
             }
         }
         /// <summary>
@@ -5201,6 +5328,13 @@ namespace MaxChemical.Modules.Designer.Views
                             double circulatorHeight = 310 * 0.65;  
                             Debug.WriteLine($"高低温循环器尺寸: {circulatorWidth:F0}x{circulatorHeight:F0}");
                             return new Size(circulatorWidth, circulatorHeight);
+                        case "TubularReactorControl":
+                            // 管式反应器原尺寸 210x800，缩小到画布显示
+                            double tubularReactorWidth = 210 * 0.3;
+                            double tubularReactorHeight = 800 * 0.3;
+                            Debug.WriteLine($"高低温循环器尺寸: {tubularReactorWidth:F0}x{tubularReactorHeight:F0}");
+                            return new Size(tubularReactorWidth, tubularReactorHeight);
+
                     }
                 }
                 // 普通图片尺寸处理
@@ -5347,6 +5481,9 @@ namespace MaxChemical.Modules.Designer.Views
                     //微反应器
                     case "MicroreactorControl":
                         return CreateMicroreactorIcon(targetWidth, targetHeight);
+                    //管式反应器
+                    case "TubularReactorControl":
+                        return CreateTubularReactorIcon(targetWidth, targetHeight);
                     // 未来可以添加其他自定义控件
                     case "HeatExchangerControl":
                         return CreateHeatExchangerIcon(targetWidth, targetHeight);
@@ -6265,7 +6402,13 @@ namespace MaxChemical.Modules.Designer.Views
                     Debug.WriteLine($"换热器旋转角度: {heatExchanger.RotationAngle:F1}°");
                     return heatExchanger.RotationAngle;
                 }
-                
+                var tubularReactor = FindVisualChild<TubularReactorControl>(deviceElement);
+                if (tubularReactor != null)
+                {
+                    Debug.WriteLine($"管式反应器旋转角度: {tubularReactor.RotationAngle:F1}°");
+                    return tubularReactor.RotationAngle;
+                }
+
                 // 其他控件...
 
                 return 0.0;
@@ -6745,7 +6888,13 @@ namespace MaxChemical.Modules.Designer.Views
                     restored = true;
                     Debug.WriteLine($" 换热器旋转角度已恢复: {rotationAngle:F1}°");
                 }
-
+                var tubularReactor = FindVisualChild<TubularReactorControl>(deviceElement);
+                if (tubularReactor != null)
+                {
+                    tubularReactor.RotationAngle = rotationAngle;
+                    restored = true;
+                    Debug.WriteLine($"管式反应器旋转角度已恢复: {rotationAngle:F1}°");
+                }
                 // 其他控件...
 
                 if (!restored)
@@ -10008,6 +10157,253 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"查找微反应器控件失败: {ex.Message}");
+            }
+
+            return reactors;
+        }
+
+        #endregion
+        #region 管式反应器创建
+        /// <summary>
+        /// 创建管式反应器
+        /// </summary>
+        /// <param name="targetWidth"></param>
+        /// <param name="targetHeight"></param>
+        /// <returns></returns>
+        /// <summary>
+        /// 创建管式反应器图标（用于画布上的小图标显示）
+        /// </summary>
+        private UIElement CreateTubularReactorIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                var reactorControl = new TubularReactorControl
+                {
+                    IsHitTestVisible = true,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Temperature = 120.0,
+                    Pressure = 1.50,
+                    IsReacting = false,
+                    IsFlowEnabled = false,
+                    FlowRate = 100.0
+                };
+
+                // 订阅管式反应器事件
+                SubscribeTubularReactorEvents(reactorControl);
+
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = reactorControl,
+                    IsHitTestVisible = true
+                };
+
+                Debug.WriteLine($"创建管式反应器图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建管式反应器图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "管式反应器");
+            }
+        }
+        #endregion
+        #region 管式反应器事件处理
+        /// <summary>
+        /// 订阅管式反应器控件事件
+        /// </summary>
+        /// 
+        private void SubscribeTubularReactorEvents(TubularReactorControl reactor)
+        {
+            try
+            {
+                // 选中/取消选中事件
+                reactor.ReactorSelected += OnTubularReactorSelectedFromControl;
+                reactor.ReactorDeselected += OnTubularReactorDeselectedFromControl;
+
+                // 状态变化事件（反应状态）
+                reactor.ReactorStateChanged += OnTubularReactorStateChanged;
+
+                // 流动状态变化事件
+                reactor.FlowStateChanged += OnTubularReactorFlowStateChanged;
+
+                // 温度变化事件
+                reactor.TemperatureChanged += OnTubularReactorTemperatureChanged;
+
+                // 压力变化事件
+                reactor.PressureChanged += OnTubularReactorPressureChanged;
+
+                Debug.WriteLine($"管式反应器事件已订阅: {reactor.ReactorId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"订阅管式反应器事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管式反应器选中
+        /// </summary>
+        private void OnTubularReactorSelectedFromControl(object sender, string reactorId)
+        {
+            try
+            {
+                Debug.WriteLine($"管式反应器被选中: {reactorId}");
+
+                // 清除其他选择
+                ClearDeviceSelection();
+                ClearAllPipeSelectionsExcept(null);
+                ClearAllValveSelections();
+                ClearAllFlowMeterSelections();
+                ClearAllMicroreactorSelections();
+                ClearAllHeatExchangerSelections();
+                ClearAllDigitalScaleSelections();
+                ClearAllTemperatureCirculatorSelections();
+                ClearAllTubularReactorSelections(); // 清除其他管式反应器选择
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    $"已选中管式反应器: {reactorId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理管式反应器选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管式反应器取消选中
+        /// </summary>
+        private void OnTubularReactorDeselectedFromControl(object sender, string reactorId)
+        {
+            try
+            {
+                Debug.WriteLine($"管式反应器取消选中: {reactorId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"处理管式反应器取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管式反应器状态变化（反应启动/停止）
+        /// </summary>
+        private void OnTubularReactorStateChanged(object sender, TubularReactorStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管式反应器 {e.ReactorId} 状态变化: " +
+                                $"{(e.IsReacting ? "启动反应" : "停止反应")}");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    e.IsReacting ? "管式反应器已启动反应" : "管式反应器已停止反应");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管式反应器状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管式反应器流动状态变化
+        /// </summary>
+        private void OnTubularReactorFlowStateChanged(object sender, TubularFlowStateChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管式反应器 {e.ReactorId} 流动状态变化: " +
+                                $"{(e.IsEnabled ? "启动流动" : "停止流动")}");
+
+                _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
+                    e.IsEnabled ? "管式反应器流动已启动" : "管式反应器流动已停止");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管式反应器流动状态变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管式反应器温度变化（来自控件内部仿真）
+        /// </summary>
+        private void OnTubularReactorTemperatureChanged(object sender, TubularTemperatureChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管式反应器 {e.ReactorId} 温度变化: " +
+                                $"{e.OldValue:F1}°C -> {e.NewValue:F1}°C");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管式反应器温度变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 管式反应器压力变化（来自控件内部仿真）
+        /// </summary>
+        private void OnTubularReactorPressureChanged(object sender, TubularPressureChangedEventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine($"管式反应器 {e.ReactorId} 压力变化: " +
+                                $"{e.OldValue:F2}MPa -> {e.NewValue:F2}MPa");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管式反应器压力变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清除所有管式反应器选择
+        /// </summary>
+        private void ClearAllTubularReactorSelections()
+        {
+            try
+            {
+                var reactors = FindAllTubularReactorsInCanvas();
+                foreach (var reactor in reactors)
+                {
+                    reactor.IsSelected = false;
+                    Debug.WriteLine($"清除管式反应器选择: {reactor.ReactorId}");
+                }
+
+                Debug.WriteLine($"清除了 {reactors.Count} 个管式反应器的选中状态");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"清除管式反应器选择失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 查找画布中所有管式反应器控件
+        /// </summary>
+        private List<TubularReactorControl> FindAllTubularReactorsInCanvas()
+        {
+            var reactors = new List<TubularReactorControl>();
+
+            try
+            {
+                foreach (var child in DesignCanvas.Children)
+                {
+                    if (child is Border deviceBorder)
+                    {
+                        var reactor = FindVisualChild<TubularReactorControl>(deviceBorder);
+                        if (reactor != null)
+                            reactors.Add(reactor);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查找管式反应器控件失败: {ex.Message}");
             }
 
             return reactors;

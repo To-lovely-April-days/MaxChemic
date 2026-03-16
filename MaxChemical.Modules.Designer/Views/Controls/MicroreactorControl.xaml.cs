@@ -1009,7 +1009,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     IsReacting = isReacting
                 });
 
-                Debug.WriteLine($"🔄 反应器 {reactor.ReactorId} 状态: {(isReacting ? " 运行" : " 停止")}");
+                Debug.WriteLine($"反应器 {reactor.ReactorId} 状态: {(isReacting ? " 运行" : " 停止")}");
             }
         }
 
@@ -1057,7 +1057,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (!_isDragging)
             {
-                Debug.WriteLine($"🖱️ 鼠标进入反应器 {ReactorId}");
+                Debug.WriteLine($" 鼠标进入反应器 {ReactorId}");
             }
         }
 
@@ -1065,7 +1065,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (!IsSelected)
             {
-                Debug.WriteLine($"🖱️ 鼠标离开反应器 {ReactorId}");
+                Debug.WriteLine($" 鼠标离开反应器 {ReactorId}");
             }
         }
 

@@ -29,7 +29,7 @@ namespace MaxChemical.Modules.Device.Converters
                             {
                                 FlaskWidth = 80,
                                 FlaskHeight = 120,
-                                IsHitTestVisible = false,  //  允许交互
+                                IsHitTestVisible = false,
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -40,7 +40,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = flaskControl,
-                                IsHitTestVisible = true  //  允许交互
+                                IsHitTestVisible = true
                             };
 
                             return flaskViewbox;
@@ -50,7 +50,7 @@ namespace MaxChemical.Modules.Device.Converters
                         case "PistonPumpControl":
                             var pumpControl = new PistonPumpControl
                             {
-                                IsHitTestVisible = false,  //  允许交互
+                                IsHitTestVisible = false,
                                 Cursor = System.Windows.Input.Cursors.Hand
                             };
 
@@ -61,7 +61,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = pumpControl,
-                                IsHitTestVisible = true  //  允许交互
+                                IsHitTestVisible = true
                             };
 
                             return pumpViewbox;
@@ -71,9 +71,9 @@ namespace MaxChemical.Modules.Device.Converters
                         case "ValveControl":
                             var valveControl = new ValveControl
                             {
-                                IsHitTestVisible = false,  //  允许交互
+                                IsHitTestVisible = false,
                                 Cursor = System.Windows.Input.Cursors.Hand,
-                                IsOpen = false  // 初始为关闭状态
+                                IsOpen = false
                             };
 
                             var valveViewbox = new System.Windows.Controls.Viewbox
@@ -83,7 +83,7 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = valveControl,
-                                IsHitTestVisible = true  //  允许交互
+                                IsHitTestVisible = true
                             };
 
                             return valveViewbox;
@@ -95,7 +95,7 @@ namespace MaxChemical.Modules.Device.Converters
                             {
                                 IsHitTestVisible = false,
                                 Cursor = System.Windows.Input.Cursors.Hand,
-                                IsOpen = false  // 初始为关闭状态
+                                IsOpen = false
                             };
 
                             var solenoidValveViewbox = new System.Windows.Controls.Viewbox
@@ -161,6 +161,30 @@ namespace MaxChemical.Modules.Device.Converters
                             return reactorViewbox;
                         #endregion
 
+                        #region 管式反应器控件
+                        case "TubularReactorControl":
+                            var tubularReactorControl = new TubularReactorControl
+                            {
+                                IsHitTestVisible = false,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                Temperature = 0.0,
+                                Pressure = 0.0,
+                                IsReacting = false
+                            };
+
+                            var tubularReactorViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = tubularReactorControl,
+                                IsHitTestVisible = true
+                            };
+
+                            return tubularReactorViewbox;
+                        #endregion
+
                         #region 换热器控件
                         case "HeatExchangerControl":
                             var exchangerControl = new HeatExchangerControl
@@ -184,40 +208,39 @@ namespace MaxChemical.Modules.Device.Converters
 
                             return exchangerViewbox;
                         #endregion
+
                         case "DigitalScaleControl":
                             var scaleControl = new DigitalScaleControl
                             {
-                                IsHitTestVisible = true,  // 允许交互
+                                IsHitTestVisible = true,
                                 Cursor = System.Windows.Input.Cursors.Hand,
-                                IsPoweredOn = false,      // 初始为关闭状态
-                                WeightValue = 0.0,        // 初始重量为0
-                                CurrentUnit = "g",        // 默认单位为克
-                                IsTared = false           // 初始未去皮
+                                IsPoweredOn = false,
+                                WeightValue = 0.0,
+                                CurrentUnit = "g",
+                                IsTared = false
                             };
-                            // 包装在 Viewbox 中
+
                             var ScaleViewbox = new System.Windows.Controls.Viewbox
                             {
-                                Width = 45 ,
+                                Width = 45,
                                 Height = 23,
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = scaleControl,
-                                IsHitTestVisible = false  // 允许交互
+                                IsHitTestVisible = false
                             };
+
                             return ScaleViewbox;
 
                         case "TemperatureControlSystemControl":
-                            
                             var circulatorControl = new TemperatureControlSystemControl
                             {
-                                IsHitTestVisible = true,  // 允许交互
+                                IsHitTestVisible = true,
                                 Cursor = System.Windows.Input.Cursors.Hand,
-                                SetTemperature = -40.0,      // 默认设定温度
-                                CurrentTemperature = 24.5,    // 默认当前温度
-                                
+                                SetTemperature = -40.0,
+                                CurrentTemperature = 24.5,
                             };
 
-                            // 包装在 Viewbox 中
                             var circulatorViewbox = new System.Windows.Controls.Viewbox
                             {
                                 Width = 40,
@@ -225,10 +248,11 @@ namespace MaxChemical.Modules.Device.Converters
                                 Stretch = System.Windows.Media.Stretch.Uniform,
                                 StretchDirection = System.Windows.Controls.StretchDirection.Both,
                                 Child = circulatorControl,
-                                IsHitTestVisible = true  // 允许交互
+                                IsHitTestVisible = true
                             };
 
                             return circulatorViewbox;
+
                         default:
                             return null;
                     }

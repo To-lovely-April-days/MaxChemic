@@ -564,7 +564,7 @@ namespace SolenoidValves_ModbusTCP
         {
             _currentState = SolenoidValveState.Opening;
             OnStateChanged("ValveState", SolenoidValveState.Opening); //  使用枚举
-            Debug.WriteLine("🔄 电磁阀开始打开");
+            Debug.WriteLine("电磁阀开始打开");
         },
 
         //  成功：已打开

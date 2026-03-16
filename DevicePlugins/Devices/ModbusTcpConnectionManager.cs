@@ -947,6 +947,17 @@ namespace DevicePlugins.Devices
                     ["TT0112_℃"] = "40146",
                 }
             });
+            _deviceMappings.TryAdd("R0102", new ModbusDeviceMapping
+            {
+                ComId = "R0102",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>
+                {
+                    ["PT0113_Mpa"] = "40136",
+                    ["TT0113_℃"] = "40138",
+                }
+            });
+
             // *** 添加换热器设备映射 - 两个独立设备 ***
             _deviceMappings.TryAdd("H0101", new ModbusDeviceMapping
             {
