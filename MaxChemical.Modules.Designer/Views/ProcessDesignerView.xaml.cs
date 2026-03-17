@@ -4343,19 +4343,24 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (sender is FrameworkElement deviceElement && deviceElement.Tag is string deviceId)
             {
-                // 检查是否为双击
                 if (e.ClickCount == 2)
                 {
                     Debug.WriteLine($"设备双击，显示属性弹窗: {deviceId}");
-
-                    // 阻止事件冒泡，避免触发拖拽
                     e.Handled = true;
 
-                    // 显示设备属性弹窗
+                    //  关键修复：打开对话框前彻底清理拖拽状态
+                    // 防止对话框关闭后 _isMouseDown 残留，导致误触发设备拖拽
+                    if (deviceElement.IsMouseCaptured)
+                        deviceElement.ReleaseMouseCapture();
+                    if (DesignCanvas.IsMouseCaptured)
+                        DesignCanvas.ReleaseMouseCapture();
+                    CleanupDragState();
+
                     ShowDevicePropertyDialog(deviceId);
                 }
             }
         }
+
 
         /// <summary>
         /// 显示设备属性弹窗
@@ -4544,12 +4549,15 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                if (string.IsNullOrEmpty(deviceId) || parameterKeys == null)
+                if (string.IsNullOrEmpty(deviceId))
                     return;
 
-                _deviceMonitoringSelections[deviceId] = new HashSet<string>(parameterKeys);
+                //  关键修复：允许 parameterKeys 为空集合（表示用户取消了所有选择）
+                // 原先 parameterKeys == null 时直接 return，导致旧的选中状态残留
+                _deviceMonitoringSelections[deviceId] = new HashSet<string>(parameterKeys ?? new HashSet<string>());
 
-                Debug.WriteLine($"保存设备 {deviceId} 的完整监控参数选择键: {string.Join(", ", parameterKeys)}");
+                Debug.WriteLine($"保存设备 {deviceId} 的完整监控参数选择键: " +
+                                $"{string.Join(", ", _deviceMonitoringSelections[deviceId])}");
             }
             catch (Exception ex)
             {

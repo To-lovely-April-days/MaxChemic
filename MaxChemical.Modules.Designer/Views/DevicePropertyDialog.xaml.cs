@@ -148,35 +148,28 @@ namespace MaxChemical.Modules.Designer.Views
                 _isRestoring = true;
                 Debug.WriteLine($"开始恢复监控参数选择状态: {string.Join(", ", selectedParameterKeys)}");
 
-                // *** 关键修复：判断传入的是参数名还是完整键名 ***
                 if (IsParameterKeysFormat(selectedParameterKeys))
                 {
-                    // 新格式：完整键名（命令名#参数名）
                     RestoreFromCompleteKeys(selectedParameterKeys);
                 }
                 else
                 {
-                    // 旧格式：参数名（向后兼容，但有歧义）
                     RestoreFromParameterNames(selectedParameterKeys);
                 }
 
-                // 为当前显示的命令恢复UI状态
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    try
-                    {
-                        RestoreCurrentCommandDisplayOnly();
-                    }
-                    finally
-                    {
-                        _isRestoring = false;
-                    }
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
+                //  关键修复：同步调用，不再使用二次 BeginInvoke
+                // 原先的嵌套 BeginInvoke 导致 _isRestoring 提前置 false，
+                // 用户取消选择后，内层 BeginInvoke 触发时又把复选框强制重置为 true
+                RestoreCurrentCommandDisplayOnly();
             }
             catch (Exception ex)
             {
-                _isRestoring = false;
                 Debug.WriteLine($"恢复监控参数选择状态失败: {ex.Message}");
+            }
+            finally
+            {
+                // 用 finally 保证 _isRestoring 一定被重置
+                _isRestoring = false;
             }
         }
 
@@ -1604,39 +1597,28 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 关闭前保存当前命令的状态
                 if (!string.IsNullOrEmpty(_currentCommandName) && _monitorParameterCheckBoxes.Count > 0)
                 {
                     Debug.WriteLine("关闭前保存当前命令状态");
                     SaveCurrentCommandSelections();
                 }
 
-                // 打印所有保存的状态（调试用）
                 PrintAllSavedSelections();
-
-                // 恢复原始模拟模式状态
                 RestoreOriginalSimulationMode();
 
-                // 获取所有命令的选中参数
                 var selectedParams = GetAllSelectedMonitorParameters();
 
-                // 发布监控参数变化事件
-                if (selectedParams.Count > 0)
+                //关键修复：无论 selectedParams 是否为空，都必须触发事件
+                // 空列表 → OnMonitoringParametersChanged → RemoveMonitoringCard，卡片才会被移除
+                var args = new MonitoringParametersChangedEventArgs
                 {
-                    var args = new MonitoringParametersChangedEventArgs
-                    {
-                        DeviceId = _canvasDevice?.DeviceId,
-                        DeviceName = _deviceDisplayName ?? _canvasDevice?.Device?.Name,
-                        SelectedParameters = selectedParams
-                    };
+                    DeviceId = _canvasDevice?.DeviceId,
+                    DeviceName = _deviceDisplayName ?? _canvasDevice?.Device?.Name,
+                    SelectedParameters = selectedParams   // 可以是空列表
+                };
 
-                    Debug.WriteLine($"发布监控参数变化事件: 设备 {args.DeviceName}, 参数数量 {selectedParams.Count}");
-                    MonitoringParametersChanged?.Invoke(this, args);
-                }
-                else
-                {
-                    Debug.WriteLine("没有选中的监控参数，不发布事件");
-                }
+                Debug.WriteLine($"发布监控参数变化事件: 设备 {args.DeviceName}, 参数数量 {selectedParams.Count}");
+                MonitoringParametersChanged?.Invoke(this, args);
 
                 CloseRequested?.Invoke(this, EventArgs.Empty);
                 DialogResult?.Invoke(this, false);
