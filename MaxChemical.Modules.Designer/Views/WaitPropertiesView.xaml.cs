@@ -1,15 +1,17 @@
-﻿using System;
+﻿using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.ViewModels;
-using Prism.Events;
-using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -452,6 +454,21 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
             }
+        }
+    }
+    // 放在 namespace MaxChemical.Modules.Designer.Views 里
+    public class StringEqualityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value?.ToString() == parameter?.ToString();
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is true)
+                return parameter?.ToString();
+            return Binding.DoNothing;
         }
     }
 }

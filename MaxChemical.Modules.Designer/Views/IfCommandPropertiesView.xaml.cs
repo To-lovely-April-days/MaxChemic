@@ -32,6 +32,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             UpdateConditionPreview();
+            SyncOperatorRadio(); // ← 新增
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -40,6 +41,22 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 EnsureDefaultValues(node);
                 UpdateConditionPreview();
+                SyncOperatorRadio();
+            }
+        }
+        private void SyncOperatorRadio()
+        {
+            if (DataContext is not CommandNode node) return;
+            var op = node.LogicCommand?.Properties?
+                         .GetValueOrDefault("Operator")?.ToString() ?? "Equal";
+
+            foreach (var rb in new[]
+            {
+        OpEqual, OpNotEqual, OpGt, OpLt, OpGte, OpLte
+    })
+            {
+                if (rb != null)
+                    rb.IsChecked = rb.Tag?.ToString() == op;
             }
         }
 
@@ -507,6 +524,16 @@ namespace MaxChemical.Modules.Designer.Views
             else
             {
                 return FindVisualParent<T>(parentObject);
+            }
+        }
+        private void Operator_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb
+                && DataContext is CommandNode node
+                && node.LogicCommand?.Properties != null)
+            {
+                node.LogicCommand.Properties["Operator"] = rb.Tag?.ToString() ?? "Equal";
+                ApplyChanges();
             }
         }
     }

@@ -9,7 +9,8 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:BoolToAngleConverter x:Key="BoolToAngleConverter"/>
         <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
-
+        <converters:DeviceToControlConverter x:Key="DeviceToControlConverter"/>
+        <converters:IsCustomControlConverter x:Key="IsCustomControlConverter"/>
         <!-- 定义颜色资源 -->
         <Color x:Key="PrimaryColor">#E60012</Color>
         <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
@@ -414,30 +415,57 @@
 
                                                         <!-- 设备图标容器 - 增大尺寸 -->
                                                         <Border Grid.Column="1"
-                                                             Width="50" 
-                                                             Height="50" 
-                                                             CornerRadius="6"
-                                                             Background="White"
-                                                             Margin="0,0,5,0">
+     Width="50" Height="50"
+     CornerRadius="6"
+     Background="White"
+     Margin="0,0,5,0">
                                                             <Grid>
-                                                                <!-- 设备图片 -->
-                                                                <Image Source="{Binding CanvasDevice.Device.ImageLocation}" 
-                                                                       Stretch="Uniform" 
-                                                                       Margin="6"
-                                                                       Visibility="{Binding CanvasDevice.Device.ImageLocation, Converter={StaticResource StringToVisibilityConverter}}"/>
+                                                                <!-- ① 自定义控件（CUSTOM_CONTROL:xxx） -->
+                                                                <ContentControl Content="{Binding CanvasDevice.Device, Converter={StaticResource DeviceToControlConverter}}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        IsHitTestVisible="False">
+                                                                    <ContentControl.Style>
+                                                                        <Style TargetType="ContentControl">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding CanvasDevice.Device, Converter={StaticResource IsCustomControlConverter}}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </ContentControl.Style>
+                                                                </ContentControl>
 
-                                                                <!-- 默认图标 -->
-                                                                <Border Background="#E3F2FD" 
-                                                                     CornerRadius="4"
-                                                                     Visibility="{Binding CanvasDevice.Device.ImageLocation, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=invert}">
-                                                                    <TextBlock Text="📟" 
-                                                                            FontSize="20" 
-                                                                            HorizontalAlignment="Center" 
-                                                                            VerticalAlignment="Center"/>
+                                                                <!-- ② 普通图片 -->
+                                                                <Image Source="{Binding CanvasDevice.Device.ImageLocation}"
+               Stretch="Uniform"
+               Margin="6">
+                                                                    <Image.Style>
+                                                                        <Style TargetType="Image">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding CanvasDevice.Device, Converter={StaticResource IsCustomControlConverter}}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Image.Style>
+                                                                </Image>
+
+                                                                <!-- ③ 默认图标（无图时） -->
+                                                                <Border Background="#E3F2FD"
+                CornerRadius="4"
+                Visibility="{Binding CanvasDevice.Device.ImageLocation, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=invert}">
+                                                                    <TextBlock Text="📟"
+                       FontSize="20"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
                                                                 </Border>
                                                             </Grid>
                                                         </Border>
-
                                                         <!-- 设备名称 -->
                                                         <TextBlock Grid.Column="2"
                                                                 Text="{Binding CanvasDevice.Device.Name}"

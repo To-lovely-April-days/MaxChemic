@@ -1,16 +1,17 @@
-﻿using System;
+﻿using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using MaxChemical.Logging;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.ViewModels;
-using Prism.Events;
-using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -625,5 +626,40 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+    }
+
+    // 放在 namespace MaxChemical.Modules.Designer.Views 里
+    public class LoopTypeEqualityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is LoopType lt && parameter is string p)
+                return Enum.TryParse<LoopType>(p, out var target) && lt == target;
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is true && parameter is string p && Enum.TryParse<LoopType>(p, out var target))
+                return target;
+            return Binding.DoNothing;
+        }
+    }
+
+    public class ComparisonOperatorEqualityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ComparisonOperator op && parameter is string p)
+                return Enum.TryParse<ComparisonOperator>(p, out var target) && op == target;
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is true && parameter is string p && Enum.TryParse<ComparisonOperator>(p, out var target))
+                return target;
+            return Binding.DoNothing;
+        }
     }
 }

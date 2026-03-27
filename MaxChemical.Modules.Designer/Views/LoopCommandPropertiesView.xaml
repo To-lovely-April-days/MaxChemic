@@ -5,311 +5,700 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:model="clr-namespace:MaxChemical.Modules.Designer.Models"
+             xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views"
              mc:Ignorable="d">
-    <!-- DataContext = CommandNode -->
 
     <UserControl.Resources>
-        <Style x:Key="FormLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#666"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
-        </Style>
-
-        <Style x:Key="FormTextBoxStyle" TargetType="TextBox">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Padding" Value="6,4"/>
-        </Style>
-
-        <Style x:Key="GroupCardStyle" TargetType="Border">
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Background" Value="#FFF9F9F9"/>
-            <Setter Property="BorderBrush" Value="#E5E5E5"/>
+        <local:LoopTypeEqualityConverter x:Key="LoopTypeEqConverter"/>
+        <local:ComparisonOperatorEqualityConverter x:Key="OpEqConverter"/>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="12"/>
-            <Setter Property="Margin" Value="0,10,0,0"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#757575"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+
+        <Style x:Key="FieldInputStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="9,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#FAFAFA"/>
+            <Setter Property="Foreground" Value="#212121"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#2196F3"/>
+                                <Setter Property="Background" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="VarButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#616161"/>
+            <Setter Property="Background" Value="#F5F5F5"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E3F2FD"/>
+                                <Setter Property="BorderBrush" Value="#2196F3"/>
+                                <Setter Property="Foreground" Value="#1565C0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 分段选择器 RadioButton -->
+        <Style x:Key="OpPillStyle" TargetType="RadioButton">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#757575"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="5" HorizontalAlignment="Stretch">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#90CAF9"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1"/>
+                                <Setter Property="Foreground" Value="#1565C0"/>
+                                <Setter Property="FontWeight" Value="Medium"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E3F2FD"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ComboBox 下拉框 -->
+        <Style x:Key="FieldComboStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="9,0,28,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#FAFAFA"/>
+            <Setter Property="Foreground" Value="#212121"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6">
+                                <Grid>
+                                    <ContentPresenter x:Name="ContentSite"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      Margin="{TemplateBinding Padding}"
+                                                      VerticalAlignment="Center"
+                                                      IsHitTestVisible="False"/>
+                                    <Path x:Name="Arrow"
+                                          Data="M 0 0 L 5 5 L 10 0"
+                                          Stroke="#9E9E9E" StrokeThickness="1.5"
+                                          Fill="Transparent"
+                                          Width="10" Height="5"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0"
+                                          StrokeLineJoin="Round"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                              RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Opacity="0"/>
+                            <Popup x:Name="PART_Popup"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   PopupAnimation="Fade">
+                                <Border x:Name="DropDown"
+                                        Background="White"
+                                        BorderBrush="#E0E0E0"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        MinWidth="{Binding ActualWidth,
+                                            RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="200">
+                                    <Border.Effect>
+                                        <DropShadowEffect ShadowDepth="2" Direction="270"
+                                                          BlurRadius="8" Color="#000000" Opacity="0.08"/>
+                                    </Border.Effect>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#BDBDBD"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#2196F3"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                                <Setter TargetName="Arrow" Property="Stroke" Value="#2196F3"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="Arrow" Property="Data" Value="M 0 5 L 5 0 L 10 5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="Padding" Value="10,0"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="Foreground" Value="#212121"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="ItemBd"
+                                            Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}"
+                                            CornerRadius="4"
+                                            Margin="4,2">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="ItemBd" Property="Background" Value="#E3F2FD"/>
+                                            <Setter Property="Foreground" Value="#1565C0"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBd" Property="Background" Value="#E3F2FD"/>
+                                            <Setter Property="Foreground" Value="#1565C0"/>
+                                            <Setter Property="FontWeight" Value="Medium"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- CheckBox 复选框 -->
+        <Style x:Key="FieldCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#212121"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border x:Name="CheckBd"
+                                    Width="16" Height="16"
+                                    BorderBrush="#BDBDBD" BorderThickness="1.5"
+                                    CornerRadius="4"
+                                    Background="White"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center">
+                                <Path x:Name="CheckMark"
+                                      Data="M 2 8 L 6 12 L 14 4"
+                                      Stroke="White" StrokeThickness="2"
+                                      StrokeLineJoin="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Visibility="Collapsed"
+                                      Stretch="None"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckBd" Property="Background" Value="#2196F3"/>
+                                <Setter TargetName="CheckBd" Property="BorderBrush" Value="#2196F3"/>
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckBd" Property="BorderBrush" Value="#2196F3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="16">
+    <Border Background="#F5F5F5">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="10">
 
-            <TextBlock Text="循环设置"
-                       FontSize="13"
-                       FontWeight="SemiBold"
-                       Foreground="#333"/>
-
-            <!-- 循环类型 -->
-            <TextBlock Text="循环类型" Margin="0,12,0,4" Foreground="#666"/>
-            <ComboBox x:Name="LoopTypeCombo"
-                      MinWidth="260"
-                      SelectedValuePath="Tag"
-                      SelectedValue="{Binding ElementName=Root, Path=LoopTypeNormalized, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                <ComboBoxItem Content="固定次数" Tag="{x:Static model:LoopType.FixedCount}"/>
-                <ComboBoxItem Content="条件循环" Tag="{x:Static model:LoopType.Conditional}"/>
-                <ComboBoxItem Content="无限循环" Tag="{x:Static model:LoopType.Infinite}"/>
-            </ComboBox>
-
-            <!-- 固定次数：LoopCount -->
-            <Border>
-                <Border.Style>
-                    <Style TargetType="Border" BasedOn="{StaticResource GroupCardStyle}">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
-                                         Value="{x:Static model:LoopType.FixedCount}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="循环次数" Style="{StaticResource FormLabelStyle}"/>
-                    <Grid Grid.Column="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBox x:Name="LoopCountBox"
-                                 Grid.Column="0"
-                                 MinWidth="220"
-                                 Style="{StaticResource FormTextBoxStyle}"
-                                 Text="{Binding ElementName=Root, Path=LoopCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 PreviewTextInput="LoopCountBox_PreviewTextInput"
-                                 DataObject.Pasting="LoopCountBox_Pasting"/>
-                        <TextBlock Grid.Column="1" Text="次" VerticalAlignment="Center" Foreground="#666" Margin="8,0,0,0"/>
-                    </Grid>
-                </Grid>
-            </Border>
-
-            <!-- 条件循环：LeftOperand / Operator / RightOperand -->
-            <Border>
-                <Border.Style>
-                    <Style TargetType="Border" BasedOn="{StaticResource GroupCardStyle}">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
-                             Value="{x:Static model:LoopType.Conditional}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Do-While 开关 - 新增 -->
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="循环模式" Style="{StaticResource FormLabelStyle}"/>
-                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
-                        <CheckBox x:Name="IsDoWhileCheckBox"
-                      IsChecked="{Binding ElementName=Root, Path=IsDoWhile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                      VerticalAlignment="Center"/>
-                        <TextBlock Text="Do-While (先执行后判断)" 
-                       VerticalAlignment="Center" 
-                       Margin="8,0,0,0"
-                       Foreground="#666"/>
-                        <TextBlock Text="；取消勾选为 While (先判断后执行)" 
-                       VerticalAlignment="Center" 
-                       Margin="8,0,0,0"
-                       FontSize="11"
-                       Foreground="#999"/>
+                <!-- Header -->
+                <Border Padding="14,12" Background="#F5F5F5"
+                        BorderBrush="#E0E0E0" BorderThickness="0,0,0,1"
+                        Margin="0,0,0,10">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="38" Height="38" CornerRadius="10"
+                                    Background="White" Margin="0,0,10,0">
+                                <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessLoop.png"
+                                       Width="24" Height="24" Stretch="Uniform"/>
+                            </Border>
+                            <TextBlock Text="循环" FontSize="15" FontWeight="Medium"
+                                       Foreground="#212121" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border CornerRadius="10" Padding="6,2" BorderBrush="#E0E0E0"
+                                    BorderThickness="1" Background="White" Margin="0,0,6,0">
+                                <TextBlock Text="Loop" FontSize="11" Foreground="#757575"/>
+                            </Border>
+                            <Border CornerRadius="10" Padding="6,2" BorderBrush="#E0E0E0"
+                                    BorderThickness="1" Background="White">
+                                <TextBlock Text="重复执行" FontSize="11" Foreground="#757575"/>
+                            </Border>
+                        </StackPanel>
                     </StackPanel>
+                </Border>
 
-                    <!-- 左操作数 -->
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="左操作数" Style="{StaticResource FormLabelStyle}"/>
-                    <Grid Grid.Row="2" Grid.Column="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0"
-                     x:Name="LeftOperandBox"
-                     MinWidth="220"
-                     Style="{StaticResource FormTextBoxStyle}"
-                     Text="{Binding ElementName=Root, Path=LeftOperand, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="输入变量名或常量值"/>
-                        <Button Grid.Column="1"
-                    Content="..."
-                    Width="30"
-                    Margin="4,0,0,0"
-                    ToolTip="选择变量"
-                    Click="SelectLeftVariable_Click"/>
-                    </Grid>
+                <!-- 循环类型卡片：分段选择器替代 ComboBox -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="循环类型" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
+                        <!-- 隐藏的 ComboBox 保持数据绑定，不显示在界面上 -->
+                        <ComboBox x:Name="LoopTypeCombo"
+                                  Visibility="Collapsed"
+                                  SelectedValuePath="Tag"
+                                  SelectedValue="{Binding ElementName=Root, Path=LoopTypeNormalized,
+                                      Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <ComboBoxItem Tag="{x:Static model:LoopType.FixedCount}"/>
+                            <ComboBoxItem Tag="{x:Static model:LoopType.Conditional}"/>
+                            <ComboBoxItem Tag="{x:Static model:LoopType.Infinite}"/>
+                        </ComboBox>
+                        <!-- 分段选择器 -->
+                        <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
+                            <UniformGrid Rows="1">
+                                <RadioButton Content="固定次数"
+                                             GroupName="LoopTypeGroup"
+                                             Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding ElementName=Root,
+                                                 Path=LoopTypeNormalized,
+                                                 Converter={StaticResource LoopTypeEqConverter},
+                                                 ConverterParameter=FixedCount,
+                                                 Mode=TwoWay}"/>
+                                <RadioButton Content="条件循环"
+                                             GroupName="LoopTypeGroup"
+                                             Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding ElementName=Root,
+                                                 Path=LoopTypeNormalized,
+                                                 Converter={StaticResource LoopTypeEqConverter},
+                                                 ConverterParameter=Conditional,
+                                                 Mode=TwoWay}"/>
+                                <RadioButton Content="无限循环"
+                                             GroupName="LoopTypeGroup"
+                                             Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding ElementName=Root,
+                                                 Path=LoopTypeNormalized,
+                                                 Converter={StaticResource LoopTypeEqConverter},
+                                                 ConverterParameter=Infinite,
+                                                 Mode=TwoWay}"/>
+                            </UniformGrid>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
-                    <!-- 操作符 -->
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="比较操作符" Style="{StaticResource FormLabelStyle}"/>
-                    <ComboBox Grid.Row="4" Grid.Column="1"
-                  x:Name="OperatorCombo"
-                  MinWidth="260"
-                  SelectedValuePath="Tag"
-                  SelectedValue="{Binding ElementName=Root, Path=OperatorNormalized, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                        <ComboBoxItem Content="等于 (==)" Tag="{x:Static model:ComparisonOperator.Equal}"/>
-                        <ComboBoxItem Content="不等于 (!=)" Tag="{x:Static model:ComparisonOperator.NotEqual}"/>
-                        <ComboBoxItem Content="大于 (>)" Tag="{x:Static model:ComparisonOperator.GreaterThan}"/>
-                        <ComboBoxItem Content="大于等于 (>=)" Tag="{x:Static model:ComparisonOperator.GreaterThanOrEqual}"/>
-                        <ComboBoxItem Content="小于 (&lt;)" Tag="{x:Static model:ComparisonOperator.LessThan}"/>
-                        <ComboBoxItem Content="小于等于 (&lt;=)" Tag="{x:Static model:ComparisonOperator.LessThanOrEqual}"/>
-                        <ComboBoxItem Content="包含" Tag="{x:Static model:ComparisonOperator.Contains}"/>
-                        <ComboBoxItem Content="不包含" Tag="{x:Static model:ComparisonOperator.NotContains}"/>
-                    </ComboBox>
+                <!-- 固定次数卡片 -->
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="White"/>
+                            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="CornerRadius" Value="8"/>
+                            <Setter Property="Padding" Value="12"/>
+                            <Setter Property="Margin" Value="0,0,0,8"/>
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
+                                             Value="{x:Static model:LoopType.FixedCount}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="循环参数" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
+                        <TextBlock Text="循环次数" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="LoopCountBox"
+                                     Style="{StaticResource FieldInputStyle}"
+                                     Margin="0,0,8,0"
+                                     Text="{Binding ElementName=Root, Path=LoopCount,
+                                         Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PreviewTextInput="LoopCountBox_PreviewTextInput"
+                                     DataObject.Pasting="LoopCountBox_Pasting"/>
+                            <TextBlock Grid.Column="1" Text="次"
+                                       VerticalAlignment="Center" FontSize="12" Foreground="#757575"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- 右操作数 -->
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="右操作数" Style="{StaticResource FormLabelStyle}"/>
-                    <Grid Grid.Row="6" Grid.Column="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0"
-                     x:Name="RightOperandBox"
-                     MinWidth="220"
-                     Style="{StaticResource FormTextBoxStyle}"
-                     Text="{Binding ElementName=Root, Path=RightOperand, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="输入比较值、常量或变量名"/>
-                        <Button Grid.Column="1"
-                    Content="..."
-                    Width="30"
-                    Margin="4,0,0,0"
-                    ToolTip="选择变量"
-                    Click="SelectRightVariable_Click"/>
-                    </Grid>
-                </Grid>
-            </Border>
+                <!-- 条件循环卡片 -->
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="White"/>
+                            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="CornerRadius" Value="8"/>
+                            <Setter Property="Padding" Value="12"/>
+                            <Setter Property="Margin" Value="0,0,0,8"/>
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
+                                             Value="{x:Static model:LoopType.Conditional}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="循环条件" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
 
-            <!-- 无限循环：提示 -->
-            <Border>
-                <Border.Style>
-                    <Style TargetType="Border" BasedOn="{StaticResource GroupCardStyle}">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
-                                         Value="{x:Static model:LoopType.Infinite}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <TextBlock Text="该循环将持续执行，直到外部逻辑中断。"
-                           Foreground="#666" FontSize="12"/>
-            </Border>
+                        <!-- Do-While 开关 -->
+                        <TextBlock Text="循环模式" Style="{StaticResource FieldLabelStyle}"/>
+                        <CheckBox x:Name="IsDoWhileCheckBox"
+                                  Style="{StaticResource FieldCheckBoxStyle}"
+                                  Content="Do-While（先执行后判断），取消勾选为 While（先判断后执行）"
+                                  Margin="0,0,0,12"
+                                  IsChecked="{Binding ElementName=Root, Path=IsDoWhile,
+                                      Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-            <!-- 循环间隔时间 -->
-            <Border Style="{StaticResource GroupCardStyle}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                        <TextBlock Text="左操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="LeftOperandBox"
+                                     Style="{StaticResource FieldInputStyle}"
+                                     Margin="0,0,6,0"
+                                     Text="{Binding ElementName=Root, Path=LeftOperand,
+                                         Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="输入变量名或常量值"/>
+                            <Button Grid.Column="1" Content="+ 变量"
+                                    Style="{StaticResource VarButtonStyle}"
+                                    Click="SelectLeftVariable_Click"/>
+                        </Grid>
 
-                    <TextBlock Text="循环间隔" Style="{StaticResource FormLabelStyle}"/>
-                    <Grid Grid.Column="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="比较操作符" Style="{StaticResource FieldLabelStyle}"/>
+                        <ComboBox x:Name="OperatorCombo"
+          Visibility="Collapsed"
+          SelectedValuePath="Tag"
+          SelectedValue="{Binding ElementName=Root, Path=OperatorNormalized,
+              Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.Equal}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.NotEqual}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.GreaterThan}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.GreaterThanOrEqual}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.LessThan}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.LessThanOrEqual}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.Contains}"/>
+                            <ComboBoxItem Tag="{x:Static model:ComparisonOperator.NotContains}"/>
+                        </ComboBox>
 
-                        <TextBox x:Name="WaitTimeBox"
-                                 Grid.Column="0"
-                                 MinWidth="220"
-                                 Style="{StaticResource FormTextBoxStyle}"
-                                 Text="{Binding ElementName=Root, Path=WaitTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 PreviewTextInput="WaitTimeBox_PreviewTextInput"
-                                 DataObject.Pasting="WaitTimeBox_Pasting"
-                                 ToolTip="每次循环后的等待时间"/>
-                        <TextBlock Grid.Column="1" Text="毫秒" VerticalAlignment="Center" Foreground="#666" Margin="8,0,0,0"/>
-                    </Grid>
-                </Grid>
-            </Border>
+                        <!-- 分段选择器，和 If 页面完全一致 -->
+                        <Border Background="#F3F4F6" CornerRadius="7" Padding="3" Margin="0,0,0,10">
+                            <UniformGrid Rows="1">
+                                <RadioButton Content="="
+                     GroupName="LoopOpGroup"
+                     Style="{StaticResource OpPillStyle}"
+                     IsChecked="{Binding ElementName=Root, Path=OperatorNormalized,
+                         Converter={StaticResource OpEqConverter},
+                         ConverterParameter=Equal, Mode=TwoWay}"/>
+                                <RadioButton Content="≠"
+                     GroupName="LoopOpGroup"
+                     Style="{StaticResource OpPillStyle}"
+                     IsChecked="{Binding ElementName=Root, Path=OperatorNormalized,
+                         Converter={StaticResource OpEqConverter},
+                         ConverterParameter=NotEqual, Mode=TwoWay}"/>
+                                <RadioButton Content="&gt;"
+                     GroupName="LoopOpGroup"
+                     Style="{StaticResource OpPillStyle}"
+                     IsChecked="{Binding ElementName=Root, Path=OperatorNormalized,
+                         Converter={StaticResource OpEqConverter},
+                         ConverterParameter=GreaterThan, Mode=TwoWay}"/>
+                                <RadioButton Content="&lt;"
+                     GroupName="LoopOpGroup"
+                     Style="{StaticResource OpPillStyle}"
+                     IsChecked="{Binding ElementName=Root, Path=OperatorNormalized,
+                         Converter={StaticResource OpEqConverter},
+                         ConverterParameter=LessThan, Mode=TwoWay}"/>
+                                <RadioButton Content="≥"
+                     GroupName="LoopOpGroup"
+                     Style="{StaticResource OpPillStyle}"
+                     IsChecked="{Binding ElementName=Root, Path=OperatorNormalized,
+                         Converter={StaticResource OpEqConverter},
+                         ConverterParameter=GreaterThanOrEqual, Mode=TwoWay}"/>
+                                <RadioButton Content="≤"
+                     GroupName="LoopOpGroup"
+                     Style="{StaticResource OpPillStyle}"
+                     IsChecked="{Binding ElementName=Root, Path=OperatorNormalized,
+                         Converter={StaticResource OpEqConverter},
+                         ConverterParameter=LessThanOrEqual, Mode=TwoWay}"/>
+                            </UniformGrid>
+                        </Border>
 
-            <!-- 描述 -->
-            <TextBlock Text="描述" Margin="0,12,0,4" Foreground="#666"/>
-            <TextBox x:Name="DescriptionBox"
-                     MinWidth="260"
-                     TextWrapping="Wrap"
-                     AcceptsReturn="True"
-                     Height="60"
-                     Text="{Binding ElementName=Root, Path=Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="右操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="RightOperandBox"
+                                     Style="{StaticResource FieldInputStyle}"
+                                     Margin="0,0,6,0"
+                                     Text="{Binding ElementName=Root, Path=RightOperand,
+                                         Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="输入比较值、常量或变量名"/>
+                            <Button Grid.Column="1" Content="+ 变量"
+                                    Style="{StaticResource VarButtonStyle}"
+                                    Click="SelectRightVariable_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-            <Separator Margin="0,16,0,16"/>
+                <!-- 无限循环提示卡片 -->
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#FFF8E1"/>
+                            <Setter Property="BorderBrush" Value="#FFE082"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="CornerRadius" Value="8"/>
+                            <Setter Property="Padding" Value="12"/>
+                            <Setter Property="Margin" Value="0,0,0,8"/>
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
+                                             Value="{x:Static model:LoopType.Infinite}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#FFA000" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="注意" FontSize="11" FontWeight="Medium" Foreground="#E65100"/>
+                        </StackPanel>
+                        <TextBlock Text="该循环将持续执行，请确保内部有合理的退出机制，否则流程将持续运行。"
+                                   FontSize="12" Foreground="#E65100" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
 
-            <!-- 条件预览（仅在条件循环时显示） -->
-            <TextBlock Text="条件预览" 
-                       Margin="0,0,0,4" 
-                       FontWeight="Medium"
-                       Foreground="#666">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
-                                         Value="{x:Static model:LoopType.Conditional}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
+                <!-- 循环间隔卡片 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="循环间隔" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="WaitTimeBox"
+                                     Style="{StaticResource FieldInputStyle}"
+                                     Margin="0,0,8,0"
+                                     Text="{Binding ElementName=Root, Path=WaitTime,
+                                         Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PreviewTextInput="WaitTimeBox_PreviewTextInput"
+                                     DataObject.Pasting="WaitTimeBox_Pasting"
+                                     ToolTip="每次循环后的等待时间"/>
+                            <TextBlock Grid.Column="1" Text="毫秒"
+                                       VerticalAlignment="Center" FontSize="12" Foreground="#757575"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-            <Border Background="#F8F8F8" 
-                    BorderBrush="#E0E0E0" 
-                    BorderThickness="1" 
-                    CornerRadius="4"
-                    Padding="8">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
-                                         Value="{x:Static model:LoopType.Conditional}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+                <!-- 描述卡片 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="描述" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
+                        <TextBox x:Name="DescriptionBox"
+                                 Height="60" Padding="9,6" FontSize="13"
+                                 TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalContentAlignment="Top"
+                                 BorderBrush="#E0E0E0" BorderThickness="1"
+                                 Background="#FAFAFA" Foreground="#212121"
+                                 Text="{Binding ElementName=Root, Path=Description,
+                                     Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="6">
+                                        <ScrollViewer x:Name="PART_ContentHost"
+                                                      Margin="{TemplateBinding Padding}"
+                                                      VerticalScrollBarVisibility="Auto"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+                    </StackPanel>
+                </Border>
 
-                <TextBlock x:Name="ConditionPreview"
-                           Text="{Binding ElementName=Root, Path=ConditionPreviewText}"
-                           TextWrapping="Wrap"
-                           FontFamily="Consolas"
-                           FontSize="12"
-                           Foreground="#333"/>
-            </Border>
+                <!-- 条件预览卡片 -->
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="White"/>
+                            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="CornerRadius" Value="8"/>
+                            <Setter Property="Padding" Value="12"/>
+                            <Setter Property="Margin" Value="0,0,0,8"/>
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
+                                             Value="{x:Static model:LoopType.Conditional}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="条件预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
+                        <Border Background="#FAFAFA" BorderBrush="#E0E0E0"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8">
+                            <TextBlock x:Name="ConditionPreview"
+                                       Text="{Binding ElementName=Root, Path=ConditionPreviewText}"
+                                       FontFamily="Consolas" FontSize="12"
+                                       Foreground="#424242" TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
-            <!-- 循环摘要信息 -->
-            <Border Background="#F0F8FF" 
-                    BorderBrush="#B0D4F1" 
-                    BorderThickness="1" 
-                    CornerRadius="4"
-                    Padding="8"
-                    Margin="0,8,0,0">
-                <TextBlock x:Name="LoopSummary"
-                           Text="{Binding ElementName=Root, Path=LoopSummaryText}"
-                           TextWrapping="Wrap"
-                           FontSize="12"
-                           Foreground="#2C5AA0"/>
-            </Border>
+                <!-- 摘要卡片 -->
+                <Border Background="#E3F2FD" BorderBrush="#BBDEFB"
+                        BorderThickness="1" CornerRadius="8" Padding="12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="摘要" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
+                        </StackPanel>
+                        <TextBlock x:Name="LoopSummary"
+                                   Text="{Binding ElementName=Root, Path=LoopSummaryText}"
+                                   FontSize="12" Foreground="#1976D2"
+                                   TextWrapping="Wrap" LineHeight="18"/>
+                    </StackPanel>
+                </Border>
 
-        </StackPanel>
-    </ScrollViewer>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
 </UserControl>
