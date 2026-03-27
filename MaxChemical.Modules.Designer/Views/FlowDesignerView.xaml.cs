@@ -52,7 +52,7 @@ namespace MaxChemical.Modules.Designer.Views
             Loaded += FlowDesignerView_Loaded;
             Unloaded += FlowDesignerView_Unloaded;
             DataContextChanged += OnDataContextChanged;
-
+            IsVisibleChanged += FlowDesignerView_IsVisibleChanged;
             _logger.LogDebug("FlowDesignerView 构造函数完成");
             _logger.LogDebug("初始 DataContext: {Type}", DataContext?.GetType().Name ?? "null");
         }
@@ -97,8 +97,54 @@ namespace MaxChemical.Modules.Designer.Views
 
             CenterStartNodeSafe();
             TrySubscribeToViewModelDirectly();
+            // 延迟滚动，确保布局计算完成后再滚动
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ScrollToStartNode();
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+        /// <summary>
+        /// 页面加载后自动滚动，让 StartNode 出现在视口的垂直中心
+        /// </summary>
+        private void ScrollToStartNode()
+        {
+            try
+            {
+                if (CanvasScrollViewer == null) return;
+
+                var viewModel = DataContext as FlowDesignerViewModel;
+                if (viewModel == null) return;
+
+                // X 方向：滚动到最左侧（StartNode 在左边）
+                double targetH = 0;
+
+                // Y 方向：让 StartNode 垂直居中出现在视口中
+                double startNodeCenterY = viewModel.StartNodeY + 32; // 32 = 64/2，节点高度的一半
+                double targetV = startNodeCenterY - CanvasScrollViewer.ViewportHeight / 2.0;
+                targetV = Math.Max(0, targetV);
+
+                CanvasScrollViewer.ScrollToHorizontalOffset(targetH);
+                CanvasScrollViewer.ScrollToVerticalOffset(targetV);
+
+                _logger.LogDebug("自动滚动到 StartNode 位置: H={H}, V={V}", targetH, targetV);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "自动滚动到 StartNode 失败");
+            }
         }
 
+        private void FlowDesignerView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue == true)
+            {
+                // 切换回这个页面时，延迟滚动到 StartNode
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ScrollToStartNode();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        }
         private void FlowDesignerView_Unloaded(object sender, RoutedEventArgs e)
         {
             _sizeChangeDebounceTimer?.Stop();
@@ -223,55 +269,38 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void ScrollToNodeSmooth(CommandNode node)
         {
-            if (CanvasScrollViewer == null || node == null)
-            {
-                _logger.LogWarning("CanvasScrollViewer 为 null 或节点为空，无法滚动");
-                return;
-            }
+            if (CanvasScrollViewer == null || node == null) return;
 
             try
             {
-                _logger.LogDebug("开始平滑滚动到节点: {NodeName}, 位置: ({X}, {Y})", node.DisplayName, node.X, node.Y);
-
                 double nodeX = node.X;
-                double nodeY = node.Y;
                 double nodeWidth = GetNodeWidth(node);
+                double viewportW = CanvasScrollViewer.ViewportWidth;
+                double viewportH = CanvasScrollViewer.ViewportHeight;
+
+                // 水平方向：让节点中心出现在视口中心
+                double nodeCenterX = nodeX + nodeWidth / 2.0;
+                double targetH = nodeCenterX - viewportW / 2.0;
+                targetH = Math.Max(0, Math.Min(targetH, CanvasScrollViewer.ScrollableWidth));
+
+                // 垂直方向：节点垂直居中，一般变化不大
+                double nodeY = node.Y;
                 double nodeHeight = GetNodeHeight(node);
+                double nodeCenterY = nodeY + nodeHeight / 2.0;
+                double targetV = nodeCenterY - viewportH / 2.0;
+                targetV = Math.Max(0, Math.Min(targetV, CanvasScrollViewer.ScrollableHeight));
 
-                double viewportWidth = CanvasScrollViewer.ViewportWidth;
-                double viewportHeight = CanvasScrollViewer.ViewportHeight;
-
-                // 计算节点中心点
-                double nodeCenterX = nodeX + nodeWidth / 2;
-                double nodeCenterY = nodeY + nodeHeight / 2;
-
-                // 计算目标偏移量，使节点中心位于视口中心
-                double targetHorizontalOffset = nodeCenterX - viewportWidth / 2;
-                double targetVerticalOffset = nodeCenterY - viewportHeight / 2;
-
-                // 确保偏移量在有效范围内
-                double maxHorizontalOffset = Math.Max(0, CanvasScrollViewer.ScrollableWidth);
-                double maxVerticalOffset = Math.Max(0, CanvasScrollViewer.ScrollableHeight);
-
-                targetHorizontalOffset = Math.Max(0, Math.Min(targetHorizontalOffset, maxHorizontalOffset));
-                targetVerticalOffset = Math.Max(0, Math.Min(targetVerticalOffset, maxVerticalOffset));
-
-                // 如果已经很接近目标位置，直接跳转
                 double currentH = CanvasScrollViewer.HorizontalOffset;
                 double currentV = CanvasScrollViewer.VerticalOffset;
 
-                if (Math.Abs(currentH - targetHorizontalOffset) < 5 && Math.Abs(currentV - targetVerticalOffset) < 5)
+                if (Math.Abs(currentH - targetH) < 5 && Math.Abs(currentV - targetV) < 5)
                 {
-                    CanvasScrollViewer.ScrollToHorizontalOffset(targetHorizontalOffset);
-                    CanvasScrollViewer.ScrollToVerticalOffset(targetVerticalOffset);
-                    _logger.LogDebug("目标位置已接近，直接跳转: {NodeName}", node.DisplayName);
+                    CanvasScrollViewer.ScrollToHorizontalOffset(targetH);
+                    CanvasScrollViewer.ScrollToVerticalOffset(targetV);
                     return;
                 }
 
-                _logger.LogDebug("目标滚动位置: H={H}, V={V}, 视口大小: {W}x{H}",
-                    targetHorizontalOffset, targetVerticalOffset, viewportWidth, viewportHeight);
-
-                StartSmoothScroll(currentH, currentV, targetHorizontalOffset, targetVerticalOffset, node.DisplayName);
+                StartSmoothScroll(currentH, currentV, targetH, targetV, node.DisplayName);
             }
             catch (Exception ex)
             {
@@ -739,59 +768,40 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void CenterStartNodeSafe()
         {
-            if (DesignCanvas == null || CanvasContainer == null)
-            {
-                _logger.LogDebug("Canvas组件未就绪，跳过居中");
-                return;
-            }
+            if (DesignCanvas == null || CanvasContainer == null) return;
 
             try
             {
-                double canvasWidth = CanvasContainer.ActualWidth;
+                double canvasHeight = CanvasContainer.ActualHeight;
+                if (canvasHeight <= 0) return;
 
-                if (canvasWidth <= 0)
-                {
-                    _logger.LogDebug("Canvas宽度无效: {Width}，跳过居中", canvasWidth);
-                    return;
-                }
-
-                double centerX = (canvasWidth - 231) / 2;
-                double startY = 10;
+                // 只做垂直居中，X 固定不变
+                double centerY = (canvasHeight - 64) / 2.0;
 
                 var viewModel = DataContext as FlowDesignerViewModel;
-                if (viewModel != null)
+                if (viewModel == null) return;
+
+                if (Math.Abs(viewModel.StartNodeY - centerY) < 1.0) return;
+
+                _isInternalSizeChange = true;
+                try
                 {
-                    double currentX = viewModel.StartNodeX;
-                    double currentY = viewModel.StartNodeY;
-
-                    if (Math.Abs(currentX - centerX) < 1.0 && Math.Abs(currentY - startY) < 1.0)
+                    // 只更新 Y，X 保持 20 不变
+                    viewModel.StartNodeY = centerY;
+                    viewModel.RearrangeNodes(); // 注意：需要把 RearrangeNodes 改为 public
+                }
+                finally
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        _logger.LogTrace("启动节点位置变化过小，跳过: ({CurrentX:F1},{CurrentY:F1}) -> ({CenterX:F1},{StartY:F1})",
-                            currentX, currentY, centerX, startY);
-                        return;
-                    }
-
-                    _logger.LogDebug("执行启动节点居中: ({CurrentX:F1},{CurrentY:F1}) -> ({CenterX:F1},{StartY:F1})",
-                        currentX, currentY, centerX, startY);
-
-                    _isInternalSizeChange = true;
-                    try
-                    {
-                        viewModel.UpdateStartNodePositionAndRearrange(centerX, startY);
-                    }
-                    finally
-                    {
-                        Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            _isInternalSizeChange = false;
-                        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-                    }
+                        _isInternalSizeChange = false;
+                    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                 }
             }
             catch (Exception ex)
             {
                 _isInternalSizeChange = false;
-                _logger.LogError(ex, "安全启动节点居中失败");
+                _logger.LogError(ex, "垂直居中失败");
             }
         }
 
@@ -823,10 +833,8 @@ namespace MaxChemical.Modules.Designer.Views
         private void OnSizeChangeDebounceTimerTick(object sender, EventArgs e)
         {
             _sizeChangeDebounceTimer.Stop();
-
             try
             {
-                _logger.LogDebug("执行防抖后的启动节点居中");
                 CenterStartNodeSafe();
             }
             catch (Exception ex)

@@ -32,12 +32,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private readonly NodeManagementService _nodeManagementService;
         private readonly DesignerDragDropService _dragDropService;
         private readonly NodeControlFactory _nodeControlFactory;
-
+        private readonly INodeExecutionStatusService _statusService;
         // 画布属性
         private double _canvasWidth = 1200;
         private double _canvasHeight = 800;
-        private double _startNodeX = 100;
-        private double _startNodeY = 20;
+        private double _startNodeX = 20;
+        private double _startNodeY = 268;
         private bool _nodesVisible = true;
         private CommandNode _selectedNode;
 
@@ -46,7 +46,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
         public ObservableCollection<CommandNode> CommandNodes { get; private set; }
         public ObservableCollection<NodeConnection> Connections { get; private set; }
         public ObservableCollection<LogicCommandPluginWrapper> LogicCommandPlugins { get; private set; }
+        // 泳道数据
+        public ObservableCollection<SwimlaneRow> SwimlaneRows { get; private set; }
+            = new ObservableCollection<SwimlaneRow>();
 
+        // 流程开始时间（用于计算相对偏移）
+        public DateTime? FlowStartTime { get; private set; }
         // 命令
         public ICommand RemoveCommandNodeCommand { get; private set; }
         public ICommand ValidateAllNodesCommand { get; private set; }
@@ -73,7 +78,53 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             public double ActualCanvasWidth { get; set; }
         }
-      
+        // 底栏显示属性
+        public string FlowStartTimeText => FlowStartTime?.ToString("HH:mm:ss") ?? "—";
+        public string FlowEndTimeText
+        {
+            get
+            {
+                var lastCompleted = SwimlaneRows
+                    .Where(r => r.IsCompleted || r.IsFailed)
+                    .LastOrDefault();
+                return lastCompleted?.EndTimeText ?? "—";
+            }
+        }
+        public string FlowElapsedText
+        {
+            get
+            {
+                if (FlowStartTime == null) return "—";
+                var elapsed = DateTime.Now - FlowStartTime.Value;
+                return elapsed.TotalSeconds < 60
+                    ? $"{elapsed.TotalSeconds:F1}s"
+                    : $"{elapsed:mm\\:ss}";
+            }
+        }
+
+        public int CompletedCount => SwimlaneRows.Count(r => r.IsCompleted);
+        public int ExecutingCount => SwimlaneRows.Count(r => r.IsExecuting);
+        public int FailedCount => SwimlaneRows.Count(r => r.IsFailed);
+        public int IdleCount => SwimlaneRows.Count(r => !r.IsCompleted && !r.IsExecuting && !r.IsFailed);
+
+        public string ProgressText
+        {
+            get
+            {
+                if (SwimlaneRows.Count == 0) return "0%";
+                var pct = (double)CompletedCount / SwimlaneRows.Count * 100;
+                return $"{pct:F0}%";
+            }
+        }
+
+        public double ProgressBarWidth
+        {
+            get
+            {
+                if (SwimlaneRows.Count == 0) return 0;
+                return (double)CompletedCount / SwimlaneRows.Count * 120; // 120 = MinWidth
+            }
+        }
         public FlowDesignerViewModel(
        IDeviceManager deviceManager,
        IEventAggregator eventAggregator,
@@ -98,9 +149,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
             // 加载插件和订阅事件
             LoadLogicCommandPlugins();
             SubscribeToEvents();
+            _statusService = executionStatusService;
             // 设置当前视图模型到状态服务
             executionStatusService?.SetCurrentFlowViewModel(this);
-
+            // 订阅节点执行状态变化
+            if (_statusService != null)               // ← 加 null 检查
+                _statusService.NodeExecutionStatusChanged += OnNodeExecutionStatusChanged;
             _logger.LogInformation("FlowDesignerViewModel 初始化完成");
         }
 
@@ -159,7 +213,88 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
 
         #endregion
+        private void OnNodeExecutionStatusChanged(object sender, NodeExecutionStatusChangedEventArgs e)
+        {
+            Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var row = SwimlaneRows.FirstOrDefault(r => r.NodeId == e.NodeId);
+                if (row == null) return;
 
+                switch (e.NewStatus)
+                {
+                    case CommandNode.NodeExecutionStatus.Executing:
+                        FlowStartTime ??= DateTime.Now;
+                        var node = e.Node;
+                        if (node?.ExecutionStartTime != null)
+                        {
+                            var startOffset = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
+                            row.BarLeft = startOffset * SwimlaneRow.PixelsPerSecond;
+                            row.BarWidth = 6; // 最小宽度，执行中先占位
+                            row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss");
+                            row.EndTimeText = "";
+                            row.DurationText = "";
+                        }
+                        row.IsExecuting = true;
+                        row.IsCompleted = false;
+                        row.IsFailed = false;
+                        break;
+
+                    case CommandNode.NodeExecutionStatus.Completed:
+                        var cNode = e.Node;
+                        if (cNode?.ExecutionStartTime != null && cNode.ExecutionEndTime != null)
+                        {
+                            var startOff = (cNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
+                            var dur = (cNode.ExecutionEndTime.Value - cNode.ExecutionStartTime.Value).TotalSeconds;
+                            row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
+                            row.BarWidth = Math.Max(40, dur * SwimlaneRow.PixelsPerSecond);
+                            row.StartTimeText = cNode.ExecutionStartTime.Value.ToString("HH:mm:ss");
+                            row.EndTimeText = cNode.ExecutionEndTime.Value.ToString("HH:mm:ss");
+                            row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
+                        }
+                        row.IsExecuting = false;
+                        row.IsCompleted = true;
+                        break;
+
+                    case CommandNode.NodeExecutionStatus.Failed:
+                        var fNode = e.Node;
+                        if (fNode?.ExecutionStartTime != null)
+                        {
+                            row.StartTimeText = fNode.ExecutionStartTime.Value.ToString("HH:mm:ss");
+                            if (fNode.ExecutionEndTime != null)
+                            {
+                                var dur = (fNode.ExecutionEndTime.Value - fNode.ExecutionStartTime.Value).TotalSeconds;
+                                row.BarWidth = Math.Max(40, dur * SwimlaneRow.PixelsPerSecond);
+                                row.EndTimeText = fNode.ExecutionEndTime.Value.ToString("HH:mm:ss");
+                                row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
+                            }
+                        }
+                        row.IsExecuting = false;
+                        row.IsFailed = true;
+                        break;
+
+                    case CommandNode.NodeExecutionStatus.Idle:
+                        row.IsExecuting = false;
+                        row.IsCompleted = false;
+                        row.IsFailed = false;
+                        row.BarLeft = 0;
+                        row.BarWidth = 6;
+                        row.StartTimeText = "";
+                        row.EndTimeText = "";
+                        row.DurationText = "";
+                        break;
+                }
+                RaisePropertyChanged(nameof(CompletedCount));
+                RaisePropertyChanged(nameof(ExecutingCount));
+                RaisePropertyChanged(nameof(FailedCount));
+                RaisePropertyChanged(nameof(IdleCount));
+                RaisePropertyChanged(nameof(ProgressText));
+                RaisePropertyChanged(nameof(ProgressBarWidth));
+                RaisePropertyChanged(nameof(FlowStartTimeText));
+                RaisePropertyChanged(nameof(FlowEndTimeText));
+                RaisePropertyChanged(nameof(FlowElapsedText));
+            }));
+           
+        }
         #region 初始化方法
 
         private void InitializeCollections()
@@ -1090,8 +1225,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 //  4. 重置画布属性
                 CanvasWidth = 1200;
                 CanvasHeight = 800;
-                StartNodeX = (CanvasWidth - 231) / 2;
-                StartNodeY = 20;
+                StartNodeX = 20;
+                StartNodeY = (CanvasHeight - 64) / 2.0;
 
                 //  5. 清空选择状态
                 SelectedNode = null;
@@ -2180,7 +2315,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 {
                     NodeAdded?.Invoke(this, commandNode);
                 }));
-
+                // 同步泳道
+                SyncSwimlaneRows();
                 _logger.LogInformation("设备命令节点 {CommandName} 已添加到流程设计器", command.Name);
             }
             catch (Exception ex)
@@ -2188,7 +2324,36 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 _logger.LogError(ex, "添加设备命令节点失败: {CommandName}", command?.Name);
             }
         }
-
+        private void SyncSwimlaneRows()
+        {
+            Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // 重置流程开始时间
+                FlowStartTime = null;
+                SwimlaneRows.Clear();
+                int i = 0;
+                foreach (var node in CommandNodes)
+                {
+                    SwimlaneRows.Add(new SwimlaneRow
+                    {
+                        NodeId = node.NodeId,
+                        NodeName = node.DisplayName,
+                        NodeType = node.IsDeviceCommand ? "设备命令" : node.CommandType,
+                        RowIndex = i++
+                    });
+                }
+                RaisePropertyChanged(nameof(CompletedCount));
+                RaisePropertyChanged(nameof(ExecutingCount));
+                RaisePropertyChanged(nameof(FailedCount));
+                RaisePropertyChanged(nameof(IdleCount));
+                RaisePropertyChanged(nameof(ProgressText));
+                RaisePropertyChanged(nameof(ProgressBarWidth));
+                RaisePropertyChanged(nameof(FlowStartTimeText));
+                RaisePropertyChanged(nameof(FlowEndTimeText));
+                RaisePropertyChanged(nameof(FlowElapsedText));
+            }));
+         
+        }
         public void AddCommandToCanvas(LogicCommand logicCommand)
         {
             try
@@ -2200,7 +2365,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     EnsureStartNodeCentered(logicCommand);
                 }
 
-                var newPosition = CalculateNextNodePositionStable(logicCommand);
+                var newPosition = CalculateNextNodePosition(logicCommand);
 
                 var commandNode = new CommandNode(logicCommand)
                 {
@@ -2232,6 +2397,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
 
                 UpdateCanvasSizeStable();
+                SyncSwimlaneRows(); // ← 加这行
                 _logger.LogInformation("逻辑命令节点 {CommandName} 已添加到流程设计器", logicCommand.Name);
             }
             catch (Exception ex)
@@ -2266,7 +2432,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 RearrangeNodesFromInsert(insertIndex);
                 RebuildAllConnections();
                 UpdateCanvasSize();
-
+                SyncSwimlaneRows(); // ← 加这行
                 Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     NodeAdded?.Invoke(this, commandNode);
@@ -2332,6 +2498,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
 
                 UpdateCanvasSizeStable();
+                SyncSwimlaneRows(); // ← 加这行
                 _logger.LogInformation("逻辑命令节点 {CommandName} 已添加到位置 {Position}", logicCommand.Name, insertIndex);
             }
             catch (Exception ex)
@@ -2345,82 +2512,55 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             try
             {
-                _logger.LogDebug("从插入位置 {Position} 重新排列节点", insertIndex);
+                _logger.LogDebug("从插入位置 {Position} 重新排列节点（水平）", insertIndex);
 
-                // 更新所有节点的Order
+                const double nodeSpacingX = 80;
+                const double standardNodeWidth = 231;
+                const double standardNodeHeight = 64;
+
+                double startNodeCenterY = StartNodeY + standardNodeHeight / 2.0;
+
                 for (int i = 0; i < CommandNodes.Count; i++)
                 {
                     CommandNodes[i].Order = i + 1;
-                }
 
-                // 计算所有节点的新位置
-                const double nodeSpacing = 80;
-                const double standardNodeHeight = 64;
-
-                for (int i = 0; i < CommandNodes.Count; i++)
-                {
                     var node = CommandNodes[i];
+                    double nodeH = NodeSizeEstimator.GetNodeHeight(node);
 
                     if (i == 0)
                     {
-                        // 第一个节点的位置计算
-                        var newPosition = CalculateFirstNodePosition(node);
-                        node.X = newPosition.X;
-                        node.Y = newPosition.Y;
+                        node.X = StartNodeX + standardNodeWidth + nodeSpacingX;
+                        node.Y = startNodeCenterY - nodeH / 2.0;
                     }
                     else
                     {
-                        // 后续节点的位置计算
-                        var previousNode = CommandNodes[i - 1];
-                        double previousHeight = GetEstimatedNodeHeight(previousNode);
-                        double newY = previousNode.Y + previousHeight + nodeSpacing;
-
-                        double previousCenterX = GetEstimatedNodeCenterX(previousNode);
-                        double newX;
-
-                        if (node.IsComplexNode)
-                        {
-                            double currentNodeWidth = GetEstimatedNodeWidth(node);
-                            newX = previousCenterX - (currentNodeWidth / 2);
-                        }
-                        else
-                        {
-                            newX = previousCenterX - (NodeSizeEstimator.DEVICE_NODE_WIDTH / 2);
-                        }
-
-                        node.X = newX;
-                        node.Y = newY;
+                        var prev = CommandNodes[i - 1];
+                        double prevW = NodeSizeEstimator.GetNodeWidth(prev);
+                        node.X = prev.X + prevW + nodeSpacingX;
+                        node.Y = startNodeCenterY - nodeH / 2.0;
                     }
 
-                    _logger.LogTrace("重排节点 {Index}: {NodeName} -> ({X}, {Y})",
-                        i, node.DisplayName, node.X, node.Y);
+                    _logger.LogTrace("重排节点 {Index}: {Name} -> ({X}, {Y})", i, node.DisplayName, node.X, node.Y);
                 }
-
-                _logger.LogDebug("节点重新排列完成");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "重新排列节点失败");
+                _logger.LogError(ex, "水平重新排列节点失败");
             }
         }
 
         private Point CalculateFirstNodePosition(CommandNode node)
         {
-            const double standardNodeWidth = NodeSizeEstimator.DEVICE_NODE_WIDTH;
-            const double standardNodeHeight = NodeSizeEstimator.DEVICE_NODE_HEIGHT;
-            const double nodeSpacing = 80;
+            const double standardNodeWidth = 231;
+            const double standardNodeHeight = 64;
+            const double nodeSpacingX = 80;
 
-            if (IsComplexLogicCommand(node.LogicCommand))
-            {
-                double startNodeCenterX = StartNodeX + (standardNodeWidth / 2);
-                double estimatedWidth = NodeSizeEstimator.GetComplexNodeWidth(node.LogicCommand);
-                double nodeX = startNodeCenterX - (estimatedWidth / 2);
-                return new Point(nodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-            }
-            else
-            {
-                return new Point(StartNodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-            }
+            double startNodeCenterY = StartNodeY + standardNodeHeight / 2.0;
+            double nodeH = NodeSizeEstimator.GetNodeHeight(node);
+
+            return new Point(
+                StartNodeX + standardNodeWidth + nodeSpacingX,
+                startNodeCenterY - nodeH / 2.0);
         }
 
         #endregion
@@ -2775,192 +2915,110 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void EnsureStartNodeCentered(LogicCommand upcomingCommand = null)
         {
-            try
-            {
-                _logger.LogDebug("确保启动节点居中");
-                _logger.LogDebug("当前启动节点位置: ({X}, {Y})", StartNodeX, StartNodeY);
-                _logger.LogDebug("当前画布宽度: {Width}", CanvasWidth);
-                _logger.LogDebug("即将添加的命令: {CommandName}", upcomingCommand?.Name ?? "null");
+            //try
+            //{
+            //    _logger.LogDebug("确保启动节点居中");
+            //    _logger.LogDebug("当前启动节点位置: ({X}, {Y})", StartNodeX, StartNodeY);
+            //    _logger.LogDebug("当前画布宽度: {Width}", CanvasWidth);
+            //    _logger.LogDebug("即将添加的命令: {CommandName}", upcomingCommand?.Name ?? "null");
 
-                double actualCanvasWidth = 0;
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    var args = new CanvasWidthRequestEventArgs();
-                    CanvasWidthRequested?.Invoke(this, args);
-                    actualCanvasWidth = args.ActualCanvasWidth;
-                    _logger.LogDebug("通过事件获取的画布宽度: {Width}", actualCanvasWidth);
-                });
+            //    double actualCanvasWidth = 0;
+            //    Application.Current?.Dispatcher.Invoke(() =>
+            //    {
+            //        var args = new CanvasWidthRequestEventArgs();
+            //        CanvasWidthRequested?.Invoke(this, args);
+            //        actualCanvasWidth = args.ActualCanvasWidth;
+            //        _logger.LogDebug("通过事件获取的画布宽度: {Width}", actualCanvasWidth);
+            //    });
 
-                if (actualCanvasWidth <= 0)
-                {
-                    actualCanvasWidth = Math.Max(CanvasWidth, 1200);
-                    _logger.LogDebug("使用默认画布宽度: {Width}", actualCanvasWidth);
-                }
+            //    if (actualCanvasWidth <= 0)
+            //    {
+            //        actualCanvasWidth = Math.Max(CanvasWidth, 1200);
+            //        _logger.LogDebug("使用默认画布宽度: {Width}", actualCanvasWidth);
+            //    }
 
-                double predictedCanvasWidth = actualCanvasWidth;
-                if (CommandNodes.Count == 0 && upcomingCommand != null)
-                {
-                    double nodeWidth = NodeSizeEstimator.GetComplexNodeWidth(upcomingCommand);
-                    double nodeX = actualCanvasWidth / 2 - nodeWidth / 2;
-                    double nodeRightBoundary = nodeX + nodeWidth;
+            //    double predictedCanvasWidth = actualCanvasWidth;
+            //    if (CommandNodes.Count == 0 && upcomingCommand != null)
+            //    {
+            //        double nodeWidth = NodeSizeEstimator.GetComplexNodeWidth(upcomingCommand);
+            //        double nodeX = actualCanvasWidth / 2 - nodeWidth / 2;
+            //        double nodeRightBoundary = nodeX + nodeWidth;
 
-                    if (nodeRightBoundary > actualCanvasWidth)
-                    {
-                        predictedCanvasWidth = nodeRightBoundary + 100;
-                        _logger.LogDebug("节点会超出画布，预测扩展后宽度: {Width}", predictedCanvasWidth);
-                    }
-                    else
-                    {
-                        predictedCanvasWidth = Math.Max(actualCanvasWidth, 1260);
-                        _logger.LogDebug("使用观察到的最小扩展宽度: {Width}", predictedCanvasWidth);
-                    }
-                }
+            //        if (nodeRightBoundary > actualCanvasWidth)
+            //        {
+            //            predictedCanvasWidth = nodeRightBoundary + 100;
+            //            _logger.LogDebug("节点会超出画布，预测扩展后宽度: {Width}", predictedCanvasWidth);
+            //        }
+            //        else
+            //        {
+            //            predictedCanvasWidth = Math.Max(actualCanvasWidth, 1260);
+            //            _logger.LogDebug("使用观察到的最小扩展宽度: {Width}", predictedCanvasWidth);
+            //        }
+            //    }
 
-                const double startNodeWidth = 231;
-                double correctCenterX = (predictedCanvasWidth - startNodeWidth) / 2;
-                double correctStartY = 10;
+            //    const double startNodeWidth = 231;
+            //    double correctCenterX = (predictedCanvasWidth - startNodeWidth) / 2;
+            //    double correctStartY = 10;
 
-                _logger.LogDebug("基于预测宽度 {Width} 计算的启动节点位置: ({X}, {Y})",
-                    predictedCanvasWidth, correctCenterX, correctStartY);
+            //    _logger.LogDebug("基于预测宽度 {Width} 计算的启动节点位置: ({X}, {Y})",
+            //        predictedCanvasWidth, correctCenterX, correctStartY);
 
-                if (Math.Abs(StartNodeX - correctCenterX) > 0.1 || Math.Abs(StartNodeY - correctStartY) > 0.1)
-                {
-                    _logger.LogDebug("强制更新启动节点位置: ({OldX}, {OldY}) -> ({NewX}, {NewY})",
-                        StartNodeX, StartNodeY, correctCenterX, correctStartY);
-                    StartNodeX = correctCenterX;
-                    StartNodeY = correctStartY;
-                }
-                else
-                {
-                    _logger.LogDebug("启动节点位置已经正确，无需更新");
-                }
+            //    if (Math.Abs(StartNodeX - correctCenterX) > 0.1 || Math.Abs(StartNodeY - correctStartY) > 0.1)
+            //    {
+            //        _logger.LogDebug("强制更新启动节点位置: ({OldX}, {OldY}) -> ({NewX}, {NewY})",
+            //            StartNodeX, StartNodeY, correctCenterX, correctStartY);
+            //        StartNodeX = correctCenterX;
+            //        StartNodeY = correctStartY;
+            //    }
+            //    else
+            //    {
+            //        _logger.LogDebug("启动节点位置已经正确，无需更新");
+            //    }
 
-                _logger.LogDebug("确保启动节点居中完成: ({X}, {Y})", StartNodeX, StartNodeY);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "确保启动节点居中失败");
-            }
+            //    _logger.LogDebug("确保启动节点居中完成: ({X}, {Y})", StartNodeX, StartNodeY);
+            //}
+            //catch (Exception ex)
+            //{
+            //    _logger.LogError(ex, "确保启动节点居中失败");
+            //}
         }
 
         private System.Windows.Point CalculateNextNodePosition(LogicCommand logicCommand = null)
         {
-            const double nodeSpacing = 80;
+            const double nodeSpacingX = 80;
             const double standardNodeWidth = 231;
             const double standardNodeHeight = 64;
 
-            if (CommandNodes.Count == 0)
-            {
-                if (IsComplexLogicCommand(logicCommand))
-                {
-                    double startNodeCenterX = StartNodeX + (standardNodeWidth / 2);
-                    double estimatedWidth = NodeSizeEstimator.GetComplexNodeWidth(logicCommand);
-                    double nodeX = startNodeCenterX - (estimatedWidth / 2);
-                    return new System.Windows.Point(nodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-                }
-                else
-                {
-                    return new System.Windows.Point(StartNodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-                }
-            }
-
-            var lastNode = CommandNodes.Last();
-            double nextY;
-
-            try
-            {
-                double lastNodeActualHeight = lastNode.GetActualHeight();
-                nextY = lastNode.Y + lastNodeActualHeight + nodeSpacing;
-                _logger.LogTrace("上一个节点实际高度: {Height}, 新节点Y位置: {Y}", lastNodeActualHeight, nextY);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "获取上一个节点高度失败，使用默认值");
-                double defaultHeight = GetDefaultNodeHeight(lastNode);
-                nextY = lastNode.Y + defaultHeight + nodeSpacing;
-            }
-
-            if (IsComplexLogicCommand(logicCommand))
-            {
-                double lastNodeCenterX = GetNodeCenterX(lastNode);
-                double estimatedWidth = NodeSizeEstimator.GetComplexNodeWidth(logicCommand);
-                double nodeX = lastNodeCenterX - (estimatedWidth / 2);
-                return new System.Windows.Point(nodeX, nextY);
-            }
-            else
-            {
-                double lastNodeCenterX = GetNodeCenterX(lastNode);
-                double normalNodeX = lastNodeCenterX - (standardNodeWidth / 2);
-                return new System.Windows.Point(normalNodeX, nextY);
-            }
-        }
-
-        private System.Windows.Point CalculateNextNodePositionStable(LogicCommand logicCommand = null)
-        {
-            const double nodeSpacing = 80;
-            const double standardNodeWidth = NodeSizeEstimator.DEVICE_NODE_WIDTH;
-            const double standardNodeHeight = NodeSizeEstimator.DEVICE_NODE_HEIGHT;
-
-            _logger.LogTrace("位置计算详细信息");
-            _logger.LogTrace("计算前启动节点位置: StartNodeX={X}, StartNodeY={Y}", StartNodeX, StartNodeY);
-            _logger.LogTrace("当前节点数量: {Count}", CommandNodes.Count);
+            double startNodeCenterY = StartNodeY + standardNodeHeight / 2.0;
 
             if (CommandNodes.Count == 0)
             {
-                _logger.LogTrace("处理第一个节点");
-
+                // 修复：用 NodeSizeEstimator.EstimateLogicNodeSize 代替不存在的 GetComplexNodeHeight
+                double estimatedH = standardNodeHeight;
                 if (IsComplexLogicCommand(logicCommand))
                 {
-                    double startNodeCenterX = StartNodeX + (standardNodeWidth / 2);
-                    double estimatedWidth = NodeSizeEstimator.GetComplexNodeWidth(logicCommand);
-                    double nodeX = startNodeCenterX - (estimatedWidth / 2);
-
-                    _logger.LogTrace("第一个复杂节点位置计算:");
-                    _logger.LogTrace("  启动节点X: {X}", StartNodeX);
-                    _logger.LogTrace("  启动节点宽度: {Width}", standardNodeWidth);
-                    _logger.LogTrace("  启动节点中心X: {CenterX}", startNodeCenterX);
-                    _logger.LogTrace("  当前节点预估宽度: {Width}", estimatedWidth);
-                    _logger.LogTrace("  计算的X位置: {X}", nodeX);
-
-                    if (nodeX < 0)
-                    {
-                        _logger.LogError("计算出的X位置为负数: {X}", nodeX);
-                    }
-
-                    var result = new System.Windows.Point(nodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-                    _logger.LogTrace("第一个复杂节点最终计算位置: ({X}, {Y})", result.X, result.Y);
-                    return result;
+                    var tempNode = new CommandNode(logicCommand);
+                    estimatedH = NodeSizeEstimator.EstimateNodeSize(tempNode).Height;
                 }
-                else
-                {
-                    _logger.LogTrace("第一个普通节点位置: ({X}, {Y})", StartNodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-                    return new System.Windows.Point(StartNodeX, StartNodeY + standardNodeHeight + nodeSpacing);
-                }
+
+                return new System.Windows.Point(
+                    StartNodeX + standardNodeWidth + nodeSpacingX,
+                    startNodeCenterY - estimatedH / 2.0);
             }
 
             var lastNode = CommandNodes.Last();
-            double lastNodeHeight = GetEstimatedNodeHeight(lastNode);
-            double nextY = lastNode.Y + lastNodeHeight + nodeSpacing;
+            double lastWidth = lastNode.GetActualWidth();
+            double nextX = lastNode.X + lastWidth + nodeSpacingX;
 
+            // 修复：估算新节点高度
+            double newNodeH = standardNodeHeight;
             if (IsComplexLogicCommand(logicCommand))
             {
-                double lastNodeCenterX = GetEstimatedNodeCenterX(lastNode);
-                double estimatedWidth = NodeSizeEstimator.GetComplexNodeWidth(logicCommand);
-                double nodeX = lastNodeCenterX - (estimatedWidth / 2);
-
-                _logger.LogTrace("后续复杂节点位置计算:");
-                _logger.LogTrace("  上一节点中心X: {CenterX}", lastNodeCenterX);
-                _logger.LogTrace("  当前节点预估宽度: {Width}", estimatedWidth);
-                _logger.LogTrace("  计算的X位置: {X}", nodeX);
-
-                return new System.Windows.Point(nodeX, nextY);
+                var tempNode = new CommandNode(logicCommand);
+                newNodeH = NodeSizeEstimator.EstimateNodeSize(tempNode).Height;
             }
-            else
-            {
-                double lastNodeCenterX = GetEstimatedNodeCenterX(lastNode);
-                double normalNodeX = lastNodeCenterX - (standardNodeWidth / 2);
-                return new System.Windows.Point(normalNodeX, nextY);
-            }
+
+            return new System.Windows.Point(nextX, startNodeCenterY - newNodeH / 2.0);
         }
 
         private double GetDefaultNodeHeight(CommandNode node)
@@ -3109,39 +3167,29 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 if (startIndex >= CommandNodes.Count) return;
 
-                _logger.LogTrace("从索引 {Index} 开始重新排列节点", startIndex);
-                const double nodeSpacing = 80;
+                _logger.LogTrace("从索引 {Index} 开始水平重新排列节点", startIndex);
+
+                const double nodeSpacingX = 80;
+                const double standardNodeHeight = 64;
+                double startNodeCenterY = StartNodeY + standardNodeHeight / 2.0;
 
                 for (int i = startIndex; i < CommandNodes.Count; i++)
                 {
                     var currentNode = CommandNodes[i];
                     var previousNode = CommandNodes[i - 1];
 
-                    double previousHeight = GetEstimatedNodeHeight(previousNode);
-                    double newY = previousNode.Y + previousHeight + nodeSpacing;
+                    double prevWidth = NodeSizeEstimator.GetNodeWidth(previousNode);
+                    currentNode.X = previousNode.X + prevWidth + nodeSpacingX;
 
-                    double previousCenterX = GetEstimatedNodeCenterX(previousNode);
-                    double newX;
+                    double currentH = NodeSizeEstimator.GetNodeHeight(currentNode);
+                    currentNode.Y = startNodeCenterY - currentH / 2.0;
 
-                    if (currentNode.IsComplexNode)
-                    {
-                        double currentNodeWidth = GetEstimatedNodeWidth(currentNode);
-                        newX = previousCenterX - (currentNodeWidth / 2);
-                    }
-                    else
-                    {
-                        newX = previousCenterX - (NodeSizeEstimator.DEVICE_NODE_WIDTH / 2);
-                    }
-
-                    currentNode.X = newX;
-                    currentNode.Y = newY;
-
-                    _logger.LogTrace("重排节点 {Index}: {NodeName} -> ({X}, {Y})", i, currentNode.DisplayName, newX, newY);
+                    _logger.LogTrace("重排节点 {Index}: {Name} -> ({X}, {Y})", i, currentNode.DisplayName, currentNode.X, currentNode.Y);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "重新排列节点失败");
+                _logger.LogError(ex, "水平重新排列节点失败");
             }
         }
 
@@ -3155,199 +3203,139 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 NodeConnection connection;
+                const double standardNodeWidth = 231;
+                const double standardNodeHeight = 64;
 
                 if (CommandNodes.Count == 1)
                 {
-                    double startNodeCenterX = StartNodeX + 115;
-                    var toConnectionPoint = toNode.GetTopConnectionPoint();
+                    // StartNode → 第一个节点
+                    double fromX = StartNodeX + standardNodeWidth;
+                    double fromY = StartNodeY + standardNodeHeight / 2.0;
 
                     connection = new NodeConnection
                     {
                         FromNodeId = "StartNode",
                         ToNodeId = toNode.NodeId,
-                        X = startNodeCenterX,
-                        Y = StartNodeY + 64 + 2,
-                        LineLength = (int)(toConnectionPoint.Y - (StartNodeY + 64 + 2) - 8),
-                        ArrowTop = (int)(toConnectionPoint.Y - (StartNodeY + 64 + 2) - 8),
-                        TotalHeight = (int)(toConnectionPoint.Y - (StartNodeY + 64 + 2))
+                        X = fromX,
+                        Y = fromY - 0.5,   // 垂直居中，线宽1px
+                        LineLength = (int)(toNode.X - fromX - 8),
+                        ArrowTop = (int)(toNode.X - fromX - 8),
+                        TotalHeight = (int)(toNode.X - fromX)    // 复用字段表示宽度
                     };
                 }
                 else
                 {
                     var previousNode = CommandNodes[CommandNodes.Count - 2];
-
-                    var fromConnectionPoint = previousNode.GetBottomConnectionPoint();
-                    var toConnectionPoint = toNode.GetTopConnectionPoint();
+                    double prevRight = previousNode.X + previousNode.GetActualWidth();
+                    double centerY = previousNode.Y + previousNode.GetActualHeight() / 2.0;
 
                     connection = new NodeConnection
                     {
                         FromNodeId = previousNode.NodeId,
                         ToNodeId = toNode.NodeId,
-                        X = fromConnectionPoint.X,
-                        Y = fromConnectionPoint.Y + 2,
-                        LineLength = (int)(toConnectionPoint.Y - fromConnectionPoint.Y - 10),
-                        ArrowTop = (int)(toConnectionPoint.Y - fromConnectionPoint.Y - 10),
-                        TotalHeight = (int)(toConnectionPoint.Y - fromConnectionPoint.Y - 2)
+                        X = prevRight + 2,
+                        Y = centerY - 0.5,
+                        LineLength = (int)(toNode.X - prevRight - 10),
+                        ArrowTop = (int)(toNode.X - prevRight - 10),
+                        TotalHeight = (int)(toNode.X - prevRight)
                     };
                 }
 
                 Connections.Add(connection);
-                _logger.LogTrace("创建连接线: 从 {FromId} 到 {ToId}, 位置: X={X}, Y={Y}",
-                    connection.FromNodeId, connection.ToNodeId, connection.X, connection.Y);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "创建连接线失败: {NodeName}", toNode?.DisplayName);
+                _logger.LogError(ex, "创建水平连接线失败: {NodeName}", toNode?.DisplayName);
             }
         }
 
         private void RebuildAllConnections()
         {
-            try
+            Connections.Clear();
+            const double standardNodeWidth = 231;
+            const double standardNodeHeight = 64;
+
+            for (int i = 0; i < CommandNodes.Count; i++)
             {
-                _logger.LogDebug("开始重建所有连接线");
+                var cur = CommandNodes[i];
+                NodeConnection conn;
 
-                Connections.Clear();
-
-                for (int i = 0; i < CommandNodes.Count; i++)
+                if (i == 0)
                 {
-                    var currentNode = CommandNodes[i];
-                    NodeConnection connection;
+                    double fromX = StartNodeX + standardNodeWidth;
+                    double fromY = StartNodeY + standardNodeHeight / 2.0;
 
-                    if (i == 0)
+                    conn = new NodeConnection
                     {
-                        double startNodeCenterX = StartNodeX + 115;
-
-                        connection = new NodeConnection
-                        {
-                            FromNodeId = "StartNode",
-                            ToNodeId = currentNode.NodeId,
-                            X = startNodeCenterX,
-                            Y = StartNodeY + 64 + 2,
-                            LineLength = 60,
-                            ArrowTop = 60,
-                            TotalHeight = 68
-                        };
-                    }
-                    else
-                    {
-                        var previousNode = CommandNodes[i - 1];
-                        double fromX = GetNodeCenterX(previousNode);
-
-                        double fromY;
-                        try
-                        {
-                            double previousHeight = previousNode.GetActualHeight();
-                            fromY = previousNode.Y + previousHeight + 2;
-                        }
-                        catch
-                        {
-                            double defaultHeight = previousNode.IsIfNode ? 284 : 64;
-                            fromY = previousNode.Y + defaultHeight + 2;
-                        }
-
-                        connection = new NodeConnection
-                        {
-                            FromNodeId = previousNode.NodeId,
-                            ToNodeId = currentNode.NodeId,
-                            X = fromX,
-                            Y = fromY,
-                            LineLength = 60,
-                            ArrowTop = 60,
-                            TotalHeight = 68
-                        };
-                    }
-
-                    Connections.Add(connection);
-                    _logger.LogTrace("重建连接线 {Index}: 从 {FromId} 到 {ToId}, 位置: ({X}, {Y})",
-                        i + 1, connection.FromNodeId, connection.ToNodeId, connection.X, connection.Y);
+                        FromNodeId = "StartNode",
+                        ToNodeId = cur.NodeId,
+                        X = fromX,
+                        Y = fromY - 0.5,
+                        LineLength = (int)(cur.X - fromX - 8),
+                        ArrowTop = (int)(cur.X - fromX - 8),
+                        TotalHeight = (int)(cur.X - fromX)
+                    };
                 }
+                else
+                {
+                    var prev = CommandNodes[i - 1];
+                    double fromX = prev.X + prev.GetActualWidth() + 2;
+                    double fromY = prev.Y + prev.GetActualHeight() / 2.0;
 
-                _logger.LogDebug("连接线重建完成，总数: {Count}", Connections.Count);
-                RaisePropertyChanged(nameof(Connections));
+                    conn = new NodeConnection
+                    {
+                        FromNodeId = prev.NodeId,
+                        ToNodeId = cur.NodeId,
+                        X = fromX,
+                        Y = fromY - 0.5,
+                        LineLength = (int)(cur.X - fromX - 8),
+                        ArrowTop = (int)(cur.X - fromX - 8),
+                        TotalHeight = (int)(cur.X - fromX)
+                    };
+                }
+                Connections.Add(conn);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "重建连接线失败");
-            }
+
+            RaisePropertyChanged(nameof(Connections));
         }
 
-        private void RearrangeNodes()
+        public void RearrangeNodes()
         {
             try
             {
-                _logger.LogDebug("开始重新排列节点");
-                const double nodeSpacing = 80;
+                _logger.LogDebug("开始重新排列节点（从左到右）");
+                const double nodeSpacingX = 80;   // 水平间距
+                const double standardNodeWidth = 231;
                 const double standardNodeHeight = 64;
+
+                // StartNode 作为起始锚点，节点对齐到其垂直中心
+                double startNodeCenterY = StartNodeY + standardNodeHeight / 2.0;
 
                 for (int i = 0; i < CommandNodes.Count; i++)
                 {
                     var node = CommandNodes[i];
                     node.Order = i + 1;
 
+                    double nodeActualWidth = node.GetActualWidth();
+                    double nodeActualHeight = node.GetActualHeight();
+
                     if (i == 0)
                     {
-                        if (node.IsIfNode)
-                        {
-                            double startNodeCenterX = StartNodeX + 115;
-                            double nodeActualWidth = node.GetActualWidth();
-                            node.X = startNodeCenterX - (nodeActualWidth / 2);
-                            _logger.LogTrace("第一个IF节点 {NodeName}: 中心对齐后X={X}", node.DisplayName, node.X);
-                        }
-                        else if (node.IsParallelNode)
-                        {
-                            double startNodeCenterX = StartNodeX + 115;
-                            double nodeActualWidth = node.GetActualWidth();
-                            node.X = startNodeCenterX - (nodeActualWidth / 2);
-                            _logger.LogTrace("第一个并行节点 {NodeName}: 中心对齐后X={X}", node.DisplayName, node.X);
-                        }
-                        else
-                        {
-                            node.X = StartNodeX;
-                            _logger.LogTrace("第一个普通节点 {NodeName}: X={X}", node.DisplayName, node.X);
-                        }
-                        node.Y = StartNodeY + standardNodeHeight + nodeSpacing;
+                        // 第一个节点紧接 StartNode 右侧
+                        node.X = StartNodeX + standardNodeWidth + nodeSpacingX;
+                        node.Y = startNodeCenterY - nodeActualHeight / 2.0;
                     }
                     else
                     {
-                        var previousNode = CommandNodes[i - 1];
+                        var prev = CommandNodes[i - 1];
+                        double prevWidth = prev.GetActualWidth();
 
-                        double previousHeight = previousNode.GetActualHeight();
-                        node.Y = previousNode.Y + previousHeight + nodeSpacing;
-
-                        double previousCenterX = GetNodeCenterX(previousNode);
-
-                        if (node.IsIfNode)
-                        {
-                            double nodeActualWidth = node.GetActualWidth();
-                            node.X = previousCenterX - (nodeActualWidth / 2);
-                            _logger.LogTrace("IF节点 {NodeName}: 与 {PrevNodeName} 中心对齐", node.DisplayName, previousNode.DisplayName);
-                            _logger.LogTrace("  前节点中心X: {PrevCenterX}, 当前节点宽度: {Width}, 计算X: {X}",
-                                previousCenterX, nodeActualWidth, node.X);
-                        }
-                        else if (node.IsParallelNode)
-                        {
-                            double nodeActualWidth = node.GetActualWidth();
-                            node.X = previousCenterX - (nodeActualWidth / 2);
-                            _logger.LogTrace("并行节点 {NodeName}: 与 {PrevNodeName} 中心对齐", node.DisplayName, previousNode.DisplayName);
-                            _logger.LogTrace("  前节点中心X: {PrevCenterX}, 当前节点宽度: {Width}, 计算X: {X}",
-                                previousCenterX, nodeActualWidth, node.X);
-                        }
-                        else
-                        {
-                            node.X = previousCenterX - 115;
-                            _logger.LogTrace("普通节点 {NodeName}: 与 {PrevNodeName} 中心对齐, X={X}",
-                                node.DisplayName, previousNode.DisplayName, node.X);
-                        }
+                        node.X = prev.X + prevWidth + nodeSpacingX;
+                        node.Y = startNodeCenterY - nodeActualHeight / 2.0;
                     }
 
-                    _logger.LogTrace("节点 {Index} ({NodeName}) 最终位置: ({X}, {Y})", i + 1, node.DisplayName, node.X, node.Y);
+                    _logger.LogTrace("节点 {Name} 位置: ({X}, {Y})", node.DisplayName, node.X, node.Y);
                 }
-
-                RebuildAllConnections();
-                UpdateCanvasSize();
-
-                _logger.LogDebug("节点重新排列完成");
             }
             catch (Exception ex)
             {
@@ -3357,209 +3345,25 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         public void UpdateStartNodePositionAndRearrange(double newX, double newY)
         {
-            StartNodeX = newX;
+            StartNodeX = 20;
             StartNodeY = newY;
             RearrangeNodes();
         }
 
-        public void UpdateCanvasSize()
+        private void UpdateCanvasSize()
         {
-            try
+            if (CommandNodes == null || CommandNodes.Count == 0)
             {
-                _logger.LogTrace("开始更新主画布大小");
-
-                if (CommandNodes.Count == 0)
-                {
-                    CanvasWidth = Math.Max(1200, StartNodeX + 800);
-                    CanvasHeight = Math.Max(800, StartNodeY + 300);
-                    _logger.LogTrace("无节点时画布大小: {Width}x{Height}", CanvasWidth, CanvasHeight);
-                    return;
-                }
-
-                double maxX = StartNodeX + 231; // 启动节点的右边界
-                double maxY = StartNodeY + 64;  // 启动节点的底边界
-
-                _logger.LogTrace("初始边界: 启动节点右边界={MaxX}, 底边界={MaxY}", maxX, maxY);
-
-                foreach (var node in CommandNodes)
-                {
-                    try
-                    {
-                        // 强制更新节点控件布局
-                        if (node.NodeControl != null)
-                        {
-                            Application.Current?.Dispatcher.Invoke(() =>
-                            {
-                                node.NodeControl.UpdateLayout();
-                            });
-                        }
-
-                        // 计算节点的实际边界
-                        double nodeRight, nodeBottom;
-
-                        if (node.IsParallelNode && node.NodeControl is Views.ParallelNodeControlView parallelControl)
-                        {
-                            try
-                            {
-                                // 获取并行节点的实际尺寸
-                                double parallelControlWidth = 0;
-                                double parallelControlHeight = 0;
-
-                                Application.Current?.Dispatcher.Invoke(() =>
-                                {
-                                    parallelControl.UpdateLayout();
-
-                                    // 获取BranchCanvas的实际尺寸
-                                    var branchCanvas = parallelControl.BranchCanvas;
-                                    if (branchCanvas != null)
-                                    {
-                                        branchCanvas.UpdateLayout();
-                                        parallelControlWidth = Math.Max(branchCanvas.ActualWidth, branchCanvas.Width);
-                                        parallelControlHeight = Math.Max(branchCanvas.ActualHeight, branchCanvas.Height);
-
-                                        // 如果ActualWidth/Height为0，使用DesiredSize
-                                        if (parallelControlWidth <= 0)
-                                        {
-                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                                            parallelControlWidth = branchCanvas.DesiredSize.Width;
-                                        }
-                                        if (parallelControlHeight <= 0)
-                                        {
-                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                                            parallelControlHeight = branchCanvas.DesiredSize.Height;
-                                        }
-                                    }
-
-                                    // 如果还是0，使用整个并行控件的尺寸
-                                    if (parallelControlWidth <= 0)
-                                    {
-                                        parallelControlWidth = Math.Max(parallelControl.ActualWidth, parallelControl.Width);
-                                    }
-                                    if (parallelControlHeight <= 0)
-                                    {
-                                        parallelControlHeight = Math.Max(parallelControl.ActualHeight, parallelControl.Height);
-                                    }
-
-                                    // 最后的备用尺寸
-                                    if (parallelControlWidth <= 0) parallelControlWidth = 1000;
-                                    if (parallelControlHeight <= 0) parallelControlHeight = 300;
-                                });
-
-                                nodeRight = node.X + parallelControlWidth;
-                                nodeBottom = node.Y + parallelControlHeight + 64; // 64是主卡片高度
-
-                                _logger.LogTrace("并行节点 {NodeName}: 位置({X}, {Y}), 控件尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
-                                    node.DisplayName, node.X, node.Y, parallelControlWidth, parallelControlHeight, nodeRight, nodeBottom);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "获取并行节点 {NodeName} 尺寸失败，使用默认值", node.DisplayName);
-                                nodeRight = node.X + 1000;
-                                nodeBottom = node.Y + 400;
-                            }
-                        }
-                        else if (node.IsIfNode && node.NodeControl is Views.IfNodeControlView ifControl)
-                        {
-                            try
-                            {
-                                double ifControlWidth = 0;
-                                double ifControlHeight = 0;
-
-                                Application.Current?.Dispatcher.Invoke(() =>
-                                {
-                                    ifControl.UpdateLayout();
-                                    var branchCanvas = ifControl.BranchCanvas;
-                                    if (branchCanvas != null)
-                                    {
-                                        branchCanvas.UpdateLayout();
-                                        ifControlWidth = Math.Max(branchCanvas.ActualWidth, branchCanvas.Width);
-                                        ifControlHeight = Math.Max(branchCanvas.ActualHeight, branchCanvas.Height);
-
-                                        if (ifControlWidth <= 0)
-                                        {
-                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                                            ifControlWidth = branchCanvas.DesiredSize.Width;
-                                        }
-                                        if (ifControlHeight <= 0)
-                                        {
-                                            branchCanvas.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                                            ifControlHeight = branchCanvas.DesiredSize.Height;
-                                        }
-                                    }
-
-                                    if (ifControlWidth <= 0) ifControlWidth = 800;
-                                    if (ifControlHeight <= 0) ifControlHeight = 300;
-                                });
-
-                                nodeRight = node.X + ifControlWidth;
-                                nodeBottom = node.Y + ifControlHeight + 64;
-
-                                _logger.LogTrace("IF节点 {NodeName}: 位置({X}, {Y}), 控件尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
-                                    node.DisplayName, node.X, node.Y, ifControlWidth, ifControlHeight, nodeRight, nodeBottom);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "获取IF节点 {NodeName} 尺寸失败，使用默认值", node.DisplayName);
-                                nodeRight = node.X + 800;
-                                nodeBottom = node.Y + 350;
-                            }
-                        }
-                        else
-                        {
-                            // 普通节点（设备命令等）
-                            var nodeSize = node.GetActualSize();
-                            nodeRight = node.X + nodeSize.Width;
-                            nodeBottom = node.Y + nodeSize.Height;
-
-                            _logger.LogTrace("普通节点 {NodeName}: 位置({X}, {Y}), 尺寸({Width}x{Height}), 边界({Right}, {Bottom})",
-                                node.DisplayName, node.X, node.Y, nodeSize.Width, nodeSize.Height, nodeRight, nodeBottom);
-                        }
-
-                        maxX = Math.Max(maxX, nodeRight);
-                        maxY = Math.Max(maxY, nodeBottom);
-
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "获取节点 {NodeName} 尺寸失败，使用默认值", node.DisplayName);
-                        double defaultWidth = node.IsIfNode ? 800 : node.IsParallelNode ? 1000 : 231;
-                        double defaultHeight = node.IsIfNode ? 350 : node.IsParallelNode ? 400 : 64;
-                        maxX = Math.Max(maxX, node.X + defaultWidth);
-                        maxY = Math.Max(maxY, node.Y + defaultHeight);
-                    }
-                }
-
-                // 计算新的画布尺寸，添加足够的边距
-                double newCanvasWidth = Math.Max(1200, maxX + 200);  // 增加右边距
-                double newCanvasHeight = Math.Max(800, maxY + 200);  // 增加下边距
-
-                _logger.LogDebug("画布尺寸计算: maxX={MaxX}, maxY={MaxY} -> 新尺寸: {Width}x{Height}",
-                    maxX, maxY, newCanvasWidth, newCanvasHeight);
-
-                bool sizeChanged = Math.Abs(CanvasWidth - newCanvasWidth) > 1 || Math.Abs(CanvasHeight - newCanvasHeight) > 1;
-
-                if (sizeChanged)
-                {
-                    _logger.LogDebug("画布大小将更新: {OldWidth}x{OldHeight} -> {NewWidth}x{NewHeight}",
-                        CanvasWidth, CanvasHeight, newCanvasWidth, newCanvasHeight);
-                }
-
-                CanvasWidth = newCanvasWidth;
-                CanvasHeight = newCanvasHeight;
-
-                if (sizeChanged)
-                {
-                    _logger.LogInformation("画布大小已更新: {Width}x{Height}", CanvasWidth, CanvasHeight);
-                    RaisePropertyChanged(nameof(CanvasWidth));
-                    RaisePropertyChanged(nameof(CanvasHeight));
-                }
-
-                _logger.LogTrace("主画布大小更新完成");
+                CanvasWidth = 1200;
+                CanvasHeight = 800;
+                return;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "更新画布大小失败");
-            }
+
+            var rightmost = CommandNodes.Max(n => n.X + n.GetActualWidth());
+            CanvasWidth = Math.Max(1200, rightmost + 200);
+
+            var tallest = CommandNodes.Max(n => n.Y + n.GetActualHeight());
+            CanvasHeight = Math.Max(600, tallest + 150);
         }
 
         #endregion
@@ -3581,7 +3385,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     _logger.LogDebug("删除节点: {NodeName}", node.DisplayName);
                     CommandNodes.Remove(node);
                     RearrangeNodes();
-
+                    SyncSwimlaneRows(); // ← 加这行
                     _logger.LogInformation("命令节点 {NodeName} 已从流程设计器移除，剩余节点: {Count}, 连接线: {ConnectionCount}",
                         node.DisplayName, CommandNodes.Count, Connections.Count);
                 }

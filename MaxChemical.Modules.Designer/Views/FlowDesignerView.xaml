@@ -1,4 +1,4 @@
-﻿<!-- FlowDesignerView.xaml - 修复设备命令节点显示问题 -->
+<!-- FlowDesignerView.xaml - 水平流程布局 + 泳道图 -->
 <UserControl x:Class="MaxChemical.Modules.Designer.Views.FlowDesignerView"
              x:Name="FlowDesignerRoot"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -21,8 +21,6 @@
         <converters:NodeExecutionStatusToBrushConverter x:Key="ExecutionStatusToBrushConverter"/>
         <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
 
-      
-
         <!-- 自定义按钮样式 -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -41,6 +39,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- 设备命令节点模板 -->
         <DataTemplate x:Key="DeviceCommandNodeTemplate">
             <Border Width="231" Height="64"
@@ -139,7 +138,6 @@
                                    Foreground="#333"
                                    TextTrimming="CharacterEllipsis"/>
 
-                                <!-- 参数摘要：使用 StringToVisibilityConverter 控制显示 -->
                                 <TextBlock Text="{Binding ParameterSummary}"
                                    FontSize="10"
                                    Foreground="#777"
@@ -149,27 +147,19 @@
 
                             <!-- 右侧：执行/停止按钮 + 状态点/耗时 -->
                             <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
-                                <!-- 执行/停止切换按钮 -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Width="24" Height="24" Margin="0,0,4,0"
                 Tag="{Binding}"
                 Click="DeviceNode_ExecuteToggleClick">
-
-                                        <!-- 只设置一次Style，移除重复的Style属性 -->
                                         <Button.Style>
                                             <Style TargetType="Button" BasedOn="{StaticResource ToolButtonStyle}">
-                                                <!-- 默认状态：执行按钮 -->
                                                 <Setter Property="ToolTip" Value="执行该命令"/>
                                                 <Setter Property="IsEnabled" Value="{Binding HasDeviceBinding}"/>
-
                                                 <Style.Triggers>
-                                                    <!-- 正在执行状态：显示停止按钮 -->
                                                     <DataTrigger Binding="{Binding IsManualExecuting}" Value="True">
                                                         <Setter Property="ToolTip" Value="停止该命令"/>
                                                         <Setter Property="IsEnabled" Value="True"/>
                                                     </DataTrigger>
-
-                                                    <!-- 未绑定设备状态：禁用按钮 -->
                                                     <DataTrigger Binding="{Binding HasDeviceBinding}" Value="False">
                                                         <Setter Property="IsEnabled" Value="False"/>
                                                         <Setter Property="ToolTip" Value="请先绑定设备"/>
@@ -177,29 +167,20 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-
-                                        <!-- 按钮内容：根据执行状态切换图片 -->
                                         <Image Width="22" Height="22" Stretch="Uniform">
                                             <Image.Style>
                                                 <Style TargetType="Image">
-                                                    <!-- 默认：执行图标 -->
                                                     <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/play.png"/>
                                                     <Setter Property="Opacity" Value="1"/>
-
                                                     <Style.Triggers>
-                                                        <!-- 正在执行：停止图标 -->
                                                         <DataTrigger Binding="{Binding IsManualExecuting}" Value="True">
                                                             <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/stop.png"/>
                                                             <Setter Property="Opacity" Value="1"/>
                                                         </DataTrigger>
-
-                                                        <!-- 未绑定设备：禁用状态，图标变灰 -->
                                                         <DataTrigger Binding="{Binding HasDeviceBinding}" Value="False">
                                                             <Setter Property="Source" Value="pack://siteoforigin:,,,/Resources/Icon/play_disabled.png"/>
                                                             <Setter Property="Opacity" Value="0.5"/>
                                                         </DataTrigger>
-
-                                                        <!-- 执行状态的优先级更高 -->
                                                         <MultiDataTrigger>
                                                             <MultiDataTrigger.Conditions>
                                                                 <Condition Binding="{Binding IsManualExecuting}" Value="True"/>
@@ -251,7 +232,7 @@
                         </Grid>
                     </Border>
 
-                    <!-- 右上角 小黄点：未绑定提示 -->
+                    <!-- 右上角小黄点：未绑定提示 -->
                     <Ellipse Width="8" Height="8"
                      Fill="Gold"
                      Stroke="DarkGoldenrod"
@@ -273,7 +254,7 @@
                         </Ellipse.Style>
                     </Ellipse>
 
-                    <!-- 删除按钮（保持你的原逻辑） -->
+                    <!-- 删除按钮 -->
                     <Border x:Name="DeleteButton"
                     Width="20" Height="20"
                     Background="Transparent"
@@ -316,7 +297,7 @@
             </Border>
         </DataTemplate>
 
-        <!-- 右侧属性栏用的 DataTemplate：设备命令 -->
+        <!-- 右侧属性栏用的 DataTemplate -->
         <DataTemplate x:Key="DeviceCommandPropertiesTemplate">
             <views:DeviceCommandPropertiesView/>
         </DataTemplate>
@@ -326,11 +307,9 @@
         <DataTemplate x:Key="LoopCommandPropertiesTemplate">
             <views:LoopCommandPropertiesView/>
         </DataTemplate>
-        <!-- 右侧属性栏用的 DataTemplate：并行命令 -->
         <DataTemplate x:Key="ParallelCommandPropertiesTemplate">
             <views:ParallelCommandPropertiesView/>
         </DataTemplate>
-        <!-- 等待命令属性模板 -->
         <DataTemplate x:Key="WaitCommandPropertiesTemplate">
             <views:WaitPropertiesView/>
         </DataTemplate>
@@ -350,8 +329,7 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
-        
-        
+
     </UserControl.Resources>
 
     <Grid>
@@ -363,38 +341,50 @@
                    RadiusX="4"
                    RadiusY="4"/>
 
-        <!-- 两列：左=画布，右=属性栏 -->
+        <!--
+            外层布局：
+            - 2列：左=画布区域、右=属性栏
+            - 2行：上=工具栏+画布、下=泳道图
+            - 右侧属性栏 RowSpan="2" 占满两行高度
+        -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="360" />
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <!-- 上方：工具栏 + 画布 -->
+                <RowDefinition Height="5" />        <!-- GridSplitter 占用的行 -->
+                <RowDefinition Height="400" MinHeight="200" />
+                <!-- 下方：泳道图，可拖拽调整 -->
+            </Grid.RowDefinitions>
 
-            <!-- 顶部工具栏区域 -->
-            <Border  Grid.ColumnSpan="2" Height="72" VerticalAlignment="Top">
+            <!-- ==================== 顶部工具栏（跨两列，固定在顶部） ==================== -->
+            <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                    Height="72" VerticalAlignment="Top"
+                    Panel.ZIndex="20">
                 <Border.Background>
                     <SolidColorBrush Color="#EEEEEE" Opacity="0.27"/>
                 </Border.Background>
 
-                <StackPanel Orientation="Horizontal" 
+                <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             Margin="10">
 
-                    <!-- 流程控制图标 -->
-                    <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/control.png" 
+                    <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/control.png"
                            Width="27" Height="22"
                            VerticalAlignment="Center"
                            Margin="0,0,16,0"/>
 
-                    <TextBlock Text="流程控制:" 
+                    <TextBlock Text="流程控制:"
                                FontSize="14"
                                Foreground="#747474"
                                VerticalAlignment="Center"
                                Margin="0,0,16,0"/>
 
-                    <!-- 动态生成的工具按钮 -->
-                    <ItemsControl ItemsSource="{Binding LogicCommandPlugins}" 
+                    <ItemsControl ItemsSource="{Binding LogicCommandPlugins}"
                                   x:Name="ToolbarItemsControl">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -409,7 +399,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- 管理按钮 -->
                     <StackPanel Orientation="Horizontal" Margin="16,0,0,0">
                         <Button Command="{Binding ValidateAllNodesCommand}"
                                 Width="32" Height="32"
@@ -418,46 +407,38 @@
                                 ToolTip="验证所有节点配置"
                                 Margin="0,0,8,0">
                             <Path Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z"
-                                  Fill="#4CAF50"
-                                  Width="20" Height="20"
-                                  Stretch="Uniform"/>
+                                  Fill="#4CAF50" Width="20" Height="20" Stretch="Uniform"/>
                         </Button>
-
                         <Button Command="{Binding RefreshPluginsCommand}"
                                 Width="32" Height="32"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                ToolTip="刷新插件"
-                                Margin="0,0,0,0">
+                                ToolTip="刷新插件">
                             <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
-                                  Fill="#2196F3"
-                                  Width="20" Height="20"
-                                  Stretch="Uniform"/>
+                                  Fill="#2196F3" Width="20" Height="20" Stretch="Uniform"/>
                         </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- 主要内容区域 -->
-            <!-- 滚动视图包装画布 -->
-            <ScrollViewer x:Name="CanvasScrollViewer" 
+            <!-- ==================== 左上：画布 ScrollViewer（Row=0, Column=0） ==================== -->
+            <ScrollViewer x:Name="CanvasScrollViewer"
+                          Grid.Row="0" Grid.Column="0"
                           Margin="0,72,0,0"
-                          HorizontalScrollBarVisibility="Auto" 
-                          VerticalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
                           Background="Transparent"
                           CanContentScroll="False"
                           PanningMode="Both"
                           Style="{StaticResource ThinScrollViewerStyle}">
 
-                <!-- 画布容器 - 移除固定尺寸绑定，改用MinWidth和MinHeight -->
-                <Grid x:Name="CanvasContainer"  
+                <Grid x:Name="CanvasContainer"
                       Width="{Binding CanvasWidth}"
                       Height="{Binding CanvasHeight}"
-                      MinWidth="1200" 
-                      MinHeight="800"
+                      MinWidth="1200"
+                      MinHeight="600"
                       Background="Transparent">
 
-                    <!-- 主容器，支持拖放 -->
                     <Grid AllowDrop="True"
                           Drop="Canvas_Drop"
                           DragOver="Canvas_DragOver"
@@ -465,8 +446,8 @@
                           SizeChanged="MainGrid_SizeChanged">
 
                         <!-- 标题 -->
-                        <TextBlock Text="步骤流程编辑" 
-                                   FontSize="16" 
+                        <TextBlock Text="步骤流程编辑"
+                                   FontSize="16"
                                    FontWeight="Normal"
                                    Foreground="#999"
                                    HorizontalAlignment="Center"
@@ -479,9 +460,9 @@
                                 Width="{Binding CanvasWidth}"
                                 Height="{Binding CanvasHeight}"
                                 Margin="0,35,0,0"
-                                 MouseDown="CanvasHost_MouseDown">
+                                MouseDown="CanvasHost_MouseDown">
 
-                            <!-- 流程启动节点 - ZIndex=10 -->
+                            <!-- 流程启动节点 -->
                             <Border x:Name="StartNode"
                                     Canvas.Left="{Binding StartNodeX}"
                                     Canvas.Top="{Binding StartNodeY}"
@@ -490,7 +471,6 @@
                                     Background="White"
                                     CornerRadius="6"
                                     Cursor="Arrow">
-                                <!-- 启动节点内容保持不变 -->
                                 <Border.Effect>
                                     <DropShadowEffect ShadowDepth="4"
                                                       Direction="315"
@@ -499,38 +479,36 @@
                                                       Opacity="0.25"/>
                                 </Border.Effect>
 
-                                <Grid Margin="16" >
+                                <Grid Margin="16">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- 左侧图标 -->
                                     <Grid Grid.Column="0" Width="24" Height="24" Margin="0,0,12,0">
                                         <Ellipse Width="24" Height="23" Fill="#6CB6FF"/>
-                                        <Path Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
-                                              Fill="White" 
+                                        <Path Data="M8,5.14V19.14L19,12.14L8,5.14Z"
+                                              Fill="White"
                                               Width="12" Height="12"
                                               Margin="2,0,0,0"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"
                                               Stretch="Uniform"/>
                                     </Grid>
 
-                                    <!-- 右侧文字内容 -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="流程启动" 
-                                                   FontSize="14" 
+                                        <TextBlock Text="流程启动"
+                                                   FontSize="14"
                                                    FontWeight="Medium"
                                                    Foreground="#333"
                                                    Margin="0,0,0,2"/>
-                                        <TextBlock Text="初始化执行环境" 
-                                                   FontSize="11" 
+                                        <TextBlock Text="初始化执行环境"
+                                                   FontSize="11"
                                                    Foreground="#999"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
 
-                            <!-- 命令节点集合 - ZIndex=10，确保节点在连接线之上 -->
+                            <!-- 命令节点集合 - ZIndex=10 -->
                             <ItemsControl ItemsSource="{Binding CommandNodes}"
                                           Panel.ZIndex="10">
                                 <ItemsControl.ItemsPanel>
@@ -548,9 +526,8 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-              RenderTransformOrigin="0.5,0.5">
+                                              RenderTransformOrigin="0.5,0.5">
 
-                                            <!-- 设置RenderTransform用于动画 -->
                                             <Grid.RenderTransform>
                                                 <TransformGroup>
                                                     <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
@@ -558,55 +535,43 @@
                                                 </TransformGroup>
                                             </Grid.RenderTransform>
 
-                                            <!-- 逻辑节点高亮样式（保持不变） -->
                                             <Grid.Style>
                                                 <Style TargetType="Grid">
                                                     <Style.Triggers>
-                                                        <!-- 插入高亮状态 - 为逻辑命令节点添加高亮效果 -->
                                                         <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
                                                             <Setter Property="Effect">
                                                                 <Setter.Value>
                                                                     <DropShadowEffect ShadowDepth="0"
-                                                      Direction="0"
-                                                      BlurRadius="20"
-                                                      Color="#186DF5"
-                                                      Opacity="0.5"/>
+                                                                                      Direction="0"
+                                                                                      BlurRadius="20"
+                                                                                      Color="#186DF5"
+                                                                                      Opacity="0.5"/>
                                                                 </Setter.Value>
                                                             </Setter>
-
-                                                            <!-- 逻辑节点的高亮动画 -->
                                                             <DataTrigger.EnterActions>
                                                                 <BeginStoryboard>
                                                                     <Storyboard>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                         To="1.02" Duration="0:0:0.3"
-                                                         DecelerationRatio="0.6"/>
+                                                                                         To="1.02" Duration="0:0:0.3" DecelerationRatio="0.6"/>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                         To="1.02" Duration="0:0:0.3"
-                                                         DecelerationRatio="0.6"/>
+                                                                                         To="1.02" Duration="0:0:0.3" DecelerationRatio="0.6"/>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                         To="-3" Duration="0:0:0.3"
-                                                         DecelerationRatio="0.6"/>
-                                                                        <!-- 发光脉冲效果 -->
+                                                                                         To="-3" Duration="0:0:0.3" DecelerationRatio="0.6"/>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)"
-                                                         From="0.5" To="0.8" Duration="0:0:0.8"
-                                                         AutoReverse="True" RepeatBehavior="Forever"/>
+                                                                                         From="0.5" To="0.8" Duration="0:0:0.8"
+                                                                                         AutoReverse="True" RepeatBehavior="Forever"/>
                                                                     </Storyboard>
                                                                 </BeginStoryboard>
                                                             </DataTrigger.EnterActions>
-
                                                             <DataTrigger.ExitActions>
                                                                 <BeginStoryboard>
                                                                     <Storyboard>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                         To="1.0" Duration="0:0:0.3"
-                                                         AccelerationRatio="0.3"/>
+                                                                                         To="1.0" Duration="0:0:0.3" AccelerationRatio="0.3"/>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                         To="1.0" Duration="0:0:0.3"
-                                                         AccelerationRatio="0.3"/>
+                                                                                         To="1.0" Duration="0:0:0.3" AccelerationRatio="0.3"/>
                                                                         <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                         To="0" Duration="0:0:0.3"
-                                                         AccelerationRatio="0.3"/>
+                                                                                         To="0" Duration="0:0:0.3" AccelerationRatio="0.3"/>
                                                                     </Storyboard>
                                                                 </BeginStoryboard>
                                                             </DataTrigger.ExitActions>
@@ -617,8 +582,8 @@
 
                                             <!-- 插件创建的逻辑命令节点控件 -->
                                             <ContentPresenter Content="{Binding NodeControl}"
-                              PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown"
-                              Visibility="{Binding NodeControl, Converter={StaticResource StringToVisibilityConverter}}">
+                                                              PreviewMouseLeftButtonDown="NodeControl_PreviewMouseLeftButtonDown"
+                                                              Visibility="{Binding NodeControl, Converter={StaticResource StringToVisibilityConverter}}">
                                                 <ContentPresenter.Style>
                                                     <Style TargetType="ContentPresenter">
                                                         <EventSetter Event="Loaded" Handler="ComplexNodeControl_Loaded"/>
@@ -626,9 +591,9 @@
                                                 </ContentPresenter.Style>
                                             </ContentPresenter>
 
-                                            <!-- 默认的设备命令节点模板 -->
+                                            <!-- 默认设备命令节点模板 -->
                                             <ContentPresenter ContentTemplate="{StaticResource DeviceCommandNodeTemplate}"
-                              Content="{Binding}">
+                                                              Content="{Binding}">
                                                 <ContentPresenter.Style>
                                                     <Style TargetType="ContentPresenter">
                                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -648,7 +613,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <!-- 连接线集合 - ZIndex=5，确保连接线在节点之下但在背景之上 -->
+                            <!-- 连接线集合 - ZIndex=5，水平箭头方向 -->
                             <ItemsControl ItemsSource="{Binding Connections}"
                                           Panel.ZIndex="5">
                                 <ItemsControl.ItemsPanel>
@@ -663,31 +628,373 @@
                                         <Setter Property="Panel.ZIndex" Value="5" />
                                     </Style>
                                 </ItemsControl.ItemContainerStyle>
+                                <!-- 水平连接线模板：TotalHeight 字段复用为总宽度 -->
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <!-- 连接线模板 -->
-                                        <Canvas Width="10" Height="{Binding TotalHeight}">
-                                            <!-- 竖直线 -->
-                                            <Rectangle Fill="#979797" 
-                                                       Width="1" 
-                                                       Height="{Binding LineLength}"
-                                                       Canvas.Left="4"
-                                                       Canvas.Top="0"/>
-                                            <!-- 向下箭头 -->
-                                            <Path Data="M0,0 L8,0 L4,8 Z" 
-                                                  Fill="#979797" 
-                                                  Canvas.Left="1"
-                                                  Canvas.Top="{Binding ArrowTop}"/>
+                                        <Canvas Width="{Binding TotalHeight}" Height="10">
+                                            <!-- 水平线 -->
+                                            <Rectangle Fill="#979797"
+                                                       Width="{Binding LineLength}"
+                                                       Height="1"
+                                                       Canvas.Left="0"
+                                                       Canvas.Top="4"/>
+                                            <!-- 向右箭头三角形 -->
+                                            <Path Data="M0,0 L0,8 L8,4 Z"
+                                                  Fill="#979797"
+                                                  Canvas.Left="{Binding ArrowTop}"
+                                                  Canvas.Top="1"/>
                                         </Canvas>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
                         </Canvas>
                     </Grid>
                 </Grid>
             </ScrollViewer>
-            <!-- 右侧属性栏 -->
-            <Border x:Name="PropertyPanelRoot" Grid.Column="1"
+            <!-- ==================== GridSplitter 分割条 ==================== -->
+            <GridSplitter Grid.Row="1" Grid.Column="0"
+              Height="5"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Center"
+              Background="#E0E0E0"
+              ShowsPreview="False"
+              Cursor="SizeNS"/>
+            <!-- ══ 泳道图（Row=1, Column=0） ══ -->
+            <Border Grid.Row="2" Grid.Column="0"
+        BorderBrush="#D0D0D0" BorderThickness="0,1,0,0"
+        Background="White">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- ── 顶栏 ── -->
+                    <Border Grid.Row="0" Padding="14,10"
+            BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
+            Background="#F8F9FA">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="实验流程执行记录"
+                     FontSize="13" FontWeight="Medium"
+                     Foreground="#333"/>
+                                <TextBlock FontSize="11" Foreground="#999" Margin="0,3,0,0"
+           Text="{Binding SwimlaneRows.Count, StringFormat='共 {0} 个步骤'}"/>
+                            </StackPanel>
+
+                            <!-- 状态汇总：小圆点 + 文字 -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                    VerticalAlignment="Center" Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#43A047" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <!-- 修改后 -->
+                                    <TextBlock FontSize="11" Foreground="#555" VerticalAlignment="Center"
+           Text="{Binding CompletedCount, StringFormat='完成 {0}'}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#1976D2" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <!-- 修改后 -->
+                                    <TextBlock FontSize="11" Foreground="#555" VerticalAlignment="Center"
+           Text="{Binding ExecutingCount, StringFormat='执行中 {0}'}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#E53935" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <!-- 修改后 -->
+                                    <TextBlock FontSize="11" Foreground="#555" VerticalAlignment="Center"
+           Text="{Binding FailedCount, StringFormat='失败 {0}'}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#BDBDBD" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock FontSize="11" Foreground="#555" VerticalAlignment="Center"
+           Text="{Binding IdleCount, StringFormat='未执行 {0}'}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── 列头（步骤 + 时间刻度） ── -->
+                    <Border Grid.Row="1" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
+            Background="#F4F5F7">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="185"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="步骤"
+                   FontSize="10" Foreground="#999"
+                   Padding="16,6" VerticalAlignment="Center"/>
+                            <Canvas Grid.Column="1" Height="26" ClipToBounds="True">
+                                <Rectangle Canvas.Left="0"   Width="0.5" Height="6" Fill="#CCCCCC" Canvas.Bottom="0"/>
+                                <TextBlock Canvas.Left="3"   Canvas.Top="5" Text="0s"  FontSize="9" Foreground="#999"/>
+                                <Rectangle Canvas.Left="104" Width="0.5" Height="6" Fill="#CCCCCC" Canvas.Bottom="0"/>
+                                <TextBlock Canvas.Left="107" Canvas.Top="5" Text="2s"  FontSize="9" Foreground="#999"/>
+                                <Rectangle Canvas.Left="208" Width="0.5" Height="6" Fill="#CCCCCC" Canvas.Bottom="0"/>
+                                <TextBlock Canvas.Left="211" Canvas.Top="5" Text="4s"  FontSize="9" Foreground="#999"/>
+                                <Rectangle Canvas.Left="312" Width="0.5" Height="6" Fill="#CCCCCC" Canvas.Bottom="0"/>
+                                <TextBlock Canvas.Left="315" Canvas.Top="5" Text="6s"  FontSize="9" Foreground="#999"/>
+                                <Rectangle Canvas.Left="416" Width="0.5" Height="6" Fill="#CCCCCC" Canvas.Bottom="0"/>
+                                <TextBlock Canvas.Left="419" Canvas.Top="5" Text="8s"  FontSize="9" Foreground="#999"/>
+                                <Rectangle Canvas.Left="520" Width="0.5" Height="6" Fill="#CCCCCC" Canvas.Bottom="0"/>
+                                <TextBlock Canvas.Left="523" Canvas.Top="5" Text="10s" FontSize="9" Foreground="#999"/>
+                            </Canvas>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── 数据行列表 ── -->
+                    <ScrollViewer Grid.Row="2"  Style="{StaticResource ThinScrollViewerStyle}"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding SwimlaneRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#F0F0F0" BorderThickness="0,0,0,1" Height="54">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="185"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- 名称列：序号圆圈 + 节点名 + 类型 -->
+                                            <Border Grid.Column="0"
+                        BorderBrush="#EEEEEE" BorderThickness="0,0,1,0"
+                        Padding="14,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- 序号圆圈：细边框，颜色跟随状态，无底色填充 -->
+                                                    <Border Grid.Column="0"
+                            Width="22" Height="22"
+                            CornerRadius="11"
+                            VerticalAlignment="Center"
+                            Margin="0,0,10,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="BorderThickness" Value="1.5"/>
+                                                                <Setter Property="BorderBrush"     Value="#BDBDBD"/>
+                                                                <Setter Property="Background"      Value="Transparent"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                        <Setter Property="BorderBrush" Value="#43A047"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsExecuting}" Value="True">
+                                                                        <Setter Property="BorderBrush" Value="#1976D2"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                        <Setter Property="BorderBrush" Value="#E53935"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding RowIndexDisplay}"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontSize="11" FontWeight="Medium">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="#BDBDBD"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                            <Setter Property="Foreground" Value="#43A047"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsExecuting}" Value="True">
+                                                                            <Setter Property="Foreground" Value="#1976D2"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                            <Setter Property="Foreground" Value="#E53935"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+
+                                                    <!-- 节点名 + 类型 -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                        <TextBlock Text="{Binding NodeName}"
+                                 FontSize="12" FontWeight="Medium"
+                                 Foreground="#333"
+                                 TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding NodeType}"
+                                 FontSize="10" Foreground="#999"
+                                 Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- 轨道列：网格线 + 时间戳 + 条块 -->
+                                            <Canvas Grid.Column="1" ClipToBounds="True">
+
+                                                <!-- 背景网格竖线 -->
+                                                <Rectangle Canvas.Left="104" Width="0.5" Height="54" Fill="#EEEEEE"/>
+                                                <Rectangle Canvas.Left="208" Width="0.5" Height="54" Fill="#EEEEEE"/>
+                                                <Rectangle Canvas.Left="312" Width="0.5" Height="54" Fill="#EEEEEE"/>
+                                                <Rectangle Canvas.Left="416" Width="0.5" Height="54" Fill="#EEEEEE"/>
+
+                                                <!-- 开始时间：条块左端正上方 -->
+                                                <TextBlock Canvas.Left="{Binding BarLeft}"
+                             Canvas.Top="4"
+                             Text="{Binding StartTimeText}"
+                             FontSize="9" Foreground="#AAAAAA"
+                             Visibility="{Binding StartTimeText,
+                               Converter={StaticResource StringToVisibilityConverter}}"/>
+
+                                                <!-- 结束时间：条块右端正上方，绑定 EndTimeLabelLeft -->
+                                                <TextBlock Canvas.Left="{Binding EndTimeLabelLeft}"
+                             Canvas.Top="4"
+                             Text="{Binding EndTimeText}"
+                             FontSize="9" Foreground="#AAAAAA"
+                             Visibility="{Binding EndTimeText,
+                               Converter={StaticResource StringToVisibilityConverter}}"/>
+
+                                                <!-- 条块主体 -->
+                                                <Border Canvas.Top="19"
+                          Canvas.Left="{Binding BarLeft}"
+                          Width="{Binding BarWidth}"
+                          Height="26" CornerRadius="4">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                    <Setter Property="Background" Value="#43A047"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsExecuting}" Value="True">
+                                                                    <Setter Property="Background" Value="#1976D2"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                    <Setter Property="Background" Value="#E53935"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding NodeName}"
+                               FontSize="10" Foreground="White"
+                               VerticalAlignment="Center"
+                               Margin="8,0,8,0"
+                               TextTrimming="CharacterEllipsis">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsExecuting}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+
+                                                <!-- 耗时标签：条块右侧 -->
+                                                <TextBlock Canvas.Top="23"
+                             Canvas.Left="{Binding DurLeft}"
+                             Text="{Binding DurationText}"
+                             FontSize="9" Foreground="#AAAAAA"
+                             Visibility="{Binding DurationText,
+                               Converter={StaticResource StringToVisibilityConverter}}"/>
+
+                                                <!-- 未执行占位文字 -->
+                                                <TextBlock Canvas.Left="10" Canvas.Top="19"
+                             Text="未执行"
+                             FontSize="10" Foreground="#CCCCCC"
+                             FontStyle="Italic">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding IsCompleted}" Value="False"/>
+                                                                        <Condition Binding="{Binding IsExecuting}" Value="False"/>
+                                                                        <Condition Binding="{Binding IsFailed}"   Value="False"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                            </Canvas>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- ── 底栏 ── -->
+                    <!-- 修复：StackPanel 无 Spacing 属性，改用各子元素 Margin -->
+                    <Border Grid.Row="3" Padding="16,9"
+            BorderBrush="#E5E5E5" BorderThickness="0,1,0,0"
+            Background="#F8F9FA">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="{Binding FlowStartTimeText}"
+                     FontSize="12" FontWeight="Medium" Foreground="#333"/>
+                                <TextBlock Text="开始时间" FontSize="10" Foreground="#999" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Rectangle Width="0.5" Height="24" Fill="#E0E0E0" Margin="0,0,16,0"/>
+
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="{Binding FlowEndTimeText}"
+                     FontSize="12" FontWeight="Medium" Foreground="#333"/>
+                                <TextBlock Text="结束时间" FontSize="10" Foreground="#999" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Rectangle Width="0.5" Height="24" Fill="#E0E0E0" Margin="0,0,16,0"/>
+
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="{Binding FlowElapsedText}"
+                     FontSize="12" FontWeight="Medium" Foreground="#333"/>
+                                <TextBlock Text="已用时长" FontSize="10" Foreground="#999" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Rectangle Width="0.5" Height="24" Fill="#E0E0E0" Margin="0,0,16,0"/>
+
+                            <!-- 进度条 -->
+                            <StackPanel MinWidth="120" VerticalAlignment="Center">
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="执行进度" FontSize="10" Foreground="#999"
+                       HorizontalAlignment="Left"/>
+                                    <TextBlock Text="{Binding ProgressText}" FontSize="10" FontWeight="Medium"
+                       Foreground="#333" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Border Height="3" CornerRadius="2" Background="#E5E5E5">
+                                    <Border Height="3" CornerRadius="2" Background="#43A047"
+                    HorizontalAlignment="Left"
+                    Width="{Binding ProgressBarWidth}"/>
+                                </Border>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </Border>
+
+                </Grid>
+            </Border>
+
+            <!-- ==================== 右侧属性栏（Row=0~1, Column=1，跨两行） ==================== -->
+            <Border x:Name="PropertyPanelRoot"
+                    Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
                     Margin="0,72,0,0"
                     Background="#FFFFFFFF"
                     BorderBrush="#E5E5E5"
@@ -700,7 +1007,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- 属性栏标题 -->
-                    <Border Background="#F7F7F9" Padding="12,10">
+                    <Border Grid.Row="0" Background="#F7F7F9" Padding="12,10">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="属性"
                                        FontSize="14"
@@ -716,21 +1023,17 @@
 
                     <!-- 属性内容：根据 SelectedNode 类型切换模板 -->
                     <ContentControl Grid.Row="1"
-                Content="{Binding SelectedNode}">
+                                    Content="{Binding SelectedNode}">
                         <ContentControl.Style>
                             <Style TargetType="ContentControl">
-                                <!-- 基础样式 -->
                                 <Setter Property="Background" Value="#FAFBFC"/>
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="ContentTemplate" Value="{StaticResource DefaultPropertiesTemplate}"/>
-
-                                <!-- 添加过渡动画 -->
                                 <Setter Property="RenderTransform">
                                     <Setter.Value>
                                         <TranslateTransform X="0"/>
                                     </Setter.Value>
                                 </Setter>
-
                                 <Style.Triggers>
                                     <!-- 设备命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsDeviceCommand}" Value="True">
@@ -739,15 +1042,13 @@
                                             <BeginStoryboard>
                                                 <Storyboard>
                                                     <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                 From="20" To="0" Duration="0:0:0.2"
-                                                 DecelerationRatio="0.8"/>
+                                                                     From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
                                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                                     From="0.8" To="1.0" Duration="0:0:0.2"/>
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
                                     </DataTrigger>
-
                                     <!-- IF命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsIfNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource IfCommandPropertiesTemplate}"/>
@@ -755,15 +1056,13 @@
                                             <BeginStoryboard>
                                                 <Storyboard>
                                                     <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                 From="20" To="0" Duration="0:0:0.2"
-                                                 DecelerationRatio="0.8"/>
+                                                                     From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
                                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                                     From="0.8" To="1.0" Duration="0:0:0.2"/>
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
                                     </DataTrigger>
-
                                     <!-- 循环命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsLoopNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource LoopCommandPropertiesTemplate}"/>
@@ -771,15 +1070,13 @@
                                             <BeginStoryboard>
                                                 <Storyboard>
                                                     <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                 From="20" To="0" Duration="0:0:0.2"
-                                                 DecelerationRatio="0.8"/>
+                                                                     From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
                                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                                     From="0.8" To="1.0" Duration="0:0:0.2"/>
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
                                     </DataTrigger>
-
                                     <!-- 并行命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsParallelNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource ParallelCommandPropertiesTemplate}"/>
@@ -787,15 +1084,13 @@
                                             <BeginStoryboard>
                                                 <Storyboard>
                                                     <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                 From="20" To="0" Duration="0:0:0.2"
-                                                 DecelerationRatio="0.8"/>
+                                                                     From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
                                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                                     From="0.8" To="1.0" Duration="0:0:0.2"/>
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
                                     </DataTrigger>
-
                                     <!-- 设置变量命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsSetVariableNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource SetVariableCommandPropertiesTemplate}"/>
@@ -803,15 +1098,13 @@
                                             <BeginStoryboard>
                                                 <Storyboard>
                                                     <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                 From="20" To="0" Duration="0:0:0.2"
-                                                 DecelerationRatio="0.8"/>
+                                                                     From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
                                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                                     From="0.8" To="1.0" Duration="0:0:0.2"/>
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
                                     </DataTrigger>
-
                                     <!-- 等待命令 -->
                                     <DataTrigger Binding="{Binding SelectedNode.IsWaitNode}" Value="True">
                                         <Setter Property="ContentTemplate" Value="{StaticResource WaitCommandPropertiesTemplate}"/>
@@ -819,10 +1112,9 @@
                                             <BeginStoryboard>
                                                 <Storyboard>
                                                     <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                             From="20" To="0" Duration="0:0:0.2"
-                             DecelerationRatio="0.8"/>
+                                                                     From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
                                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                                     From="0.8" To="1.0" Duration="0:0:0.2"/>
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
@@ -833,15 +1125,16 @@
                     </ContentControl>
                 </Grid>
             </Border>
+
         </Grid>
 
         <!-- 空状态提示 -->
-        <StackPanel HorizontalAlignment="Center" 
+        <StackPanel HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     IsHitTestVisible="False"
                     x:Name="EmptyStatePanel"
                     Visibility="Collapsed">
-            <!-- 空状态内容 -->
         </StackPanel>
+
     </Grid>
 </UserControl>
