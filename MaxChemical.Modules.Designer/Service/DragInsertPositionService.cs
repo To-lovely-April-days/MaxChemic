@@ -66,43 +66,43 @@ namespace MaxChemical.Modules.Designer.Services
         {
             var positions = new List<NodePositionInfo>();
 
-            // 添加启动节点
+            // 启动节点
             positions.Add(new NodePositionInfo
             {
                 Index = -1,
                 Node = null,
-                Y = viewModel.StartNodeY,
-                Height = 64,
-                Bottom = viewModel.StartNodeY + 64,
+                X = viewModel.StartNodeX,
+                Width = 231,
+                Right = viewModel.StartNodeX + 231,
                 IsStartNode = true
             });
 
-            // 添加所有命令节点
+            // 命令节点
             for (int i = 0; i < viewModel.CommandNodes.Count; i++)
             {
                 var node = viewModel.CommandNodes[i];
-                double height = GetNodeHeight(node);
+                double width = node.GetActualWidth() > 0 ? node.GetActualWidth() : NodeSizeEstimator.GetNodeWidth(node);
 
                 positions.Add(new NodePositionInfo
                 {
                     Index = i,
                     Node = node,
-                    Y = node.Y,
-                    Height = height,
-                    Bottom = node.Y + height
+                    X = node.X,
+                    Width = width,
+                    Right = node.X + width
                 });
             }
 
-            return positions.OrderBy(p => p.Y).ToList();
+            return positions.OrderBy(p => p.X).ToList(); // ← 按 X 排序
         }
 
         private (int Index, CommandNode HighlightNode) FindInsertPosition(Point mousePosition,
-            List<NodePositionInfo> nodePositions, FlowDesignerViewModel viewModel)
+      List<NodePositionInfo> nodePositions, FlowDesignerViewModel viewModel)
         {
-            double mouseY = mousePosition.Y;
+            double mouseX = mousePosition.X; // ← 改用 X
 
-            // 如果鼠标在第一个节点之前，插入到开头
-            if (nodePositions.Count > 1 && mouseY < nodePositions[1].Y - 20)
+            // 如果鼠标在第一个命令节点左边，插入到开头
+            if (nodePositions.Count > 1 && mouseX < nodePositions[1].X - 20)
             {
                 return (0, null);
             }
@@ -113,30 +113,21 @@ namespace MaxChemical.Modules.Designer.Services
                 var current = nodePositions[i];
                 var next = nodePositions[i + 1];
 
-                // 计算插入区域：当前节点底部到下一个节点顶部的中点
-                double insertRegionStart = current.Bottom + 10;
-                double insertRegionEnd = next.Y - 10;
-                double midPoint = (current.Bottom + next.Y) / 2;
+                double insertRegionStart = current.Right + 10;
+                double insertRegionEnd = next.X - 10;
+                double midPoint = (current.Right + next.X) / 2;
 
-                if (mouseY >= insertRegionStart && mouseY <= insertRegionEnd)
+                if (mouseX >= insertRegionStart && mouseX <= insertRegionEnd)
                 {
-                    // 如果在前半部分，插入在当前节点后；如果在后半部分，插入在下一个节点后
-                    if (mouseY <= midPoint)
-                    {
-                        int insertIndex = current.IsStartNode ? 0 : current.Index + 1;
-                        return (insertIndex, current.Node);
-                    }
-                    else
-                    {
-                        int insertIndex = next.Index + 1;
-                        return (insertIndex, next.Node);
-                    }
+                    // 不管偏左偏右，间隙里都插在 next 前面，高亮 next
+                    int insertIndex = next.IsStartNode ? 0 : next.Index;
+                    return (insertIndex, next.Node);
                 }
             }
 
-            // 如果鼠标在最后一个节点之后，插入到末尾
+            // 鼠标在最后一个节点上或右侧，插入末尾
             var lastNode = nodePositions.LastOrDefault(p => !p.IsStartNode);
-            if (lastNode != null && mouseY > lastNode.Bottom + 20)
+            if (lastNode != null && mouseX >= lastNode.X)
             {
                 return (viewModel.CommandNodes.Count, lastNode.Node);
             }
@@ -218,9 +209,9 @@ namespace MaxChemical.Modules.Designer.Services
         {
             public int Index { get; set; }
             public CommandNode Node { get; set; }
-            public double Y { get; set; }
-            public double Height { get; set; }
-            public double Bottom { get; set; }
+            public double X { get; set; }   // ← 改 Y → X
+            public double Width { get; set; } // ← 改 Height → Width
+            public double Right { get; set; } // ← 改 Bottom → Right
             public bool IsStartNode { get; set; }
         }
     }

@@ -39,7 +39,10 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly NodeControlFactory _nodeControlFactory;
         private readonly DesignerDragDropService _dragDropService;
         private readonly NodeManagementService _nodeManagementService;
-
+        /// <summary>
+        /// 返回整个 IF 节点控件的实际总宽度（RootCanvas.Width）
+        /// </summary>
+        public double TotalActualWidth => RootCanvas.Width > 0 ? RootCanvas.Width : ActualWidth;
         public IfNodeControlView()
         {
             InitializeComponent();
@@ -87,7 +90,8 @@ namespace MaxChemical.Modules.Designer.Views
         {
             _insertionIndicator = new Border
             {
-                Height = 2,
+                Width = 2,
+                Height = 60,  // 初始高度，ShowInsertionIndicator 时会动态调整
                 Background = new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4)),
                 CornerRadius = new CornerRadius(1),
                 Visibility = Visibility.Collapsed,
@@ -360,7 +364,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return info;
                 }
 
-                double cumulativeHeight = 0;
+                double cumulativeWidth = 0;
 
                 for (int i = 0; i < commandList.Count; i++)
                 {
@@ -369,19 +373,18 @@ namespace MaxChemical.Modules.Designer.Views
 
                     if (control != null)
                     {
-                        // 获取控件的实际高度
-                        double controlHeight = control.ActualHeight;
-                        if (controlHeight == 0)
+                        // 水平布局：获取控件的实际宽度
+                        double controlWidth = control.ActualWidth;
+                        if (controlWidth == 0)
                         {
                             control.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                            controlHeight = control.DesiredSize.Height;
+                            controlWidth = control.DesiredSize.Width;
                         }
-                        if (controlHeight == 0) controlHeight = 40; // 默认高度
+                        if (controlWidth == 0) controlWidth = 231; // 默认宽度
 
-                        // 检查鼠标是否在当前控件的上半部分
-                        if (mousePosition.Y <= cumulativeHeight + controlHeight / 2)
+                        // 检查鼠标是否在当前控件的左半部分（水平布局用 X）
+                        if (mousePosition.X <= cumulativeWidth + controlWidth / 2)
                         {
-                            // 插入到当前节点之前
                             info.InsertionIndex = i;
                             if (i == 0)
                             {
@@ -393,22 +396,22 @@ namespace MaxChemical.Modules.Designer.Views
                                 info.PreviousControl = FindControlForNode(branchContent, info.PreviousNode);
                             }
 
-                            _logger.LogTrace("鼠标位置 {Y} 在节点 {Index} 上半部分，插入位置: {InsertIndex}",
-                                mousePosition.Y, i, i);
+                            _logger.LogTrace("鼠标位置 {X} 在节点 {Index} 左半部分，插入位置: {InsertIndex}",
+                                mousePosition.X, i, i);
                             return info;
                         }
 
-                        cumulativeHeight += controlHeight + 8; // 8是margin
+                        cumulativeWidth += controlWidth + 8; // 8是间距
                     }
                 }
 
-                // 如果鼠标在所有元素下方，插入到末尾
+                // 如果鼠标在所有元素右侧，插入到末尾
                 info.InsertionIndex = commandList.Count;
                 info.PreviousNode = commandList[commandList.Count - 1];
                 info.PreviousControl = FindControlForNode(branchContent, info.PreviousNode);
 
-                _logger.LogTrace("鼠标位置 {Y} 在所有节点下方，插入位置: {InsertIndex}",
-                    mousePosition.Y, commandList.Count);
+                _logger.LogTrace("鼠标位置 {X} 在所有节点右侧，插入位置: {InsertIndex}",
+                    mousePosition.X, commandList.Count);
                 return info;
             }
             catch (Exception ex)
@@ -483,152 +486,7 @@ namespace MaxChemical.Modules.Designer.Views
 
 
         #endregion
-        #region 插入位置计算和指示器
-
-        private void EnsureInsertionIndicatorInBranch(StackPanel branchContent)
-        {
-            if (!branchContent.Children.Contains(_insertionIndicator))
-            {
-                // 从其他分支移除
-                TrueBranchContent.Children.Remove(_insertionIndicator);
-                FalseBranchContent.Children.Remove(_insertionIndicator);
-
-                // 添加到当前分支（暂时添加到末尾，稍后会调整位置）
-                branchContent.Children.Add(_insertionIndicator);
-            }
-        }
-
-
-        private int GetInsertionIndex(Point mousePosition, StackPanel branchContent)
-        {
-            try
-            {
-                // 获取实际的命令控件（排除插入指示器）
-                var commandControls = new List<UIElement>();
-                foreach (UIElement child in branchContent.Children)
-                {
-                    if (child != _insertionIndicator)
-                    {
-                        commandControls.Add(child);
-                    }
-                }
-
-                // 如果分支为空，插入位置为0
-                if (commandControls.Count == 0)
-                {
-                    return 0;
-                }
-
-                double cumulativeHeight = 0;
-
-                for (int i = 0; i < commandControls.Count; i++)
-                {
-                    var control = commandControls[i];
-
-                    // 获取控件的实际高度
-                    double controlHeight = 0;
-                    if (control is FrameworkElement fe)
-                    {
-                        controlHeight = fe.ActualHeight;
-                        if (controlHeight == 0)
-                        {
-                            fe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                            controlHeight = fe.DesiredSize.Height;
-                        }
-                    }
-                    if (controlHeight == 0) controlHeight = 40; // 默认高度
-
-                    // 检查鼠标是否在当前控件的上半部分
-                    if (mousePosition.Y <= cumulativeHeight + controlHeight / 2)
-                    {
-                        _logger.LogTrace("鼠标位置 {Y} 在控件 {Index} 上半部分，插入位置: {InsertIndex}",
-                            mousePosition.Y, i, i);
-                        return i;
-                    }
-
-                    cumulativeHeight += controlHeight + 8; // 8是margin
-                }
-
-                // 如果鼠标在所有元素下方，插入到末尾
-                _logger.LogTrace("鼠标位置 {Y} 在所有控件下方，插入位置: {InsertIndex}",
-                    mousePosition.Y, commandControls.Count);
-                return commandControls.Count;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "计算插入位置失败");
-                return 0;
-            }
-        }
-
-        private void ShowInsertionIndicator(int insertionIndex, StackPanel branchContent, bool isTrueBranch)
-        {
-            try
-            {
-                // 先移除指示器
-                branchContent.Children.Remove(_insertionIndicator);
-
-                // 获取实际的命令控件（排除插入指示器）
-                var commandControls = new List<UIElement>();
-                foreach (UIElement child in branchContent.Children)
-                {
-                    if (child != _insertionIndicator)
-                    {
-                        commandControls.Add(child);
-                    }
-                }
-
-                // 计算插入位置
-                int actualInsertIndex;
-
-                if (insertionIndex <= 0)
-                {
-                    actualInsertIndex = 0;
-                }
-                else if (insertionIndex >= commandControls.Count)
-                {
-                    actualInsertIndex = branchContent.Children.Count;
-                }
-                else
-                {
-                    // 找到第insertionIndex个命令控件在branchContent.Children中的实际位置
-                    var targetControl = commandControls[insertionIndex];
-                    actualInsertIndex = branchContent.Children.IndexOf(targetControl);
-                }
-
-                // 在指定位置插入指示器
-                branchContent.Children.Insert(actualInsertIndex, _insertionIndicator);
-
-                _insertionIndicator.Visibility = Visibility.Visible;
-                _insertionIndicator.Width = Math.Max(200, branchContent.ActualWidth - 16);
-
-                _logger.LogTrace("显示插入指示器: 分支={Branch}, 逻辑索引={LogicIndex}, 实际索引={ActualIndex}",
-                    isTrueBranch ? "TRUE" : "FALSE", insertionIndex, actualInsertIndex);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "显示插入指示器失败");
-            }
-        }
-
-        private void HideInsertionIndicator()
-        {
-            try
-            {
-                _insertionIndicator.Visibility = Visibility.Collapsed;
-                TrueBranchContent.Children.Remove(_insertionIndicator);
-                FalseBranchContent.Children.Remove(_insertionIndicator);
-                _currentInsertionIndex = -1;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "隐藏插入指示器失败");
-            }
-        }
-
-
-        #endregion
-
+    
         #region 命令添加
 
         private void HandleCommandDrop(DragEventArgs e, bool isTrueBranch, int insertionIndex = -1)
@@ -953,219 +811,173 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
-        #region 布局更新
+        // =====================================================================
+        // 以下方法完整替换 cs 文件中的 #region 布局更新 区域
+        // =====================================================================
+
+        // 布局常量
+        private const double CARD_WIDTH = 231.0;
+        private const double CARD_HEIGHT = 64.0;
+        private const double BRANCH_GAP_V = 20.0;   // TRUE/FALSE 分支之间的垂直间距
+        private const double BRANCH_OFFSET_X = 60.0; // 主卡片右边到分支容器左边的距离（走线区域）
+        private const double MIN_BRANCH_WIDTH = 200.0;
+        private const double MIN_BRANCH_HEIGHT = 76.0; // label(20) + padding(8) + minContent(40) + padding(8)
 
         private void UpdateBranchCanvasHeight()
         {
             try
             {
-                TrueBranchWrapper.UpdateLayout();
-                FalseBranchWrapper.UpdateLayout();
+                // 1. 手动计算两个分支的实际内容尺寸（比依赖 DesiredSize 更可靠）
+                var trueSize = CalculateBranchContentSize(TrueBranchContent);
+                var falseSize = CalculateBranchContentSize(FalseBranchContent);
 
-                var trueBranchSize = CalculateBranchContentSize(TrueBranchContent);
-                var falseBranchSize = CalculateBranchContentSize(FalseBranchContent);
+                // 加上 label 高度(约20) + dropzone padding(8*2) + border(1*2)
+                const double WRAPPER_EXTRA_H = 38.0;
 
-                _logger.LogTrace("TRUE分支尺寸: {Width}x{Height}", trueBranchSize.Width, trueBranchSize.Height);
-                _logger.LogTrace("FALSE分支尺寸: {Width}x{Height}", falseBranchSize.Width, falseBranchSize.Height);
+                double trueW = Math.Max(MIN_BRANCH_WIDTH, trueSize.Width);
+                double trueH = Math.Max(MIN_BRANCH_HEIGHT, trueSize.Height + WRAPPER_EXTRA_H);
+                double falseW = Math.Max(MIN_BRANCH_WIDTH, falseSize.Width);
+                double falseH = Math.Max(MIN_BRANCH_HEIGHT, falseSize.Height + WRAPPER_EXTRA_H);
 
-                AdjustBranchContainers(trueBranchSize, falseBranchSize);
-                UpdateCanvasSizeBasedOnBranches(trueBranchSize, falseBranchSize);
+                // 2. 计算整体高度
+                //    TRUE 分支在上，FALSE 在下，中间留 BRANCH_GAP_V
+                //    主卡片垂直居中于两个分支叠加后的总高度
+                double totalBranchH = trueH + BRANCH_GAP_V + falseH;
+                double cardTop = Math.Max(0, (totalBranchH - CARD_HEIGHT) / 2.0);
 
-                _logger.LogTrace("Canvas尺寸更新完成: {Width}x{Height}", BranchCanvas.Width, BranchCanvas.Height);
+                double canvasH = Math.Max(CARD_HEIGHT, totalBranchH);
+                double branchX = CARD_WIDTH + BRANCH_OFFSET_X; // 分支容器的 Canvas.Left
+
+                // 3. 计算分支容器的 Canvas.Top
+                double trueTop = (canvasH - totalBranchH) / 2.0;
+                double falseTop = trueTop + trueH + BRANCH_GAP_V;
+
+                // 4. 设置分支容器位置和尺寸
+                Canvas.SetLeft(TrueBranchWrapper, branchX);
+                Canvas.SetTop(TrueBranchWrapper, trueTop);
+                TrueBranchWrapper.Width = trueW;
+
+                Canvas.SetLeft(FalseBranchWrapper, branchX);
+                Canvas.SetTop(FalseBranchWrapper, falseTop);
+                FalseBranchWrapper.Width = falseW;
+
+                // 5. 主卡片垂直居中
+                Canvas.SetLeft(MainStepCard, 0);
+                Canvas.SetTop(MainStepCard, cardTop);
+
+                // 6. 计算连线坐标
+                //    主卡片右中点 → 分叉点 → 分叉出 TRUE/FALSE
+                double cardRightX = CARD_WIDTH;
+                double cardCenterY = cardTop + CARD_HEIGHT / 2.0;
+
+                double forkX = CARD_WIDTH + BRANCH_OFFSET_X / 2.0; // 分叉点在走线区域中间
+
+                double trueCenterY = trueTop + trueH / 2.0;
+                double falseCenterY = falseTop + falseH / 2.0;
+
+                // 主横线：卡片右边 → 分叉点
+                MainHorizontalLine.X1 = cardRightX;
+                MainHorizontalLine.Y1 = cardCenterY;
+                MainHorizontalLine.X2 = forkX;
+                MainHorizontalLine.Y2 = cardCenterY;
+
+                // 分叉竖线：连接 TRUE 中心 Y 到 FALSE 中心 Y
+                BranchVerticalLine.X1 = forkX;
+                BranchVerticalLine.Y1 = trueCenterY;
+                BranchVerticalLine.X2 = forkX;
+                BranchVerticalLine.Y2 = falseCenterY;
+
+                // TRUE 横线：分叉点 → TRUE 容器左边，箭头在末端
+                TrueHorizontalLine.X1 = forkX;
+                TrueHorizontalLine.Y1 = trueCenterY;
+                TrueHorizontalLine.X2 = branchX - 8; // 留出箭头空间
+                TrueHorizontalLine.Y2 = trueCenterY;
+
+                Canvas.SetLeft(TrueArrow, branchX - 8);
+                Canvas.SetTop(TrueArrow, trueCenterY - 4);
+
+                // FALSE 横线：分叉点 → FALSE 容器左边
+                FalseHorizontalLine.X1 = forkX;
+                FalseHorizontalLine.Y1 = falseCenterY;
+                FalseHorizontalLine.X2 = branchX - 8;
+                FalseHorizontalLine.Y2 = falseCenterY;
+
+                Canvas.SetLeft(FalseArrow, branchX - 8);
+                Canvas.SetTop(FalseArrow, falseCenterY - 4);
+
+                // 7. 设置 Canvas 总尺寸（让父级能正确测量）
+                double maxBranchW = Math.Max(trueW, falseW);
+                RootCanvas.Width = branchX + maxBranchW + 16;
+                RootCanvas.Height = canvasH;
+
+                _logger.LogTrace("IF横向布局: Canvas={W}x{H}, CardTop={CT}, TrueTop={TT}, FalseTop={FT}",
+                    RootCanvas.Width, RootCanvas.Height, cardTop, trueTop, falseTop);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "更新分支布局失败");
-                BranchCanvas.Width = 600;
-                BranchCanvas.Height = 200;
+                _logger.LogError(ex, "IF节点横向布局失败");
+                RootCanvas.Width = 600;
+                RootCanvas.Height = 200;
             }
         }
 
+        // CalculateBranchContentSize 保留但内容改为测量横向 StackPanel
         private Size CalculateBranchContentSize(StackPanel branchContent)
         {
-            double maxWidth = 200;
-            double totalHeight = 0;
+            double totalWidth = 0;
+            double maxHeight = 0;
+            int childCount = 0;
 
             foreach (UIElement child in branchContent.Children)
             {
-                // 跳过插入指示器
                 if (child == _insertionIndicator) continue;
-
                 try
                 {
-                    child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    var childSize = child.DesiredSize;
-                    maxWidth = Math.Max(maxWidth, childSize.Width);
-                    totalHeight += childSize.Height;
+                    double childW = 0, childH = 0;
 
-                    if (child is IfNodeControlView)
+                    if (child is FrameworkElement fe)
                     {
-                        maxWidth = Math.Max(maxWidth, 620);
-                    }
-                    else if (child is ParallelNodeControlView)
-                    {
-                        maxWidth = Math.Max(maxWidth, 1020);
-                    }
-                    else if (child is LoopNodeControlView)
-                    {
-                        maxWidth = Math.Max(maxWidth, 320);
+                        // 优先用实际渲染尺寸
+                        childW = fe.ActualWidth > 0 ? fe.ActualWidth : 0;
+                        childH = fe.ActualHeight > 0 ? fe.ActualHeight : 0;
                     }
 
-                    _logger.LogTrace("  子元素尺寸: {Width}x{Height}", childSize.Width, childSize.Height);
+                    // 实际尺寸为0时再测量
+                    if (childW <= 0 || childH <= 0)
+                    {
+                        child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        if (childW <= 0) childW = child.DesiredSize.Width;
+                        if (childH <= 0) childH = child.DesiredSize.Height;
+                    }
+
+                    if (childW <= 0) childW = 231;
+                    if (childH <= 0) childH = 64;
+
+                    totalWidth += childW;
+                    maxHeight = Math.Max(maxHeight, childH);
+                    childCount++;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    _logger.LogCritical(ex, "测量子元素失败");
-                    totalHeight += 40;
+                    totalWidth += 231;
+                    maxHeight = Math.Max(maxHeight, 64);
+                    childCount++;
                 }
             }
 
-            // 计算实际子元素数量（排除插入指示器）
-            int actualChildCount = 0;
-            foreach (UIElement child in branchContent.Children)
-            {
-                if (child != _insertionIndicator)
-                {
-                    actualChildCount++;
-                }
-            }
+            if (childCount > 1) totalWidth += (childCount - 1) * 8; // 节点间距
+            totalWidth += 16; // 内边距
 
-            totalHeight += Math.Max(0, actualChildCount - 1) * 8;
-            totalHeight += 16;
-
-            return new Size(maxWidth, Math.Max(60, totalHeight));
+            return new Size(Math.Max(MIN_BRANCH_WIDTH, totalWidth),
+                            Math.Max(0, maxHeight)); // 高度不在这里加padding，交给调用方
         }
 
-        private void AdjustBranchContainers(Size trueBranchSize, Size falseBranchSize)
-        {
-            try
-            {
-                double mainCardCenterX = CalculateMainCardCenterX();
-
-                const double FALSE_BOUNDARY_OFFSET = -50;
-                const double TRUE_BOUNDARY_OFFSET = 50;
-
-                double FALSE_FIXED_RIGHT_BOUNDARY = mainCardCenterX + FALSE_BOUNDARY_OFFSET;
-                double TRUE_FIXED_LEFT_BOUNDARY = mainCardCenterX + TRUE_BOUNDARY_OFFSET;
-
-                double trueBranchWidth = Math.Max(200, trueBranchSize.Width + 20);
-                double falseBranchWidth = Math.Max(200, falseBranchSize.Width + 20);
-
-                double falseRight = FALSE_FIXED_RIGHT_BOUNDARY;
-                double falseLeft = falseRight - falseBranchWidth;
-
-                double trueLeft = TRUE_FIXED_LEFT_BOUNDARY;
-
-                Canvas.SetLeft(FalseBranchWrapper, falseLeft);
-                Canvas.SetLeft(TrueBranchWrapper, trueLeft);
-
-                FalseBranchWrapper.Width = falseBranchWidth;
-                TrueBranchWrapper.Width = trueBranchWidth;
-                FalseBranchWrapper.MinWidth = falseBranchWidth;
-                TrueBranchWrapper.MinWidth = trueBranchWidth;
-
-                double falseCenterX = falseLeft + falseBranchWidth / 2;
-                double trueCenterX = trueLeft + trueBranchWidth / 2;
-
-                UpdateConnectionLines(falseCenterX, trueCenterX);
-
-                _logger.LogTrace("分支中心 - FALSE: {FalseCenter}, TRUE: {TrueCenter}", falseCenterX, trueCenterX);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "调整分支容器失败");
-            }
-        }
-
-        private void UpdateConnectionLines(double falseCenterX, double trueCenterX)
-        {
-            try
-            {
-                double mainCardCenterX = CalculateMainCardCenterX();
-
-                const double FALSE_OFFSET = -150;
-                const double TRUE_OFFSET = 150;
-
-                double falseConnectionX = mainCardCenterX + FALSE_OFFSET;
-                double trueConnectionX = mainCardCenterX + TRUE_OFFSET;
-
-                MainVerticalLine.X1 = mainCardCenterX;
-                MainVerticalLine.X2 = mainCardCenterX;
-
-                LeftHorizontalLine.X1 = falseConnectionX;
-                LeftHorizontalLine.X2 = mainCardCenterX;
-
-                RightHorizontalLine.X1 = mainCardCenterX;
-                RightHorizontalLine.X2 = trueConnectionX;
-
-                FalseVerticalLine.X1 = falseConnectionX;
-                FalseVerticalLine.X2 = falseConnectionX;
-
-                TrueVerticalLine.X1 = trueConnectionX;
-                TrueVerticalLine.X2 = trueConnectionX;
-
-                Canvas.SetLeft(FalseArrow, falseConnectionX - 4);
-                Canvas.SetLeft(TrueArrow, trueConnectionX - 4);
-
-                _logger.LogTrace("连接线更新: 主卡片中心({MainCenter}), FALSE连接点({FalseConnection}), TRUE连接点({TrueConnection})",
-                    mainCardCenterX, falseConnectionX, trueConnectionX);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "更新连接线失败");
-            }
-        }
-
-        private double CalculateMainCardCenterX()
-        {
-            try
-            {
-                double canvasWidth = BranchCanvas.ActualWidth > 0 ? BranchCanvas.ActualWidth : BranchCanvas.Width;
-                double mainCardCenterX = canvasWidth / 2;
-
-                _logger.LogTrace("Canvas宽度: {Width}, 主卡片中心: {Center}", canvasWidth, mainCardCenterX);
-                return mainCardCenterX;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "计算主卡片中心失败");
-                double defaultWidth = BranchCanvas.Width > 0 ? BranchCanvas.Width : 600;
-                return defaultWidth / 2;
-            }
-        }
-
-        private void UpdateCanvasSizeBasedOnBranches(Size trueBranchSize, Size falseBranchSize)
-        {
-            try
-            {
-                double trueBranchWidth = Math.Max(200, trueBranchSize.Width + 20);
-                double falseBranchWidth = Math.Max(200, falseBranchSize.Width + 20);
-
-                double maxBranchExtension = Math.Max(
-                    falseBranchWidth - 200,
-                    trueBranchWidth - 200
-                );
-
-                double canvasWidth = Math.Max(600, 600 + maxBranchExtension * 2);
-
-                double maxBranchHeight = Math.Max(trueBranchSize.Height, falseBranchSize.Height);
-                double canvasHeight = Math.Max(200, maxBranchHeight + 80);
-
-                BranchCanvas.Width = canvasWidth;
-                BranchCanvas.Height = canvasHeight;
-
-                _logger.LogTrace("Canvas尺寸计算:");
-                _logger.LogTrace("  FALSE分支宽度: {FalseWidth}, TRUE分支宽度: {TrueWidth}", falseBranchWidth, trueBranchWidth);
-                _logger.LogTrace("  最大扩展: {MaxExtension}", maxBranchExtension);
-                _logger.LogTrace("  最终Canvas宽度: {Width}x{Height}", canvasWidth, canvasHeight);
-
-                BranchCanvas.UpdateLayout();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "更新Canvas尺寸失败");
-            }
-        }
+        // AdjustBranchContainers / UpdateConnectionLines / UpdateCanvasSizeBasedOnBranches
+        // 这三个旧方法保留空实现即可（UpdateBranchCanvasHeight 已合并所有逻辑）
+        private void AdjustBranchContainers(Size t, Size f) { }
+        private void UpdateConnectionLines(double a, double b) { }
+        private void UpdateCanvasSizeBasedOnBranches(Size t, Size f) { }
+        private double CalculateMainCardCenterX() => CARD_WIDTH / 2.0;
 
         public void OnBranchContentChanged()
         {
@@ -1175,8 +987,6 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     UpdateBranchCanvasHeight();
                     ContentChanged?.Invoke(this, EventArgs.Empty);
-                    _logger.LogTrace("IF节点内容变化通知完成，当前控件尺寸: {Width}x{Height}",
-                        this.ActualWidth, this.ActualHeight);
                 }), System.Windows.Threading.DispatcherPriority.Background);
             }
             catch (Exception ex)
@@ -1184,6 +994,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "OnBranchContentChanged 错误");
             }
         }
+
         public void RefreshConditionDisplay()
         {
             try
@@ -1191,39 +1002,29 @@ namespace MaxChemical.Modules.Designer.Views
                 if (DataContext is not CommandNode node) return;
                 if (node.LogicCommand?.Properties == null) return;
 
-                System.Diagnostics.Debug.WriteLine($"RefreshConditionDisplay called for: {node.DisplayName}");
-
-                // 获取属性值
                 var leftOperand = node.LogicCommand.Properties.ContainsKey("LeftOperand")
-                    ? node.LogicCommand.Properties["LeftOperand"]?.ToString() ?? "A"
-                    : "A";
+                    ? node.LogicCommand.Properties["LeftOperand"]?.ToString() ?? "变量"
+                    : "变量";
 
                 var operatorStr = node.LogicCommand.Properties.ContainsKey("Operator")
-                    ? node.LogicCommand.Properties["Operator"]?.ToString() ?? "Equal"
-                    : "Equal";
+                    ? node.LogicCommand.Properties["Operator"]?.ToString() ?? "=="
+                    : "==";
 
                 var rightOperand = node.LogicCommand.Properties.ContainsKey("RightOperand")
-                    ? node.LogicCommand.Properties["RightOperand"]?.ToString() ?? "B"
-                    : "B";
+                    ? node.LogicCommand.Properties["RightOperand"]?.ToString() ?? "值"
+                    : "值";
 
-                // 转换操作符显示
+                // 将存储的 Operator 枚举值转换为显示符号
                 var operatorDisplay = ConvertOperatorForDisplay(operatorStr);
 
-                // 直接更新TextBlock的文本
                 if (ConditionSummaryText != null)
                 {
                     ConditionSummaryText.Text = $"{leftOperand} {operatorDisplay} {rightOperand}";
-                    System.Diagnostics.Debug.WriteLine($"Updated condition display: {leftOperand} {operatorDisplay} {rightOperand}");
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("ConditionSummaryText is null");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "刷新IF节点条件显示失败");
-                System.Diagnostics.Debug.WriteLine($"RefreshConditionDisplay error: {ex.Message}");
             }
         }
 
@@ -1244,6 +1045,5 @@ namespace MaxChemical.Modules.Designer.Views
                 _ => operatorValue
             };
         }
-        #endregion
     }
 }

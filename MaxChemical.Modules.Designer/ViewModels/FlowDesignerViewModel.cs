@@ -37,7 +37,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private double _canvasWidth = 1200;
         private double _canvasHeight = 800;
         private double _startNodeX = 20;
-        private double _startNodeY = 268;
+        private double _startNodeY=0 ;
         private bool _nodesVisible = true;
         private CommandNode _selectedNode;
 
@@ -1226,8 +1226,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 CanvasWidth = 1200;
                 CanvasHeight = 800;
                 StartNodeX = 20;
-                StartNodeY = (CanvasHeight - 64) / 2.0;
 
+                StartNodeY = 0;
                 //  5. 清空选择状态
                 SelectedNode = null;
 
@@ -1238,6 +1238,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     CommandNodes?.Count ?? 0,
                     Connections?.Count ?? 0,
                     CanvasDevices?.Count ?? 0);
+
                 _logger.LogDebug("========== 流程清空完成 ==========");
             }
             catch (Exception ex)
@@ -2379,10 +2380,32 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (plugin != null)
                 {
                     commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
+                    var capturedNode = commandNode;
+                    commandNode.NodeControl.SizeChanged += (s, e) =>
+                    {
+                        // 高度或宽度变化都需要重排（IF节点宽度会动态撑开）
+                        if (!e.HeightChanged && !e.WidthChanged) return;
+                        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            double startNodeCenterY = StartNodeY + 32.0;
+                            double newH = capturedNode.NodeControl.ActualHeight;
+                            if (newH <= 0) return;
+                            double correctY = startNodeCenterY - newH / 2.0;
+                            if (Math.Abs(capturedNode.Y - correctY) > 1.0)
+                            {
+                                capturedNode.Y = correctY;
+                            }
+                            // 不管Y有没有变，宽度变了也要重排后续节点和连接线
+                            int idx = CommandNodes.IndexOf(capturedNode);
+                            if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
+                            RebuildAllConnections();
+                        }), System.Windows.Threading.DispatcherPriority.Background);
+                    };
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                     commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
                     SubscribeToNodeControlEvents(commandNode, plugin);
+
                 }
 
                 CommandNodes.Add(commandNode);
@@ -2469,6 +2492,25 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (plugin != null)
                 {
                     commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
+                    var capturedNode = commandNode;
+                    commandNode.NodeControl.SizeChanged += (s, e) =>
+                    {
+                        if (!e.HeightChanged && !e.WidthChanged) return;
+                        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            double startNodeCenterY = StartNodeY + 32.0;
+                            double newH = capturedNode.NodeControl.ActualHeight;
+                            if (newH <= 0) return;
+                            double correctY = startNodeCenterY - newH / 2.0;
+                            if (Math.Abs(capturedNode.Y - correctY) > 1.0)
+                            {
+                                capturedNode.Y = correctY;
+                            }
+                            int idx = CommandNodes.IndexOf(capturedNode);
+                            if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
+                            RebuildAllConnections();
+                        }), System.Windows.Threading.DispatcherPriority.Background);
+                    };
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                     commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
@@ -2535,7 +2577,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     else
                     {
                         var prev = CommandNodes[i - 1];
-                        double prevW = NodeSizeEstimator.GetNodeWidth(prev);
+                        double prevW = GetNodeActualRenderWidth(prev);
                         node.X = prev.X + prevW + nodeSpacingX;
                         node.Y = startNodeCenterY - nodeH / 2.0;
                     }
@@ -2548,7 +2590,19 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 _logger.LogError(ex, "水平重新排列节点失败");
             }
         }
+        /// <summary>
+        /// 获取节点的真实渲染宽度，对 IF/Parallel/Loop 等复合节点读取 RootCanvas.Width
+        /// </summary>
+        private double GetNodeActualRenderWidth(CommandNode node)
+        {
+            if (node.NodeControl is Views.IfNodeControlView ifCtrl && ifCtrl.TotalActualWidth > 0)
+                return ifCtrl.TotalActualWidth;
 
+            double w = node.GetActualWidth();
+            if (w > 0) return w;
+
+            return NodeSizeEstimator.GetNodeWidth(node);
+        }
         private Point CalculateFirstNodePosition(CommandNode node)
         {
             const double standardNodeWidth = 231;
@@ -2993,7 +3047,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             if (CommandNodes.Count == 0)
             {
-                // 修复：用 NodeSizeEstimator.EstimateLogicNodeSize 代替不存在的 GetComplexNodeHeight
                 double estimatedH = standardNodeHeight;
                 if (IsComplexLogicCommand(logicCommand))
                 {
@@ -3007,10 +3060,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
 
             var lastNode = CommandNodes.Last();
-            double lastWidth = lastNode.GetActualWidth();
+
+            // ★ 修复：ActualWidth为0时用估算宽度
+            double lastWidth = GetNodeActualRenderWidth(lastNode);
             double nextX = lastNode.X + lastWidth + nodeSpacingX;
 
-            // 修复：估算新节点高度
             double newNodeH = standardNodeHeight;
             if (IsComplexLogicCommand(logicCommand))
             {
@@ -3178,7 +3232,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     var currentNode = CommandNodes[i];
                     var previousNode = CommandNodes[i - 1];
 
-                    double prevWidth = NodeSizeEstimator.GetNodeWidth(previousNode);
+                    double prevWidth = GetNodeActualRenderWidth(previousNode);
                     currentNode.X = previousNode.X + prevWidth + nodeSpacingX;
 
                     double currentH = NodeSizeEstimator.GetNodeHeight(currentNode);
@@ -3206,35 +3260,37 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 const double standardNodeWidth = 231;
                 const double standardNodeHeight = 64;
 
+                double fromCenterY;
+                double toCenterY = GetNodeMainCardCenterY(toNode);
+
                 if (CommandNodes.Count == 1)
                 {
-                    // StartNode → 第一个节点
                     double fromX = StartNodeX + standardNodeWidth;
-                    double fromY = StartNodeY + standardNodeHeight / 2.0;
+                    fromCenterY = StartNodeY + standardNodeHeight / 2.0;
 
                     connection = new NodeConnection
                     {
                         FromNodeId = "StartNode",
                         ToNodeId = toNode.NodeId,
                         X = fromX,
-                        Y = fromY - 0.5,   // 垂直居中，线宽1px
+                        Y = fromCenterY - 0.5,
                         LineLength = (int)(toNode.X - fromX - 8),
                         ArrowTop = (int)(toNode.X - fromX - 8),
-                        TotalHeight = (int)(toNode.X - fromX)    // 复用字段表示宽度
+                        TotalHeight = (int)(toNode.X - fromX)
                     };
                 }
                 else
                 {
                     var previousNode = CommandNodes[CommandNodes.Count - 2];
-                    double prevRight = previousNode.X + previousNode.GetActualWidth();
-                    double centerY = previousNode.Y + previousNode.GetActualHeight() / 2.0;
+                    double prevRight = previousNode.X + GetNodeActualRenderWidth(previousNode);
+                    fromCenterY = GetNodeMainCardCenterY(previousNode);
 
                     connection = new NodeConnection
                     {
                         FromNodeId = previousNode.NodeId,
                         ToNodeId = toNode.NodeId,
                         X = prevRight + 2,
-                        Y = centerY - 0.5,
+                        Y = fromCenterY - 0.5,
                         LineLength = (int)(toNode.X - prevRight - 10),
                         ArrowTop = (int)(toNode.X - prevRight - 10),
                         TotalHeight = (int)(toNode.X - prevRight)
@@ -3248,7 +3304,6 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 _logger.LogError(ex, "创建水平连接线失败: {NodeName}", toNode?.DisplayName);
             }
         }
-
         private void RebuildAllConnections()
         {
             Connections.Clear();
@@ -3260,17 +3315,20 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 var cur = CommandNodes[i];
                 NodeConnection conn;
 
+                // 获取节点主卡片的垂直中心Y（在Canvas坐标系中）
+                double curCenterY = GetNodeMainCardCenterY(cur);
+
                 if (i == 0)
                 {
                     double fromX = StartNodeX + standardNodeWidth;
-                    double fromY = StartNodeY + standardNodeHeight / 2.0;
+                    double fromCenterY = StartNodeY + standardNodeHeight / 2.0;
 
                     conn = new NodeConnection
                     {
                         FromNodeId = "StartNode",
                         ToNodeId = cur.NodeId,
                         X = fromX,
-                        Y = fromY - 0.5,
+                        Y = fromCenterY - 0.5,
                         LineLength = (int)(cur.X - fromX - 8),
                         ArrowTop = (int)(cur.X - fromX - 8),
                         TotalHeight = (int)(cur.X - fromX)
@@ -3279,15 +3337,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 else
                 {
                     var prev = CommandNodes[i - 1];
-                    double fromX = prev.X + prev.GetActualWidth() + 2;
-                    double fromY = prev.Y + prev.GetActualHeight() / 2.0;
+                    double prevActualWidth = GetNodeActualRenderWidth(prev);
+                    double fromX = prev.X + prevActualWidth + 2;
+                    double prevCenterY = GetNodeMainCardCenterY(prev);
 
                     conn = new NodeConnection
                     {
                         FromNodeId = prev.NodeId,
                         ToNodeId = cur.NodeId,
                         X = fromX,
-                        Y = fromY - 0.5,
+                        Y = prevCenterY - 0.5,
                         LineLength = (int)(cur.X - fromX - 8),
                         ArrowTop = (int)(cur.X - fromX - 8),
                         TotalHeight = (int)(cur.X - fromX)
@@ -3298,7 +3357,60 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             RaisePropertyChanged(nameof(Connections));
         }
+        /// <summary>
+        /// 获取节点主卡片的垂直中心Y（Canvas全局坐标）
+        /// 普通节点：node.Y + 32
+        /// IF/复合节点：node.Y + cardTop + 32
+        ///   其中 cardTop = (totalBranchH - 64) / 2，由 IfNodeControlView.UpdateBranchCanvasHeight 计算
+        ///   但我们可以直接用 NodeControl 的 ActualHeight 反推：
+        ///   cardTop = (NodeControl.ActualHeight - 64) / 2
+        /// </summary>
+        private double GetNodeMainCardCenterY(CommandNode node)
+        {
+            const double cardHeight = 64.0;
 
+            if (node.IsIfNode || node.IsLoopNode || node.IsParallelNode)
+            {
+                if (node.NodeControl != null && node.NodeControl.ActualHeight > 0)
+                {
+                    // 主卡片在 Canvas 内垂直居中
+                    double cardTop = (node.NodeControl.ActualHeight - cardHeight) / 2.0;
+                    return node.Y + cardTop + cardHeight / 2.0;
+                }
+                // NodeControl 还没渲染好，用估算值
+                // IF节点默认高度约200px，主卡片居中
+                double estimatedH = GetEstimatedNodeHeight(node);
+                double estimatedCardTop = (estimatedH - cardHeight) / 2.0;
+                return node.Y + estimatedCardTop + cardHeight / 2.0;
+            }
+
+            // 普通节点
+            return node.Y + cardHeight / 2.0;
+        }
+        /// <summary>
+        /// 获取节点连线的垂直中心Y坐标。
+        /// 对于复合节点（IF/Loop/Parallel），返回主卡片的中心Y；
+        /// 对于普通节点，返回节点自身中心Y。
+        /// </summary>
+        private double GetNodeConnectionCenterY(CommandNode node)
+        {
+            if (node == null) return 0;
+
+            // 复合节点：主卡片高度固定64，其在Canvas内的Top由后台布局计算
+            // IfNodeControlView 的布局：cardTop = (totalBranchH - 64) / 2
+            // 所以主卡片中心Y = node.Y + cardTop + 32
+            // 但最简单的做法：直接用 StartNodeY + 32（因为所有节点已经对齐到StartNode垂直中心）
+            const double standardNodeHeight = 64;
+
+            if (node.IsIfNode || node.IsLoopNode || node.IsParallelNode)
+            {
+                // 复合节点：主卡片垂直居中于StartNode中心线
+                return StartNodeY + standardNodeHeight / 2.0;
+            }
+
+            // 普通节点
+            return node.Y + node.GetActualHeight() / 2.0;
+        }
         public void RearrangeNodes()
         {
             try
@@ -3317,6 +3429,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     node.Order = i + 1;
 
                     double nodeActualWidth = node.GetActualWidth();
+                    if (nodeActualWidth <= 0)
+                        nodeActualWidth = NodeSizeEstimator.GetNodeWidth(node);
                     double nodeActualHeight = node.GetActualHeight();
 
                     if (i == 0)
@@ -3328,8 +3442,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     else
                     {
                         var prev = CommandNodes[i - 1];
-                        double prevWidth = prev.GetActualWidth();
-
+                        double prevWidth = GetNodeActualRenderWidth(prev);
                         node.X = prev.X + prevWidth + nodeSpacingX;
                         node.Y = startNodeCenterY - nodeActualHeight / 2.0;
                     }
@@ -3355,9 +3468,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
             if (CommandNodes == null || CommandNodes.Count == 0)
             {
                 CanvasWidth = 1200;
-                CanvasHeight = 800;
+                // CanvasHeight 不动
                 return;
             }
+
+ 
 
             var rightmost = CommandNodes.Max(n => n.X + n.GetActualWidth());
             CanvasWidth = Math.Max(1200, rightmost + 200);
@@ -3385,7 +3500,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     _logger.LogDebug("删除节点: {NodeName}", node.DisplayName);
                     CommandNodes.Remove(node);
                     RearrangeNodes();
-                    SyncSwimlaneRows(); // ← 加这行
+                    RebuildAllConnections(); // ← 加这行，重建连接线
+                    SyncSwimlaneRows();      // ← 同步泳道
+                    UpdateCanvasSize();      // ← 更新画布大小
+
                     _logger.LogInformation("命令节点 {NodeName} 已从流程设计器移除，剩余节点: {Count}, 连接线: {ConnectionCount}",
                         node.DisplayName, CommandNodes.Count, Connections.Count);
                 }
@@ -3475,7 +3593,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
 
         #endregion
-
+        /// <summary>
+        /// 供 View 调用的公开重建连接线方法
+        /// </summary>
+        public void RebuildAllConnectionsPublic()
+        {
+            RebuildAllConnections();
+        }
         #region 事件处理
 
         private void OnCommandDragComplete(CommandDragCompleteEventArgs args)
