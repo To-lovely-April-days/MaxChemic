@@ -152,28 +152,37 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (!_isExpanded)
                 {
+                    // 折叠时全部回到默认
                     MainContainer.Width = DEFAULT_WIDTH;
+                    MainContainer.MinWidth = DEFAULT_WIDTH;
+                    LoopContentWrapper.MinWidth = DEFAULT_WIDTH;
+                    RootPanel.MinWidth = 0;
+                    this.MinWidth = 0;
+                    this.Width = double.NaN;
                     return;
                 }
 
-                // ★ 核心修复：先清除固定宽度，让子内容不被约束
-                LoopContentWrapper.Width = double.NaN;
+                // ★ 先清除所有固定宽度和MinWidth，让子内容完全自由
                 MainContainer.Width = double.NaN;
+                MainContainer.MinWidth = DEFAULT_WIDTH;
+                LoopContentWrapper.Width = double.NaN;
+                LoopContentWrapper.MinWidth = DEFAULT_WIDTH;
+                RootPanel.MinWidth = 0;
+                this.MinWidth = 0;
+                this.Width = double.NaN;
 
-                // 强制布局更新，让子控件按自然大小渲染
+                // 强制布局更新
                 LoopChildrenContent.UpdateLayout();
 
-                // 遍历所有子控件，取最大宽度（跳过连接线箭头）
+                // 遍历子控件取最大自然宽度（跳过连接线箭头）
                 double maxChildWidth = 0;
                 foreach (UIElement child in LoopChildrenContent.Children)
                 {
                     if (child is FrameworkElement fe)
                     {
-                        // 跳过连接线箭头
                         if (fe.Tag is string tag && tag == "ConnectionArrow")
                             continue;
 
-                        // 在无限空间下 Measure，获取子控件的自然宽度
                         fe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                         double w = fe.DesiredSize.Width;
                         if (w <= 0) w = fe.ActualWidth;
@@ -183,17 +192,17 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
 
-                // 子区域总宽度 = 最大子控件宽度 + Padding(10*2) + BorderThickness(1*2)
+                // 容器宽度 = 最大子控件宽度 + Padding(10*2) + Border(1*2)
                 double childAreaNeeded = maxChildWidth + 22;
-
-                // 取最大值：保证不小于默认宽度
                 double targetWidth = Math.Max(DEFAULT_WIDTH, childAreaNeeded);
 
-                // 同步设置头部和子区域宽度
-                MainContainer.Width = targetWidth;
-                LoopContentWrapper.Width = targetWidth;
+                // ★ 只用 MinWidth，不设固定 Width
+                //   这样删除子节点后 MinWidth 会被重算为更小的值，控件自然缩小
+                MainContainer.MinWidth = targetWidth;
+                LoopContentWrapper.MinWidth = targetWidth;
+                RootPanel.MinWidth = targetWidth;
                 this.MinWidth = targetWidth;
-                this.Width = double.NaN;  // ← 这行是关键，清除固定Width
+
                 _logger.LogDebug("宽度同步完成: maxChild={MaxW:F0}, target={TargetW:F0}",
                     maxChildWidth, targetWidth);
             }
@@ -204,11 +213,11 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// 重置尺寸为自动（删除子节点后宽度和高度都缩回）
+        /// 重置所有尺寸约束，让控件可以自由缩小
+        /// 之后由 SyncWidths 根据当前子节点重新计算
         /// </summary>
         private void ResetWidths()
         {
-            // 重置宽度
             MainContainer.Width = double.NaN;
             MainContainer.MinWidth = DEFAULT_WIDTH;
             LoopContentWrapper.Width = double.NaN;
@@ -216,15 +225,9 @@ namespace MaxChemical.Modules.Designer.Views
             RootPanel.MinWidth = 0;
             this.MinWidth = 0;
             this.Width = double.NaN;
-
-            // 重置高度，让 StackPanel 根据内容自动收缩
             this.Height = double.NaN;
             this.MinHeight = 0;
             LoopContentWrapper.Height = double.NaN;
-
-            // 强制重新布局
-            this.InvalidateMeasure();
-            this.InvalidateArrange();
         }
 
         #endregion
@@ -1050,17 +1053,31 @@ namespace MaxChemical.Modules.Designer.Views
                     ResetWidths();
                     UpdateChildrenDisplay();
 
-                    // 延迟通知，确保布局更新后再触发
+                    // 第一轮延迟：重新计算尺寸
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        // 再次重置确保高度也刷新
                         this.Height = double.NaN;
+                        this.MinHeight = 0;
+                        LoopContentWrapper.Height = double.NaN;
+                        LoopChildrenContent.InvalidateMeasure();
+                        LoopContentWrapper.InvalidateMeasure();
                         this.InvalidateMeasure();
                         this.UpdateLayout();
 
                         SyncWidths();
                         if (_isExpanded) UpdateRepeatArrow();
+
+                        // 通知父级内容变化（触发 RefreshNodeLayout）
                         ContentChanged?.Invoke(this, EventArgs.Empty);
+
+                        // 第二轮延迟：等布局完全稳定后再通知一次，
+                        // 确保画布上后续节点的位置也更新了
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            this.UpdateLayout();
+                            ContentChanged?.Invoke(this, EventArgs.Empty);
+                        }), DispatcherPriority.Render);
+
                     }), DispatcherPriority.Loaded);
 
                     NestedCommandRemoved?.Invoke(this, new NestedCommandEventArgs
@@ -1090,9 +1107,23 @@ namespace MaxChemical.Modules.Designer.Views
 
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
+                        this.Height = double.NaN;
+                        this.MinHeight = 0;
+                        LoopContentWrapper.Height = double.NaN;
+                        LoopChildrenContent.InvalidateMeasure();
+                        LoopContentWrapper.InvalidateMeasure();
+                        this.InvalidateMeasure();
+                        this.UpdateLayout();
+
                         SyncWidths();
                         if (_isExpanded) UpdateRepeatArrow();
                         ContentChanged?.Invoke(this, EventArgs.Empty);
+
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            this.UpdateLayout();
+                            ContentChanged?.Invoke(this, EventArgs.Empty);
+                        }), DispatcherPriority.Render);
                     }), DispatcherPriority.Loaded);
                 }
             }
