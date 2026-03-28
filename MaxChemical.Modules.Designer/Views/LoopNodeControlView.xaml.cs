@@ -228,6 +228,10 @@ namespace MaxChemical.Modules.Designer.Views
             this.Height = double.NaN;
             this.MinHeight = 0;
             LoopContentWrapper.Height = double.NaN;
+
+            // ★ 关键修复：清除 RepeatArrowCanvas 的固定高度
+            //   否则它的旧高度会撑住 ChildAreaGrid，阻止容器缩小
+            RepeatArrowCanvas.Height = double.NaN;
         }
 
         #endregion
@@ -325,7 +329,8 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (!_isExpanded || _loopCommands.Count == 0)
                     return;
-
+                // ★ 先清除自身固定高度，让 Grid 行高完全由 LoopContentWrapper 决定
+                RepeatArrowCanvas.Height = double.NaN;
                 LoopContentWrapper.UpdateLayout();
                 double contentHeight = LoopContentWrapper.ActualHeight;
                 if (contentHeight <= 0) contentHeight = 60;
@@ -972,7 +977,7 @@ namespace MaxChemical.Modules.Designer.Views
             canvas.Children.Add(arrow);
         }
 
-        private void UpdateChildrenDisplay()
+        private void UpdateChildrenDisplay(bool skipSyncWidths = false)
         {
             try
             {
@@ -993,29 +998,28 @@ namespace MaxChemical.Modules.Designer.Views
                 for (int i = 0; i < _loopCommands.Count; i++)
                 {
                     var child = _loopCommands[i];
-
-                    // ★ 在第二个及之后的子节点前插入连接线箭头
                     if (i > 0)
                     {
                         LoopChildrenContent.Children.Add(CreateConnectionArrow());
                     }
-
                     var childControl = _nodeControlFactory.CreateNestedCommandControl(
                         child,
                         HandleNestedNodeClick,
                         RemoveLoopCommand);
                     LoopChildrenContent.Children.Add(childControl);
-
                     SubscribeToNestedComplexNodeEvents(child);
                 }
 
                 UpdateSummaryText();
 
-                // 子节点变化后延迟同步宽度
-                Dispatcher.BeginInvoke(new Action(() =>
+                // ★ 只有非删除场景才在这里调用 SyncWidths
+                if (!skipSyncWidths)
                 {
-                    SyncWidths();
-                }), DispatcherPriority.Loaded);
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        SyncWidths();
+                    }), DispatcherPriority.Loaded);
+                }
 
                 _logger.LogDebug("循环节点UI更新完成，子项数: {Count}", _loopCommands.Count);
             }
@@ -1048,9 +1052,10 @@ namespace MaxChemical.Modules.Designer.Views
                     _loopCommands.Remove(childNode);
                     _logger.LogDebug("从循环移除命令: {NodeName}", childNode.DisplayName);
 
-                    // ★ 先重置所有宽度到默认，再重建子节点显示
-                    //   这样 SyncWidths 会根据剩余子节点重新计算正确的宽度
+                    // ★ 先重置所有宽度/高度约束
                     ResetWidths();
+
+                    // ★ 重建子节点显示（这里面会清空 LoopChildrenContent 并重新添加）
                     UpdateChildrenDisplay();
 
                     // 第一轮延迟：重新计算尺寸
@@ -1059,8 +1064,13 @@ namespace MaxChemical.Modules.Designer.Views
                         this.Height = double.NaN;
                         this.MinHeight = 0;
                         LoopContentWrapper.Height = double.NaN;
+
+                        // ★ 关键修复：先清除 RepeatArrowCanvas 的固定高度，打破死循环
+                        RepeatArrowCanvas.Height = double.NaN;
+
                         LoopChildrenContent.InvalidateMeasure();
                         LoopContentWrapper.InvalidateMeasure();
+                        ChildAreaGrid.InvalidateMeasure();  // ★ Grid 也要 Invalidate
                         this.InvalidateMeasure();
                         this.UpdateLayout();
 
@@ -1070,8 +1080,7 @@ namespace MaxChemical.Modules.Designer.Views
                         // 通知父级内容变化（触发 RefreshNodeLayout）
                         ContentChanged?.Invoke(this, EventArgs.Empty);
 
-                        // 第二轮延迟：等布局完全稳定后再通知一次，
-                        // 确保画布上后续节点的位置也更新了
+                        // 第二轮延迟
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             this.UpdateLayout();
@@ -1086,6 +1095,7 @@ namespace MaxChemical.Modules.Designer.Views
                         IsTrueBranch = false,
                         ParentIfNode = loopNode
                     });
+                    UpdateChildrenDisplay(skipSyncWidths: true);
                 }
             }
             catch (Exception ex)
@@ -1110,8 +1120,10 @@ namespace MaxChemical.Modules.Designer.Views
                         this.Height = double.NaN;
                         this.MinHeight = 0;
                         LoopContentWrapper.Height = double.NaN;
+                        RepeatArrowCanvas.Height = double.NaN;  // ★ 加这行
                         LoopChildrenContent.InvalidateMeasure();
                         LoopContentWrapper.InvalidateMeasure();
+                        ChildAreaGrid.InvalidateMeasure();       // ★ 加这行
                         this.InvalidateMeasure();
                         this.UpdateLayout();
 
@@ -1126,6 +1138,7 @@ namespace MaxChemical.Modules.Designer.Views
                         }), DispatcherPriority.Render);
                     }), DispatcherPriority.Loaded);
                 }
+                UpdateChildrenDisplay(skipSyncWidths: true);
             }
             catch (Exception ex)
             {
