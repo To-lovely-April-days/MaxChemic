@@ -1009,6 +1009,9 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+        // ★ 记录上一次视口尺寸，用于区分"窗口大小变化"和"画布内容变化"
+        private Size _lastViewportSize = Size.Empty;
+
         private void MainGrid_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             if (_isInternalSizeChange)
@@ -1023,6 +1026,28 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogTrace("首次居中未完成，忽略 SizeChanged: {W}x{H}",
                     e.NewSize.Width, e.NewSize.Height);
                 return;
+            }
+
+            // ★ 修复：只在视口（ScrollViewer）尺寸真正变化时才重新居中
+            //   画布内容增删导致 CanvasWidth/CanvasHeight 改变时，Grid 的 SizeChanged 会触发，
+            //   但视口大小不变，此时不应该跳回起始位置
+            if (CanvasScrollViewer != null)
+            {
+                var currentViewport = new Size(CanvasScrollViewer.ViewportWidth, CanvasScrollViewer.ViewportHeight);
+                if (_lastViewportSize != Size.Empty)
+                {
+                    double vpWidthChange = Math.Abs(currentViewport.Width - _lastViewportSize.Width);
+                    double vpHeightChange = Math.Abs(currentViewport.Height - _lastViewportSize.Height);
+
+                    if (vpWidthChange < SIZE_CHANGE_THRESHOLD && vpHeightChange < SIZE_CHANGE_THRESHOLD)
+                    {
+                        // 视口没变，是画布内容变化导致的 SizeChanged，跳过
+                        _logger.LogTrace("视口尺寸未变化，跳过居中滚动（画布内容变化）");
+                        _lastMainGridSize = e.NewSize;
+                        return;
+                    }
+                }
+                _lastViewportSize = currentViewport;
             }
 
             double widthChange = Math.Abs(e.NewSize.Width - _lastMainGridSize.Width);

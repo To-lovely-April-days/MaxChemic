@@ -18,11 +18,14 @@ using MaxChemical.Modules.Designer.Events;
 using MaxChemical.Modules.Designer.Services;
 using CommandDragInfo = MaxChemical.Modules.Designer.Events.CommandDragInfo;
 using System.Windows.Threading;
+using System.Windows.Shapes;
 
 namespace MaxChemical.Modules.Designer.Views
 {
     /// <summary>
     /// LoopNodeControlView.xaml 的交互逻辑
+    /// 方案C：紧凑卡片 + 展开/折叠，子区域自适应大小，带回路箭头
+    /// 头部卡片和子区域宽度始终保持同步
     /// </summary>
     public partial class LoopNodeControlView : UserControl
     {
@@ -33,8 +36,9 @@ namespace MaxChemical.Modules.Designer.Views
         public event EventHandler<CommandNode> NodeDeleteRequested;
         public event EventHandler<CommandNode> NodeClicked;
 
-        private bool _isExpanded = true;
+        private bool _isExpanded = false; // 方案C：默认折叠
         private Size _lastMeasuredSize;
+        private const double DEFAULT_WIDTH = 231.0; // 与主流程节点等宽
 
         // 高亮相关字段
         private int _currentInsertionIndex = -1;
@@ -62,23 +66,30 @@ namespace MaxChemical.Modules.Designer.Views
             DataContextChanged += OnDataContextChanged;
             IsVisibleChanged += OnIsVisibleChanged;
         }
+
         private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             try
             {
-                if ((bool)e.NewValue == true) // 变为可见
+                if ((bool)e.NewValue == true)
                 {
-                    _logger.LogDebug("并行节点控件变为可见，延迟同步UI");
+                    _logger.LogDebug("循环节点控件变为可见，延迟同步UI");
 
-                    // 延迟同步UI，确保布局完成
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         if (DataContext is CommandNode loopNode && loopNode.Children.Count > 0)
                         {
                             _logger.LogDebug($"可见性变化触发UI同步: {loopNode.DisplayName}，子节点数: {loopNode.Children.Count}");
-                            OnLoopContentChanged();
-                            ToggleExpand();
-
+                            UpdateChildrenDisplay();
+                            UpdateSummaryText();
+                            if (!_isExpanded)
+                            {
+                                ToggleExpand();
+                            }
+                        }
+                        else
+                        {
+                            UpdateSummaryText();
                         }
                     }), DispatcherPriority.Background);
                 }
@@ -88,9 +99,21 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "处理可见性变化失败");
             }
         }
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            UpdateLoopCanvasLayout();
+            UpdateSummaryText();
+            UpdateExpandVisual();
+
+            if (_isExpanded)
+            {
+                ChildrenContainer.Visibility = Visibility.Visible;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    SyncWidths();
+                    UpdateRepeatArrow();
+                }), DispatcherPriority.Loaded);
+            }
         }
 
         private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -98,7 +121,10 @@ namespace MaxChemical.Modules.Designer.Views
             if (e.NewSize != _lastMeasuredSize)
             {
                 _lastMeasuredSize = e.NewSize;
-                UpdateLoopCanvasLayout();
+                if (_isExpanded)
+                {
+                    UpdateRepeatArrow();
+                }
             }
         }
 
@@ -106,19 +132,278 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.NewValue is CommandNode loopNode)
             {
-                // 同步Children到UI
                 UpdateChildrenDisplay();
+                UpdateSummaryText();
             }
         }
 
-        // 展开/折叠按钮点击事件
+        #region 宽度同步（核心修复）
+
+        /// <summary>
+        /// 同步头部卡片和子区域的宽度：
+        /// 1. 临时清除容器固定宽度，让子节点自由报告自然尺寸
+        /// 2. 遍历子控件取最大实际宽度
+        /// 3. 目标宽度 = max(DEFAULT_WIDTH, 最大子控件宽度 + padding)
+        /// 4. 同时设置头部和子区域的 Width
+        /// </summary>
+        private void SyncWidths()
+        {
+            try
+            {
+                if (!_isExpanded)
+                {
+                    MainContainer.Width = DEFAULT_WIDTH;
+                    return;
+                }
+
+                // ★ 核心修复：先清除固定宽度，让子内容不被约束
+                LoopContentWrapper.Width = double.NaN;
+                MainContainer.Width = double.NaN;
+
+                // 强制布局更新，让子控件按自然大小渲染
+                LoopChildrenContent.UpdateLayout();
+
+                // 遍历所有子控件，取最大宽度（跳过连接线箭头）
+                double maxChildWidth = 0;
+                foreach (UIElement child in LoopChildrenContent.Children)
+                {
+                    if (child is FrameworkElement fe)
+                    {
+                        // 跳过连接线箭头
+                        if (fe.Tag is string tag && tag == "ConnectionArrow")
+                            continue;
+
+                        // 在无限空间下 Measure，获取子控件的自然宽度
+                        fe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        double w = fe.DesiredSize.Width;
+                        if (w <= 0) w = fe.ActualWidth;
+
+                        if (w > maxChildWidth)
+                            maxChildWidth = w;
+                    }
+                }
+
+                // 子区域总宽度 = 最大子控件宽度 + Padding(10*2) + BorderThickness(1*2)
+                double childAreaNeeded = maxChildWidth + 22;
+
+                // 取最大值：保证不小于默认宽度
+                double targetWidth = Math.Max(DEFAULT_WIDTH, childAreaNeeded);
+
+                // 同步设置头部和子区域宽度
+                MainContainer.Width = targetWidth;
+                LoopContentWrapper.Width = targetWidth;
+                this.MinWidth = targetWidth;
+                this.Width = double.NaN;  // ← 这行是关键，清除固定Width
+                _logger.LogDebug("宽度同步完成: maxChild={MaxW:F0}, target={TargetW:F0}",
+                    maxChildWidth, targetWidth);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "宽度同步失败");
+            }
+        }
+
+        /// <summary>
+        /// 重置尺寸为自动（删除子节点后宽度和高度都缩回）
+        /// </summary>
+        private void ResetWidths()
+        {
+            // 重置宽度
+            MainContainer.Width = double.NaN;
+            MainContainer.MinWidth = DEFAULT_WIDTH;
+            LoopContentWrapper.Width = double.NaN;
+            LoopContentWrapper.MinWidth = DEFAULT_WIDTH;
+            RootPanel.MinWidth = 0;
+            this.MinWidth = 0;
+            this.Width = double.NaN;
+
+            // 重置高度，让 StackPanel 根据内容自动收缩
+            this.Height = double.NaN;
+            this.MinHeight = 0;
+            LoopContentWrapper.Height = double.NaN;
+
+            // 强制重新布局
+            this.InvalidateMeasure();
+            this.InvalidateArrange();
+        }
+
+        #endregion
+
+        #region 展开/折叠逻辑（方案C核心）
+
         private void ExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             ToggleExpand();
             e.Handled = true;
         }
 
-        // 节点点击事件
+        public void ToggleExpand()
+        {
+            _isExpanded = !_isExpanded;
+            UpdateExpandVisual();
+
+            if (_isExpanded)
+            {
+                ChildrenContainer.Visibility = Visibility.Visible;
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    SyncWidths();
+                    UpdateRepeatArrow();
+                    ContentChanged?.Invoke(this, EventArgs.Empty);
+                }), DispatcherPriority.Loaded);
+            }
+            else
+            {
+                ChildrenContainer.Visibility = Visibility.Collapsed;
+
+                // 折叠时重置宽度为默认
+                MainContainer.Width = DEFAULT_WIDTH;
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ContentChanged?.Invoke(this, EventArgs.Empty);
+                }), DispatcherPriority.Loaded);
+            }
+
+            UpdateSummaryText();
+        }
+
+        private void UpdateExpandVisual()
+        {
+            if (_isExpanded)
+            {
+                ExpandIconTransform.Angle = 0;   // 箭头朝下（展开状态）
+                ExpandToggle.ToolTip = "折叠循环";
+            }
+            else
+            {
+                ExpandIconTransform.Angle = -90; // 箭头朝右（折叠状态）
+                ExpandToggle.ToolTip = "展开循环";
+            }
+        }
+
+        private void UpdateSummaryText()
+        {
+            try
+            {
+                int stepCount = 0;
+                if (DataContext is CommandNode loopNode)
+                {
+                    stepCount = loopNode.Children?.Count ?? 0;
+                }
+
+                if (_isExpanded)
+                {
+                    SummaryText.Text = stepCount > 0 ? $"{stepCount} 个步骤" : "无步骤";
+                }
+                else
+                {
+                    SummaryText.Text = stepCount > 0
+                        ? $"{stepCount} 个步骤 · 点击展开"
+                        : "点击展开添加步骤";
+                }
+                SummaryText.Foreground = new SolidColorBrush(Color.FromRgb(0x18, 0x5F, 0xA5));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "更新摘要文字失败");
+            }
+        }
+
+        /// <summary>
+        /// 绘制回路箭头（右侧曲线 + repeat 文字）
+        /// </summary>
+        private void UpdateRepeatArrow()
+        {
+            try
+            {
+                RepeatArrowCanvas.Children.Clear();
+
+                if (!_isExpanded || _loopCommands.Count == 0)
+                    return;
+
+                LoopContentWrapper.UpdateLayout();
+                double contentHeight = LoopContentWrapper.ActualHeight;
+                if (contentHeight <= 0) contentHeight = 60;
+
+                RepeatArrowCanvas.Height = contentHeight;
+
+                double arrowX = 12;
+                double topY = contentHeight * 0.15;
+                double bottomY = contentHeight * 0.85;
+                double curveOffset = 18;
+
+                // 回路曲线
+                var path = new Path
+                {
+                    Stroke = new SolidColorBrush(Color.FromRgb(0x37, 0x8A, 0xDD)),
+                    StrokeThickness = 1.2,
+                    Fill = Brushes.Transparent,
+                    StrokeDashArray = new DoubleCollection(new[] { 4.0, 3.0 }),
+                    Opacity = 0.6
+                };
+
+                var pathGeometry = new PathGeometry();
+                var figure = new PathFigure
+                {
+                    StartPoint = new Point(arrowX, bottomY),
+                    IsClosed = false
+                };
+
+                figure.Segments.Add(new BezierSegment(
+                    new Point(arrowX + curveOffset, bottomY),
+                    new Point(arrowX + curveOffset, topY),
+                    new Point(arrowX, topY),
+                    true));
+
+                pathGeometry.Figures.Add(figure);
+                path.Data = pathGeometry;
+                RepeatArrowCanvas.Children.Add(path);
+
+                // 箭头
+                var arrowHead = new Polygon
+                {
+                    Fill = new SolidColorBrush(Color.FromRgb(0x37, 0x8A, 0xDD)),
+                    Opacity = 0.6,
+                    Points = new PointCollection(new[]
+                    {
+                        new Point(arrowX - 3, topY + 6),
+                        new Point(arrowX + 3, topY + 6),
+                        new Point(arrowX, topY)
+                    })
+                };
+                RepeatArrowCanvas.Children.Add(arrowHead);
+
+                // "repeat" 文字（竖排）
+                var repeatText = new TextBlock
+                {
+                    Text = "repeat",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x37, 0x8A, 0xDD)),
+                    Opacity = 0.7,
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    RenderTransform = new RotateTransform(-90)
+                };
+
+                repeatText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                double textWidth = repeatText.DesiredSize.Width;
+
+                Canvas.SetLeft(repeatText, arrowX + curveOffset + 2);
+                Canvas.SetTop(repeatText, (topY + bottomY) / 2 + textWidth / 2);
+
+                RepeatArrowCanvas.Children.Add(repeatText);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "绘制回路箭头失败");
+            }
+        }
+
+        #endregion
+
+        #region 节点点击事件
+
         private void Node_Click(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed && DataContext is CommandNode node)
@@ -131,9 +416,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        /// <summary>
-        /// 处理循环节点点击
-        /// </summary>
         private void HandleLoopNodeClick(CommandNode loopNode)
         {
             try
@@ -145,8 +427,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                 loopNode.IsSelected = true;
                 NodeClicked?.Invoke(this, loopNode);
-
-                _logger.LogDebug("循环节点 {NodeName} 已被选中", loopNode.DisplayName);
             }
             catch (Exception ex)
             {
@@ -154,9 +434,6 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        /// <summary>
-        /// 处理嵌套节点点击
-        /// </summary>
         private void HandleNestedNodeClick(CommandNode nestedNode)
         {
             try
@@ -171,11 +448,9 @@ namespace MaxChemical.Modules.Designer.Views
                 if (flowViewModel != null)
                 {
                     flowViewModel.HandleNodeClick(nestedNode);
-                    _logger.LogDebug("已通知FlowDesignerViewModel处理嵌套节点点击");
                 }
 
                 NodeClicked?.Invoke(this, nestedNode);
-                _logger.LogDebug("嵌套节点 {NodeName} 处理完成", nestedNode.DisplayName);
             }
             catch (Exception ex)
             {
@@ -186,46 +461,11 @@ namespace MaxChemical.Modules.Designer.Views
         private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
             DependencyObject parentObject = VisualTreeHelper.GetParent(child);
-
             if (parentObject == null) return null;
-
-            if (parentObject is T parent)
-                return parent;
-
+            if (parentObject is T parent) return parent;
             return FindVisualParent<T>(parentObject);
         }
 
-        // 展开/折叠逻辑
-        public void ToggleExpand()
-        {
-            _isExpanded = !_isExpanded;
-            var duration = TimeSpan.FromMilliseconds(200);
-
-            if (_isExpanded)
-            {
-                ChildrenContainer.Visibility = Visibility.Visible;
-                ExpandToggle.ToolTip = "折叠循环";
-                var rotateAnimation = new DoubleAnimation(0, duration);
-                ExpandIconTransform.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
-            }
-            else
-            {
-                ChildrenContainer.Visibility = Visibility.Collapsed;
-                ExpandToggle.ToolTip = "展开循环";
-                var rotateAnimation = new DoubleAnimation(-90, duration);
-                ExpandIconTransform.BeginAnimation(RotateTransform.AngleProperty, rotateAnimation);
-            }
-
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                UpdateLoopCanvasLayout();
-                ContentChanged?.Invoke(this, EventArgs.Empty);
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
-        /// <summary>
-        /// 删除按钮点击事件
-        /// </summary>
         private void DeleteButton_Click(object sender, MouseButtonEventArgs e)
         {
             try
@@ -243,68 +483,12 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        #region 布局更新方法 - 核心新增部分
+        #endregion
+
+        #region 布局更新方法
 
         /// <summary>
-        /// 更新循环Canvas布局 - 类似并行节点的UpdateBranchCanvasLayout
-        /// </summary>
-        public void UpdateLoopCanvasLayout()
-        {
-            try
-            {
-                _logger.LogDebug("开始更新循环Canvas布局");
-
-                // 强制更新内容布局
-                LoopChildrenContent.UpdateLayout();
-                LoopContentWrapper.UpdateLayout();
-
-                // 重新计算并设置Canvas和容器大小
-                CalculateAndUpdateCanvasSize();
-
-                _logger.LogDebug("循环Canvas布局更新完成");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "更新循环Canvas布局失败");
-            }
-        }
-
-        /// <summary>
-        /// 计算并更新Canvas大小 - 核心方法
-        /// </summary>
-        private void CalculateAndUpdateCanvasSize()
-        {
-            try
-            {
-                // 测量内容容器的理想大小
-                LoopContentWrapper.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                var contentSize = LoopContentWrapper.DesiredSize;
-
-                _logger.LogDebug("内容容器理想大小: {Width}x{Height}", contentSize.Width, contentSize.Height);
-
-                // 计算Canvas的新尺寸
-                var canvasWidth = Math.Max(500, contentSize.Width + 100);  // 最小500，内容宽度+边距
-                var canvasHeight = Math.Max(100, contentSize.Height + 20); // 最小100，内容高度+边距
-
-                // 更新Canvas尺寸
-                LoopCanvas.Width = canvasWidth;
-                LoopCanvas.Height = canvasHeight;
-
-                // 重新计算内容容器在Canvas中的位置（居中）
-                var wrapperLeft = (canvasWidth - contentSize.Width) / 2;
-                Canvas.SetLeft(LoopContentWrapper, wrapperLeft);
-
-                _logger.LogDebug("Canvas尺寸更新为: {Width}x{Height}, 内容位置: Left={Left}",
-                    canvasWidth, canvasHeight, wrapperLeft);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "计算Canvas大小失败");
-            }
-        }
-
-        /// <summary>
-        /// 内容变化通知方法 - 类似并行节点的OnBranchContentChanged
+        /// 内容变化通知 - 同步宽度 + 更新箭头 + 通知父级
         /// </summary>
         public void OnLoopContentChanged()
         {
@@ -312,10 +496,28 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    UpdateLoopCanvasLayout();
+                    UpdateSummaryText();
+                    SyncWidths();
+
+                    if (_isExpanded)
+                    {
+                        UpdateRepeatArrow();
+                    }
+
                     ContentChanged?.Invoke(this, EventArgs.Empty);
+
+                    // ★ 二次同步：等子控件完全渲染后再校正一次宽度
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        SyncWidths();
+                        if (_isExpanded)
+                        {
+                            UpdateRepeatArrow();
+                        }
+                    }), DispatcherPriority.Render);
+
                     _logger.LogDebug("循环内容变化通知完成");
-                }), System.Windows.Threading.DispatcherPriority.Background);
+                }), DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
@@ -330,6 +532,12 @@ namespace MaxChemical.Modules.Designer.Views
         private void DropArea_DragEnter(object sender, DragEventArgs e)
         {
             _logger.LogTrace("LoopNode DropArea_DragEnter 被调用");
+
+            // 如果当前是折叠状态，自动展开
+            if (!_isExpanded)
+            {
+                ToggleExpand();
+            }
 
             if (_dragDropService.CanAcceptDrop(e.Data) && sender is Border border)
             {
@@ -359,7 +567,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 e.Effects = DragDropEffects.Copy;
 
-                // 获取相对于LoopChildrenContent的鼠标位置
                 var mousePosition = e.GetPosition(LoopChildrenContent);
                 var insertionInfo = GetInsertionInfo(mousePosition);
                 HighlightPreviousNode(insertionInfo);
@@ -379,7 +586,6 @@ namespace MaxChemical.Modules.Designer.Views
 
             try
             {
-                // 记录当前的插入索引，然后清除高亮
                 int insertionIndex = _currentInsertionIndex;
                 ClearHighlight();
 
@@ -439,7 +645,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var info = new InsertionInfo();
 
-                // 如果循环为空，插入位置为0，没有前一个节点
                 if (_loopCommands.Count == 0)
                 {
                     info.InsertionIndex = 0;
@@ -456,19 +661,16 @@ namespace MaxChemical.Modules.Designer.Views
 
                     if (control != null)
                     {
-                        // 获取控件的实际高度
                         double controlHeight = control.ActualHeight;
                         if (controlHeight == 0)
                         {
                             control.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                             controlHeight = control.DesiredSize.Height;
                         }
-                        if (controlHeight == 0) controlHeight = 40; // 默认高度
+                        if (controlHeight == 0) controlHeight = 40;
 
-                        // 检查鼠标是否在当前控件的上半部分
                         if (mousePosition.Y <= cumulativeHeight + controlHeight / 2)
                         {
-                            // 插入到当前节点之前
                             info.InsertionIndex = i;
                             if (i == 0)
                             {
@@ -478,22 +680,15 @@ namespace MaxChemical.Modules.Designer.Views
                             {
                                 info.PreviousNode = _loopCommands[i - 1];
                             }
-
-                            _logger.LogTrace("鼠标位置 {Y} 在节点 {Index} 上半部分，插入位置: {InsertIndex}",
-                                mousePosition.Y, i, i);
                             return info;
                         }
 
-                        cumulativeHeight += controlHeight + 8; // 8是margin
+                        cumulativeHeight += controlHeight + 8;
                     }
                 }
 
-                // 如果鼠标在所有元素下方，插入到末尾
                 info.InsertionIndex = _loopCommands.Count;
                 info.PreviousNode = _loopCommands[_loopCommands.Count - 1];
-
-                _logger.LogTrace("鼠标位置 {Y} 在所有节点下方，插入位置: {InsertIndex}",
-                    mousePosition.Y, _loopCommands.Count);
                 return info;
             }
             catch (Exception ex)
@@ -522,23 +717,15 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 先清除之前的高亮
                 ClearHighlight();
 
                 if (insertionInfo.IsInsertAtBeginning)
-                {
-                    // 插入到开头，不高亮任何节点
-                    _logger.LogTrace("插入到循环开头，无需高亮节点");
                     return;
-                }
 
                 if (insertionInfo.PreviousNode != null)
                 {
-                    // 高亮前一个节点 - 只设置数据绑定属性
                     _highlightedNode = insertionInfo.PreviousNode;
                     _highlightedNode.IsInsertHighlight = true;
-
-                    _logger.LogTrace("高亮前一个节点: {NodeName}", _highlightedNode.DisplayName);
                 }
             }
             catch (Exception ex)
@@ -554,10 +741,8 @@ namespace MaxChemical.Modules.Designer.Views
                 if (_highlightedNode != null)
                 {
                     _highlightedNode.IsInsertHighlight = false;
-                    _logger.LogDebug("清除节点 {NodeName} 的高亮状态", _highlightedNode.DisplayName);
                     _highlightedNode = null;
                 }
-
                 _currentInsertionIndex = -1;
             }
             catch (Exception ex)
@@ -574,7 +759,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 立即清除高亮
                 ClearHighlight();
 
                 CommandNode childNode = null;
@@ -590,35 +774,27 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (childNode != null)
                 {
-                    // 如果指定了插入索引，则在指定位置插入
                     if (insertionIndex >= 0 && insertionIndex <= _loopCommands.Count)
                     {
                         _loopCommands.Insert(insertionIndex, childNode);
                         loopNode.InsertChild(insertionIndex, childNode);
-
                         _logger.LogDebug("在循环位置 {Index} 插入命令: {NodeName}", insertionIndex, childNode.DisplayName);
                     }
                     else
                     {
-                        // 添加到末尾
                         _loopCommands.Add(childNode);
                         loopNode.AddChildToLoop(childNode);
-
                         _logger.LogDebug("添加命令到循环末尾: {NodeName}", childNode.DisplayName);
                     }
 
-                    // 订阅嵌套复杂节点的内容变化事件
                     SubscribeToNestedComplexNodeEvents(childNode);
-
                     UpdateChildrenDisplay();
 
-                    // 重要：延迟触发布局更新和事件，确保UI已更新
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        // 再次确保高亮被清除
                         ClearHighlight();
 
-                        // 关键：触发布局更新
+                        // ★ 核心：添加子节点后同步宽度
                         OnLoopContentChanged();
 
                         NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
@@ -627,8 +803,7 @@ namespace MaxChemical.Modules.Designer.Views
                             IsTrueBranch = false,
                             ParentIfNode = loopNode
                         });
-
-                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+                    }), DispatcherPriority.Loaded);
                 }
             }
             catch (Exception ex)
@@ -637,14 +812,10 @@ namespace MaxChemical.Modules.Designer.Views
             }
             finally
             {
-                // 最终保险
                 ClearHighlight();
             }
         }
 
-        /// <summary>
-        /// 订阅嵌套复杂节点的内容变化事件
-        /// </summary>
         private void SubscribeToNestedComplexNodeEvents(CommandNode nestedNode)
         {
             try
@@ -662,6 +833,9 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("循环内嵌套并行节点内容变化: {NodeName}", nestedNode.DisplayName);
                             OnLoopContentChanged();
                         };
+                        nestedParallelControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
+                        nestedParallelControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
+                        nestedParallelControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
                         break;
 
                     case IfNodeControlView nestedIfControl:
@@ -670,6 +844,13 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("循环内嵌套IF节点内容变化: {NodeName}", nestedNode.DisplayName);
                             OnLoopContentChanged();
                         };
+                        nestedIfControl.NestedCommandAdded += (s, e) =>
+                        {
+                            _logger.LogDebug("循环内嵌套IF添加了命令，冒泡事件: {Name}", e.NestedCommand?.DisplayName);
+                            NestedCommandAdded?.Invoke(this, e);
+                        };
+                        nestedIfControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
+                        nestedIfControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
                         break;
 
                     case LoopNodeControlView nestedLoopControl:
@@ -678,6 +859,9 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("循环内嵌套循环节点内容变化: {NodeName}", nestedNode.DisplayName);
                             OnLoopContentChanged();
                         };
+                        nestedLoopControl.NestedCommandAdded += (s, e) => NestedCommandAdded?.Invoke(this, e);
+                        nestedLoopControl.NestedCommandRemoved += (s, e) => NestedCommandRemoved?.Invoke(this, e);
+                        nestedLoopControl.LogicCommandRequested += (s, e) => LogicCommandRequested?.Invoke(this, e);
                         break;
                 }
             }
@@ -685,6 +869,104 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 _logger.LogError(ex, "订阅嵌套复杂节点事件失败: {NodeName}", nestedNode?.DisplayName);
             }
+        }
+
+        /// <summary>
+        /// 创建子节点之间的垂直连接线 + 向下箭头
+        /// 线和箭头都严格居中对齐
+        /// </summary>
+        private FrameworkElement CreateConnectionArrow()
+        {
+            const double totalHeight = 20.0;
+            const double lineTop = 2.0;
+            const double arrowTipBottom = 2.0;
+            const double arrowH = 5.0;
+            const double arrowHalfW = 4.0;
+            var strokeColor = new SolidColorBrush(Color.FromRgb(0x97, 0x97, 0x97));
+
+            // 用一个固定高度的 Border 包裹一个 Canvas
+            // Canvas 不参与宽度计算，箭头始终画在 LoopChildrenContent 的水平中心
+            var wrapper = new Border
+            {
+                Height = totalHeight,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Background = Brushes.Transparent,
+                Tag = "ConnectionArrow",
+                ClipToBounds = false
+            };
+
+            // SizeChanged 时根据实际宽度把线和箭头画在正中间
+            wrapper.Loaded += (s, e) =>
+            {
+                DrawArrowInWrapper(wrapper, totalHeight, lineTop, arrowTipBottom, arrowH, arrowHalfW, strokeColor);
+            };
+            wrapper.SizeChanged += (s, e) =>
+            {
+                DrawArrowInWrapper(wrapper, totalHeight, lineTop, arrowTipBottom, arrowH, arrowHalfW, strokeColor);
+            };
+
+            return wrapper;
+        }
+
+        /// <summary>
+        /// 在 wrapper 内绘制居中的竖线+箭头
+        /// </summary>
+        private void DrawArrowInWrapper(Border wrapper, double totalHeight,
+            double lineTop, double arrowTipBottom, double arrowH, double arrowHalfW,
+            SolidColorBrush strokeColor)
+        {
+            // 获取父级 StackPanel 的宽度作为居中参考
+            double centerX;
+            if (wrapper.ActualWidth > 0)
+                centerX = wrapper.ActualWidth / 2.0;
+            else
+            {
+                // 还没渲染，用 LoopChildrenContent 的宽度
+                centerX = LoopChildrenContent.ActualWidth > 0
+                    ? LoopChildrenContent.ActualWidth / 2.0
+                    : DEFAULT_WIDTH / 2.0;
+            }
+
+            double lineBottom = totalHeight - arrowTipBottom - arrowH;
+
+            // 清除旧内容
+            var canvas = wrapper.Child as Canvas;
+            if (canvas == null)
+            {
+                canvas = new Canvas
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    ClipToBounds = false
+                };
+                wrapper.Child = canvas;
+            }
+            canvas.Children.Clear();
+
+            // 竖线
+            var line = new Line
+            {
+                X1 = centerX,
+                Y1 = lineTop,
+                X2 = centerX,
+                Y2 = lineBottom,
+                Stroke = strokeColor,
+                StrokeThickness = 1.5
+            };
+            canvas.Children.Add(line);
+
+            // 向下箭头三角
+            var arrow = new Polygon
+            {
+                Fill = strokeColor,
+                Points = new PointCollection(new[]
+                {
+                    new Point(centerX - arrowHalfW, lineBottom),
+                    new Point(centerX + arrowHalfW, lineBottom),
+                    new Point(centerX, lineBottom + arrowH)
+                })
+            };
+            canvas.Children.Add(arrow);
         }
 
         private void UpdateChildrenDisplay()
@@ -697,26 +979,40 @@ namespace MaxChemical.Modules.Designer.Views
                 LoopChildrenContent.Children.Clear();
                 _loopCommands.Clear();
 
-                // 同步数据模型到本地列表
                 foreach (var child in loopNode.Children)
                 {
                     _loopCommands.Add(child);
                 }
 
                 bool hasChildren = _loopCommands.Count > 0;
-                EmptyHint.Text = hasChildren ? "拖拽更多步骤" : "+ 添加步骤";
+                EmptyHint.Text = hasChildren ? "拖拽更多步骤" : "+ 拖拽步骤到此处";
 
-                foreach (var child in _loopCommands)
+                for (int i = 0; i < _loopCommands.Count; i++)
                 {
+                    var child = _loopCommands[i];
+
+                    // ★ 在第二个及之后的子节点前插入连接线箭头
+                    if (i > 0)
+                    {
+                        LoopChildrenContent.Children.Add(CreateConnectionArrow());
+                    }
+
                     var childControl = _nodeControlFactory.CreateNestedCommandControl(
                         child,
                         HandleNestedNodeClick,
                         RemoveLoopCommand);
                     LoopChildrenContent.Children.Add(childControl);
 
-                    // 订阅嵌套节点事件
                     SubscribeToNestedComplexNodeEvents(child);
                 }
+
+                UpdateSummaryText();
+
+                // 子节点变化后延迟同步宽度
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    SyncWidths();
+                }), DispatcherPriority.Loaded);
 
                 _logger.LogDebug("循环节点UI更新完成，子项数: {Count}", _loopCommands.Count);
             }
@@ -730,15 +1026,42 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
+                string message = $"确定要删除节点 \"{childNode.DisplayName}\" 吗？";
+                if (childNode.Children != null && childNode.Children.Count > 0)
+                {
+                    message = $"该节点包含 {childNode.Children.Count} 个子命令，删除后所有子命令也将被移除。\n\n确定要删除节点 \"{childNode.DisplayName}\" 吗？";
+                }
+
+                var result = MessageBox.Show(
+                    message,
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result != MessageBoxResult.Yes) return;
+
                 if (DataContext is CommandNode loopNode && loopNode.RemoveChild(childNode))
                 {
                     _loopCommands.Remove(childNode);
                     _logger.LogDebug("从循环移除命令: {NodeName}", childNode.DisplayName);
 
+                    // ★ 先重置所有宽度到默认，再重建子节点显示
+                    //   这样 SyncWidths 会根据剩余子节点重新计算正确的宽度
+                    ResetWidths();
                     UpdateChildrenDisplay();
 
-                    // 触发布局更新
-                    OnLoopContentChanged();
+                    // 延迟通知，确保布局更新后再触发
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        // 再次重置确保高度也刷新
+                        this.Height = double.NaN;
+                        this.InvalidateMeasure();
+                        this.UpdateLayout();
+
+                        SyncWidths();
+                        if (_isExpanded) UpdateRepeatArrow();
+                        ContentChanged?.Invoke(this, EventArgs.Empty);
+                    }), DispatcherPriority.Loaded);
 
                     NestedCommandRemoved?.Invoke(this, new NestedCommandEventArgs
                     {
@@ -762,8 +1085,15 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     loopNode.ClearChildren();
                     _loopCommands.Clear();
+                    ResetWidths();
                     UpdateChildrenDisplay();
-                    OnLoopContentChanged();
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        SyncWidths();
+                        if (_isExpanded) UpdateRepeatArrow();
+                        ContentChanged?.Invoke(this, EventArgs.Empty);
+                    }), DispatcherPriority.Loaded);
                 }
             }
             catch (Exception ex)

@@ -22,7 +22,14 @@ namespace MaxChemical.Modules.Designer.Services
         }
 
         public UserControl CreateNestedCommandControl(CommandNode node, NodeClickHandler clickHandler, NodeDeleteHandler deleteHandler)
-        {
+        {// ★ 诊断
+            _logger.LogDebug("★ CreateNestedCommandControl: NodeName={Name}, " +
+                "IsDevice={IsDev}, IsIf={IsIf}, IsLoop={IsLoop}, IsWait={IsWait}, IsSetVar={IsSetVar}, " +
+                "IsComplexLogic={IsComplex}",
+                node.DisplayName,
+                node.IsDeviceCommand, node.IsIfNode, node.IsLoopNode,
+                node.IsWaitNode, node.IsSetVariableNode,
+                IsComplexLogicCommand(node));
             try
             {
                 if (node.IsDeviceCommand)
@@ -287,7 +294,15 @@ namespace MaxChemical.Modules.Designer.Services
                     control.Tag = node;
                     control.Margin = new Thickness(0, 2, 0, 2);
 
-                    // 订阅事件
+                    node.NodeControl = control;  // ← 你加的修复
+
+                    // ★ 诊断日志：确认修复生效
+                    _logger.LogDebug("★ CreateComplexNodeControl: 设置 node.NodeControl, " +
+                        "NodeName={NodeName}, ControlType={ControlType}, NodeControl是否为null={IsNull}",
+                        node.DisplayName,
+                        control.GetType().Name,
+                        node.NodeControl == null);
+
                     SubscribeToComplexNodeEvents(control, node, clickHandler, deleteHandler);
                 }
 

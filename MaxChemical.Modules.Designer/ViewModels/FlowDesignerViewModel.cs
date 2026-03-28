@@ -2853,17 +2853,22 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogDebug("处理嵌套命令添加: {NestedCommand}", e.NestedCommand.DisplayName);
 
-                if (e.ParentIfNode != null)
+                // ★ 修复：找到主画布上的顶层祖先节点（可能是 IF、Loop、Parallel）
+                //   e.ParentIfNode 是嵌套命令的直接父节点，但对于深层嵌套（IF2 在 IF1 内部），
+                //   e.ParentIfNode 指向 IF2，而 IF2 不在 CommandNodes 中。
+                //   需要向上查找直到找到 CommandNodes 中的顶层节点。
+                var topLevelNode = FindTopLevelAncestor(e.ParentIfNode);
+
+                if (topLevelNode != null)
                 {
                     Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        RefreshNodeLayout(e.ParentIfNode);
+                        RefreshNodeLayout(topLevelNode);
 
                         // 延迟触发滚动，等布局刷新后执行
                         Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            // 借用 NodeAdded 事件让 View 层滚动到父 IF 节点位置
-                            NodeAdded?.Invoke(this, e.ParentIfNode);
+                            NodeAdded?.Invoke(this, topLevelNode);
                         }), System.Windows.Threading.DispatcherPriority.Render);
 
                     }), System.Windows.Threading.DispatcherPriority.Background);
@@ -2881,11 +2886,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogDebug("处理嵌套命令移除: {NestedCommand}", e.NestedCommand.DisplayName);
 
-                if (e.ParentIfNode != null)
+                var topLevelNode = FindTopLevelAncestor(e.ParentIfNode);
+
+                if (topLevelNode != null)
                 {
                     Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        RefreshNodeLayout(e.ParentIfNode);
+                        RefreshNodeLayout(topLevelNode);
                     }), System.Windows.Threading.DispatcherPriority.Background);
                 }
             }
@@ -2893,6 +2900,45 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogError(ex, "处理嵌套命令移除失败: {NestedCommand}", e.NestedCommand?.DisplayName);
             }
+        }
+
+        /// <summary>
+        /// 查找一个节点在主画布 CommandNodes 中的顶层祖先。
+        /// 如果节点本身就在 CommandNodes 中，直接返回；
+        /// 否则遍历 CommandNodes，递归查找哪个顶层节点的 Children 树包含此节点。
+        /// </summary>
+        private CommandNode FindTopLevelAncestor(CommandNode node)
+        {
+            if (node == null) return null;
+
+            // 如果节点本身就在主画布上
+            if (CommandNodes.Contains(node)) return node;
+
+            // 遍历主画布上的所有节点，查找哪个包含此节点
+            foreach (var topNode in CommandNodes)
+            {
+                if (IsDescendantOf(node, topNode))
+                    return topNode;
+            }
+
+            // 兜底：返回原节点（虽然可能不在 CommandNodes 中）
+            _logger.LogWarning("未找到节点 {NodeName} 的顶层祖先，使用原节点", node.DisplayName);
+            return node;
+        }
+
+        /// <summary>
+        /// 递归检查 target 是否是 parent 的后代节点
+        /// </summary>
+        private bool IsDescendantOf(CommandNode target, CommandNode parent)
+        {
+            if (parent.Children == null || parent.Children.Count == 0) return false;
+
+            foreach (var child in parent.Children)
+            {
+                if (child == target) return true;
+                if (IsDescendantOf(target, child)) return true;
+            }
+            return false;
         }
 
         public LogicCommand CreateLogicCommandFromPluginId(string pluginId)

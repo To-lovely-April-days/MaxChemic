@@ -36,7 +36,7 @@ namespace MaxChemical.Modules.Designer.Views
         private Border _insertionIndicator;
         private CommandNode _highlightedNode; // 当前高亮的节点
         private UserControl _highlightedControl; // 当前高亮的控件
- 
+
         private readonly ILogService _logger;
         private readonly NodeControlFactory _nodeControlFactory;
         private readonly DesignerDragDropService _dragDropService;
@@ -78,7 +78,7 @@ namespace MaxChemical.Modules.Designer.Views
                         {
                             _logger.LogDebug($"可见性变化触发UI同步: {parallelNode.DisplayName}，子节点数: {parallelNode.Children.Count}");
                             SyncChildrenToUI();
-                            
+
                         }
                     }), DispatcherPriority.Background);
                 }
@@ -119,6 +119,12 @@ namespace MaxChemical.Modules.Designer.Views
                 _falseBranchCommands.Clear();
                 TrueBranchContent.Children.Clear();
                 FalseBranchContent.Children.Clear();
+
+                // ★ 修复：清空后重置 Canvas 尺寸，防止残留旧值
+                TrueBranchContent.Width = 0;
+                TrueBranchContent.Height = 0;
+                FalseBranchContent.Width = 0;
+                FalseBranchContent.Height = 0;
 
                 foreach (var child in ifNode.Children)
                 {
@@ -487,7 +493,7 @@ namespace MaxChemical.Modules.Designer.Views
 
 
         #endregion
-    
+
         #region 命令添加
 
         private void HandleCommandDrop(DragEventArgs e, bool isTrueBranch, int insertionIndex = -1)
@@ -624,6 +630,22 @@ namespace MaxChemical.Modules.Designer.Views
                     _logger.LogDebug("IF节点内的并行节点内容发生变化");
                     OnBranchContentChanged();
                 };
+
+                // ★ 修复：冒泡嵌套命令事件到外层
+                parallelControl.NestedCommandAdded += (s, e) =>
+                {
+                    _logger.LogDebug("IF节点内的并行节点添加了嵌套命令，冒泡事件");
+                    NestedCommandAdded?.Invoke(this, e);
+                };
+                parallelControl.NestedCommandRemoved += (s, e) =>
+                {
+                    _logger.LogDebug("IF节点内的并行节点移除了嵌套命令，冒泡事件");
+                    NestedCommandRemoved?.Invoke(this, e);
+                };
+                parallelControl.LogicCommandRequested += (s, e) =>
+                {
+                    LogicCommandRequested?.Invoke(this, e);
+                };
             }
             else if (nestedControl is IfNodeControlView nestedIfControl)
             {
@@ -633,7 +655,7 @@ namespace MaxChemical.Modules.Designer.Views
                     OnBranchContentChanged();
                 };
 
-                // 新增：嵌套 IF 布局变化时，也触发外层重算
+                // 嵌套 IF 布局变化时，也触发外层重算
                 nestedIfControl.LayoutChanged += (s, offsetY) =>
                 {
                     _logger.LogDebug("IF节点内的嵌套IF节点布局变化，CardCenterOffsetY={0}", offsetY);
@@ -643,6 +665,24 @@ namespace MaxChemical.Modules.Designer.Views
                         ContentChanged?.Invoke(this, EventArgs.Empty);
                     }), DispatcherPriority.Render);
                 };
+
+                // ★ 修复：冒泡嵌套命令事件到外层，使深层嵌套节点的添加/删除能通知到 ViewModel
+                nestedIfControl.NestedCommandAdded += (s, e) =>
+                {
+                    _logger.LogDebug("IF节点内的嵌套IF添加了命令，冒泡事件: {Name}", e.NestedCommand?.DisplayName);
+                    NestedCommandAdded?.Invoke(this, e);
+                };
+                nestedIfControl.NestedCommandRemoved += (s, e) =>
+                {
+                    _logger.LogDebug("IF节点内的嵌套IF移除了命令，冒泡事件: {Name}", e.NestedCommand?.DisplayName);
+                    NestedCommandRemoved?.Invoke(this, e);
+                };
+                nestedIfControl.LogicCommandRequested += (s, e) =>
+                {
+                    LogicCommandRequested?.Invoke(this, e);
+                };
+                // 注意：不冒泡 NodeDeleteRequested，因为 NodeControlFactory 
+                // 已经订阅了该事件并调用 RemoveNestedCommand 回调来处理删除
             }
             else if (nestedControl is LoopNodeControlView nestedLoopControl)
             {
@@ -650,6 +690,22 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     _logger.LogDebug("IF节点内的嵌套Loop节点内容发生变化");
                     OnBranchContentChanged();
+                };
+
+                // ★ 修复：冒泡嵌套命令事件到外层
+                nestedLoopControl.NestedCommandAdded += (s, e) =>
+                {
+                    _logger.LogDebug("IF节点内的Loop添加了嵌套命令，冒泡事件: {Name}", e.NestedCommand?.DisplayName);
+                    NestedCommandAdded?.Invoke(this, e);
+                };
+                nestedLoopControl.NestedCommandRemoved += (s, e) =>
+                {
+                    _logger.LogDebug("IF节点内的Loop移除了嵌套命令，冒泡事件: {Name}", e.NestedCommand?.DisplayName);
+                    NestedCommandRemoved?.Invoke(this, e);
+                };
+                nestedLoopControl.LogicCommandRequested += (s, e) =>
+                {
+                    LogicCommandRequested?.Invoke(this, e);
                 };
             }
         }
@@ -682,6 +738,21 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 if (DataContext is not CommandNode ifNode) return;
 
+                // ★ 修复：删除前弹出确认框，包含子命令数量提示
+                string message = $"确定要删除节点 \"{nestedNode.DisplayName}\" 吗？";
+                if (nestedNode.Children != null && nestedNode.Children.Count > 0)
+                {
+                    message = $"该条件判断包含 {nestedNode.Children.Count} 个子命令，删除后所有子命令也将被移除。\n\n确定要删除节点 \"{nestedNode.DisplayName}\" 吗？";
+                }
+
+                var result = MessageBox.Show(
+                    message,
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result != MessageBoxResult.Yes) return;
+
                 bool isTrueBranch = _trueBranchCommands.Contains(nestedNode);
                 bool removed = false;
 
@@ -694,6 +765,8 @@ namespace MaxChemical.Modules.Designer.Views
                     _trueBranchCommands.Remove(nestedNode);
                     ifNode.RemoveChild(nestedNode);
                     RebuildBranchUI(TrueBranchContent, _trueBranchCommands);
+                    // ★ 修复：立即重置 Canvas 尺寸，避免残留旧的大尺寸
+                    ResetBranchCanvasSize(TrueBranchContent, _trueBranchCommands);
                     TrueHint.Visibility = _trueBranchCommands.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                     removed = true;
                 }
@@ -702,6 +775,8 @@ namespace MaxChemical.Modules.Designer.Views
                     _falseBranchCommands.Remove(nestedNode);
                     ifNode.RemoveChild(nestedNode);
                     RebuildBranchUI(FalseBranchContent, _falseBranchCommands);
+                    // ★ 修复：立即重置 Canvas 尺寸，避免残留旧的大尺寸
+                    ResetBranchCanvasSize(FalseBranchContent, _falseBranchCommands);
                     FalseHint.Visibility = _falseBranchCommands.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                     removed = true;
                 }
@@ -715,8 +790,16 @@ namespace MaxChemical.Modules.Designer.Views
                         ParentIfNode = ifNode
                     });
 
+                    // ★ 修复：先做一次即时布局更新（用估算尺寸），
+                    //   然后延迟一帧等新控件渲染完毕后再做精确布局
                     UpdateBranchCanvasHeight();
-                    OnBranchContentChanged();
+                    ContentChanged?.Invoke(this, EventArgs.Empty);
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        UpdateBranchCanvasHeight();
+                        ContentChanged?.Invoke(this, EventArgs.Empty);
+                    }), DispatcherPriority.Loaded);
 
                     _logger.LogInformation("命令 {CommandName} 已从 {Branch} 分支移除",
                         nestedNode.DisplayName, isTrueBranch ? "TRUE" : "FALSE");
@@ -727,12 +810,53 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "移除嵌套命令失败: {NodeName}", nestedNode?.DisplayName);
             }
         }
+
+        /// <summary>
+        /// 删除子节点后，立即将分支 Canvas 的尺寸重置为当前子节点的估算尺寸，
+        /// 防止残留被删除节点（如嵌套IF）撑大的旧尺寸。
+        /// </summary>
+        private void ResetBranchCanvasSize(Canvas branchCanvas, List<CommandNode> commandList)
+        {
+            if (commandList.Count == 0)
+            {
+                branchCanvas.Width = 0;
+                branchCanvas.Height = 0;
+                return;
+            }
+
+            double totalWidth = 0;
+            double maxHeight = 0;
+
+            foreach (UIElement child in branchCanvas.Children)
+            {
+                double w = 0, h = 0;
+                if (child is FrameworkElement fe)
+                {
+                    // 新建的控件还没渲染，ActualWidth/Height 为 0，使用 Width/Height 或估算值
+                    w = fe.ActualWidth > 0 ? fe.ActualWidth : (double.IsNaN(fe.Width) ? 0 : fe.Width);
+                    h = fe.ActualHeight > 0 ? fe.ActualHeight : (double.IsNaN(fe.Height) ? 0 : fe.Height);
+                }
+                if (w <= 0) w = 231;  // 普通节点默认宽度
+                if (h <= 0) h = 64;   // 普通节点默认高度
+
+                totalWidth += w + 8;  // 8 = CHILD_GAP
+                maxHeight = Math.Max(maxHeight, h);
+            }
+
+            branchCanvas.Width = Math.Max(0, totalWidth - 8);
+            branchCanvas.Height = maxHeight;
+        }
         /// <summary>
         /// 完整重建分支UI，保证节点和连接线交替排列
         /// </summary>
         private void RebuildBranchUI(Canvas branchPanel, List<CommandNode> commandList)
         {
             branchPanel.Children.Clear();
+
+            // ★ 修复：清空后立即重置 Canvas 尺寸，防止残留旧值导致分支过高
+            branchPanel.Width = 0;
+            branchPanel.Height = 0;
+
             for (int i = 0; i < commandList.Count; i++)
             {
                 if (i > 0)
@@ -757,6 +881,11 @@ namespace MaxChemical.Modules.Designer.Views
                 _falseBranchCommands.Clear();
                 TrueBranchContent.Children.Clear();
                 FalseBranchContent.Children.Clear();
+                // ★ 修复：清空后重置 Canvas 尺寸
+                TrueBranchContent.Width = 0;
+                TrueBranchContent.Height = 0;
+                FalseBranchContent.Width = 0;
+                FalseBranchContent.Height = 0;
                 TrueHint.Visibility = Visibility.Visible;
                 FalseHint.Visibility = Visibility.Visible;
 
@@ -1063,7 +1192,16 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void LayoutBranchChildren(Canvas branchCanvas, double branchWrapperHeight)
         {
-            if (branchCanvas == null || branchCanvas.Children.Count == 0) return;
+            if (branchCanvas == null) return;
+
+            // ★ 修复：当分支为空时，必须将 Canvas 尺寸归零，
+            //   否则会残留被删除节点撑大的旧 Height/Width
+            if (branchCanvas.Children.Count == 0)
+            {
+                branchCanvas.Width = 0;
+                branchCanvas.Height = 0;
+                return;
+            }
 
             try
             {
