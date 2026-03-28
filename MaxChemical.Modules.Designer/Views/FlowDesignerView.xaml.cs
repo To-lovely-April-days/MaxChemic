@@ -704,20 +704,22 @@ namespace MaxChemical.Modules.Designer.Views
         // 专门为逻辑节点检查交互元素
         private bool IsClickOnLogicNodeInteractiveElement(MouseButtonEventArgs e)
         {
-            var element = e.OriginalSource as FrameworkElement;
+            var element = e.OriginalSource as DependencyObject;
 
             while (element != null)
             {
                 if (element is Button ||
                     element is System.Windows.Controls.Primitives.ToggleButton ||
-                    element.Name == "ExpandToggle" ||
-                    element.Name == "DropZone" ||
-                    element.Name == "TrueBranchDropZone" ||
-                    element.Name == "FalseBranchDropZone")
+                    (element is FrameworkElement fe &&
+                     (fe.Name == "ExpandToggle" ||
+                      fe.Name == "DeleteButton" ||
+                      fe.Name == "DropZone" ||
+                      fe.Name == "TrueBranchDropZone" ||
+                      fe.Name == "FalseBranchDropZone")))
                 {
                     return true;
                 }
-                element = element.Parent as FrameworkElement;
+                element = VisualTreeHelper.GetParent(element);
             }
 
             return false;
