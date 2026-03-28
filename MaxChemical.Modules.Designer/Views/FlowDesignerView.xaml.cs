@@ -32,9 +32,9 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly DragInsertPositionService _dragInsertService;
         private readonly ManualCommandExecutor _manualExecutor;
         private readonly IExperimentDataAdapter _experimentDataAdapter; // 新增：实验数据适配器
-         // ── 1. 在类顶部新增一个私有字段，用来记录是否已完成首次居中 ──
+                                                                        // ── 1. 在类顶部新增一个私有字段，用来记录是否已完成首次居中 ──
         private bool _initialCenterDone = false;
-        public FlowDesignerView(IEventAggregator eventAggregator,IExperimentDataAdapter experimentDataAdapter)
+        public FlowDesignerView(IEventAggregator eventAggregator, IExperimentDataAdapter experimentDataAdapter)
         {
             InitializeComponent();
 
@@ -262,15 +262,16 @@ namespace MaxChemical.Modules.Designer.Views
         {
             _isInternalSizeChange = true;
 
+            // 等布局完全稳定后再滚动（多延迟一帧）
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // 对于复杂节点，NodeControl需要额外等待一次布局
-                if (newNode.NodeControl != null && newNode.NodeControl.ActualHeight <= 0)
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    // 再延迟一帧，等待IF节点内部布局完成
+                    RealignNodeVerticalCenter(newNode);
+
+                    // 再等一帧，确保 CanvasWidth 已更新、ScrollableWidth 已刷新
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        RealignNodeVerticalCenter(newNode);
                         ScrollToNodeSmooth(newNode);
 
                         Dispatcher.BeginInvoke(new Action(() =>
@@ -279,22 +280,13 @@ namespace MaxChemical.Modules.Designer.Views
                         }), DispatcherPriority.ApplicationIdle);
 
                     }), DispatcherPriority.Render);
-                }
-                else
-                {
-                    RealignNodeVerticalCenter(newNode);
-                    ScrollToNodeSmooth(newNode);
 
-                    Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        _isInternalSizeChange = false;
-                    }), DispatcherPriority.ApplicationIdle);
-                }
+                }), DispatcherPriority.Render);
 
             }), DispatcherPriority.Loaded);
         }
 
-        // ★ 新增方法：用实际渲染高度重新对齐节点垂直中心
+        //  新增方法：用实际渲染高度重新对齐节点垂直中心
         private void RealignNodeVerticalCenter(CommandNode node)
         {
             try
@@ -303,26 +295,29 @@ namespace MaxChemical.Modules.Designer.Views
                 if (viewModel == null || node == null) return;
 
                 double startNodeCenterY = viewModel.StartNodeY + 32.0;
+                double correctY;
 
-                double actualHeight = 0;
-
-                // 直接从NodeControl读取，不走视觉树
-                if (node.NodeControl != null && node.NodeControl.ActualHeight > 0)
+                if (node.IsIfNode && node.NodeControl is IfNodeControlView ifView)
                 {
-                    actualHeight = node.NodeControl.ActualHeight;
+                    correctY = startNodeCenterY - ifView.CardCenterOffsetY;
                 }
                 else
                 {
-                    actualHeight = GetNodeActualHeightFromVisualTree(node);
+                    double actualHeight = node.NodeControl?.ActualHeight > 0
+                        ? node.NodeControl.ActualHeight
+                        : GetNodeActualHeightFromVisualTree(node);
+                    if (actualHeight <= 0) return;
+                    correctY = startNodeCenterY - actualHeight / 2.0;
+                    correctY = Math.Max(0, correctY);
                 }
-
-                if (actualHeight <= 0) return;
-
-                double correctY = startNodeCenterY - actualHeight / 2.0;
 
                 if (Math.Abs(node.Y - correctY) > 1.0)
                 {
                     node.Y = correctY;
+
+                    // ★ 新增：如果 Y 为负，让 ViewModel 整体下移
+                    viewModel.EnsureAllNodesVisible();  // 需要把这个方法改为 public
+
                     viewModel.RebuildAllConnectionsPublic();
                 }
             }
@@ -332,7 +327,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        // ★ 新增方法：从视觉树获取节点的实际渲染高度
+        //  新增方法：从视觉树获取节点的实际渲染高度
         private double GetNodeActualHeightFromVisualTree(CommandNode node)
         {
             try
@@ -404,10 +399,20 @@ namespace MaxChemical.Modules.Designer.Views
                 double viewportW = CanvasScrollViewer.ViewportWidth;
                 double viewportH = CanvasScrollViewer.ViewportHeight;
 
+                // ★ 防御：如果节点坐标或视口尺寸无效，跳过滚动
+                if (double.IsNaN(nodeX) || double.IsNaN(node.Y) ||
+                    double.IsNaN(nodeWidth) || double.IsInfinity(nodeX) || double.IsInfinity(node.Y) ||
+                    viewportW <= 0 || viewportH <= 0)
+                {
+                    _logger.LogWarning("滚动参数无效，跳过滚动: nodeX={NodeX}, nodeY={NodeY}, nodeWidth={NodeWidth}, viewportW={VW}, viewportH={VH}",
+                        nodeX, node.Y, nodeWidth, viewportW, viewportH);
+                    return;
+                }
+
                 // 水平方向：让节点中心出现在视口中心
                 double nodeCenterX = nodeX + nodeWidth / 2.0;
                 double targetH = nodeCenterX - viewportW / 2.0;
-                targetH = Math.Max(0, Math.Min(targetH, CanvasScrollViewer.ScrollableWidth));
+                targetH = Math.Max(0, targetH); // 不用 ScrollableWidth 限制，画布会自动扩大
 
                 // 垂直方向：节点垂直居中，一般变化不大
                 double nodeY = node.Y;
@@ -415,6 +420,10 @@ namespace MaxChemical.Modules.Designer.Views
                 double nodeCenterY = nodeY + nodeHeight / 2.0;
                 double targetV = nodeCenterY - viewportH / 2.0;
                 targetV = Math.Max(0, Math.Min(targetV, CanvasScrollViewer.ScrollableHeight));
+
+                // ★ 防御：最终目标值必须有效
+                if (double.IsNaN(targetH)) targetH = 0;
+                if (double.IsNaN(targetV)) targetV = 0;
 
                 double currentH = CanvasScrollViewer.HorizontalOffset;
                 double currentV = CanvasScrollViewer.VerticalOffset;
@@ -435,6 +444,15 @@ namespace MaxChemical.Modules.Designer.Views
         }
         private void StartSmoothScroll(double startH, double startV, double targetH, double targetV, string nodeName = "")
         {
+            // ★ 防御：任一参数为 NaN 或 Infinity 时，直接跳过动画
+            if (double.IsNaN(startH) || double.IsNaN(startV) || double.IsNaN(targetH) || double.IsNaN(targetV) ||
+                double.IsInfinity(startH) || double.IsInfinity(startV) || double.IsInfinity(targetH) || double.IsInfinity(targetV))
+            {
+                _logger.LogWarning("平滑滚动参数包含 NaN/Infinity，跳过: startH={SH}, startV={SV}, targetH={TH}, targetV={TV}",
+                    startH, startV, targetH, targetV);
+                return;
+            }
+
             var startTime = DateTime.UtcNow;
             var duration = TimeSpan.FromMilliseconds(300); // 减少动画时间，让滚动更快
 
@@ -450,8 +468,12 @@ namespace MaxChemical.Modules.Designer.Views
                 var currentH = startH + (targetH - startH) * easedProgress;
                 var currentV = startV + (targetV - startV) * easedProgress;
 
-                CanvasScrollViewer.ScrollToHorizontalOffset(currentH);
-                CanvasScrollViewer.ScrollToVerticalOffset(currentV);
+                // ★ 防御：确保插值结果有效
+                if (!double.IsNaN(currentH) && !double.IsNaN(currentV))
+                {
+                    CanvasScrollViewer.ScrollToHorizontalOffset(currentH);
+                    CanvasScrollViewer.ScrollToVerticalOffset(currentV);
+                }
 
                 if (progress >= 1.0)
                 {
@@ -474,6 +496,13 @@ namespace MaxChemical.Modules.Designer.Views
             if (CanvasScrollViewer == null)
             {
                 _logger.LogWarning("CanvasScrollViewer 为 null，无法滚动");
+                return;
+            }
+
+            // ★ 防御：参数无效时跳过
+            if (double.IsNaN(x) || double.IsNaN(y) || double.IsInfinity(x) || double.IsInfinity(y))
+            {
+                _logger.LogWarning("ScrollToPositionSmooth 参数无效，跳过: x={X}, y={Y}", x, y);
                 return;
             }
 
@@ -853,15 +882,64 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         case IfNodeControlView ifControl:
                             ifControl.NodeClicked += OnComplexNodeClicked;
-                            _logger.LogTrace("为IF节点订阅了点击事件");
+
+                            // 新增：订阅布局变化，动态修正 node.Y
+                            ifControl.LayoutChanged += (s, cardCenterOffsetY) =>
+                            {
+                                var node = presenter.DataContext as CommandNode;
+                                if (node == null) return;
+                                var viewModel = DataContext as FlowDesignerViewModel;
+                                if (viewModel == null) return;
+
+                                double startNodeCenterY = viewModel.StartNodeY + 32.0;
+                                double correctY = startNodeCenterY - cardCenterOffsetY;
+
+                                if (Math.Abs(node.Y - correctY) <= 1.0) return;
+
+                                double deltaY = node.Y - correctY; // 正数=IF1需要上移, 负数=IF1需要下移
+
+                                if (deltaY > 1.0)
+                                {
+                                    // IF1 需要上移（TRUE分支向上扩展，cardCenterOffsetY 增大）
+                                    // 判断 correctY 是否会出界（<0）
+                                    if (correctY < 0)
+                                    {
+                                        // 需要整体下移，让 correctY >= 0
+                                        double pushDown = -correctY + 10; // 多留10px余量
+                                        viewModel.StartNodeY += pushDown;
+                                        foreach (var cmdNode in viewModel.CommandNodes)
+                                            cmdNode.Y += pushDown;
+
+                                        // ScrollViewer 补偿，视觉上不跳
+                                        double newOffset = (CanvasScrollViewer?.VerticalOffset ?? 0) + pushDown;
+                                        Dispatcher.BeginInvoke(new Action(() =>
+                                        {
+                                            CanvasScrollViewer?.ScrollToVerticalOffset(newOffset);
+                                        }), DispatcherPriority.Render);
+
+                                        // 重算 correctY（StartNodeY 已变）
+                                        startNodeCenterY = viewModel.StartNodeY + 32.0;
+                                        correctY = startNodeCenterY - cardCenterOffsetY;
+                                    }
+                                    // 只修正 IF1.Y，不动 A/B
+                                    node.Y = correctY;
+                                }
+                                else
+                                {
+                                    // IF1 需要下移（FALSE分支扩展），直接修正，不影响 A/B
+                                    node.Y = correctY;
+                                }
+
+                                viewModel.RebuildAllConnectionsPublic();
+                            };
+                            _logger.LogTrace("为IF节点订阅了点击和布局事件");
                             break;
+
                         case LoopNodeControlView loopControl:
                             loopControl.NodeClicked += OnComplexNodeClicked;
-                            _logger.LogTrace("为循环节点订阅了点击事件");
                             break;
                         case ParallelNodeControlView parallelControl:
                             parallelControl.NodeClicked += OnComplexNodeClicked;
-                            _logger.LogTrace("为并行节点订阅了点击事件");
                             break;
                     }
                 }
@@ -1137,7 +1215,7 @@ namespace MaxChemical.Modules.Designer.Views
             if (IsWithinPropertyPanel(original))
                 return;
 
-          
+
         }
         private bool IsWithinPropertyPanel(DependencyObject d)
         {

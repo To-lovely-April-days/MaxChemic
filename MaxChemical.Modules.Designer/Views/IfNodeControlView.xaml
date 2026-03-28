@@ -243,9 +243,8 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="#804CAF50" FontSize="11" FontStyle="Italic"/>
                         <!-- 分支内节点横向排列 -->
-                        <StackPanel x:Name="TrueBranchContent"
-                                    Orientation="Horizontal"
-                                    UseLayoutRounding="True"/>
+                        <Canvas x:Name="TrueBranchContent"
+        UseLayoutRounding="True"/>
                     </Grid>
                 </Border>
             </StackPanel>
@@ -290,9 +289,8 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="#80F44336" FontSize="11" FontStyle="Italic"/>
                         <!-- 分支内节点横向排列 -->
-                        <StackPanel x:Name="FalseBranchContent"
-                                    Orientation="Horizontal"
-                                    UseLayoutRounding="True"/>
+                        <Canvas x:Name="FalseBranchContent"
+        UseLayoutRounding="True"/>
                     </Grid>
                 </Border>
             </StackPanel>
