@@ -20,7 +20,6 @@ namespace MaxChemical.Modules.Designer.Views
         private CancellationTokenSource _debounceCts;
         private IEventAggregator _eventAggregator;
 
-        // 添加变量管理器窗口管理
         private static VariableManagerWindow _sharedVariableWindow;
         private static readonly object _windowLock = new object();
 
@@ -78,6 +77,10 @@ namespace MaxChemical.Modules.Designer.Views
 
             if (!logicCommand.Properties.ContainsKey("Description"))
                 logicCommand.Properties["Description"] = "等待指定时间";
+
+            // ★ 新增：IsWarning 默认值
+            if (!logicCommand.Properties.ContainsKey("IsWarning"))
+                logicCommand.Properties["IsWarning"] = false;
         }
 
         private void InitializeFromProperties()
@@ -87,7 +90,6 @@ namespace MaxChemical.Modules.Designer.Views
 
             var leftVariable = node.LogicCommand.Properties.GetValueOrDefault("ConditionLeftVariable")?.ToString() ?? "";
 
-            // 根据左侧变量是否为空来设置等待模式
             if (string.IsNullOrWhiteSpace(leftVariable))
             {
                 FixedTimeRadio.IsChecked = true;
@@ -113,9 +115,13 @@ namespace MaxChemical.Modules.Designer.Views
                 case "Asynchronous":
                     AsynchronousRadio.IsChecked = true;
                     break;
-            
             }
+
+            // ★ 设置 IsWarning 复选框
+            var isWarning = Convert.ToBoolean(node.LogicCommand.Properties.GetValueOrDefault("IsWarning", false));
+            IsWarningCheckBox.IsChecked = isWarning;
         }
+
         private void ExecutionMode_Changed(object sender, RoutedEventArgs e)
         {
             if (DataContext is not CommandNode node) return;
@@ -132,6 +138,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             UpdateWaitPreview();
         }
+
         private void WaitMode_Changed(object sender, RoutedEventArgs e)
         {
             if (DataContext is not CommandNode node) return;
@@ -139,18 +146,16 @@ namespace MaxChemical.Modules.Designer.Views
 
             if (FixedTimeRadio.IsChecked == true)
             {
-                // 切换到固定时间等待
                 node.LogicCommand.Properties["ConditionLeftVariable"] = "";
                 node.LogicCommand.Properties["ConditionRightValue"] = "";
-                node.LogicCommand.Properties["ExecutionMode"] = "Synchronous"; // 固定时间总是同步
+                node.LogicCommand.Properties["ExecutionMode"] = "Synchronous";
 
                 FixedTimeGroup.Visibility = Visibility.Visible;
                 ConditionGroup.Visibility = Visibility.Collapsed;
-                ExecutionModeGroup.Visibility = Visibility.Collapsed; // 隐藏执行模式选择
+                ExecutionModeGroup.Visibility = Visibility.Collapsed;
             }
             else if (ConditionRadio.IsChecked == true)
             {
-                // 切换到条件等待
                 if (string.IsNullOrWhiteSpace(node.LogicCommand.Properties.GetValueOrDefault("ConditionLeftVariable")?.ToString()))
                 {
                     node.LogicCommand.Properties["ConditionLeftVariable"] = "{variable}";
@@ -159,9 +164,21 @@ namespace MaxChemical.Modules.Designer.Views
 
                 FixedTimeGroup.Visibility = Visibility.Collapsed;
                 ConditionGroup.Visibility = Visibility.Visible;
-                ExecutionModeGroup.Visibility = Visibility.Visible; // 显示执行模式选择
+                ExecutionModeGroup.Visibility = Visibility.Visible;
             }
 
+            UpdateWaitPreview();
+        }
+
+        /// <summary>
+        /// ★ 新增：IsWarning 开关变化
+        /// </summary>
+        private void IsWarning_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not CommandNode node) return;
+            if (node.LogicCommand?.Properties == null) return;
+
+            node.LogicCommand.Properties["IsWarning"] = IsWarningCheckBox.IsChecked == true;
             UpdateWaitPreview();
         }
 
@@ -271,7 +288,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (string.IsNullOrWhiteSpace(leftVariable))
                 {
-                    // 固定时间等待 - 总是同步的
+                    // 固定时间等待
                     var waitTime = Convert.ToDouble(node.LogicCommand.Properties.GetValueOrDefault("WaitTime", 5.0));
                     var timeUnit = node.LogicCommand.Properties.GetValueOrDefault("TimeUnit")?.ToString() ?? "Seconds";
 
@@ -288,7 +305,7 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    // 条件等待 - 可以选择同步/异步
+                    // 条件等待
                     var executionMode = node.LogicCommand.Properties.GetValueOrDefault("ExecutionMode")?.ToString() ?? "Synchronous";
                     var executionModeText = executionMode == "Asynchronous" ? "[异步]" : "[同步]";
 
@@ -297,6 +314,7 @@ namespace MaxChemical.Modules.Designer.Views
                     var isInfiniteTimeout = Convert.ToBoolean(node.LogicCommand.Properties.GetValueOrDefault("IsInfiniteTimeout", false));
                     var timeoutSeconds = Convert.ToDouble(node.LogicCommand.Properties.GetValueOrDefault("TimeoutSeconds", 30.0));
                     var checkInterval = Convert.ToDouble(node.LogicCommand.Properties.GetValueOrDefault("CheckIntervalSeconds", 1.0));
+                    var isWarning = Convert.ToBoolean(node.LogicCommand.Properties.GetValueOrDefault("IsWarning", false));
 
                     var operatorDisplay = operatorValue switch
                     {
@@ -321,13 +339,16 @@ namespace MaxChemical.Modules.Designer.Views
                         _ => $"{leftVariable} {operatorDisplay} {rightValue}"
                     };
 
+                    // ★ 预览中显示警告模式标记
+                    var warningTag = isWarning ? " ⚠警告" : "";
+
                     if (isInfiniteTimeout)
                     {
-                        previewText = $"{executionModeText} 循环等待条件：{conditionText}\n检查间隔：{checkInterval}秒\n无限超时";
+                        previewText = $"{executionModeText}{warningTag} 循环等待条件：{conditionText}\n检查间隔：{checkInterval}秒\n无限超时";
                     }
                     else
                     {
-                        previewText = $"{executionModeText} 循环等待条件：{conditionText}\n检查间隔：{checkInterval}秒\n超时时间：{timeoutSeconds}秒";
+                        previewText = $"{executionModeText}{warningTag} 循环等待条件：{conditionText}\n检查间隔：{checkInterval}秒\n超时时间：{timeoutSeconds}秒";
                     }
                 }
 
@@ -364,7 +385,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (string.IsNullOrWhiteSpace(leftVariable))
                 {
-                    // 验证固定时间等待
                     if (!double.TryParse(node.LogicCommand.Properties.GetValueOrDefault("WaitTime")?.ToString(), out double waitTime) || waitTime <= 0)
                     {
                         errorMessage = "等待时间必须大于0";
@@ -372,7 +392,6 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 else
                 {
-                    // 验证条件等待
                     var operatorValue = node.LogicCommand.Properties.GetValueOrDefault("ConditionOperator")?.ToString() ?? "Equals";
                     var rightValue = node.LogicCommand.Properties.GetValueOrDefault("ConditionRightValue")?.ToString() ?? "";
                     var isInfiniteLoop = Convert.ToBoolean(node.LogicCommand.Properties.GetValueOrDefault("IsInfiniteLoop", false));
@@ -456,7 +475,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
     }
-    // 放在 namespace MaxChemical.Modules.Designer.Views 里
+
     public class StringEqualityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

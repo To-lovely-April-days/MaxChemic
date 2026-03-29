@@ -2624,7 +2624,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             var isInfiniteTimeout = Convert.ToBoolean(waitNode.LogicCommand.Properties?.GetValueOrDefault("IsInfiniteTimeout", false));
             var timeoutSeconds = Convert.ToDouble(waitNode.LogicCommand.Properties?.GetValueOrDefault("TimeoutSeconds", 30.0));
             var checkInterval = Convert.ToDouble(waitNode.LogicCommand.Properties?.GetValueOrDefault("CheckIntervalSeconds", 1.0));
-
+            bool isWarning = false;
+            if (waitNode.LogicCommand?.Properties != null &&
+                waitNode.LogicCommand.Properties.TryGetValue("IsWarning", out var warningVal))
+            {
+                isWarning = warningVal is bool b ? b : Convert.ToBoolean(warningVal);
+            }
             bool isAsyncMode = executionMode.Equals("Asynchronous", StringComparison.OrdinalIgnoreCase);
 
             _logger.LogDebug("条件等待: {Left} {Op} {Right}, 模式: {Mode}, 无限超时: {Infinite}",
@@ -2644,7 +2649,11 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 // 检查超时
                 if (!isInfiniteTimeout && (DateTime.Now - startTime).TotalSeconds >= timeoutSeconds)
                 {
-                    throw new TimeoutException($"条件等待超时: {conditionExpression}");
+                    _logger.LogInformation("条件等待超时（条件未满足），节点正常跳过: {Expression}, 超时: {Timeout}秒",
+                        conditionExpression, timeoutSeconds);
+
+                    // 超时 = 条件没满足，正常完成节点（跳过），不算失败
+                    return (DateTime.Now - startTime).TotalMilliseconds;
                 }
 
                 iterationCount++;
@@ -2662,8 +2671,25 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                     try
                     {
-                        // 条件满足，显示确认对话框
-                        var userChoice = await ShowConditionMetDialogAsync(conditionExpression, isAsyncMode);
+                       
+                        double? currentNumericValue = null;
+                        var leftVal = ResolveOperandValue(leftVariable, context, waitNode);
+                        if (leftVal != null && double.TryParse(leftVal.ToString(),
+                            NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedCurrent))
+                        {
+                            currentNumericValue = parsedCurrent;
+                        }
+
+                        double? thresholdNumericValue = null;
+                        if (double.TryParse(rightValue, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out double parsedThreshold))
+                        {
+                            thresholdNumericValue = parsedThreshold;
+                        }
+
+                        var userChoice = await ShowConditionMetDialogAsync(
+                            conditionExpression, isAsyncMode, isWarning,
+                            currentNumericValue, thresholdNumericValue, leftVariable);
 
                         // 检查用户操作
                         if (userChoice.IsStopped)
@@ -2694,7 +2720,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         /// <summary>
         /// 异步显示条件满足对话框
         /// </summary>
-        private async Task<ConditionDialogResult> ShowConditionMetDialogAsync(string conditionExpression, bool isAsyncMode)
+        private async Task<ConditionDialogResult> ShowConditionMetDialogAsync(
+                    string conditionExpression, bool isAsyncMode,
+                    bool isWarning = false,
+                    double? currentValue = null,
+                    double? thresholdValue = null,
+                    string parameterName = null)
         {
             var tcs = new TaskCompletionSource<ConditionDialogResult>();
 
@@ -2704,10 +2735,9 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 try
                 {
                     var mainWindow = Application.Current.MainWindow;
-                    var conditionDialog = new ConditionMetDialog(conditionExpression, isAsyncMode)
-                    {
-                        Owner = mainWindow
-                    };
+                    var conditionDialog = new ConditionMetDialog(
+                        conditionExpression, isAsyncMode, isWarning,
+                        currentValue, thresholdValue, parameterName);
 
                     // 显示对话框并处理结果
                     var dialogResult = conditionDialog.ShowDialog();

@@ -1,7 +1,13 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
+﻿// ============================================================
+// CountdownDialog.xaml.cs — 完整替换
+//
+// 改动：用 Ellipse StrokeDashArray/Offset 实现圆环进度
+// 新增：拖动支持
+// ============================================================
+
+using System;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace MaxChemical.Modules.Designer.Views
@@ -14,6 +20,9 @@ namespace MaxChemical.Modules.Designer.Views
         private bool _isSkipped = false;
         private bool _isStopped = false;
 
+        // 圆环周长（直径110，stroke占5px，有效半径 = (110-5)/2 = 52.5）
+        private const double RingCircumference = 2 * Math.PI * 52.5; // ≈ 329.87
+
         public bool IsSkipped => _isSkipped;
         public bool IsStopped => _isStopped;
 
@@ -24,16 +33,18 @@ namespace MaxChemical.Modules.Designer.Views
             _totalTime = waitTime;
             _remainingTime = waitTime;
 
-            // 设置等待信息
             if (!string.IsNullOrEmpty(waitInfo))
             {
                 WaitInfoText.Text = waitInfo;
             }
 
-            // 初始化界面
+            // 初始化圆环
+            InitializeRing();
+
+            // 初始化显示
             UpdateDisplay();
 
-            // 设置定时器 - 确保在UI线程创建
+            // 定时器
             _timer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(100)
@@ -41,15 +52,24 @@ namespace MaxChemical.Modules.Designer.Views
             _timer.Tick += Timer_Tick;
         }
 
+        /// <summary>
+        /// 初始化圆环进度条
+        /// </summary>
+        private void InitializeRing()
+        {
+            // 设置 StrokeDashArray = 圆周长（一整圈）
+            ProgressRing.StrokeDashArray = new System.Windows.Media.DoubleCollection { RingCircumference / 5.0 };
+            // 初始 Offset = 0（满圈）
+            ProgressRing.StrokeDashOffset = 0;
+        }
+
         public void StartCountdown()
         {
-            // 确保在UI线程调用
             if (!Dispatcher.CheckAccess())
             {
                 Dispatcher.Invoke(StartCountdown);
                 return;
             }
-
             _timer.Start();
         }
 
@@ -61,8 +81,6 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 _remainingTime = TimeSpan.Zero;
                 _timer.Stop();
-
-                // 倒计时完成，自动关闭
                 DialogResult = true;
                 Close();
                 return;
@@ -73,21 +91,27 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void UpdateDisplay()
         {
-            // 更新倒计时文本
+            // 倒计时文字
             if (_remainingTime.TotalHours >= 1)
-            {
                 CountdownText.Text = _remainingTime.ToString(@"hh\:mm\:ss");
-            }
             else
-            {
                 CountdownText.Text = _remainingTime.ToString(@"mm\:ss");
-            }
 
-            // 更新进度条
-            var progress = 1.0 - (_remainingTime.TotalMilliseconds / _totalTime.TotalMilliseconds);
-            CountdownProgress.Value = progress * 100;
+            // 圆环进度（从满到空）
+            double progress = _remainingTime.TotalMilliseconds / _totalTime.TotalMilliseconds;
+            double offset = RingCircumference * (1 - progress) / 5.0;
+            ProgressRing.StrokeDashOffset = -offset;
 
-            // 更新状态文本
+            // 兼容旧的 ProgressBar（隐藏但保留）
+            CountdownProgress.Value = (1.0 - progress) * 100;
+
+            // 等待信息
+            var elapsed = _totalTime - _remainingTime;
+            string totalStr = FormatTime(_totalTime);
+            string elapsedStr = FormatTime(elapsed);
+            WaitInfoText.Text = $"已等待 {elapsedStr} / 共 {totalStr}";
+
+            // 状态文本
             var totalSeconds = (int)_remainingTime.TotalSeconds;
             if (totalSeconds > 60)
             {
@@ -99,6 +123,13 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 StatusText.Text = $"剩余 {totalSeconds} 秒";
             }
+        }
+
+        private string FormatTime(TimeSpan ts)
+        {
+            if (ts.TotalHours >= 1)
+                return ts.ToString(@"h\:mm\:ss");
+            return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
         }
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)
@@ -115,6 +146,17 @@ namespace MaxChemical.Modules.Designer.Views
             _timer?.Stop();
             DialogResult = false;
             Close();
+        }
+
+        /// <summary>
+        /// 窗口拖动
+        /// </summary>
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                try { DragMove(); } catch { }
+            }
         }
 
         protected override void OnClosed(EventArgs e)

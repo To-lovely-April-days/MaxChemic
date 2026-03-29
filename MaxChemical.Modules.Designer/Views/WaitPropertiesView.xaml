@@ -8,7 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <local:StringEqualityConverter x:Key="StrEqConverter"/>
-        <!-- 风格B卡片 -->
+
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#E0E0E0"/>
@@ -18,14 +18,12 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
-        <!-- 字段标签 -->
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#757575"/>
             <Setter Property="Margin" Value="0,0,0,5"/>
         </Style>
 
-        <!-- 输入框 -->
         <Style x:Key="FieldInputStyle" TargetType="TextBox">
             <Setter Property="Height" Value="32"/>
             <Setter Property="Padding" Value="9,0"/>
@@ -57,7 +55,6 @@
             </Setter>
         </Style>
 
-        <!-- 变量按钮 -->
         <Style x:Key="VarButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="32"/>
             <Setter Property="Width" Value="64"/>
@@ -88,7 +85,6 @@
             </Setter>
         </Style>
 
-        <!-- Pill RadioButton -->
         <Style x:Key="OpPillStyle" TargetType="RadioButton">
             <Setter Property="Height" Value="28"/>
             <Setter Property="FontSize" Value="12"/>
@@ -121,7 +117,140 @@
             </Setter>
         </Style>
 
-        
+        <!-- ComboBox -->
+        <Style x:Key="FieldComboStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="9,0,28,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#FAFAFA"/>
+            <Setter Property="Foreground" Value="#212121"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                                <Grid>
+                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      Margin="{TemplateBinding Padding}" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                    <Path x:Name="Arrow" Data="M 0 0 L 5 5 L 10 0" Stroke="#9E9E9E" StrokeThickness="1.5"
+                                          Fill="Transparent" Width="10" Height="5"
+                                          HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
+                                          StrokeLineJoin="Round" IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <ToggleButton Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press" Background="Transparent" BorderThickness="0" Opacity="0"/>
+                            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade">
+                                <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="200">
+                                    <Border.Effect>
+                                        <DropShadowEffect ShadowDepth="2" Direction="270" BlurRadius="8" Color="#000000" Opacity="0.08"/>
+                                    </Border.Effect>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#BDBDBD"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#2196F3"/>
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="Arrow" Property="Data" Value="M 0 5 L 5 0 L 10 5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="Padding" Value="10,0"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="Foreground" Value="#212121"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="ItemBd" Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}" CornerRadius="4" Margin="4,2">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="ItemBd" Property="Background" Value="#E3F2FD"/>
+                                            <Setter Property="Foreground" Value="#1565C0"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBd" Property="Background" Value="#E3F2FD"/>
+                                            <Setter Property="Foreground" Value="#1565C0"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- CheckBox -->
+        <Style x:Key="FieldCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#212121"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border x:Name="CheckBd" Width="16" Height="16"
+                                    BorderBrush="#BDBDBD" BorderThickness="1.5" CornerRadius="4"
+                                    Background="White" Margin="0,0,8,0" VerticalAlignment="Center">
+                                <Path x:Name="CheckMark" Data="M 2 8 L 6 12 L 14 4"
+                                      Stroke="White" StrokeThickness="2"
+                                      StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Visibility="Collapsed" Stretch="None"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckBd" Property="Background" Value="#2196F3"/>
+                                <Setter TargetName="CheckBd" Property="BorderBrush" Value="#2196F3"/>
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckBd" Property="BorderBrush" Value="#2196F3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </UserControl.Resources>
 
     <Border Background="#F5F5F5">
@@ -174,11 +303,8 @@
 
                         <TextBlock Text="描述" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox x:Name="DescriptionBox"
-                                 Height="60"
-                                 Padding="9,6"
-                                 FontSize="13"
-                                 TextWrapping="Wrap"
-                                 AcceptsReturn="True"
+                                 Height="60" Padding="9,6" FontSize="13"
+                                 TextWrapping="Wrap" AcceptsReturn="True"
                                  VerticalContentAlignment="Top"
                                  BorderBrush="#E0E0E0" BorderThickness="1"
                                  Background="#FAFAFA" Foreground="#212121"
@@ -188,8 +314,7 @@
                                 <ControlTemplate TargetType="TextBox">
                                     <Border Background="{TemplateBinding Background}"
                                             BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                            CornerRadius="6">
+                                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
                                         <ScrollViewer x:Name="PART_ContentHost"
                                                       Margin="{TemplateBinding Padding}"
                                                       VerticalScrollBarVisibility="Auto"/>
@@ -321,14 +446,12 @@
                                     Click="SelectLeftVariable_Click"/>
                         </Grid>
 
-                        <!-- 操作符 -->
-                        <TextBlock Text="比较符" Style="{StaticResource FieldLabelStyle}"/>
-                        <!-- 隐藏的 ComboBox 保持原有数据绑定，cs 里 UpdateWaitPreview 读的是 Properties[ConditionOperator] -->
+                        <!-- 操作符（隐藏 ComboBox 保持数据绑定） -->
                         <ComboBox x:Name="ConditionOperatorCombo"
-          Visibility="Collapsed"
-          SelectedValue="{Binding LogicCommand.Properties[ConditionOperator], UpdateSourceTrigger=PropertyChanged}"
-          SelectedValuePath="Tag"
-          SelectionChanged="OnValueChanged">
+                                  Visibility="Collapsed"
+                                  SelectedValue="{Binding LogicCommand.Properties[ConditionOperator], UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag"
+                                  SelectionChanged="OnValueChanged">
                             <ComboBoxItem Tag="Equals"/>
                             <ComboBoxItem Tag="NotEquals"/>
                             <ComboBoxItem Tag="GreaterThan"/>
@@ -343,57 +466,46 @@
                             <ComboBoxItem Tag="NotContains"/>
                         </ComboBox>
 
-                        <!-- 分段选择器：6个常用比较符，和 If 页面完全一致 -->
+                        <!-- 比较符分段选择器 -->
+                        <TextBlock Text="比较符" Style="{StaticResource FieldLabelStyle}"/>
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3" Margin="0,0,0,10">
                             <UniformGrid Rows="1">
                                 <RadioButton Content="="
-                     GroupName="WaitOpGroup"
-                     Style="{StaticResource OpPillStyle}"
-                     IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
-                         Converter={StaticResource StrEqConverter},
-                         ConverterParameter=Equals,
-                         UpdateSourceTrigger=PropertyChanged}"
-                     Checked="OnValueChanged"/>
+                                             GroupName="WaitOpGroup" Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
+                                                 Converter={StaticResource StrEqConverter}, ConverterParameter=Equals,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                                             Checked="OnValueChanged"/>
                                 <RadioButton Content="≠"
-                     GroupName="WaitOpGroup"
-                     Style="{StaticResource OpPillStyle}"
-                     IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
-                         Converter={StaticResource StrEqConverter},
-                         ConverterParameter=NotEquals,
-                         UpdateSourceTrigger=PropertyChanged}"
-                     Checked="OnValueChanged"/>
+                                             GroupName="WaitOpGroup" Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
+                                                 Converter={StaticResource StrEqConverter}, ConverterParameter=NotEquals,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                                             Checked="OnValueChanged"/>
                                 <RadioButton Content="&gt;"
-                     GroupName="WaitOpGroup"
-                     Style="{StaticResource OpPillStyle}"
-                     IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
-                         Converter={StaticResource StrEqConverter},
-                         ConverterParameter=GreaterThan,
-                         UpdateSourceTrigger=PropertyChanged}"
-                     Checked="OnValueChanged"/>
+                                             GroupName="WaitOpGroup" Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
+                                                 Converter={StaticResource StrEqConverter}, ConverterParameter=GreaterThan,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                                             Checked="OnValueChanged"/>
                                 <RadioButton Content="&lt;"
-                     GroupName="WaitOpGroup"
-                     Style="{StaticResource OpPillStyle}"
-                     IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
-                         Converter={StaticResource StrEqConverter},
-                         ConverterParameter=LessThan,
-                         UpdateSourceTrigger=PropertyChanged}"
-                     Checked="OnValueChanged"/>
+                                             GroupName="WaitOpGroup" Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
+                                                 Converter={StaticResource StrEqConverter}, ConverterParameter=LessThan,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                                             Checked="OnValueChanged"/>
                                 <RadioButton Content="≥"
-                     GroupName="WaitOpGroup"
-                     Style="{StaticResource OpPillStyle}"
-                     IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
-                         Converter={StaticResource StrEqConverter},
-                         ConverterParameter=GreaterThanOrEqual,
-                         UpdateSourceTrigger=PropertyChanged}"
-                     Checked="OnValueChanged"/>
+                                             GroupName="WaitOpGroup" Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
+                                                 Converter={StaticResource StrEqConverter}, ConverterParameter=GreaterThanOrEqual,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                                             Checked="OnValueChanged"/>
                                 <RadioButton Content="≤"
-                     GroupName="WaitOpGroup"
-                     Style="{StaticResource OpPillStyle}"
-                     IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
-                         Converter={StaticResource StrEqConverter},
-                         ConverterParameter=LessThanOrEqual,
-                         UpdateSourceTrigger=PropertyChanged}"
-                     Checked="OnValueChanged"/>
+                                             GroupName="WaitOpGroup" Style="{StaticResource OpPillStyle}"
+                                             IsChecked="{Binding LogicCommand.Properties[ConditionOperator],
+                                                 Converter={StaticResource StrEqConverter}, ConverterParameter=LessThanOrEqual,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                                             Checked="OnValueChanged"/>
                             </UniformGrid>
                         </Border>
 
@@ -412,40 +524,48 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     x:Name="CheckIntervalTextBox"
-                                     Style="{StaticResource FieldInputStyle}"
-                                     Margin="0,0,8,0"
+                            <TextBox Grid.Column="0" x:Name="CheckIntervalTextBox"
+                                     Style="{StaticResource FieldInputStyle}" Margin="0,0,8,0"
                                      Text="{Binding LogicCommand.Properties[CheckIntervalSeconds], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <TextBlock Grid.Column="1" Text="秒"
-                                       VerticalAlignment="Center"
+                            <TextBlock Grid.Column="1" Text="秒" VerticalAlignment="Center"
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
 
                         <!-- 超时设置 -->
                         <TextBlock Text="超时设置" Style="{StaticResource FieldLabelStyle}"/>
                         <CheckBox x:Name="IsInfiniteTimeoutCheckBox"
-          Style="{StaticResource FieldCheckBoxStyle}"
-          Content="无限超时（一直等待直到条件满足）"
-          IsChecked="{Binding LogicCommand.Properties[IsInfiniteTimeout], UpdateSourceTrigger=PropertyChanged}"
-          Checked="OnValueChanged" Unchecked="OnValueChanged"/>
+                                  Style="{StaticResource FieldCheckBoxStyle}"
+                                  Content="无限超时（一直等待直到条件满足）"
+                                  IsChecked="{Binding LogicCommand.Properties[IsInfiniteTimeout], UpdateSourceTrigger=PropertyChanged}"
+                                  Checked="OnValueChanged" Unchecked="OnValueChanged"/>
 
                         <Grid x:Name="TimeoutInputGroup">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     x:Name="TimeoutTextBox"
-                                     Style="{StaticResource FieldInputStyle}"
-                                     Margin="0,0,8,0"
+                            <TextBox Grid.Column="0" x:Name="TimeoutTextBox"
+                                     Style="{StaticResource FieldInputStyle}" Margin="0,0,8,0"
                                      Text="{Binding LogicCommand.Properties[TimeoutSeconds], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <TextBlock Grid.Column="1" Text="秒"
-                                       VerticalAlignment="Center"
+                            <TextBlock Grid.Column="1" Text="秒" VerticalAlignment="Center"
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
+
+                        <!-- ★ 新增：警告模式开关 ★ -->
+                        <Border Margin="0,12,0,0" Padding="10,8"
+                                Background="#FFF8F0" BorderBrush="#FFE0B2" BorderThickness="1" CornerRadius="6">
+                            <StackPanel>
+                                <CheckBox x:Name="IsWarningCheckBox"
+                                          Style="{StaticResource FieldCheckBoxStyle}"
+                                          Content="警告模式（橙色警告弹框）"
+                                          Checked="IsWarning_Changed" Unchecked="IsWarning_Changed"/>
+                                <TextBlock Text="开启后条件满足时显示橙色警告弹框，需人工确认后继续"
+                                           FontSize="10" Foreground="#BF360C" Margin="24,4,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -461,27 +581,20 @@
                                 BorderThickness="1" CornerRadius="6" Padding="10,8">
                             <TextBlock x:Name="WaitPreview"
                                        FontFamily="Consolas" FontSize="12"
-                                       Foreground="#424242" TextWrapping="Wrap"
-                                       LineHeight="18"/>
+                                       Foreground="#424242" TextWrapping="Wrap" LineHeight="18"/>
                         </Border>
                     </StackPanel>
                 </Border>
 
-                <!-- ══ 验证提示（cs 里控制显隐） ══ -->
+                <!-- ══ 验证提示 ══ -->
                 <Border x:Name="ValidationPanel"
-                        Background="#FFEBEE"
-                        BorderBrush="#EF9A9A" BorderThickness="1"
-                        CornerRadius="8" Padding="12"
-                        Margin="0,0,0,8"
-                        Visibility="Collapsed">
+                        Background="#FFEBEE" BorderBrush="#EF9A9A" BorderThickness="1"
+                        CornerRadius="8" Padding="12" Margin="0,0,0,8" Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal">
                         <Border Width="6" Height="6" CornerRadius="3"
-                                Background="#E53935" Margin="0,0,8,0"
-                                VerticalAlignment="Center"/>
-                        <TextBlock x:Name="ValidationText"
-                                   Text="配置有误"
-                                   FontSize="12" Foreground="#C62828"
-                                   VerticalAlignment="Center"/>
+                                Background="#E53935" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValidationText" Text="配置有误"
+                                   FontSize="12" Foreground="#C62828" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 
@@ -494,11 +607,12 @@
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
                             <TextBlock Text="使用说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
                         </StackPanel>
-                        <TextBlock FontSize="11" Foreground="#1976D2"
-                                   LineHeight="20" TextWrapping="Wrap">
+                        <TextBlock FontSize="11" Foreground="#1976D2" LineHeight="20" TextWrapping="Wrap">
                             <Run Text="• 固定时间：同步阻塞，适合确定等待时长的场景"/>
                             <LineBreak/>
                             <Run Text="• 条件等待：循环检查直到条件满足，支持同步/异步"/>
+                            <LineBreak/>
+                            <Run Text="• 警告模式：条件满足时弹出橙色警告弹框，需人工确认"/>
                             <LineBreak/>
                             <Run Text="• 左侧变量示例：{temperatureValue}、{isCompleted}"/>
                             <LineBreak/>

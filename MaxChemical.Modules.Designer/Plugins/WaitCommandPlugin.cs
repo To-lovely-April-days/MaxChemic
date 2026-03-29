@@ -45,7 +45,7 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
 
             // 新增属性
             logicCommand.SetProperty("ExecutionMode", properties.ExecutionMode);
-
+            logicCommand.SetProperty("IsWarning", properties.IsWarning);
             // 通用属性
             logicCommand.SetProperty("Description", properties.Description);
             logicCommand.SetProperty("Bezel_lessIconPath", Bezel_lessIconPath);

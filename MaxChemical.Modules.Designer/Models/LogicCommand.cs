@@ -176,6 +176,8 @@ namespace MaxChemical.Modules.Designer.Models
 
         // 通用属性
         public string Description { get; set; } = "等待指定时间";
+
+        public bool IsWarning { get; set; } = false;
     }
 
 
