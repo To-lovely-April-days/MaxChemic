@@ -1464,8 +1464,14 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         /// <summary>
-        /// 手动调整分支内所有子元素的垂直位置，使其居中对齐
-        /// 通过 Margin 补偿来实现，因为水平 StackPanel 不会自动居中固定高度的子元素
+        /// 手动调整分支内所有子元素的垂直位置，使其主卡片中心对齐
+        /// 
+        ///   核心修复：
+        ///   对于普通节点（cm1、cm2），逻辑中心 = ActualHeight / 2
+        ///   对于 IF 节点，逻辑中心 = CardCenterOffsetY（主卡片在控件内的实际Y中心）
+        ///   所有节点按逻辑中心对齐，而不是按几何中心对齐
+        ///   
+        ///   各分支行独立计算，互不干涉
         /// </summary>
         private void RealignBranchChildren()
         {
@@ -1477,40 +1483,106 @@ namespace MaxChemical.Modules.Designer.Views
                 // 先强制测量
                 branchContent.UpdateLayout();
 
-                // 找出最高的子元素高度
-                double maxHeight = 0;
+                // ════════════════════════════════════════════════════
+                // 第一步：清除之前的垂直Margin，重新获取真实高度
+                // ════════════════════════════════════════════════════
+                foreach (UIElement child in branchContent.Children)
+                {
+                    if (child is FrameworkElement fe)
+                    {
+                        var m = fe.Margin;
+                        if (m.Top != 0 || m.Bottom != 0)
+                        {
+                            fe.Margin = new Thickness(m.Left, 0, m.Right, 0);
+                        }
+                    }
+                }
+                branchContent.UpdateLayout();
+
+                // ════════════════════════════════════════════════════
+                // 第二步：找出本分支内每个子元素的"逻辑中心"偏移
+                //   逻辑中心 = 该节点主卡片的垂直中心在控件内的位置
+                //   普通节点: h / 2
+                //   IF 节点:  CardCenterOffsetY（因为TRUE分支在上方，主卡片被推下去了）
+                // ════════════════════════════════════════════════════
+                double maxAbove = 0; // 所有子元素中，逻辑中心到顶部的最大距离
+                double maxBelow = 0; // 所有子元素中，逻辑中心到底部的最大距离
+
                 foreach (UIElement child in branchContent.Children)
                 {
                     if (child is FrameworkElement fe)
                     {
                         double h = fe.ActualHeight > 0 ? fe.ActualHeight : fe.DesiredSize.Height;
-                        if (h > maxHeight) maxHeight = h;
+                        if (h <= 0) continue;
+
+                        double above, below;
+                        GetNodeCenterOffsets(child, h, out above, out below);
+
+                        maxAbove = Math.Max(maxAbove, above);
+                        maxBelow = Math.Max(maxBelow, below);
                     }
                 }
 
-                if (maxHeight <= 0) continue;
+                if (maxAbove + maxBelow <= 0) continue;
 
-                // 给每个较矮的子元素设置上下 Margin 使其视觉居中
+                // ════════════════════════════════════════════════════
+                // 第三步：给每个子元素设置 Margin，使其逻辑中心
+                //   都对齐到 maxAbove 这条线上
+                //
+                //   例如：cm1 高 44px, above=22, maxAbove=100（被IF1撑大）
+                //         → topMargin = 100 - 22 = 78
+                //         → cm1 被往下推78px，刚好和 IF1 的主卡片中心对齐
+                //
+                //   例如：IF1 高 200px, CardCenterOffsetY=100, above=100
+                //         → topMargin = 100 - 100 = 0
+                //         → IF1 不需要额外偏移
+                // ════════════════════════════════════════════════════
                 foreach (UIElement child in branchContent.Children)
                 {
                     if (child is FrameworkElement fe)
                     {
                         double h = fe.ActualHeight > 0 ? fe.ActualHeight : fe.DesiredSize.Height;
-                        if (h > 0 && h < maxHeight)
-                        {
-                            double topMargin = (maxHeight - h) / 2.0;
-                            // 保留左右 Margin，只调整上下
-                            var currentMargin = fe.Margin;
-                            fe.Margin = new Thickness(currentMargin.Left, topMargin, currentMargin.Right, topMargin);
-                        }
-                        else
-                        {
-                            // 最高的元素或箭头，清除垂直 Margin
-                            var currentMargin = fe.Margin;
-                            fe.Margin = new Thickness(currentMargin.Left, 0, currentMargin.Right, 0);
-                        }
+                        if (h <= 0) continue;
+
+                        double above, below;
+                        GetNodeCenterOffsets(child, h, out above, out below);
+
+                        double topMargin = maxAbove - above;
+                        double bottomMargin = maxBelow - below;
+
+                        var currentMargin = fe.Margin;
+                        fe.Margin = new Thickness(
+                            currentMargin.Left,
+                            Math.Max(0, topMargin),
+                            currentMargin.Right,
+                            Math.Max(0, bottomMargin)
+                        );
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// 获取节点的"逻辑中心"偏移量（主卡片中心在控件内的垂直位置）
+        /// above = 逻辑中心到控件顶部的距离
+        /// below = 逻辑中心到控件底部的距离
+        /// </summary>
+        private void GetNodeCenterOffsets(UIElement child, double totalHeight, out double above, out double below)
+        {
+            if (child is Views.IfNodeControlView nestedIf && nestedIf.CardCenterOffsetY > 0)
+            {
+                // IF 节点：主卡片中心不在 h/2，而在 CardCenterOffsetY
+                // 因为 TRUE 分支在主卡片上方，把主卡片推下去了
+                above = nestedIf.CardCenterOffsetY;
+                below = totalHeight - nestedIf.CardCenterOffsetY;
+            }
+            // 如果以后并行节点或循环节点也有类似的中心偏移属性，在这里扩展：
+            // else if (child is ParallelNodeControlView nestedParallel) { ... }
+            else
+            {
+                // 普通节点（cm1、cm2 等）、箭头元素：几何中心 = h/2
+                above = totalHeight / 2.0;
+                below = totalHeight / 2.0;
             }
         }
         #endregion
