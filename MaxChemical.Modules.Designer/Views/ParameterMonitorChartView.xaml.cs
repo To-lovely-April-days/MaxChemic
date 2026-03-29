@@ -1,15 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Logging;
+using Microsoft.Win32;
+using OfficeOpenXml;
+using OfficeOpenXml.Drawing;
+using OfficeOpenXml.Drawing.Chart;
+using OfficeOpenXml.Style;
+using Color = System.Windows.Media.Color;
+using DrawingColor = System.Drawing.Color;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -17,1214 +26,772 @@ namespace MaxChemical.Modules.Designer.Views
     {
         private ParameterMonitorChartViewModel _viewModel;
         private readonly ILogService _logger;
-        private readonly Dictionary<string, ParameterChartRenderer> _chartRenderers =
-            new Dictionary<string, ParameterChartRenderer>();
         private DispatcherTimer _renderTimer;
-        private DispatcherTimer _timeAxisTimer;
+        private DateTime _lastRenderTime = DateTime.MinValue;
+        private int _timeRangeMinutes = 30;
+        private int _activeYAxisIndex = 0;
+
+        private const double ML = 50, MR = 20, MT = 16, MB = 28;
+
+        private static readonly (Color Light, Color Dark)[] Palette =
+        {
+            (Color.FromRgb(254, 153, 153), Color.FromRgb(239, 68, 68)),
+            (Color.FromRgb(165, 243, 252), Color.FromRgb(6, 182, 212)),
+            (Color.FromRgb(134, 239, 172), Color.FromRgb(34, 197, 94)),
+            (Color.FromRgb(253, 230, 138), Color.FromRgb(245, 158, 11)),
+            (Color.FromRgb(196, 181, 253), Color.FromRgb(139, 92, 246)),
+            (Color.FromRgb(199, 210, 254), Color.FromRgb(99, 102, 241)),
+            (Color.FromRgb(191, 219, 254), Color.FromRgb(59, 130, 246)),
+            (Color.FromRgb(254, 215, 170), Color.FromRgb(249, 115, 22)),
+        };
+
+        // Excel 对应颜色
+        private static readonly DrawingColor[] ExcelColors =
+        {
+            DrawingColor.FromArgb(239, 68, 68),
+            DrawingColor.FromArgb(6, 182, 212),
+            DrawingColor.FromArgb(34, 197, 94),
+            DrawingColor.FromArgb(245, 158, 11),
+            DrawingColor.FromArgb(139, 92, 246),
+            DrawingColor.FromArgb(99, 102, 241),
+            DrawingColor.FromArgb(59, 130, 246),
+            DrawingColor.FromArgb(249, 115, 22),
+        };
 
         public ParameterMonitorChartView()
         {
             InitializeComponent();
             _logger = new LogService().ForContext<ParameterMonitorChartView>();
-
-            // 启用GPU加速
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
-            RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
 
-            _renderTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(500)
-            };
-            _renderTimer.Tick += RenderTimer_Tick;
+            _renderTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _renderTimer.Tick += (s, e) => RenderChart();
 
-            _timeAxisTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(100)
-            };
-            _timeAxisTimer.Tick += TimeAxisTimer_Tick;
+            ChartCanvas.MouseMove += OnChartMouseMove;
+            ChartCanvas.MouseLeave += OnChartMouseLeave;
+            ChartCanvas.SizeChanged += (s, e) => RenderChart();
+
+            Rb5m.Checked += (s, e) => { _timeRangeMinutes = 5; RenderChart(); };
+            Rb15m.Checked += (s, e) => { _timeRangeMinutes = 15; RenderChart(); };
+            Rb30m.Checked += (s, e) => { _timeRangeMinutes = 30; RenderChart(); };
+            Rb1h.Checked += (s, e) => { _timeRangeMinutes = 60; RenderChart(); };
+            RbAll.Checked += (s, e) => { _timeRangeMinutes = 0; RenderChart(); };
 
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
         }
 
+        #region Lifecycle
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             _viewModel = DataContext as ParameterMonitorChartViewModel;
-            if (_viewModel != null)
-            {
-                _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-                _viewModel.MonitoredParameters.CollectionChanged += MonitoredParameters_CollectionChanged;
+            if (_viewModel == null) return;
 
-                Dispatcher.BeginInvoke(new Action(() =>
+            _viewModel.PropertyChanged += (s, ev) =>
+            {
+                if (ev.PropertyName == nameof(_viewModel.HasData) ||
+                    ev.PropertyName == nameof(_viewModel.ChartData))
+                    RenderChart();
+            };
+            _viewModel.MonitoredParameters.CollectionChanged += (s, ev) =>
+            {
+                _activeYAxisIndex = 0;
+                RebuildParameterList();
+                RenderChart();
+            };
+            _viewModel.AvailableParameters.CollectionChanged += (s, ev) => RebuildParameterList();
+
+            RebuildParameterList();
+            _renderTimer.Start();
+            RenderChart();
+        }
+
+        private void OnUnloaded(object sender, RoutedEventArgs e) => _renderTimer?.Stop();
+
+        #endregion
+
+        #region 左侧参数面板
+
+        private void RebuildParameterList()
+        {
+            if (_viewModel == null || ParameterListPanel == null) return;
+            try
+            {
+                ParameterListPanel.Children.Clear();
+                var allItems = new List<ParamItem>();
+
+                int ci = 0;
+                foreach (var mp in _viewModel.MonitoredParameters)
+                    allItems.Add(new ParamItem { Key = mp.Key, DeviceName = mp.DeviceName ?? "Unknown", ShortName = GetShortName(mp.CommandName, mp.ParameterName), IsMonitored = true, Monitored = mp, ColorIdx = ci++, Color = mp.Color });
+
+                var mKeys = new HashSet<string>(_viewModel.MonitoredParameters.Select(p => p.Key));
+                foreach (var ap in _viewModel.AvailableParameters)
+                    if (!mKeys.Contains(ap.Key))
+                        allItems.Add(new ParamItem { Key = ap.Key, DeviceName = ap.DeviceName ?? "Unknown", ShortName = GetShortName(ap.CommandName, ap.ParameterName), IsMonitored = false, Available = ap });
+
+                foreach (var grp in allItems.GroupBy(p => p.DeviceName))
                 {
-                    RebuildChartLayout();
-                    _renderTimer.Start();
-                    _timeAxisTimer.Start();
-                }), DispatcherPriority.Loaded);
+                    ParameterListPanel.Children.Add(new TextBlock { Text = grp.Key, FontSize = 11, FontStyle = FontStyles.Italic, Foreground = new SolidColorBrush(Color.FromRgb(140, 140, 140)), Margin = new Thickness(16, 10, 16, 2) });
+                    ParameterListPanel.Children.Add(new Rectangle { Height = 1, Fill = new SolidColorBrush(Color.FromRgb(240, 241, 243)), Margin = new Thickness(16, 0, 16, 4) });
+                    foreach (var item in grp)
+                        ParameterListPanel.Children.Add(CreateRow(item));
+                }
             }
+            catch (Exception ex) { _logger.LogError(ex, "构建参数列表失败"); }
         }
 
-        private void OnUnloaded(object sender, RoutedEventArgs e)
+        private string GetShortName(string cmd, string param)
         {
-            _renderTimer?.Stop();
-            _timeAxisTimer?.Stop();
+            if (string.IsNullOrEmpty(cmd) && string.IsNullOrEmpty(param)) return "Unknown";
+            if (string.IsNullOrEmpty(cmd)) return param;
+            if (string.IsNullOrEmpty(param)) return cmd;
+            return $"{cmd}.{param}";
+        }
 
-            if (_viewModel != null)
+        private System.Windows.Controls.Border CreateRow(ParamItem item)
+        {
+            var border = new System.Windows.Controls.Border { Padding = new Thickness(16, 8, 12, 8), CornerRadius = new CornerRadius(6), Margin = new Thickness(6, 1, 6, 1), Cursor = Cursors.Hand, Background = Brushes.Transparent };
+            border.MouseEnter += (s, e) => border.Background = new SolidColorBrush(item.IsMonitored ? Color.FromRgb(240, 245, 255) : Color.FromRgb(245, 245, 245));
+            border.MouseLeave += (s, e) => border.Background = Brushes.Transparent;
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            if (item.IsMonitored)
             {
-                _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
-                _viewModel.MonitoredParameters.CollectionChanged -= MonitoredParameters_CollectionChanged;
-            }
+                Color dc;
+                try { dc = (Color)ColorConverter.ConvertFromString(item.Color); } catch { dc = Palette[item.ColorIdx % Palette.Length].Dark; }
 
-            foreach (var renderer in _chartRenderers.Values)
+                var dot = new Ellipse { Width = 10, Height = 10, Fill = new SolidColorBrush(dc), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+                Grid.SetColumn(dot, 0); grid.Children.Add(dot);
+                var name = new TextBlock { Text = item.ShortName, FontSize = 13, FontWeight = FontWeights.Medium, Foreground = new SolidColorBrush(Color.FromRgb(38, 38, 38)), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+                Grid.SetColumn(name, 1); grid.Children.Add(name);
+
+                var mp = item.Monitored;
+                var val = new TextBlock { Text = mp.FormattedCurrentValue, FontSize = 14, FontWeight = FontWeights.Bold, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(dc), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+                mp.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == nameof(mp.CurrentValue) || e.PropertyName == nameof(mp.FormattedCurrentValue))
+                        Dispatcher.BeginInvoke(new Action(() => val.Text = mp.FormattedCurrentValue));
+                };
+                Grid.SetColumn(val, 2); grid.Children.Add(val);
+                border.MouseLeftButtonUp += (s, e) => { if (_viewModel.RemoveParameterCommand.CanExecute(mp)) _viewModel.RemoveParameterCommand.Execute(mp); };
+            }
+            else
             {
-                renderer.Dispose();
+                var dot = new Ellipse { Width = 10, Height = 10, Stroke = new SolidColorBrush(Color.FromRgb(191, 191, 191)), StrokeThickness = 1.5, Fill = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+                Grid.SetColumn(dot, 0); grid.Children.Add(dot);
+                var name = new TextBlock { Text = item.ShortName, FontSize = 13, Foreground = new SolidColorBrush(Color.FromRgb(191, 191, 191)), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+                Grid.SetColumn(name, 1); grid.Children.Add(name);
+                border.MouseLeftButtonUp += (s, e) => { if (_viewModel.AddParameterCommand.CanExecute(item.Available)) _viewModel.AddParameterCommand.Execute(item.Available); };
             }
-            _chartRenderers.Clear();
+
+            border.Child = grid;
+            return border;
         }
 
-        private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private class ParamItem
         {
-            if (e.PropertyName == nameof(_viewModel.ChartData) ||
-                e.PropertyName == nameof(_viewModel.HasData))
-            {
-                _logger.LogDebug("数据变化: {PropertyName}", e.PropertyName);
-            }
+            public string Key, DeviceName, ShortName, Color;
+            public bool IsMonitored;
+            public MonitoredParameter Monitored;
+            public AvailableParameter Available;
+            public int ColorIdx;
         }
 
-        private void MonitoredParameters_CollectionChanged(object sender,
-            System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            _logger.LogDebug("监控参数集合变化");
-            Dispatcher.BeginInvoke(new Action(RebuildChartLayout), DispatcherPriority.Loaded);
-        }
+        #endregion
 
-        private void RenderTimer_Tick(object sender, EventArgs e)
-        {
-            UpdateAllCharts();
-        }
+        #region 底部按钮
 
-        private void TimeAxisTimer_Tick(object sender, EventArgs e)
+        private void BtnClearData_Click(object sender, RoutedEventArgs e)
         {
-            UpdateTimeAxis();
+            if (_viewModel?.ClearDataCommand?.CanExecute() == true)
+                _viewModel.ClearDataCommand.Execute();
         }
 
         /// <summary>
-        /// 智能重建图表布局
+        /// 导出 Excel：Sheet1=数据表，Sheet2=趋势图表（截图+原生Excel折线图）
         /// </summary>
-        private void RebuildChartLayout()
+        private void BtnExport_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                _logger.LogInformation("开始重建图表布局");
-
-                // 清理旧渲染器
-                foreach (var renderer in _chartRenderers.Values)
+                var enabled = _viewModel?.MonitoredParameters?.Where(p => p.IsEnabled).ToList();
+                var data = GetFilteredData();
+                if (enabled == null || enabled.Count == 0 || data.Count == 0)
                 {
-                    renderer.Dispose();
-                }
-                _chartRenderers.Clear();
-
-                if (TimelineChartsPanel == null || _viewModel == null)
-                {
-                    _logger.LogWarning("TimelineChartsPanel或ViewModel为空");
+                    MessageBox.Show("没有可导出的数据", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                TimelineChartsPanel.Children.Clear();
-
-                var enabledParameters = _viewModel.MonitoredParameters
-                    .Where(p => p.IsEnabled)
-                    .ToList();
-
-                if (!enabledParameters.Any())
+                var dlg = new SaveFileDialog
                 {
-                    _logger.LogInformation("没有启用的参数");
-                    return;
-                }
-
-                // 计算智能布局
-                var layout = CalculateSmartLayout(enabledParameters.Count);
-                _logger.LogInformation("布局: {Rows}行 x {Cols}列, 共{Total}个参数",
-                    layout.Rows, layout.Columns, enabledParameters.Count);
-
-                // 创建Grid容器（关键修改：确保占满父容器）
-                var grid = new Grid
-                {
-                    Margin = new Thickness(0),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,  //  水平拉伸
-                    VerticalAlignment = VerticalAlignment.Stretch       //  垂直拉伸
+                    Title = "导出监控数据",
+                    Filter = "Excel文件 (*.xlsx)|*.xlsx",
+                    FileName = $"参数监控报告_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx"
                 };
+                if (dlg.ShowDialog() != true) return;
 
-                // 定义行（使用 Star 均分）
-                for (int i = 0; i < layout.Rows; i++)
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+                using (var pkg = new ExcelPackage())
                 {
-                    grid.RowDefinitions.Add(new RowDefinition
+                    // ─── Sheet1: 监控数据 ───
+                    var dataSheet = pkg.Workbook.Worksheets.Add("监控数据");
+                    int dataHeaderRow = FillDataSheet(dataSheet, enabled, data);
+
+                    // ─── Sheet2: 趋势图表 ───
+                    var chartSheet = pkg.Workbook.Worksheets.Add("趋势图表");
+                    FillChartSheet(chartSheet, dataSheet, enabled, data, dataHeaderRow);
+
+                    pkg.SaveAs(new FileInfo(dlg.FileName));
+                }
+
+                // 询问是否打开
+                var result = MessageBox.Show(
+                    $"导出成功!\n{dlg.FileName}\n\n是否立即打开?",
+                    "导出完成", MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                     {
-                        Height = new GridLength(1, GridUnitType.Star)  //  均分高度
+                        FileName = dlg.FileName,
+                        UseShellExecute = true
                     });
                 }
-
-                // 定义列（使用 Star 均分）
-                for (int i = 0; i < layout.Columns; i++)
-                {
-                    grid.ColumnDefinitions.Add(new ColumnDefinition
-                    {
-                        Width = new GridLength(1, GridUnitType.Star)   //  均分宽度
-                    });
-                }
-
-                // 放置图表
-                for (int i = 0; i < enabledParameters.Count; i++)
-                {
-                    var param = enabledParameters[i];
-                    var position = layout.GetPosition(i);
-
-                    var chartCard = CreateChartCard(param);
-                    Grid.SetRow(chartCard, position.Row);
-                    Grid.SetColumn(chartCard, position.Column);
-
-                    //  如果是最后一行且只有一个元素，跨越所有列
-                    if (IsLastRowSingleItem(enabledParameters.Count, layout, i))
-                    {
-                        Grid.SetColumnSpan(chartCard, layout.Columns);
-                    }
-
-                    grid.Children.Add(chartCard);
-                }
-
-                TimelineChartsPanel.Children.Add(grid);
-
-                // 延迟初始化渲染器
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    InitializeAllCharts();
-                }), DispatcherPriority.Loaded);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "重建图表布局失败");
+                _logger.LogError(ex, "导出Excel失败");
+                MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         /// <summary>
-        /// 判断是否是最后一行的单独元素（需要跨列）
+        /// Sheet1: 数据表（时间戳 + 各参数列 + 条件格式颜色标记）
         /// </summary>
-        private bool IsLastRowSingleItem(int totalCount, SmartLayout layout, int index)
+        private int FillDataSheet(ExcelWorksheet sheet, List<MonitoredParameter> enabled, List<ChartDataPoint> data)
         {
-            int lastRowStartIndex = (layout.Rows - 1) * layout.Columns;
-            int itemsInLastRow = totalCount - lastRowStartIndex;
+            // 列宽
+            sheet.Column(1).Width = 28;
+            for (int i = 0; i < enabled.Count; i++)
+                sheet.Column(i + 2).Width = 18;
 
-            // 如果最后一行只有1个元素，且当前是该元素
-            return itemsInLastRow == 1 && index == lastRowStartIndex;
-        }
-        /// <summary>
-        /// 智能布局计算器
-        /// </summary>
-        private SmartLayout CalculateSmartLayout(int paramCount)
-        {
-            return paramCount switch
+            int row = 1;
+
+            // 标题
+            sheet.Cells[row, 1, row, enabled.Count + 1].Merge = true;
+            sheet.Cells[row, 1].Value = "参数监控数据报告";
+            sheet.Cells[row, 1].Style.Font.Size = 16;
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            row++;
+
+            // 导出信息
+            sheet.Cells[row, 1].Value = $"导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            sheet.Cells[row, 1].Style.Font.Color.SetColor(DrawingColor.Gray);
+            sheet.Cells[row, 1].Style.Font.Size = 10;
+            row++;
+            sheet.Cells[row, 1].Value = $"数据范围: {data.First().Timestamp:HH:mm:ss} ~ {data.Last().Timestamp:HH:mm:ss} ({data.Count} 条记录)";
+            sheet.Cells[row, 1].Style.Font.Color.SetColor(DrawingColor.Gray);
+            sheet.Cells[row, 1].Style.Font.Size = 10;
+            row += 2;
+
+            int headerRow = row;
+
+            // 表头
+            sheet.Cells[row, 1].Value = "时间";
+            sheet.Cells[row, 1].Style.Font.Bold = true;
+            sheet.Cells[row, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            sheet.Cells[row, 1].Style.Fill.BackgroundColor.SetColor(DrawingColor.FromArgb(240, 240, 240));
+
+            for (int i = 0; i < enabled.Count; i++)
             {
-                1 => new SmartLayout { Rows = 1, Columns = 1 },
-                2 => new SmartLayout { Rows = 2, Columns = 1 },
-                3 => new SmartLayout { Rows = 2, Columns = 2 },
-                4 => new SmartLayout { Rows = 2, Columns = 2 },
-                5 => new SmartLayout { Rows = 3, Columns = 2 },
-                6 => new SmartLayout { Rows = 3, Columns = 2 },
-                7 => new SmartLayout { Rows = 3, Columns = 3 },
-                8 => new SmartLayout { Rows = 3, Columns = 3 },
-                9 => new SmartLayout { Rows = 3, Columns = 3 },
-                _ => CalculateAutoLayout(paramCount)
-            };
-        }
-        private SmartLayout CalculateAutoLayout(int paramCount)
-        {
-            int columns = paramCount <= 6 ? 2 : 3;
-            int rows = (int)Math.Ceiling((double)paramCount / columns);
-            return new SmartLayout { Rows = rows, Columns = columns };
-        }
-        /// <summary>
-        /// 创建单个图表卡片
-        /// </summary>
-        private Border CreateChartCard(MonitoredParameter parameter)
-        {
-            var card = new Border
+                var cell = sheet.Cells[row, i + 2];
+                cell.Value = enabled[i].DisplayName;
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+
+                // 表头颜色和曲线颜色对应
+                var ec = ExcelColors[i % ExcelColors.Length];
+                cell.Style.Fill.BackgroundColor.SetColor(DrawingColor.FromArgb(
+                    (int)(ec.R * 0.3 + 255 * 0.7),
+                    (int)(ec.G * 0.3 + 255 * 0.7),
+                    (int)(ec.B * 0.3 + 255 * 0.7)));
+                cell.Style.Font.Color.SetColor(ec);
+                cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            }
+            row++;
+
+            // 数据行
+            foreach (var dp in data)
             {
-                Background = Brushes.White,
-                BorderBrush = new SolidColorBrush(Color.FromRgb(232, 234, 237)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Margin = new Thickness(10),
-                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                sheet.Cells[row, 1].Value = dp.Timestamp;
+                sheet.Cells[row, 1].Style.Numberformat.Format = "yyyy-mm-dd hh:mm:ss.000";
+
+                for (int i = 0; i < enabled.Count; i++)
                 {
-                    Color = Colors.Black,
-                    ShadowDepth = 0,
-                    BlurRadius = 12,
-                    Opacity = 0.06
+                    if (dp.ParameterValues.TryGetValue(enabled[i].DisplayName, out var val))
+                    {
+                        sheet.Cells[row, i + 2].Value = val;
+                        sheet.Cells[row, i + 2].Style.Numberformat.Format = "0.0000";
+                        sheet.Cells[row, i + 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    }
                 }
-            };
+                row++;
+            }
 
-            var mainGrid = new Grid();
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            // 边框
+            var dataRange = sheet.Cells[headerRow, 1, row - 1, enabled.Count + 1];
+            dataRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            dataRange.Style.Border.Top.Color.SetColor(DrawingColor.FromArgb(220, 220, 220));
+            dataRange.Style.Border.Bottom.Color.SetColor(DrawingColor.FromArgb(220, 220, 220));
+            dataRange.Style.Border.Left.Color.SetColor(DrawingColor.FromArgb(220, 220, 220));
+            dataRange.Style.Border.Right.Color.SetColor(DrawingColor.FromArgb(220, 220, 220));
 
-            // 头部
-            var header = CreateChartHeader(parameter);
-            Grid.SetRow(header, 0);
-            mainGrid.Children.Add(header);
+            // 冻结表头
+            sheet.View.FreezePanes(headerRow + 1, 1);
 
-            // Canvas容器
-            var canvasContainer = new Border
-            {
-                Background = Brushes.White,
-                Padding = new Thickness(20)
-            };
-            RenderOptions.SetBitmapScalingMode(canvasContainer, BitmapScalingMode.HighQuality);
-            RenderOptions.SetEdgeMode(canvasContainer, EdgeMode.Unspecified);
+            // 自动筛选
+            sheet.Cells[headerRow, 1, headerRow, enabled.Count + 1].AutoFilter = true;
 
-            var canvas = new Canvas
-            {
-                Background = Brushes.Transparent,
-                ClipToBounds = true,
-                Tag = parameter,
-                MinHeight = 280
-            };
-            RenderOptions.SetBitmapScalingMode(canvas, BitmapScalingMode.HighQuality);
-            RenderOptions.SetEdgeMode(canvas, EdgeMode.Unspecified);
-            canvas.CacheMode = new BitmapCache { RenderAtScale = 2 };
-
-            canvasContainer.Child = canvas;
-            Grid.SetRow(canvasContainer, 1);
-            mainGrid.Children.Add(canvasContainer);
-
-            card.Child = mainGrid;
-            return card;
+            return headerRow;
         }
 
         /// <summary>
-        /// 创建图表头部
+        /// Sheet2: 趋势图表（Canvas截图 + 原生Excel散点折线图）
+        /// 每个参数单独写一段数据（只有有值的行），避免空值问题
         /// </summary>
-        private Border CreateChartHeader(MonitoredParameter parameter)
+        private void FillChartSheet(ExcelWorksheet cs, ExcelWorksheet dataSheet,
+            List<MonitoredParameter> enabled, List<ChartDataPoint> data, int dataHeaderRow)
         {
-            var header = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(250, 251, 252)),
-                Padding = new Thickness(24, 16, 24, 16),
-                CornerRadius = new CornerRadius(8, 8, 0, 0),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(232, 234, 237)),
-                BorderThickness = new Thickness(0, 0, 0, 1)
-            };
+            int row = 1;
 
-            var headerGrid = new Grid();
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // 标题
+            cs.Cells[row, 1, row, 8].Merge = true;
+            cs.Cells[row, 1].Value = "参数趋势图表";
+            cs.Cells[row, 1].Style.Font.Size = 16;
+            cs.Cells[row, 1].Style.Font.Bold = true;
+            cs.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            row += 2;
 
-            // 左侧: 参数名称
-            var namePanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            // ─── 1. 嵌入 Canvas 截图 ───
+            cs.Cells[row, 1].Value = "实时监控截图";
+            cs.Cells[row, 1].Style.Font.Bold = true;
+            cs.Cells[row, 1].Style.Font.Size = 13;
+            cs.Cells[row, 1].Style.Font.Color.SetColor(DrawingColor.FromArgb(99, 102, 241));
+            row++;
 
-            var colorBar = new Border
-            {
-                Width = 4,
-                Height = 28,
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(parameter.Color)),
-                CornerRadius = new CornerRadius(2),
-                Margin = new Thickness(0, 0, 14, 0)
-            };
-
-            var nameText = new TextBlock
-            {
-                Text = parameter.DisplayName,
-                FontSize = 16,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(38, 38, 38)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            namePanel.Children.Add(colorBar);
-            namePanel.Children.Add(nameText);
-            Grid.SetColumn(namePanel, 0);
-            headerGrid.Children.Add(namePanel);
-
-            // 右侧: 实时数值
-            var valueBox = new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = new SolidColorBrush(Color.FromRgb(232, 234, 237)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(18, 10, 18, 10)
-            };
-
-            var valuePanel = new StackPanel { Orientation = Orientation.Horizontal };
-
-            var currentLabel = new TextBlock
-            {
-                Text = "CURRENT",
-                FontSize = 10,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(140, 140, 140)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0)
-            };
-
-            var currentValue = new TextBlock
-            {
-                Text = "--",
-                FontSize = 20,
-                FontWeight = FontWeights.Bold,
-                FontFamily = new FontFamily("Consolas"),
-                Foreground = new SolidColorBrush(Color.FromRgb(24, 144, 255)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            valuePanel.Children.Add(currentLabel);
-            valuePanel.Children.Add(currentValue);
-            valueBox.Child = valuePanel;
-
-            Grid.SetColumn(valueBox, 2);
-            headerGrid.Children.Add(valueBox);
-
-            header.Child = headerGrid;
-            return header;
-        }
-
-        private void UpdateTimeAxis()
-        {
             try
             {
-                if (TimeAxisContainer == null || _viewModel == null)
-                    return;
-
-                TimeAxisContainer.Children.Clear();
-
-                var now = DateTime.Now;
-                var timeSpan = TimeSpan.FromMinutes(15);
-                var startTime = now - timeSpan;
-
-                var stackPanel = new StackPanel
+                var imgBytes = RenderChartToPng();
+                if (imgBytes != null && imgBytes.Length > 0)
                 {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                var leftArrow = CreateIconButton("◄", "#8C8C8C");
-                stackPanel.Children.Add(leftArrow);
-
-                for (int i = 0; i < 7; i++)
-                {
-                    var time = startTime.AddMinutes(timeSpan.TotalMinutes * i / 6);
-                    var isNow = i == 6;
-
-                    if (isNow)
+                    using (var ms = new MemoryStream(imgBytes))
                     {
-                        var nowBorder = new Border
-                        {
-                            Background = new SolidColorBrush(Color.FromRgb(230, 247, 255)),
-                            CornerRadius = new CornerRadius(4),
-                            Padding = new Thickness(10, 6, 10, 6),
-                            Margin = new Thickness(0, 0, 12, 0)
-                        };
-
-                        var nowText = new TextBlock
-                        {
-                            Text = now.ToString("HH:mm:ss.fff"),
-                            FontSize = 12,
-                            FontWeight = FontWeights.Bold,
-                            Foreground = new SolidColorBrush(Color.FromRgb(24, 144, 255))
-                        };
-
-                        nowBorder.Child = nowText;
-                        stackPanel.Children.Add(nowBorder);
+                        var pic = cs.Drawings.AddPicture("ChartScreenshot", ms);
+                        pic.SetPosition(row - 1, 0, 0, 0);
+                        pic.SetSize(900, 450);
                     }
-                    else
-                    {
-                        var timeText = new TextBlock
-                        {
-                            Text = time.ToString("HH:mm"),
-                            FontSize = 11,
-                            Foreground = new SolidColorBrush(Color.FromRgb(140, 140, 140)),
-                            Margin = new Thickness(0, 0, 16, 0),
-                            VerticalAlignment = VerticalAlignment.Center
-                        };
-                        stackPanel.Children.Add(timeText);
-                    }
+                    row += 24;
                 }
-
-                var rightArrow = CreateIconButton("►", "#8C8C8C");
-                stackPanel.Children.Add(rightArrow);
-
-                TimeAxisContainer.Children.Add(stackPanel);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "更新时间轴失败");
+                cs.Cells[row, 1].Value = $"截图失败: {ex.Message}";
+                row += 2;
             }
-        }
 
-        private Button CreateIconButton(string icon, string color)
-        {
-            var button = new Button
+            row += 2;
+
+            // ─── 2. 为每个参数写独立的数据块（时间用 OADate 数值） ───
+            cs.Cells[row, 1].Value = "Excel 原生折线图（可交互）";
+            cs.Cells[row, 1].Style.Font.Bold = true;
+            cs.Cells[row, 1].Style.Font.Size = 13;
+            cs.Cells[row, 1].Style.Font.Color.SetColor(DrawingColor.FromArgb(99, 102, 241));
+            row++;
+
+            int chartRow = row; // 记录图表放置位置
+            row++; // 图表会占位，数据写在图表下方
+
+            // 图表先创建
+            var chart = cs.Drawings.AddChart("TrendChart", eChartType.XYScatterLinesNoMarkers) as ExcelScatterChart;
+            chart.Title.Text = "参数趋势监控";
+            chart.Title.Font.Bold = true;
+            chart.Title.Font.Size = 14;
+            chart.SetPosition(chartRow - 1, 0, 0, 0);
+            chart.SetSize(900, 450);
+            chart.Style = eChartStyle.Style2;
+            chart.Legend.Position = eLegendPosition.Bottom;
+
+            // 数据块写在图表下方
+            int dataBlockStartRow = chartRow + 26;
+
+            for (int i = 0; i < enabled.Count; i++)
             {
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                Width = 24,
-                Height = 24,
-                Margin = new Thickness(0, 0, 12, 0),
-                Cursor = Cursors.Hand
-            };
+                var param = enabled[i];
+                var paramName = param.DisplayName;
 
-            var textBlock = new TextBlock
-            {
-                Text = icon,
-                FontSize = 12,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            button.Content = textBlock;
-
-            button.MouseEnter += (s, e) =>
-            {
-                button.Background = new SolidColorBrush(Color.FromRgb(240, 240, 240));
-            };
-            button.MouseLeave += (s, e) =>
-            {
-                button.Background = Brushes.Transparent;
-            };
-
-            return button;
-        }
-
-        private void InitializeAllCharts()
-        {
-            try
-            {
-                _logger.LogInformation("开始初始化所有图表");
-
-                var canvasList = FindVisualChildren<Canvas>(TimelineChartsPanel)
-                    .Where(c => c.Tag is MonitoredParameter)
+                // 筛选出该参数有值的数据点
+                var paramData = data
+                    .Where(d => d.ParameterValues.ContainsKey(paramName) && d.ParameterValues[paramName] != 0)
+                    .OrderBy(d => d.Timestamp)
                     .ToList();
 
-                _logger.LogInformation("找到 {Count} 个图表Canvas", canvasList.Count);
-
-                foreach (var canvas in canvasList)
+                // 如果全是0，也包含进来（说明确实采集到了0值）
+                if (!paramData.Any())
                 {
-                    var parameter = canvas.Tag as MonitoredParameter;
-                    if (parameter != null && parameter.IsEnabled)
-                    {
-                        var renderer = new ParameterChartRenderer(canvas, parameter, _viewModel, _logger);
-                        _chartRenderers[parameter.Key] = renderer;
-
-                        _logger.LogDebug("创建图表渲染器: {Parameter}", parameter.DisplayName);
-                    }
+                    paramData = data
+                        .Where(d => d.ParameterValues.ContainsKey(paramName))
+                        .OrderBy(d => d.Timestamp)
+                        .ToList();
                 }
 
-                UpdateAllCharts();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "初始化图表失败");
-            }
-        }
+                if (!paramData.Any()) continue;
 
-        private void UpdateAllCharts()
-        {
-            try
-            {
-                foreach (var renderer in _chartRenderers.Values.ToList())
+                // 两列：时间(OADate) + 值
+                int colX = 1 + i * 3;       // 每个参数占3列（时间、值、空列间隔）
+                int colY = colX + 1;
+                int headerR = dataBlockStartRow;
+
+                // 表头
+                cs.Cells[headerR, colX].Value = $"时间({paramName})";
+                cs.Cells[headerR, colX].Style.Font.Bold = true;
+                cs.Cells[headerR, colX].Style.Font.Size = 9;
+                cs.Cells[headerR, colY].Value = paramName;
+                cs.Cells[headerR, colY].Style.Font.Bold = true;
+                cs.Cells[headerR, colY].Style.Font.Size = 9;
+                cs.Cells[headerR, colY].Style.Font.Color.SetColor(ExcelColors[i % ExcelColors.Length]);
+
+                cs.Column(colX).Width = 18;
+                cs.Column(colY).Width = 14;
+
+                // 数据行
+                for (int j = 0; j < paramData.Count; j++)
                 {
-                    renderer.Render();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "更新图表失败");
-            }
-        }
-
-        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
-        {
-            if (parent == null) yield break;
-
-            var childCount = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < childCount; i++)
-            {
-                var child = VisualTreeHelper.GetChild(parent, i);
-
-                if (child is T typedChild)
-                {
-                    yield return typedChild;
+                    int r = headerR + 1 + j;
+                    // ★ 关键：用 ToOADate() 写入数值，Excel XYScatter 才能正确识别为时间
+                    cs.Cells[r, colX].Value = paramData[j].Timestamp.ToOADate();
+                    cs.Cells[r, colX].Style.Numberformat.Format = "HH:mm:ss";
+                    cs.Cells[r, colY].Value = paramData[j].ParameterValues[paramName];
+                    cs.Cells[r, colY].Style.Numberformat.Format = "0.00";
                 }
 
-                foreach (var descendant in FindVisualChildren<T>(child))
+                int seriesStartR = headerR + 1;
+                int seriesEndR = headerR + paramData.Count;
+
+                // 添加到图表
+                var xRange = cs.Cells[seriesStartR, colX, seriesEndR, colX];
+                var yRange = cs.Cells[seriesStartR, colY, seriesEndR, colY];
+                var series = chart.Series.Add(yRange, xRange);
+                series.Header = paramName;
+
+                // 线条颜色
+                if (series is ExcelScatterChartSerie sc)
                 {
-                    yield return descendant;
+                    var ec = ExcelColors[i % ExcelColors.Length];
+                    sc.Border.Fill.Color = ec;
+                    sc.Border.Width = 2;
                 }
             }
+
+            // X轴格式
+            chart.XAxis.Title.Text = "时间";
+            chart.XAxis.Title.Font.Size = 11;
+            chart.XAxis.Format = "HH:mm:ss";
+            chart.XAxis.MajorGridlines.Width = 0.5f;
+            chart.YAxis.Title.Text = "值";
+            chart.YAxis.Title.Font.Size = 11;
         }
 
         /// <summary>
-        /// 智能布局配置
+        /// 将 ChartCanvas 渲染为 PNG 字节数组
         /// </summary>
-        private class SmartLayout
+        private byte[] RenderChartToPng()
         {
-            public int Rows { get; set; }
-            public int Columns { get; set; }
+            if (ChartCanvas.ActualWidth <= 0 || ChartCanvas.ActualHeight <= 0) return null;
 
-            public (int Row, int Column) GetPosition(int index)
+            double scale = 2.0;
+            double w = ChartCanvas.ActualWidth, h = ChartCanvas.ActualHeight;
+            int pw = (int)(w * scale), ph = (int)(h * scale);
+
+            var rtb = new RenderTargetBitmap(pw, ph, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+
+            // 白色背景
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+                dc.DrawRectangle(System.Windows.Media.Brushes.White, null, new Rect(0, 0, w, h));
+            rtb.Render(dv);
+            rtb.Render(ChartCanvas);
+
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(rtb));
+
+            using (var ms = new MemoryStream())
             {
-                int row = index / Columns;
-                int col = index % Columns;
-                return (row, col);
+                encoder.Save(ms);
+                return ms.ToArray();
             }
         }
 
-    }
+        #endregion
 
-    /// <summary>
-    /// GPU加速图表渲染器（保持不变）
-    /// </summary>
-    public class ParameterChartRenderer : IDisposable
-    {
-        // ... (保持之前的完整实现不变)
-        private readonly Canvas _canvas;
-        private readonly MonitoredParameter _parameter;
-        private readonly ParameterMonitorChartViewModel _viewModel;
-        private readonly ILogService _logger;
+        #region 数据过滤
 
-        private Border _tooltip;
-        private StackPanel _tooltipContent;
-        private DateTime _lastRenderTime = DateTime.MinValue;
-
-        private const double MarginLeft = 60;
-        private const double MarginRight = 90;
-        private const double MarginTop = 45;
-        private const double MarginBottom = 35;
-
-        public ParameterChartRenderer(Canvas canvas, MonitoredParameter parameter,
-            ParameterMonitorChartViewModel viewModel, ILogService logger)
+        private List<ChartDataPoint> GetFilteredData()
         {
-            _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
-            _parameter = parameter ?? throw new ArgumentNullException(nameof(parameter));
-            _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-            _canvas.SizeChanged += Canvas_SizeChanged;
-            _canvas.MouseMove += Canvas_MouseMove;
-            _canvas.MouseLeave += Canvas_MouseLeave;
-
-            CreateTooltip();
+            var all = _viewModel?.ChartData?.OrderBy(d => d.Timestamp).ToList();
+            if (all == null || all.Count == 0) return new List<ChartDataPoint>();
+            if (_timeRangeMinutes <= 0) return all;
+            var cutoff = all.Last().Timestamp.AddMinutes(-_timeRangeMinutes);
+            return all.Where(d => d.Timestamp >= cutoff).ToList();
         }
 
-        private void CreateTooltip()
-        {
-            _tooltipContent = new StackPanel();
+        #endregion
 
-            _tooltip = new Border
-            {
-                Background = Brushes.White,
-                BorderBrush = new SolidColorBrush(Color.FromRgb(217, 217, 217)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(14, 10, 14, 10),
-                Visibility = Visibility.Collapsed,
-                Child = _tooltipContent
-            };
+        #region 图表渲染
 
-            _tooltip.Effect = new System.Windows.Media.Effects.DropShadowEffect
-            {
-                Color = Colors.Black,
-                ShadowDepth = 2,
-                BlurRadius = 12,
-                Opacity = 0.15
-            };
-
-            RenderOptions.SetBitmapScalingMode(_tooltip, BitmapScalingMode.HighQuality);
-
-            _canvas.Children.Add(_tooltip);
-            Canvas.SetZIndex(_tooltip, 1000);
-        }
-
-        private void Canvas_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            Render();
-        }
-
-        private void Canvas_MouseMove(object sender, MouseEventArgs e)
-        {
-            var mousePos = e.GetPosition(_canvas);
-            ShowTooltip(mousePos);
-        }
-
-        private void Canvas_MouseLeave(object sender, MouseEventArgs e)
-        {
-            _tooltip.Visibility = Visibility.Collapsed;
-        }
-
-        public void Render()
+        private void RenderChart()
         {
             try
             {
                 var now = DateTime.Now;
-                if ((now - _lastRenderTime).TotalMilliseconds < 100)
-                    return;
+                if ((now - _lastRenderTime).TotalMilliseconds < 200) return;
                 _lastRenderTime = now;
 
-                if (_canvas.ActualWidth == 0 || _canvas.ActualHeight == 0)
-                    return;
+                if (ChartCanvas.ActualWidth == 0 || ChartCanvas.ActualHeight == 0 || _viewModel == null) return;
+                ChartCanvas.Children.Clear();
 
-                var elementsToRemove = _canvas.Children.Cast<UIElement>()
-                    .Where(e => e != _tooltip)
-                    .ToList();
+                var enabled = _viewModel.MonitoredParameters.Where(p => p.IsEnabled).ToList();
+                var data = GetFilteredData();
+                if (enabled.Count == 0 || data.Count < 2) return;
 
-                foreach (var element in elementsToRemove)
-                {
-                    _canvas.Children.Remove(element);
-                }
+                double w = ChartCanvas.ActualWidth, h = ChartCanvas.ActualHeight;
+                double cw = w - ML - MR, ch = h - MT - MB;
+                if (cw <= 0 || ch <= 0) return;
 
-                var data = GetParameterData();
+                var t0 = data.First().Timestamp;
+                var ts = (data.Last().Timestamp - t0).TotalSeconds;
+                if (ts <= 0) ts = 1;
 
-                if (!data.Any())
-                {
-                    DrawNoDataMessage();
-                    return;
-                }
+                DrawGrid(cw, ch);
+                if (_activeYAxisIndex < enabled.Count) DrawYAxis(enabled[_activeYAxisIndex], data, ch);
+                DrawXAxis(data.First().Timestamp, data.Last().Timestamp, cw, ch);
 
-                double chartWidth = _canvas.ActualWidth - MarginLeft - MarginRight;
-                double chartHeight = _canvas.ActualHeight - MarginTop - MarginBottom;
-
-                if (chartWidth <= 0 || chartHeight <= 0)
-                    return;
-
-                DrawSimplifiedLegend(data);
-                DrawGrid(chartWidth, chartHeight);
-                DrawCurve(chartWidth, chartHeight, data);
-                DrawYAxisLabels(chartWidth, chartHeight, data);
-                DrawXAxis(chartWidth, chartHeight, data);
-                DrawKeyValueAnnotations(chartWidth, chartHeight, data);
+                for (int i = 0; i < enabled.Count; i++) DrawPolyline(enabled[i], data, cw, ch, t0, ts, i % Palette.Length);
+                for (int i = 0; i < enabled.Count; i++) DrawEndpoint(enabled[i], data, cw, ch, t0, ts, i % Palette.Length);
             }
-            catch (Exception ex)
+            catch (Exception ex) { _logger.LogError(ex, "渲染图表失败"); }
+        }
+
+        private void DrawGrid(double cw, double ch)
+        {
+            var b1 = new SolidColorBrush(Color.FromRgb(243, 244, 246));
+            var b2 = new SolidColorBrush(Color.FromRgb(229, 231, 235));
+            for (int i = 0; i <= 5; i++)
             {
-                _logger.LogError(ex, "渲染图表失败: {Parameter}", _parameter.DisplayName);
+                double y = MT + (ch / 5) * i;
+                var l = new Line { X1 = ML, Y1 = y, X2 = ML + cw, Y2 = y, Stroke = i == 5 ? b2 : b1, StrokeThickness = 0.5 };
+                RenderOptions.SetEdgeMode(l, EdgeMode.Aliased);
+                ChartCanvas.Children.Add(l);
             }
         }
 
-        private List<ChartDataPoint> GetParameterData()
+        private void DrawYAxis(MonitoredParameter p, List<ChartDataPoint> data, double ch)
         {
-            return _viewModel.ChartData
-                .Where(d => d.ParameterValues.ContainsKey(_parameter.DisplayName))
-                .OrderBy(d => d.Timestamp)
-                .ToList();
+            var vs = data.Where(d => d.ParameterValues.ContainsKey(p.DisplayName)).Select(d => d.ParameterValues[p.DisplayName]).ToList();
+            if (!vs.Any()) return;
+            double mn = vs.Min(), mx = vs.Max(), rg = mx - mn;
+            if (rg == 0) rg = Math.Max(1, Math.Abs(mx) * 0.1);
+            mn -= rg * 0.05; mx += rg * 0.05; rg = mx - mn;
+            var br = new SolidColorBrush(Color.FromRgb(209, 213, 219));
+            for (int i = 0; i <= 5; i++)
+            {
+                double v = mn + rg * i / 5, y = MT + ch - ch * i / 5;
+                var tb = new TextBlock { Text = Fmt(v), FontSize = 10, FontFamily = new FontFamily("Consolas"), Foreground = br, IsHitTestVisible = false };
+                tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(tb, ML - tb.DesiredSize.Width - 6);
+                Canvas.SetTop(tb, y - tb.DesiredSize.Height / 2);
+                ChartCanvas.Children.Add(tb);
+            }
         }
 
-        private void DrawSimplifiedLegend(List<ChartDataPoint> data)
+        private void DrawXAxis(DateTime t0, DateTime t1, double cw, double ch)
         {
-            var values = data.Select(d => d.ParameterValues[_parameter.DisplayName]).ToList();
-            var minVal = values.Min();
-            var maxVal = values.Max();
-            var range = maxVal - minVal;
-
-            var thresholds = new[]
+            var br = new SolidColorBrush(Color.FromRgb(209, 213, 219));
+            int n = Math.Max(2, (int)(cw / 120));
+            for (int i = 0; i <= n; i++)
             {
-                new { Color = "#FF4D4F", Value = $"< {minVal + range * 0.2:F0}" },
-                new { Color = "#FAAD14", Value = $"{minVal + range * 0.2:F0} - {minVal + range * 0.4:F0}" },
-                new { Color = "#52C41A", Value = $"{minVal + range * 0.4:F0} - {minVal + range * 0.7:F0}" },
-                new { Color = "#FAAD14", Value = $"{minVal + range * 0.7:F0} - {minVal + range * 0.9:F0}" },
-                new { Color = "#FF4D4F", Value = $"≥ {minVal + range * 0.9:F0}" }
-            };
+                var t = t0.AddSeconds((t1 - t0).TotalSeconds * i / n);
+                double x = ML + cw * i / n;
+                var tb = new TextBlock { Text = t.ToString("HH:mm"), FontSize = 10, FontFamily = new FontFamily("Consolas"), Foreground = br, IsHitTestVisible = false };
+                tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(tb, x - tb.DesiredSize.Width / 2);
+                Canvas.SetTop(tb, MT + ch + 8);
+                ChartCanvas.Children.Add(tb);
+            }
+        }
 
-            var legendPanel = new StackPanel
+        private void DrawPolyline(MonitoredParameter p, List<ChartDataPoint> data, double cw, double ch, DateTime t0, double ts, int ci)
+        {
+            var pts = Normalize(p, data, cw, ch, t0, ts);
+            if (pts.Count < 2) return;
+            var (lt, dk) = Palette[ci];
+            ChartCanvas.Children.Add(new Polyline
             {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
+                Stroke = new LinearGradientBrush { StartPoint = new System.Windows.Point(0, 0.5), EndPoint = new System.Windows.Point(1, 0.5), GradientStops = { new GradientStop(lt, 0), new GradientStop(dk, 1) } },
+                StrokeThickness = 2,
+                StrokeLineJoin = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Points = new PointCollection(pts),
+                IsHitTestVisible = false  // ★ 防止折线抢鼠标事件
+            });
+        }
 
-            foreach (var threshold in thresholds)
+        private void DrawEndpoint(MonitoredParameter p, List<ChartDataPoint> data, double cw, double ch, DateTime t0, double ts, int ci)
+        {
+            var pts = Normalize(p, data, cw, ch, t0, ts);
+            if (pts.Count == 0) return;
+            var last = pts.Last();
+            var (_, dk) = Palette[ci];
+            var ring = new Ellipse { Width = 10, Height = 10, Fill = System.Windows.Media.Brushes.White, Stroke = new SolidColorBrush(dk), StrokeThickness = 2, IsHitTestVisible = false };
+            Canvas.SetLeft(ring, last.X - 5); Canvas.SetTop(ring, last.Y - 5);
+            ChartCanvas.Children.Add(ring);
+        }
+
+        private List<System.Windows.Point> Normalize(MonitoredParameter p, List<ChartDataPoint> data, double cw, double ch, DateTime t0, double ts)
+        {
+            var rel = data.Where(d => d.ParameterValues.ContainsKey(p.DisplayName)).ToList();
+            if (rel.Count == 0) return new List<System.Windows.Point>();
+            var vs = rel.Select(d => d.ParameterValues[p.DisplayName]).ToList();
+            double mn = vs.Min(), mx = vs.Max(), rg = mx - mn;
+            if (rg == 0) rg = Math.Max(1, Math.Abs(mx) * 0.1);
+            mn -= rg * 0.05; mx += rg * 0.05; rg = mx - mn;
+            return rel.Select(d => { double v = d.ParameterValues[p.DisplayName]; return new System.Windows.Point(ML + ((d.Timestamp - t0).TotalSeconds / ts) * cw, MT + ch - ((v - mn) / rg) * ch); }).ToList();
+        }
+
+        #endregion
+
+        #region 鼠标交互（★ 修复Tooltip抖动）
+
+        private void OnChartMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_viewModel == null) return;
+            var pos = e.GetPosition(ChartCanvas);
+            var en = _viewModel.MonitoredParameters.Where(p => p.IsEnabled).ToList();
+            var data = GetFilteredData();
+            if (en.Count == 0 || data.Count < 2) { Hide(); return; }
+
+            double w = ChartCanvas.ActualWidth, h = ChartCanvas.ActualHeight;
+            double cw = w - ML - MR, ch = h - MT - MB;
+            var t0 = data.First().Timestamp;
+            double ts = (data.Last().Timestamp - t0).TotalSeconds;
+            if (ts <= 0) return;
+
+            double ratio = (pos.X - ML) / cw;
+            if (ratio < -0.02 || ratio > 1.02) { Hide(); return; }
+            ratio = Math.Max(0, Math.Min(1, ratio));
+
+            var target = t0.AddSeconds(ratio * ts);
+            var near = data.OrderBy(d => Math.Abs((d.Timestamp - target).TotalMilliseconds)).First();
+            double nx = ML + ((near.Timestamp - t0).TotalSeconds / ts) * cw;
+
+            // 十字准线
+            CrosshairV.X1 = nx; CrosshairV.Y1 = MT; CrosshairV.X2 = nx; CrosshairV.Y2 = MT + ch;
+            CrosshairV.Visibility = Visibility.Visible;
+
+            // ★ 清旧hover点
+            var oldDots = ChartCanvas.Children.OfType<Ellipse>().Where(x => x.Tag?.ToString() == "h").ToList();
+            foreach (var od in oldDots) ChartCanvas.Children.Remove(od);
+
+            // 添加新hover点（全部 IsHitTestVisible=false 防止抖动）
+            for (int i = 0; i < en.Count; i++)
             {
-                var item = new StackPanel
+                if (!near.ParameterValues.ContainsKey(en[i].DisplayName)) continue;
+                var pts = Normalize(en[i], data, cw, ch, t0, ts);
+                var cp = pts.OrderBy(p => Math.Abs(p.X - nx)).FirstOrDefault();
+                if (cp == default) continue;
+                var (_, dk) = Palette[i % Palette.Length];
+                var r = new Ellipse
                 {
-                    Orientation = Orientation.Horizontal,
-                    Margin = new Thickness(0, 0, 20, 0)
+                    Width = 10,
+                    Height = 10,
+                    Fill = System.Windows.Media.Brushes.White,
+                    Stroke = new SolidColorBrush(dk),
+                    StrokeThickness = 2,
+                    Tag = "h",
+                    IsHitTestVisible = false  // ★ 防止hover点抢鼠标导致抖动
                 };
-
-                var dot = new Ellipse
-                {
-                    Width = 9,
-                    Height = 9,
-                    Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(threshold.Color)),
-                    Margin = new Thickness(0, 0, 6, 0),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                var label = new TextBlock
-                {
-                    Text = threshold.Value,
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.FromRgb(89, 89, 89)),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                item.Children.Add(dot);
-                item.Children.Add(label);
-                legendPanel.Children.Add(item);
+                Canvas.SetLeft(r, cp.X - 5); Canvas.SetTop(r, cp.Y - 5); Canvas.SetZIndex(r, 100);
+                ChartCanvas.Children.Add(r);
             }
 
-            Canvas.SetLeft(legendPanel, MarginLeft);
-            Canvas.SetTop(legendPanel, 8);
-            _canvas.Children.Add(legendPanel);
+            // Tooltip 内容
+            BuildTooltip(near, en);
+
+            // ★ Tooltip 定位：严格限制在 Canvas 范围内
+            TooltipPanel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double tw = TooltipPanel.DesiredSize.Width, th = TooltipPanel.DesiredSize.Height;
+            double tx, ty;
+
+            // 水平：优先右侧，空间不够翻左侧，都不够贴右边缘
+            if (nx + 16 + tw <= w) tx = nx + 16;
+            else if (nx - 16 - tw >= 0) tx = nx - 16 - tw;
+            else tx = Math.Max(4, w - tw - 4);
+
+            // 垂直：居中，限制上下边界
+            ty = Math.Max(4, Math.Min(pos.Y - th / 2, h - th - 4));
+
+            TooltipPanel.Margin = new Thickness(tx, ty, 0, 0);
+            TooltipPanel.Visibility = Visibility.Visible;
         }
 
-        private void DrawGrid(double width, double height)
+        private void OnChartMouseLeave(object sender, MouseEventArgs e) => Hide();
+
+        private void Hide()
         {
-            var gridBrush = new SolidColorBrush(Color.FromRgb(240, 240, 240));
-
-            for (int i = 0; i <= 6; i++)
-            {
-                double y = MarginTop + (height / 6) * i;
-                var line = new Line
-                {
-                    X1 = MarginLeft,
-                    Y1 = y,
-                    X2 = MarginLeft + width,
-                    Y2 = y,
-                    Stroke = gridBrush,
-                    StrokeThickness = 1
-                };
-
-                RenderOptions.SetEdgeMode(line, EdgeMode.Aliased);
-                _canvas.Children.Add(line);
-            }
+            CrosshairV.Visibility = Visibility.Collapsed;
+            TooltipPanel.Visibility = Visibility.Collapsed;
+            var oldDots = ChartCanvas.Children.OfType<Ellipse>().Where(x => x.Tag?.ToString() == "h").ToList();
+            foreach (var od in oldDots) ChartCanvas.Children.Remove(od);
         }
 
-        private void DrawCurve(double width, double height, List<ChartDataPoint> data)
+        private void BuildTooltip(ChartDataPoint dp, List<MonitoredParameter> enabled)
         {
-            if (data.Count < 2) return;
+            TooltipContent.Children.Clear();
+            TooltipContent.Children.Add(new TextBlock { Text = dp.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"), FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(Color.FromRgb(156, 163, 175)), Margin = new Thickness(0, 0, 0, 6), IsHitTestVisible = false });
+            TooltipContent.Children.Add(new Rectangle { Height = 0.5, Fill = new SolidColorBrush(Color.FromRgb(243, 244, 246)), Margin = new Thickness(0, 0, 0, 6), IsHitTestVisible = false });
 
-            var values = data.Select(d => d.ParameterValues[_parameter.DisplayName]).ToList();
-            var minValue = values.Min();
-            var maxValue = values.Max();
-            var range = maxValue - minValue;
-
-            if (range == 0) range = 1;
-
-            minValue -= range * 0.05;
-            maxValue += range * 0.05;
-            range = maxValue - minValue;
-
-            var minTime = data.First().Timestamp;
-            var maxTime = data.Last().Timestamp;
-            var timeSpan = (maxTime - minTime).TotalSeconds;
-            if (timeSpan == 0) timeSpan = 1;
-
-            var points = new List<(Point Point, double Value)>();
-            foreach (var dp in data)
+            for (int i = 0; i < enabled.Count; i++)
             {
-                var value = dp.ParameterValues[_parameter.DisplayName];
-                double x = MarginLeft + ((dp.Timestamp - minTime).TotalSeconds / timeSpan) * width;
-                double y = MarginTop + height - ((value - minValue) / range) * height;
-                points.Add((new Point(x, y), value));
-            }
+                if (!dp.ParameterValues.ContainsKey(enabled[i].DisplayName)) continue;
+                double v = dp.ParameterValues[enabled[i].DisplayName];
+                var (lt, dk) = Palette[i % Palette.Length];
+                bool active = i == _activeYAxisIndex;
 
-            DrawGradientFill(points.Select(p => p.Point).ToList(), width, height);
-            DrawSegmentedCurve(points, minValue, maxValue, range);
-        }
-
-        private void DrawSegmentedCurve(List<(Point Point, double Value)> points,
-            double minValue, double maxValue, double range)
-        {
-            if (points.Count < 2) return;
-
-            var segments = new Dictionary<Color, PathGeometry>();
-
-            for (int i = 0; i < points.Count - 1; i++)
-            {
-                var currentPoint = points[i];
-                var nextPoint = points[i + 1];
-                var color = GetColorForValue(currentPoint.Value, minValue, maxValue, range);
-
-                if (!segments.ContainsKey(color))
-                {
-                    segments[color] = new PathGeometry();
-                }
-
-                var figure = new PathFigure { StartPoint = currentPoint.Point };
-                figure.Segments.Add(new LineSegment(nextPoint.Point, true));
-                segments[color].Figures.Add(figure);
-            }
-
-            foreach (var segment in segments)
-            {
-                var path = new Path
-                {
-                    Stroke = new SolidColorBrush(segment.Key),
-                    StrokeThickness = 2.5,
-                    Data = segment.Value
-                };
-
-                RenderOptions.SetEdgeMode(path, EdgeMode.Unspecified);
-                path.SetValue(RenderOptions.CachingHintProperty, CachingHint.Cache);
-
-                _canvas.Children.Add(path);
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2), IsHitTestVisible = false };
+                row.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(active ? dk : lt), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+                row.Children.Add(new TextBlock { Text = $"{v:F2}", FontSize = active ? 13 : 11, FontWeight = active ? FontWeights.Bold : FontWeights.Normal, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(active ? Color.FromRgb(55, 65, 81) : Color.FromRgb(156, 163, 175)), VerticalAlignment = VerticalAlignment.Center });
+                TooltipContent.Children.Add(row);
             }
         }
 
-        private Color GetColorForValue(double value, double minValue, double maxValue, double range)
+        #endregion
+
+        private static string Fmt(double v)
         {
-            double normalized = (value - minValue) / range;
-
-            if (normalized < 0.2)
-                return (Color)ColorConverter.ConvertFromString("#FF4D4F");
-            else if (normalized < 0.4)
-                return (Color)ColorConverter.ConvertFromString("#FAAD14");
-            else if (normalized < 0.7)
-                return (Color)ColorConverter.ConvertFromString("#52C41A");
-            else if (normalized < 0.9)
-                return (Color)ColorConverter.ConvertFromString("#FAAD14");
-            else
-                return (Color)ColorConverter.ConvertFromString("#FF4D4F");
-        }
-
-        private void DrawGradientFill(List<Point> points, double width, double height)
-        {
-            if (points.Count < 2) return;
-
-            var pathFigure = new PathFigure { StartPoint = points[0] };
-
-            for (int i = 1; i < points.Count; i++)
-            {
-                pathFigure.Segments.Add(new LineSegment(points[i], true));
-            }
-
-            pathFigure.Segments.Add(new LineSegment(
-                new Point(points.Last().X, MarginTop + height), true));
-            pathFigure.Segments.Add(new LineSegment(
-                new Point(points.First().X, MarginTop + height), true));
-            pathFigure.IsClosed = true;
-
-            var pathGeometry = new PathGeometry();
-            pathGeometry.Figures.Add(pathFigure);
-
-            var gradientBrush = new LinearGradientBrush
-            {
-                StartPoint = new Point(0, 0),
-                EndPoint = new Point(0, 1),
-                GradientStops = new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(35, 82, 196, 26), 0),
-                    new GradientStop(Color.FromArgb(5, 82, 196, 26), 1)
-                }
-            };
-
-            var areaPath = new Path
-            {
-                Fill = gradientBrush,
-                Data = pathGeometry
-            };
-
-            areaPath.SetValue(RenderOptions.CachingHintProperty, CachingHint.Cache);
-            _canvas.Children.Add(areaPath);
-        }
-
-        private void DrawYAxisLabels(double width, double height, List<ChartDataPoint> data)
-        {
-            var values = data.Select(d => d.ParameterValues[_parameter.DisplayName]).ToList();
-            var minValue = values.Min() - (values.Max() - values.Min()) * 0.05;
-            var maxValue = values.Max() + (values.Max() - values.Min()) * 0.05;
-            var range = maxValue - minValue;
-
-            var labelBrush = new SolidColorBrush(Color.FromRgb(140, 140, 140));
-
-            for (int i = 0; i <= 6; i++)
-            {
-                double value = minValue + (range * i / 6.0);
-                double y = MarginTop + height - (i / 6.0) * height;
-
-                var text = new TextBlock
-                {
-                    Text = $"{value:F0}",
-                    Foreground = labelBrush,
-                    FontSize = 11
-                };
-
-                text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                Canvas.SetLeft(text, MarginLeft - text.DesiredSize.Width - 8);
-                Canvas.SetTop(text, y - text.DesiredSize.Height / 2);
-                _canvas.Children.Add(text);
-            }
-        }
-
-        private void DrawXAxis(double width, double height, List<ChartDataPoint> data)
-        {
-            var labelBrush = new SolidColorBrush(Color.FromRgb(140, 140, 140));
-            var minTime = data.First().Timestamp;
-            var maxTime = data.Last().Timestamp;
-
-            for (int i = 0; i <= 6; i++)
-            {
-                var time = minTime.AddSeconds((maxTime - minTime).TotalSeconds * (i / 6.0));
-                double x = MarginLeft + (width / 6) * i;
-
-                var text = new TextBlock
-                {
-                    Text = time.ToString("HH:mm"),
-                    Foreground = labelBrush,
-                    FontSize = 11
-                };
-
-                text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                Canvas.SetLeft(text, x - text.DesiredSize.Width / 2);
-                Canvas.SetTop(text, MarginTop + height + 8);
-                _canvas.Children.Add(text);
-            }
-        }
-
-        private void DrawKeyValueAnnotations(double width, double height, List<ChartDataPoint> data)
-        {
-            var values = data.Select(d => d.ParameterValues[_parameter.DisplayName]).ToList();
-            var minValue = values.Min() - (values.Max() - values.Min()) * 0.05;
-            var maxValue = values.Max() + (values.Max() - values.Min()) * 0.05;
-            var range = maxValue - minValue;
-
-            var minTime = data.First().Timestamp;
-            var maxTime = data.Last().Timestamp;
-            var timeSpan = (maxTime - minTime).TotalSeconds;
-            if (timeSpan == 0) timeSpan = 1;
-
-            var maxIndex = values.IndexOf(values.Max());
-            var minIndex = values.IndexOf(values.Min());
-
-            if (maxIndex >= 0 && maxIndex < data.Count)
-            {
-                DrawValueAnnotation(data[maxIndex], width, height,
-                    minValue, maxValue, range, minTime, timeSpan, true);
-            }
-
-            if (minIndex >= 0 && minIndex < data.Count)
-            {
-                DrawValueAnnotation(data[minIndex], width, height,
-                    minValue, maxValue, range, minTime, timeSpan, false);
-            }
-        }
-
-        private void DrawValueAnnotation(ChartDataPoint dataPoint,
-            double width, double height, double minValue, double maxValue,
-            double range, DateTime minTime, double timeSpan, bool isMax)
-        {
-            var value = dataPoint.ParameterValues[_parameter.DisplayName];
-            double x = MarginLeft + ((dataPoint.Timestamp - minTime).TotalSeconds / timeSpan) * width;
-            double y = MarginTop + height - ((value - minValue) / range) * height;
-
-            var dashedLine = new Line
-            {
-                X1 = x,
-                Y1 = y,
-                X2 = MarginLeft + width + 15,
-                Y2 = y,
-                Stroke = new SolidColorBrush(Color.FromRgb(140, 140, 140)),
-                StrokeThickness = 1,
-                StrokeDashArray = new DoubleCollection { 4, 3 }
-            };
-            RenderOptions.SetEdgeMode(dashedLine, EdgeMode.Aliased);
-            _canvas.Children.Add(dashedLine);
-
-            var arrow = new Polygon
-            {
-                Points = new PointCollection(new[]
-                {
-                    new Point(0, -4),
-                    new Point(6, 0),
-                    new Point(0, 4)
-                }),
-                Fill = new SolidColorBrush(Color.FromRgb(140, 140, 140))
-            };
-            Canvas.SetLeft(arrow, MarginLeft + width + 15);
-            Canvas.SetTop(arrow, y);
-            _canvas.Children.Add(arrow);
-
-            var label = new TextBlock
-            {
-                Text = $"{value:F0}",
-                FontSize = 13,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(38, 38, 38))
-            };
-
-            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(label, MarginLeft + width + 25);
-            Canvas.SetTop(label, y - label.DesiredSize.Height / 2);
-            _canvas.Children.Add(label);
-        }
-
-        private void DrawNoDataMessage()
-        {
-            var stackPanel = new StackPanel
-            {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var icon = new TextBlock
-            {
-                Text = "",
-                FontSize = 40,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-
-            var text = new TextBlock
-            {
-                Text = "Waiting for data...",
-                Foreground = new SolidColorBrush(Color.FromRgb(191, 191, 191)),
-                FontSize = 14,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-
-            stackPanel.Children.Add(icon);
-            stackPanel.Children.Add(text);
-
-            Canvas.SetLeft(stackPanel, (_canvas.ActualWidth - 150) / 2);
-            Canvas.SetTop(stackPanel, (_canvas.ActualHeight - 80) / 2);
-            _canvas.Children.Add(stackPanel);
-        }
-
-        private void ShowTooltip(Point mousePos)
-        {
-            var data = GetParameterData();
-            if (!data.Any())
-            {
-                _tooltip.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            var nearestPoint = FindNearestDataPoint(mousePos, data);
-            if (nearestPoint == null)
-            {
-                _tooltip.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            _tooltipContent.Children.Clear();
-
-            var timeText = new TextBlock
-            {
-                Text = nearestPoint.Timestamp.ToString("MMM dd yyyy HH:mm:ss.fff"),
-                FontWeight = FontWeights.SemiBold,
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromRgb(89, 89, 89)),
-                Margin = new Thickness(0, 0, 0, 6)
-            };
-            _tooltipContent.Children.Add(timeText);
-
-            if (nearestPoint.ParameterValues.TryGetValue(_parameter.DisplayName, out var value))
-            {
-                var paramPanel = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal
-                };
-
-                var dot = new Ellipse
-                {
-                    Width = 8,
-                    Height = 8,
-                    Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_parameter.Color)),
-                    Margin = new Thickness(0, 0, 6, 0),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                var valueText = new TextBlock
-                {
-                    FontSize = 13,
-                    Foreground = new SolidColorBrush(Color.FromRgb(38, 38, 38))
-                };
-                valueText.Inlines.Add(new System.Windows.Documents.Run(_parameter.DisplayName)
-                {
-                    FontWeight = FontWeights.SemiBold
-                });
-                valueText.Inlines.Add(new System.Windows.Documents.Run($"  {value:F2}")
-                {
-                    FontWeight = FontWeights.Bold,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_parameter.Color))
-                });
-
-                paramPanel.Children.Add(dot);
-                paramPanel.Children.Add(valueText);
-                _tooltipContent.Children.Add(paramPanel);
-            }
-
-            _tooltip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var tooltipWidth = _tooltip.DesiredSize.Width;
-            var tooltipHeight = _tooltip.DesiredSize.Height;
-
-            double left = mousePos.X + 15;
-            double top = mousePos.Y - tooltipHeight / 2;
-
-            if (left + tooltipWidth > _canvas.ActualWidth)
-                left = mousePos.X - tooltipWidth - 15;
-
-            if (top < 0)
-                top = 0;
-            else if (top + tooltipHeight > _canvas.ActualHeight)
-                top = _canvas.ActualHeight - tooltipHeight;
-
-            Canvas.SetLeft(_tooltip, left);
-            Canvas.SetTop(_tooltip, top);
-            _tooltip.Visibility = Visibility.Visible;
-        }
-
-        private ChartDataPoint FindNearestDataPoint(Point mousePos, List<ChartDataPoint> data)
-        {
-            const double threshold = 50;
-            double width = _canvas.ActualWidth - MarginLeft - MarginRight;
-            double height = _canvas.ActualHeight - MarginTop - MarginBottom;
-
-            if (width <= 0 || height <= 0 || !data.Any())
-                return null;
-
-            var values = data.Select(d => d.ParameterValues[_parameter.DisplayName]).ToList();
-            var minValue = values.Min() - (values.Max() - values.Min()) * 0.05;
-            var maxValue = values.Max() + (values.Max() - values.Min()) * 0.05;
-            var range = maxValue - minValue;
-
-            var minTime = data.First().Timestamp;
-            var maxTime = data.Last().Timestamp;
-            var timeSpan = (maxTime - minTime).TotalSeconds;
-            if (timeSpan == 0) timeSpan = 1;
-
-            ChartDataPoint nearest = null;
-            double minDistance = double.MaxValue;
-
-            foreach (var dp in data)
-            {
-                if (!dp.ParameterValues.ContainsKey(_parameter.DisplayName))
-                    continue;
-
-                var value = dp.ParameterValues[_parameter.DisplayName];
-                double x = MarginLeft + ((dp.Timestamp - minTime).TotalSeconds / timeSpan) * width;
-                double y = MarginTop + height - ((value - minValue) / range) * height;
-
-                double distance = Math.Sqrt(Math.Pow(x - mousePos.X, 2) + Math.Pow(y - mousePos.Y, 2));
-
-                if (distance < minDistance && distance < threshold)
-                {
-                    minDistance = distance;
-                    nearest = dp;
-                }
-            }
-
-            return nearest;
-        }
-
-        public void Dispose()
-        {
-            _canvas.SizeChanged -= Canvas_SizeChanged;
-            _canvas.MouseMove -= Canvas_MouseMove;
-            _canvas.MouseLeave -= Canvas_MouseLeave;
+            if (Math.Abs(v) >= 1000) return v.ToString("F0");
+            if (Math.Abs(v) >= 100) return v.ToString("F1");
+            if (Math.Abs(v) >= 1) return v.ToString("F2");
+            return v.ToString("F3");
         }
     }
 }
