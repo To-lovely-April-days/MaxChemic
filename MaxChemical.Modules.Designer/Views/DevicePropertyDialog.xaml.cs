@@ -12,6 +12,7 @@ using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.Designer.Views.Controls;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -831,33 +832,149 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                if (!string.IsNullOrEmpty(device.ImageLocation))
+                if (string.IsNullOrEmpty(device.ImageLocation))
                 {
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    CreateDeviceLetterIcon(device.Name);
+                    return;
+                }
 
-                    if (device.ImageLocation.StartsWith("pack://"))
+                if (device.ImageLocation.StartsWith("CUSTOM_CONTROL:"))
+                {
+                    string controlType = device.ImageLocation.Replace("CUSTOM_CONTROL:", "");
+                    var bitmap = RenderCustomControlToBitmap(controlType);
+                    if (bitmap != null)
                     {
-                        bitmap.UriSource = new Uri(device.ImageLocation);
+                        DeviceImage.Source = bitmap;
+                        DeviceImage.Stretch = Stretch.Uniform; // 保持比例适配
                     }
                     else
                     {
-                        bitmap.UriSource = new Uri(device.ImageLocation, UriKind.RelativeOrAbsolute);
+                        CreateDeviceLetterIcon(device.Name);
                     }
+                    return;
+                }
 
-                    bitmap.EndInit();
-                    DeviceImage.Source = bitmap;
-                }
-                else
-                {
-                    CreateDefaultDeviceIcon();
-                }
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.UriSource = device.ImageLocation.StartsWith("pack://")
+                    ? new Uri(device.ImageLocation)
+                    : new Uri(device.ImageLocation, UriKind.RelativeOrAbsolute);
+                bitmapImage.EndInit();
+                DeviceImage.Source = bitmapImage;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"加载设备图标失败: {ex.Message}");
-                CreateDefaultDeviceIcon();
+                CreateDeviceLetterIcon(device.Name);
+            }
+        }
+        /// <summary>
+        /// 根据控件类型名实例化自定义控件，并渲染为位图
+        /// </summary>
+        private ImageSource RenderCustomControlToBitmap(string controlType)
+        {
+            try
+            {
+                FrameworkElement control = null;
+
+                switch (controlType)
+                {
+                    case "TubularReactorControl":
+                        control = new TubularReactorControl();
+                        break;
+                    case "PistonPumpControl":
+                        control = new PistonPumpControl();
+                        break;
+                    // 后续扩展其他控件:
+                    // case "ConicalFlaskControl":
+                    //     control = new ConicalFlaskControl();
+                    //     break;
+                    // case "MicroreactorControl":
+                    //     control = new MicroreactorControl();
+                    //     break;
+                    default:
+                        Debug.WriteLine($"不支持的自定义控件类型: {controlType}");
+                        return null;
+                }
+
+                if (control == null) return null;
+
+                // 用 Viewbox 包裹控件，实现 Uniform 缩放
+                // 这样不管原始控件是什么比例，都能正确缩放到目标尺寸
+                var viewbox = new Viewbox
+                {
+                    Stretch = Stretch.Uniform,
+                    Child = control
+                };
+
+                // 渲染目标尺寸：200x200 足够清晰，Image.Stretch=Uniform 会再次适配
+                int renderSize = 200;
+                viewbox.Measure(new Size(renderSize, renderSize));
+                viewbox.Arrange(new Rect(0, 0, renderSize, renderSize));
+                viewbox.UpdateLayout();
+
+                var renderBitmap = new RenderTargetBitmap(
+                    renderSize, renderSize, 96, 96, PixelFormats.Pbgra32);
+                renderBitmap.Render(viewbox);
+                renderBitmap.Freeze();
+
+                Debug.WriteLine($"自定义控件 {controlType} 已渲染为 {renderSize}x{renderSize} 位图");
+                return renderBitmap;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"渲染自定义控件 {controlType} 失败: {ex.Message}");
+                return null;
+            }
+        }
+        /// <summary>
+        /// 创建设备名首字母文字图标（替代 CreateDefaultDeviceIcon）
+        /// 在深蓝 Hero 背景上用白色大号字母显示
+        /// </summary>
+        private void CreateDeviceLetterIcon(string deviceName)
+        {
+            try
+            {
+                string initials = "?";
+                if (!string.IsNullOrEmpty(deviceName))
+                {
+                    var parts = deviceName.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2 && parts[0].Length > 0 && parts[1].Length > 0)
+                        initials = (parts[0][0].ToString() + parts[1][0].ToString()).ToUpper();
+                    else if (deviceName.Length >= 2)
+                        initials = deviceName.Substring(0, 2).ToUpper();
+                    else
+                        initials = deviceName.ToUpper();
+                }
+
+                var drawingGroup = new DrawingGroup();
+
+                // 半透明白色背景
+                drawingGroup.Children.Add(new GeometryDrawing(
+                    new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)),
+                    null,
+                    new RectangleGeometry(new Rect(0, 0, 64, 64), 12, 12)));
+
+                // 文字
+                var text = new FormattedText(
+                    initials,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+                    24, Brushes.White,
+                    VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+                drawingGroup.Children.Add(new GeometryDrawing(
+                    Brushes.White, null,
+                    text.BuildGeometry(new Point((64 - text.Width) / 2, (64 - text.Height) / 2))));
+
+                DeviceImage.Source = new DrawingImage(drawingGroup);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建文字图标失败: {ex.Message}");
+                DeviceImage.Source = null;
             }
         }
 
@@ -1153,27 +1270,28 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private UIElement CreateParameterInputControl(ParameterBase parameter)
         {
-            var panel = new StackPanel
+            var grid = new Grid
             {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 5, 0, 5)
+                Margin = new Thickness(0, 4, 0, 4)
             };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var label = new TextBlock
             {
                 Text = parameter.Name,
-                Width = 80,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 10, 0),
                 Style = (Style)FindResource("LabelStyle")
             };
+            Grid.SetColumn(label, 0);
 
             UIElement valueControl = CreateParameterValueControl(parameter);
+            Grid.SetColumn(valueControl, 1);
 
-            panel.Children.Add(label);
-            panel.Children.Add(valueControl);
+            grid.Children.Add(label);
+            grid.Children.Add(valueControl);
 
-            return panel;
+            return grid;
         }
 
         /// <summary>
@@ -1181,34 +1299,37 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private UIElement CreateParameterDisplayControl(ParameterBase parameter)
         {
-            var panel = new StackPanel
+            var grid = new Grid
             {
-                Orientation = Orientation.Horizontal,
                 Margin = new Thickness(0, 3, 0, 3)
             };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var nameBlock = new TextBlock
             {
-                Text = parameter.Name + ":",
-                Width = 60,
+                Text = parameter.Name,
                 VerticalAlignment = VerticalAlignment.Center,
-                FontWeight = FontWeights.Medium,
                 Style = (Style)FindResource("LabelStyle")
             };
+            Grid.SetColumn(nameBlock, 0);
 
             var valueBlock = new TextBlock
             {
                 Text = parameter.Value?.ToString() ?? "",
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = Brushes.DarkBlue,
-                Style = (Style)FindResource("LabelStyle"),
+                FontWeight = FontWeights.Medium,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
                 Tag = parameter.Name
             };
+            Grid.SetColumn(valueBlock, 1);
 
-            panel.Children.Add(nameBlock);
-            panel.Children.Add(valueBlock);
+            grid.Children.Add(nameBlock);
+            grid.Children.Add(valueBlock);
 
-            return panel;
+            return grid;
         }
 
         /// <summary>
@@ -1879,6 +2000,25 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+
+        /// <summary>
+        /// 标题栏拖动支持 — 让弹窗可以移动
+        /// </summary>
+        private void TitleBar_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
+            {
+                try
+                {
+                    var window = Window.GetWindow(this);
+                    if (window != null)
+                    {
+                        window.DragMove();
+                    }
+                }
+                catch { }
+            }
+        }
     }
 
     public class MonitoringParametersChangedEventArgs : EventArgs

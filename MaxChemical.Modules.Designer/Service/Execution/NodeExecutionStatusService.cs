@@ -94,7 +94,7 @@ namespace MaxChemical.Modules.Designer.Service.Execution
             }
         }
 
-        public void CompleteNodeExecution(string nodeId, bool isSuccessful = true)
+        public void CompleteNodeExecution(string nodeId, bool isSuccessful = true, string errorMessage = null)
         {
             try
             {
@@ -103,7 +103,7 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                     var node = FindNodeById(nodeId);
                     if (node != null)
                     {
-                        node.CompleteExecution(isSuccessful);
+                        node.CompleteExecution(isSuccessful, errorMessage);  // ← 传递 errorMessage
                         var status = isSuccessful ? NodeExecutionStatus.Completed : NodeExecutionStatus.Failed;
                         SetNodeExecutionStatus(nodeId, status);
                     }
@@ -116,7 +116,47 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                 _logger.LogError(ex, "完成节点执行失败: {NodeId}", nodeId);
             }
         }
+        public void FinalizeExecutionStatus()
+        {
+            try
+            {
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_currentFlowViewModel?.CommandNodes != null)
+                    {
+                        foreach (var node in _currentFlowViewModel.CommandNodes)
+                        {
+                            FinalizeNodeAndChildren(node);
+                        }
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Normal);
 
+                _logger.LogDebug("已最终化所有节点执行状态（保留 Completed/Failed/Skipped）");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "最终化节点执行状态失败");
+            }
+        }
+
+        private void FinalizeNodeAndChildren(CommandNode node)
+        {
+            // 只重置还在执行中或等待中的节点，保留已有结果
+            if (node.ExecutionStatus == NodeExecutionStatus.Executing ||
+                node.ExecutionStatus == NodeExecutionStatus.Waiting)
+            {
+                node.ResetExecutionStatus();
+                _nodeStatuses.TryRemove(node.NodeId, out _);
+            }
+
+            if (node.HasChildren)
+            {
+                foreach (var child in node.Children)
+                {
+                    FinalizeNodeAndChildren(child);
+                }
+            }
+        }
         public void ResetAllExecutionStatus()
         {
             try

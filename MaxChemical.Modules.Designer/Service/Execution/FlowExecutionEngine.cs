@@ -706,7 +706,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     }
                 }
 
-                _statusService.ResetAllExecutionStatus();
+                _statusService.FinalizeExecutionStatus();
 
                 State = FlowExecutionState.Error;
                 var errorProgress = _currentProgress;
@@ -1358,7 +1358,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 executionArgs.EndTime = endTime;
                 executionArgs.IsSuccessful = false;
                 executionArgs.ErrorMessage = ex.Message;
-                _statusService.CompleteNodeExecution(node.NodeId, false);
+                _statusService.CompleteNodeExecution(node.NodeId, false, ex.Message);
 
                 // *** 新增：记录节点执行失败 ***
                 if (!string.IsNullOrEmpty(_currentExperimentId))

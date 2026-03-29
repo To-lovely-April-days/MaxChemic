@@ -79,7 +79,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             public double ActualCanvasWidth { get; set; }
         }
         // 底栏显示属性
-        public string FlowStartTimeText => FlowStartTime?.ToString("HH:mm:ss") ?? "—";
+        public string FlowStartTimeText => FlowStartTime?.ToString("HH:mm:ss.fff") ?? "—";
         public string FlowEndTimeText
         {
             get
@@ -229,10 +229,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         {
                             var startOffset = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
                             row.BarLeft = startOffset * SwimlaneRow.PixelsPerSecond;
-                            row.BarWidth = 6; // 最小宽度，执行中先占位
-                            row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss");
+                            row.BarWidth = 6;
+                            row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
                             row.EndTimeText = "";
                             row.DurationText = "";
+                            row.TimeRangeText = row.StartTimeText + "  执行中...";
                         }
                         row.IsExecuting = true;
                         row.IsCompleted = false;
@@ -246,10 +247,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
                             var startOff = (cNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
                             var dur = (cNode.ExecutionEndTime.Value - cNode.ExecutionStartTime.Value).TotalSeconds;
                             row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
-                            row.BarWidth = Math.Max(40, dur * SwimlaneRow.PixelsPerSecond);
-                            row.StartTimeText = cNode.ExecutionStartTime.Value.ToString("HH:mm:ss");
-                            row.EndTimeText = cNode.ExecutionEndTime.Value.ToString("HH:mm:ss");
+                            row.BarWidth = Math.Max(60, dur * SwimlaneRow.PixelsPerSecond);
+                            row.StartTimeText = cNode.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
+                            row.EndTimeText = cNode.ExecutionEndTime.Value.ToString("HH:mm:ss.fff");
                             row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
+                            row.TimeRangeText = $"{row.StartTimeText}  →  {row.EndTimeText}  ·  {row.DurationText}";
                         }
                         row.IsExecuting = false;
                         row.IsCompleted = true;
@@ -259,13 +261,20 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         var fNode = e.Node;
                         if (fNode?.ExecutionStartTime != null)
                         {
-                            row.StartTimeText = fNode.ExecutionStartTime.Value.ToString("HH:mm:ss");
+                            var startOff = (fNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
+                            row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
+                            row.StartTimeText = fNode.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
                             if (fNode.ExecutionEndTime != null)
                             {
                                 var dur = (fNode.ExecutionEndTime.Value - fNode.ExecutionStartTime.Value).TotalSeconds;
-                                row.BarWidth = Math.Max(40, dur * SwimlaneRow.PixelsPerSecond);
-                                row.EndTimeText = fNode.ExecutionEndTime.Value.ToString("HH:mm:ss");
+                                row.BarWidth = Math.Max(60, dur * SwimlaneRow.PixelsPerSecond);
+                                row.EndTimeText = fNode.ExecutionEndTime.Value.ToString("HH:mm:ss.fff");
                                 row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
+                                row.TimeRangeText = $"{row.StartTimeText}  →  {row.EndTimeText}  ·  {row.DurationText}";
+                            }
+                            else
+                            {
+                                row.TimeRangeText = row.StartTimeText + "  执行失败";
                             }
                         }
                         row.IsExecuting = false;
@@ -281,6 +290,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         row.StartTimeText = "";
                         row.EndTimeText = "";
                         row.DurationText = "";
+                        row.TimeRangeText = "";
                         break;
                 }
                 RaisePropertyChanged(nameof(CompletedCount));
@@ -3629,11 +3639,18 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (node != null)
                 {
                     _logger.LogDebug("删除节点: {NodeName}", node.DisplayName);
+
+                    // ★ 修复：如果删除的是当前选中节点，清空选中状态
+                    if (SelectedNode == node)
+                    {
+                        SelectedNode = null;
+                    }
+
                     CommandNodes.Remove(node);
                     RearrangeNodes();
-                    RebuildAllConnections(); // ← 加这行，重建连接线
-                    SyncSwimlaneRows();      // ← 同步泳道
-                    UpdateCanvasSize();      // ← 更新画布大小
+                    RebuildAllConnections();
+                    SyncSwimlaneRows();
+                    UpdateCanvasSize();
 
                     _logger.LogInformation("命令节点 {NodeName} 已从流程设计器移除，剩余节点: {Count}, 连接线: {ConnectionCount}",
                         node.DisplayName, CommandNodes.Count, Connections.Count);

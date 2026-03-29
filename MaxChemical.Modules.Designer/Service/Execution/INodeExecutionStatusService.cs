@@ -31,8 +31,12 @@ namespace MaxChemical.Modules.Designer.Service.Execution
         /// <summary>
         /// 完成节点执行
         /// </summary>
-        void CompleteNodeExecution(string nodeId, bool isSuccessful = true);
-
+        void CompleteNodeExecution(string nodeId, bool isSuccessful = true, string errorMessage = null);
+        //   /// <summary>
+        //   /// 流程结束后最终化状态：将残留的 Executing/Waiting 节点重置为 Idle，
+        //   /// 但保留 Completed/Failed/Skipped 状态不变
+        //   /// </summary>
+         void FinalizeExecutionStatus();
         /// <summary>
         /// 重置所有节点执行状态
         /// </summary>

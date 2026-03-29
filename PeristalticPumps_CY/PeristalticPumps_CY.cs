@@ -473,11 +473,11 @@ namespace PeristalticPumps_CY
 
                 // 3. 等待一段时间确保所有操作完成
                 await Task.Delay(1000);
-                if (!DeviceConnectionConfig.UsePLCMode)
-                {
-                    _serialPort.Close();
-                    _serialPort.Dispose();
-                }
+                //if (!DeviceConnectionConfig.UsePLCMode)
+                //{
+                //    _serialPort.Close();
+                //    _serialPort.Dispose();
+                //}
                 InfoLog("流程后清理完成");
             }
             catch (Exception ex)

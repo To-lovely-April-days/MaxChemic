@@ -56,6 +56,7 @@ namespace MaxChemical.Modules.Designer.Views
             Unloaded += FlowDesignerView_Unloaded;
             DataContextChanged += OnDataContextChanged;
             IsVisibleChanged += FlowDesignerView_IsVisibleChanged;
+            InitializeZoom();
             _logger.LogDebug("FlowDesignerView 构造函数完成");
             _logger.LogDebug("初始 DataContext: {Type}", DataContext?.GetType().Name ?? "null");
         }
@@ -1254,6 +1255,265 @@ namespace MaxChemical.Modules.Designer.Views
             }
             return false;
         }
+        #region 缩放功能
 
+        private double _currentZoom = 1.0;
+        private const double ZoomMin = 0.25;
+        private const double ZoomMax = 2.0;
+        private const double ZoomStep = 0.1;
+
+        // 预定义缩放级别，用于 Ctrl+滚轮时步进到最近的级别
+        private static readonly double[] ZoomLevels = { 0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0 };
+
+        /// <summary>
+        /// 在构造函数或 Loaded 事件中调用此方法来初始化缩放
+        /// </summary>
+        private void InitializeZoom()
+        {
+            // Ctrl+滚轮缩放
+            CanvasScrollViewer.PreviewMouseWheel += OnCanvasPreviewMouseWheel;
+
+            // 键盘快捷键
+            this.PreviewKeyDown += OnZoomKeyDown;
+        }
+
+        /// <summary>
+        /// Ctrl+滚轮缩放
+        /// </summary>
+        private void OnCanvasPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Control)
+                return;
+
+            e.Handled = true;
+
+            // 获取鼠标在 ScrollViewer 中的位置（用于以鼠标为中心缩放）
+            var mousePos = e.GetPosition(CanvasScrollViewer);
+            var viewportCenterX = mousePos.X / CanvasScrollViewer.ViewportWidth;
+            var viewportCenterY = mousePos.Y / CanvasScrollViewer.ViewportHeight;
+
+            if (e.Delta > 0)
+                ZoomToNextLevel(true);
+            else
+                ZoomToNextLevel(false);
+
+            // 缩放后调整滚动位置，让鼠标指向的内容保持在鼠标下方
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    var newScrollX = viewportCenterX * CanvasScrollViewer.ScrollableWidth;
+                    var newScrollY = viewportCenterY * CanvasScrollViewer.ScrollableHeight;
+                    CanvasScrollViewer.ScrollToHorizontalOffset(newScrollX);
+                    CanvasScrollViewer.ScrollToVerticalOffset(newScrollY);
+                }
+                catch { }
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        /// <summary>
+        /// 键盘快捷键：Ctrl+0 自适应, Ctrl+1 还原100%, Ctrl+= 放大, Ctrl+- 缩小
+        /// </summary>
+        private void OnZoomKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Control)
+                return;
+
+            switch (e.Key)
+            {
+                case Key.D0:
+                case Key.NumPad0:
+                    ZoomFit_Click(null, null);
+                    e.Handled = true;
+                    break;
+                case Key.D1:
+                case Key.NumPad1:
+                    ZoomReset_Click(null, null);
+                    e.Handled = true;
+                    break;
+                case Key.OemPlus:
+                case Key.Add:
+                    ZoomIn_Click(null, null);
+                    e.Handled = true;
+                    break;
+                case Key.OemMinus:
+                case Key.Subtract:
+                    ZoomOut_Click(null, null);
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 步进到下一个缩放级别
+        /// </summary>
+        private void ZoomToNextLevel(bool zoomIn)
+        {
+            double target = _currentZoom;
+
+            if (zoomIn)
+            {
+                // 找到比当前大的最近级别
+                foreach (var level in ZoomLevels)
+                {
+                    if (level > _currentZoom + 0.01)
+                    {
+                        target = level;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // 找到比当前小的最近级别
+                for (int i = ZoomLevels.Length - 1; i >= 0; i--)
+                {
+                    if (ZoomLevels[i] < _currentZoom - 0.01)
+                    {
+                        target = ZoomLevels[i];
+                        break;
+                    }
+                }
+            }
+
+            ApplyZoom(target);
+        }
+
+        /// <summary>
+        /// 应用缩放
+        /// </summary>
+        private void ApplyZoom(double zoom)
+        {
+            zoom = Math.Max(ZoomMin, Math.Min(zoom, ZoomMax));
+            _currentZoom = zoom;
+
+            if (CanvasScaleTransform != null)
+            {
+                CanvasScaleTransform.ScaleX = zoom;
+                CanvasScaleTransform.ScaleY = zoom;
+            }
+
+            // 更新百分比显示
+            if (ZoomLevelText != null)
+            {
+                ZoomLevelText.Text = $"{(int)Math.Round(zoom * 100)}%";
+            }
+        }
+
+        /// <summary>
+        /// 放大按钮
+        /// </summary>
+        private void ZoomIn_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomToNextLevel(true);
+        }
+
+        /// <summary>
+        /// 缩小按钮
+        /// </summary>
+        private void ZoomOut_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomToNextLevel(false);
+        }
+
+        /// <summary>
+        /// 还原 100%
+        /// </summary>
+        private void ZoomReset_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyZoom(1.0);
+
+            // 滚动到起始位置
+            CanvasScrollViewer?.ScrollToHorizontalOffset(0);
+            CanvasScrollViewer?.ScrollToVerticalOffset(0);
+        }
+
+        /// <summary>
+        /// 自适应画布：缩放到让所有节点都可见
+        /// </summary>
+        private void ZoomFit_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var viewModel = DataContext as FlowDesignerViewModel;
+                if (viewModel == null) return;
+
+                // 先还原到 1:1 来计算真实边界
+                ApplyZoom(1.0);
+                UpdateLayout();
+
+                // 计算所有节点的边界矩形
+                double minX = double.MaxValue, minY = double.MaxValue;
+                double maxX = 0, maxY = 0;
+
+                // 包含启动节点
+                double startX = viewModel.StartNodeX;
+                double startY = viewModel.StartNodeY;
+                minX = Math.Min(minX, startX);
+                minY = Math.Min(minY, startY);
+                maxX = Math.Max(maxX, startX + 231);
+                maxY = Math.Max(maxY, startY + 64);
+
+                // 遍历所有命令节点
+                if (viewModel.CommandNodes != null)
+                {
+                    foreach (var node in viewModel.CommandNodes)
+                    {
+                        if (node.NodeControl != null)
+                        {
+                            var pos = node.NodeControl.TranslatePoint(new System.Windows.Point(0, 0), DesignCanvas);
+                            var w = node.NodeControl.ActualWidth > 0 ? node.NodeControl.ActualWidth : 231;
+                            var h = node.NodeControl.ActualHeight > 0 ? node.NodeControl.ActualHeight : 66;
+
+                            minX = Math.Min(minX, pos.X);
+                            minY = Math.Min(minY, pos.Y);
+                            maxX = Math.Max(maxX, pos.X + w);
+                            maxY = Math.Max(maxY, pos.Y + h);
+                        }
+                    }
+                }
+
+                if (minX == double.MaxValue) return; // 没有节点
+
+                double contentW = maxX - minX + 80; // 加 padding
+                double contentH = maxY - minY + 80;
+
+                double viewportW = CanvasScrollViewer.ViewportWidth;
+                double viewportH = CanvasScrollViewer.ViewportHeight;
+
+                if (viewportW <= 0 || viewportH <= 0) return;
+
+                // 计算缩放比例
+                double scaleX = viewportW / contentW;
+                double scaleY = viewportH / contentH;
+                double scale = Math.Min(scaleX, scaleY);
+                scale = Math.Max(ZoomMin, Math.Min(scale, 1.0)); // 最大不超过 100%
+
+                ApplyZoom(scale);
+
+                // 滚动到内容中心
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        double centerX = (minX + maxX) / 2 * scale;
+                        double centerY = (minY + maxY) / 2 * scale;
+
+                        double scrollX = Math.Max(0, centerX - viewportW / 2);
+                        double scrollY = Math.Max(0, centerY - viewportH / 2);
+
+                        CanvasScrollViewer.ScrollToHorizontalOffset(scrollX);
+                        CanvasScrollViewer.ScrollToVerticalOffset(scrollY);
+                    }
+                    catch { }
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "自适应画布失败");
+            }
+        }
+
+        #endregion
     }
 }

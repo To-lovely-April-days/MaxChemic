@@ -39,7 +39,10 @@ namespace MaxChemical.Modules.Designer.Models
             set => SetProperty(ref _isFailed, value);
         }
 
-        // 开始/结束时间字符串（格式 HH:mm:ss）
+        // ════════════════════════════════════════════
+        // 时间文字（精确到毫秒 HH:mm:ss.fff）
+        // ════════════════════════════════════════════
+
         private string _startTimeText = "";
         public string StartTimeText
         {
@@ -54,7 +57,6 @@ namespace MaxChemical.Modules.Designer.Models
             set => SetProperty(ref _endTimeText, value);
         }
 
-        // 耗时文字
         private string _durationText = "";
         public string DurationText
         {
@@ -62,23 +64,59 @@ namespace MaxChemical.Modules.Designer.Models
             set => SetProperty(ref _durationText, value);
         }
 
-        // 条块位置（像素），由外部根据时间计算后设置
+        /// <summary>
+        /// 合并的时间范围文字，显示在条块上方。
+        /// 格式: "13:41:07.699 → 13:41:07.865 · 166ms"
+        /// 由 ViewModel 在设置时间时一并计算。
+        /// </summary>
+        private string _timeRangeText = "";
+        public string TimeRangeText
+        {
+            get => _timeRangeText;
+            set => SetProperty(ref _timeRangeText, value);
+        }
+
+        // ════════════════════════════════════════════
+        // 条块位置
+        // ════════════════════════════════════════════
+
         private double _barLeft;
         public double BarLeft
         {
             get => _barLeft;
-            set { SetProperty(ref _barLeft, value); RaisePropertyChanged(nameof(DurLeft)); }
+            set
+            {
+                SetProperty(ref _barLeft, value);
+                RaisePropertyChanged(nameof(BarRight));
+                RaisePropertyChanged(nameof(EndTimeLabelLeft));
+            }
         }
 
         private double _barWidth = 6;
         public double BarWidth
         {
             get => _barWidth;
-            set { SetProperty(ref _barWidth, value); RaisePropertyChanged(nameof(DurLeft)); }
+            set
+            {
+                SetProperty(ref _barWidth, value);
+                RaisePropertyChanged(nameof(BarRight));
+                RaisePropertyChanged(nameof(IsNarrowBar));
+                RaisePropertyChanged(nameof(IsWideBar));
+                RaisePropertyChanged(nameof(EndTimeLabelLeft));
+            }
         }
 
-        // 耗时标签位置 = 条块右侧 + 5px
-        public double DurLeft => BarLeft + BarWidth + 5;
+        /// <summary>条块右边缘 X</summary>
+        public double BarRight => BarLeft + BarWidth;
+
+        /// <summary>结束时间标签位置 = 右端 + 4px</summary>
+        public double EndTimeLabelLeft => BarLeft + BarWidth + 4;
+
+        /// <summary>条块宽度 < 120px 时为窄条块，合并显示时间</summary>
+        public bool IsNarrowBar => BarWidth < 120;
+
+        /// <summary>条块宽度 >= 120px 时为宽条块，左右分开显示时间</summary>
+        public bool IsWideBar => BarWidth >= 120;
 
         public const double PixelsPerSecond = 52.0;
     }

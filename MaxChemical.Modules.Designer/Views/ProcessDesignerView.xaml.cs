@@ -4436,14 +4436,17 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     Title = "设备属性",
                     Content = devicePropertyDialog,
-                    Width = 1200,
-                    Height = 700,
+                    Width = 960,
+                    Height = 620,
                     WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Owner = Window.GetWindow(this),
                     ResizeMode = ResizeMode.NoResize,
                     WindowStyle = WindowStyle.None,
-                    ShowInTaskbar = false
+                    ShowInTaskbar = false,
+                    AllowsTransparency = true,   // ← 新增：支持圆角
+                    Background = Brushes.Transparent  // ← 新增：透明背景让圆角可见
                 };
+
 
                 devicePropertyDialog.CloseRequested += (s, args) => CloseDevicePropertyWindow();
                 devicePropertyDialog.DialogResult += OnDevicePropertyDialogResult;
