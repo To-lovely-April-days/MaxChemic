@@ -10,16 +10,31 @@
         <converters:NodeExecutionStatusToOpacityConverter x:Key="ExecutionStatusToOpacityConverter"/>
     </UserControl.Resources>
 
-    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Width="231">
+    <!-- 整体水平布局: 主卡片 → 连线 → { → 分支行 → } -->
+    <Grid x:Name="RootGrid" >
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <!-- 主卡片 -->
+            <ColumnDefinition Width="Auto"/>
+            <!-- 左连线 -->
+            <ColumnDefinition Width="Auto"/>
+            <!-- 左花括号 { -->
+            <ColumnDefinition Width="Auto"/>
+            <!-- 分支行容器 -->
+            <ColumnDefinition Width="Auto"/>
+            <!-- 右花括号 } -->
+        </Grid.ColumnDefinitions>
 
+        <!-- ===== 列0: 主卡片 ===== -->
         <Border x:Name="MainStepCard"
+                Grid.Column="0"
                 Width="231" Height="64"
                 CornerRadius="6"
                 Cursor="Hand"
                 MouseDown="Node_Click"
                 UseLayoutRounding="True"
                 SnapsToDevicePixels="True"
-                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
                 Margin="0,10,0,10"
                 Style="{StaticResource ExecutingLogicNodeStyle}">
 
@@ -38,14 +53,12 @@
                       Opacity="0.25"/>
             </Border.Effect>
             <Grid Margin="16 0 16 0">
-                <!-- 先定义所有属性元素 -->
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 然后是内容元素 -->
                 <!-- 执行状态指示条 -->
                 <Rectangle Grid.ColumnSpan="3"
                            Height="3" 
@@ -188,26 +201,48 @@
             </Grid>
         </Border>
 
-        <!-- 并行分支结构画布 -->
-        <Canvas x:Name="BranchCanvas"
-                Width="1000"
-                HorizontalAlignment="Center">
-
-            <Line x:Name="MainVerticalLine"
-                  X1="500" Y1="0" X2="500" Y2="24"
-                  Stroke="#CCCED3"
-                  StrokeThickness="2"/>
-
-            <Line x:Name="HorizontalDistributionLine"
-                  X1="100" Y1="24" X2="900" Y2="24"
-                  Stroke="#CCCED3"
-                  StrokeThickness="2"/>
-
-            <StackPanel x:Name="ParallelBranchesContainer"
-                        Canvas.Left="50" Canvas.Top="40"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Center">
-            </StackPanel>
+        <!-- ===== 列1: 主卡片到左花括号的连线 ===== -->
+        <Canvas x:Name="LeftConnectorCanvas"
+                Grid.Column="1"
+                Width="20"
+                VerticalAlignment="Stretch"
+                ClipToBounds="False">
+            <Line x:Name="LeftConnectorLine"
+                  X1="0" Y1="0" X2="20" Y2="0"
+                  Stroke="#999"
+                  StrokeThickness="1.2"/>
         </Canvas>
-    </StackPanel>
+
+        <!-- ===== 列2: 左花括号 { (用Path绘制) ===== -->
+        <Canvas x:Name="LeftBraceCanvas"
+                Grid.Column="2"
+                Width="14"
+                VerticalAlignment="Stretch"
+                ClipToBounds="False">
+            <Path x:Name="LeftBracePath"
+                  Stroke="#999"
+                  StrokeThickness="1.5"
+                  Fill="Transparent"/>
+        </Canvas>
+
+        <!-- ===== 列3: 分支行容器 (垂直堆叠，每行是一个水平分支) ===== -->
+        <StackPanel x:Name="ParallelBranchesContainer"
+                    Grid.Column="3"
+                    Orientation="Vertical"
+                    VerticalAlignment="Center"
+                    Margin="6,8,6,8">
+        </StackPanel>
+
+        <!-- ===== 列4: 右花括号 } (用Path绘制) ===== -->
+        <Canvas x:Name="RightBraceCanvas"
+                Grid.Column="4"
+                Width="14"
+                VerticalAlignment="Stretch"
+                ClipToBounds="False">
+            <Path x:Name="RightBracePath"
+                  Stroke="#999"
+                  StrokeThickness="1.5"
+                  Fill="Transparent"/>
+        </Canvas>
+    </Grid>
 </UserControl>

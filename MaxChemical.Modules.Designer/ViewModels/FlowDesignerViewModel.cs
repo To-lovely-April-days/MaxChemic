@@ -2409,7 +2409,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     };
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
-                    commandNode.NodeControl.Width = estimatedSize.Width;
+                    //commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
                     SubscribeToNodeControlEvents(commandNode, plugin);
 
@@ -2531,7 +2531,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     };
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
-                    commandNode.NodeControl.Width = estimatedSize.Width;
+                    //commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
                     SubscribeToNodeControlEvents(commandNode, plugin);
                 }
@@ -2618,7 +2618,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             if (node.NodeControl is Views.IfNodeControlView ifCtrl && ifCtrl.TotalActualWidth > 0)
                 return ifCtrl.TotalActualWidth;
-
+            // ★ 新增：并行节点也用 TotalActualWidth
+            if (node.NodeControl is Views.ParallelNodeControlView parallelCtrl)
+            {
+                parallelCtrl.UpdateLayout();
+                if (parallelCtrl.ActualWidth > 0)
+                    return parallelCtrl.ActualWidth;
+            }
             double w = node.GetActualWidth();
             if (w > 0) return w;
 

@@ -21,6 +21,7 @@ namespace MaxChemical.Modules.Designer.Views
 {
     /// <summary>
     /// ParallelNodeControlView.xaml 的交互逻辑
+    /// 样式3 · 大括号包裹: 主卡片 → { → 垂直排列的水平分支行 → }
     /// </summary>
     public partial class ParallelNodeControlView : UserControl, IDisposable
     {
@@ -44,6 +45,44 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly NodeControlFactory _nodeControlFactory;
         private readonly DesignerDragDropService _dragDropService;
         private readonly NodeManagementService _nodeManagementService;
+        /// <summary>
+        /// 整个并行节点控件的实际总宽度（包括主卡片+连线+花括号+分支）
+        /// </summary>
+        public double TotalActualWidth
+        {
+            get
+            {
+                try
+                {
+                    if (RootGrid.ActualWidth > 0)
+                        return RootGrid.ActualWidth;
+
+                    // 兜底：手动累加各列宽度
+                    double total = 0;
+                    foreach (var col in RootGrid.ColumnDefinitions)
+                    {
+                        total += col.ActualWidth;
+                    }
+                    return total > 0 ? total : NodeSizeEstimator.PARALLEL_NODE_MIN_WIDTH;
+                }
+                catch
+                {
+                    return NodeSizeEstimator.PARALLEL_NODE_MIN_WIDTH;
+                }
+            }
+        }
+        // 分支行颜色（参照样式3 SVG中的配色）
+        private static readonly Color[] BranchColors = new[]
+        {
+            Color.FromRgb(0x37, 0x8A, 0xDD), // 蓝色
+            Color.FromRgb(0x1D, 0x9E, 0x75), // 青绿色
+            Color.FromRgb(0xD8, 0x5A, 0x30), // 珊瑚色
+            Color.FromRgb(0x9B, 0x59, 0xB6), // 紫色
+            Color.FromRgb(0xE6, 0x7E, 0x22), // 橙色
+            Color.FromRgb(0x27, 0xAE, 0x60), // 绿色
+            Color.FromRgb(0xC0, 0x39, 0x2B), // 红色
+            Color.FromRgb(0x29, 0x80, 0xB9), // 深蓝
+        };
 
         public ParallelNodeControlView()
         {
@@ -64,6 +103,15 @@ namespace MaxChemical.Modules.Designer.Views
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             InitializeParallelBranches();
+            // ★ 加载完成后再次强制刷新，确保外层Canvas正确测量
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                InvalidateMeasure();
+                InvalidateArrange();
+                UpdateLayout();
+                UpdateBraceLayout();
+                ContentChanged?.Invoke(this, EventArgs.Empty);
+            }), System.Windows.Threading.DispatcherPriority.Render);
         }
 
         private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -71,7 +119,7 @@ namespace MaxChemical.Modules.Designer.Views
             if (e.NewSize != _lastMeasuredSize)
             {
                 _lastMeasuredSize = e.NewSize;
-                UpdateBranchCanvasLayout();
+                UpdateBraceLayout();
             }
         }
 
@@ -127,7 +175,7 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         branchContent.Children.Clear();
                     }
-                    branchInfo.Commands.Clear(); // 同时清空本地列表
+                    branchInfo.Commands.Clear();
                 }
 
                 // 重新分组并创建UI
@@ -150,25 +198,28 @@ namespace MaxChemical.Modules.Designer.Views
 
                     _logger.LogDebug($"处理分支 {branchIndex}，子节点数: {branchGroup.Count()}");
 
+                    int commandIndex = 0;
                     foreach (var child in branchGroup.OrderBy(c => parallelNode.Children.IndexOf(c)))
                     {
-                        // 添加到本地列表
                         branchInfo.Commands.Add(child);
 
-                        // 创建UI控件
                         var nestedControl = _nodeControlFactory.CreateNestedCommandControl(
                             child,
                             HandleNestedNodeClick,
                             (node) => RemoveNestedCommand(node, branchIndex));
 
                         if (nestedControl != null)
-                        {
+                        {  //  新增：确保嵌套控件在分支行内垂直居中
+                            nestedControl.VerticalAlignment = VerticalAlignment.Center;
+                            // 如果不是第一个命令，先插入箭头
+                            if (commandIndex > 0)
+                            {
+                                branchContent.Children.Add(CreateBranchArrow());
+                            }
                             branchContent.Children.Add(nestedControl);
-
                             _logger.LogDebug($"为子节点 {child.DisplayName} 创建了UI控件");
-
-                            // 订阅嵌套复杂节点事件
                             SubscribeToNestedComplexNodeEvents(nestedControl, child, branchIndex);
+                            commandIndex++;
                         }
                         else
                         {
@@ -184,7 +235,16 @@ namespace MaxChemical.Modules.Designer.Views
                     }
                 }
 
-                UpdateBranchCanvasLayout();
+                UpdateBraceLayout();
+                // ★ 强制重新测量
+                InvalidateMeasure();
+                InvalidateArrange();
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    UpdateLayout();
+                    UpdateBraceLayout();
+                    ContentChanged?.Invoke(this, EventArgs.Empty);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
                 _logger.LogDebug("=== 并行节点Children同步到UI完成 ===");
             }
             catch (Exception ex)
@@ -211,7 +271,20 @@ namespace MaxChemical.Modules.Designer.Views
                     CreateParallelBranch(i);
                 }
 
-                UpdateBranchCanvasLayout();
+                UpdateBraceLayout();
+
+                // ★ 关键修复：强制整个控件重新测量和排列
+                InvalidateMeasure();
+                InvalidateArrange();
+
+                // 延迟一帧再次更新，确保布局系统完成
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    UpdateLayout();
+                    UpdateBraceLayout();
+                    ContentChanged?.Invoke(this, EventArgs.Empty);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+
                 _logger.LogDebug("创建了 {Count} 个并行分支", maxParallelCount);
             }
             catch (Exception ex)
@@ -221,6 +294,10 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
 
+        /// <summary>
+        /// 创建一个并行分支 —— 样式3: 水平行布局
+        /// 每个分支是一行，内部命令从左到右水平排列
+        /// </summary>
         private void CreateParallelBranch(int branchIndex)
         {
             var branchInfo = new ParallelBranchInfo
@@ -229,54 +306,65 @@ namespace MaxChemical.Modules.Designer.Views
                 Commands = new List<CommandNode>()
             };
 
-            var branchContainer = CreateBranchContainer(branchIndex);
+            var branchContainer = CreateBranchRowContainer(branchIndex);
             branchInfo.Container = branchContainer;
 
             ParallelBranchesContainer.Children.Add(branchContainer);
             _parallelBranches.Add(branchInfo);
-
-            CreateBranchConnectionElements(branchIndex, branchContainer);
         }
 
-        private Border CreateBranchContainer(int branchIndex)
+        /// <summary>
+        /// 创建分支行容器 —— 水平排列的一行
+        /// 结构: [分支标签] [拖放区域(水平StackPanel)]
+        /// </summary>
+        private Border CreateBranchRowContainer(int branchIndex)
         {
-            Debug.WriteLine($"=== 创建分支容器 {branchIndex} ===");
+            Debug.WriteLine($"=== 创建分支行容器 {branchIndex} ===");
 
+            var branchColor = BranchColors[branchIndex % BranchColors.Length];
+            var branchBrush = new SolidColorBrush(branchColor);
+
+            // 外层包裹
             var branchWrapper = new Border
             {
-                MinWidth = 250,
-                Margin = new Thickness(10, 0, 10, 0)
+                MinHeight = 36,
+                Margin = new Thickness(0, 3, 0, 3),
+                Padding = new Thickness(0),
             };
 
-            var stackPanel = new StackPanel
+            // 水平布局: 分支标签 + 拖放区域
+            var rowPanel = new StackPanel
             {
-                MinWidth = 250
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
             };
 
-            var branchLabel = new TextBlock
+            // 分支标签（带颜色标识）
+            var branchLabel = new Border
             {
-                Text = $"分支 {branchIndex + 1}",
-                FontSize = 14,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x60, 0x7D, 0x8B)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 8)
+                Width = 4,
+                MinHeight = 30,
+                CornerRadius = new CornerRadius(2),
+                Background = branchBrush,
+                Margin = new Thickness(0, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Opacity = 0.7,
             };
 
+            // 拖放区域
             var dropZone = new Border
             {
                 Name = $"BranchDropZone_{branchIndex}",
-                Background = new SolidColorBrush(Color.FromArgb(0x08, 0x60, 0x7D, 0x8B)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0x1E, 0x60, 0x7D, 0x8B)),
+                Background = new SolidColorBrush(Color.FromArgb(0x06, branchColor.R, branchColor.G, branchColor.B)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x20, branchColor.R, branchColor.G, branchColor.B)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(8),
-                MinHeight = 60,
-                MinWidth = 250,
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(6, 4, 6, 4),
+                MinHeight = 36,
+                MinWidth = 120,
                 AllowDrop = true,
                 UseLayoutRounding = true,
                 SnapsToDevicePixels = true,
-                Margin = new Thickness(0, 4, 0, 0),
                 Tag = branchIndex
             };
 
@@ -287,8 +375,7 @@ namespace MaxChemical.Modules.Designer.Views
             dropZone.DragLeave += Branch_DragLeave;
             dropZone.Drop += Branch_Drop;
 
-            Debug.WriteLine($"已订阅拖放事件");
-
+            // 拖放区域内部: Grid包含提示文本和水平排列的命令
             var dropZoneGrid = new Grid
             {
                 UseLayoutRounding = true
@@ -297,69 +384,40 @@ namespace MaxChemical.Modules.Designer.Views
             var hint = new TextBlock
             {
                 Name = $"BranchHint_{branchIndex}",
-                Text = "拖拽步骤到此处",
+                Text = $"拖拽步骤到分支 {branchIndex + 1}",
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(Color.FromArgb(0x80, 0x60, 0x7D, 0x8B)),
+                Foreground = new SolidColorBrush(Color.FromArgb(0x60, branchColor.R, branchColor.G, branchColor.B)),
                 FontSize = 11,
                 FontStyle = FontStyles.Italic,
                 FontFamily = new FontFamily("Segoe UI"),
-                UseLayoutRounding = true
+                UseLayoutRounding = true,
+                Margin = new Thickness(8, 0, 8, 0),
             };
 
+            // 水平排列的命令容器（核心改变：从垂直变水平）
             var branchContent = new StackPanel
             {
                 Name = $"BranchContent_{branchIndex}",
-                UseLayoutRounding = true
+                Orientation = Orientation.Horizontal,
+                UseLayoutRounding = true,
+                VerticalAlignment = VerticalAlignment.Center,
             };
 
             dropZoneGrid.Children.Add(hint);
             dropZoneGrid.Children.Add(branchContent);
             dropZone.Child = dropZoneGrid;
 
-            stackPanel.Children.Add(branchLabel);
-            stackPanel.Children.Add(dropZone);
-            branchWrapper.Child = stackPanel;
+            rowPanel.Children.Add(branchLabel);
+            rowPanel.Children.Add(dropZone);
+            branchWrapper.Child = rowPanel;
 
-            Debug.WriteLine($"=== 分支容器 {branchIndex} 创建完成 ===");
+            Debug.WriteLine($"=== 分支行容器 {branchIndex} 创建完成 ===");
             return branchWrapper;
         }
 
-        private void CreateBranchConnectionElements(int branchIndex, Border branchContainer)
-        {
-            double branchCenterX = 150 + (branchIndex * 200);
-
-            var verticalLine = new Line
-            {
-                Name = $"BranchVerticalLine_{branchIndex}",
-                X1 = branchCenterX,
-                Y1 = 24,
-                X2 = branchCenterX,
-                Y2 = 36,
-                Stroke = new SolidColorBrush(Color.FromRgb(0x60, 0x7D, 0x8B)),
-                StrokeThickness = 2
-            };
-
-            var arrow = new Polygon
-            {
-                Name = $"BranchArrow_{branchIndex}",
-                Fill = new SolidColorBrush(Color.FromRgb(0x60, 0x7D, 0x8B)),
-                Points = new PointCollection(new[]
-                {
-                    new Point(0, 0),
-                    new Point(8, 0),
-                    new Point(4, 8)
-                })
-            };
-
-            Canvas.SetLeft(arrow, branchCenterX - 4);
-            Canvas.SetTop(arrow, 32);
-
-            BranchCanvas.Children.Add(verticalLine);
-            BranchCanvas.Children.Add(arrow);
-        }
-
         #endregion
+
         /// <summary>
         /// 删除按钮点击事件
         /// </summary>
@@ -379,6 +437,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "删除并行节点失败");
             }
         }
+
         #region 拖拽事件处理
 
         private void Branch_DragEnter(object sender, DragEventArgs e)
@@ -448,7 +507,6 @@ namespace MaxChemical.Modules.Designer.Views
                 _dragDropService.ClearDragOverStyle(border);
                 _logger.LogTrace("清除拖放状态");
 
-                // 记录当前的插入索引，然后清除高亮
                 int insertionIndex = _currentInsertionIndex;
                 int branchIndex = _currentBranchIndex;
                 ClearHighlight();
@@ -505,7 +563,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
-        #region 高亮逻辑（并行分支版本）
+        #region 高亮逻辑（并行分支版本 - 水平方向）
 
         private class InsertionInfo
         {
@@ -515,6 +573,9 @@ namespace MaxChemical.Modules.Designer.Views
             public bool IsInsertAtBeginning { get; set; }
         }
 
+        /// <summary>
+        /// 计算插入位置 —— 水平方向：根据鼠标X坐标判断插入位置
+        /// </summary>
         private InsertionInfo GetInsertionInfo(Point mousePosition, int branchIndex)
         {
             try
@@ -530,7 +591,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                 var branchCommands = _parallelBranches[branchIndex].Commands;
 
-                // 如果分支为空，插入位置为0，没有前一个节点
                 if (branchCommands.Count == 0)
                 {
                     info.InsertionIndex = 0;
@@ -546,7 +606,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return info;
                 }
 
-                double cumulativeHeight = 0;
+                double cumulativeWidth = 0;
 
                 for (int i = 0; i < branchCommands.Count; i++)
                 {
@@ -555,19 +615,17 @@ namespace MaxChemical.Modules.Designer.Views
 
                     if (control != null)
                     {
-                        // 获取控件的实际高度
-                        double controlHeight = control.ActualHeight;
-                        if (controlHeight == 0)
+                        double controlWidth = control.ActualWidth;
+                        if (controlWidth == 0)
                         {
                             control.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                            controlHeight = control.DesiredSize.Height;
+                            controlWidth = control.DesiredSize.Width;
                         }
-                        if (controlHeight == 0) controlHeight = 40; // 默认高度
+                        if (controlWidth == 0) controlWidth = 120; // 默认宽度
 
-                        // 检查鼠标是否在当前控件的上半部分
-                        if (mousePosition.Y <= cumulativeHeight + controlHeight / 2)
+                        // 水平方向：检查鼠标是否在当前控件的左半部分
+                        if (mousePosition.X <= cumulativeWidth + controlWidth / 2)
                         {
-                            // 插入到当前节点之前
                             info.InsertionIndex = i;
                             if (i == 0)
                             {
@@ -579,22 +637,22 @@ namespace MaxChemical.Modules.Designer.Views
                                 info.PreviousControl = FindControlForNodeInBranch(branchContent, info.PreviousNode);
                             }
 
-                            _logger.LogTrace("鼠标位置 {Y} 在分支 {BranchIndex} 节点 {Index} 上半部分，插入位置: {InsertIndex}",
-                                mousePosition.Y, branchIndex, i, i);
+                            _logger.LogTrace("鼠标位置 {X} 在分支 {BranchIndex} 节点 {Index} 左半部分，插入位置: {InsertIndex}",
+                                mousePosition.X, branchIndex, i, i);
                             return info;
                         }
 
-                        cumulativeHeight += controlHeight + 8; // 8是margin
+                        cumulativeWidth += controlWidth + 8; // 8是margin
                     }
                 }
 
-                // 如果鼠标在所有元素下方，插入到末尾
+                // 如果鼠标在所有元素右方，插入到末尾
                 info.InsertionIndex = branchCommands.Count;
                 info.PreviousNode = branchCommands[branchCommands.Count - 1];
                 info.PreviousControl = FindControlForNodeInBranch(branchContent, info.PreviousNode);
 
-                _logger.LogTrace("鼠标位置 {Y} 在分支 {BranchIndex} 所有节点下方，插入位置: {InsertIndex}",
-                    mousePosition.Y, branchIndex, branchCommands.Count);
+                _logger.LogTrace("鼠标位置 {X} 在分支 {BranchIndex} 所有节点右方，插入位置: {InsertIndex}",
+                    mousePosition.X, branchIndex, branchCommands.Count);
                 return info;
             }
             catch (Exception ex)
@@ -623,19 +681,16 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 先清除之前的高亮
                 ClearHighlight();
 
                 if (insertionInfo.IsInsertAtBeginning)
                 {
-                    // 插入到开头，不高亮任何节点
                     _logger.LogTrace("插入到分支 {BranchIndex} 开头，无需高亮节点", branchIndex);
                     return;
                 }
 
                 if (insertionInfo.PreviousNode != null)
                 {
-                    // 高亮前一个节点 - 只设置数据绑定属性，让DataTrigger处理样式
                     _highlightedNode = insertionInfo.PreviousNode;
                     _highlightedNode.IsInsertHighlight = true;
 
@@ -652,7 +707,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 只清除数据绑定属性，让DataTrigger处理样式恢复
                 if (_highlightedNode != null)
                 {
                     _highlightedNode.IsInsertHighlight = false;
@@ -672,6 +726,7 @@ namespace MaxChemical.Modules.Designer.Views
 
 
         #endregion
+
         #region 命令管理
 
         private void AddCommandToBranch(object command, int branchIndex, int insertionIndex = -1)
@@ -698,7 +753,6 @@ namespace MaxChemical.Modules.Designer.Views
 
                     var branchInfo = _parallelBranches[branchIndex];
 
-                    // 如果指定了插入索引，则在指定位置插入
                     if (insertionIndex >= 0 && insertionIndex <= branchInfo.Commands.Count)
                     {
                         branchInfo.Commands.Insert(insertionIndex, nestedNode);
@@ -715,20 +769,57 @@ namespace MaxChemical.Modules.Designer.Views
                         nestedNode,
                         HandleNestedNodeClick,
                         (node) => RemoveNestedCommand(node, branchIndex));
-
-                    // 订阅嵌套复杂节点的内容变化事件
+                    //  新增：确保嵌套控件在分支行内垂直居中
+                    nestedControl.VerticalAlignment = VerticalAlignment.Center;
                     SubscribeToNestedComplexNodeEvents(nestedControl, nestedNode, branchIndex);
 
                     var branchContent = FindBranchContentContainer(branchIndex);
                     if (branchContent != null)
                     {
-                        // 在UI中也插入到对应位置
-                        if (insertionIndex >= 0 && insertionIndex <= branchContent.Children.Count)
+                        // 计算当前分支中已有的命令数量（不含箭头）
+                        int existingCommandCount = branchContent.Children
+                            .OfType<UIElement>()
+                            .Count(c => !IsBranchArrow(c));
+
+                        if (insertionIndex >= 0 && insertionIndex <= branchInfo.Commands.Count)
                         {
-                            branchContent.Children.Insert(insertionIndex, nestedControl);
+                            // 计算在 StackPanel 中的实际插入位置（考虑箭头元素）
+                            // 每个命令前面都有一个箭头（除了第一个），所以：
+                            // 命令0 在位置 0，命令1 在位置 2（箭头+命令），命令2 在位置 4...
+                            int uiInsertIndex;
+                            if (insertionIndex == 0)
+                            {
+                                uiInsertIndex = 0;
+                                // 如果分支里已有命令，需要在新命令后面加箭头
+                                if (existingCommandCount > 0)
+                                {
+                                    branchContent.Children.Insert(0, CreateBranchArrow());
+                                    branchContent.Children.Insert(0, nestedControl);
+                                }
+                                else
+                                {
+                                    branchContent.Children.Insert(0, nestedControl);
+                                }
+                            }
+                            else
+                            {
+                                // 插入到中间位置：先插入箭头，再插入命令
+                                uiInsertIndex = insertionIndex * 2 - 1; // 箭头位置
+                                if (uiInsertIndex > branchContent.Children.Count)
+                                    uiInsertIndex = branchContent.Children.Count;
+
+                                branchContent.Children.Insert(uiInsertIndex, nestedControl);
+                                branchContent.Children.Insert(uiInsertIndex, CreateBranchArrow());
+                            }
                         }
                         else
                         {
+                            // 添加到末尾
+                            if (existingCommandCount > 0)
+                            {
+                                // 前面已有命令，先加箭头再加命令
+                                branchContent.Children.Add(CreateBranchArrow());
+                            }
                             branchContent.Children.Add(nestedControl);
                         }
 
@@ -741,10 +832,9 @@ namespace MaxChemical.Modules.Designer.Views
 
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        UpdateBranchCanvasLayout();
+                        UpdateBraceLayout();
                         OnBranchContentChanged();
 
-                        // 触发嵌套命令添加事件
                         NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
                         {
                             NestedCommand = nestedNode,
@@ -761,7 +851,53 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "添加嵌套命令失败");
             }
         }
-        // 新增：订阅嵌套复杂节点事件的方法
+        /// <summary>
+        /// 创建分支内命令之间的水平箭头连接线
+        /// 样式与主流程箭头一致：灰色细线 + 向右三角箭头
+        /// </summary>
+        private UIElement CreateBranchArrow()
+        {
+            // 容器 Canvas，宽30，高10，与主流程箭头风格一致
+            var canvas = new Canvas
+            {
+                Width = 30,
+                Height = 10,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 2, 0),
+                // ★ 用 Tag 标记为箭头，方便后续识别和删除
+                Tag = "BranchArrow"
+            };
+
+            // 水平线
+            var line = new Rectangle
+            {
+                Width = 22,
+                Height = 1,
+                Fill = new SolidColorBrush(Color.FromRgb(0x97, 0x97, 0x97))
+            };
+            Canvas.SetLeft(line, 0);
+            Canvas.SetTop(line, 4);
+            canvas.Children.Add(line);
+
+            // 向右箭头三角形 (与主流程 Data="M0,0 L0,8 L8,4 Z" 一致)
+            var arrow = new System.Windows.Shapes.Path
+            {
+                Data = Geometry.Parse("M0,0 L0,8 L8,4 Z"),
+                Fill = new SolidColorBrush(Color.FromRgb(0x97, 0x97, 0x97))
+            };
+            Canvas.SetLeft(arrow, 22);
+            Canvas.SetTop(arrow, 1);
+            canvas.Children.Add(arrow);
+
+            return canvas;
+        }
+        /// <summary>
+        /// 判断一个 UI 元素是否是分支箭头
+        /// </summary>
+        private bool IsBranchArrow(UIElement element)
+        {
+            return element is Canvas canvas && canvas.Tag is string tag && tag == "BranchArrow";
+        }
         private void SubscribeToNestedComplexNodeEvents(UserControl nestedControl, CommandNode nestedNode, int branchIndex)
         {
             try
@@ -791,6 +927,10 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("并行节点内的嵌套并行节点移除了命令: {NestedCommand}", e.NestedCommand.DisplayName);
                             OnBranchContentChanged();
                         };
+                        nestedParallelControl.SizeChanged += (s, e) =>
+                        {
+                            if (e.HeightChanged) OnBranchContentChanged();
+                        };
                         break;
 
                     case Views.IfNodeControlView nestedIfControl:
@@ -813,12 +953,23 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("并行节点内的嵌套IF节点移除了命令: {NestedCommand}", e.NestedCommand.DisplayName);
                             OnBranchContentChanged();
                         };
+
+                        // ★ 新增：订阅IF控件的SizeChanged，当嵌套IF导致高度变化时
+                        // 强制同分支内的其他节点重新居中对齐
+                        nestedIfControl.SizeChanged += (s, e) =>
+                        {
+                            if (e.HeightChanged)
+                            {
+                                _logger.LogDebug("嵌套IF节点高度变化: {NodeName}, {OldH} -> {NewH}",
+                                    nestedNode.DisplayName, e.PreviousSize.Height, e.NewSize.Height);
+                                OnBranchContentChanged();
+                            }
+                        };
                         break;
 
                     case Views.LoopNodeControlView nestedLoopControl:
                         _logger.LogDebug("订阅嵌套循环节点事件: {NodeName}", nestedNode.DisplayName);
 
-                        // 假设LoopNodeControlView也有ContentChanged等事件
                         nestedLoopControl.ContentChanged += (s, e) =>
                         {
                             _logger.LogDebug("并行节点内的嵌套循环节点内容发生变化: {NodeName}", nestedNode.DisplayName);
@@ -836,10 +987,13 @@ namespace MaxChemical.Modules.Designer.Views
                             _logger.LogDebug("并行节点内的嵌套循环节点移除了命令: {NestedCommand}", e.NestedCommand.DisplayName);
                             OnBranchContentChanged();
                         };
+                        nestedLoopControl.SizeChanged += (s, e) =>
+                        {
+                            if (e.HeightChanged) OnBranchContentChanged();
+                        };
                         break;
 
                     default:
-                        // 对于普通命令节点（DeviceCommand等），不需要特殊处理
                         _logger.LogTrace("普通嵌套节点不需要特殊事件订阅: {NodeType}", nestedControl.GetType().Name);
                         break;
                 }
@@ -849,6 +1003,7 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "订阅嵌套复杂节点事件失败: {NodeName}", nestedNode?.DisplayName);
             }
         }
+
         public void RemoveNestedCommand(CommandNode nestedNode, int branchIndex)
         {
             try
@@ -868,15 +1023,12 @@ namespace MaxChemical.Modules.Designer.Views
                 var branchContent = FindBranchContentContainer(branchIndex);
                 if (branchContent != null)
                 {
-                    // 修复：改进控件查找逻辑
                     UserControl controlToRemove = null;
 
-                    // 方法1：通过Tag查找
                     controlToRemove = branchContent.Children
                         .OfType<UserControl>()
                         .FirstOrDefault(c => c.Tag == nestedNode);
 
-                    // 方法2：如果Tag查找失败，通过DataContext查找
                     if (controlToRemove == null)
                     {
                         controlToRemove = branchContent.Children
@@ -884,14 +1036,12 @@ namespace MaxChemical.Modules.Designer.Views
                             .FirstOrDefault(c => c.DataContext == nestedNode);
                     }
 
-                    // 方法3：如果还是找不到，通过遍历查找
                     if (controlToRemove == null)
                     {
                         foreach (UIElement child in branchContent.Children)
                         {
                             if (child is UserControl control)
                             {
-                                // 检查是否是设备命令控件
                                 if (control.GetType().Name == "DeviceCommandControlView" &&
                                     control.DataContext == nestedNode)
                                 {
@@ -899,7 +1049,6 @@ namespace MaxChemical.Modules.Designer.Views
                                     break;
                                 }
 
-                                // 检查是否是复杂逻辑控件
                                 if ((control is Views.IfNodeControlView ||
                                      control is Views.ParallelNodeControlView ||
                                      control is Views.LoopNodeControlView) &&
@@ -914,10 +1063,34 @@ namespace MaxChemical.Modules.Designer.Views
 
                     if (controlToRemove != null)
                     {
-                        branchContent.Children.Remove(controlToRemove);
-                        _logger.LogDebug("已从UI中移除控件: {NodeName}", nestedNode.DisplayName);
+                        int controlIndex = branchContent.Children.IndexOf(controlToRemove);
 
-                        // 清理事件订阅
+                        // ★ 删除相邻的箭头
+                        // 情况1：命令后面有箭头（不是最后一个命令）→ 删除后面的箭头
+                        // 情况2：命令前面有箭头（不是第一个命令）→ 删除前面的箭头
+                        // 情况3：只有一个命令，没有箭头
+                        if (controlIndex >= 0)
+                        {
+                            // 先删除命令控件
+                            branchContent.Children.RemoveAt(controlIndex);
+
+                            // 删除后，检查相邻位置是否有箭头需要清理
+                            if (controlIndex < branchContent.Children.Count &&
+                                IsBranchArrow(branchContent.Children[controlIndex]))
+                            {
+                                // 命令后面紧跟的箭头（原来的下一个箭头现在在 controlIndex 位置）
+                                branchContent.Children.RemoveAt(controlIndex);
+                            }
+                            else if (controlIndex > 0 &&
+                                     IsBranchArrow(branchContent.Children[controlIndex - 1]))
+                            {
+                                // 命令前面的箭头
+                                branchContent.Children.RemoveAt(controlIndex - 1);
+                            }
+                        }
+
+                        _logger.LogDebug("已从UI中移除控件及相邻箭头: {NodeName}", nestedNode.DisplayName);
+
                         try
                         {
                             if (controlToRemove is IDisposable disposable)
@@ -934,7 +1107,6 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         _logger.LogWarning("未找到要移除的控件: {NodeName}", nestedNode.DisplayName);
 
-                        // 调试信息
                         _logger.LogDebug("分支 {BranchIndex} 中的控件数量: {Count}", branchIndex, branchContent.Children.Count);
                         for (int i = 0; i < branchContent.Children.Count; i++)
                         {
@@ -968,10 +1140,9 @@ namespace MaxChemical.Modules.Designer.Views
                     BranchIndex = branchIndex
                 });
 
-                // 修复：确保布局和画布尺寸更新
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    UpdateBranchCanvasLayout();
+                    UpdateBraceLayout();
                     OnBranchContentChanged();
                 }), System.Windows.Threading.DispatcherPriority.Background);
 
@@ -1025,167 +1196,252 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (parent == null) return null;
 
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            // 先检查逻辑树（对于还没渲染的元素）
+            if (parent is FrameworkElement fe && fe is T match && match.Name == name)
+                return match;
+
+            // 检查逻辑子元素
+            if (parent is Panel panel)
             {
-                var child = VisualTreeHelper.GetChild(parent, i);
-
-                if (child is T element && element.Name == name)
+                foreach (UIElement child in panel.Children)
                 {
-                    return element;
-                }
-
-                var result = FindElementByName<T>(child, name);
-                if (result != null)
-                {
-                    return result;
+                    if (child is T element && element.Name == name)
+                        return element;
+                    var result = FindElementByName<T>(child, name);
+                    if (result != null) return result;
                 }
             }
+            else if (parent is Border border && border.Child != null)
+            {
+                if (border.Child is T element && element.Name == name)
+                    return element;
+                var result = FindElementByName<T>(border.Child, name);
+                if (result != null) return result;
+            }
+            else if (parent is ContentControl cc && cc.Content is DependencyObject content)
+            {
+                if (content is T element && element.Name == name)
+                    return element;
+                var result = FindElementByName<T>(content, name);
+                if (result != null) return result;
+            }
+
+            // 回退到视觉树
+            try
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    var child = VisualTreeHelper.GetChild(parent, i);
+
+                    if (child is T velement && velement.Name == name)
+                        return velement;
+
+                    var vresult = FindElementByName<T>(child, name);
+                    if (vresult != null) return vresult;
+                }
+            }
+            catch { }
 
             return null;
         }
 
         #endregion
 
-        #region 布局更新
+        #region 布局更新 —— 花括号绘制
 
-        private void UpdateBranchCanvasLayout()
+        /// <summary>
+        /// 更新花括号布局 —— 核心布局方法
+        /// 根据分支容器的实际高度绘制 { 和 } 花括号路径
+        /// 并更新左侧连线位置
+        /// </summary>
+        private void UpdateBraceLayout()
         {
             try
             {
                 if (_parallelBranches.Count == 0) return;
 
+                // 先让布局系统计算好尺寸
                 ParallelBranchesContainer.UpdateLayout();
-                CalculateBranchPositions();
-                UpdateCanvasSize();
-                UpdateConnectionLines();
-
-                System.Diagnostics.Debug.WriteLine($"并行分支布局更新完成，共 {_parallelBranches.Count} 个分支");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"更新并行分支布局失败: {ex.Message}");
-            }
-        }
-
-        private void CalculateBranchPositions()
-        {
-            try
-            {
-                var totalWidth = 0.0;
-                var maxHeight = 0.0;
-
-                foreach (var branchInfo in _parallelBranches)
-                {
-                    branchInfo.Container.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    var size = branchInfo.Container.DesiredSize;
-
-                    totalWidth += size.Width + 20;
-                    maxHeight = Math.Max(maxHeight, size.Height);
-                }
-
-                var canvasWidth = Math.Max(800, totalWidth + 100);
-                var canvasHeight = Math.Max(200, maxHeight + 80);
-
-                BranchCanvas.Width = canvasWidth;
-                BranchCanvas.Height = canvasHeight;
-
-                var containerLeft = (canvasWidth - totalWidth) / 2;
-                Canvas.SetLeft(ParallelBranchesContainer, containerLeft);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"计算分支位置失败: {ex.Message}");
-            }
-        }
-
-        private void UpdateCanvasSize()
-        {
-            try
-            {
                 ParallelBranchesContainer.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                var containerSize = ParallelBranchesContainer.DesiredSize;
 
-                var canvasWidth = Math.Max(800, containerSize.Width + 200);
-                var canvasHeight = Math.Max(200, containerSize.Height + 80);
+                var containerHeight = ParallelBranchesContainer.ActualHeight;
+                if (containerHeight <= 0)
+                {
+                    containerHeight = ParallelBranchesContainer.DesiredSize.Height;
+                }
+                if (containerHeight <= 0) containerHeight = 100; // 最小默认高度
 
-                BranchCanvas.Width = canvasWidth;
-                BranchCanvas.Height = canvasHeight;
+                // 绘制左花括号 {
+                DrawLeftBrace(containerHeight);
+                // 绘制右花括号 }
+                DrawRightBrace(containerHeight);
+                // 更新左侧连线位置（连接主卡片到左花括号中点）
+                UpdateLeftConnector(containerHeight);
+
+                Debug.WriteLine($"花括号布局更新完成，容器高度: {containerHeight}，共 {_parallelBranches.Count} 个分支");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"更新Canvas尺寸失败: {ex.Message}");
+                Debug.WriteLine($"更新花括号布局失败: {ex.Message}");
             }
         }
 
-        private void UpdateConnectionLines()
+        /// <summary>
+        /// 绘制左花括号 {
+        /// 参照SVG样式3中的路径:
+        /// M130 20 Q124 20 124 32 L124 93 Q124 103 118 103 Q124 103 124 113 L124 178 Q124 190 130 190
+        /// 花括号的尖端在中间，向左凸出
+        /// </summary>
+        private void DrawLeftBrace(double totalHeight)
         {
             try
             {
-                var canvasCenterX = BranchCanvas.Width / 2;
+                double w = 14;       // 花括号Canvas宽度
+                double r = 8;        // 圆角半径
+                double tipX = 1;     // 尖端X（最左点）
+                double bodyX = w;    // 主体X（最右点）
+                double midY = totalHeight / 2;
+                double topY = 0;
+                double botY = totalHeight;
 
-                MainVerticalLine.X1 = canvasCenterX;
-                MainVerticalLine.X2 = canvasCenterX;
+                // 设置Canvas高度
+                LeftBraceCanvas.Height = totalHeight;
 
-                if (_parallelBranches.Count > 0)
+                // 构造Path: 从顶部开始，到中间尖端，再到底部
+                // 上半部分: 从(bodyX, topY+r) 经过圆角到 (bodyX, midY-r) 然后弯向尖端 (tipX, midY)
+                // 下半部分: 从(tipX, midY) 弯到 (bodyX, midY+r) 然后到 (bodyX, botY-r)
+                var geometry = new PathGeometry();
+                var figure = new PathFigure
                 {
-                    var containerLeft = Canvas.GetLeft(ParallelBranchesContainer);
-                    ParallelBranchesContainer.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    var containerWidth = ParallelBranchesContainer.DesiredSize.Width;
+                    StartPoint = new Point(bodyX, topY + r),
+                    IsClosed = false,
+                    IsFilled = false
+                };
 
-                    var lineLeft = containerLeft;
-                    var lineRight = containerLeft + containerWidth;
+                // 顶部圆角（从右上往下开始）
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, topY), new Point(bodyX - r, topY), true));
 
-                    HorizontalDistributionLine.X1 = lineLeft;
-                    HorizontalDistributionLine.X2 = lineRight;
-                }
+                // 什么都不加，直接从顶部往下 —— 不对，要画完整
+                // 重新设计：
+                // 起点: (bodyX, topY) 的右下角
+                // 路径: 顶端 → 向下 → 中间尖端向左凸 → 向下 → 底端
 
-                UpdateBranchConnectionLines();
+                figure = new PathFigure
+                {
+                    StartPoint = new Point(bodyX, topY),
+                    IsClosed = false,
+                    IsFilled = false
+                };
+
+                // 顶端向下，经过圆角弯到主体线
+                // 上段直线到接近中间
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, topY), new Point(bodyX, topY + r), true));
+
+                // 上段主体直线
+                figure.Segments.Add(new LineSegment(new Point(bodyX, midY - r), true));
+
+                // 弯向中间尖端
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, midY), new Point(tipX, midY), true));
+
+                // 从尖端弯回主体
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, midY), new Point(bodyX, midY + r), true));
+
+                // 下段主体直线
+                figure.Segments.Add(new LineSegment(new Point(bodyX, botY - r), true));
+
+                // 底端圆角
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, botY), new Point(bodyX, botY), true));
+
+                geometry.Figures.Add(figure);
+                LeftBracePath.Data = geometry;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"更新连接线失败: {ex.Message}");
+                Debug.WriteLine($"绘制左花括号失败: {ex.Message}");
             }
         }
 
-        private void UpdateBranchConnectionLines()
+        /// <summary>
+        /// 绘制右花括号 }
+        /// 参照SVG样式3中的路径:
+        /// M445 20 Q451 20 451 32 L451 93 Q451 103 457 103 Q451 103 451 113 L451 178 Q451 190 445 190
+        /// 花括号的尖端在中间，向右凸出
+        /// </summary>
+        private void DrawRightBrace(double totalHeight)
         {
             try
             {
-                var containerLeft = Canvas.GetLeft(ParallelBranchesContainer);
-                var currentX = containerLeft;
+                double w = 14;
+                double r = 8;
+                double tipX = w - 1;  // 尖端X（最右点）
+                double bodyX = 0;     // 主体X（最左点）
+                double midY = totalHeight / 2;
+                double topY = 0;
+                double botY = totalHeight;
 
-                for (int i = 0; i < _parallelBranches.Count; i++)
+                RightBraceCanvas.Height = totalHeight;
+
+                var geometry = new PathGeometry();
+                var figure = new PathFigure
                 {
-                    var branchContainer = _parallelBranches[i].Container;
-                    branchContainer.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    var branchWidth = branchContainer.DesiredSize.Width;
-                    var branchCenterX = currentX + branchWidth / 2;
+                    StartPoint = new Point(bodyX, topY),
+                    IsClosed = false,
+                    IsFilled = false
+                };
 
-                    var verticalLine = BranchCanvas.Children
-                        .OfType<Line>()
-                        .FirstOrDefault(l => l.Name == $"BranchVerticalLine_{i}");
+                // 顶端圆角
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, topY), new Point(bodyX, topY + r), true));
 
-                    if (verticalLine != null)
-                    {
-                        verticalLine.X1 = branchCenterX;
-                        verticalLine.X2 = branchCenterX;
-                    }
+                // 上段直线
+                figure.Segments.Add(new LineSegment(new Point(bodyX, midY - r), true));
 
-                    var arrow = BranchCanvas.Children
-                        .OfType<Polygon>()
-                        .FirstOrDefault(p => p.Name == $"BranchArrow_{i}");
+                // 弯向尖端（向右凸）
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, midY), new Point(tipX, midY), true));
 
-                    if (arrow != null)
-                    {
-                        Canvas.SetLeft(arrow, branchCenterX - 4);
-                    }
+                // 从尖端弯回
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, midY), new Point(bodyX, midY + r), true));
 
-                    currentX += branchWidth + 20;
-                }
+                // 下段直线
+                figure.Segments.Add(new LineSegment(new Point(bodyX, botY - r), true));
+
+                // 底端圆角
+                figure.Segments.Add(new QuadraticBezierSegment(
+                    new Point(bodyX, botY), new Point(bodyX, botY), true));
+
+                geometry.Figures.Add(figure);
+                RightBracePath.Data = geometry;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"更新分支连接线失败: {ex.Message}");
+                Debug.WriteLine($"绘制右花括号失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 更新左侧连线 —— 连接主卡片右侧到左花括号尖端
+        /// </summary>
+        private void UpdateLeftConnector(double containerHeight)
+        {
+            try
+            {
+                double midY = containerHeight / 2;
+
+                // 设置Canvas高度和连线Y坐标
+                LeftConnectorCanvas.Height = containerHeight;
+                LeftConnectorLine.Y1 = midY;
+                LeftConnectorLine.Y2 = midY;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新左连线失败: {ex.Message}");
             }
         }
 
@@ -1195,17 +1451,68 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    UpdateBranchCanvasLayout();
+                    // ★ 强制重新布局所有分支内的子元素垂直居中
+                    RealignBranchChildren();
+
+                    UpdateBraceLayout();
                     ContentChanged?.Invoke(this, EventArgs.Empty);
-                    System.Diagnostics.Debug.WriteLine("并行节点内容变化通知完成");
                 }), System.Windows.Threading.DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"OnBranchContentChanged 错误: {ex.Message}");
+                Debug.WriteLine($"OnBranchContentChanged 错误: {ex.Message}");
             }
         }
+        /// <summary>
+        /// 手动调整分支内所有子元素的垂直位置，使其居中对齐
+        /// 通过 Margin 补偿来实现，因为水平 StackPanel 不会自动居中固定高度的子元素
+        /// </summary>
+        private void RealignBranchChildren()
+        {
+            foreach (var branchInfo in _parallelBranches)
+            {
+                var branchContent = FindBranchContentContainer(branchInfo.Index);
+                if (branchContent == null || branchContent.Children.Count == 0) continue;
 
+                // 先强制测量
+                branchContent.UpdateLayout();
+
+                // 找出最高的子元素高度
+                double maxHeight = 0;
+                foreach (UIElement child in branchContent.Children)
+                {
+                    if (child is FrameworkElement fe)
+                    {
+                        double h = fe.ActualHeight > 0 ? fe.ActualHeight : fe.DesiredSize.Height;
+                        if (h > maxHeight) maxHeight = h;
+                    }
+                }
+
+                if (maxHeight <= 0) continue;
+
+                // 给每个较矮的子元素设置上下 Margin 使其视觉居中
+                foreach (UIElement child in branchContent.Children)
+                {
+                    if (child is FrameworkElement fe)
+                    {
+                        double h = fe.ActualHeight > 0 ? fe.ActualHeight : fe.DesiredSize.Height;
+                        if (h > 0 && h < maxHeight)
+                        {
+                            double topMargin = (maxHeight - h) / 2.0;
+                            // 保留左右 Margin，只调整上下
+                            var currentMargin = fe.Margin;
+                            fe.Margin = new Thickness(currentMargin.Left, topMargin, currentMargin.Right, topMargin);
+                        }
+                        else
+                        {
+                            // 最高的元素或箭头，清除垂直 Margin
+                            var currentMargin = fe.Margin;
+                            fe.Margin = new Thickness(currentMargin.Left, 0, currentMargin.Right, 0);
+                        }
+                    }
+                }
+            }
+        }
         #endregion
 
         #region 清理和公共方法
@@ -1214,7 +1521,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                // 不要清空 parallelNode.Children!
                 foreach (var branchInfo in _parallelBranches)
                 {
                     var branchContent = FindBranchContentContainer(branchInfo.Index);
@@ -1224,24 +1530,14 @@ namespace MaxChemical.Modules.Designer.Views
                     if (hint != null) hint.Visibility = Visibility.Visible;
                 }
 
-                var elementsToRemove = BranchCanvas.Children
-                    .OfType<FrameworkElement>()
-                    .Where(e => e.Name != null &&
-                                (e.Name.StartsWith("BranchVerticalLine_") ||
-                                 e.Name.StartsWith("BranchArrow_")))
-                    .ToList();
-                foreach (var element in elementsToRemove)
-                    BranchCanvas.Children.Remove(element);
-
                 ParallelBranchesContainer.Children.Clear();
                 _parallelBranches.Clear();
 
-                UpdateBranchCanvasLayout();
                 OnBranchContentChanged();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"清理所有分支失败: {ex.Message}");
+                Debug.WriteLine($"清理所有分支失败: {ex.Message}");
             }
         }
 
@@ -1366,11 +1662,11 @@ namespace MaxChemical.Modules.Designer.Views
                     parallelNode.IsSelected = false;
                 }
 
-                System.Diagnostics.Debug.WriteLine("已清除所有节点的选中状态");
+                Debug.WriteLine("已清除所有节点的选中状态");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"清除节点选中状态失败: {ex.Message}");
+                Debug.WriteLine($"清除节点选中状态失败: {ex.Message}");
             }
         }
 
@@ -1403,6 +1699,7 @@ namespace MaxChemical.Modules.Designer.Views
 
             return FindVisualParent<T>(parentObject);
         }
+
         public static readonly RoutedEvent NodeClickEvent = EventManager.RegisterRoutedEvent(
             "NodeClick", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(ParallelNodeControlView));
 
@@ -1416,10 +1713,10 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
-                InitializeParallelBranches(); // 重建分支
-                SyncChildrenToUI();           // 同步 existing Children
-                UpdateBranchCanvasLayout();   // 更新连线与尺寸
-                OnBranchContentChanged();     // 通知外部刷新
+                InitializeParallelBranches();
+                SyncChildrenToUI();
+                UpdateBraceLayout();
+                OnBranchContentChanged();
             }
             catch (Exception ex)
             {
