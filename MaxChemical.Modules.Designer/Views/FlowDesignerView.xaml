@@ -1237,7 +1237,7 @@
             <!-- ==================== 右侧属性栏（Row=0~1, Column=1，跨两行） ==================== -->
             <Border x:Name="PropertyPanelRoot"
                     Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
-                    Margin="0,72,0,0"
+                    Margin="0,50,0,0"
                     Background="#F5F5F5"
                     BorderBrush="#E0E0E0"
                     BorderThickness="1,0,0,0"
