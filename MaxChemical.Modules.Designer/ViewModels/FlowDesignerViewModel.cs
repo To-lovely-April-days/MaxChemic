@@ -223,17 +223,37 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 switch (e.NewStatus)
                 {
                     case CommandNode.NodeExecutionStatus.Executing:
-                        FlowStartTime ??= DateTime.Now;
+                        //   修复：如果所有行都不在执行状态，说明这是新一轮流程开始
+                        //   需要重置 FlowStartTime 和所有行的状态
+                        bool isNewFlowRun = !SwimlaneRows.Any(r => r.IsExecuting);
+                        if (isNewFlowRun)
+                        {
+                            // 重置 FlowStartTime 为当前时间
+                            FlowStartTime = DateTime.Now;
+
+                            // 重置所有行的状态和位置
+                            foreach (var r in SwimlaneRows)
+                            {
+                                r.IsExecuting = false;
+                                r.IsCompleted = false;
+                                r.IsFailed = false;
+                                r.BarLeft = 0;
+                                r.BarWidth = 6;
+                                r.StartTimeText = "";
+                                r.EndTimeText = "";
+                                r.DurationText = "";
+                            }
+                        }
+
                         var node = e.Node;
                         if (node?.ExecutionStartTime != null)
                         {
                             var startOffset = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
                             row.BarLeft = startOffset * SwimlaneRow.PixelsPerSecond;
                             row.BarWidth = 6;
-                            row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
+                            row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss");
                             row.EndTimeText = "";
                             row.DurationText = "";
-                            row.TimeRangeText = row.StartTimeText + "  执行中...";
                         }
                         row.IsExecuting = true;
                         row.IsCompleted = false;

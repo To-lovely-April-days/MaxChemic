@@ -89,14 +89,33 @@ namespace MaxChemical.Modules.Designer.Services
                 wrapper.MouseLeftButtonDown += (s, e) =>
                 {
                     // 检查点击是否在删除按钮上
+                    // 如果点击的是删除按钮，不处理选择事件
                     if (e.OriginalSource is FrameworkElement element)
                     {
-                        // 如果点击的是删除按钮，不处理选择事件
-                        var deleteButton = FindParent<Border>(element, b => b.Name == "DeleteButton" ||
-                            (b.Tag == node && b.Cursor == Cursors.Hand && b.Width == 20 && b.Height == 20));
-                        if (deleteButton != null)
+                        // 向上查找删除按钮（支持多种尺寸：16/18/20）
+                        var hitDelete = FindParent<Border>(element, b =>
+                            b.Name == "DeleteButton" ||
+                            (b.Tag != null && b.Cursor == Cursors.Hand &&
+                             b.Width >= 16 && b.Width <= 24 &&
+                             b.Height >= 16 && b.Height <= 24));
+
+                        // 也检查是否点击了 "×" 文本
+                        if (hitDelete == null)
                         {
-                            deleteHandler.Invoke(node);
+                            hitDelete = FindParent<Border>(element, b =>
+                                b.Child is TextBlock tb && tb.Text == "×");
+                        }
+
+                        // 检查是否点击了含垃圾桶图标的 Path
+                        if (hitDelete == null && element is System.Windows.Shapes.Path path)
+                        {
+                            hitDelete = FindParent<Border>(path, b =>
+                                b.ToolTip?.ToString() == "删除节点");
+                        }
+
+                        if (hitDelete != null)
+                        {
+                            deleteHandler?.Invoke(node);
                             e.Handled = true;
                             return;
                         }
@@ -105,7 +124,35 @@ namespace MaxChemical.Modules.Designer.Services
                     clickHandler?.Invoke(node);
                     e.Handled = true;
                 };
+                wrapper.Loaded += (sender, args) =>
+                {
+                    try
+                    {
+                        // 遍历所有 Border 子元素，找到 ToolTip="删除节点" 的那个
+                        var deleteBorders = FindVisualChildren<Border>(wrapper)
+                            .Where(b => b.ToolTip?.ToString() == "删除节点" ||
+                                       (b.Child is TextBlock tb && tb.Text == "×"))
+                            .ToList();
 
+                        foreach (var db in deleteBorders)
+                        {
+                            // 移除旧的事件（模板里绑定的 DeviceNode_DeleteClick 会因为找不到处理器而无效）
+                            // 添加新的事件处理
+                            db.MouseLeftButtonUp += (s, me) =>
+                            {
+                                deleteHandler?.Invoke(node);
+                                me.Handled = true;
+                            };
+                        }
+
+                        _logger.LogDebug("嵌套设备节点删除按钮重绑定完成: {NodeName}, 找到{Count}个按钮",
+                            node.DisplayName, deleteBorders.Count);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "重绑定删除按钮失败: {NodeName}", node.DisplayName);
+                    }
+                };
                 return wrapper;
             }
             catch (Exception ex)
@@ -116,6 +163,19 @@ namespace MaxChemical.Modules.Designer.Services
             }
         }
 
+        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null) yield break;
+            var count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
+                    yield return typedChild;
+                foreach (var desc in FindVisualChildren<T>(child))
+                    yield return desc;
+            }
+        }
         // 辅助方法：查找父元素
         private T FindParent<T>(DependencyObject child, Func<T, bool> predicate = null) where T : DependencyObject
         {

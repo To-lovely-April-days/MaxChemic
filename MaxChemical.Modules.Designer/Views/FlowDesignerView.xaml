@@ -434,69 +434,123 @@
 
             <!-- ==================== 顶部工具栏（跨两列，固定在顶部） ==================== -->
             <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                    Height="72" VerticalAlignment="Top"
-                    Panel.ZIndex="20">
-                <Border.Background>
-                    <SolidColorBrush Color="#EEEEEE" Opacity="0.27"/>
-                </Border.Background>
+        Height="52" VerticalAlignment="Top"
+        Panel.ZIndex="20"
+        Background="White"
+        BorderBrush="#ECEEF2"
+        BorderThickness="0,0,0,1">
 
-                <StackPanel Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Margin="10">
+                <Grid Margin="16,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                    <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/control.png"
-                           Width="27" Height="22"
-                           VerticalAlignment="Center"
-                           Margin="0,0,16,0"/>
-
-                    <TextBlock Text="流程控制:"
-                               FontSize="14"
-                               Foreground="#747474"
-                               VerticalAlignment="Center"
-                               Margin="0,0,16,0"/>
-
-                    <ItemsControl ItemsSource="{Binding LogicCommandPlugins}"
-                                  x:Name="ToolbarItemsControl">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <ContentPresenter Content="{Binding ToolbarButton}"
-                                                  Margin="0,0,16,0"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <StackPanel Orientation="Horizontal" Margin="16,0,0,0">
-                        <Button Command="{Binding ValidateAllNodesCommand}"
-                                Width="32" Height="32"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                ToolTip="验证所有节点配置"
-                                Margin="0,0,8,0">
-                            <Path Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z"
-                                  Fill="#4CAF50" Width="20" Height="20" Stretch="Uniform"/>
-                        </Button>
-                        <Button Command="{Binding RefreshPluginsCommand}"
-                                Width="32" Height="32"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                ToolTip="刷新插件">
-                            <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
-                                  Fill="#2196F3" Width="20" Height="20" Stretch="Uniform"/>
-                        </Button>
+                    <!-- 左侧：标题 + 节点统计 -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="步骤流程编辑"
+                       FontSize="14" FontWeight="Medium"
+                       Foreground="#374151" VerticalAlignment="Center"/>
+                        <Border Background="#F3F4F6" CornerRadius="4"
+                    Padding="6,2" Margin="10,0,0,0"
+                    VerticalAlignment="Center">
+                            <TextBlock FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center">
+                    <Run Text="{Binding CommandNodes.Count, Mode=OneWay}"/>
+                    <Run Text=" nodes · "/>
+                    <Run Text="{Binding Connections.Count, Mode=OneWay}"/>
+                    <Run Text=" connections"/>
+                            </TextBlock>
+                        </Border>
                     </StackPanel>
-                </StackPanel>
+
+                    <!-- 中间：流程控制按钮组（pill 容器） -->
+                    <Border Grid.Column="2"
+                Background="#F3F4F6"
+                CornerRadius="8" Padding="4,4"
+                VerticalAlignment="Center"
+                Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- 标签 -->
+                            <TextBlock Text="流程控制"
+                           FontSize="11" Foreground="#9CA3AF"
+                           VerticalAlignment="Center"
+                           Margin="6,0,8,0"/>
+
+                            <!-- 逻辑命令按钮 -->
+                            <ItemsControl ItemsSource="{Binding LogicCommandPlugins}"
+                              x:Name="ToolbarItemsControl">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ContentPresenter Content="{Binding ToolbarButton}"
+                                              Margin="0,0,2,0"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 右侧：验证 + 刷新 -->
+                    <StackPanel Grid.Column="3" Orientation="Horizontal"
+                    VerticalAlignment="Center">
+                        <!-- 验证按钮 -->
+                        <Border Width="32" Height="32" CornerRadius="6"
+                    Cursor="Hand" Margin="0,0,4,0"
+                    ToolTip="验证所有节点配置">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#F0FFF0"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick"
+                                  Command="{Binding ValidateAllNodesCommand}"/>
+                            </Border.InputBindings>
+                            <Path Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z"
+                      Fill="#4CAF50" Width="18" Height="18" Stretch="Uniform"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- 刷新按钮 -->
+                        <Border Width="32" Height="32" CornerRadius="6"
+                    Cursor="Hand" ToolTip="刷新插件">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#F0F0FF"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick"
+                                  Command="{Binding RefreshPluginsCommand}"/>
+                            </Border.InputBindings>
+                            <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
+                      Fill="#6366F1" Width="18" Height="18" Stretch="Uniform"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <!-- ==================== 左上：画布 ScrollViewer（Row=0, Column=0） ==================== -->
             <ScrollViewer x:Name="CanvasScrollViewer"
                           Grid.Row="0" Grid.Column="0"
-                          Margin="0,72,0,0"
+                          Margin="0,48,0,0"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
                           Background="Transparent"
@@ -520,21 +574,14 @@
                           DragLeave="Canvas_DragLeave"
                           SizeChanged="MainGrid_SizeChanged">
 
-                        <!-- 标题 -->
-                        <TextBlock Text="步骤流程编辑"
-                                   FontSize="16"
-                                   FontWeight="Normal"
-                                   Foreground="#999"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Top"
-                                   Margin="0,10,0,0"/>
+                      
 
                         <!-- 画布内容 -->
                         <Canvas x:Name="DesignCanvas"
                                 Background="Transparent"
                                 Width="{Binding CanvasWidth}"
                                 Height="{Binding CanvasHeight}"
-                                Margin="0,35,0,0"
+                                Margin="0,10,0,0"
                                 MouseDown="CanvasHost_MouseDown">
 
                             <!-- 流程启动节点 -->
