@@ -14,7 +14,6 @@
             <Setter Property="Foreground" Value="#374151"/>
             <Setter Property="BorderBrush" Value="#E5E7EB"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="30,7,10,7"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="CaretBrush" Value="#6366F1"/>
@@ -24,14 +23,16 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8">
+                                CornerRadius="8"
+                                Padding="0">
                             <Grid>
                                 <Path Data="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
                                       Fill="#D1D5DB" Width="14" Height="14" Stretch="Uniform"
                                       HorizontalAlignment="Left" VerticalAlignment="Center"
                                       Margin="10,0,0,0" IsHitTestVisible="False"/>
                                 <ScrollViewer x:Name="PART_ContentHost"
-                                            Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                                              Margin="30,0,10,0"
+                                              VerticalAlignment="Center"/>
                                 <TextBlock x:Name="Placeholder" Text="Filter..."
                                          FontSize="12" Foreground="#D1D5DB"
                                          VerticalAlignment="Center" Margin="30,0,0,0"
@@ -234,11 +235,15 @@
                 <Canvas x:Name="ChartCanvas" Background="Transparent" ClipToBounds="True"
                         Visibility="{Binding HasData, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
+                <!-- Tooltip 放在 Grid 层，用 RenderTransform 定位 -->
                 <Border x:Name="TooltipPanel" Background="White"
                         BorderBrush="#E5E7EB" BorderThickness="0.5"
                         CornerRadius="6" Padding="12,8"
                         Visibility="Collapsed" IsHitTestVisible="False"
                         HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="TooltipTransform" X="0" Y="0"/>
+                    </Border.RenderTransform>
                     <StackPanel x:Name="TooltipContent"/>
                 </Border>
 

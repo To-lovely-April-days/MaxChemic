@@ -743,14 +743,16 @@ namespace MaxChemical.Modules.Designer.Views
             double tx, ty;
 
             // 水平：优先右侧，空间不够翻左侧，都不够贴右边缘
-            if (nx + 16 + tw <= w) tx = nx + 16;
-            else if (nx - 16 - tw >= 0) tx = nx - 16 - tw;
+            if (nx + 8 + tw <= w) tx = nx + 8;
+            else if (nx - 8 - tw >= 0) tx = nx - 8 - tw;
             else tx = Math.Max(4, w - tw - 4);
 
             // 垂直：居中，限制上下边界
             ty = Math.Max(4, Math.Min(pos.Y - th / 2, h - th - 4));
 
-            TooltipPanel.Margin = new Thickness(tx, ty, 0, 0);
+            TooltipPanel.Margin = new Thickness(0);
+            TooltipTransform.X = tx;
+            TooltipTransform.Y = ty;
             TooltipPanel.Visibility = Visibility.Visible;
         }
 
