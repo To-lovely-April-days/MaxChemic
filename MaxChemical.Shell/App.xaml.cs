@@ -22,6 +22,8 @@ using MaxChemical.Data.Services;
 using MaxChemical.Data.Repositories;
 using MaxChemical.Core;
 using MaxChemical.Shell.Services;
+using MaxChemical.Modules.DOE;
+using MaxChemical.Infrastructure.DOE;
 
 namespace MaxChemical.Shell;
 
@@ -111,7 +113,9 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<ProjectCoordinator>();
         containerRegistry.RegisterSingleton<IPipeConnectionService, PipeConnectionService>();
         containerRegistry.RegisterSingleton<IPipeSnapService, PipeSnapService>();
-
+        //     // ========== DOE 解耦接口 ==========
+        containerRegistry.RegisterSingleton<IFlowExecutionService, FlowExecutionAdapter>();
+        containerRegistry.RegisterSingleton<IFlowParameterProvider, FlowParameterAdapter>();
         // ========== Prism日志服务 ==========
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
 
@@ -200,6 +204,7 @@ public partial class App : PrismApplication
         {
             moduleCatalog.AddModule<DeviceModule>();
             moduleCatalog.AddModule<DesignerModule>();
+            moduleCatalog.AddModule<DOEModule>();
             _logger?.LogInformation("模块目录配置完成");
         }
         catch (Exception ex)

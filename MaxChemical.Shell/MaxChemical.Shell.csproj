@@ -36,6 +36,7 @@
 		<ProjectReference Include="..\MaxChemical.Modules.Designer\MaxChemical.Modules.Designer.csproj" />
 		<ProjectReference Include="..\MaxChemical.Modules.Data\MaxChemical.Modules.Data.csproj" />
 		<ProjectReference Include="..\MaxChemical.Modules.Device\MaxChemical.Modules.Device.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.DOE\MaxChemical.Modules.DOE.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -78,6 +79,7 @@
 	  <None Remove="Resources\CommadIcon\waitif.png" />
 	  <None Remove="Resources\CommadIcon\weight.png" />
 	  <None Remove="Resources\DeviceIcon\D07-19BMassFlowMeter.png" />
+	  <None Remove="Resources\DeviceIcon\Default.png" />
 	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
 	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
@@ -223,6 +225,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\D07-19BMassFlowMeter.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\Default.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\ErlenmeyerFlasks.png">

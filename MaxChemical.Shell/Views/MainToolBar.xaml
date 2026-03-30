@@ -288,6 +288,13 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Stretch="Uniform"/>
                 </Button>
+                <Button Command="{Binding DOECommand}" ToolTip="DOE 实验设计与优化"
+                Padding="8,4" Margin="2,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="DOE" FontWeight="SemiBold" FontSize="12"
+                           Foreground="#2E75B6" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <!-- 右侧播放控制组 -->

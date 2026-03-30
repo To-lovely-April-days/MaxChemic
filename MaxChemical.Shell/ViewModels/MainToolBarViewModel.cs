@@ -323,6 +323,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand FitToViewCommand { get; private set; } // 新增自适应命令
         public DelegateCommand SettingsCommand { get; private set; }
         public DelegateCommand PredictiveAssessmentCommand { get; set; }//数据分析预测
+        public DelegateCommand DOECommand { get; private set; }
         public DelegateCommand SettingsChartCommand { get; private set; }
         public DelegateCommand StartCommand { get; private set; }
         public DelegateCommand PauseCommand { get; private set; }
@@ -352,7 +353,7 @@ namespace MaxChemical.Shell.ViewModels
             PauseCommand = new DelegateCommand(ExecutePause, CanExecutePause);
             StopCommand = new DelegateCommand(ExecuteStop, CanExecuteStop);
             StatusCommand = new DelegateCommand(ExecuteStatus);
-
+            DOECommand = new DelegateCommand(ExecuteOpenDOE);
             System.Diagnostics.Debug.WriteLine("MainToolBarViewModel InitializeCommands 完成");
         }
 
@@ -1478,6 +1479,25 @@ namespace MaxChemical.Shell.ViewModels
             {
                 _logger.LogError(ex, "切换模拟模式失败");
                 _dialogService?.ShowError($"切换模拟模式失败: {ex.Message}", "错误");
+            }
+        }
+
+        private void ExecuteOpenDOE()
+        {
+            try
+            {
+                _logger.LogInformation("打开 DOE 实验设计与优化窗口");
+
+                var doeMainView = _container.Resolve<MaxChemical.Modules.DOE.Views.DOEMainView>();
+                doeMainView.Owner = Application.Current.MainWindow;
+                doeMainView.Show();
+
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("DOE 实验设计窗口已打开");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "打开 DOE 窗口失败");
+                _dialogService?.ShowError($"打开 DOE 模块失败: {ex.Message}", "错误");
             }
         }
         /// <summary>

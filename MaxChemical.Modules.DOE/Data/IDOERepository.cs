@@ -1,0 +1,103 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using MaxChemical.Modules.DOE.Models;
+
+namespace MaxChemical.Modules.DOE.Data
+{
+    /// <summary>
+    /// DOE 数据仓储接口 — 6 张表的 CRUD + 复合查询
+    /// </summary>
+    public interface IDOERepository
+    {
+        // ── Batch ──────────────────────────────────
+
+        Task<string> CreateBatchAsync(DOEBatch batch);
+        Task<DOEBatch?> GetBatchAsync(string batchId);
+        Task<DOEBatch?> GetBatchWithDetailsAsync(string batchId);
+        Task<List<DOEBatch>> GetBatchesByFlowAsync(string flowId);
+        Task<List<DOEBatch>> GetRecentBatchesAsync(int count = 20);
+        Task UpdateBatchStatusAsync(string batchId, DOEBatchStatus status);
+        Task UpdateBatchAsync(DOEBatch batch);
+        Task DeleteBatchAsync(string batchId);
+
+        // ── Factors ────────────────────────────────
+
+        Task SaveFactorsAsync(string batchId, List<DOEFactor> factors);
+        Task<List<DOEFactor>> GetFactorsAsync(string batchId);
+
+        // ── Responses ──────────────────────────────
+
+        Task SaveResponsesAsync(string batchId, List<DOEResponse> responses);
+        Task<List<DOEResponse>> GetResponsesAsync(string batchId);
+
+        // ── Runs ───────────────────────────────────
+
+        Task SaveRunAsync(DOERunRecord run);
+        Task SaveRunsAsync(List<DOERunRecord> runs);
+        Task UpdateRunAsync(DOERunRecord run);
+        Task<DOERunRecord?> GetRunAsync(string batchId, int runIndex);
+        Task<List<DOERunRecord>> GetRunsAsync(string batchId);
+        Task<List<DOERunRecord>> GetCompletedRunsAsync(string batchId);
+
+        // ── Stop Conditions ────────────────────────
+
+        Task SaveStopConditionsAsync(string batchId, List<DOEStopCondition> conditions);
+        Task<List<DOEStopCondition>> GetStopConditionsAsync(string batchId);
+
+        // ── GPR Model State ────────────────────────
+
+
+        Task<GPRModelState?> GetGPRModelStateAsync(string flowId);
+        Task UpdateGPRModelStateAsync(GPRModelState state);
+        Task DeleteGPRModelStateAsync(string flowId);
+
+        // ── 复合查询 ──────────────────────────────
+
+        /// <summary>
+        /// 获取某流程下所有批次的汇总信息（用于历史列表展示）
+        /// </summary>
+        Task<List<DOEBatchSummary>> GetBatchSummariesByFlowAsync(string flowId);
+
+        /// <summary>
+        /// 获取某流程下所有实测+导入的数据（用于 GPR 训练）
+        /// </summary>
+        Task<List<DOERunRecord>> GetAllTrainingDataByFlowAsync(string flowId);
+
+        /// <summary>
+        /// 按 FlowId + FactorSignature 获取模型
+        /// </summary>
+        Task<GPRModelState?> GetGPRModelStateAsync(string flowId, string factorSignature);
+
+        /// <summary>
+        /// 获取某个流程的所有 GPR 模型
+        /// </summary>
+        Task<List<GPRModelState>> GetGPRModelsByFlowAsync(string flowId);
+
+        /// <summary>
+        /// 保存/更新 GPR 模型（按 FlowId + FactorSignature upsert）
+        /// </summary>
+        Task SaveGPRModelStateAsync(GPRModelState state);
+
+        /// <summary>
+        /// 删除指定模型
+        /// </summary>
+        Task DeleteGPRModelAsync(int modelId);
+    }
+
+    /// <summary>
+    /// 批次摘要信息（列表展示用）
+    /// </summary>
+    public class DOEBatchSummary
+    {
+        public string BatchId { get; set; } = string.Empty;
+        public string BatchName { get; set; } = string.Empty;
+        public string FlowName { get; set; } = string.Empty;
+        public DOEDesignMethod DesignMethod { get; set; }
+        public DOEBatchStatus Status { get; set; }
+        public int TotalRuns { get; set; }
+        public int CompletedRuns { get; set; }
+        public double? BestResponseValue { get; set; }
+        public DateTime CreatedTime { get; set; }
+    }
+}

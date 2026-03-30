@@ -1,0 +1,63 @@
+using System;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Data;
+using System.Windows.Media;
+
+namespace MaxChemical.Modules.DOE.Converters
+{
+    public class EnumBoolConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null || parameter == null) return false;
+            return value.ToString() == parameter.ToString();
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool b && b && parameter != null)
+                return Enum.Parse(targetType, parameter.ToString()!);
+            return Binding.DoNothing;
+        }
+    }
+
+    public class NullToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value != null ? Visibility.Visible : Visibility.Collapsed;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+
+    public class BoolToBackgroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool b)
+                return b ? new SolidColorBrush(Color.FromRgb(0xD5, 0xF5, 0xE3))
+                         : new SolidColorBrush(Color.FromRgb(0xFA, 0xDB, 0xD8));
+            return new SolidColorBrush(Colors.Transparent);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+
+    public class StepBrushConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush ActiveBrush = new(Color.FromRgb(0x2E, 0x75, 0xB6));
+        private static readonly SolidColorBrush InactiveBrush = new(Color.FromRgb(0xE0, 0xE0, 0xE0));
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int currentStep && parameter is string stepStr && int.TryParse(stepStr, out int step))
+                return currentStep >= step ? ActiveBrush : InactiveBrush;
+            return InactiveBrush;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+}
