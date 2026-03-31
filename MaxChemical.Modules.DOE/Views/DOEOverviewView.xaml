@@ -168,12 +168,15 @@
                     </Grid>
                 </Border>
 
-                <DataGrid Grid.Row="1" ItemsSource="{Binding RecentBatches}" Style="{StaticResource DOEDataGrid}"
+                <DataGrid Grid.Row="1" ItemsSource="{Binding RecentBatches}" SelectedItem="{Binding SelectedBatch}"
+                          Style="{StaticResource DOEDataGrid}"
                           ColumnHeaderStyle="{StaticResource DOEColHeader}"
                           MouseDoubleClick="RecentList_DoubleClick"
                           VerticalScrollBarVisibility="Auto">
                     <DataGrid.ContextMenu>
-                        <ContextMenu Style="{StaticResource DOEContextMenu}">
+                        <ContextMenu Style="{StaticResource DOEContextMenu}"
+                                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="编辑方案" Style="{StaticResource DOEMenuItem}" Command="{Binding EditBatchCommand}"/>
                             <MenuItem Header="跳转执行" Style="{StaticResource DOEMenuItem}" Command="{Binding NavigateToExecutionCommand}"/>
                             <MenuItem Header="查看分析" Style="{StaticResource DOEMenuItem}" Command="{Binding NavigateToAnalysisCommand}"/>
                             <Separator/>

@@ -11,8 +11,9 @@ public interface IDialogService
     void ShowInfo(string message, string title = "信息");
     string? ShowSaveFileDialog(string filter = "所有文件|*.*", string? defaultExt = null);
     string? ShowOpenFileDialog(string filter = "所有文件|*.*");
+    string? ShowSaveFileDialog(string filter, string? defaultExt, string? defaultFileName);
 
-    
+
 }
 public interface IRegionSettingsDialogProvider
 {
@@ -65,5 +66,14 @@ public class DialogService : IDialogService
         };
         return dialog.ShowDialog() == true ? dialog.FileName : null;
     }
-
+    public string? ShowSaveFileDialog(string filter, string? defaultExt, string? defaultFileName)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = filter,
+            DefaultExt = defaultExt,
+            FileName = defaultFileName ?? ""
+        };
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
 }

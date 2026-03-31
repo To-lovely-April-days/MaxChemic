@@ -117,6 +117,11 @@ namespace MaxChemical.Modules.DOE.Services
         /// 进度变化事件
         /// </summary>
         event EventHandler<DOEProgressEventArgs>? ProgressChanged;
+
+        /// <summary>
+        /// 暂停真正生效时触发（当前组执行完毕，循环已停下）
+        /// </summary>
+        event EventHandler? PauseConfirmed;
     }
 
     public class DOERunCompletedEventArgs : EventArgs
@@ -159,10 +164,9 @@ namespace MaxChemical.Modules.DOE.Services
         Task InitializeModelAsync(string flowId, List<DOEFactor> factors);
 
         /// <summary>
-        /// 追加一组实验数据
+        /// 获取内部 Python GPR 模型对象（供 SurfacePlotter 使用）
         /// </summary>
-        void AppendData(Dictionary<string, double> factorValues, double responseValue);
-
+        dynamic? GetPythonModel();
         /// <summary>
         /// 训练/重新拟合模型
         /// </summary>
@@ -199,13 +203,6 @@ namespace MaxChemical.Modules.DOE.Services
         Task SaveStateAsync(string flowId);
 
         /// <summary>
-        /// 保存模型初始状态到数据库（创建方案时调用，无需强制训练）
-        /// 区别于 SaveStateAsync：空模型时不调用 TrainModelAsync，避免无意义的训练开销；
-        /// 有数据时才尝试训练，训练失败也不影响保存。
-        /// </summary>
-        Task SaveInitialStateAsync(string flowId);
-
-        /// <summary>
         /// 从数据库恢复模型状态
         /// </summary>
         Task<bool> LoadStateAsync(string flowId);
@@ -224,6 +221,11 @@ namespace MaxChemical.Modules.DOE.Services
         /// 当前数据量
         /// </summary>
         int DataCount { get; }
+        Task SaveInitialStateAsync(string flowId);
+
+        // 接口
+        void AppendData(Dictionary<string, double> factorValues, double responseValue,
+                        string source = "measured", string batchName = "", string timestamp = "");
     }
 
     public class GPRTrainResult
@@ -274,6 +276,10 @@ namespace MaxChemical.Modules.DOE.Services
         Task<string> GetResponseSurfaceDataAsync(string batchId, string factor1, string factor2);
         Task<string> GetContourDataAsync(string batchId, string factor1, string factor2);
         Task<byte[]> GetResponseSurfaceImageAsync(string batchId, string factor1, string factor2);
+        /// <summary>
+        /// 用 GPR 模型直接生成响应曲面图（不依赖批次）
+        /// </summary>
+        Task<byte[]> GetResponseSurfaceImageFromGPRAsync(string factor1, string factor2);
         Task<string> GetResidualAnalysisAsync(string batchId);
         Task<string> GetActualVsPredictedAsync(string batchId);
         Task<string> GetAnovaTableAsync(string batchId);

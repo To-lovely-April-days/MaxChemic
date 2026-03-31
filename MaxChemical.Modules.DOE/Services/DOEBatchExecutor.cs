@@ -16,8 +16,15 @@ using Prism.Events;
 namespace MaxChemical.Modules.DOE.Services
 {
     /// <summary>
-    /// DOE 批量执行器 — 修复版：响应采集使用 UI 线程同步 ShowDialog，避免死锁。
-    /// 整个执行循环在 UI 线程运行（因为 Python GIL 和弹框都需要 UI 线程）。
+    /// DOE 批量执行器 — 修复版：
+    /// 
+    /// 根因: FeedGPRModelAsync 中 Py.GIL() 在后台线程获取 Python 全局解释器锁时
+    ///       与其他线程（FlowExecutionEngine 的设备通知/状态回调）竞争 GIL，导致死锁。
+    /// 
+    /// 修复: 
+    /// 1. GPR 训练和停止条件判断加超时保护（不阻塞执行循环）
+    /// 2. 循环内每组加 try-catch 容错
+    /// 3. 每步详细日志
     /// </summary>
     public class DOEBatchExecutor : IDOEExecutionService
     {
@@ -38,6 +45,9 @@ namespace MaxChemical.Modules.DOE.Services
         private List<DOERunRecord> _runs = new();
         private List<DOEStopCondition> _stopConditions = new();
         private List<DOEResponse> _responses = new();
+
+        /// <summary>GPR 操作超时（秒）— 防止 Python GIL 死锁阻塞循环</summary>
+        private const int GPR_TIMEOUT_SECONDS = 30;
 
         public DOEBatchExecutor(
             IFlowExecutionService flowExecution,
@@ -66,6 +76,7 @@ namespace MaxChemical.Modules.DOE.Services
         public event EventHandler<DOERunCompletedEventArgs>? RunCompleted;
         public event EventHandler<DOEBatchCompletedEventArgs>? BatchCompleted;
         public event EventHandler<DOEProgressEventArgs>? ProgressChanged;
+        public event EventHandler? PauseConfirmed;
 
         // ══════════════ 启动 ══════════════
 
@@ -100,10 +111,9 @@ namespace MaxChemical.Modules.DOE.Services
                 await _repository.UpdateBatchStatusAsync(batchId, DOEBatchStatus.Running);
                 _eventAggregator.GetEvent<DOEBatchStartedEvent>().Publish(batchId);
 
-                _logger.LogInformation("DOE 批次开始: {BatchId}, {Count} 组", batchId, _runs.Count);
+                _logger.LogInformation("DOE 批次开始: {BatchId}, {Count} 组待执行", batchId, _runs.Count);
 
-                // 执行循环（在当前线程，即 UI 线程）
-                await ExecuteBatchLoopAsync();
+                await Task.Run(async () => await ExecuteBatchLoopAsync());
             }
             catch (Exception ex)
             {
@@ -119,7 +129,6 @@ namespace MaxChemical.Modules.DOE.Services
             if (BatchState != DOEBatchStatus.Running) return;
             _pauseEvent.Reset();
             BatchState = DOEBatchStatus.Paused;
-            _flowExecution.PauseExecution();
         }
 
         public void ResumeBatch()
@@ -127,7 +136,6 @@ namespace MaxChemical.Modules.DOE.Services
             if (BatchState != DOEBatchStatus.Paused) return;
             _pauseEvent.Set();
             BatchState = DOEBatchStatus.Running;
-            _flowExecution.ResumeExecution();
         }
 
         public async Task AbortBatchAsync()
@@ -141,10 +149,7 @@ namespace MaxChemical.Modules.DOE.Services
             NotifyBatchCompleted(DOEBatchStatus.Aborted, "用户手动终止");
         }
 
-        public void SubmitRunResponse(int runIndex, Dictionary<string, double> responseValues)
-        {
-            // 不再需要，响应值通过 ShowDialog 同步返回
-        }
+        public void SubmitRunResponse(int runIndex, Dictionary<string, double> responseValues) { }
 
         // ══════════════ 主循环 ══════════════
 
@@ -153,7 +158,6 @@ namespace MaxChemical.Modules.DOE.Services
             string? stopReason = null;
             int completedCount = 0;
 
-            // 因子名 → ParameterId 映射
             var factorNameToParamId = new Dictionary<string, string>();
             if (_currentBatch?.Factors != null)
             {
@@ -171,94 +175,136 @@ namespace MaxChemical.Modules.DOE.Services
                 for (int i = 0; i < _runs.Count; i++)
                 {
                     _cts!.Token.ThrowIfCancellationRequested();
+                    //await CheckPauseAsync(i);
+                    _cts.Token.ThrowIfCancellationRequested();
 
                     var run = _runs[i];
                     _currentRunIndex = run.RunIndex;
+
+                    _logger.LogInformation("═══════ DOE 开始第 {Index}/{Total} 组 (RunIndex={RunIndex}) ═══════",
+                        i + 1, _runs.Count, run.RunIndex);
+
                     NotifyProgress(i, _runs.Count, $"正在执行第 {i + 1}/{_runs.Count} 组实验...");
 
-                    // ── Step 1: 注入参数 ──
-                    var factorValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.FactorValuesJson)
-                                       ?? new Dictionary<string, double>();
-
-                    var injectParams = new Dictionary<string, object>();
-                    foreach (var kv in factorValues)
+                    try
                     {
-                        var paramId = factorNameToParamId.TryGetValue(kv.Key, out var pid) ? pid : kv.Key;
-                        injectParams[paramId] = kv.Value;
-                    }
+                        // ── Step 1: 注入参数 ──
+                        var factorValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.FactorValuesJson)
+                                           ?? new Dictionary<string, double>();
 
-                    bool injected = _paramProvider.InjectParameters(injectParams);
-                    if (!injected)
-                    {
-                        _logger.LogWarning("第 {RunIndex} 组参数注入失败", run.RunIndex);
-                        run.Status = DOERunStatus.Failed;
+                        var injectParams = new Dictionary<string, object>();
+                        foreach (var kv in factorValues)
+                        {
+                            var paramId = factorNameToParamId.TryGetValue(kv.Key, out var pid) ? pid : kv.Key;
+                            injectParams[paramId] = kv.Value;
+                        }
+
+                        _logger.LogInformation("第 {Index} 组: 注入参数...", i + 1);
+                        bool injected = _paramProvider.InjectParameters(injectParams);
+                        if (!injected)
+                        {
+                            _logger.LogWarning("第 {Index} 组: 参数注入失败，跳过", i + 1);
+                            run.Status = DOERunStatus.Failed;
+                            await _repository.UpdateRunAsync(run);
+                            continue;
+                        }
+                        _logger.LogInformation("第 {Index} 组: 参数注入成功", i + 1);
+
+                        // ── Step 2: 执行流程 ──
+                        run.Status = DOERunStatus.Running;
+                        run.StartTime = DateTime.Now;
                         await _repository.UpdateRunAsync(run);
-                        continue;
-                    }
 
-                    // ── Step 2: 执行流程 ──
-                    run.Status = DOERunStatus.Running;
-                    run.StartTime = DateTime.Now;
-                    await _repository.UpdateRunAsync(run);
+                        _logger.LogInformation("第 {Index} 组: 调用 ExecuteCurrentFlowAsync...", i + 1);
+                        var flowResult = await _flowExecution.ExecuteCurrentFlowAsync(_cts.Token);
+                        _logger.LogInformation("第 {Index} 组: 流程返回 Success={Success}", i + 1, flowResult.IsSuccessful);
 
-                    var flowResult = await _flowExecution.ExecuteCurrentFlowAsync(_cts.Token);
+                        if (!flowResult.IsSuccessful)
+                        {
+                            _logger.LogWarning("第 {Index} 组: 流程执行失败: {Error}", i + 1, flowResult.ErrorMessage);
+                            run.Status = DOERunStatus.Failed;
+                            run.EndTime = DateTime.Now;
+                            await _repository.UpdateRunAsync(run);
+                            RunCompleted?.Invoke(this, new DOERunCompletedEventArgs
+                            {
+                                RunIndex = run.RunIndex,
+                                FactorValues = factorValues,
+                                IsSuccessful = false
+                            });
+                            continue;
+                        }
 
-                    if (!flowResult.IsSuccessful)
-                    {
-                        _logger.LogWarning("第 {RunIndex} 组流程执行失败: {Error}", run.RunIndex, flowResult.ErrorMessage);
-                        run.Status = DOERunStatus.Failed;
+                        run.ExperimentId = flowResult.ExperimentId;
+
+                        //await CheckPauseAsync(i);
+
+                        // ── Step 3: 同步弹框采集响应值 ──
+                        run.Status = DOERunStatus.WaitingResponse;
+                        await _repository.UpdateRunAsync(run);
+                        NotifyProgress(i, _runs.Count, $"第 {i + 1} 组流程完成，等待输入结果...");
+
+                        _logger.LogInformation("第 {Index} 组: 弹框等待用户输入...", i + 1);
+                        var responseValues = CollectResponseFromDialog(run.RunIndex, _runs.Count, factorValues);
+                        _logger.LogInformation("第 {Index} 组: 用户输入完成，响应值数量={Count}", i + 1, responseValues.Count);
+
+                        // ── Step 4: 保存结果 ──
+                        run.ResponseValuesJson = JsonConvert.SerializeObject(responseValues);
+                        run.Status = DOERunStatus.Completed;
                         run.EndTime = DateTime.Now;
                         await _repository.UpdateRunAsync(run);
+                        completedCount++;
+
+                        _logger.LogInformation("第 {Index} 组完成: 响应={Responses}", i + 1, run.ResponseValuesJson);
+
                         RunCompleted?.Invoke(this, new DOERunCompletedEventArgs
                         {
                             RunIndex = run.RunIndex,
                             FactorValues = factorValues,
+                            ResponseValues = responseValues,
+                            IsSuccessful = true
+                        });
+
+                        // ── Step 4.5: ★ GPR 训练（加超时保护，防止 Python GIL 死锁）──
+                        _logger.LogInformation("第 {Index} 组: 开始 GPR 训练...", i + 1);
+                        await FeedGPRModelWithTimeoutAsync(factorValues, responseValues);
+                        _logger.LogInformation("第 {Index} 组: GPR 训练完成", i + 1);
+
+                        // ── Step 5: ★ 停止条件（加超时保护）──
+                        _logger.LogInformation("第 {Index} 组: 评估停止条件...", i + 1);
+                        var stopDecision = EvaluateAllStopConditionsWithTimeout(responseValues, i);
+                        _logger.LogInformation("第 {Index} 组: 停止条件: ShouldStop={Stop}", i + 1, stopDecision.ShouldStop);
+
+                        if (stopDecision.ShouldStop)
+                        {
+                            stopReason = stopDecision.Reason;
+                            _logger.LogInformation("停止条件满足: {Reason}", stopReason);
+                            for (int j = i + 1; j < _runs.Count; j++)
+                            {
+                                _runs[j].Status = DOERunStatus.Suspended;
+                                await _repository.UpdateRunAsync(_runs[j]);
+
+                            }
+                            break;
+                            
+                        }
+                        await CheckPauseAsync(i);
+                        _logger.LogInformation("═══════ DOE 第 {Index}/{Total} 组结束，继续下一组 ═══════", i + 1, _runs.Count);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception runEx)
+                    {
+                        _logger.LogError(runEx, "第 {Index} 组异常: {Message}", i + 1, runEx.Message);
+                        run.Status = DOERunStatus.Failed;
+                        run.EndTime = DateTime.Now;
+                        try { await _repository.UpdateRunAsync(run); } catch { }
+                        RunCompleted?.Invoke(this, new DOERunCompletedEventArgs
+                        {
+                            RunIndex = run.RunIndex,
                             IsSuccessful = false
                         });
-                        continue;
-                    }
-
-                    run.ExperimentId = flowResult.ExperimentId;
-
-                    // ── Step 3: ★ 同步弹框采集响应值（关键修复）──
-                    run.Status = DOERunStatus.WaitingResponse;
-                    await _repository.UpdateRunAsync(run);
-                    NotifyProgress(i, _runs.Count, $"第 {i + 1} 组流程完成，等待输入结果...");
-
-                    var responseValues = CollectResponseFromDialog(run.RunIndex, _runs.Count, factorValues);
-
-                    // ── Step 4: 保存结果 ──
-                    run.ResponseValuesJson = JsonConvert.SerializeObject(responseValues);
-                    run.Status = DOERunStatus.Completed;
-                    run.EndTime = DateTime.Now;
-                    await _repository.UpdateRunAsync(run);
-                    completedCount++;
-
-                    _logger.LogInformation("第 {RunIndex} 组完成: 响应={Responses}", run.RunIndex, run.ResponseValuesJson);
-
-                    RunCompleted?.Invoke(this, new DOERunCompletedEventArgs
-                    {
-                        RunIndex = run.RunIndex,
-                        FactorValues = factorValues,
-                        ResponseValues = responseValues,
-                        IsSuccessful = true
-                    });
-
-                    // ── Step 4.5: 喂给 GPR ──
-                    await FeedGPRModelAsync(factorValues, responseValues);
-
-                    // ── Step 5: 停止条件 ──
-                    var stopDecision = EvaluateAllStopConditions(responseValues, i);
-                    if (stopDecision.ShouldStop)
-                    {
-                        stopReason = stopDecision.Reason;
-                        _logger.LogInformation("停止条件满足: {Reason}", stopReason);
-                        for (int j = i + 1; j < _runs.Count; j++)
-                        {
-                            _runs[j].Status = DOERunStatus.Skipped;
-                            await _repository.UpdateRunAsync(_runs[j]);
-                        }
-                        break;
                     }
                 }
 
@@ -269,6 +315,9 @@ namespace MaxChemical.Modules.DOE.Services
             catch (OperationCanceledException)
             {
                 _logger.LogInformation("DOE 批次被取消");
+                BatchState = DOEBatchStatus.Aborted;
+                await _repository.UpdateBatchStatusAsync(_currentBatchId, DOEBatchStatus.Aborted);
+                NotifyBatchCompleted(DOEBatchStatus.Aborted, "用户取消");
             }
             catch (Exception ex)
             {
@@ -283,41 +332,46 @@ namespace MaxChemical.Modules.DOE.Services
                 _currentRunIndex = -1;
                 _cts?.Dispose();
                 _cts = null;
+                if (BatchState == DOEBatchStatus.Running || BatchState == DOEBatchStatus.Paused)
+                    BatchState = DOEBatchStatus.Completed;
             }
         }
 
-        // ══════════════ ★ 同步弹框采集响应值 ══════════════
+        // ══════════════ ★ GPR 训练（带超时保护）══════════════
 
         /// <summary>
-        /// 在 UI 线程上同步弹出响应采集对话框，等用户填完才返回。
-        /// 这样保证每组实验必须采集完才执行下一组。
+        /// GPR 训练带超时保护。
+        /// Python GIL 在后台线程获取时可能与 FlowExecutionEngine 的设备回调线程竞争，
+        /// 导致 Py.GIL() 永久阻塞。加超时后即使 GIL 获取失败也不会卡死执行循环。
         /// </summary>
-        private Dictionary<string, double> CollectResponseFromDialog(
-            int runIndex, int totalRuns, Dictionary<string, double> factorValues)
+        private async Task FeedGPRModelWithTimeoutAsync(Dictionary<string, double> factorValues, Dictionary<string, double> responseValues)
         {
-            Dictionary<string, double> result = new();
+            if (responseValues.Count == 0) return;
 
-            // 必须在 UI 线程执行 ShowDialog
-            Application.Current.Dispatcher.Invoke(() =>
+            try
             {
-                var responseDefs = _responses.Select(r => (r.ResponseName, r.Unit)).ToList();
-                var dialog = new DOEResponseCollectionDialog(runIndex, totalRuns, factorValues, responseDefs);
-                dialog.Owner = Application.Current.MainWindow;
-                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(GPR_TIMEOUT_SECONDS));
 
-                var dialogResult = dialog.ShowDialog();
+                var gprTask = Task.Run(async () => await FeedGPRModelAsync(factorValues, responseValues));
 
-                if (dialogResult == true && dialog.CollectedValues != null)
+                var completedTask = await Task.WhenAny(gprTask, Task.Delay(GPR_TIMEOUT_SECONDS * 1000, timeoutCts.Token));
+
+                if (completedTask == gprTask)
                 {
-                    result = dialog.CollectedValues;
+                    timeoutCts.Cancel();  // 取消超时计时器
+                    await gprTask;        // 传播异常（如果有）
                 }
-                // 用户跳过或关闭 → result 保持空字典
-            });
-
-            return result;
+                else
+                {
+                    _logger.LogWarning("GPR 训练超时（{Timeout}s），跳过本次训练，继续执行下一组", GPR_TIMEOUT_SECONDS);
+                    // 不等待 gprTask，让它在后台自行结束或阻塞
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GPR 训练异常（已跳过）");
+            }
         }
-
-        // ══════════════ GPR ══════════════
 
         private async Task FeedGPRModelAsync(Dictionary<string, double> factorValues, Dictionary<string, double> responseValues)
         {
@@ -328,7 +382,8 @@ namespace MaxChemical.Modules.DOE.Services
                 if (primaryResponseName == null || !responseValues.TryGetValue(primaryResponseName, out var responseVal))
                     return;
 
-                _gprService.AppendData(factorValues, responseVal);
+                _gprService.AppendData(factorValues, responseVal, "measured",
+      _currentBatch!.BatchName, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                 var trainResult = await _gprService.TrainModelAsync();
 
                 _eventAggregator.GetEvent<GPRModelUpdatedEvent>().Publish(new GPRModelUpdatedPayload
@@ -342,18 +397,66 @@ namespace MaxChemical.Modules.DOE.Services
             catch (Exception ex) { _logger.LogError(ex, "GPR 更新失败"); }
         }
 
-        // ══════════════ 停止条件 ══════════════
+        // ══════════════ ★ 停止条件（带超时保护）══════════════
 
-        private StopEvaluationResult EvaluateAllStopConditions(Dictionary<string, double> responseValues, int currentIndex)
+        /// <summary>
+        /// 评估停止条件，带超时保护。
+        /// EvaluateModelStopCondition 内部调用 _gprService.ShouldStop 需要 Python GIL，
+        /// 同样可能死锁，加超时后即使卡住也不影响执行循环。
+        /// </summary>
+        private StopEvaluationResult EvaluateAllStopConditionsWithTimeout(Dictionary<string, double> responseValues, int currentIndex)
         {
-            var thresholdResult = EvaluateThresholdConditions(responseValues);
-            if (thresholdResult.ShouldStop) return thresholdResult;
+            try
+            {
+                // 阈值条件不涉及 Python，直接评估
+                var thresholdResult = EvaluateThresholdConditions(responseValues);
+                if (thresholdResult.ShouldStop) return thresholdResult;
 
-            var modelResult = EvaluateModelStopCondition(currentIndex);
-            if (modelResult.ShouldStop) return modelResult;
-
-            return new StopEvaluationResult { ShouldStop = false };
+                // GPR 模型条件涉及 Python GIL，加超时
+                var modelTask = Task.Run(() => EvaluateModelStopCondition(currentIndex));
+                if (modelTask.Wait(TimeSpan.FromSeconds(GPR_TIMEOUT_SECONDS)))
+                {
+                    return modelTask.Result.ShouldStop ? modelTask.Result : new StopEvaluationResult { ShouldStop = false };
+                }
+                else
+                {
+                    _logger.LogWarning("GPR 停止条件评估超时（{Timeout}s），跳过模型判断", GPR_TIMEOUT_SECONDS);
+                    return new StopEvaluationResult { ShouldStop = false };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "停止条件评估异常");
+                return new StopEvaluationResult { ShouldStop = false };
+            }
         }
+
+        // ══════════════ 弹框采集响应值 ══════════════
+
+        private Dictionary<string, double> CollectResponseFromDialog(
+            int runIndex, int totalRuns, Dictionary<string, double> factorValues)
+        {
+            Dictionary<string, double> result = new();
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var responseDefs = _responses.Select(r => (r.ResponseName, r.Unit)).ToList();
+                var dialog = new DOEResponseCollectionDialog(runIndex, totalRuns, factorValues, responseDefs);
+                dialog.Owner = Application.Current.MainWindow;
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
+                var dialogResult = dialog.ShowDialog();
+
+                if (dialogResult == true && dialog.CollectedValues != null)
+                {
+                    result = dialog.CollectedValues;
+                }
+            });
+
+            return result;
+        }
+
+        // ══════════════ 停止条件（内部） ══════════════
 
         private StopEvaluationResult EvaluateThresholdConditions(Dictionary<string, double> responseValues)
         {
@@ -425,6 +528,20 @@ namespace MaxChemical.Modules.DOE.Services
         {
             try { if (_currentBatch != null && _gprService.DataCount > 0) await _gprService.SaveStateAsync(_currentBatch.FlowId); }
             catch (Exception ex) { _logger.LogError(ex, "保存 GPR 失败"); }
+        }
+
+        private async Task CheckPauseAsync(int currentIndex)
+        {
+            if (_pauseEvent.IsSet) return;
+
+            _logger.LogInformation("暂停生效：在第 {Index} 组后暂停", currentIndex + 1);
+            NotifyProgress(currentIndex, _runs.Count, "已暂停，等待恢复...");
+            PauseConfirmed?.Invoke(this, EventArgs.Empty);
+
+            await Task.Run(() => _pauseEvent.Wait(_cts!.Token));
+
+            _logger.LogInformation("恢复执行");
+            _cts!.Token.ThrowIfCancellationRequested();
         }
 
         private void NotifyProgress(int current, int total, string message)

@@ -14,12 +14,19 @@ namespace MaxChemical.Modules.Designer.Service
     /// 流程执行适配器 — 将 IFlowExecutionEngine (Designer内部) 适配为 IFlowExecutionService (Infrastructure接口)。
     /// DOE 模块通过此适配器间接调用 Designer 的流程执行引擎，避免直接引用 Designer 模块。
     /// 在 Shell 的 RegisterTypes 中注册为单例。
+    /// 
+    /// ★ DOE 连续执行修复: 
+    ///   FlowExecutionEngine 执行完成后 State 经过 Completed → (延迟2s) → Idle。
+    ///   DOE 连续调用时必须等待引擎回到 Idle 才能发起下一组。
     /// </summary>
     public class FlowExecutionAdapter : IFlowExecutionService
     {
         private readonly IFlowExecutionEngine _engine;
         private readonly IEventAggregator _eventAggregator;
         private readonly ILogService _logger;
+
+        private const int ENGINE_READY_TIMEOUT_SECONDS = 30;
+        private const int ENGINE_POLL_INTERVAL_MS = 200;
 
         // 缓存当前流程 ViewModel 的引用（通过事件获取）
         private FlowDesignerViewModel? _currentFlowViewModel;
@@ -34,13 +41,9 @@ namespace MaxChemical.Modules.Designer.Service
             _logger = logger?.ForContext<FlowExecutionAdapter>()
                       ?? throw new ArgumentNullException(nameof(logger));
 
-            // 订阅引擎状态变化，转发为 Infrastructure 层的事件
             _engine.StateChanged += OnEngineStateChanged;
         }
 
-        /// <summary>
-        /// 当前执行状态（从 Designer 内部状态映射到 Infrastructure 层状态）
-        /// </summary>
         public FlowRunState State => MapState(_engine.State);
 
         public event EventHandler<FlowRunState>? StateChanged;
@@ -52,7 +55,6 @@ namespace MaxChemical.Modules.Designer.Service
         {
             try
             {
-                // 通过事件获取当前流程 ViewModel
                 EnsureFlowViewModel();
 
                 if (_currentFlowViewModel == null)
@@ -66,20 +68,61 @@ namespace MaxChemical.Modules.Designer.Service
                     };
                 }
 
-                _logger.LogInformation("DOE 适配器: 开始执行流程");
+                // ★★★ 关键修复: 等待引擎回到 Idle 状态 ★★★
+                if (_engine.State != FlowExecutionState.Idle)
+                {
+                    _logger.LogInformation("DOE 适配器: 引擎状态为 {State}，等待回到 Idle...", _engine.State);
+
+                    var waitStart = DateTime.Now;
+                    while (_engine.State != FlowExecutionState.Idle)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if ((DateTime.Now - waitStart).TotalSeconds > ENGINE_READY_TIMEOUT_SECONDS)
+                        {
+                            _logger.LogError("DOE 适配器: 等待引擎 Idle 超时 {Timeout}s, 当前: {State}",
+                                ENGINE_READY_TIMEOUT_SECONDS, _engine.State);
+                            return new FlowRunResult
+                            {
+                                IsSuccessful = false,
+                                ErrorMessage = $"等待引擎就绪超时（{ENGINE_READY_TIMEOUT_SECONDS}s），状态: {_engine.State}",
+                                StartTime = DateTime.Now,
+                                EndTime = DateTime.Now
+                            };
+                        }
+
+                        await Task.Delay(ENGINE_POLL_INTERVAL_MS, cancellationToken);
+                    }
+
+                    var waited = (DateTime.Now - waitStart).TotalMilliseconds;
+                    _logger.LogInformation("DOE 适配器: 引擎已回到 Idle，等待 {Ms}ms", (int)waited);
+                }
+
+                // ★ 额外安全延迟：确保引擎内部状态（设备、上下文等）完全清理
+                await Task.Delay(500, cancellationToken);
+
+                _logger.LogInformation("DOE 适配器: 开始执行流程 (引擎状态: {State})", _engine.State);
 
                 var result = await _engine.ExecuteAsync(_currentFlowViewModel, cancellationToken);
+
+                _logger.LogInformation("DOE 适配器: 流程返回 Success={Success}, 引擎状态={State}",
+                    result.IsSuccessful, _engine.State);
 
                 return new FlowRunResult
                 {
                     IsSuccessful = result.IsSuccessful,
-                    ExperimentId = null, // 可从 engine 内部获取
+                    ExperimentId = null,
                     StartTime = result.StartTime,
                     EndTime = result.EndTime,
                     ErrorMessage = result.ErrorMessage,
                     TotalNodes = result.TotalNodesExecuted + (result.IsSuccessful ? 0 : 1),
                     CompletedNodes = result.TotalNodesExecuted
                 };
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("DOE 适配器: 流程执行被取消");
+                throw;
             }
             catch (Exception ex)
             {
@@ -112,19 +155,11 @@ namespace MaxChemical.Modules.Designer.Service
             await _engine.StopAsync();
         }
 
-        /// <summary>
-        /// 通过事件聚合器获取当前流程 ViewModel
-        /// </summary>
         private void EnsureFlowViewModel()
         {
             _currentFlowViewModel = null;
-
-            // 利用现有的 GetCurrentFlowDataRequestEvent 模式，
-            // 但这里我们需要直接获取 ViewModel 引用
-            // 通过 RequestFlowViewModelEvent 或直接从容器解析
             try
             {
-                // 方案: 通过事件请求当前 FlowDesignerViewModel
                 _eventAggregator.GetEvent<GetCurrentFlowDesignerRequestEvent>()?.Publish(vm => { _currentFlowViewModel = vm; });
             }
             catch (Exception ex)
@@ -133,9 +168,6 @@ namespace MaxChemical.Modules.Designer.Service
             }
         }
 
-        /// <summary>
-        /// 引擎状态映射
-        /// </summary>
         private static FlowRunState MapState(FlowExecutionState engineState)
         {
             return engineState switch
@@ -156,7 +188,10 @@ namespace MaxChemical.Modules.Designer.Service
             var mappedState = MapState(e.NewState);
             StateChanged?.Invoke(this, mappedState);
         }
+
+        public bool IsEngineIdle()
+        {
+            return _engine.State == FlowExecutionState.Idle;
+        }
     }
-
-
 }

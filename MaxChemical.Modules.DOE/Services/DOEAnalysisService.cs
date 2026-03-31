@@ -207,5 +207,32 @@ namespace MaxChemical.Modules.DOE.Services
                 return "[]";
             }
         }
+
+        /// <summary>
+        /// 用 GPR 模型直接生成响应曲面图（不依赖批次）。
+        /// 走 DOESurfacePlotter.set_gpr_model() 路径。
+        /// </summary>
+        public async Task<byte[]> GetResponseSurfaceImageFromGPRAsync(string factor1, string factor2)
+        {
+            EnsureReady();
+
+            var gprModel = _gprService.GetPythonModel();
+            if (gprModel == null)
+                return Array.Empty<byte>();
+
+            using (Py.GIL())
+            {
+                // 从 GPR 模型自身获取因子名和范围
+                string factorNamesJson = gprModel.get_factor_names().ToString();
+                string boundsJson = gprModel.get_bounds().ToString();
+
+                // 用 set_gpr_model 路径，不需要 analyzer
+                _plotter!.set_gpr_model(gprModel, factorNamesJson, boundsJson);
+
+                string base64 = _plotter.response_surface_image(factor1, factor2, 50, 800, 600).ToString();
+                return string.IsNullOrEmpty(base64) ? Array.Empty<byte>() : Convert.FromBase64String(base64);
+            }
+        }
+
     }
 }

@@ -488,6 +488,42 @@ namespace MaxChemical.Modules.DOE.Data
             return list;
         }
 
+        /// <summary>
+        /// ★ 获取所有批次摘要（不限流程）
+        /// </summary>
+        public async Task<List<DOEBatchSummary>> GetAllBatchSummariesAsync(int limit = 50)
+        {
+            var sql = $@"
+                SELECT b.batch_id, b.batch_name, b.flow_name, b.design_method, b.status, b.created_time,
+                       COUNT(r.id) AS total_runs,
+                       SUM(CASE WHEN r.status='Completed' THEN 1 ELSE 0 END) AS completed_runs
+                FROM doe_batches b
+                LEFT JOIN doe_runs r ON b.batch_id = r.batch_id
+                GROUP BY b.batch_id, b.batch_name, b.flow_name, b.design_method, b.status, b.created_time
+                ORDER BY b.created_time DESC
+                LIMIT {limit}";
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            using var reader = await cmd.ExecuteReaderAsync();
+            var list = new List<DOEBatchSummary>();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new DOEBatchSummary
+                {
+                    BatchId = GetStr(reader, "batch_id"),
+                    BatchName = GetStr(reader, "batch_name"),
+                    FlowName = GetStr(reader, "flow_name"),
+                    DesignMethod = Enum.TryParse<DOEDesignMethod>(GetStr(reader, "design_method"), out var m) ? m : DOEDesignMethod.FullFactorial,
+                    Status = Enum.TryParse<DOEBatchStatus>(GetStr(reader, "status"), out var s) ? s : DOEBatchStatus.Designing,
+                    TotalRuns = Convert.ToInt32(reader[reader.GetOrdinal("total_runs")]),
+                    CompletedRuns = Convert.ToInt32(reader[reader.GetOrdinal("completed_runs")]),
+                    CreatedTime = GetDt(reader, "created_time")
+                });
+            }
+            return list;
+        }
+
         // ══════════════ Mapping（全部使用 DbDataReader）══════════════
 
         private static DOEBatch MapBatch(DbDataReader r) => new()
@@ -619,6 +655,70 @@ namespace MaxChemical.Modules.DOE.Data
             using var cmd = new MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@id", modelId);
             await cmd.ExecuteNonQueryAsync();
+        }
+
+        /// <summary>
+        /// 查询同 FlowId + FactorSignature 下有多少个方案
+        /// </summary>
+        public async Task<int> GetBatchCountBySignatureAsync(string flowId, string factorSignature)
+        {
+            const string sql = @"
+                SELECT COUNT(DISTINCT b.batch_id) 
+                FROM doe_batches b
+                INNER JOIN doe_factors f ON b.batch_id = f.batch_id
+                WHERE b.flow_id = @flowId
+                GROUP BY b.batch_id
+                HAVING GROUP_CONCAT(f.factor_name ORDER BY f.factor_name SEPARATOR ',') = @sig";
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@flowId", flowId);
+            cmd.Parameters.AddWithValue("@sig", factorSignature);
+            var result = await cmd.ExecuteScalarAsync();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+
+        /// <summary>
+        /// 删除批次及所有子表数据
+        /// </summary>
+        public async Task DeleteBatchWithChildrenAsync(string batchId)
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            // 按依赖顺序删除子表
+            var tables = new[] { "doe_stop_conditions", "doe_runs", "doe_responses", "doe_factors", "doe_batches" };
+            foreach (var table in tables)
+            {
+                using var cmd = new MySqlCommand($"DELETE FROM {table} WHERE batch_id = @batchId", conn);
+                cmd.Parameters.AddWithValue("@batchId", batchId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            _logger.LogInformation("删除 DOE 批次（含子表）: {BatchId}", batchId);
+        }
+
+        public async Task<List<GPRModelState>> GetAllGPRModelsAsync()
+        {
+            const string sql = "SELECT * FROM doe_gpr_models ORDER BY updated_time DESC";
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            using var reader = await cmd.ExecuteReaderAsync();
+            var list = new List<GPRModelState>();
+            while (await reader.ReadAsync()) list.Add(MapGPRModelState(reader));
+            return list;
+        }
+
+        public async Task<GPRModelState?> GetGPRModelByIdAsync(int modelId)
+        {
+            const string sql = "SELECT * FROM doe_gpr_models WHERE id=@id";
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@id", modelId);
+            using var reader = await cmd.ExecuteReaderAsync();
+            return await reader.ReadAsync() ? MapGPRModelState(reader) : null;
         }
     }
 }

@@ -37,7 +37,10 @@
                           Style="{StaticResource DOEDataGrid}" ColumnHeaderStyle="{StaticResource DOEColHeader}"
                           MouseDoubleClick="BatchList_DoubleClick">
                     <DataGrid.ContextMenu>
-                        <ContextMenu Style="{StaticResource DOEContextMenu}">
+                        <ContextMenu Style="{StaticResource DOEContextMenu}"
+                                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="编辑方案" Style="{StaticResource DOEMenuItem}" Command="{Binding EditBatchCommand}"
+                                      CommandParameter="{Binding SelectedBatch}"/>
                             <MenuItem Header="跳转执行" Style="{StaticResource DOEMenuItem}" Command="{Binding NavigateToExecutionCommand}"/>
                             <MenuItem Header="查看分析" Style="{StaticResource DOEMenuItem}" Command="{Binding NavigateToAnalysisCommand}"/>
                             <Separator/>
@@ -50,7 +53,12 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="批次名称" Binding="{Binding BatchName}" Width="*">
                             <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock"><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="#1A1F36"/><Setter Property="Padding" Value="18,0,0,0"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Foreground" Value="#1A1F36"/>
+                                    <Setter Property="Padding" Value="18,0,0,0"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
                         <DataGridTextColumn Header="设计方法" Binding="{Binding DesignMethod}" Width="110"/>

@@ -99,19 +99,27 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 数据追加 ══════════════
 
-        public void AppendData(Dictionary<string, double> factorValues, double responseValue)
+        public void AppendData(Dictionary<string, double> factorValues, double responseValue,
+                        string batchName = "", string timestamp = "")
         {
             EnsureModelReady();
-
             var factorsJson = JsonConvert.SerializeObject(factorValues);
+            if (string.IsNullOrEmpty(timestamp))
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
             using (Py.GIL())
             {
-                int count = (int)_pythonModel!.append_data(factorsJson, responseValue, "measured");
-                _logger.LogDebug("GPR 数据追加: count={Count}", count);
+                int count = (int)_pythonModel!.append_data(factorsJson, responseValue, "measured", batchName, timestamp);
+                _logger.LogDebug("GPR 数据追加: count={Count}, batch={Batch}", count, batchName);
             }
         }
-
+        /// <summary>
+        /// 获取内部 Python GPR 模型对象（供 DOEAnalysisService.set_gpr_model 使用）
+        /// </summary>
+        public dynamic? GetPythonModel()
+        {
+            return _isPythonInitialized ? _pythonModel : null;
+        }
         // ══════════════ 训练 ══════════════
 
         public async Task<GPRTrainResult> TrainModelAsync()
@@ -452,7 +460,21 @@ namespace MaxChemical.Modules.DOE.Services
                 return defaultValue;
             }
         }
+        // 实现
+        public void AppendData(Dictionary<string, double> factorValues, double responseValue,
+                               string source = "measured", string batchName = "", string timestamp = "")
+        {
+            EnsureModelReady();
+            var factorsJson = JsonConvert.SerializeObject(factorValues);
+            if (string.IsNullOrEmpty(timestamp))
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
+            using (Py.GIL())
+            {
+                int count = (int)_pythonModel!.append_data(factorsJson, responseValue, source, batchName, timestamp);
+                _logger.LogDebug("GPR 数据追加: count={Count}, source={Source}, batch={Batch}", count, source, batchName);
+            }
+        }
         // ── Python JSON 映射 DTO ──
 
         private class PythonTrainResult

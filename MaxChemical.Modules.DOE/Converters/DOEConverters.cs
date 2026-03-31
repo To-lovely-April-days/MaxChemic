@@ -60,4 +60,45 @@ namespace MaxChemical.Modules.DOE.Converters
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => throw new NotImplementedException();
     }
+
+    /// <summary>
+    /// bool 取反后转 Visibility：true → Collapsed, false → Visible
+    /// </summary>
+    public class InverseBooleanToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value is bool b && b ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// 进度百分比 → 环形进度的 StrokeDashOffset
+    /// 圆周 = 2π × r = 56.5 (r=9)
+    /// offset = 圆周 × (1 - percent/100)
+    /// </summary>
+    public class ProgressToStrokeDashOffsetConverter : IValueConverter
+    {
+        private const double Circumference = 56.549;
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double percent)
+            {
+                var clamped = Math.Max(0, Math.Min(100, percent));
+                return Circumference * (1.0 - clamped / 100.0);
+            }
+            return Circumference;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

@@ -90,6 +90,7 @@ namespace DevicePlugins.Simulated
 
                     // 模拟硬件通信延迟
                     await Task.Delay(new Random().Next(200, 500));
+                    await Task.Delay(5000);
 
                     lock (_stateLock)
                     {

@@ -42,6 +42,8 @@ namespace MaxChemical.Infrastructure.DOE
         /// 执行状态变化事件
         /// </summary>
         event EventHandler<FlowRunState> StateChanged;
+
+        bool IsEngineIdle();
     }
 
     /// <summary>

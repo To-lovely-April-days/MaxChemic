@@ -1,0 +1,469 @@
+﻿<UserControl x:Class="MaxChemical.Modules.DOE.Views.DOEModelAnalysisView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:oxy="http://oxyplot.org/wpf"
+             Background="#F2F4F7">
+    <UserControl.Resources>
+        <ResourceDictionary Source="DOEStyles.xaml"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="18">
+
+                <!-- ═══ 1. 顶部：模型选择 + 操作按钮 + 指标条 ═══ -->
+                <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,0,12">
+
+                    <!-- 模型 Tab + 操作按钮 -->
+                    <StackPanel>
+                        <Border Padding="10,10,10,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <ItemsControl ItemsSource="{Binding Models}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,6,4" Padding="6,4,10,4" CornerRadius="6" Cursor="Hand"
+                                                    BorderThickness="1" Background="{Binding TabBackground}" BorderBrush="{Binding TabBorderBrush}"
+                                                    MouseLeftButtonDown="ModelTab_Click">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="6" Height="6" Fill="{Binding StatusDotColor}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ModelName}" FontSize="11" Foreground="{Binding TabForeground}" FontWeight="{Binding TabFontWeight}"/>
+                                                    <TextBlock Text="{Binding ShortInfo}" FontSize="10" Foreground="#999" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- 操作按钮组 -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                    <Button Content="重新训练" Style="{StaticResource DOEPrimaryBtn}" Padding="10,4" Height="26" FontSize="10"
+                                            Command="{Binding RetrainCommand}" Margin="0,0,4,0"/>
+                                    <Button Padding="10,4" Height="26" FontSize="10" Cursor="Hand" Margin="0,0,4,0"
+                                            Command="{Binding DownloadTemplateCommand}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                                        Background="White" BorderBrush="#D0D0D0" BorderThickness="1">
+                                                    <TextBlock Text="下载模板" FontSize="10" FontWeight="SemiBold" Foreground="#4A5066" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#F7F8FA"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Padding="10,4" Height="26" FontSize="10" Cursor="Hand" Margin="0,0,4,0"
+                                            Command="{Binding ImportDataCommand}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                                        Background="White" BorderBrush="#0078D4" BorderThickness="1">
+                                                    <TextBlock Text="导入数据" FontSize="10" FontWeight="SemiBold" Foreground="#0078D4" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#EBF3FE"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Content="刷新" Style="{StaticResource DOEOutlineBtn}" Padding="10,4" Height="26" FontSize="10"
+                                            Command="{Binding RefreshAllCommand}" Margin="0,0,4,0"/>
+                                    <Button Content="删除" Style="{StaticResource DOEDangerBtn}" Padding="10,4" Height="26" FontSize="10"
+                                            Command="{Binding DeleteModelCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 指标条 -->
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" HorizontalAlignment="Center" Margin="0,12,0,12">
+                                <TextBlock Text="状态" FontSize="10" Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding SelectedModel.StatusText}" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{Binding SelectedModel.StatusColor}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                <TextBlock FontSize="10" Foreground="#AAA" HorizontalAlignment="Center">
+                                    <Run Text="{Binding SelectedModel.DataCountText, Mode=OneWay}"/>
+                                    <Run Text=" 组数据"/>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <Border Grid.Column="1" Width="1" Background="#ECEEF2" VerticalAlignment="Center" Height="36"/>
+
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Center" Margin="0,12,0,12">
+                                <TextBlock Text="R²" FontSize="10" Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding SelectedModel.RSquaredText}" FontSize="18" FontWeight="SemiBold"
+                                           Foreground="#0078D4" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="3" Width="1" Background="#ECEEF2" VerticalAlignment="Center" Height="36"/>
+
+                            <StackPanel Grid.Column="4" HorizontalAlignment="Center" Margin="0,12,0,12">
+                                <TextBlock Text="RMSE" FontSize="10" Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding SelectedModel.RMSEText}" FontSize="18" FontWeight="SemiBold"
+                                           Foreground="#1A1F36" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="5" Width="1" Background="#ECEEF2" VerticalAlignment="Center" Height="36"/>
+
+                            <StackPanel Grid.Column="6" HorizontalAlignment="Center" Margin="0,12,0,12">
+                                <TextBlock Text="上次训练" FontSize="10" Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding SelectedModel.LastTrainedText}" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#1A1F36" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                <TextBlock Text="Const × RBF + White" FontSize="10" Foreground="#AAA" HorizontalAlignment="Center"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="7" Width="1" Background="#ECEEF2" VerticalAlignment="Center" Height="36"/>
+
+                            <StackPanel Grid.Column="8" HorizontalAlignment="Center" Margin="0,12,0,12">
+                                <TextBlock Text="因子签名" FontSize="10" Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding SelectedModel.FactorSignature}" FontSize="11" FontFamily="Consolas"
+                                           Foreground="#0078D4" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ 2. 训练数据集（分页）═══ -->
+                <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,0,12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 表头 -->
+                        <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1"
+                                CornerRadius="10,10,0,0">
+                            <Grid>
+                                <TextBlock Text="训练数据集" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="#A0A4B0">
+                                    <Run Text="共 "/>
+                                    <Run Text="{Binding TotalDataCount, Mode=OneWay}"/>
+                                    <Run Text=" 条数据"/>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+
+                        <!-- 数据表格（绑定当前页数据） -->
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding PagedTrainingData}"
+                                  AutoGenerateColumns="True"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#F2F3F5"
+                                  BorderThickness="0"
+                                  Background="White"
+                                  RowBackground="White"
+                                  AlternatingRowBackground="#FAFBFC"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single"
+                                  FontSize="11"
+                                  FontFamily="Segoe UI"
+                                  RowHeight="34"
+                                  ColumnHeaderHeight="32"
+                                  AutoGeneratingColumn="TrainingData_AutoGeneratingColumn">
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#FAFBFC"/>
+                                    <Setter Property="Foreground" Value="#8A8F9C"/>
+                                    <Setter Property="FontSize" Value="10"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="10,0"/>
+                                    <Setter Property="BorderBrush" Value="#E8EAED"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Padding" Value="8,0"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Foreground" Value="#1A1F36"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#EBF3FE"/>
+                                            <Setter Property="Foreground" Value="#1A1F36"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.CellStyle>
+                        </DataGrid>
+
+                        <!-- 分页栏 -->
+                        <Border Grid.Row="2" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,1,0,0">
+                            <Grid>
+                                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="#A0A4B0">
+                                    <Run Text="第 "/>
+                                    <Run Text="{Binding CurrentPage, Mode=OneWay}"/>
+                                    <Run Text=" / "/>
+                                    <Run Text="{Binding TotalPages, Mode=OneWay}"/>
+                                    <Run Text=" 页，每页 10 条"/>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="◀" Command="{Binding PrevPageCommand}" Width="28" Height="28" FontSize="10" Cursor="Hand" Margin="0,0,4,0">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" CornerRadius="6" Background="White" BorderBrush="#D8DCE3" BorderThickness="1">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#F2F4F7"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Content="▶" Command="{Binding NextPageCommand}" Width="28" Height="28" FontSize="10" Cursor="Hand">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" CornerRadius="6" Background="White" BorderBrush="#D8DCE3" BorderThickness="1">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#F2F4F7"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ═══ 3. 图表 2x2 ═══ -->
+                <UniformGrid Columns="2" Margin="0,0,0,12">
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,5,5">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="240"/>
+                            </Grid.RowDefinitions>
+                            <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <TextBlock Text="模型演进 R² vs 数据量" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                            </Border>
+                            <oxy:PlotView Grid.Row="1" Model="{Binding EvolutionPlot}" Background="White" Margin="8"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="5,0,0,5">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="240"/>
+                            </Grid.RowDefinitions>
+                            <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <TextBlock Text="参数敏感性（GPR Lengthscale）" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                            </Border>
+                            <oxy:PlotView Grid.Row="1" Model="{Binding SensitivityPlot}" Background="White" Margin="8"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,5,5,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="240"/>
+                            </Grid.RowDefinitions>
+                            <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <TextBlock Text="实际值 vs GPR 预测值" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                            </Border>
+                            <oxy:PlotView Grid.Row="1" Model="{Binding ActualVsPredictedPlot}" Background="White" Margin="8"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="5,5,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="240"/>
+                            </Grid.RowDefinitions>
+                            <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <TextBlock Text="残差 vs GPR 拟合值" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                            </Border>
+                            <oxy:PlotView Grid.Row="1" Model="{Binding ResidualPlot}" Background="White" Margin="8"/>
+                        </Grid>
+                    </Border>
+                </UniformGrid>
+
+                <!-- ═══ 4. 响应曲面 + 最优参数底部横条 ═══ -->
+                <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="320"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 头部：因子选择 + 生成 -->
+                        <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                            <Grid>
+                                <TextBlock Text="GPR 响应曲面" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <ComboBox ItemsSource="{Binding FactorNames}" SelectedItem="{Binding SurfaceFactor1}" Width="110" FontSize="11" Padding="4,3" Margin="0,0,4,0"  Style="{StaticResource FieldComboStyle}"/>
+                                    <TextBlock Text="×" VerticalAlignment="Center" Foreground="#8A8F9C" FontSize="11" Margin="0,0,4,0"/>
+                                    <ComboBox ItemsSource="{Binding FactorNames}" SelectedItem="{Binding SurfaceFactor2}" Width="110" FontSize="11" Padding="4,3" Margin="0,0,8,0"  Style="{StaticResource FieldComboStyle}"/>
+                                    <Button Content="生成" Style="{StaticResource DOEPrimaryBtn}" Padding="14,5" Command="{Binding GenerateSurfaceCommand}" Height="26"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 曲面图 -->
+                        <Grid Grid.Row="1">
+                            <Image Source="{Binding SurfaceImage}" Stretch="Uniform" Margin="10">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SurfaceImage}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+                            <oxy:PlotView Model="{Binding SurfacePlot}" Background="White" Margin="8">
+                                <oxy:PlotView.Style>
+                                    <Style TargetType="oxy:PlotView">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SurfaceImage}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </oxy:PlotView.Style>
+                            </oxy:PlotView>
+                        </Grid>
+
+                        <!-- 最优预测横条（自动加载） -->
+                        <Border Grid.Row="2" Background="#FAFBFC" Padding="12,9" BorderBrush="#E8EAED" BorderThickness="0,1,0,0"
+                                CornerRadius="0,0,10,10"
+                                Visibility="{Binding HasOptimalResult, Converter={StaticResource BoolToVis}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 标签 -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <Ellipse Width="6" Height="6" Fill="#4CAF50" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="最优预测" FontSize="11" FontWeight="SemiBold" Foreground="#1A1F36" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- 因子值 -->
+                                <ItemsControl Grid.Column="1" ItemsSource="{Binding OptimalFactors}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Key}" FontSize="11" Foreground="#8A8F9C" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Value, StringFormat={}{0:F2}}" FontSize="12" FontWeight="SemiBold"
+                                                           FontFamily="Consolas" Foreground="#1A1F36" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- 响应值胶囊 -->
+                                <Border Grid.Column="2" Background="#E8F5E9" CornerRadius="6" Padding="12,4">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="响应 " FontSize="11" Foreground="#388E3C" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding OptimalResponseText}" FontSize="16" FontWeight="SemiBold" Foreground="#2E7D32"
+                                                   FontFamily="Consolas" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding OptimalConfidenceText}" FontSize="10" Foreground="#66BB6A"
+                                                   VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ═══ Loading 遮罩 ═══ -->
+        <Border Background="#EAFFFFFF" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" Panel.ZIndex="50">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Grid Width="48" Height="48" Margin="0,0,0,14">
+                    <Ellipse Width="48" Height="48" Stroke="#E8EAED" StrokeThickness="3"/>
+                    <Ellipse Width="48" Height="48" Stroke="{StaticResource PrimaryBrush}"
+                             StrokeThickness="3" StrokeDashArray="8 6"
+                             StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform Angle="0"/>
+                        </Ellipse.RenderTransform>
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="SpinStory">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                     From="0" To="360" Duration="0:0:0.9"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="SpinStory"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                </Grid>
+                <TextBlock Text="{Binding StatusMessage}" FontSize="13" FontWeight="Medium" Foreground="#1A1F36" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

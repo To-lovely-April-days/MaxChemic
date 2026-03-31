@@ -552,14 +552,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogInformation("流程执行完成，共执行 {Completed}/{Total} 个节点",
                     _currentProgress.CompletedNodes, _currentProgress.TotalNodes);
 
-                _ = Task.Delay(2000).ContinueWith(_ =>
-                {
-                    if (State == FlowExecutionState.Completed)
-                    {
-                        State = FlowExecutionState.Idle;
-                    }
-                });
-
+                //_ = Task.Delay(2000).ContinueWith(_ =>
+                //{
+                //    if (State == FlowExecutionState.Completed)
+                //    {
+                //        State = FlowExecutionState.Idle;
+                //    }
+                //});
+                State = FlowExecutionState.Idle;
                 return new FlowExecutionResult
                 {
                     IsSuccessful = true,
@@ -607,13 +607,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogInformation("流程因用户停止而取消，已执行 {Completed}/{Total} 个节点",
                     stoppedProgress?.CompletedNodes ?? 0, stoppedProgress?.TotalNodes ?? 0);
 
-                _ = Task.Delay(1000).ContinueWith(_ =>
-                {
-                    if (State == FlowExecutionState.Stopped)
-                    {
-                        State = FlowExecutionState.Idle;
-                    }
-                });
+                //_ = Task.Delay(1000).ContinueWith(_ =>
+                //{
+                //    if (State == FlowExecutionState.Stopped)
+                //    {
+                //        State = FlowExecutionState.Idle;
+                //    }
+                //});
+                State = FlowExecutionState.Idle;
 
                 return new FlowExecutionResult
                 {
@@ -659,14 +660,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogInformation("流程执行被取消，已执行 {Completed}/{Total} 个节点",
                     cancelledProgress?.CompletedNodes ?? 0, cancelledProgress?.TotalNodes ?? 0);
 
-                _ = Task.Delay(1000).ContinueWith(_ =>
-                {
-                    if (State == FlowExecutionState.Stopped)
-                    {
-                        State = FlowExecutionState.Idle;
-                    }
-                });
-
+                //_ = Task.Delay(1000).ContinueWith(_ =>
+                //{
+                //    if (State == FlowExecutionState.Stopped)
+                //    {
+                //        State = FlowExecutionState.Idle;
+                //    }
+                //});
+                State = FlowExecutionState.Idle;
                 return new FlowExecutionResult
                 {
                     IsSuccessful = false,
@@ -732,14 +733,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     ErrorMessage = ex.Message
                 });
 
-                _ = Task.Delay(3000).ContinueWith(_ =>
-                {
-                    if (State == FlowExecutionState.Error)
-                    {
-                        State = FlowExecutionState.Idle;
-                    }
-                });
-
+                //_ = Task.Delay(3000).ContinueWith(_ =>
+                //{
+                //    if (State == FlowExecutionState.Error)
+                //    {
+                //        State = FlowExecutionState.Idle;
+                //    }
+                //});
+                State = FlowExecutionState.Idle;
                 return new FlowExecutionResult
                 {
                     IsSuccessful = false,

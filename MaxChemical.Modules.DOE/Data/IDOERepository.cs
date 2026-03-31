@@ -60,6 +60,11 @@ namespace MaxChemical.Modules.DOE.Data
         Task<List<DOEBatchSummary>> GetBatchSummariesByFlowAsync(string flowId);
 
         /// <summary>
+        /// 获取所有批次摘要（不限流程，按时间倒序，带 Runs 统计）
+        /// </summary>
+        Task<List<DOEBatchSummary>> GetAllBatchSummariesAsync(int limit = 50);
+
+        /// <summary>
         /// 获取某流程下所有实测+导入的数据（用于 GPR 训练）
         /// </summary>
         Task<List<DOERunRecord>> GetAllTrainingDataByFlowAsync(string flowId);
@@ -83,6 +88,23 @@ namespace MaxChemical.Modules.DOE.Data
         /// 删除指定模型
         /// </summary>
         Task DeleteGPRModelAsync(int modelId);
+
+        /// <summary>
+        /// 查询同 FlowId + FactorSignature 下有多少个方案（用于删除时判断模型是否还被其他方案使用）
+        /// </summary>
+        Task<int> GetBatchCountBySignatureAsync(string flowId, string factorSignature);
+
+        /// <summary>
+        /// 删除批次及所有子表数据（因子、响应、Runs、停止条件）
+        /// </summary>
+        Task DeleteBatchWithChildrenAsync(string batchId);
+
+        /// <summary>
+        /// 获取所有 GPR 模型（不限流程）
+        /// </summary>
+        Task<List<GPRModelState>> GetAllGPRModelsAsync();
+
+        Task<GPRModelState?> GetGPRModelByIdAsync(int modelId);
     }
 
     /// <summary>
@@ -99,5 +121,11 @@ namespace MaxChemical.Modules.DOE.Data
         public int CompletedRuns { get; set; }
         public double? BestResponseValue { get; set; }
         public DateTime CreatedTime { get; set; }
+
+        /// <summary>进度显示文本（XAML 绑定用）</summary>
+        public string ProgressText => $"{CompletedRuns}/{TotalRuns}";
+
+        /// <summary>是否可编辑（仅 Ready 状态）</summary>
+        public bool CanEdit => Status == DOEBatchStatus.Ready;
     }
 }

@@ -241,5 +241,74 @@ namespace MaxChemical.Modules.DOE.Services
             range.Style.Font.Color.SetColor(Color.White);
             range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
         }
+
+        // ══════════════ ★ GPR 数据模板生成 ══════════════
+
+        /// <summary>
+        /// 生成 GPR 数据导入模板（空 Excel，只有列头）
+        /// 列头 = 因子名 + 响应名
+        /// </summary>
+        public async Task GenerateGPRTemplateAsync(List<string> factorNames, List<string> responseNames, string filePath)
+        {
+            using var package = new ExcelPackage();
+            var ws = package.Workbook.Worksheets.Add("GPR数据");
+
+            int col = 1;
+
+            // 因子列头（蓝色背景）
+            foreach (var name in factorNames)
+            {
+                ws.Cells[1, col].Value = name;
+                ws.Cells[1, col].Style.Font.Bold = true;
+                ws.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                ws.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(46, 117, 182));
+                ws.Cells[1, col].Style.Font.Color.SetColor(Color.White);
+                ws.Column(col).Width = 18;
+                col++;
+            }
+
+            // 响应列头（绿色背景，区分因子）
+            foreach (var name in responseNames)
+            {
+                ws.Cells[1, col].Value = name;
+                ws.Cells[1, col].Style.Font.Bold = true;
+                ws.Cells[1, col].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                ws.Cells[1, col].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(56, 142, 60));
+                ws.Cells[1, col].Style.Font.Color.SetColor(Color.White);
+                ws.Column(col).Width = 16;
+                col++;
+            }
+
+            // 冻结第一行
+            ws.View.FreezePanes(2, 1);
+
+            // 添加说明 sheet
+            var helpWs = package.Workbook.Worksheets.Add("说明");
+            helpWs.Cells[1, 1].Value = "GPR 模型数据导入模板";
+            helpWs.Cells[1, 1].Style.Font.Bold = true;
+            helpWs.Cells[1, 1].Style.Font.Size = 14;
+            helpWs.Cells[3, 1].Value = "使用方法:";
+            helpWs.Cells[4, 1].Value = "1. 在「GPR数据」工作表中填写实验数据";
+            helpWs.Cells[5, 1].Value = "2. 蓝色列头 = 因子（实验输入参数）";
+            helpWs.Cells[6, 1].Value = "3. 绿色列头 = 响应（实验结果）";
+            helpWs.Cells[7, 1].Value = "4. 所有单元格必须填写数值，不能为空";
+            helpWs.Cells[8, 1].Value = "5. 保存后在「模型分析」页面点击「导入数据」";
+
+            helpWs.Cells[10, 1].Value = "因子列表:";
+            for (int i = 0; i < factorNames.Count; i++)
+                helpWs.Cells[11 + i, 1].Value = $"  {factorNames[i]}";
+
+            helpWs.Cells[12 + factorNames.Count, 1].Value = "响应列表:";
+            for (int i = 0; i < responseNames.Count; i++)
+                helpWs.Cells[13 + factorNames.Count + i, 1].Value = $"  {responseNames[i]}";
+
+            helpWs.Column(1).Width = 50;
+
+            var fileInfo = new FileInfo(filePath);
+            await package.SaveAsAsync(fileInfo);
+
+            _logger.LogInformation("GPR 数据模板已生成: {Path}, 因子={Factors}, 响应={Responses}",
+                filePath, string.Join(",", factorNames), string.Join(",", responseNames));
+        }
     }
 }

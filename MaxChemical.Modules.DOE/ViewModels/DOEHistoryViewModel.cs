@@ -57,6 +57,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             DeleteBatchCommand = new DelegateCommand<DOEBatchSummary>(async s => await DeleteBatchAsync(s));
             ExportBatchCommand = new DelegateCommand<DOEBatchSummary>(async s => await ExportBatchAsync(s));
             ExportComparisonCommand = new DelegateCommand(async () => await ExportComparisonAsync(), () => Batches.Count >= 2);
+            EditBatchCommand = new DelegateCommand<DOEBatchSummary>(s => EditBatch(s));  // ★ 新增
             ResetGPRModelCommand = new DelegateCommand(async () => await ResetGPRModelAsync());
             RetrainGPRModelCommand = new DelegateCommand(async () => await RetrainGPRModelAsync());
 
@@ -82,6 +83,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public DelegateCommand<DOEBatchSummary> DeleteBatchCommand { get; }
         public DelegateCommand<DOEBatchSummary> ExportBatchCommand { get; }
         public DelegateCommand ExportComparisonCommand { get; }
+        public DelegateCommand<DOEBatchSummary> EditBatchCommand { get; }  // ★ 新增
         public DelegateCommand ResetGPRModelCommand { get; }
         public DelegateCommand RetrainGPRModelCommand { get; }
 
@@ -100,6 +102,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
         /// </summary>
         public event EventHandler<string>? RequestAnalyzeBatch;
 
+        /// <summary>
+        /// ★ 请求编辑方案事件（历史页右键菜单触发）
+        /// </summary>
+        public event EventHandler<string>? RequestEditBatch;
+
         // ══════════════ 加载 ══════════════
 
         public async Task LoadBatchesAsync()
@@ -107,33 +114,16 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                var flowId = _paramProvider.GetCurrentFlowId();
 
-                List<DOEBatchSummary> summaries;
-                if (!string.IsNullOrEmpty(flowId))
-                {
-                    summaries = await _repository.GetBatchSummariesByFlowAsync(flowId);
-                    StatusMessage = $"当前流程共 {summaries.Count} 个 DOE 批次";
-                }
-                else
-                {
-                    var recentBatches = await _repository.GetRecentBatchesAsync(50);
-                    summaries = recentBatches.Select(b => new DOEBatchSummary
-                    {
-                        BatchId = b.BatchId,
-                        BatchName = b.BatchName,
-                        FlowName = b.FlowName,
-                        DesignMethod = b.DesignMethod,
-                        Status = b.Status,
-                        CreatedTime = b.CreatedTime
-                    }).ToList();
-                    StatusMessage = $"显示最近 {summaries.Count} 个批次";
-                }
+                // ★ 直接查所有批次的摘要（不依赖 FlowId）
+                var summaries = await _repository.GetAllBatchSummariesAsync(50);
 
                 Batches = new ObservableCollection<DOEBatchSummary>(summaries);
+                StatusMessage = $"共 {summaries.Count} 个 DOE 批次";
                 ExportComparisonCommand.RaiseCanExecuteChanged();
 
                 // 加载 GPR 模型状态
+                var flowId = _paramProvider.GetCurrentFlowId();
                 await LoadGPRStatusAsync(flowId);
             }
             catch (Exception ex)
@@ -168,6 +158,25 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         // ══════════════ 操作 ══════════════
 
+        /// <summary>
+        /// ★ 编辑方案（仅 Ready 状态）
+        /// </summary>
+        private void EditBatch(DOEBatchSummary? summary)
+        {
+            if (summary == null) return;
+
+            if (summary.Status != DOEBatchStatus.Ready)
+            {
+                _dialogService.ShowError("只有「就绪」状态的方案才能编辑。\n已执行或已完成的方案不可修改。", "无法编辑");
+                return;
+            }
+
+            RequestEditBatch?.Invoke(this, summary.BatchId);
+        }
+
+        /// <summary>
+        /// ★ 删除方案（带 GPR 模型同步清理）
+        /// </summary>
         private async Task DeleteBatchAsync(DOEBatchSummary? summary)
         {
             if (summary == null) return;
@@ -176,9 +185,50 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             try
             {
-                await _repository.DeleteBatchAsync(summary.BatchId);
+                // 获取方案的因子信息（用于判断模型关联）
+                var batch = await _repository.GetBatchWithDetailsAsync(summary.BatchId);
+                string? flowId = batch?.FlowId;
+                string? signature = null;
+
+                if (batch?.Factors?.Count > 0)
+                {
+                    var factorNames = batch.Factors.Select(f => f.FactorName);
+                    signature = GPRModelState.BuildSignature(factorNames);
+                }
+
+                // 删除批次及所有子表
+                await _repository.DeleteBatchWithChildrenAsync(summary.BatchId);
                 Batches.Remove(summary);
                 StatusMessage = $"已删除批次: {summary.BatchName}";
+
+                // ★ GPR 模型同步清理逻辑
+                if (!string.IsNullOrEmpty(flowId) && !string.IsNullOrEmpty(signature))
+                {
+                    var remaining = await _repository.GetBatchCountBySignatureAsync(flowId, signature);
+
+                    if (remaining == 0)
+                    {
+                        // 该签名下没有其他方案了，询问用户是否删除模型
+                        var state = await _repository.GetGPRModelStateAsync(flowId, signature);
+                        if (state != null)
+                        {
+                            var deleteModel = _dialogService.ShowConfirmation(
+                                $"该方案关联的 GPR 模型（{state.ModelName}，{state.DataCount} 组数据）\n" +
+                                $"不再被任何方案使用。是否一并删除？\n\n" +
+                                $"选择「否」将保留模型数据以备后用。",
+                                "清理关联模型");
+
+                            if (deleteModel)
+                            {
+                                await _repository.DeleteGPRModelAsync(state.Id);
+                                StatusMessage += "，已删除关联 GPR 模型";
+                                _logger.LogInformation("已删除孤立 GPR 模型: {ModelName}, Sig={Sig}", state.ModelName, signature);
+                            }
+                        }
+                    }
+                }
+
+                await LoadGPRStatusAsync(flowId);
             }
             catch (Exception ex)
             {

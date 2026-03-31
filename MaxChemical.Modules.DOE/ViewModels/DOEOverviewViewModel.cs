@@ -24,6 +24,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private bool _hasResumableBatch;
         private string _resumableBatchSummary = "";
         private string _resumableBatchId = "";
+        private DOEBatchSummary? _selectedBatch;
         private ObservableCollection<DOEBatchSummary> _recentBatches = new();
 
         public DOEOverviewViewModel(IDOERepository repository, IFlowParameterProvider paramProvider, ILogService logger)
@@ -35,6 +36,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ResumeLastBatchCommand = new DelegateCommand(() => RequestResumeBatch?.Invoke(this, _resumableBatchId),
                 () => HasResumableBatch);
             GoToHistoryCommand = new DelegateCommand(() => RequestGoToHistory?.Invoke(this, EventArgs.Empty));
+            EditBatchCommand = new DelegateCommand(EditSelectedBatch);  // ★ 新增
         }
 
         public int TotalBatchCount { get => _totalBatchCount; set => SetProperty(ref _totalBatchCount, value); }
@@ -44,12 +46,27 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool HasResumableBatch { get => _hasResumableBatch; set { SetProperty(ref _hasResumableBatch, value); ResumeLastBatchCommand.RaiseCanExecuteChanged(); } }
         public string ResumableBatchSummary { get => _resumableBatchSummary; set => SetProperty(ref _resumableBatchSummary, value); }
         public ObservableCollection<DOEBatchSummary> RecentBatches { get => _recentBatches; set => SetProperty(ref _recentBatches, value); }
+        public DOEBatchSummary? SelectedBatch { get => _selectedBatch; set => SetProperty(ref _selectedBatch, value); }  // ★ 新增
 
         public DelegateCommand ResumeLastBatchCommand { get; }
         public DelegateCommand GoToHistoryCommand { get; }
+        public DelegateCommand EditBatchCommand { get; }  // ★ 新增
 
         public event EventHandler<string>? RequestResumeBatch;
         public event EventHandler? RequestGoToHistory;
+        public event EventHandler<string>? RequestEditBatch;  // ★ 新增
+
+        // ★ 编辑方案（仅 Ready 状态）
+        private void EditSelectedBatch()
+        {
+            if (SelectedBatch == null) return;
+            if (SelectedBatch.Status != DOEBatchStatus.Ready)
+            {
+                // 静默忽略，非 Ready 状态不可编辑
+                return;
+            }
+            RequestEditBatch?.Invoke(this, SelectedBatch.BatchId);
+        }
 
         public async Task LoadAsync()
         {
@@ -60,8 +77,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 var summaries = batches.Select(b => new DOEBatchSummary
                 {
-                    BatchId = b.BatchId, BatchName = b.BatchName, FlowName = b.FlowName,
-                    DesignMethod = b.DesignMethod, Status = b.Status, CreatedTime = b.CreatedTime,
+                    BatchId = b.BatchId,
+                    BatchName = b.BatchName,
+                    FlowName = b.FlowName,
+                    DesignMethod = b.DesignMethod,
+                    Status = b.Status,
+                    CreatedTime = b.CreatedTime,
                     TotalRuns = b.Runs.Count,
                     CompletedRuns = b.Runs.Count(r => r.Status == DOERunStatus.Completed)
                 }).ToList();

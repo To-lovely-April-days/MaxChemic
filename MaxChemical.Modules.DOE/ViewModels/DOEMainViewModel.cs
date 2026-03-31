@@ -34,7 +34,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     RaisePropertyChanged(nameof(IsTab1));
                     RaisePropertyChanged(nameof(IsTab2));
                     RaisePropertyChanged(nameof(IsTab3));
-                    RaisePropertyChanged(nameof(IsTab4));
+                    // 移除: RaisePropertyChanged(nameof(IsTab4));
                 }
             }
         }
@@ -43,7 +43,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool IsTab1 => SelectedTabIndex == 1;
         public bool IsTab2 => SelectedTabIndex == 2;
         public bool IsTab3 => SelectedTabIndex == 3;
-        public bool IsTab4 => SelectedTabIndex == 4;
+        //public bool IsTab4 => SelectedTabIndex == 4;
 
         public string CurrentBatchId { get => _currentBatchId; set => SetProperty(ref _currentBatchId, value); }
 
@@ -87,7 +87,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             if (string.IsNullOrEmpty(batchId)) return;
             CurrentBatchId = batchId;
-            SelectedTabIndex = 2;
+            SelectedTabIndex = 2;  // ★ 指向合并后的「模型分析」
             RequestLoadAnalysis?.Invoke(this, batchId);
         }
     }

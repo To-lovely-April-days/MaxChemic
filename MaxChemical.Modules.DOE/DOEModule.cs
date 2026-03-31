@@ -28,23 +28,25 @@ namespace MaxChemical.Modules.DOE
             containerRegistry.RegisterSingleton<IDOEAnalysisService, DOEAnalysisService>();
             containerRegistry.RegisterSingleton<DOEExportService>();
 
-            // ViewModel (6个)
+            // ViewModel (5个，原来6个)
             containerRegistry.Register<DOEMainViewModel>();
             containerRegistry.Register<DOEOverviewViewModel>();
             containerRegistry.Register<DOEDesignWizardViewModel>();
             containerRegistry.Register<DOEExecutionDashboardViewModel>();
-            containerRegistry.Register<DOEAnalysisViewModel>();
+            containerRegistry.Register<DOEModelAnalysisViewModel>();      
             containerRegistry.Register<DOEHistoryViewModel>();
-            containerRegistry.Register<DOEGPRModelViewModel>();
+            // 移除: containerRegistry.Register<DOEAnalysisViewModel>();
+            // 移除: containerRegistry.Register<DOEGPRModelViewModel>();
 
-            // View (7个)
+            // View (5个，原来7个)
             containerRegistry.Register<DOEMainView>();
             containerRegistry.Register<DOEOverviewView>();
             containerRegistry.Register<DOEDesignWizardView>();
             containerRegistry.Register<DOEExecutionDashboardView>();
-            containerRegistry.Register<DOEAnalysisView>();
+            containerRegistry.Register<DOEModelAnalysisView>();            
             containerRegistry.Register<DOEHistoryView>();
-            containerRegistry.Register<DOEGPRModelView>();
+            // 移除: containerRegistry.Register<DOEAnalysisView>();
+            // 移除: containerRegistry.Register<DOEGPRModelView>();
         }
     }
 }
