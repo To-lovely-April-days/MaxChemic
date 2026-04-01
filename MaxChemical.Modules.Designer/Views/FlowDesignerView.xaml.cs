@@ -1515,5 +1515,21 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
+
+        /// <summary>
+        /// 同步时间轴列头和数据行的横向滚动位置。
+        /// 在 XAML 中为 SwimlaneDataScroll 绑定 ScrollChanged 事件：
+        ///   ScrollChanged="SwimlaneDataScroll_ScrollChanged"
+        /// </summary>
+        private void SwimlaneDataScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            // 只处理水平滚动变化
+            if (Math.Abs(e.HorizontalChange) < 0.01) return;
+
+            if (sender is ScrollViewer dataScroll && TimelineHeaderScroll != null)
+            {
+                TimelineHeaderScroll.ScrollToHorizontalOffset(dataScroll.HorizontalOffset);
+            }
+        }
     }
 }

@@ -897,77 +897,167 @@
               Cursor="SizeNS"/>
             <!-- ══ 泳道图（Row=1, Column=0） ══ -->
             <Border Grid.Row="2" Grid.Column="0"
-            BorderBrush="#E8E8E8" BorderThickness="0,1,0,0"
-            Background="White">
+        BorderBrush="#E8E8E8" BorderThickness="0,1,0,0"
+        Background="White">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <!-- 顶栏 + 图例 -->
                         <RowDefinition Height="Auto"/>
+                        <!-- 时间轴列头 -->
                         <RowDefinition Height="*"/>
+                        <!-- 数据行 -->
                         <RowDefinition Height="Auto"/>
+                        <!-- 底栏 -->
                     </Grid.RowDefinitions>
 
-                    <!-- ══ 顶栏（紧凑：padding 缩小，单行布局） ══ -->
-                    <Border Grid.Row="0" Padding="14,6"
-                    BorderBrush="#EBEBEB" BorderThickness="0,0,0,1">
+                    <!-- ════ 顶栏：标题 + 图例 + 状态计数 ════ -->
+                    <Border Grid.Row="0" Padding="14,8" BorderBrush="#EBEBEB" BorderThickness="0,0,0,1">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="执行记录"
-                               FontSize="12" FontWeight="Medium" Foreground="#424242"
-                               VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="0" FontSize="10" Foreground="#BDBDBD"
-                               VerticalAlignment="Center" Margin="56,0,0,0"
-                               Text="{Binding SwimlaneRows.Count, StringFormat='({0}步)'}"/>
+                            <!-- 第一行：标题 + 状态计数 -->
+                            <Grid Grid.Row="0" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- 状态计数（纯文字，无 Badge 背景） -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse Width="5" Height="5" Fill="#4CAF50" VerticalAlignment="Center" Margin="0,0,3,0"/>
-                                <TextBlock FontSize="10" Foreground="#757575" VerticalAlignment="Center" Margin="0,0,10,0"
-                                   Text="{Binding CompletedCount, StringFormat='{}{0}'}"/>
-                                <Ellipse Width="5" Height="5" Fill="#2196F3" VerticalAlignment="Center" Margin="0,0,3,0"/>
-                                <TextBlock FontSize="10" Foreground="#757575" VerticalAlignment="Center" Margin="0,0,10,0"
-                                   Text="{Binding ExecutingCount, StringFormat='{}{0}'}"/>
-                                <Ellipse Width="5" Height="5" Fill="#EF5350" VerticalAlignment="Center" Margin="0,0,3,0"/>
-                                <TextBlock FontSize="10" Foreground="#757575" VerticalAlignment="Center" Margin="0,0,10,0"
-                                   Text="{Binding FailedCount, StringFormat='{}{0}'}"/>
-                                <Ellipse Width="5" Height="5" Fill="#BDBDBD" VerticalAlignment="Center" Margin="0,0,3,0"/>
-                                <TextBlock FontSize="10" Foreground="#BDBDBD" VerticalAlignment="Center"
-                                   Text="{Binding IdleCount, StringFormat='{}{0}'}"/>
-                            </StackPanel>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="执行记录" FontSize="13" FontWeight="Medium" 
+                                   Foreground="#1a1a2e" VerticalAlignment="Center"/>
+                                    <Border Background="#F3F4F6" CornerRadius="4" Padding="6,2" 
+                                Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center">
+                                <Run Text="{Binding SwimlaneRows.Count, Mode=OneWay}"/>
+                                <Run Text=" 步"/>
+                                        </TextBlock>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- 状态计数 -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#10b981" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                    <TextBlock FontSize="10" Foreground="#71717a" VerticalAlignment="Center" Margin="0,0,10,0"
+                                   Text="{Binding CompletedCount}"/>
+                                    <Ellipse Width="6" Height="6" Fill="#3b82f6" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                    <TextBlock FontSize="10" Foreground="#71717a" VerticalAlignment="Center" Margin="0,0,10,0"
+                                   Text="{Binding ExecutingCount}"/>
+                                    <Ellipse Width="6" Height="6" Fill="#ef4444" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                    <TextBlock FontSize="10" Foreground="#71717a" VerticalAlignment="Center" Margin="0,0,10,0"
+                                   Text="{Binding FailedCount}"/>
+                                    <Ellipse Width="6" Height="6" Fill="#d4d4d8" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                    <TextBlock FontSize="10" Foreground="#a1a1aa" VerticalAlignment="Center"
+                                   Text="{Binding IdleCount}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- 第二行：设备颜色图例 -->
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding DeviceLegends}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+                                            <!-- 设备颜色圆点 -->
+                                            <Ellipse Width="8" Height="8" 
+                                         Fill="{Binding BarColor}" 
+                                         VerticalAlignment="Center" Margin="0,0,4,0"
+                                         Opacity="0.8"/>
+                                            <!-- 设备颜色条块示例 -->
+                                            <Border Width="22" Height="9" CornerRadius="2"
+                                        Background="{Binding BarColor}"
+                                        VerticalAlignment="Center" Margin="0,0,5,0"
+                                        Opacity="0.85"/>
+                                            <!-- 设备名称 -->
+                                            <TextBlock Text="{Binding DeviceName}"
+                                           FontSize="11" Foreground="#71717a"
+                                           VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </Grid>
                     </Border>
 
-                    <!-- ══ 列头（高度压缩） ══ -->
-                    <Border Grid.Row="1" BorderBrush="#EBEBEB" BorderThickness="0,0,0,1" Height="20">
+                    <!-- ════ 时间轴列头（双行：绝对时间 + 相对时间） ══════ -->
+                    <Border Grid.Row="1" BorderBrush="#EBEBEB" BorderThickness="0,0,0,1" Height="38"
+                Background="#F8F9FB">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="170"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="步骤" FontSize="9" Foreground="#BDBDBD" Padding="12,0" VerticalAlignment="Center"/>
-                            <Canvas Grid.Column="1" ClipToBounds="True">
-                                <TextBlock Canvas.Left="3"   Canvas.Top="3" Text="0s"  FontSize="8" Foreground="#BDBDBD"/>
-                                <TextBlock Canvas.Left="107" Canvas.Top="3" Text="2s"  FontSize="8" Foreground="#BDBDBD"/>
-                                <TextBlock Canvas.Left="211" Canvas.Top="3" Text="4s"  FontSize="8" Foreground="#BDBDBD"/>
-                                <TextBlock Canvas.Left="315" Canvas.Top="3" Text="6s"  FontSize="8" Foreground="#BDBDBD"/>
-                                <TextBlock Canvas.Left="419" Canvas.Top="3" Text="8s"  FontSize="8" Foreground="#BDBDBD"/>
-                                <TextBlock Canvas.Left="523" Canvas.Top="3" Text="10s" FontSize="8" Foreground="#BDBDBD"/>
-                            </Canvas>
+
+                            <!-- 左侧"步骤"标签 -->
+                            <TextBlock Grid.Column="0" Text="步骤" FontSize="11" Foreground="#a1a1aa" 
+                           Padding="14,0" VerticalAlignment="Center"/>
+
+                            <!-- 分隔线 -->
+                            <Rectangle Grid.Column="0" Width="0.5" Fill="#E8E8E8" 
+                           HorizontalAlignment="Right" VerticalAlignment="Stretch"/>
+
+                            <!-- 时间轴刻度 -->
+                            <ScrollViewer Grid.Column="1" 
+                              x:Name="TimelineHeaderScroll"
+                              HorizontalScrollBarVisibility="Hidden" 
+                              VerticalScrollBarVisibility="Disabled">
+                                <Canvas Width="{Binding TimelineCanvasWidth}" Height="38" ClipToBounds="True">
+                                    <ItemsControl ItemsSource="{Binding TimelineTicks}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <Canvas/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                                                <Setter Property="Canvas.Top" Value="0"/>
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="3,5,0,0">
+                                                    <TextBlock Text="{Binding AbsoluteTimeText}"
+                                                   FontSize="10" Foreground="#71717a"
+                                                   FontFamily="Consolas"/>
+                                                    <TextBlock Text="{Binding RelativeTimeText}"
+                                                   FontSize="10" Foreground="#a1a1aa"
+                                                   FontFamily="Consolas" Margin="0,1,0,0"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- 当前时间红线标签 -->
+                                    <TextBlock Canvas.Left="{Binding CurrentTimeLineX}" Canvas.Top="2"
+                                   Text="{Binding CurrentTimeText}"
+                                   FontSize="9" Foreground="#ef4444" FontWeight="SemiBold"
+                                   FontFamily="Consolas" Margin="-30,0,0,0"
+                                   Visibility="{Binding IsCurrentTimeLineVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Canvas>
+                            </ScrollViewer>
                         </Grid>
                     </Border>
 
-                    <!-- ══ 数据行（行高 48px，条块高 18px） ══ -->
-                    <ScrollViewer Grid.Row="2" Style="{StaticResource ThinScrollViewerStyle}"
-                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <!-- ══════ 数据行 ══════ -->
+                    <ScrollViewer Grid.Row="2" 
+                      x:Name="SwimlaneDataScroll"
+                      Style="{StaticResource ThinScrollViewerStyle}"
+                      VerticalScrollBarVisibility="Auto" 
+                      HorizontalScrollBarVisibility="Auto"
+                      ScrollChanged="SwimlaneDataScroll_ScrollChanged">
                         <ItemsControl ItemsSource="{Binding SwimlaneRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#F5F5F5" BorderThickness="0,0,0,1" Height="48">
+                                    <Border BorderBrush="#F0F0F0" BorderThickness="0,0,0,1" Height="68">
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="Background" Value="Transparent"/>
@@ -978,13 +1068,14 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
+
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="170"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
 
-                                            <!-- 名称列 -->
+                                            <!-- ── 左侧：序号圆 + 名称 + 设备 ── -->
                                             <Border Grid.Column="0" BorderBrush="#F0F0F0" BorderThickness="0,0,1,0" Padding="10,0">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
@@ -992,192 +1083,174 @@
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
 
-                                                    <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10"
-                                                    VerticalAlignment="Center" Margin="0,0,8,0">
+                                                    <!-- 状态圆圈 -->
+                                                    <Border Grid.Column="0" Width="26" Height="26" CornerRadius="13"
+                                                VerticalAlignment="Center" Margin="0,0,10,0">
                                                         <Border.Style>
                                                             <Style TargetType="Border">
-                                                                <Setter Property="BorderThickness" Value="1.5"/>
-                                                                <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                                                                <Setter Property="BorderThickness" Value="1.8"/>
+                                                                <Setter Property="BorderBrush" Value="#d4d4d8"/>
                                                                 <Setter Property="Background" Value="Transparent"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
-                                                                        <Setter Property="Background" Value="#F1F8E9"/>
+                                                                        <Setter Property="BorderBrush" Value="#10b981"/>
+                                                                        <Setter Property="Background" Value="#ecfdf5"/>
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding IsExecuting}" Value="True">
-                                                                        <Setter Property="BorderBrush" Value="#2196F3"/>
-                                                                        <Setter Property="Background" Value="#E8F4FD"/>
+                                                                        <Setter Property="BorderBrush" Value="#3b82f6"/>
+                                                                        <Setter Property="Background" Value="#eff6ff"/>
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                        <Setter Property="BorderBrush" Value="#EF5350"/>
-                                                                        <Setter Property="Background" Value="#FFF5F5"/>
+                                                                        <Setter Property="BorderBrush" Value="#ef4444"/>
+                                                                        <Setter Property="Background" Value="#fef2f2"/>
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </Border.Style>
-                                                        <TextBlock Text="{Binding RowIndexDisplay}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           FontSize="10" FontWeight="Medium">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="#BDBDBD"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#4CAF50"/>
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding IsExecuting}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#2196F3"/>
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#EF5350"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
+
+                                                        <!-- 完成时显示勾号，否则显示序号 -->
+                                                        <Grid>
+                                                            <!-- 序号（非完成状态） -->
+                                                            <TextBlock Text="{Binding RowIndexDisplay}" 
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="11" FontWeight="Medium">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#a1a1aa"/>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsExecuting}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#3b82f6"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#ef4444"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+
+                                                            <!-- 勾号（完成状态） -->
+                                                            <Path Data="M5,12 L9,16 L19,6" 
+                                                      Stroke="#10b981" StrokeThickness="2"
+                                                      StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      Visibility="{Binding IsCompleted, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                        </Grid>
                                                     </Border>
 
+                                                    <!-- 名称 + 设备类型 -->
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding NodeName}" FontSize="11" FontWeight="Medium"
-                                                           Foreground="#424242" TextTrimming="CharacterEllipsis"
-                                                           MaxWidth="115" ToolTip="{Binding NodeName}"/>
-                                                        <TextBlock Text="{Binding NodeType}" FontSize="9" Foreground="#BDBDBD" Margin="0,1,0,0"/>
+                                                        <TextBlock Text="{Binding NodeName}" FontSize="12" FontWeight="Medium"
+                                                       Foreground="#1a1a2e" TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="100" ToolTip="{Binding NodeName}"/>
+                                                        <TextBlock Text="{Binding DeviceName}" FontSize="9" 
+                                                       Foreground="#a1a1aa" Margin="0,2,0,0"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
 
-                                            <!-- 轨道列 -->
+                                            <!-- ── 右侧：时间轴轨道 ── -->
                                             <Canvas Grid.Column="1" ClipToBounds="True">
-                                                <!-- 网格线 -->
-                                                <Rectangle Canvas.Left="104" Width="0.5" Height="48" Fill="#F5F5F5"/>
-                                                <Rectangle Canvas.Left="208" Width="0.5" Height="48" Fill="#F5F5F5"/>
-                                                <Rectangle Canvas.Left="312" Width="0.5" Height="48" Fill="#F5F5F5"/>
-                                                <Rectangle Canvas.Left="416" Width="0.5" Height="48" Fill="#F5F5F5"/>
-                                                <Rectangle Canvas.Left="520" Width="0.5" Height="48" Fill="#F5F5F5"/>
 
-                                                <!-- 时间范围（条块上方，单行合并） -->
-                                                <TextBlock Canvas.Left="{Binding BarLeft}" Canvas.Top="4"
-                                                   Text="{Binding TimeRangeText}"
-                                                   FontSize="8" FontFamily="Consolas"
-                                                   Visibility="{Binding TimeRangeText, Converter={StaticResource StringToVisibilityConverter}}">
+                                                <!-- 网格虚线 -->
+                                                <ItemsControl ItemsSource="{Binding DataContext.TimelineTicks,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <Canvas/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemContainerStyle>
+                                                        <Style TargetType="ContentPresenter">
+                                                            <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                                                            <Setter Property="Canvas.Top" Value="0"/>
+                                                        </Style>
+                                                    </ItemsControl.ItemContainerStyle>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Rectangle Width="0.5" Height="68" Fill="#F0F0F0"
+                                                           StrokeDashArray="4,4"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!-- 时间范围文字（条块上方） -->
+                                                <TextBlock Canvas.Left="{Binding BarLeft}" Canvas.Top="6"
+                                               Text="{Binding TimeRangeText}"
+                                               FontSize="9" FontFamily="Consolas"
+                                               Visibility="{Binding TimeRangeText, Converter={StaticResource StringToVisibilityConverter}}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#BDBDBD"/>
+                                                            <Setter Property="Foreground" Value="#a1a1aa"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#A5D6A7"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsExecuting}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#90CAF9"/>
+                                                                    <Setter Property="Foreground" Value="#86efac"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#EF9A9A"/>
+                                                                    <Setter Property="Foreground" Value="#fca5a5"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
 
-                                                <!-- 左刻度线 -->
-                                                <Rectangle Canvas.Left="{Binding BarLeft}" Canvas.Top="16" Width="0.5" Height="24"
-                                                   Visibility="{Binding StartTimeText, Converter={StaticResource StringToVisibilityConverter}}">
-                                                    <Rectangle.Style>
-                                                        <Style TargetType="Rectangle">
-                                                            <Setter Property="Fill" Value="#E8E8E8"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="Fill" Value="#C8E6C9"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsExecuting}" Value="True">
-                                                                    <Setter Property="Fill" Value="#BBDEFB"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                    <Setter Property="Fill" Value="#FFCDD2"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Rectangle.Style>
-                                                </Rectangle>
-
-                                                <!-- 右刻度线 -->
-                                                <Rectangle Canvas.Left="{Binding BarRight}" Canvas.Top="16" Width="0.5" Height="24"
-                                                   Visibility="{Binding EndTimeText, Converter={StaticResource StringToVisibilityConverter}}">
-                                                    <Rectangle.Style>
-                                                        <Style TargetType="Rectangle">
-                                                            <Setter Property="Fill" Value="#E8E8E8"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="Fill" Value="#C8E6C9"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                    <Setter Property="Fill" Value="#FFCDD2"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Rectangle.Style>
-                                                </Rectangle>
-
-                                                <!-- 条块（18px 高，更精致） -->
-                                                <Border Canvas.Top="19" Canvas.Left="{Binding BarLeft}"
-                                                Width="{Binding BarWidth}" Height="18" CornerRadius="4">
+                                                <!-- ★ 条块（使用设备颜色而非状态颜色） -->
+                                                <Border Canvas.Top="22" Canvas.Left="{Binding BarLeft}"
+                                            Width="{Binding BarWidth}" Height="24" CornerRadius="4"
+                                            Background="{Binding DeviceColor}">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="Opacity" Value="0.88"/>
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="Background" Value="#66BB6A"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsExecuting}" Value="True">
-                                                                    <Setter Property="Background" Value="#42A5F5"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                    <Setter Property="Background" Value="#EF5350"/>
-                                                                </DataTrigger>
+                                                                <!-- 空闲状态半透明 -->
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding IsCompleted}" Value="False"/>
+                                                                        <Condition Binding="{Binding IsExecuting}" Value="False"/>
+                                                                        <Condition Binding="{Binding IsFailed}" Value="False"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Opacity" Value="0.15"/>
+                                                                </MultiDataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>
-                                                    <TextBlock Text="{Binding NodeName}" FontSize="10" Foreground="White"
-                                                       VerticalAlignment="Center" Margin="6,0,6,0"
-                                                       TextTrimming="CharacterEllipsis">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding IsExecuting}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
+
+                                                    <!-- 条块内耗时文字 -->
+                                                    <TextBlock Text="{Binding DurationText}" FontSize="11" Foreground="White"
+           VerticalAlignment="Center" Margin="8,0,6,0"
+           FontWeight="Medium" FontFamily="Consolas"
+           Opacity="0.95"
+           Visibility="{Binding DurationText, Converter={StaticResource StringToVisibilityConverter}}"/>
                                                 </Border>
 
-                                                <!-- 耗时（条块下方） -->
-                                                <TextBlock Canvas.Top="39" Canvas.Left="{Binding BarLeft}"
-                                                   FontSize="8" Text="{Binding DurationText}"
-                                                   Visibility="{Binding DurationText, Converter={StaticResource StringToVisibilityConverter}}">
+                                                <!-- 耗时文字（条块右侧） -->
+                                                <TextBlock Canvas.Top="26" Canvas.Left="{Binding EndTimeLabelLeft}"
+                                               Text="{Binding DurationText}" FontSize="10"
+                                               FontFamily="Consolas"
+                                               Visibility="{Binding DurationText, Converter={StaticResource StringToVisibilityConverter}}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#BDBDBD"/>
+                                                            <Setter Property="Foreground" Value="#a1a1aa"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#81C784"/>
+                                                                    <Setter Property="Foreground" Value="#6ee7b7"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#E57373"/>
+                                                                    <Setter Property="Foreground" Value="#fca5a5"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
 
-                                                <!-- 未执行 -->
-                                                <TextBlock Canvas.Left="8" Canvas.Top="18" Text="—" FontSize="9" Foreground="#E0E0E0">
+                                                <!-- 未执行占位符 -->
+                                                <TextBlock Canvas.Left="12" Canvas.Top="26" Text="—" 
+                                               FontSize="11" Foreground="#E0E0E0">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -1194,6 +1267,33 @@
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
+
+                                                <!-- ★ 当前时间红线（贯穿每行） -->
+                                                <Rectangle Canvas.Left="{Binding DataContext.CurrentTimeLineX,
+                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                               Width="1.5" Height="68" Fill="#ef4444" Opacity="0.5"
+                                               Visibility="{Binding DataContext.IsCurrentTimeLineVisible,
+                                               RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                                <!-- 红线圆点（仅第一行显示） -->
+                                                <Ellipse Canvas.Left="{Binding DataContext.CurrentTimeLineX,
+                                             RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                             Canvas.Top="0" Width="7" Height="7" Fill="#ef4444" Margin="-3,0,0,0"
+                                             Visibility="{Binding DataContext.IsCurrentTimeLineVisible,
+                                             RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                             Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding RowIndex}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
                                             </Canvas>
                                         </Grid>
                                     </Border>
@@ -1202,31 +1302,35 @@
                         </ItemsControl>
                     </ScrollViewer>
 
-                    <!-- ══ 底栏（单行紧凑） ══ -->
-                    <Border Grid.Row="3" Padding="12,5"
-                    BorderBrush="#EBEBEB" BorderThickness="0,1,0,0">
+                    <!-- ══════ 底栏 ══════ -->
+                    <Border Grid.Row="3" Padding="14,6" BorderBrush="#EBEBEB" BorderThickness="0,1,0,0"
+                Background="#F8F9FB">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock FontSize="10" Foreground="#BDBDBD" VerticalAlignment="Center" Text="开始" Margin="0,0,4,0"/>
-                            <TextBlock FontSize="10" Foreground="#616161" FontFamily="Consolas" VerticalAlignment="Center"
-                               Text="{Binding FlowStartTimeText}" Margin="0,0,14,0"/>
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="开始" Margin="0,0,4,0"/>
+                            <TextBlock FontSize="11" Foreground="#1a1a2e" FontFamily="Consolas" FontWeight="Medium"
+                           VerticalAlignment="Center" Text="{Binding FlowStartTimeText}" Margin="0,0,16,0"/>
 
-                            <TextBlock FontSize="10" Foreground="#BDBDBD" VerticalAlignment="Center" Text="结束" Margin="0,0,4,0"/>
-                            <TextBlock FontSize="10" Foreground="#616161" FontFamily="Consolas" VerticalAlignment="Center"
-                               Text="{Binding FlowEndTimeText}" Margin="0,0,14,0"/>
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="结束" Margin="0,0,4,0"/>
+                            <TextBlock FontSize="11" Foreground="#1a1a2e" FontFamily="Consolas" FontWeight="Medium"
+                           VerticalAlignment="Center" Text="{Binding FlowEndTimeText}" Margin="0,0,16,0"/>
 
-                            <TextBlock FontSize="10" Foreground="#BDBDBD" VerticalAlignment="Center" Text="耗时" Margin="0,0,4,0"/>
-                            <TextBlock FontSize="10" Foreground="#616161" FontWeight="Medium" VerticalAlignment="Center"
-                               Text="{Binding FlowElapsedText}" Margin="0,0,20,0"/>
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="耗时" Margin="0,0,4,0"/>
+                            <TextBlock FontSize="11" Foreground="#1a1a2e" FontWeight="Medium" VerticalAlignment="Center"
+                           Text="{Binding FlowElapsedText}" Margin="0,0,20,0"/>
 
-                            <Rectangle Width="1" Height="14" Fill="#E8E8E8" Margin="0,0,12,0"/>
+                            <Rectangle Width="1" Height="14" Fill="#E8E8E8" Margin="0,0,14,0"/>
 
-                            <!-- 进度 -->
-                            <TextBlock FontSize="10" Foreground="#BDBDBD" VerticalAlignment="Center" Margin="0,0,6,0"
-                               Text="{Binding ProgressText}"/>
-                            <Border Height="3" Width="80" CornerRadius="1.5" Background="#EBEBEB" VerticalAlignment="Center">
-                                <Border Height="3" CornerRadius="1.5" Background="#66BB6A"
-                                HorizontalAlignment="Left" Width="{Binding ProgressBarWidth}"/>
+                            <!-- 进度条 -->
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Text="{Binding ProgressText}"/>
+                            <Border Height="5" Width="100" CornerRadius="2.5" Background="#EBEBEB" VerticalAlignment="Center">
+                                <Border Height="5" CornerRadius="2.5" Background="#10b981"
+                            HorizontalAlignment="Left" Width="{Binding ProgressBarWidth}"/>
                             </Border>
+                            <TextBlock FontSize="11" Foreground="#1a1a2e" FontWeight="Medium" VerticalAlignment="Center"
+                           Margin="8,0,0,0">
+                    <Run Text="{Binding CompletedCount, Mode=OneWay}"/>/<Run Text="{Binding SwimlaneRows.Count, Mode=OneWay}"/>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>

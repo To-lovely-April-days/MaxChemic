@@ -1,5 +1,6 @@
-﻿// Models/SwimlaneRow.cs
+﻿// Models/SwimlaneRow.cs — 改造版：支持设备颜色 + 真实时间轴
 using System;
+using System.Windows.Media;
 using Prism.Mvvm;
 
 namespace MaxChemical.Modules.Designer.Models
@@ -10,6 +11,31 @@ namespace MaxChemical.Modules.Designer.Models
         public string NodeName { get; set; }
         public string NodeType { get; set; } = "设备命令";
 
+        // ════ 新增：设备信息（用于按设备着色） ════
+        private string _deviceName = "";
+        public string DeviceName
+        {
+            get => _deviceName;
+            set => SetProperty(ref _deviceName, value);
+        }
+
+        private Brush _deviceColor;
+        /// <summary>条块颜色 — 由设备类型决定，而非执行状态</summary>
+        public Brush DeviceColor
+        {
+            get => _deviceColor;
+            set => SetProperty(ref _deviceColor, value);
+        }
+
+        private Brush _deviceDotColor;
+        /// <summary>图例圆点颜色（部分设备有红点标记）</summary>
+        public Brush DeviceDotColor
+        {
+            get => _deviceDotColor;
+            set => SetProperty(ref _deviceDotColor, value);
+        }
+
+        // ════ 行号 ════
         private int _rowIndex;
         public int RowIndex
         {
@@ -18,6 +44,7 @@ namespace MaxChemical.Modules.Designer.Models
         }
         public string RowIndexDisplay => (RowIndex + 1).ToString();
 
+        // ════ 执行状态 ════
         private bool _isExecuting;
         public bool IsExecuting
         {
@@ -39,10 +66,7 @@ namespace MaxChemical.Modules.Designer.Models
             set => SetProperty(ref _isFailed, value);
         }
 
-        // ════════════════════════════════════════════
-        // 时间文字（精确到毫秒 HH:mm:ss.fff）
-        // ════════════════════════════════════════════
-
+        // ════ 时间文字 ════
         private string _startTimeText = "";
         public string StartTimeText
         {
@@ -64,11 +88,6 @@ namespace MaxChemical.Modules.Designer.Models
             set => SetProperty(ref _durationText, value);
         }
 
-        /// <summary>
-        /// 合并的时间范围文字，显示在条块上方。
-        /// 格式: "13:41:07.699 → 13:41:07.865 · 166ms"
-        /// 由 ViewModel 在设置时间时一并计算。
-        /// </summary>
         private string _timeRangeText = "";
         public string TimeRangeText
         {
@@ -76,10 +95,7 @@ namespace MaxChemical.Modules.Designer.Models
             set => SetProperty(ref _timeRangeText, value);
         }
 
-        // ════════════════════════════════════════════
-        // 条块位置
-        // ════════════════════════════════════════════
-
+        // ════ 条块位置 ════
         private double _barLeft;
         public double BarLeft
         {
@@ -106,18 +122,36 @@ namespace MaxChemical.Modules.Designer.Models
             }
         }
 
-        /// <summary>条块右边缘 X</summary>
         public double BarRight => BarLeft + BarWidth;
-
-        /// <summary>结束时间标签位置 = 右端 + 4px</summary>
         public double EndTimeLabelLeft => BarLeft + BarWidth + 4;
-
-        /// <summary>条块宽度 < 120px 时为窄条块，合并显示时间</summary>
         public bool IsNarrowBar => BarWidth < 120;
-
-        /// <summary>条块宽度 >= 120px 时为宽条块，左右分开显示时间</summary>
         public bool IsWideBar => BarWidth >= 120;
 
         public const double PixelsPerSecond = 52.0;
+    }
+
+    // ════════════════════════════════════════════
+    // 时间轴刻度模型
+    // ════════════════════════════════════════════
+    public class TimelineTick : BindableBase
+    {
+        private double _x;
+        public double X
+        {
+            get => _x;
+            set => SetProperty(ref _x, value);
+        }
+
+        public string AbsoluteTimeText { get; set; }
+        public string RelativeTimeText { get; set; }
+    }
+
+    // ════════════════════════════════════════════
+    // 设备图例项
+    // ════════════════════════════════════════════
+    public class DeviceLegendItem : BindableBase
+    {
+        public string DeviceName { get; set; }
+        public Brush BarColor { get; set; }
     }
 }

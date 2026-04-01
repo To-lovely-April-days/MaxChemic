@@ -76,13 +76,24 @@ namespace MaxChemical.Modules.Designer.Service.Execution
         {
             try
             {
+                var oldStatus = _nodeStatuses.GetValueOrDefault(nodeId, NodeExecutionStatus.Idle);
+                _nodeStatuses.AddOrUpdate(nodeId, NodeExecutionStatus.Executing, (key, old) => NodeExecutionStatus.Executing);
+
                 Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     var node = FindNodeById(nodeId);
                     if (node != null)
                     {
                         node.StartExecution();
-                        SetNodeExecutionStatus(nodeId, NodeExecutionStatus.Executing);
+                        node.ExecutionStatus = NodeExecutionStatus.Executing;
+
+                        NodeExecutionStatusChanged?.Invoke(this, new NodeExecutionStatusChangedEventArgs
+                        {
+                            NodeId = nodeId,
+                            OldStatus = oldStatus,
+                            NewStatus = NodeExecutionStatus.Executing,
+                            Node = node
+                        });
                     }
                 }), System.Windows.Threading.DispatcherPriority.Normal);
 
@@ -98,14 +109,25 @@ namespace MaxChemical.Modules.Designer.Service.Execution
         {
             try
             {
+                var status = isSuccessful ? NodeExecutionStatus.Completed : NodeExecutionStatus.Failed;
+                var oldStatus = _nodeStatuses.GetValueOrDefault(nodeId, NodeExecutionStatus.Executing);
+                _nodeStatuses.AddOrUpdate(nodeId, status, (key, old) => status);
+
                 Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     var node = FindNodeById(nodeId);
                     if (node != null)
                     {
-                        node.CompleteExecution(isSuccessful, errorMessage);  // ← 传递 errorMessage
-                        var status = isSuccessful ? NodeExecutionStatus.Completed : NodeExecutionStatus.Failed;
-                        SetNodeExecutionStatus(nodeId, status);
+                        node.CompleteExecution(isSuccessful, errorMessage);
+                        node.ExecutionStatus = status;
+
+                        NodeExecutionStatusChanged?.Invoke(this, new NodeExecutionStatusChangedEventArgs
+                        {
+                            NodeId = nodeId,
+                            OldStatus = oldStatus,
+                            NewStatus = status,
+                            Node = node
+                        });
                     }
                 }), System.Windows.Threading.DispatcherPriority.Normal);
 
@@ -172,6 +194,8 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                             ResetNodeAndChildren(node);
                         }
                     }
+                    // ★ 新增：通知 ViewModel 流程已重置
+                    _currentFlowViewModel?.ResetFlowStartTime();
                 }), System.Windows.Threading.DispatcherPriority.Normal);
 
                 _logger.LogDebug("已重置所有节点执行状态");

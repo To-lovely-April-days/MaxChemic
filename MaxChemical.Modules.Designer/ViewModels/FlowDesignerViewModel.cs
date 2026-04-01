@@ -125,6 +125,52 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 return (double)CompletedCount / SwimlaneRows.Count * 120; // 120 = MinWidth
             }
         }
+        #region 泳道图新增属性
+
+        /// <summary>时间轴刻度集合</summary>
+        public ObservableCollection<TimelineTick> TimelineTicks { get; private set; }
+            = new ObservableCollection<TimelineTick>();
+
+        /// <summary>设备图例集合</summary>
+        public ObservableCollection<DeviceLegendItem> DeviceLegends { get; private set; }
+            = new ObservableCollection<DeviceLegendItem>();
+
+        /// <summary>当前时间红线的 X 位置（像素）</summary>
+        private double _currentTimeLineX;
+        public double CurrentTimeLineX
+        {
+            get => _currentTimeLineX;
+            set => SetProperty(ref _currentTimeLineX, value);
+        }
+
+        /// <summary>当前时间红线上方显示的时间文字</summary>
+        private string _currentTimeText = "";
+        public string CurrentTimeText
+        {
+            get => _currentTimeText;
+            set => SetProperty(ref _currentTimeText, value);
+        }
+
+        /// <summary>当前时间线是否可见</summary>
+        private bool _isCurrentTimeLineVisible;
+        public bool IsCurrentTimeLineVisible
+        {
+            get => _isCurrentTimeLineVisible;
+            set => SetProperty(ref _isCurrentTimeLineVisible, value);
+        }
+
+        /// <summary>时间轴总宽度（像素），用于 Canvas.Width 绑定</summary>
+        private double _timelineCanvasWidth = 600;
+        public double TimelineCanvasWidth
+        {
+            get => _timelineCanvasWidth;
+            set => SetProperty(ref _timelineCanvasWidth, value);
+        }
+
+        /// <summary>定时器：每秒刷新当前时间线位置</summary>
+        private DispatcherTimer _timelineRefreshTimer;
+
+        #endregion
         public FlowDesignerViewModel(
        IDeviceManager deviceManager,
        IEventAggregator eventAggregator,
@@ -155,9 +201,17 @@ namespace MaxChemical.Modules.Designer.ViewModels
             // 订阅节点执行状态变化
             if (_statusService != null)               // ← 加 null 检查
                 _statusService.NodeExecutionStatusChanged += OnNodeExecutionStatusChanged;
+            InitializeTimelineTimer();
             _logger.LogInformation("FlowDesignerViewModel 初始化完成");
         }
-
+        private void InitializeTimelineTimer()
+        {
+            _timelineRefreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _timelineRefreshTimer.Tick += (s, e) => RefreshCurrentTimeLine();
+        }
         #region 属性
 
         public double CanvasWidth
@@ -223,15 +277,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 switch (e.NewStatus)
                 {
                     case CommandNode.NodeExecutionStatus.Executing:
-                        //   修复：如果所有行都不在执行状态，说明这是新一轮流程开始
-                        //   需要重置 FlowStartTime 和所有行的状态
-                        bool isNewFlowRun = !SwimlaneRows.Any(r => r.IsExecuting);
-                        if (isNewFlowRun)
+                        //// 检测是否为新一轮流程
+                        if (FlowStartTime == null)
                         {
-                            // 重置 FlowStartTime 为当前时间
                             FlowStartTime = DateTime.Now;
-
-                            // 重置所有行的状态和位置
                             foreach (var r in SwimlaneRows)
                             {
                                 r.IsExecuting = false;
@@ -242,7 +291,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
                                 r.StartTimeText = "";
                                 r.EndTimeText = "";
                                 r.DurationText = "";
+                                r.TimeRangeText = "";
                             }
+
+                            // 启动时间轴刷新
+                            RefreshTimelineTicks();
+                            _timelineRefreshTimer?.Start();
+                            IsCurrentTimeLineVisible = true;
                         }
 
                         var node = e.Node;
@@ -275,6 +330,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         }
                         row.IsExecuting = false;
                         row.IsCompleted = true;
+
+                        // 更新时间轴宽度
+                        RefreshTimelineTicks();
                         break;
 
                     case CommandNode.NodeExecutionStatus.Failed:
@@ -313,17 +371,140 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         row.TimeRangeText = "";
                         break;
                 }
-                RaisePropertyChanged(nameof(CompletedCount));
-                RaisePropertyChanged(nameof(ExecutingCount));
-                RaisePropertyChanged(nameof(FailedCount));
-                RaisePropertyChanged(nameof(IdleCount));
-                RaisePropertyChanged(nameof(ProgressText));
-                RaisePropertyChanged(nameof(ProgressBarWidth));
-                RaisePropertyChanged(nameof(FlowStartTimeText));
-                RaisePropertyChanged(nameof(FlowEndTimeText));
-                RaisePropertyChanged(nameof(FlowElapsedText));
-            }));
 
+                // 检查是否所有步骤都已完成
+                bool allDone = SwimlaneRows.All(r => r.IsCompleted || r.IsFailed) && SwimlaneRows.Any();
+                if (allDone)
+                {
+                    _timelineRefreshTimer?.Stop();
+                }
+
+                RaiseAllSwimlaneCountProperties();
+            }));
+        }
+        /// <summary>
+        /// 流程重置时调用，清空 FlowStartTime，下次执行从当前时间开始
+        /// </summary>
+        public void ResetFlowStartTime()
+        {
+            FlowStartTime = null;
+            _timelineRefreshTimer?.Stop();
+            IsCurrentTimeLineVisible = false;
+            TimelineTicks.Clear();               // ← 加这行
+          
+        }
+        private void RefreshTimelineTicks()
+        {
+            if (FlowStartTime == null) return;
+
+            TimelineTicks.Clear();
+
+            // 计算总时长
+            double maxEndSec = 30; // 最少显示30秒
+            foreach (var row in SwimlaneRows)
+            {
+                if (row.BarLeft + row.BarWidth > 0)
+                {
+                    double endSec = (row.BarLeft + row.BarWidth) / SwimlaneRow.PixelsPerSecond;
+                    maxEndSec = Math.Max(maxEndSec, endSec);
+                }
+            }
+
+            // 当前时间偏移
+            var nowOffsetSec = (DateTime.Now - FlowStartTime.Value).TotalSeconds;
+            maxEndSec = Math.Max(maxEndSec, nowOffsetSec + 5);
+
+            // 自动选择刻度间隔
+            double tickInterval = ChooseTickInterval(maxEndSec);
+
+            for (double t = 0; t <= maxEndSec + tickInterval; t += tickInterval)
+            {
+                var absTime = FlowStartTime.Value.AddSeconds(t);
+                var relSpan = TimeSpan.FromSeconds(t);
+
+                TimelineTicks.Add(new TimelineTick
+                {
+                    X = t * SwimlaneRow.PixelsPerSecond,
+                    AbsoluteTimeText = absTime.ToString("HH:mm:ss"),
+                    RelativeTimeText = relSpan.TotalMinutes < 1
+                        ? $"{relSpan.TotalSeconds:F0}s"
+                        : relSpan.ToString(@"mm\:ss")
+                });
+            }
+
+            // 更新时间轴总宽度
+            TimelineCanvasWidth = Math.Max(600, (maxEndSec + tickInterval) * SwimlaneRow.PixelsPerSecond);
+        }
+        /// <summary>
+        /// 根据总时长自动选择合适的刻度间隔
+        /// </summary>
+        private double ChooseTickInterval(double totalSeconds)
+        {
+            if (totalSeconds <= 10) return 2;
+            if (totalSeconds <= 30) return 5;
+            if (totalSeconds <= 60) return 10;
+            if (totalSeconds <= 120) return 15;
+            if (totalSeconds <= 300) return 30;
+            if (totalSeconds <= 600) return 60;
+            if (totalSeconds <= 1800) return 300;  // 5分钟
+            return 600; // 10分钟
+        }
+        // ──────────────────────────────────────────────
+        // [新增] 刷新当前时间红线位置（每秒调用）
+        // ──────────────────────────────────────────────
+        private void RefreshCurrentTimeLine()
+        {
+            if (FlowStartTime == null)
+            {
+                IsCurrentTimeLineVisible = false;
+                return;
+            }
+
+            var nowOffset = (DateTime.Now - FlowStartTime.Value).TotalSeconds;
+            CurrentTimeLineX = nowOffset * SwimlaneRow.PixelsPerSecond;
+            CurrentTimeText = DateTime.Now.ToString("HH:mm:ss");
+            IsCurrentTimeLineVisible = true;
+
+            // 同步刷新执行中条块的宽度（动态增长效果）
+            foreach (var row in SwimlaneRows)
+            {
+                if (row.IsExecuting)
+                {
+                    var node = CommandNodes.FirstOrDefault(n => n.NodeId == row.NodeId);
+                    if (node?.ExecutionStartTime != null)
+                    {
+                        var elapsed = (DateTime.Now - node.ExecutionStartTime.Value).TotalSeconds;
+                        row.BarWidth = Math.Max(6, elapsed * SwimlaneRow.PixelsPerSecond);
+                    }
+                }
+            }
+
+            // 检查是否需要扩展时间轴
+            if (CurrentTimeLineX > TimelineCanvasWidth - 100)
+            {
+                RefreshTimelineTicks();
+            }
+
+            // 刷新底栏耗时
+            RaisePropertyChanged(nameof(FlowElapsedText));
+            RaisePropertyChanged(nameof(FlowEndTimeText));
+        }
+
+
+        // ──────────────────────────────────────────────
+        // [新增] 辅助方法：统一刷新所有泳道统计属性
+        // ──────────────────────────────────────────────
+        private void RaiseAllSwimlaneCountProperties()
+        {
+            RaisePropertyChanged(nameof(CompletedCount));
+            RaisePropertyChanged(nameof(ExecutingCount));
+            RaisePropertyChanged(nameof(FailedCount));
+            RaisePropertyChanged(nameof(IdleCount));
+            RaisePropertyChanged(nameof(ProgressText));
+            RaisePropertyChanged(nameof(ProgressBarWidth));
+            RaisePropertyChanged(nameof(FlowStartTimeText));
+            RaisePropertyChanged(nameof(FlowEndTimeText));
+            RaisePropertyChanged(nameof(FlowElapsedText));
         }
         #region 初始化方法
 
@@ -2359,31 +2540,59 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
             {
-                // 重置流程开始时间
                 FlowStartTime = null;
+                _timelineRefreshTimer?.Stop();       // ← 加这行
+                IsCurrentTimeLineVisible = false;    // ← 加这行
                 SwimlaneRows.Clear();
+                DeviceLegends.Clear();
+                TimelineTicks.Clear();           // ← 加这行
+            
+                var deviceSet = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 int i = 0;
+
                 foreach (var node in CommandNodes)
                 {
-                    SwimlaneRows.Add(new SwimlaneRow
+                    // 确定设备名称
+                    string deviceName = "";
+                    if (node.IsDeviceCommand && node.DeviceCommand != null)
+                    {
+                        // 优先用绑定的设备名，没绑定则用命令名推断
+                        deviceName = !string.IsNullOrEmpty(node.BoundDeviceName)
+                            ? node.BoundDeviceName
+                            : (node.DeviceCommand.Name ?? "");
+                    }
+                    else
+                    {
+                        deviceName = node.CommandType; // 逻辑命令用类型名
+                    }
+
+                    var row = new SwimlaneRow
                     {
                         NodeId = node.NodeId,
                         NodeName = node.DisplayName,
                         NodeType = node.IsDeviceCommand ? "设备命令" : node.CommandType,
+                        DeviceName = deviceName,
+                        DeviceColor = DeviceColorService.GetDeviceColor(deviceName),
                         RowIndex = i++
-                    });
-                }
-                RaisePropertyChanged(nameof(CompletedCount));
-                RaisePropertyChanged(nameof(ExecutingCount));
-                RaisePropertyChanged(nameof(FailedCount));
-                RaisePropertyChanged(nameof(IdleCount));
-                RaisePropertyChanged(nameof(ProgressText));
-                RaisePropertyChanged(nameof(ProgressBarWidth));
-                RaisePropertyChanged(nameof(FlowStartTimeText));
-                RaisePropertyChanged(nameof(FlowEndTimeText));
-                RaisePropertyChanged(nameof(FlowElapsedText));
-            }));
+                    };
 
+                    SwimlaneRows.Add(row);
+
+                    // 收集设备（用于图例）
+                    if (!string.IsNullOrEmpty(deviceName) && !deviceSet.Contains(deviceName))
+                    {
+                        deviceSet.Add(deviceName);
+                        DeviceLegends.Add(new DeviceLegendItem
+                        {
+                            DeviceName = deviceName,
+                            BarColor = DeviceColorService.GetDeviceColor(deviceName)
+                        });
+                    }
+                }
+
+                // 刷新统计
+                RaiseAllSwimlaneCountProperties();
+            }));
         }
         public void AddCommandToCanvas(LogicCommand logicCommand)
         {
