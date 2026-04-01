@@ -286,39 +286,7 @@
                     </Border>
                 </UniformGrid>
 
-                <!-- 4. Desirability -->
-                <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,0,12">
-                    <StackPanel>
-                        <Border Background="#FFF8E1" Padding="14,8" BorderBrush="#FFE082" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="多响应 Desirability 优化" FontSize="12" FontWeight="SemiBold" Foreground="#F57F17"/>
-                                <Button Content="运行优化" Command="{Binding RunDesirabilityCommand}" Padding="8,2" Margin="16,0,0,0" FontSize="11" Background="#FFF3E0" BorderBrush="#FFB74D" Cursor="Hand"/>
-                            </StackPanel>
-                        </Border>
-                        <StackPanel Margin="14,12">
-                            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#E65100" Margin="0,0,0,8">
-                                <TextBlock.Text>
-                                    <Binding Path="DesirabilityResult.CompositeD" StringFormat="综合 Desirability D = {0:F4}" FallbackValue="综合 Desirability D = —"/>
-                                </TextBlock.Text></TextBlock>
-                            <ItemsControl ItemsSource="{Binding DesirabilityResult.IndividualD}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                                            <TextBlock Text="{Binding ResponseName}" Width="100" FontSize="12" Foreground="#555"/>
-                                            <TextBlock Text="{Binding PredictedValue, StringFormat=预测: {0:F2}}" Width="100" FontSize="12"/>
-                                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#E65100">
-                                                <TextBlock.Text>
-                                                    <Binding Path="D" StringFormat="d = {0:F4}"/>
-                                                </TextBlock.Text></TextBlock>
-                                            <TextBlock Text="{Binding Goal}" FontSize="11" Foreground="#999" Margin="8,0,0,0"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="提示：在设计向导 Step4 中配置各响应的优化目标（最大化/最小化/达标）和权重" FontSize="10" Foreground="#999" Margin="0,8,0,0"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
+             
 
                 <!-- 5. 响应曲面 -->
                 <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1">
@@ -542,6 +510,39 @@
                                     <DataGridTextColumn Header="VIF" Binding="{Binding VIF, StringFormat={}{0:F2}}" Width="70"/>
                                 </DataGrid.Columns>
                             </DataGrid>
+                        </StackPanel>
+                    </Border>
+                    <!-- 4. Desirability -->
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Border Background="#FFF8E1" Padding="14,8" BorderBrush="#FFE082" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="多响应 Desirability 优化" FontSize="12" FontWeight="SemiBold" Foreground="#F57F17"/>
+                                    <Button Content="运行优化" Command="{Binding RunDesirabilityCommand}" Padding="8,2" Margin="16,0,0,0" FontSize="11" Background="#FFF3E0" BorderBrush="#FFB74D" Cursor="Hand"/>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Margin="14,12">
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#E65100" Margin="0,0,0,8">
+                                    <TextBlock.Text>
+                                        <Binding Path="DesirabilityResult.CompositeD" StringFormat="综合 Desirability D = {0:F4}" FallbackValue="综合 Desirability D = —"/>
+                                    </TextBlock.Text></TextBlock>
+                                <ItemsControl ItemsSource="{Binding DesirabilityResult.IndividualD}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                                <TextBlock Text="{Binding ResponseName}" Width="100" FontSize="12" Foreground="#555"/>
+                                                <TextBlock Text="{Binding PredictedValue, StringFormat=预测: {0:F2}}" Width="100" FontSize="12"/>
+                                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#E65100">
+                                                    <TextBlock.Text>
+                                                        <Binding Path="D" StringFormat="d = {0:F4}"/>
+                                                    </TextBlock.Text></TextBlock>
+                                                <TextBlock Text="{Binding Goal}" FontSize="11" Foreground="#999" Margin="8,0,0,0"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="提示：在设计向导 Step4 中配置各响应的优化目标（最大化/最小化/达标）和权重" FontSize="10" Foreground="#999" Margin="0,8,0,0"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
