@@ -67,6 +67,7 @@ namespace MaxChemical.Modules.Designer.Services
                     using (Py.GIL())
                     {
                         dynamic sys = Py.Import("sys");
+
                         sys.path.append(@".\");
                     }
 

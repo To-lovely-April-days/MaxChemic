@@ -105,6 +105,30 @@ namespace MaxChemical.Modules.DOE.Data
         Task<List<GPRModelState>> GetAllGPRModelsAsync();
 
         Task<GPRModelState?> GetGPRModelByIdAsync(int modelId);
+
+        // ── ★ 新增: Desirability 配置持久化 ──
+
+        /// <summary>
+        /// ★ 新增: 保存 Desirability 配置 JSON
+        /// </summary>
+        /// <param name="batchId">批次 ID</param>
+        /// <param name="configJson">配置 JSON 字符串</param>
+        Task SaveDesirabilityConfigAsync(string batchId, string configJson);
+
+        /// <summary>
+        /// ★ 新增: 获取 Desirability 配置 JSON
+        /// </summary>
+        Task<string?> GetDesirabilityConfigJsonAsync(string batchId);
+
+        /// <summary>
+        /// ★ 新增: 保存 OLS 分析结果 JSON
+        /// </summary>
+        Task SaveOlsResultAsync(string batchId, string responseName, string resultJson);
+
+        /// <summary>
+        /// ★ 新增: 获取 OLS 分析结果 JSON
+        /// </summary>
+        Task<string?> GetOlsResultJsonAsync(string batchId, string responseName);
     }
 
     /// <summary>

@@ -72,7 +72,8 @@ namespace DevicePlugins.Simulated
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetTemperature", -50, 300, 25.0, "目标温度(℃)")
+                        new NumberParameter("TargetTemperature", -50, 300, 25.0, "目标温度(℃)"),
+                        new NumberParameter("WaitTime", 1, 10,1, "等待时间")
                     }
                 },
                 OutputParameters = new DeviceParameters
@@ -87,10 +88,10 @@ namespace DevicePlugins.Simulated
                 Action = WrapAction("设置温度", async delegate (DeviceParameters parameters)
                 {
                     double targetTemp = parameters.GetValue<double>("TargetTemperature");
-
+                    double waitTime = parameters.GetValue<double>("WaitTime");
                     // 模拟硬件通信延迟
                     await Task.Delay(new Random().Next(200, 500));
-                    await Task.Delay(5000);
+                    await Task.Delay((int)waitTime*1000);
 
                     lock (_stateLock)
                     {

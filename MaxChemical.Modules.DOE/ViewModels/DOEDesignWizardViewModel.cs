@@ -48,7 +48,16 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private DOEDesignMethod _selectedMethod = DOEDesignMethod.FullFactorial;
         private string _taguchiTableType = "auto";
         private int _fractionalResolution = 3;
-
+        // ★ 新增: CCD 配置
+        private string _ccdAlphaType = "rotatable";
+        private int _ccdCenterCount = -1;
+        // ★ 新增: BBD 配置
+        private int _bbdCenterCount = -1;
+        // ★ 新增: D-Optimal 配置
+        private int _dOptimalRunCount = -1;
+        private string _dOptimalModelType = "quadratic";
+        // ★ 新增: 设计质量
+        private DOEDesignQuality? _designQuality;
         // ── 参数矩阵 (Step3) ──
         private DOEDesignMatrix? _designMatrix;
         private DataTable? _matrixTable;
@@ -90,7 +99,27 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         public string BatchName { get => _batchName; set => SetProperty(ref _batchName, value); }
+        // ★ 新增: CCD 属性
+        public string CcdAlphaType { get => _ccdAlphaType; set => SetProperty(ref _ccdAlphaType, value); }
+        public int CcdCenterCount { get => _ccdCenterCount; set => SetProperty(ref _ccdCenterCount, value); }
 
+        // ★ 新增: BBD 属性
+        public int BbdCenterCount { get => _bbdCenterCount; set => SetProperty(ref _bbdCenterCount, value); }
+        //
+        // ★ 新增: D-Optimal 属性
+        public int DOptimalRunCount { get => _dOptimalRunCount; set => SetProperty(ref _dOptimalRunCount, value); }
+         public string DOptimalModelType { get => _dOptimalModelType; set => SetProperty(ref _dOptimalModelType, value); }
+        // ★ 新增: 设计质量评估结果
+        public DOEDesignQuality? DesignQuality
+        {
+            get => _designQuality; set => SetProperty(ref _designQuality, value);
+        }
+        // ★ 新增: 设计质量显示属性（供 XAML 绑定）
+        public string QualityDEffText => DesignQuality != null ? $"{DesignQuality.DEfficiency:P1}" : "—";
+        public string QualityAEffText => DesignQuality != null ? $"{DesignQuality.AEfficiency:P1}" : "—";
+        public string QualityGEffText => DesignQuality != null ? $"{DesignQuality.GEfficiency:P1}" : "—";
+        public string QualityDofText => DesignQuality != null ? $"{DesignQuality.DegreesOfFreedom}" : "—";
+        public bool HasDesignQuality => DesignQuality != null;
         // Step1
         public ObservableCollection<FactorViewModel> Factors { get => _factors; set => SetProperty(ref _factors, value); }
         public ObservableCollection<FactorCandidate> AvailableCandidates { get => _availableCandidates; set => SetProperty(ref _availableCandidates, value); }
@@ -221,6 +250,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     break;
 
                 case 2: // 设计方法 → 生成矩阵
+                    // ★ 新增: BBD 因子数校验
+                    if (SelectedMethod == DOEDesignMethod.BoxBehnken && Factors.Count < 3)
+                    {
+                        _dialogService.ShowError("Box-Behnken 设计至少需要 3 个因子", "验证");
+                        return;
+                    }
+                    // ★ 新增: CCD 因子数校验
+                    if (SelectedMethod == DOEDesignMethod.CCD && Factors.Count < 2)
+                    {
+                        _dialogService.ShowError("CCD 设计至少需要 2 个因子", "验证");
+                        return;
+                    }
                     await GenerateMatrixAsync();
                     if (_designMatrix == null || _designMatrix.IsEmpty)
                     {
@@ -285,7 +326,6 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
 
         // ══════════════ Step2+3: 矩阵生成 ══════════════
-
         private async Task GenerateMatrixAsync()
         {
             try
@@ -295,11 +335,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 var factors = Factors.Select(f => f.ToModel()).ToList();
 
+                // ★ 修改: switch 新增 CCD / BoxBehnken / DOptimal 分支
                 _designMatrix = SelectedMethod switch
                 {
                     DOEDesignMethod.FullFactorial => await _designService.GenerateFullFactorialAsync(factors),
                     DOEDesignMethod.FractionalFactorial => await _designService.GenerateFractionalFactorialAsync(factors, FractionalResolution),
                     DOEDesignMethod.Taguchi => await _designService.GenerateTaguchiAsync(factors, TaguchiTableType),
+                    DOEDesignMethod.CCD => await _designService.GenerateCCDAsync(factors, CcdAlphaType, CcdCenterCount),             // ★ 新增
+                    DOEDesignMethod.BoxBehnken => await _designService.GenerateBoxBehnkenAsync(factors, BbdCenterCount),               // ★ 新增
+                    DOEDesignMethod.DOptimal => await _designService.GenerateDOptimalAsync(factors, DOptimalRunCount, DOptimalModelType), // ★ 新增
                     _ => null
                 };
 
@@ -308,6 +352,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     MatrixTable = ConvertMatrixToDataTable(_designMatrix);
                     RaisePropertyChanged(nameof(MatrixRunCount));
                     StatusMessage = $"已生成 {_designMatrix.RunCount} 组实验";
+
+                    // ★ 新增: 自动计算设计质量
+                    await EvaluateDesignQualityAsync(factors);
                 }
             }
             catch (Exception ex)
@@ -322,7 +369,48 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 AddCenterPointsCommand.RaiseCanExecuteChanged();
             }
         }
+        /// <summary>
+        /// ★ 新增: 评估设计质量
+        /// 在生成矩阵后自动调用，结果展示在 Step3 的设计质量面板
+        /// </summary>
+        private async Task EvaluateDesignQualityAsync(List<DOEFactor> factors)
+        {
+            if (_designMatrix == null || _designMatrix.IsEmpty)
+            {
+                DesignQuality = null;
+                return;
+            }
 
+            try
+            {
+                StatusMessage = "正在评估设计质量...";
+
+                // 根据设计方法选择合适的模型类型
+                string modelType = SelectedMethod switch
+                {
+                    DOEDesignMethod.CCD or DOEDesignMethod.BoxBehnken or DOEDesignMethod.DOptimal => "quadratic",
+                    DOEDesignMethod.FractionalFactorial => "linear",
+                    _ => factors.Count <= 4 ? "interaction" : "linear"
+                };
+
+                DesignQuality = await _designService.GetDesignQualityAsync(factors, _designMatrix, modelType);
+
+                // 通知 UI 更新
+                RaisePropertyChanged(nameof(QualityDEffText));
+                RaisePropertyChanged(nameof(QualityAEffText));
+                RaisePropertyChanged(nameof(QualityGEffText));
+                RaisePropertyChanged(nameof(QualityDofText));
+                RaisePropertyChanged(nameof(HasDesignQuality));
+
+                _logger.LogInformation("★ 设计质量评估完成: D-eff={DEff}, DF={DF}",
+                    DesignQuality.DEfficiency, DesignQuality.DegreesOfFreedom);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "设计质量评估失败");
+                DesignQuality = null;
+            }
+        }
         private void RandomizeMatrix()
         {
             if (_designMatrix == null) return;
@@ -431,7 +519,21 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         taguchiTable = TaguchiTableType,
                         fractionalResolution = FractionalResolution,
                         isRandomized = IsRandomized,
-                        centerPointCount = CenterPointCount
+                        centerPointCount = CenterPointCount,
+                        // ★ 新增: RSM 参数
+                        ccdAlphaType = CcdAlphaType,
+                        ccdCenterCount = CcdCenterCount,
+                        bbdCenterCount = BbdCenterCount,
+                        dOptimalRunCount = DOptimalRunCount,
+                        dOptimalModelType = DOptimalModelType,
+                        // ★ 新增: 设计质量快照
+                        designQuality = DesignQuality != null ? new
+                        {
+                            dEfficiency = DesignQuality.DEfficiency,
+                            aEfficiency = DesignQuality.AEfficiency,
+                            gEfficiency = DesignQuality.GEfficiency,
+                            degreesOfFreedom = DesignQuality.DegreesOfFreedom
+                        } : null
                     })
                 };
 
@@ -448,7 +550,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 // 保存停止条件
                 var stopConditions = StopConditions.Select(c => c.ToModel()).ToList();
                 await _repository.SaveStopConditionsAsync(batchId, stopConditions);
-
+                // ★ 新增: 保存 Desirability 配置
+                var desirabilityConfigs = Responses.Select(r => r.ToDesirabilityConfig()).ToList();
+                var configJson = JsonConvert.SerializeObject(desirabilityConfigs);
+                await _repository.SaveDesirabilityConfigAsync(batchId, configJson);
+                _logger.LogInformation("Desirability 配置已保存: {Count} 个响应", desirabilityConfigs.Count);
                 // 保存参数矩阵为 DOE runs (Pending 状态)
                 if (_designMatrix != null)
                 {
@@ -656,15 +762,49 @@ namespace MaxChemical.Modules.DOE.ViewModels
     {
         private string _responseName = "";
         private string _unit = "";
-
+        // ★ 新增: Desirability 配置（Step4 中设置）
+        private DesirabilityGoal _goal = DesirabilityGoal.Maximize;
+        private double _desirabilityLower = 0;
+        private double _desirabilityUpper = 100;
+        private double _desirabilityTarget = 100;
+        private double _desirabilityWeight = 1.0;
+        private int _importance = 3;
         public string ResponseName { get => _responseName; set => SetProperty(ref _responseName, value); }
         public string Unit { get => _unit; set => SetProperty(ref _unit, value); }
-
+        // ★ 新增: Desirability 属性
+        public DesirabilityGoal Goal { get => _goal; set => SetProperty(ref _goal, value); }
+        public double DesirabilityLower { get => _desirabilityLower; set => SetProperty(ref _desirabilityLower, value); }
+        public double DesirabilityUpper { get => _desirabilityUpper; set => SetProperty(ref _desirabilityUpper, value); }
+        public double DesirabilityTarget { get => _desirabilityTarget; set => SetProperty(ref _desirabilityTarget, value); }
+        public double DesirabilityWeight { get => _desirabilityWeight; set => SetProperty(ref _desirabilityWeight, value); }
+        public int Importance { get => _importance; set => SetProperty(ref _importance, value); }
+        /// <summary>
+        /// 目标类型选项（供 ComboBox 绑定）
+        /// </summary>
+        public static List<DesirabilityGoal> GoalOptions => new()
+        {
+            DesirabilityGoal.Maximize,
+            DesirabilityGoal.Minimize,
+            DesirabilityGoal.Target
+        };
         public DOEResponse ToModel() => new()
         {
             ResponseName = ResponseName,
             Unit = Unit,
             CollectionMethod = DOECollectionMethod.Manual
+        };
+        /// <summary>
+        /// ★ 新增: 转为 Desirability 配置
+        /// </summary>
+        public DesirabilityResponseConfig ToDesirabilityConfig() => new()
+        {
+            ResponseName = ResponseName,
+            Goal = Goal,
+            Lower = DesirabilityLower,
+            Upper = DesirabilityUpper,
+            Target = DesirabilityTarget,
+            Weight = DesirabilityWeight,
+            Importance = Importance
         };
     }
 

@@ -183,12 +183,16 @@
                     <TextBlock Style="{StaticResource SectionHeader}" Text="Step 2: 选择设计方法"/>
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
+                            <!-- ── 筛选类设计 ── -->
+                            <TextBlock Text="筛选类设计" FontSize="12" FontWeight="SemiBold" Foreground="#7F8C8D" Margin="0,0,0,8"/>
+
                             <RadioButton Content="全因子设计（Full Factorial）— 所有因子所有水平的完全组合"
-                                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=FullFactorial}"
-                                         Margin="0,0,0,12" FontSize="14"/>
+                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=FullFactorial}"
+                         Margin="0,0,0,12" FontSize="14"/>
+
                             <RadioButton Content="部分因子设计（Fractional Factorial）— 适合因子较多的筛选实验"
-                                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=FractionalFactorial}"
-                                         Margin="0,0,0,8" FontSize="14"/>
+                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=FractionalFactorial}"
+                         Margin="0,0,0,8" FontSize="14"/>
                             <StackPanel Orientation="Horizontal" Margin="24,0,0,12">
                                 <TextBlock Text="分辨度:" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <ComboBox Width="60" SelectedValue="{Binding FractionalResolution}" SelectedValuePath="Content">
@@ -197,10 +201,11 @@
                                     <ComboBoxItem Content="5"/>
                                 </ComboBox>
                             </StackPanel>
+
                             <RadioButton Content="正交设计（Taguchi）— 标准正交表"
-                                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Taguchi}"
-                                         Margin="0,0,0,8" FontSize="14"/>
-                            <StackPanel Orientation="Horizontal" Margin="24,0,0,12">
+                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Taguchi}"
+                         Margin="0,0,0,8" FontSize="14"/>
+                            <StackPanel Orientation="Horizontal" Margin="24,0,0,16">
                                 <TextBlock Text="正交表:" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <ComboBox Width="80" SelectedValue="{Binding TaguchiTableType}" SelectedValuePath="Content">
                                     <ComboBoxItem Content="auto"/>
@@ -212,9 +217,67 @@
                                     <ComboBoxItem Content="L27"/>
                                 </ComboBox>
                             </StackPanel>
-                            <RadioButton Content="自定义（从 Excel 导入参数矩阵）"
-                                         IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Custom}"
-                                         Margin="0,0,0,8" FontSize="14"/>
+
+                            <!-- ── ★ 新增: RSM 优化类设计 ── -->
+                            <Border BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,4,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="RSM 响应面优化设计" FontSize="12" FontWeight="SemiBold" Foreground="#2E86C1" Margin="0,0,0,8"/>
+                                    <TextBlock Text="用于拟合二阶多项式模型，找到最优工艺参数（至少 2 个因子）" 
+                               FontSize="11" Foreground="#999" Margin="0,0,0,12"/>
+
+                                    <!-- ★ CCD -->
+                                    <RadioButton Content="CCD 中心复合设计 — RSM 最常用方法，含角点+轴点+中心点"
+                                 IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CCD}"
+                                 Margin="0,0,0,8" FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal" Margin="24,0,0,12">
+                                        <TextBlock Text="Alpha 类型:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <ComboBox Width="110" SelectedValue="{Binding CcdAlphaType}" SelectedValuePath="Tag">
+                                            <ComboBoxItem Content="可旋转（推荐）" Tag="rotatable"/>
+                                            <ComboBoxItem Content="面心" Tag="face"/>
+                                            <ComboBoxItem Content="正交" Tag="orthogonal"/>
+                                        </ComboBox>
+                                        <TextBlock Text="中心点:" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                                        <TextBox Width="50" Text="{Binding CcdCenterCount, UpdateSourceTrigger=PropertyChanged}" 
+                                 VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="(-1 = 自动)" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#999" FontSize="11"/>
+                                    </StackPanel>
+
+                                    <!-- ★ BBD -->
+                                    <RadioButton Content="Box-Behnken 设计 — 无极端角点，化工安全性更好（≥3 因子）"
+                                 IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=BoxBehnken}"
+                                 Margin="0,0,0,8" FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal" Margin="24,0,0,12">
+                                        <TextBlock Text="中心点:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Width="50" Text="{Binding BbdCenterCount, UpdateSourceTrigger=PropertyChanged}" 
+                                 VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="(-1 = 自动)" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#999" FontSize="11"/>
+                                    </StackPanel>
+
+                                    <!-- ★ D-Optimal -->
+                                    <RadioButton Content="D-Optimal 设计 — 不规则因子空间或需要定制实验次数"
+                                 IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=DOptimal}"
+                                 Margin="0,0,0,8" FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal" Margin="24,0,0,12">
+                                        <TextBlock Text="实验次数:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Width="50" Text="{Binding DOptimalRunCount, UpdateSourceTrigger=PropertyChanged}" 
+                                 VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="(-1 = 自动)" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#999" FontSize="11"/>
+                                        <TextBlock Text="模型:" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                                        <ComboBox Width="100" SelectedValue="{Binding DOptimalModelType}" SelectedValuePath="Tag">
+                                            <ComboBoxItem Content="线性" Tag="linear"/>
+                                            <ComboBoxItem Content="交互" Tag="interaction"/>
+                                            <ComboBoxItem Content="二阶（推荐）" Tag="quadratic"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ── 自定义 ── -->
+                            <Border BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,4,0,0">
+                                <RadioButton Content="自定义（从 Excel 导入参数矩阵）"
+                             IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Custom}"
+                             Margin="0,0,0,8" FontSize="14"/>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -236,6 +299,54 @@
               IsReadOnly="True" MaxHeight="400"
               GridLinesVisibility="All" AlternatingRowBackground="#FAFAFA"
               CanUserSortColumns="True"/>
+                            <!-- ★ 新增: 设计质量评估面板（插入到 Step3 的 DataGrid 下方） -->
+                            <Border Background="#F8FBFF" CornerRadius="8" BorderBrush="#D6E8FC" BorderThickness="1" 
+        Padding="16,12" Margin="0,12,0,0"
+        Visibility="{Binding HasDesignQuality, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="设计质量评估" FontSize="13" FontWeight="SemiBold" Foreground="#1B4F72" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- D-效率 -->
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                            <TextBlock Text="D-效率" FontSize="11" Foreground="#7F8C8D"/>
+                                            <TextBlock Text="{Binding QualityDEffText}" FontSize="18" FontWeight="SemiBold" Foreground="#2E86C1"/>
+                                            <TextBlock Text="系数估计精度" FontSize="10" Foreground="#BDC3C7"/>
+                                        </StackPanel>
+
+                                        <!-- A-效率 -->
+                                        <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                            <TextBlock Text="A-效率" FontSize="11" Foreground="#7F8C8D"/>
+                                            <TextBlock Text="{Binding QualityAEffText}" FontSize="18" FontWeight="SemiBold" Foreground="#27AE60"/>
+                                            <TextBlock Text="方差之和" FontSize="10" Foreground="#BDC3C7"/>
+                                        </StackPanel>
+
+                                        <!-- G-效率 -->
+                                        <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                                            <TextBlock Text="G-效率" FontSize="11" Foreground="#7F8C8D"/>
+                                            <TextBlock Text="{Binding QualityGEffText}" FontSize="18" FontWeight="SemiBold" Foreground="#8E44AD"/>
+                                            <TextBlock Text="预测方差均匀性" FontSize="10" Foreground="#BDC3C7"/>
+                                        </StackPanel>
+
+                                        <!-- 自由度 -->
+                                        <StackPanel Grid.Column="3">
+                                            <TextBlock Text="自由度" FontSize="11" Foreground="#7F8C8D"/>
+                                            <TextBlock Text="{Binding QualityDofText}" FontSize="18" FontWeight="SemiBold" Foreground="#E67E22"/>
+                                            <TextBlock Text="误差估计能力" FontSize="10" Foreground="#BDC3C7"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- VIF 警告 -->
+                                    <TextBlock Text="提示：D-效率 > 0.7 为良好，VIF &lt; 5 无多重共线性" 
+                   FontSize="10" Foreground="#95A5A6" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -252,6 +363,20 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="响应名称" Binding="{Binding ResponseName}" Width="200"/>
                                     <DataGridTextColumn Header="单位" Binding="{Binding Unit}" Width="80"/>
+                                    <DataGridTemplateColumn Header="优化目标" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox ItemsSource="{Binding GoalOptions}" 
+                      SelectedItem="{Binding Goal, UpdateSourceTrigger=PropertyChanged}"
+                      Margin="2" Padding="4,2"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTextColumn Header="下界" Binding="{Binding DesirabilityLower, StringFormat={}{0:F2}}" Width="70"/>
+                                    <DataGridTextColumn Header="上界" Binding="{Binding DesirabilityUpper, StringFormat={}{0:F2}}" Width="70"/>
+                                    <DataGridTextColumn Header="目标值" Binding="{Binding DesirabilityTarget, StringFormat={}{0:F2}}" Width="70"/>
+                                    <DataGridTextColumn Header="权重" Binding="{Binding DesirabilityWeight, StringFormat={}{0:F1}}" Width="50"/>
                                     <DataGridTemplateColumn Header="操作" Width="60">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>

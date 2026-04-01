@@ -12,12 +12,45 @@ namespace MaxChemical.Modules.DOE.Views
             InitializeComponent();
         }
 
+        /// <summary>
+        /// GPR Tab 点击
+        /// </summary>
+        private void GprTab_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (DataContext is DOEModelAnalysisViewModel vm)
+                vm.SwitchToGprTabCommand.Execute();
+        }
+
+        /// <summary>
+        /// OLS Tab 点击
+        /// </summary>
+        private void OlsTab_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (DataContext is DOEModelAnalysisViewModel vm)
+                vm.SwitchToOlsTabCommand.Execute();
+        }
+
+        /// <summary>
+        /// GPR 模型选择点击
+        /// </summary>
         private void ModelTab_Click(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement fe && fe.DataContext is GPRModelTabItem tab)
             {
                 if (DataContext is DOEModelAnalysisViewModel vm)
                     vm.SelectModel(tab.ModelId);
+            }
+        }
+
+        /// <summary>
+        /// OLS 批次选择点击
+        /// </summary>
+        private void OlsBatchItem_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is OlsBatchItem item)
+            {
+                if (DataContext is DOEModelAnalysisViewModel vm)
+                    vm.SelectOlsBatchCommand.Execute(item);
             }
         }
 
@@ -30,24 +63,12 @@ namespace MaxChemical.Modules.DOE.Views
             {
                 switch (e.PropertyName)
                 {
-                    case "#":
-                        col.Width = new DataGridLength(40);
-                        break;
-                    case "来源":
-                        col.Width = new DataGridLength(70);
-                        break;
-                    case "批次名称":
-                        col.Width = new DataGridLength(160);
-                        break;
-                    case "时间":
-                        col.Width = new DataGridLength(130);
-                        break;
-                    case "响应值":
-                        col.Width = new DataGridLength(70);
-                        break;
-                    default:
-                        col.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
-                        break;
+                    case "#": col.Width = new DataGridLength(40); break;
+                    case "来源": col.Width = new DataGridLength(70); break;
+                    case "批次名称": col.Width = new DataGridLength(160); break;
+                    case "时间": col.Width = new DataGridLength(130); break;
+                    case "响应值": col.Width = new DataGridLength(70); break;
+                    default: col.Width = new DataGridLength(1, DataGridLengthUnitType.Star); break;
                 }
             }
         }

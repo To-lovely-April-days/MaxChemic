@@ -14,7 +14,7 @@ namespace MaxChemical.Modules.DOE.Data
     /// <summary>
     /// DOE 数据仓储实现 — 基于 MySQL，复用现有 IDatabaseConfigService 获取连接字符串
     /// </summary>
-    public class DOERepository : IDOERepository
+    public partial class DOERepository : IDOERepository
     {
         private readonly IDatabaseConfigService _dbConfig;
         private readonly ILogService _logger;
@@ -719,6 +719,77 @@ namespace MaxChemical.Modules.DOE.Data
             cmd.Parameters.AddWithValue("@id", modelId);
             using var reader = await cmd.ExecuteReaderAsync();
             return await reader.ReadAsync() ? MapGPRModelState(reader) : null;
+        }
+
+
+    }
+
+    public partial class DOERepository
+    {
+        // ══════════════ ★ 新增: Desirability 配置 ══════════════
+
+        public async Task SaveDesirabilityConfigAsync(string batchId, string configJson)
+        {
+            const string sql = @"
+                INSERT INTO doe_desirability_configs (batch_id, config_json)
+                VALUES (@batchId, @configJson)
+                ON DUPLICATE KEY UPDATE config_json = @configJson, updated_time = NOW()";
+
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@batchId", batchId);
+            cmd.Parameters.AddWithValue("@configJson", configJson);
+            await cmd.ExecuteNonQueryAsync();
+
+            _logger.LogInformation("★ Desirability 配置已保存: {BatchId}", batchId);
+        }
+
+        public async Task<string?> GetDesirabilityConfigJsonAsync(string batchId)
+        {
+            const string sql = "SELECT config_json FROM doe_desirability_configs WHERE batch_id = @batchId";
+
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@batchId", batchId);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return result == null || result == DBNull.Value ? null : result.ToString();
+        }
+
+        // ══════════════ ★ 新增: OLS 分析结果缓存 ══════════════
+
+        public async Task SaveOlsResultAsync(string batchId, string responseName, string resultJson)
+        {
+            const string sql = @"
+                INSERT INTO doe_ols_results (batch_id, response_name, result_json)
+                VALUES (@batchId, @responseName, @resultJson)
+                ON DUPLICATE KEY UPDATE result_json = @resultJson, updated_time = NOW()";
+
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@batchId", batchId);
+            cmd.Parameters.AddWithValue("@responseName", responseName);
+            cmd.Parameters.AddWithValue("@resultJson", resultJson);
+            await cmd.ExecuteNonQueryAsync();
+
+            _logger.LogInformation("★ OLS 分析结果已缓存: {BatchId}/{Response}", batchId, responseName);
+        }
+
+        public async Task<string?> GetOlsResultJsonAsync(string batchId, string responseName)
+        {
+            const string sql = "SELECT result_json FROM doe_ols_results WHERE batch_id = @batchId AND response_name = @responseName";
+
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@batchId", batchId);
+            cmd.Parameters.AddWithValue("@responseName", responseName);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return result == null || result == DBNull.Value ? null : result.ToString();
         }
     }
 }

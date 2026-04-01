@@ -28,13 +28,17 @@ namespace MaxChemical.Modules.DOE.Models
 
     /// <summary>
     /// DOE 设计方法
+    /// ★ 修改: 新增 CCD / BoxBehnken / DOptimal 三个枚举值
     /// </summary>
     public enum DOEDesignMethod
     {
         FullFactorial,
         FractionalFactorial,
         Taguchi,
-        Custom
+        Custom,
+        CCD,            // ★ 新增: 中心复合设计 (Central Composite Design)
+        BoxBehnken,     // ★ 新增: Box-Behnken 设计
+        DOptimal        // ★ 新增: D-最优设计
     }
 
     /// <summary>

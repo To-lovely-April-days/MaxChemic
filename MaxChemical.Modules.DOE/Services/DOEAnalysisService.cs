@@ -11,8 +11,10 @@ using Python.Runtime;
 namespace MaxChemical.Modules.DOE.Services
 {
     /// <summary>
-    /// DOE 数据分析服务 — 调用 Python doe_engine.py 的 DOEAnalyzer 和 DOESurfacePlotter。
-    /// 注意: 所有 Python 调用不能放在 Task.Run 中，否则 GIL 死锁。
+    /// DOE 数据分析服务
+    /// 
+    /// ★ 修改: 新增 FitOlsAsync / GetResidualDiagnosticsAsync / GetEffectsParetoAsync
+    ///   这三个方法调用 Python DOEAnalyzer 的新方法: fit_ols() / residual_diagnostics() / effects_pareto()
     /// </summary>
     public class DOEAnalysisService : IDOEAnalysisService
     {
@@ -33,20 +35,17 @@ namespace MaxChemical.Modules.DOE.Services
         private void EnsureReady()
         {
             if (_isPythonInitialized && _analyzer != null) return;
-
             try
             {
                 var envManager = MaxChemical.Modules.Designer.Services.PythonEnvironmentManager.Instance;
                 if (!envManager.IsInitialized && !envManager.Initialize())
                     throw new InvalidOperationException("Python 环境初始化失败");
-
                 using (Py.GIL())
                 {
                     dynamic doeEngine = Py.Import("doe_engine");
                     _analyzer = doeEngine.create_analyzer();
                     _plotter = doeEngine.create_surface_plotter();
                 }
-
                 _isPythonInitialized = true;
                 _logger.LogInformation("DOE 分析服务初始化成功");
             }
@@ -59,8 +58,9 @@ namespace MaxChemical.Modules.DOE.Services
 
         /// <summary>
         /// 加载批次数据到 Python 分析器
+        /// ★ 修改: 支持指定 responseName（多响应时逐个分析）
         /// </summary>
-        private async Task LoadBatchDataAsync(string batchId)
+        private async Task LoadBatchDataAsync(string batchId, string? responseName = null)
         {
             var batch = await _repository.GetBatchWithDetailsAsync(batchId);
             if (batch == null) throw new InvalidOperationException($"未找到批次: {batchId}");
@@ -73,37 +73,147 @@ namespace MaxChemical.Modules.DOE.Services
             if (completedRuns.Count == 0)
                 throw new InvalidOperationException("批次没有已完成的实验数据");
 
-            var primaryResponse = batch.Responses.FirstOrDefault()?.ResponseName ?? "Response";
+            // ★ 修改: 支持指定响应变量名
+            var primaryResponse = responseName ?? batch.Responses.FirstOrDefault()?.ResponseName ?? "Y";
 
-            var factorsList = completedRuns
-                .Select(r => JsonConvert.DeserializeObject<Dictionary<string, double>>(r.FactorValuesJson) ?? new())
+            var factorsData = completedRuns
+                .Select(r => JsonConvert.DeserializeObject<Dictionary<string, double>>(r.FactorValuesJson ?? "{}") ?? new())
                 .ToList();
 
-            var responsesList = completedRuns
+            var responsesData = completedRuns
                 .Select(r =>
                 {
-                    var dict = JsonConvert.DeserializeObject<Dictionary<string, double>>(r.ResponseValuesJson ?? "{}");
-                    return dict != null && dict.TryGetValue(primaryResponse, out var val) ? val : 0.0;
+                    var dict = JsonConvert.DeserializeObject<Dictionary<string, double>>(r.ResponseValuesJson ?? "{}") ?? new();
+                    return dict.TryGetValue(primaryResponse, out var v) ? v : 0.0;
                 })
                 .ToList();
 
-            var factorsJson = JsonConvert.SerializeObject(factorsList);
-            var responsesJson = JsonConvert.SerializeObject(responsesList);
+            var factorsJson = JsonConvert.SerializeObject(factorsData);
+            var responsesJson = JsonConvert.SerializeObject(responsesData);
 
             using (Py.GIL())
             {
-                string loadResult = _analyzer!.load_data(factorsJson, responsesJson, primaryResponse).ToString();
-                _logger.LogDebug("分析数据加载: {Result}", loadResult);
-
-                var boundsJson = JsonConvert.SerializeObject(
-                    batch.Factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound }));
-                _plotter!.set_analyzer(_analyzer, boundsJson);
+                _analyzer!.load_data(factorsJson, responsesJson, primaryResponse);
             }
-
-            _logger.LogInformation("分析数据加载完成: {BatchId}, {Count} 组", batchId, completedRuns.Count);
         }
 
-        // ══════════════ 统计图表（全部去掉 Task.Run）══════════════
+        // ═══════════════════════════════════════════════════════
+        // ★ 新增: 完整 OLS 回归分析
+        // ═══════════════════════════════════════════════════════
+
+        public async Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic")
+        {
+            EnsureReady();
+            await LoadBatchDataAsync(batchId, responseName);
+
+            _logger.LogInformation("★ FitOLS: batchId={BatchId}, response={Response}, model={Model}",
+                batchId, responseName, modelType);
+
+            using (Py.GIL())
+            {
+                string resultJson = _analyzer!.fit_ols(modelType).ToString();
+                var pyResult = JsonConvert.DeserializeObject<PythonOLSResult>(resultJson);
+
+                if (pyResult == null || pyResult.Error != null)
+                {
+                    _logger.LogError("FitOLS 失败: {Error}", pyResult?.Error ?? "未知错误");
+                    return new OLSAnalysisResult();
+                }
+
+                var result = new OLSAnalysisResult();
+
+                // 解析 ANOVA 表
+                if (pyResult.AnovaTable != null)
+                {
+                    result.AnovaTable = pyResult.AnovaTable.Select(row => new AnovaRow
+                    {
+                        Source = row.Source ?? "",
+                        DF = row.DF,
+                        SS = row.SS,
+                        MS = row.MS,
+                        FValue = row.FValue,
+                        PValue = row.PValue
+                    }).ToList();
+                }
+
+                // 解析系数表
+                if (pyResult.Coefficients != null)
+                {
+                    result.Coefficients = pyResult.Coefficients.Select(c => new CoefficientRow
+                    {
+                        Term = c.Term ?? "",
+                        Coefficient = c.Coeff,
+                        StdError = c.SE,
+                        TValue = c.TValue,
+                        PValue = c.PValue,
+                        VIF = c.VIF
+                    }).ToList();
+                }
+
+                // 解析模型摘要
+                if (pyResult.ModelSummary != null)
+                {
+                    result.ModelSummary = new OLSModelSummary
+                    {
+                        RSquared = pyResult.ModelSummary.RSquared,
+                        RSquaredAdj = pyResult.ModelSummary.RSquaredAdj,
+                        RSquaredPred = pyResult.ModelSummary.RSquaredPred,
+                        RMSE = pyResult.ModelSummary.RMSE,
+                        AdequatePrecision = pyResult.ModelSummary.AdequatePrecision,
+                        PRESS = pyResult.ModelSummary.PRESS,
+                        LackOfFitP = pyResult.ModelSummary.LackOfFitP,
+                        ModelP = pyResult.ModelSummary.ModelP,
+                        Equation = pyResult.ModelSummary.Equation ?? ""
+                    };
+                }
+
+                _logger.LogInformation("★ FitOLS 完成: R²={R2}, R²adj={R2adj}, R²pred={R2pred}",
+                    result.ModelSummary.RSquared, result.ModelSummary.RSquaredAdj, result.ModelSummary.RSquaredPred);
+
+                return result;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ★ 新增: 残差诊断四图
+        // ═══════════════════════════════════════════════════════
+
+        public async Task<string> GetResidualDiagnosticsAsync(string batchId, string responseName)
+        {
+            EnsureReady();
+            await LoadBatchDataAsync(batchId, responseName);
+
+            _logger.LogInformation("★ 残差诊断: batchId={BatchId}, response={Response}", batchId, responseName);
+
+            using (Py.GIL())
+            {
+                string resultJson = _analyzer!.residual_diagnostics().ToString();
+                return resultJson;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ★ 新增: 效应 Pareto 图（基于 T 值）
+        // ═══════════════════════════════════════════════════════
+
+        public async Task<string> GetEffectsParetoAsync(string batchId, string responseName, double alpha = 0.05)
+        {
+            EnsureReady();
+            await LoadBatchDataAsync(batchId, responseName);
+
+            _logger.LogInformation("★ 效应 Pareto: batchId={BatchId}, response={Response}, alpha={Alpha}",
+                batchId, responseName, alpha);
+
+            using (Py.GIL())
+            {
+                string resultJson = _analyzer!.effects_pareto(alpha).ToString();
+                return resultJson;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // 原有方法（保留不变）
+        // ═══════════════════════════════════════════════════════
 
         public async Task<string> GetMainEffectsAsync(string batchId)
         {
@@ -154,85 +264,149 @@ namespace MaxChemical.Modules.DOE.Services
             using (Py.GIL()) { return _analyzer!.actual_vs_predicted().ToString(); }
         }
 
-        // ══════════════ 响应曲面 ══════════════
-
         public async Task<string> GetResponseSurfaceDataAsync(string batchId, string factor1, string factor2)
         {
             EnsureReady();
-            await LoadBatchDataAsync(batchId);
-            using (Py.GIL()) { return _plotter!.response_surface_data(factor1, factor2, 30).ToString(); }
+            await SetupPlotterForBatch(batchId);
+            using (Py.GIL()) { return _plotter!.response_surface_data(factor1, factor2).ToString(); }
         }
 
         public async Task<string> GetContourDataAsync(string batchId, string factor1, string factor2)
         {
             EnsureReady();
-            await LoadBatchDataAsync(batchId);
-            using (Py.GIL()) { return _plotter!.contour_data(factor1, factor2, 30).ToString(); }
+            await SetupPlotterForBatch(batchId);
+            using (Py.GIL()) { return _plotter!.contour_data(factor1, factor2).ToString(); }
         }
 
         public async Task<byte[]> GetResponseSurfaceImageAsync(string batchId, string factor1, string factor2)
         {
             EnsureReady();
-            await LoadBatchDataAsync(batchId);
-
+            await SetupPlotterForBatch(batchId);
             using (Py.GIL())
             {
-                string base64 = _plotter!.response_surface_image(factor1, factor2, 50, 800, 600).ToString();
+                string base64 = _plotter!.response_surface_image(factor1, factor2).ToString();
                 return string.IsNullOrEmpty(base64) ? Array.Empty<byte>() : Convert.FromBase64String(base64);
             }
         }
 
-        // ══════════════ GPR 特有图表 ══════════════
+        public Task<byte[]> GetResponseSurfaceImageFromGPRAsync(string factor1, string factor2)
+        {
+            EnsureReady();
+            var gprModel = _gprService.GetPythonModel();
+            if (gprModel == null) return Task.FromResult(Array.Empty<byte>());
+
+            using (Py.GIL())
+            {
+                string factorNamesJson = gprModel.get_factor_names().ToString();
+                string boundsJson = gprModel.get_bounds().ToString();
+                _plotter!.set_gpr_model(gprModel, factorNamesJson, boundsJson);
+                string base64 = _plotter!.response_surface_image(factor1, factor2).ToString();
+                return Task.FromResult(string.IsNullOrEmpty(base64) ? Array.Empty<byte>() : Convert.FromBase64String(base64));
+            }
+        }
 
         public Task<string> GetGPRConfidenceBandAsync(string flowId)
         {
-            return Task.FromResult("{}");
+            EnsureReady();
+            var gprModel = _gprService.GetPythonModel();
+            if (gprModel == null) return Task.FromResult("{}");
+            using (Py.GIL())
+            {
+                string factorNamesJson = gprModel.get_factor_names().ToString();
+                string boundsJson = gprModel.get_bounds().ToString();
+                _plotter!.set_gpr_model(gprModel, factorNamesJson, boundsJson);
+                var factorNames = JsonConvert.DeserializeObject<List<string>>(factorNamesJson) ?? new();
+                if (factorNames.Count == 0) return Task.FromResult("{}");
+                return Task.FromResult(_plotter!.gpr_confidence_band_data(factorNames[0]).ToString());
+            }
         }
 
         public Task<string> GetAcquisitionSurfaceAsync(string flowId, string factor1, string factor2)
         {
-            return Task.FromResult("{}");
-        }
-
-        public async Task<string> GetModelEvolutionAsync(string flowId)
-        {
-            try
-            {
-                var modelState = await _repository.GetGPRModelStateAsync(flowId);
-                return modelState?.EvolutionHistoryJson ?? "[]";
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "获取模型演进数据失败");
-                return "[]";
-            }
-        }
-
-        /// <summary>
-        /// 用 GPR 模型直接生成响应曲面图（不依赖批次）。
-        /// 走 DOESurfacePlotter.set_gpr_model() 路径。
-        /// </summary>
-        public async Task<byte[]> GetResponseSurfaceImageFromGPRAsync(string factor1, string factor2)
-        {
             EnsureReady();
-
             var gprModel = _gprService.GetPythonModel();
-            if (gprModel == null)
-                return Array.Empty<byte>();
-
+            if (gprModel == null) return Task.FromResult("{}");
             using (Py.GIL())
             {
-                // 从 GPR 模型自身获取因子名和范围
                 string factorNamesJson = gprModel.get_factor_names().ToString();
                 string boundsJson = gprModel.get_bounds().ToString();
-
-                // 用 set_gpr_model 路径，不需要 analyzer
                 _plotter!.set_gpr_model(gprModel, factorNamesJson, boundsJson);
-
-                string base64 = _plotter.response_surface_image(factor1, factor2, 50, 800, 600).ToString();
-                return string.IsNullOrEmpty(base64) ? Array.Empty<byte>() : Convert.FromBase64String(base64);
+                return Task.FromResult(_plotter!.response_surface_data(factor1, factor2).ToString());
             }
         }
 
+        public Task<string> GetModelEvolutionAsync(string flowId)
+        {
+            var gprModel = _gprService.GetPythonModel();
+            if (gprModel == null) return Task.FromResult("[]");
+            using (Py.GIL()) { return Task.FromResult(gprModel.get_evolution_data().ToString()); }
+        }
+
+        // ── 内部辅助 ──
+
+        private async Task SetupPlotterForBatch(string batchId)
+        {
+            await LoadBatchDataAsync(batchId);
+            var batch = await _repository.GetBatchWithDetailsAsync(batchId);
+            if (batch == null) return;
+            var boundsDict = batch.Factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound });
+            var boundsJson = JsonConvert.SerializeObject(boundsDict);
+            var gprModel = _gprService.GetPythonModel();
+            using (Py.GIL())
+            {
+                if (gprModel != null)
+                {
+                    string factorNamesJson = gprModel.get_factor_names().ToString();
+                    _plotter!.set_gpr_model(gprModel, factorNamesJson, boundsJson);
+                }
+                else
+                {
+                    _plotter!.set_analyzer(_analyzer, boundsJson);
+                }
+            }
+        }
+
+        // ── ★ 新增: Python 结果反序列化类 ──
+
+        private class PythonOLSResult
+        {
+            [JsonProperty("error")] public string? Error { get; set; }
+            [JsonProperty("anova_table")] public List<PyAnovaRow>? AnovaTable { get; set; }
+            [JsonProperty("coefficients")] public List<PyCoeffRow>? Coefficients { get; set; }
+            [JsonProperty("model_summary")] public PyModelSummary? ModelSummary { get; set; }
+        }
+
+        private class PyAnovaRow
+        {
+            [JsonProperty("source")] public string? Source { get; set; }
+            [JsonProperty("df")] public int DF { get; set; }
+            [JsonProperty("ss")] public double SS { get; set; }
+            [JsonProperty("ms")] public double? MS { get; set; }
+            [JsonProperty("f_value")] public double? FValue { get; set; }
+            [JsonProperty("p_value")] public double? PValue { get; set; }
+        }
+
+        private class PyCoeffRow
+        {
+            [JsonProperty("term")] public string? Term { get; set; }
+            [JsonProperty("coeff")] public double Coeff { get; set; }
+            [JsonProperty("se")] public double SE { get; set; }
+            [JsonProperty("t_value")] public double TValue { get; set; }
+            [JsonProperty("p_value")] public double PValue { get; set; }
+            [JsonProperty("vif")] public double? VIF { get; set; }
+        }
+
+        private class PyModelSummary
+        {
+            [JsonProperty("r_squared")] public double RSquared { get; set; }
+            [JsonProperty("r_squared_adj")] public double RSquaredAdj { get; set; }
+            [JsonProperty("r_squared_pred")] public double RSquaredPred { get; set; }
+            [JsonProperty("rmse")] public double RMSE { get; set; }
+            [JsonProperty("adeq_precision")] public double AdequatePrecision { get; set; }
+            [JsonProperty("press")] public double PRESS { get; set; }
+            [JsonProperty("lack_of_fit_p")] public double? LackOfFitP { get; set; }
+            [JsonProperty("model_p")] public double? ModelP { get; set; }
+            [JsonProperty("equation")] public string? Equation { get; set; }
+        }
     }
 }

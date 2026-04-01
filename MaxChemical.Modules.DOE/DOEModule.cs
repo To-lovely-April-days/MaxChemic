@@ -27,7 +27,8 @@ namespace MaxChemical.Modules.DOE
             containerRegistry.RegisterSingleton<IGPRModelService, GPRModelService>();
             containerRegistry.RegisterSingleton<IDOEAnalysisService, DOEAnalysisService>();
             containerRegistry.RegisterSingleton<DOEExportService>();
-
+            containerRegistry.RegisterSingleton<IDesirabilityService, DesirabilityService>();  // ★ 新增
+            containerRegistry.RegisterSingleton<IModelRouter, ModelRouter>();
             // ViewModel (5个，原来6个)
             containerRegistry.Register<DOEMainViewModel>();
             containerRegistry.Register<DOEOverviewViewModel>();

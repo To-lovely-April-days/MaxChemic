@@ -101,4 +101,17 @@ namespace MaxChemical.Modules.DOE.Converters
             throw new NotImplementedException();
         }
     }
+
+    public class BoolToOlsBackgroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool isOls && isOls)
+                return new SolidColorBrush(Color.FromRgb(0x2E, 0x86, 0xC1)); // OLS À¶É«
+            return new SolidColorBrush(Color.FromRgb(0x8E, 0x44, 0xAD));     // GPR ×ÏÉ«
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
 }

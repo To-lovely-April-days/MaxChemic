@@ -383,8 +383,21 @@ namespace MaxChemical.Modules.DOE.Services
                     return;
 
                 _gprService.AppendData(factorValues, responseVal, "measured",
-      _currentBatch!.BatchName, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    _currentBatch!.BatchName, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                 var trainResult = await _gprService.TrainModelAsync();
+
+                // ★ 新增: 每组训练完立即保存到数据库，不再依赖 finally 一次性保存
+                // 这样即使后续执行中断、程序崩溃或 GIL 死锁，已训练的数据也不会丢失
+                try
+                {
+                    await _gprService.SaveStateAsync(_currentBatch!.FlowId);
+                    _logger.LogInformation("GPR 模型已保存: DataCount={Count}, IsActive={Active}, R²={R2}",
+                        trainResult.DataCount, trainResult.IsActive, trainResult.RSquared);
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogError(saveEx, "GPR 模型保存失败（数据仍在内存中，下次训练时重试）");
+                }
 
                 _eventAggregator.GetEvent<GPRModelUpdatedEvent>().Publish(new GPRModelUpdatedPayload
                 {
@@ -526,8 +539,22 @@ namespace MaxChemical.Modules.DOE.Services
 
         private async Task SaveGPRModelSafe()
         {
-            try { if (_currentBatch != null && _gprService.DataCount > 0) await _gprService.SaveStateAsync(_currentBatch.FlowId); }
-            catch (Exception ex) { _logger.LogError(ex, "保存 GPR 失败"); }
+            _logger.LogInformation(" SaveGPRModelSafe 执行: batch={Batch}, dataCount={Count}",
+                _currentBatch?.BatchId, _gprService.DataCount);
+            try
+            {
+                if (_currentBatch != null && _gprService.DataCount > 0)
+                {
+                    await _gprService.SaveStateAsync(_currentBatch.FlowId);
+                    _logger.LogInformation("SaveGPRModelSafe 成功: FlowId={FlowId}", _currentBatch.FlowId);
+                }
+                else
+                {
+                    _logger.LogWarning(" SaveGPRModelSafe 跳过: batch={Batch}, count={Count}",
+                        _currentBatch?.BatchId, _gprService.DataCount);
+                }
+            }
+            catch (Exception ex) { _logger.LogError(ex, "★ SaveGPRModelSafe 失败"); }
         }
 
         private async Task CheckPauseAsync(int currentIndex)

@@ -8,6 +8,7 @@ namespace MaxChemical.Modules.DOE.Services
 {
     // ═══════════════════════════════════════════════════════
     // IDOEDesignService — 实验设计服务
+    // ★ 修改: 新增 CCD/BBD/DOptimal 设计方法 + 设计质量评估
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
@@ -15,37 +16,47 @@ namespace MaxChemical.Modules.DOE.Services
     /// </summary>
     public interface IDOEDesignService
     {
-        /// <summary>
-        /// 生成全因子设计矩阵
-        /// </summary>
+        // ── 原有方法（保留） ──
+
         Task<DOEDesignMatrix> GenerateFullFactorialAsync(List<DOEFactor> factors);
-
-        /// <summary>
-        /// 生成部分因子设计矩阵
-        /// </summary>
         Task<DOEDesignMatrix> GenerateFractionalFactorialAsync(List<DOEFactor> factors, int resolution);
-
-        /// <summary>
-        /// 生成正交设计矩阵（Taguchi）
-        /// </summary>
         Task<DOEDesignMatrix> GenerateTaguchiAsync(List<DOEFactor> factors, string tableType);
-
-        /// <summary>
-        /// 导入自定义参数矩阵（Excel）
-        /// </summary>
         Task<DOEDesignMatrix> ImportCustomMatrixAsync(string excelPath, List<DOEFactor> factors);
-
-        /// <summary>
-        /// 校验导入的历史数据 Excel
-        /// </summary>
         Task<DataValidationResult> ValidateImportedDataAsync(string excelPath, List<DOEFactor> factors, List<DOEResponse> responses);
-
-        /// <summary>
-        /// 导入历史实验数据
-        /// </summary>
         Task<List<DOERunRecord>> ImportHistoricalDataAsync(string excelPath, string batchId, List<DOEFactor> factors, List<DOEResponse> responses);
 
+        // ── ★ 新增: RSM 设计方法 ──
 
+        /// <summary>
+        /// ★ 新增: 生成 CCD 中心复合设计矩阵
+        /// </summary>
+        /// <param name="factors">因子列表（需要 LowerBound/UpperBound）</param>
+        /// <param name="alphaType">alpha 类型: "rotatable"(推荐) / "face" / "orthogonal"</param>
+        /// <param name="centerCount">中心点数，-1 自动</param>
+        Task<DOEDesignMatrix> GenerateCCDAsync(List<DOEFactor> factors, string alphaType = "rotatable", int centerCount = -1);
+
+        /// <summary>
+        /// ★ 新增: 生成 Box-Behnken 设计矩阵
+        /// </summary>
+        /// <param name="factors">因子列表（至少3个）</param>
+        /// <param name="centerCount">中心点数，-1 自动</param>
+        Task<DOEDesignMatrix> GenerateBoxBehnkenAsync(List<DOEFactor> factors, int centerCount = -1);
+
+        /// <summary>
+        /// ★ 新增: 生成 D-Optimal 设计矩阵
+        /// </summary>
+        /// <param name="factors">因子列表</param>
+        /// <param name="numRuns">实验次数，-1 自动</param>
+        /// <param name="modelType">模型类型: "linear"/"interaction"/"quadratic"</param>
+        Task<DOEDesignMatrix> GenerateDOptimalAsync(List<DOEFactor> factors, int numRuns = -1, string modelType = "quadratic");
+
+        // ── ★ 新增: 设计质量评估 ──
+
+        /// <summary>
+        /// ★ 新增: 评估设计矩阵的统计质量
+        /// 返回 D/A/G 效率、VIF、条件数、Power 分析等
+        /// </summary>
+        Task<DOEDesignQuality> GetDesignQualityAsync(List<DOEFactor> factors, DOEDesignMatrix matrix, string modelType = "quadratic");
     }
 
     /// <summary>
@@ -60,7 +71,7 @@ namespace MaxChemical.Modules.DOE.Services
     }
 
     // ═══════════════════════════════════════════════════════
-    // IDOEExecutionService — 批量执行服务
+    // IDOEExecutionService — 批量执行服务（保留不变）
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
@@ -68,59 +79,16 @@ namespace MaxChemical.Modules.DOE.Services
     /// </summary>
     public interface IDOEExecutionService
     {
-        /// <summary>
-        /// 当前批次执行状态
-        /// </summary>
         DOEBatchStatus BatchState { get; }
-
-        /// <summary>
-        /// 当前正在执行的组索引（-1 表示未开始）
-        /// </summary>
         int CurrentRunIndex { get; }
-
-        /// <summary>
-        /// 启动批量执行
-        /// </summary>
         Task StartBatchAsync(string batchId, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// 暂停批量执行
-        /// </summary>
         void PauseBatch();
-
-        /// <summary>
-        /// 恢复批量执行
-        /// </summary>
         void ResumeBatch();
-
-        /// <summary>
-        /// 终止批量执行
-        /// </summary>
         Task AbortBatchAsync();
-
-        /// <summary>
-        /// 提交某组实验的响应值（弹框录入后调用）
-        /// </summary>
         void SubmitRunResponse(int runIndex, Dictionary<string, double> responseValues);
-
-        /// <summary>
-        /// 单组实验完成事件
-        /// </summary>
         event EventHandler<DOERunCompletedEventArgs>? RunCompleted;
-
-        /// <summary>
-        /// 整个批次完成事件
-        /// </summary>
         event EventHandler<DOEBatchCompletedEventArgs>? BatchCompleted;
-
-        /// <summary>
-        /// 进度变化事件
-        /// </summary>
         event EventHandler<DOEProgressEventArgs>? ProgressChanged;
-
-        /// <summary>
-        /// 暂停真正生效时触发（当前组执行完毕，循环已停下）
-        /// </summary>
         event EventHandler? PauseConfirmed;
     }
 
@@ -150,80 +118,28 @@ namespace MaxChemical.Modules.DOE.Services
     }
 
     // ═══════════════════════════════════════════════════════
-    // IGPRModelService — GPR 预测模型服务
+    // IGPRModelService — GPR 预测模型服务（保留不变）
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
-    /// GPR 模型服务 — 管理高斯过程回归模型的生命周期，调用 doe_gpr.pyd
+    /// GPR 模型服务 — 管理高斯过程回归模型的生命周期
     /// </summary>
     public interface IGPRModelService
     {
-        /// <summary>
-        /// 初始化模型（新建或从数据库恢复）
-        /// </summary>
         Task InitializeModelAsync(string flowId, List<DOEFactor> factors);
-
-        /// <summary>
-        /// 获取内部 Python GPR 模型对象（供 SurfacePlotter 使用）
-        /// </summary>
         dynamic? GetPythonModel();
-        /// <summary>
-        /// 训练/重新拟合模型
-        /// </summary>
         Task<GPRTrainResult> TrainModelAsync();
-
-        /// <summary>
-        /// 预测单组因子值的响应
-        /// </summary>
         GPRPrediction Predict(Dictionary<string, double> factorValues);
-
-        /// <summary>
-        /// 批量预测
-        /// </summary>
         List<GPRPrediction> PredictBatch(List<Dictionary<string, double>> factorValuesList);
-
-        /// <summary>
-        /// 搜索最优因子组合
-        /// </summary>
         GPROptimalResult FindOptimal();
-
-        /// <summary>
-        /// 判断是否应该提前停止
-        /// </summary>
         GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved);
-
-        /// <summary>
-        /// 获取参数敏感性排序
-        /// </summary>
         Dictionary<string, double> GetSensitivity();
-
-        /// <summary>
-        /// 保存模型状态到数据库
-        /// </summary>
         Task SaveStateAsync(string flowId);
-
-        /// <summary>
-        /// 从数据库恢复模型状态
-        /// </summary>
         Task<bool> LoadStateAsync(string flowId);
-
-        /// <summary>
-        /// 重置模型（清空回到冷启动状态）
-        /// </summary>
         Task ResetModelAsync(string flowId, bool keepData);
-
-        /// <summary>
-        /// 模型是否已激活
-        /// </summary>
         bool IsActive { get; }
-
-        /// <summary>
-        /// 当前数据量
-        /// </summary>
         int DataCount { get; }
         Task SaveInitialStateAsync(string flowId);
-
-        // 接口
         void AppendData(Dictionary<string, double> factorValues, double responseValue,
                         string source = "measured", string batchName = "", string timestamp = "");
     }
@@ -263,22 +179,21 @@ namespace MaxChemical.Modules.DOE.Services
 
     // ═══════════════════════════════════════════════════════
     // IDOEAnalysisService — 数据分析服务
+    // ★ 修改: 新增 FitOlsAsync / GetResidualDiagnosticsAsync / GetEffectsParetoAsync
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
-    /// DOE 数据分析服务 — 调用 Python doe_engine.pyd 进行统计分析和图表数据生成
+    /// DOE 数据分析服务
     /// </summary>
     public interface IDOEAnalysisService
     {
+        // ── 原有方法（保留） ──
         Task<string> GetMainEffectsAsync(string batchId);
         Task<string> GetInteractionEffectsAsync(string batchId);
         Task<string> GetParetoChartAsync(string batchId);
         Task<string> GetResponseSurfaceDataAsync(string batchId, string factor1, string factor2);
         Task<string> GetContourDataAsync(string batchId, string factor1, string factor2);
         Task<byte[]> GetResponseSurfaceImageAsync(string batchId, string factor1, string factor2);
-        /// <summary>
-        /// 用 GPR 模型直接生成响应曲面图（不依赖批次）
-        /// </summary>
         Task<byte[]> GetResponseSurfaceImageFromGPRAsync(string factor1, string factor2);
         Task<string> GetResidualAnalysisAsync(string batchId);
         Task<string> GetActualVsPredictedAsync(string batchId);
@@ -287,5 +202,112 @@ namespace MaxChemical.Modules.DOE.Services
         Task<string> GetGPRConfidenceBandAsync(string flowId);
         Task<string> GetAcquisitionSurfaceAsync(string flowId, string factor1, string factor2);
         Task<string> GetModelEvolutionAsync(string flowId);
+
+        // ── ★ 新增: 完整 OLS 分析 ──
+
+        /// <summary>
+        /// ★ 新增: 完整 OLS 回归分析 — 返回 ANOVA 表 + 系数表 + 模型摘要
+        /// 对标 JMP/Minitab 的分析报表
+        /// </summary>
+        /// <param name="batchId">批次 ID</param>
+        /// <param name="responseName">响应变量名（支持多响应时逐个分析）</param>
+        /// <param name="modelType">"linear"/"interaction"/"quadratic"</param>
+        Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic");
+
+        /// <summary>
+        /// ★ 新增: 残差诊断四图数据
+        /// 正态概率图 / 残差vs拟合 / 残差vs顺序 / 残差直方图 + Cook's距离
+        /// </summary>
+        Task<string> GetResidualDiagnosticsAsync(string batchId, string responseName);
+
+        /// <summary>
+        /// ★ 新增: 效应 Pareto 图（基于 T 值）
+        /// 比原有的 GetParetoChartAsync 更准确（基于回归 T 值而非效应差值）
+        /// </summary>
+        Task<string> GetEffectsParetoAsync(string batchId, string responseName, double alpha = 0.05);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ★ 新增: IDesirabilityService — 多响应优化服务
+    // ═══════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ★ 新增: Desirability 多响应优化服务
+    /// 调用 Python doe_desirability.py 实现 Derringer-Suich 方法
+    /// </summary>
+    public interface IDesirabilityService
+    {
+        /// <summary>
+        /// 配置多响应优化参数
+        /// </summary>
+        Task ConfigureAsync(string batchId, List<DesirabilityResponseConfig> configs, List<DOEFactor> factors);
+
+        /// <summary>
+        /// 计算给定预测值的综合 Desirability
+        /// </summary>
+        Task<DesirabilityResult> ComputeDesirabilityAsync(Dictionary<string, double> predictions);
+
+        /// <summary>
+        /// 搜索最优因子组合（使综合 D 最大）
+        /// </summary>
+        Task<DesirabilityResult> OptimizeAsync();
+
+        /// <summary>
+        /// 获取 Profiler 图数据
+        /// </summary>
+        Task<string> GetProfileDataAsync(int gridSize = 50);
+
+        /// <summary>
+        /// 保存配置到数据库
+        /// </summary>
+        Task SaveConfigAsync(string batchId, List<DesirabilityResponseConfig> configs);
+
+        /// <summary>
+        /// 从数据库加载配置
+        /// </summary>
+        Task<List<DesirabilityResponseConfig>> LoadConfigAsync(string batchId);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ★ 新增: IModelRouter — 模型策略路由器
+    // ═══════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ★ 新增: 分析策略类型
+    /// </summary>
+    public enum AnalysisStrategy
+    {
+        /// <summary>
+        /// OLS 回归 — RSM 设计 + 因子数 ≤6 + 数据量充足
+        /// 输出: ANOVA 表、系数表、回归方程（可解释性强）
+        /// </summary>
+        OLS,
+
+        /// <summary>
+        /// GPR 代理模型 — 筛选设计 / 因子多 / 非线性强
+        /// 输出: 敏感性排名、预测+不确定度、贝叶斯优化
+        /// </summary>
+        GPR,
+
+        /// <summary>
+        /// 数据不足，无法分析
+        /// </summary>
+        Insufficient
+    }
+
+    /// <summary>
+    /// ★ 新增: 模型策略路由器 — 根据设计方法和数据特征自动选择 OLS 或 GPR
+    /// </summary>
+    public interface IModelRouter
+    {
+        /// <summary>
+        /// 根据批次信息决定分析策略
+        /// </summary>
+        AnalysisStrategy SelectStrategy(DOEDesignMethod method, int factorCount, int dataCount);
+
+        /// <summary>
+        /// 获取策略选择的理由（UI 提示用）
+        /// </summary>
+        string GetStrategyReason(AnalysisStrategy strategy, DOEDesignMethod method, int factorCount, int dataCount);
     }
 }

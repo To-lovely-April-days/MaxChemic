@@ -20,14 +20,21 @@ namespace MaxChemical.Modules.DOE.ViewModels
 {
     /// <summary>
     /// DOE 分析视图 ViewModel — 管理所有图表的数据加载和 OxyPlot PlotModel 渲染
+    /// ★ 修改: 集成 ModelRouter + OLS 分析 + Desirability 多响应优化
     /// </summary>
     public class DOEAnalysisViewModel : BindableBase
     {
         private readonly IDOEAnalysisService _analysisService;
         private readonly IDOERepository _repository;
         private readonly ILogService _logger;
+        private readonly IModelRouter _modelRouter;
+        private readonly IDesirabilityService _desirabilityService;
+        private readonly IDialogService _dialogService;          // ★ 修复: 补全字段声明
 
+        // ── 批次关联 ──
         private string _batchId = "";
+        private string _currentBatchId = "";                     // ★ 修复: 补全字段声明
+        private string _currentFlowId = "";                      // ★ 修复: 补全字段声明
         private bool _isLoading;
         private string _statusMessage = "";
 
@@ -46,18 +53,41 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         // ── 曲面图因子选择 ──
         private List<string> _factorNames = new();
+        private List<string> _responseNames = new();             // ★ 修复: 补全字段声明
         private string? _surfaceFactor1;
         private string? _surfaceFactor2;
 
-        public DOEAnalysisViewModel(IDOEAnalysisService analysisService, IDOERepository repository, ILogService logger)
+        // ── ★ 新增: OLS + ModelRouter + Desirability ──
+        private AnalysisStrategy _currentStrategy = AnalysisStrategy.GPR;
+        private string _strategyReason = "";
+        private OLSAnalysisResult? _olsResult;
+        private bool _isOlsMode;
+        private string _selectedResponseName = "";
+        private DesirabilityResult? _desirabilityResult;
+
+        // ── ★ 新增: 最优参数 ──
+        private List<OptimalFactorItem> _optimalFactors = new();
+        private bool _hasOptimalResult;
+
+        public DOEAnalysisViewModel(
+            IDOEAnalysisService analysisService,
+            IDOERepository repository,
+            IModelRouter modelRouter,
+            IDesirabilityService desirabilityService,
+            IDialogService dialogService,                        // ★ 修复: 补全构造参数
+            ILogService logger)
         {
             _analysisService = analysisService;
             _repository = repository;
             _logger = logger?.ForContext<DOEAnalysisViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _modelRouter = modelRouter;
+            _desirabilityService = desirabilityService;
+            _dialogService = dialogService;                      // ★ 修复: 赋值
 
             RefreshAllCommand = new DelegateCommand(async () => await LoadAllChartsAsync(), () => !string.IsNullOrEmpty(BatchId));
             GenerateSurfaceCommand = new DelegateCommand(async () => await LoadSurfaceAsync(),
                 () => !string.IsNullOrEmpty(SurfaceFactor1) && !string.IsNullOrEmpty(SurfaceFactor2) && SurfaceFactor1 != SurfaceFactor2);
+            RunDesirabilityCommand = new DelegateCommand(async () => await RunDesirabilityOptimizationAsync());
         }
 
         // ══════════════ Properties ══════════════
@@ -81,27 +111,163 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public string? SurfaceFactor1 { get => _surfaceFactor1; set { SetProperty(ref _surfaceFactor1, value); GenerateSurfaceCommand.RaiseCanExecuteChanged(); } }
         public string? SurfaceFactor2 { get => _surfaceFactor2; set { SetProperty(ref _surfaceFactor2, value); GenerateSurfaceCommand.RaiseCanExecuteChanged(); } }
 
+        // ── ★ 新增属性 ──
+        public AnalysisStrategy CurrentStrategy { get => _currentStrategy; set => SetProperty(ref _currentStrategy, value); }
+        public string StrategyReason { get => _strategyReason; set => SetProperty(ref _strategyReason, value); }
+        public bool IsOlsMode { get => _isOlsMode; set => SetProperty(ref _isOlsMode, value); }
+        public bool IsGprMode => !IsOlsMode;
+        public OLSAnalysisResult? OlsResult { get => _olsResult; set => SetProperty(ref _olsResult, value); }
+        public string SelectedResponseName
+        {
+            get => _selectedResponseName;
+            set { if (SetProperty(ref _selectedResponseName, value)) _ = RefreshOlsAnalysisAsync(); }
+        }
+        public List<string> ResponseNames { get => _responseNames; set => SetProperty(ref _responseNames, value); }
+        public DesirabilityResult? DesirabilityResult { get => _desirabilityResult; set => SetProperty(ref _desirabilityResult, value); }
+        public List<OptimalFactorItem> OptimalFactors { get => _optimalFactors; set => SetProperty(ref _optimalFactors, value); }
+        public bool HasOptimalResult { get => _hasOptimalResult; set => SetProperty(ref _hasOptimalResult, value); }
+
+        // ── Commands ──
         public DelegateCommand RefreshAllCommand { get; }
         public DelegateCommand GenerateSurfaceCommand { get; }
+        public DelegateCommand RunDesirabilityCommand { get; }
 
         // ══════════════ 加载批次 ══════════════
 
         public async Task LoadBatchAsync(string batchId)
         {
             BatchId = batchId;
-
+            _currentBatchId = batchId;
             var batch = await _repository.GetBatchWithDetailsAsync(batchId);
-            if (batch != null)
+            if (batch == null) return;
+
+            _currentFlowId = batch.FlowId;
+            FactorNames = batch.Factors.Select(f => f.FactorName).ToList();
+            ResponseNames = batch.Responses.Select(r => r.ResponseName).ToList();
+
+            // ★ 新增: 选择默认响应变量
+            SelectedResponseName = ResponseNames.FirstOrDefault() ?? "";
+
+            if (FactorNames.Count >= 2)
             {
-                FactorNames = batch.Factors.Select(f => f.FactorName).ToList();
-                if (FactorNames.Count >= 2)
-                {
-                    SurfaceFactor1 = FactorNames[0];
-                    SurfaceFactor2 = FactorNames[1];
-                }
+                SurfaceFactor1 = FactorNames[0];
+                SurfaceFactor2 = FactorNames[1];
+            }
+
+            // ★ 新增: ModelRouter 自动选择分析策略
+            var completedCount = batch.Runs.Count(r => r.Status == DOERunStatus.Completed);
+            CurrentStrategy = _modelRouter.SelectStrategy(batch.DesignMethod, batch.Factors.Count, completedCount);
+            StrategyReason = _modelRouter.GetStrategyReason(CurrentStrategy, batch.DesignMethod, batch.Factors.Count, completedCount);
+            IsOlsMode = (CurrentStrategy == AnalysisStrategy.OLS);
+            RaisePropertyChanged(nameof(IsGprMode));
+
+            _logger.LogInformation("★ ModelRouter 决策: Strategy={Strategy}, Method={Method}, Factors={K}, Data={N}",
+                CurrentStrategy, batch.DesignMethod, batch.Factors.Count, completedCount);
+
+            // ★ 新增: 如果是 OLS 模式，加载 OLS 分析
+            if (IsOlsMode && !string.IsNullOrEmpty(SelectedResponseName))
+            {
+                await RefreshOlsAnalysisAsync();
             }
 
             await LoadAllChartsAsync();
+        }
+
+        // ══════════════ ★ 新增: OLS 分析 ══════════════
+
+        private async Task RefreshOlsAnalysisAsync()
+        {
+            if (!IsOlsMode || string.IsNullOrEmpty(_currentBatchId) || string.IsNullOrEmpty(SelectedResponseName))
+                return;
+
+            try
+            {
+                IsLoading = true;
+                StatusMessage = "正在进行 OLS 回归分析...";
+
+                OlsResult = await _analysisService.FitOlsAsync(_currentBatchId, SelectedResponseName, "quadratic");
+
+                if (OlsResult?.ModelSummary != null)
+                {
+                    StatusMessage = $"OLS 分析完成: R²={OlsResult.ModelSummary.RSquared:F4}, " +
+                                   $"R²adj={OlsResult.ModelSummary.RSquaredAdj:F4}, " +
+                                   $"R²pred={OlsResult.ModelSummary.RSquaredPred:F4}";
+
+                    _logger.LogInformation("★ OLS 分析: R²={R2}, RMSE={RMSE}, LOF_P={LOFP}",
+                        OlsResult.ModelSummary.RSquared,
+                        OlsResult.ModelSummary.RMSE,
+                        OlsResult.ModelSummary.LackOfFitP);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "OLS 分析失败");
+                StatusMessage = $"OLS 分析失败: {ex.Message}";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        // ══════════════ ★ 新增: Desirability 优化 ══════════════
+
+        private async Task RunDesirabilityOptimizationAsync()
+        {
+            if (ResponseNames.Count < 2)
+            {
+                _dialogService.ShowError("Desirability 优化需要至少 2 个响应变量", "提示");
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+                StatusMessage = "正在搜索多响应最优因子组合...";
+
+                var configs = await _desirabilityService.LoadConfigAsync(_currentBatchId);
+                if (configs.Count == 0)
+                {
+                    _dialogService.ShowError("请先在设计向导 Step4 中配置各响应变量的优化目标", "缺少配置");
+                    return;
+                }
+
+                var batch = await _repository.GetBatchWithDetailsAsync(_currentBatchId);
+                if (batch == null) return;
+
+                await _desirabilityService.ConfigureAsync(_currentBatchId, configs, batch.Factors);
+                DesirabilityResult = await _desirabilityService.OptimizeAsync();
+
+                if (DesirabilityResult?.Success == true)
+                {
+                    StatusMessage = $"多响应优化完成: 综合 D = {DesirabilityResult.CompositeD:F4}";
+
+                    if (DesirabilityResult.OptimalFactors.Count > 0)
+                    {
+                        var maxVal = DesirabilityResult.OptimalFactors.Values.DefaultIfEmpty(1).Max();
+                        OptimalFactors = DesirabilityResult.OptimalFactors.Select(kv => new OptimalFactorItem
+                        {
+                            Key = kv.Key,
+                            Value = kv.Value,
+                            BarWidth = maxVal > 0 ? kv.Value / maxVal * 200 : 0
+                        }).ToList();
+                        HasOptimalResult = true;
+                    }
+                }
+                else
+                {
+                    StatusMessage = $"优化失败: {DesirabilityResult?.ErrorMessage ?? "未知错误"}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Desirability 优化失败");
+                _dialogService.ShowError($"优化失败: {ex.Message}", "错误");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         // ══════════════ 加载所有图表 ══════════════
@@ -177,55 +343,23 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var data = JsonConvert.DeserializeObject<List<ParetoItem>>(json);
                 if (data == null || data.Count == 0) return;
 
-                // 按效应大小降序排列
                 var sorted = data.OrderByDescending(d => d.Effect).ToList();
+                var model = new PlotModel { Title = "Pareto 效应图", PlotMargins = new OxyThickness(10, 10, 40, 40) };
 
-                var model = new PlotModel
-                {
-                    Title = "Pareto 效应图",
-                    PlotMargins = new OxyThickness(10, 10, 40, 40)
-                };
+                var categoryAxis = new CategoryAxis { Position = AxisPosition.Bottom, GapWidth = 0.3 };
+                foreach (var item in sorted) categoryAxis.Labels.Add(item.Term);
 
-                // X 轴 = 因子名（底部）
-                var categoryAxis = new CategoryAxis
-                {
-                    Position = AxisPosition.Bottom,
-                    GapWidth = 0.3
-                };
-                foreach (var item in sorted)
-                    categoryAxis.Labels.Add(item.Term);
-
-                // Y 轴 = 效应值（左侧）
-                var valueAxis = new LinearAxis
-                {
-                    Position = AxisPosition.Left,
-                    Title = "效应大小",
-                    Minimum = 0,
-                    AbsoluteMinimum = 0
-                };
+                var valueAxis = new LinearAxis { Position = AxisPosition.Left, Title = "效应大小", Minimum = 0, AbsoluteMinimum = 0 };
 
                 model.Axes.Add(categoryAxis);
                 model.Axes.Add(valueAxis);
 
-                // 用 RectangleBarSeries 画柱子
-                var series = new RectangleBarSeries
-                {
-                    StrokeThickness = 0.5,
-                    StrokeColor = OxyColors.Gray
-                };
-
+                var series = new RectangleBarSeries { StrokeThickness = 0.5, StrokeColor = OxyColors.Gray };
                 for (int i = 0; i < sorted.Count; i++)
                 {
                     var item = sorted[i];
                     var color = item.Significant ? OxyColors.SteelBlue : OxyColors.LightGray;
-                    series.Items.Add(new RectangleBarItem
-                    {
-                        X0 = i - 0.35,
-                        X1 = i + 0.35,
-                        Y0 = 0,
-                        Y1 = item.Effect,
-                        Color = color
-                    });
+                    series.Items.Add(new RectangleBarItem { X0 = i - 0.35, X1 = i + 0.35, Y0 = 0, Y1 = item.Effect, Color = color });
                 }
 
                 model.Series.Add(series);
@@ -246,13 +380,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "实际值" });
                 model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "预测值" });
 
-                // 散点
                 var scatter = new ScatterSeries { MarkerType = MarkerType.Circle, MarkerSize = 5, MarkerFill = OxyColors.SteelBlue };
                 for (int i = 0; i < data.Actual.Count; i++)
                     scatter.Points.Add(new ScatterPoint(data.Actual[i], data.Predicted[i]));
                 model.Series.Add(scatter);
 
-                // 对角线
                 double min = Math.Min(data.Actual.Min(), data.Predicted.Min());
                 double max = Math.Max(data.Actual.Max(), data.Predicted.Max());
                 var diag = new LineSeries { Color = OxyColors.Red, LineStyle = LineStyle.Dash };
@@ -282,7 +414,6 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     scatter.Points.Add(new ScatterPoint(data.Fitted[i], data.Residuals[i]));
                 model.Series.Add(scatter);
 
-                // 零线
                 double min = data.Fitted.Min(), max = data.Fitted.Max();
                 var zero = new LineSeries { Color = OxyColors.Gray, LineStyle = LineStyle.Dash };
                 zero.Points.Add(new DataPoint(min, 0));
@@ -299,7 +430,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 var json = await _analysisService.GetAnovaTableAsync(BatchId);
-                var data = JsonConvert.DeserializeObject<List<AnovaRow>>(json);
+                var data = JsonConvert.DeserializeObject<List<AnovaRowDto>>(json);
                 if (data == null) return;
 
                 var lines = new List<string> { "来源\t\tDF\tSS\t\tMS\t\tF\tP" };
@@ -317,7 +448,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 var json = await _analysisService.GetRegressionSummaryAsync(BatchId);
-                var data = JsonConvert.DeserializeObject<RegressionSummary>(json);
+                var data = JsonConvert.DeserializeObject<RegressionSummaryDto>(json);
                 if (data == null) return;
 
                 RegressionEquation = data.Equation ?? "";
@@ -379,7 +510,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             [JsonProperty("residuals")] public List<double> Residuals { get; set; } = new();
         }
 
-        private class AnovaRow
+        // ★ 修复: 重命名避免和 Models.AnovaRow 冲突
+        private class AnovaRowDto
         {
             [JsonProperty("source")] public string Source { get; set; } = "";
             [JsonProperty("df")] public int DF { get; set; }
@@ -389,7 +521,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             [JsonProperty("p_value")] public double? PValue { get; set; }
         }
 
-        private class RegressionSummary
+        private class RegressionSummaryDto
         {
             [JsonProperty("r_squared")] public double RSquared { get; set; }
             [JsonProperty("adj_r_squared")] public double AdjRSquared { get; set; }
