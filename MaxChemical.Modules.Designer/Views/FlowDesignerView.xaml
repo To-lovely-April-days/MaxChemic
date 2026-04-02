@@ -1228,25 +1228,7 @@
            Visibility="{Binding DurationText, Converter={StaticResource StringToVisibilityConverter}}"/>
                                                 </Border>
 
-                                                <!-- 耗时文字（条块右侧） -->
-                                                <TextBlock Canvas.Top="26" Canvas.Left="{Binding EndTimeLabelLeft}"
-                                               Text="{Binding DurationText}" FontSize="10"
-                                               FontFamily="Consolas"
-                                               Visibility="{Binding DurationText, Converter={StaticResource StringToVisibilityConverter}}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#a1a1aa"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#6ee7b7"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#fca5a5"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
+                                              
 
                                                 <!-- 未执行占位符 -->
                                                 <TextBlock Canvas.Left="12" Canvas.Top="26" Text="—" 
