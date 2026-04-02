@@ -137,7 +137,8 @@ namespace MaxChemical.Modules.DOE.Services
                     RSquared = pyResult.RSquared,
                     RMSE = pyResult.RMSE,
                     Lengthscales = pyResult.Lengthscales ?? new Dictionary<string, double>(),
-                    DataCount = pyResult.DataCount
+                    DataCount = pyResult.DataCount,
+                    RSquaredType = pyResult.RSquaredType ?? "LOO-CV"  // ★ 新增
                 };
             }
         }
@@ -174,13 +175,14 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 最优搜索 ══════════════
 
-        public GPROptimalResult FindOptimal()
+        public GPROptimalResult FindOptimal(bool maximize = true)
         {
             EnsureModelReady();
 
             using (Py.GIL())
             {
-                string resultJson = _pythonModel!.find_optimal("EI").ToString();
+                // ★ 修复: 传入 maximize 参数，支持最小化搜索
+                string resultJson = _pythonModel!.find_optimal("EI", maximize).ToString();
                 var pyResult = JsonConvert.DeserializeObject<PythonOptimalResult>(resultJson);
 
                 if (pyResult?.OptimalFactors == null)
@@ -190,14 +192,16 @@ namespace MaxChemical.Modules.DOE.Services
                 {
                     OptimalFactors = pyResult.OptimalFactors,
                     PredictedResponse = pyResult.PredictedResponse,
-                    PredictionStd = pyResult.PredictionStd
+                    PredictionStd = pyResult.PredictionStd,
+                    Direction = pyResult.Direction ?? (maximize ? "maximize" : "minimize")  // ★ 新增
                 };
             }
         }
 
         // ══════════════ 智能停止判断 ══════════════
 
-        public GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved)
+        public GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved,
+                                          bool maximize = true, double eiThreshold = 0.01, double minRunsRatio = 1.5)
         {
             if (!IsActive)
                 return new GPRStopDecision { ShouldStop = false, Reason = "模型未激活" };
@@ -206,7 +210,9 @@ namespace MaxChemical.Modules.DOE.Services
 
             using (Py.GIL())
             {
-                string resultJson = _pythonModel!.should_stop(remainingJson, bestObserved).ToString();
+                // ★ 修复: 传入 maximize, ei_threshold, min_runs_ratio 参数
+                string resultJson = _pythonModel!.should_stop(
+                    remainingJson, bestObserved, maximize, eiThreshold, minRunsRatio).ToString();
                 var pyResult = JsonConvert.DeserializeObject<PythonStopDecision>(resultJson)!;
 
                 return new GPRStopDecision
@@ -214,7 +220,8 @@ namespace MaxChemical.Modules.DOE.Services
                     ShouldStop = pyResult.ShouldStop,
                     Reason = pyResult.Reason ?? "",
                     BestPredicted = pyResult.BestPredicted,
-                    BestPredictedStd = pyResult.BestPredictedStd
+                    BestPredictedStd = pyResult.BestPredictedStd,
+                    MaxEI = pyResult.MaxEI  // ★ 新增
                 };
             }
         }
@@ -484,6 +491,7 @@ namespace MaxChemical.Modules.DOE.Services
             [JsonProperty("rmse")] public double RMSE { get; set; }
             [JsonProperty("lengthscales")] public Dictionary<string, double>? Lengthscales { get; set; }
             [JsonProperty("data_count")] public int DataCount { get; set; }
+            [JsonProperty("r_squared_type")] public string? RSquaredType { get; set; }  // ★ 新增
         }
 
         private class PythonPrediction
@@ -497,6 +505,7 @@ namespace MaxChemical.Modules.DOE.Services
             [JsonProperty("optimal_factors")] public Dictionary<string, double>? OptimalFactors { get; set; }
             [JsonProperty("predicted_response")] public double PredictedResponse { get; set; }
             [JsonProperty("prediction_std")] public double PredictionStd { get; set; }
+            [JsonProperty("direction")] public string? Direction { get; set; }  // ★ 新增
         }
 
         private class PythonStopDecision
@@ -505,6 +514,7 @@ namespace MaxChemical.Modules.DOE.Services
             [JsonProperty("reason")] public string? Reason { get; set; }
             [JsonProperty("best_predicted")] public double BestPredicted { get; set; }
             [JsonProperty("best_predicted_std")] public double BestPredictedStd { get; set; }
+            [JsonProperty("max_ei")] public double MaxEI { get; set; }  // ★ 新增
         }
     }
 }

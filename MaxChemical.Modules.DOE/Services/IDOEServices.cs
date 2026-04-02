@@ -131,8 +131,9 @@ namespace MaxChemical.Modules.DOE.Services
         Task<GPRTrainResult> TrainModelAsync();
         GPRPrediction Predict(Dictionary<string, double> factorValues);
         List<GPRPrediction> PredictBatch(List<Dictionary<string, double>> factorValuesList);
-        GPROptimalResult FindOptimal();
-        GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved);
+        GPROptimalResult FindOptimal(bool maximize = true);
+        GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved,
+                                    bool maximize = true, double eiThreshold = 0.01, double minRunsRatio = 1.5);
         Dictionary<string, double> GetSensitivity();
         Task SaveStateAsync(string flowId);
         Task<bool> LoadStateAsync(string flowId);
@@ -151,6 +152,8 @@ namespace MaxChemical.Modules.DOE.Services
         public double RMSE { get; set; }
         public Dictionary<string, double> Lengthscales { get; set; } = new();
         public int DataCount { get; set; }
+        /// <summary>★ 新增: R² 类型标注 — "LOO-CV"(留一交叉验证) 而非训练 R²</summary>
+        public string RSquaredType { get; set; } = "LOO-CV";
     }
 
     public class GPRPrediction
@@ -167,6 +170,8 @@ namespace MaxChemical.Modules.DOE.Services
         public double PredictedResponse { get; set; }
         public double PredictionStd { get; set; }
         public double Confidence => 1.0 - PredictionStd;
+        /// <summary>★ 新增: 优化方向 — "maximize" 或 "minimize"</summary>
+        public string Direction { get; set; } = "maximize";
     }
 
     public class GPRStopDecision
@@ -175,6 +180,8 @@ namespace MaxChemical.Modules.DOE.Services
         public string Reason { get; set; } = string.Empty;
         public double BestPredicted { get; set; }
         public double BestPredictedStd { get; set; }
+        /// <summary>★ 新增: 剩余组中的最大 Expected Improvement</summary>
+        public double MaxEI { get; set; }
     }
 
     // ═══════════════════════════════════════════════════════

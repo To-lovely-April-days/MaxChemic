@@ -626,7 +626,8 @@ namespace MaxChemical.Modules.DOE.Services
                 _logger.LogDebug("停止条件: 主响应=\"{Name}\", 方向={Dir}, bestObs={Best}",
                     primaryResp, isMinimize ? "minimize" : "maximize", bestObs);
 
-                var decision = _gprService.ShouldStop(remaining, bestObs);
+                // ★ 修复: 传入 maximize 参数（与 Python 端 EI 方向匹配）
+                var decision = _gprService.ShouldStop(remaining, bestObs, maximize: !isMinimize);
                 return new StopEvaluationResult
                 {
                     ShouldStop = decision.ShouldStop,
