@@ -11,13 +11,22 @@ using Python.Runtime;
 namespace MaxChemical.Modules.DOE.Services
 {
     /// <summary>
-    /// ★ 新增: Desirability 多响应优化服务
-    /// 调用 Python doe_desirability.py 实现 Derringer-Suich 方法
+    ///  修复: Desirability 多响应优化服务
+    /// 
+    /// 修复内容:
+    /// 1. [严重] OptimizeAsync: 使用 IMultiResponseGPRService.PredictAll 替代单一 GPR 预测
+    ///    原来的 bug: 把主响应的 GPR 预测值赋给所有响应，导致优化结果完全错误
+    ///    修复后: 每个响应使用自己独立的 GPR 模型预测，Desirability 搜索才是正确的
+    /// 
+    /// 2. [严重] GetProfileDataAsync: 同样使用 PredictAll
+    /// 
+    /// 3. [新增] OptimizeAsync 前置检查: 验证所有响应模型是否都已激活
     /// </summary>
     public class DesirabilityService : IDesirabilityService
     {
         private readonly IDOERepository _repository;
         private readonly IGPRModelService _gprService;
+        private readonly IMultiResponseGPRService _multiGprService;  //  新增
         private readonly ILogService _logger;
         private dynamic? _pythonEngine;
         private bool _isPythonInitialized;
@@ -26,10 +35,15 @@ namespace MaxChemical.Modules.DOE.Services
         private List<DesirabilityResponseConfig> _currentConfigs = new();
         private List<DOEFactor> _currentFactors = new();
 
-        public DesirabilityService(IDOERepository repository, IGPRModelService gprService, ILogService logger)
+        public DesirabilityService(
+            IDOERepository repository,
+            IGPRModelService gprService,
+            IMultiResponseGPRService multiGprService,  //  新增
+            ILogService logger)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _gprService = gprService ?? throw new ArgumentNullException(nameof(gprService));
+            _multiGprService = multiGprService ?? throw new ArgumentNullException(nameof(multiGprService));
             _logger = logger?.ForContext<DesirabilityService>() ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -48,11 +62,11 @@ namespace MaxChemical.Modules.DOE.Services
                     _pythonEngine = doeDesirability.create_engine();
                 }
                 _isPythonInitialized = true;
-                _logger.LogInformation("★ Desirability 服务初始化成功");
+                _logger.LogInformation(" Desirability 服务初始化成功");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "★ Desirability 服务初始化失败");
+                _logger.LogError(ex, " Desirability 服务初始化失败");
                 throw;
             }
         }
@@ -94,7 +108,7 @@ namespace MaxChemical.Modules.DOE.Services
                 _pythonEngine!.configure(configsJson, factorNamesJson, boundsJson);
             }
 
-            _logger.LogInformation("★ Desirability 已配置: {Count} 个响应变量", configs.Count);
+            _logger.LogInformation(" Desirability 已配置: {Count} 个响应变量", configs.Count);
             return Task.CompletedTask;
         }
 
@@ -139,14 +153,20 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         /// <summary>
-        /// 搜索最优因子组合
-        /// 内部将 GPR 多响应预测包装成 Python 回调函数
+        ///  修复: 搜索最优因子组合
+        /// 
+        /// 原来的 bug:
+        ///   所有响应变量都用同一个 GPR (主响应) 的预测值 → Desirability 搜索结果完全错误
+        /// 
+        /// 修复:
+        ///   使用 IMultiResponseGPRService.PredictAll 获取每个响应的独立预测值
         /// </summary>
         public Task<DesirabilityResult> OptimizeAsync()
         {
             EnsurePythonReady();
 
-            if (!_gprService.IsActive)
+            //  修复: 改用多响应 GPR 检查
+            if (!_multiGprService.AnyModelActive)
             {
                 return Task.FromResult(new DesirabilityResult
                 {
@@ -155,36 +175,49 @@ namespace MaxChemical.Modules.DOE.Services
                 });
             }
 
-            _logger.LogInformation("★ Desirability 优化: 开始搜索最优因子组合");
+            //  新增: 检查是否所有响应都有激活的模型
+            if (!_multiGprService.AllModelsActive)
+            {
+                var statuses = _multiGprService.GetModelStatuses();
+                var inactiveNames = statuses.Where(s => !s.IsActive).Select(s => s.ResponseName).ToList();
+                _logger.LogWarning("部分响应模型未激活: {Names}，优化结果可能不完整", string.Join(", ", inactiveNames));
+            }
+
+            _logger.LogInformation(" Desirability 优化: 开始搜索最优因子组合");
 
             using (Py.GIL())
             {
-                // 构建预测回调: factors_json → predictions_json
-                // 注意: 当前 GPR 是单响应模型，多响应需要分别预测
-                // 这里简化处理: 用 GPR 预测主响应，其他响应取已有数据的均值
-                // TODO: 完整多响应 GPR 需要为每个响应维护独立模型
-
-                // 使用 Python 的 optimize 方法，传入 lambda 预测函数
+                //  修复: 使用多响应 GPR 预测
                 Func<string, string> predictor = (factorsJson) =>
                 {
                     try
                     {
                         var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(factorsJson) ?? new();
-                        var gprPred = _gprService.Predict(factors);
 
-                        // 构建多响应预测（主响应用 GPR，其他响应也尝试用 GPR）
+                        //  核心修复: 用 PredictAll 获取每个响应的独立预测
+                        var allPredictions = _multiGprService.PredictAll(factors);
+
                         var predictions = new Dictionary<string, double>();
                         foreach (var config in _currentConfigs)
                         {
-                            // 简化: 所有响应都用同一个 GPR 的预测值
-                            // 实际场景中应为每个响应维护独立的 GPR 模型
-                            predictions[config.ResponseName] = gprPred.Mean;
+                            if (allPredictions.TryGetValue(config.ResponseName, out var pred))
+                            {
+                                predictions[config.ResponseName] = pred.Mean;
+                            }
+                            else
+                            {
+                                // 该响应模型未激活，使用中间值作为回退
+                                predictions[config.ResponseName] = (config.Lower + config.Upper) / 2.0;
+                                _logger.LogDebug("Desirability: 响应 \"{Name}\" 无 GPR 预测，使用回退值",
+                                    config.ResponseName);
+                            }
                         }
 
                         return JsonConvert.SerializeObject(predictions);
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        _logger.LogError(ex, "Desirability 预测回调异常");
                         var fallback = _currentConfigs.ToDictionary(c => c.ResponseName, c => (c.Lower + c.Upper) / 2.0);
                         return JsonConvert.SerializeObject(fallback);
                     }
@@ -220,13 +253,13 @@ namespace MaxChemical.Modules.DOE.Services
                     }
                 }
 
-                _logger.LogInformation("★ Desirability 优化完成: D={D}, 成功={Success}", result.CompositeD, result.Success);
+                _logger.LogInformation(" Desirability 优化完成: D={D}, 成功={Success}", result.CompositeD, result.Success);
                 return Task.FromResult(result);
             }
         }
 
         /// <summary>
-        /// 获取 Profiler 图数据
+        ///  修复: 获取 Profiler 图数据（同样使用多响应预测）
         /// </summary>
         public Task<string> GetProfileDataAsync(int gridSize = 50)
         {
@@ -239,8 +272,22 @@ namespace MaxChemical.Modules.DOE.Services
                     try
                     {
                         var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(factorsJson) ?? new();
-                        var gprPred = _gprService.Predict(factors);
-                        var predictions = _currentConfigs.ToDictionary(c => c.ResponseName, c => gprPred.Mean);
+
+                        //  修复: 使用多响应预测
+                        var allPredictions = _multiGprService.PredictAll(factors);
+
+                        var predictions = new Dictionary<string, double>();
+                        foreach (var config in _currentConfigs)
+                        {
+                            if (allPredictions.TryGetValue(config.ResponseName, out var pred))
+                            {
+                                predictions[config.ResponseName] = pred.Mean;
+                            }
+                            else
+                            {
+                                predictions[config.ResponseName] = (config.Lower + config.Upper) / 2.0;
+                            }
+                        }
                         return JsonConvert.SerializeObject(predictions);
                     }
                     catch
@@ -263,7 +310,7 @@ namespace MaxChemical.Modules.DOE.Services
         {
             var configJson = JsonConvert.SerializeObject(configs);
             await _repository.SaveDesirabilityConfigAsync(batchId, configJson);
-            _logger.LogInformation("★ Desirability 配置已保存: batchId={BatchId}", batchId);
+            _logger.LogInformation(" Desirability 配置已保存: batchId={BatchId}", batchId);
         }
 
         /// <summary>

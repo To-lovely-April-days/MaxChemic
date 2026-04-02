@@ -242,7 +242,7 @@ namespace MaxChemical.Modules.DOE.Services
             range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
         }
 
-        // ══════════════ ★ GPR 数据模板生成 ══════════════
+        // ══════════════  GPR 数据模板生成 ══════════════
 
         /// <summary>
         /// 生成 GPR 数据导入模板（空 Excel，只有列头）

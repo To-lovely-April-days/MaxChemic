@@ -3,7 +3,7 @@
 namespace MaxChemical.Modules.DOE.Models
 {
     /// <summary>
-    /// ★ 新增: OLS 回归分析完整结果
+    ///  新增: OLS 回归分析完整结果
     /// 由 Python DOEAnalyzer.fit_ols() 返回，C# 侧解析展示
     /// 对标 JMP/Minitab 的分析报表格式
     /// </summary>
@@ -26,7 +26,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: ANOVA 表行
+    ///  新增: ANOVA 表行
     /// 
     /// ANOVA 分解原理:
     ///   SS_Total = SS_Model + SS_Residual
@@ -67,7 +67,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: 回归系数表行
+    ///  新增: 回归系数表行
     /// 
     /// 每一行对应模型中的一个项（截距、主效应、交互项、二次项）
     /// </summary>
@@ -106,7 +106,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: OLS 模型摘要
+    ///  新增: OLS 模型摘要
     /// </summary>
     public class OLSModelSummary
     {

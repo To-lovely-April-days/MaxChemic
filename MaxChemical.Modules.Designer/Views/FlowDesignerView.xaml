@@ -384,11 +384,17 @@
                             BorderBrush="#E0E0E0" BorderThickness="1"
                             HorizontalAlignment="Center"
                             Margin="0,0,0,16">
-                        <TextBlock Text="⚙" FontSize="26"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Foreground="#BDBDBD"/>
+                        <Border.Effect>
+                            <!-- 添加一个非常轻微的阴影让圆圈更有质感 -->
+                            <DropShadowEffect ShadowDepth="2" BlurRadius="6" Color="#000000" Opacity="0.04"/>
+                        </Border.Effect>
+
+                        <!-- 替换了原来的 TextBlock ⚙，使用精美的 SVG Path 矢量图标 -->
+                        <Path Width="28" Height="28" Stretch="Uniform" Fill="#BDBDBD"
+      HorizontalAlignment="Center" VerticalAlignment="Center"
+      Data="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
                     </Border>
+
                     <TextBlock Text="未选择节点"
                                FontSize="14" FontWeight="Medium"
                                Foreground="#757575"
@@ -1199,7 +1205,7 @@
                                                     </TextBlock.Style>
                                                 </TextBlock>
 
-                                                <!-- ★ 条块（使用设备颜色而非状态颜色） -->
+                                                <!--  条块（使用设备颜色而非状态颜色） -->
                                                 <Border Canvas.Top="22" Canvas.Left="{Binding BarLeft}"
                                             Width="{Binding BarWidth}" Height="24" CornerRadius="4"
                                             Background="{Binding DeviceColor}">
@@ -1250,7 +1256,7 @@
                                                     </TextBlock.Style>
                                                 </TextBlock>
 
-                                                <!-- ★ 当前时间红线（贯穿每行） -->
+                                                <!--  当前时间红线（贯穿每行） -->
                                                 <Rectangle Canvas.Left="{Binding DataContext.CurrentTimeLineX,
                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                Width="1.5" Height="68" Fill="#ef4444" Opacity="0.5"

@@ -218,14 +218,14 @@
                                 </ComboBox>
                             </StackPanel>
 
-                            <!-- ── ★ 新增: RSM 优化类设计 ── -->
+                            <!-- ──  新增: RSM 优化类设计 ── -->
                             <Border BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,4,0,0">
                                 <StackPanel>
                                     <TextBlock Text="RSM 响应面优化设计" FontSize="12" FontWeight="SemiBold" Foreground="#2E86C1" Margin="0,0,0,8"/>
                                     <TextBlock Text="用于拟合二阶多项式模型，找到最优工艺参数（至少 2 个因子）" 
                                FontSize="11" Foreground="#999" Margin="0,0,0,12"/>
 
-                                    <!-- ★ CCD -->
+                                    <!--  CCD -->
                                     <RadioButton Content="CCD 中心复合设计 — RSM 最常用方法，含角点+轴点+中心点"
                                  IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CCD}"
                                  Margin="0,0,0,8" FontSize="14"/>
@@ -242,7 +242,7 @@
                                         <TextBlock Text="(-1 = 自动)" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#999" FontSize="11"/>
                                     </StackPanel>
 
-                                    <!-- ★ BBD -->
+                                    <!--  BBD -->
                                     <RadioButton Content="Box-Behnken 设计 — 无极端角点，化工安全性更好（≥3 因子）"
                                  IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=BoxBehnken}"
                                  Margin="0,0,0,8" FontSize="14"/>
@@ -253,7 +253,7 @@
                                         <TextBlock Text="(-1 = 自动)" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#999" FontSize="11"/>
                                     </StackPanel>
 
-                                    <!-- ★ D-Optimal -->
+                                    <!--  D-Optimal -->
                                     <RadioButton Content="D-Optimal 设计 — 不规则因子空间或需要定制实验次数"
                                  IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=DOptimal}"
                                  Margin="0,0,0,8" FontSize="14"/>
@@ -299,7 +299,7 @@
               IsReadOnly="True" MaxHeight="400"
               GridLinesVisibility="All" AlternatingRowBackground="#FAFAFA"
               CanUserSortColumns="True"/>
-                            <!-- ★ 新增: 设计质量评估面板（插入到 Step3 的 DataGrid 下方） -->
+                            <!--  新增: 设计质量评估面板（插入到 Step3 的 DataGrid 下方） -->
                             <Border Background="#F8FBFF" CornerRadius="8" BorderBrush="#D6E8FC" BorderThickness="1" 
         Padding="16,12" Margin="0,12,0,0"
         Visibility="{Binding HasDesignQuality, Converter={StaticResource BoolToVis}}">

@@ -103,7 +103,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             InitializeParallelBranches();
-            // ★ 加载完成后再次强制刷新，确保外层Canvas正确测量
+            //  加载完成后再次强制刷新，确保外层Canvas正确测量
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 InvalidateMeasure();
@@ -236,7 +236,7 @@ namespace MaxChemical.Modules.Designer.Views
                 }
 
                 UpdateBraceLayout();
-                // ★ 强制重新测量
+                //  强制重新测量
                 InvalidateMeasure();
                 InvalidateArrange();
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -273,7 +273,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 UpdateBraceLayout();
 
-                // ★ 关键修复：强制整个控件重新测量和排列
+                //  关键修复：强制整个控件重新测量和排列
                 InvalidateMeasure();
                 InvalidateArrange();
 
@@ -864,7 +864,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Height = 10,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(2, 0, 2, 0),
-                // ★ 用 Tag 标记为箭头，方便后续识别和删除
+                //  用 Tag 标记为箭头，方便后续识别和删除
                 Tag = "BranchArrow"
             };
 
@@ -954,7 +954,7 @@ namespace MaxChemical.Modules.Designer.Views
                             OnBranchContentChanged();
                         };
 
-                        // ★ 新增：订阅IF控件的SizeChanged，当嵌套IF导致高度变化时
+                        //  新增：订阅IF控件的SizeChanged，当嵌套IF导致高度变化时
                         // 强制同分支内的其他节点重新居中对齐
                         nestedIfControl.SizeChanged += (s, e) =>
                         {
@@ -1065,7 +1065,7 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         int controlIndex = branchContent.Children.IndexOf(controlToRemove);
 
-                        // ★ 删除相邻的箭头
+                        //  删除相邻的箭头
                         // 情况1：命令后面有箭头（不是最后一个命令）→ 删除后面的箭头
                         // 情况2：命令前面有箭头（不是第一个命令）→ 删除前面的箭头
                         // 情况3：只有一个命令，没有箭头
@@ -1451,7 +1451,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    // ★ 强制重新布局所有分支内的子元素垂直居中
+                    //  强制重新布局所有分支内的子元素垂直居中
                     RealignBranchChildren();
 
                     UpdateBraceLayout();

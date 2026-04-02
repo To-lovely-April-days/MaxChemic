@@ -463,13 +463,13 @@ namespace TemperatureCirculator_ModbusTCP
                         _isHeatingRunning != heatingRunning ||
                         _isCoolingRunning != coolingRunning ||
                         Math.Abs(_actualTemperature - actualTemp) > 0.1 ||
-                        Math.Abs(_setTemperature - setTemp) > 0.1)   // ★ 新增设定温度变化检测
+                        Math.Abs(_setTemperature - setTemp) > 0.1)   //  新增设定温度变化检测
                     {
                         _isCycleRunning = cycleRunning;
                         _isHeatingRunning = heatingRunning;
                         _isCoolingRunning = coolingRunning;
                         _actualTemperature = actualTemp;
-                        _setTemperature = setTemp;   // ★ 更新内存设定温度
+                        _setTemperature = setTemp;   //  更新内存设定温度
                         stateChanged = true;
                     }
                 }
@@ -483,7 +483,7 @@ namespace TemperatureCirculator_ModbusTCP
                     RaiseControlStateChanged("IsHeatingRunning", heatingRunning);
                     RaiseControlStateChanged("IsCoolingRunning", coolingRunning);
                     RaiseControlStateChanged("ActualTemperature", actualTemp);
-                    RaiseControlStateChanged("SetTemperature", setTemp);   // ★ 推送设定温度变化
+                    RaiseControlStateChanged("SetTemperature", setTemp);   //  推送设定温度变化
 
                     if (cycleRunning)
                         AddActiveState("CirculatorRunning", "启动循环", "停止循环");

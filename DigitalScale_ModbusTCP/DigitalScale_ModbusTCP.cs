@@ -1316,7 +1316,7 @@ namespace DigitalScale_ModbusTCP
                                         if (p != null) p.Value = newKcoeff;
 
                                         FlowInfoLog(
-                                            $"[CALIB] ★ Kcoeff 已修正: {oldKcoeff:F4} → {newKcoeff:F4}  " +
+                                            $"[CALIB]  Kcoeff 已修正: {oldKcoeff:F4} → {newKcoeff:F4}  " +
                                             $"(EMA α={PHYS_CALIB_ALPHA}  实测={measuredKcoeff:F4})");
 
                                         RaiseControlStateChanged("AdaptiveCoeff", newKcoeff);
@@ -1428,7 +1428,7 @@ namespace DigitalScale_ModbusTCP
                             double totalTime = (DateTime.Now - _controlStartTime).TotalSeconds;
 
                             FlowInfoLog(
-                                $"[MPC|C{_cycleCount:D3}|★STABLE|T+{elapsedSec:F1}s] " +
+                                $"[MPC|C{_cycleCount:D3}|STABLE|T+{elapsedSec:F1}s] " +
                                 $"✓ 流速已稳定！总耗时:{totalTime:F1}s  " +
                                 $"F̂={fEst:F4}g/min  F_fd={fFdText}g/min  " +
                                 $"Tgt={targetFlow:F2}g/min  " +
@@ -2247,7 +2247,7 @@ namespace DigitalScale_ModbusTCP
                           $"扰动:{dEst:+0.000;-0.000}  Ratio:{ratio:F2}%  偏差:{deviationPct:+0.000;-0.000}%  " +
                           $"泵:{currentPump:F1}RPM  T+{elapsedSec:F0}s  C{_cycleCount}  " +
                           $"稳定:{_stableCount}/{STABLE_REQUIRED}" +
-                          (_stabilityDeclared ? " [★已稳定]" : "") +
+                          (_stabilityDeclared ? " [已稳定]" : "") +
                           $"  标定:{_physCalibState}"
                         : "未启动";
 

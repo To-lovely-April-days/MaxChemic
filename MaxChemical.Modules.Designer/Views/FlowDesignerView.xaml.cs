@@ -316,7 +316,7 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     node.Y = correctY;
 
-                    // ★ 新增：如果 Y 为负，让 ViewModel 整体下移
+                    //  新增：如果 Y 为负，让 ViewModel 整体下移
                     viewModel.EnsureAllNodesVisible();  // 需要把这个方法改为 public
 
                     viewModel.RebuildAllConnectionsPublic();
@@ -400,7 +400,7 @@ namespace MaxChemical.Modules.Designer.Views
                 double viewportW = CanvasScrollViewer.ViewportWidth;
                 double viewportH = CanvasScrollViewer.ViewportHeight;
 
-                // ★ 防御：如果节点坐标或视口尺寸无效，跳过滚动
+                //  防御：如果节点坐标或视口尺寸无效，跳过滚动
                 if (double.IsNaN(nodeX) || double.IsNaN(node.Y) ||
                     double.IsNaN(nodeWidth) || double.IsInfinity(nodeX) || double.IsInfinity(node.Y) ||
                     viewportW <= 0 || viewportH <= 0)
@@ -422,7 +422,7 @@ namespace MaxChemical.Modules.Designer.Views
                 double targetV = nodeCenterY - viewportH / 2.0;
                 targetV = Math.Max(0, Math.Min(targetV, CanvasScrollViewer.ScrollableHeight));
 
-                // ★ 防御：最终目标值必须有效
+                //  防御：最终目标值必须有效
                 if (double.IsNaN(targetH)) targetH = 0;
                 if (double.IsNaN(targetV)) targetV = 0;
 
@@ -445,7 +445,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
         private void StartSmoothScroll(double startH, double startV, double targetH, double targetV, string nodeName = "")
         {
-            // ★ 防御：任一参数为 NaN 或 Infinity 时，直接跳过动画
+            //  防御：任一参数为 NaN 或 Infinity 时，直接跳过动画
             if (double.IsNaN(startH) || double.IsNaN(startV) || double.IsNaN(targetH) || double.IsNaN(targetV) ||
                 double.IsInfinity(startH) || double.IsInfinity(startV) || double.IsInfinity(targetH) || double.IsInfinity(targetV))
             {
@@ -469,7 +469,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var currentH = startH + (targetH - startH) * easedProgress;
                 var currentV = startV + (targetV - startV) * easedProgress;
 
-                // ★ 防御：确保插值结果有效
+                //  防御：确保插值结果有效
                 if (!double.IsNaN(currentH) && !double.IsNaN(currentV))
                 {
                     CanvasScrollViewer.ScrollToHorizontalOffset(currentH);
@@ -500,7 +500,7 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ★ 防御：参数无效时跳过
+            //  防御：参数无效时跳过
             if (double.IsNaN(x) || double.IsNaN(y) || double.IsInfinity(x) || double.IsInfinity(y))
             {
                 _logger.LogWarning("ScrollToPositionSmooth 参数无效，跳过: x={X}, y={Y}", x, y);
@@ -1012,7 +1012,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        // ★ 记录上一次视口尺寸，用于区分"窗口大小变化"和"画布内容变化"
+        //  记录上一次视口尺寸，用于区分"窗口大小变化"和"画布内容变化"
         private Size _lastViewportSize = Size.Empty;
 
         private void MainGrid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -1031,7 +1031,7 @@ namespace MaxChemical.Modules.Designer.Views
                 return;
             }
 
-            // ★ 修复：只在视口（ScrollViewer）尺寸真正变化时才重新居中
+            //  修复：只在视口（ScrollViewer）尺寸真正变化时才重新居中
             //   画布内容增删导致 CanvasWidth/CanvasHeight 改变时，Grid 的 SizeChanged 会触发，
             //   但视口大小不变，此时不应该跳回起始位置
             if (CanvasScrollViewer != null)

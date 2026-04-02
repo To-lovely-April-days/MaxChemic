@@ -553,7 +553,7 @@
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
 
-                        <!-- ★ 新增：警告模式开关 ★ -->
+                        <!--  新增：警告模式开关  -->
                         <Border Margin="0,12,0,0" Padding="10,8"
                                 Background="#FFF8F0" BorderBrush="#FFE0B2" BorderThickness="1" CornerRadius="6">
                             <StackPanel>

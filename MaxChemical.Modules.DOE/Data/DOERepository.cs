@@ -489,7 +489,7 @@ namespace MaxChemical.Modules.DOE.Data
         }
 
         /// <summary>
-        /// ★ 获取所有批次摘要（不限流程）
+        ///  获取所有批次摘要（不限流程）
         /// </summary>
         public async Task<List<DOEBatchSummary>> GetAllBatchSummariesAsync(int limit = 50)
         {
@@ -726,7 +726,7 @@ namespace MaxChemical.Modules.DOE.Data
 
     public partial class DOERepository
     {
-        // ══════════════ ★ 新增: Desirability 配置 ══════════════
+        // ══════════════  新增: Desirability 配置 ══════════════
 
         public async Task SaveDesirabilityConfigAsync(string batchId, string configJson)
         {
@@ -742,7 +742,7 @@ namespace MaxChemical.Modules.DOE.Data
             cmd.Parameters.AddWithValue("@configJson", configJson);
             await cmd.ExecuteNonQueryAsync();
 
-            _logger.LogInformation("★ Desirability 配置已保存: {BatchId}", batchId);
+            _logger.LogInformation(" Desirability 配置已保存: {BatchId}", batchId);
         }
 
         public async Task<string?> GetDesirabilityConfigJsonAsync(string batchId)
@@ -758,7 +758,7 @@ namespace MaxChemical.Modules.DOE.Data
             return result == null || result == DBNull.Value ? null : result.ToString();
         }
 
-        // ══════════════ ★ 新增: OLS 分析结果缓存 ══════════════
+        // ══════════════  新增: OLS 分析结果缓存 ══════════════
 
         public async Task SaveOlsResultAsync(string batchId, string responseName, string resultJson)
         {
@@ -775,7 +775,7 @@ namespace MaxChemical.Modules.DOE.Data
             cmd.Parameters.AddWithValue("@resultJson", resultJson);
             await cmd.ExecuteNonQueryAsync();
 
-            _logger.LogInformation("★ OLS 分析结果已缓存: {BatchId}/{Response}", batchId, responseName);
+            _logger.LogInformation(" OLS 分析结果已缓存: {BatchId}/{Response}", batchId, responseName);
         }
 
         public async Task<string?> GetOlsResultJsonAsync(string batchId, string responseName)

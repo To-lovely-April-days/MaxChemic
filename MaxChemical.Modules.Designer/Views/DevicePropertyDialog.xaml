@@ -250,7 +250,7 @@
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
 
-        <!-- ★ Commands ListBox 命令项样式（mockup: cmd-item 圆点+文字+hover蓝色） -->
+        <!--  Commands ListBox 命令项样式（mockup: cmd-item 圆点+文字+hover蓝色） -->
         <Style x:Key="CommandListBoxStyle" TargetType="ListBox">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>

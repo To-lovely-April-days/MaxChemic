@@ -24,7 +24,7 @@ namespace MaxChemical.Modules.DOE.Views
         /// </summary>
         private void OnAutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
-            // ★ 隐藏内部匹配用的列
+            //  隐藏内部匹配用的列
             if (e.PropertyName == "_RunIndex")
             {
                 e.Cancel = true;

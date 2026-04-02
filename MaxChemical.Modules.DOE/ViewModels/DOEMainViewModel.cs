@@ -87,7 +87,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             if (string.IsNullOrEmpty(batchId)) return;
             CurrentBatchId = batchId;
-            SelectedTabIndex = 2;  // ★ 指向合并后的「模型分析」
+            SelectedTabIndex = 2;  //  指向合并后的「模型分析」
             RequestLoadAnalysis?.Invoke(this, batchId);
         }
     }

@@ -3,7 +3,7 @@
 namespace MaxChemical.Modules.DOE.Models
 {
     /// <summary>
-    /// ★ 新增: Desirability 目标类型
+    ///  新增: Desirability 目标类型
     /// </summary>
     public enum DesirabilityGoal
     {
@@ -24,7 +24,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: 单个响应变量的 Desirability 配置
+    ///  新增: 单个响应变量的 Desirability 配置
     /// 
     /// Derringer-Suich (1980) 变换函数:
     ///   Maximize: d(y) = 0 if y≤L, ((y-L)/(T-L))^s if L&lt;y&lt;T, 1 if y≥T
@@ -87,7 +87,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: 批次级 Desirability 配置（存入数据库）
+    ///  新增: 批次级 Desirability 配置（存入数据库）
     /// </summary>
     public class DesirabilityBatchConfig
     {
@@ -101,7 +101,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: Desirability 优化结果
+    ///  新增: Desirability 优化结果
     /// </summary>
     public class DesirabilityResult
     {
@@ -133,7 +133,7 @@ namespace MaxChemical.Modules.DOE.Models
     }
 
     /// <summary>
-    /// ★ 新增: 单个响应的 Desirability 结果
+    ///  新增: 单个响应的 Desirability 结果
     /// </summary>
     public class IndividualDesirability
     {

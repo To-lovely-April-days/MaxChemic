@@ -28,7 +28,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
     {
         private readonly IDOEDesignService _designService;
         private readonly IDOERepository _repository;
-        private readonly IGPRModelService _gprService;           // ★ 新增: GPR 模型服务
+        private readonly IGPRModelService _gprService;           //  新增: GPR 模型服务
+        private readonly IMultiResponseGPRService _multiGprService;
         private readonly IFlowParameterProvider _paramProvider;
         private readonly IDialogService _dialogService;
         private readonly ILogService _logger;
@@ -48,15 +49,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private DOEDesignMethod _selectedMethod = DOEDesignMethod.FullFactorial;
         private string _taguchiTableType = "auto";
         private int _fractionalResolution = 3;
-        // ★ 新增: CCD 配置
+        //  新增: CCD 配置
         private string _ccdAlphaType = "rotatable";
         private int _ccdCenterCount = -1;
-        // ★ 新增: BBD 配置
+        //  新增: BBD 配置
         private int _bbdCenterCount = -1;
-        // ★ 新增: D-Optimal 配置
+        //  新增: D-Optimal 配置
         private int _dOptimalRunCount = -1;
         private string _dOptimalModelType = "quadratic";
-        // ★ 新增: 设计质量
+        //  新增: 设计质量
         private DOEDesignQuality? _designQuality;
         // ── 参数矩阵 (Step3) ──
         private DOEDesignMatrix? _designMatrix;
@@ -76,16 +77,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public DOEDesignWizardViewModel(
             IDOEDesignService designService,
             IDOERepository repository,
-            IGPRModelService gprService,                         // ★ 新增
+            IGPRModelService gprService,                         //  新增
+            IMultiResponseGPRService multiGprService,
             IFlowParameterProvider paramProvider,
             IDialogService dialogService,
             ILogService logger)
         {
             _designService = designService;
             _repository = repository;
-            _gprService = gprService;                            // ★ 新增
+            _gprService = gprService;                            //  新增
             _paramProvider = paramProvider;
             _dialogService = dialogService;
+            _multiGprService = multiGprService ?? throw new ArgumentNullException(nameof(multiGprService));
             _logger = logger?.ForContext<DOEDesignWizardViewModel>()
                       ?? throw new ArgumentNullException(nameof(logger));
 
@@ -99,22 +102,22 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         public string BatchName { get => _batchName; set => SetProperty(ref _batchName, value); }
-        // ★ 新增: CCD 属性
+        //  新增: CCD 属性
         public string CcdAlphaType { get => _ccdAlphaType; set => SetProperty(ref _ccdAlphaType, value); }
         public int CcdCenterCount { get => _ccdCenterCount; set => SetProperty(ref _ccdCenterCount, value); }
 
-        // ★ 新增: BBD 属性
+        //  新增: BBD 属性
         public int BbdCenterCount { get => _bbdCenterCount; set => SetProperty(ref _bbdCenterCount, value); }
         //
-        // ★ 新增: D-Optimal 属性
+        //  新增: D-Optimal 属性
         public int DOptimalRunCount { get => _dOptimalRunCount; set => SetProperty(ref _dOptimalRunCount, value); }
          public string DOptimalModelType { get => _dOptimalModelType; set => SetProperty(ref _dOptimalModelType, value); }
-        // ★ 新增: 设计质量评估结果
+        //  新增: 设计质量评估结果
         public DOEDesignQuality? DesignQuality
         {
             get => _designQuality; set => SetProperty(ref _designQuality, value);
         }
-        // ★ 新增: 设计质量显示属性（供 XAML 绑定）
+        //  新增: 设计质量显示属性（供 XAML 绑定）
         public string QualityDEffText => DesignQuality != null ? $"{DesignQuality.DEfficiency:P1}" : "—";
         public string QualityAEffText => DesignQuality != null ? $"{DesignQuality.AEfficiency:P1}" : "—";
         public string QualityGEffText => DesignQuality != null ? $"{DesignQuality.GEfficiency:P1}" : "—";
@@ -250,13 +253,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     break;
 
                 case 2: // 设计方法 → 生成矩阵
-                    // ★ 新增: BBD 因子数校验
+                    //  新增: BBD 因子数校验
                     if (SelectedMethod == DOEDesignMethod.BoxBehnken && Factors.Count < 3)
                     {
                         _dialogService.ShowError("Box-Behnken 设计至少需要 3 个因子", "验证");
                         return;
                     }
-                    // ★ 新增: CCD 因子数校验
+                    //  新增: CCD 因子数校验
                     if (SelectedMethod == DOEDesignMethod.CCD && Factors.Count < 2)
                     {
                         _dialogService.ShowError("CCD 设计至少需要 2 个因子", "验证");
@@ -335,15 +338,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 var factors = Factors.Select(f => f.ToModel()).ToList();
 
-                // ★ 修改: switch 新增 CCD / BoxBehnken / DOptimal 分支
+                //  修改: switch 新增 CCD / BoxBehnken / DOptimal 分支
                 _designMatrix = SelectedMethod switch
                 {
                     DOEDesignMethod.FullFactorial => await _designService.GenerateFullFactorialAsync(factors),
                     DOEDesignMethod.FractionalFactorial => await _designService.GenerateFractionalFactorialAsync(factors, FractionalResolution),
                     DOEDesignMethod.Taguchi => await _designService.GenerateTaguchiAsync(factors, TaguchiTableType),
-                    DOEDesignMethod.CCD => await _designService.GenerateCCDAsync(factors, CcdAlphaType, CcdCenterCount),             // ★ 新增
-                    DOEDesignMethod.BoxBehnken => await _designService.GenerateBoxBehnkenAsync(factors, BbdCenterCount),               // ★ 新增
-                    DOEDesignMethod.DOptimal => await _designService.GenerateDOptimalAsync(factors, DOptimalRunCount, DOptimalModelType), // ★ 新增
+                    DOEDesignMethod.CCD => await _designService.GenerateCCDAsync(factors, CcdAlphaType, CcdCenterCount),             //  新增
+                    DOEDesignMethod.BoxBehnken => await _designService.GenerateBoxBehnkenAsync(factors, BbdCenterCount),               //  新增
+                    DOEDesignMethod.DOptimal => await _designService.GenerateDOptimalAsync(factors, DOptimalRunCount, DOptimalModelType), //  新增
                     _ => null
                 };
 
@@ -353,7 +356,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     RaisePropertyChanged(nameof(MatrixRunCount));
                     StatusMessage = $"已生成 {_designMatrix.RunCount} 组实验";
 
-                    // ★ 新增: 自动计算设计质量
+                    //  新增: 自动计算设计质量
                     await EvaluateDesignQualityAsync(factors);
                 }
             }
@@ -370,7 +373,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
         }
         /// <summary>
-        /// ★ 新增: 评估设计质量
+        ///  新增: 评估设计质量
         /// 在生成矩阵后自动调用，结果展示在 Step3 的设计质量面板
         /// </summary>
         private async Task EvaluateDesignQualityAsync(List<DOEFactor> factors)
@@ -402,7 +405,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 RaisePropertyChanged(nameof(QualityDofText));
                 RaisePropertyChanged(nameof(HasDesignQuality));
 
-                _logger.LogInformation("★ 设计质量评估完成: D-eff={DEff}, DF={DF}",
+                _logger.LogInformation(" 设计质量评估完成: D-eff={DEff}, DF={DF}",
                     DesignQuality.DEfficiency, DesignQuality.DegreesOfFreedom);
             }
             catch (Exception ex)
@@ -520,13 +523,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         fractionalResolution = FractionalResolution,
                         isRandomized = IsRandomized,
                         centerPointCount = CenterPointCount,
-                        // ★ 新增: RSM 参数
+                        //  新增: RSM 参数
                         ccdAlphaType = CcdAlphaType,
                         ccdCenterCount = CcdCenterCount,
                         bbdCenterCount = BbdCenterCount,
                         dOptimalRunCount = DOptimalRunCount,
                         dOptimalModelType = DOptimalModelType,
-                        // ★ 新增: 设计质量快照
+                        //  新增: 设计质量快照
                         designQuality = DesignQuality != null ? new
                         {
                             dEfficiency = DesignQuality.DEfficiency,
@@ -550,7 +553,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 // 保存停止条件
                 var stopConditions = StopConditions.Select(c => c.ToModel()).ToList();
                 await _repository.SaveStopConditionsAsync(batchId, stopConditions);
-                // ★ 新增: 保存 Desirability 配置
+                //  新增: 保存 Desirability 配置
                 var desirabilityConfigs = Responses.Select(r => r.ToDesirabilityConfig()).ToList();
                 var configJson = JsonConvert.SerializeObject(desirabilityConfigs);
                 await _repository.SaveDesirabilityConfigAsync(batchId, configJson);
@@ -583,7 +586,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
 
                 // ════════════════════════════════════════════════════════
-                // ★ 新增: 创建并持久化 GPR 模型（错误不阻断方案保存）
+                //  新增: 创建并持久化 GPR 模型（错误不阻断方案保存）
                 // ════════════════════════════════════════════════════════
                 await InitializeGPRModelAsync(batch.FlowId, batchId, factors, responses);
 
@@ -604,7 +607,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         }
 
         /// <summary>
-        /// ★ 新增: 在创建 DOE 方案时初始化 GPR 模型
+        ///  新增: 在创建 DOE 方案时初始化 GPR 模型
         /// 
         /// 执行流程：
         /// 1. InitializeModelAsync — 按 FlowId + FactorSignature 查已有模型或新建
@@ -614,19 +617,30 @@ namespace MaxChemical.Modules.DOE.ViewModels
         /// 错误隔离: GPR 任何步骤失败都不影响方案保存
         /// </summary>
         private async Task InitializeGPRModelAsync(
-            string flowId,
-            string batchId,
-            List<DOEFactor> factors,
-            List<DOEResponse> responses)
+              string flowId,
+              string batchId,
+              List<DOEFactor> factors,
+              List<DOEResponse> responses)
         {
             try
             {
                 StatusMessage = "正在初始化 GPR 预测模型...";
 
-                // Step 1: 初始化模型（新建或恢复已有同签名模型）
+                // Step 1: 初始化主响应模型（新建或恢复已有同签名模型）
                 await _gprService.InitializeModelAsync(flowId, factors);
 
-                // Step 2: 如果有已导入的历史数据，喂给模型
+                //  新增 Step 1.5: 初始化多响应模型（为每个响应创建独立的 GPR）
+                try
+                {
+                    await _multiGprService.InitializeAsync(flowId, factors, responses);
+                    _logger.LogInformation("多响应 GPR 初始化成功: {Count} 个响应", responses.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "多响应 GPR 初始化失败（不影响主模型）");
+                }
+
+                // Step 2: 如果有已导入的历史数据，喂给所有模型
                 if (ImportedDataCount > 0)
                 {
                     var primaryResponseName = responses.FirstOrDefault()?.ResponseName;
@@ -648,11 +662,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
                                     : null;
                                 if (responseValues == null) continue;
 
-                                if (responseValues.TryGetValue(primaryResponseName, out var responseVal))
-                                {
-                                    _gprService.AppendData(factorValues, responseVal);
-                                    fedCount++;
-                                }
+                                //  修改: 喂给所有响应模型（原来只喂主响应）
+                                _multiGprService.AppendAllResponses(
+                                    factorValues, responseValues,
+                                    "imported", "", "");
+
+                                fedCount++;
                             }
                             catch (Exception ex)
                             {
@@ -665,15 +680,25 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
                 }
 
-                // Step 3: 持久化模型（内部根据数据量决定是否训练）
+                // Step 3: 持久化主模型
                 await _gprService.SaveInitialStateAsync(flowId);
+
+                //  新增 Step 3.5: 持久化次要模型
+                try
+                {
+                    await _multiGprService.SaveAllAsync(flowId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "次要 GPR 模型保存失败（不影响方案保存）");
+                }
 
                 _logger.LogInformation("GPR 模型已随方案创建: FlowId={FlowId}, DataCount={Count}",
                     flowId, _gprService.DataCount);
             }
             catch (Exception ex)
             {
-                // ★ 关键: GPR 失败不阻断方案保存
+                //  关键: GPR 失败不阻断方案保存
                 _logger.LogError(ex, "GPR 模型初始化失败（不影响 DOE 方案保存）");
             }
         }
@@ -762,7 +787,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
     {
         private string _responseName = "";
         private string _unit = "";
-        // ★ 新增: Desirability 配置（Step4 中设置）
+        //  新增: Desirability 配置（Step4 中设置）
         private DesirabilityGoal _goal = DesirabilityGoal.Maximize;
         private double _desirabilityLower = 0;
         private double _desirabilityUpper = 100;
@@ -771,7 +796,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private int _importance = 3;
         public string ResponseName { get => _responseName; set => SetProperty(ref _responseName, value); }
         public string Unit { get => _unit; set => SetProperty(ref _unit, value); }
-        // ★ 新增: Desirability 属性
+        //  新增: Desirability 属性
         public DesirabilityGoal Goal { get => _goal; set => SetProperty(ref _goal, value); }
         public double DesirabilityLower { get => _desirabilityLower; set => SetProperty(ref _desirabilityLower, value); }
         public double DesirabilityUpper { get => _desirabilityUpper; set => SetProperty(ref _desirabilityUpper, value); }
@@ -794,7 +819,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             CollectionMethod = DOECollectionMethod.Manual
         };
         /// <summary>
-        /// ★ 新增: 转为 Desirability 配置
+        ///  新增: 转为 Desirability 配置
         /// </summary>
         public DesirabilityResponseConfig ToDesirabilityConfig() => new()
         {

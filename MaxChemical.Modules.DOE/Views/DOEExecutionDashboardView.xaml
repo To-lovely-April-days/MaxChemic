@@ -242,7 +242,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ═══ ★ 暂停等待遮罩 ═══ -->
+        <!-- ═══  暂停等待遮罩 ═══ -->
         <Border Background="#80FFFFFF" Visibility="{Binding IsPausing, Converter={StaticResource BoolToVis}}"
             VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
             <Border Background="White" CornerRadius="12" Padding="36,28"

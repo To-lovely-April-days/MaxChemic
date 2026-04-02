@@ -19,7 +19,7 @@ namespace MaxChemical.Modules.DOE.Views
         private DOEHistoryViewModel? _historyVm;
         private DOEMainViewModel? _mainVm;
 
-        // ── ★ 迷你模式状态保存 ──
+        // ──  迷你模式状态保存 ──
         private double _savedWidth, _savedHeight, _savedLeft, _savedTop;
         private WindowState _savedWindowState;
         private const double MINI_WIDTH = 320;
@@ -117,10 +117,10 @@ namespace MaxChemical.Modules.DOE.Views
                 ModelAnalysisView.DataContext = _modelAnalysisVm;
                 HistoryView.DataContext = _historyVm;
 
-                // ★ 迷你面板绑定到执行 ViewModel
+                //  迷你面板绑定到执行 ViewModel
                 MiniPanel.DataContext = _execVm;
 
-                // ★ 监听迷你模式切换
+                //  监听迷你模式切换
                 _execVm.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName == nameof(DOEExecutionDashboardViewModel.IsMiniMode))
@@ -178,7 +178,7 @@ namespace MaxChemical.Modules.DOE.Views
             }
         }
 
-        // ══════════════ ★ 迷你模式切换 ══════════════
+        // ══════════════  迷你模式切换 ══════════════
 
         /// <summary>
         /// 切换到迷你模式：保存窗口状态 → 隐藏主内容 → 动画缩小 → 置顶

@@ -13,7 +13,7 @@ namespace MaxChemical.Modules.DOE.Services
     /// <summary>
     /// DOE 数据分析服务
     /// 
-    /// ★ 修改: 新增 FitOlsAsync / GetResidualDiagnosticsAsync / GetEffectsParetoAsync
+    ///  修改: 新增 FitOlsAsync / GetResidualDiagnosticsAsync / GetEffectsParetoAsync
     ///   这三个方法调用 Python DOEAnalyzer 的新方法: fit_ols() / residual_diagnostics() / effects_pareto()
     /// </summary>
     public class DOEAnalysisService : IDOEAnalysisService
@@ -58,7 +58,7 @@ namespace MaxChemical.Modules.DOE.Services
 
         /// <summary>
         /// 加载批次数据到 Python 分析器
-        /// ★ 修改: 支持指定 responseName（多响应时逐个分析）
+        ///  修改: 支持指定 responseName（多响应时逐个分析）
         /// </summary>
         private async Task LoadBatchDataAsync(string batchId, string? responseName = null)
         {
@@ -73,7 +73,7 @@ namespace MaxChemical.Modules.DOE.Services
             if (completedRuns.Count == 0)
                 throw new InvalidOperationException("批次没有已完成的实验数据");
 
-            // ★ 修改: 支持指定响应变量名
+            //  修改: 支持指定响应变量名
             var primaryResponse = responseName ?? batch.Responses.FirstOrDefault()?.ResponseName ?? "Y";
 
             var factorsData = completedRuns
@@ -98,7 +98,7 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         // ═══════════════════════════════════════════════════════
-        // ★ 新增: 完整 OLS 回归分析
+        //  新增: 完整 OLS 回归分析
         // ═══════════════════════════════════════════════════════
 
         public async Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic")
@@ -106,7 +106,7 @@ namespace MaxChemical.Modules.DOE.Services
             EnsureReady();
             await LoadBatchDataAsync(batchId, responseName);
 
-            _logger.LogInformation("★ FitOLS: batchId={BatchId}, response={Response}, model={Model}",
+            _logger.LogInformation(" FitOLS: batchId={BatchId}, response={Response}, model={Model}",
                 batchId, responseName, modelType);
 
             using (Py.GIL())
@@ -167,7 +167,7 @@ namespace MaxChemical.Modules.DOE.Services
                     };
                 }
 
-                _logger.LogInformation("★ FitOLS 完成: R²={R2}, R²adj={R2adj}, R²pred={R2pred}",
+                _logger.LogInformation(" FitOLS 完成: R²={R2}, R²adj={R2adj}, R²pred={R2pred}",
                     result.ModelSummary.RSquared, result.ModelSummary.RSquaredAdj, result.ModelSummary.RSquaredPred);
 
                 return result;
@@ -175,7 +175,7 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         // ═══════════════════════════════════════════════════════
-        // ★ 新增: 残差诊断四图
+        //  新增: 残差诊断四图
         // ═══════════════════════════════════════════════════════
 
         public async Task<string> GetResidualDiagnosticsAsync(string batchId, string responseName)
@@ -183,7 +183,7 @@ namespace MaxChemical.Modules.DOE.Services
             EnsureReady();
             await LoadBatchDataAsync(batchId, responseName);
 
-            _logger.LogInformation("★ 残差诊断: batchId={BatchId}, response={Response}", batchId, responseName);
+            _logger.LogInformation(" 残差诊断: batchId={BatchId}, response={Response}", batchId, responseName);
 
             using (Py.GIL())
             {
@@ -193,7 +193,7 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         // ═══════════════════════════════════════════════════════
-        // ★ 新增: 效应 Pareto 图（基于 T 值）
+        //  新增: 效应 Pareto 图（基于 T 值）
         // ═══════════════════════════════════════════════════════
 
         public async Task<string> GetEffectsParetoAsync(string batchId, string responseName, double alpha = 0.05)
@@ -201,7 +201,7 @@ namespace MaxChemical.Modules.DOE.Services
             EnsureReady();
             await LoadBatchDataAsync(batchId, responseName);
 
-            _logger.LogInformation("★ 效应 Pareto: batchId={BatchId}, response={Response}, alpha={Alpha}",
+            _logger.LogInformation(" 效应 Pareto: batchId={BatchId}, response={Response}, alpha={Alpha}",
                 batchId, responseName, alpha);
 
             using (Py.GIL())
@@ -366,7 +366,7 @@ namespace MaxChemical.Modules.DOE.Services
             }
         }
 
-        // ── ★ 新增: Python 结果反序列化类 ──
+        // ──  新增: Python 结果反序列化类 ──
 
         private class PythonOLSResult
         {

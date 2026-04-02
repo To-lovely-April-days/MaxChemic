@@ -21,8 +21,8 @@ namespace MaxChemical.Modules.DOE.Services
         private dynamic? _pythonModel;
         private bool _isPythonInitialized;
         private string _currentFlowId = "";
-        private string _currentSignature = "";   // ★ 新增
-        private string _currentModelName = "";   // ★ 新增
+        private string _currentSignature = "";   //  新增
+        private string _currentModelName = "";   //  新增
         public GPRModelService(IDOERepository repository, ILogService logger)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -42,12 +42,12 @@ namespace MaxChemical.Modules.DOE.Services
             _currentFlowId = flowId;
             var factorNames = factors.Select(f => f.FactorName).ToList();
 
-            // ★ 计算因子签名
+            //  计算因子签名
             _currentSignature = GPRModelState.BuildSignature(factorNames);
 
             try
             {
-                // ★ 按签名查模型（替换原来的按 FlowId 查）
+                //  按签名查模型（替换原来的按 FlowId 查）
                 var state = await _repository.GetGPRModelStateAsync(flowId, _currentSignature);
 
                 if (state?.ModelStateBytes != null && state.ModelStateBytes.Length > 0)
@@ -73,7 +73,7 @@ namespace MaxChemical.Modules.DOE.Services
                 var boundsJson = JsonConvert.SerializeObject(
                     factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound }));
 
-                // ★ 自动生成 ModelName
+                //  自动生成 ModelName
                 _currentModelName = $"{factorNames.Count}因子-{string.Join(",", factorNames.Take(3))}";
                 if (factorNames.Count > 3) _currentModelName += "...";
 
@@ -257,8 +257,8 @@ namespace MaxChemical.Modules.DOE.Services
                 var state = new GPRModelState
                 {
                     FlowId = flowId,
-                    FactorSignature = _currentSignature,   // ★ 新增
-                    ModelName = _currentModelName,          // ★ 新增
+                    FactorSignature = _currentSignature,   //  新增
+                    ModelName = _currentModelName,          //  新增
                     ModelStateBytes = modelBytes,
                     TrainingDataJson = trainingDataJson,
                     EvolutionHistoryJson = evolutionJson,
@@ -282,7 +282,7 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         /// <summary>
-        /// ★ 新增: 保存模型初始状态（创建 DOE 方案时调用）
+        ///  新增: 保存模型初始状态（创建 DOE 方案时调用）
         /// 与 SaveStateAsync 的区别：
         /// 1. 空模型（0条数据）时直接序列化保存，不调用 TrainModelAsync
         /// 2. 有数据（导入历史数据）时才尝试训练
@@ -376,7 +376,7 @@ namespace MaxChemical.Modules.DOE.Services
         {
             try
             {
-                // ★ 如果有签名就按签名查，没有就按 FlowId 查最新的
+                //  如果有签名就按签名查，没有就按 FlowId 查最新的
                 var state = !string.IsNullOrEmpty(_currentSignature)
                     ? await _repository.GetGPRModelStateAsync(flowId, _currentSignature)
                     : await _repository.GetGPRModelStateAsync(flowId);

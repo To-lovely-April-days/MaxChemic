@@ -920,7 +920,7 @@ namespace FlowMeter_ModbusTCP
                 LogControlStateChange("密度修正防超调智能流量控制启动", startDetails);
 
                 WriteDetailedLog("");
-                WriteDetailedLog("★".PadRight(100, '★'));
+                WriteDetailedLog("".PadRight(100, ''));
                 WriteDetailedLog($"密度修正防超调智能控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
                 WriteDetailedLog($"目标流量: {_targetFlow} g/min");
                 WriteDetailedLog($"液体密度: {currentDensity} g/cm³");
@@ -928,7 +928,7 @@ namespace FlowMeter_ModbusTCP
                 WriteDetailedLog($"超调保护: ±{UPPER_PROTECTION_PERCENT}% 阈值");
                 WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (密度修正版本)");
                 WriteDetailedLog($"智能检测: 三档动态等待 (低速{LOW_SPEED_WAIT_MS / 1000}s, 中速{MID_SPEED_WAIT_MS / 1000}s, 高速{HIGH_SPEED_WAIT_MS / 1000}s)");
-                WriteDetailedLog("★".PadRight(100, '★'));
+                WriteDetailedLog("".PadRight(100, ''));
                 WriteDetailedLog("");
             }
         }

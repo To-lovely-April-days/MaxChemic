@@ -20,7 +20,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 {
     /// <summary>
     /// DOE 分析视图 ViewModel — 管理所有图表的数据加载和 OxyPlot PlotModel 渲染
-    /// ★ 修改: 集成 ModelRouter + OLS 分析 + Desirability 多响应优化
+    ///  修改: 集成 ModelRouter + OLS 分析 + Desirability 多响应优化
     /// </summary>
     public class DOEAnalysisViewModel : BindableBase
     {
@@ -29,12 +29,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly ILogService _logger;
         private readonly IModelRouter _modelRouter;
         private readonly IDesirabilityService _desirabilityService;
-        private readonly IDialogService _dialogService;          // ★ 修复: 补全字段声明
+        private readonly IDialogService _dialogService;          //  修复: 补全字段声明
 
         // ── 批次关联 ──
         private string _batchId = "";
-        private string _currentBatchId = "";                     // ★ 修复: 补全字段声明
-        private string _currentFlowId = "";                      // ★ 修复: 补全字段声明
+        private string _currentBatchId = "";                     //  修复: 补全字段声明
+        private string _currentFlowId = "";                      //  修复: 补全字段声明
         private bool _isLoading;
         private string _statusMessage = "";
 
@@ -53,11 +53,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         // ── 曲面图因子选择 ──
         private List<string> _factorNames = new();
-        private List<string> _responseNames = new();             // ★ 修复: 补全字段声明
+        private List<string> _responseNames = new();             //  修复: 补全字段声明
         private string? _surfaceFactor1;
         private string? _surfaceFactor2;
 
-        // ── ★ 新增: OLS + ModelRouter + Desirability ──
+        // ──  新增: OLS + ModelRouter + Desirability ──
         private AnalysisStrategy _currentStrategy = AnalysisStrategy.GPR;
         private string _strategyReason = "";
         private OLSAnalysisResult? _olsResult;
@@ -65,7 +65,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private string _selectedResponseName = "";
         private DesirabilityResult? _desirabilityResult;
 
-        // ── ★ 新增: 最优参数 ──
+        // ──  新增: 最优参数 ──
         private List<OptimalFactorItem> _optimalFactors = new();
         private bool _hasOptimalResult;
 
@@ -74,7 +74,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             IDOERepository repository,
             IModelRouter modelRouter,
             IDesirabilityService desirabilityService,
-            IDialogService dialogService,                        // ★ 修复: 补全构造参数
+            IDialogService dialogService,                        //  修复: 补全构造参数
             ILogService logger)
         {
             _analysisService = analysisService;
@@ -82,7 +82,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _logger = logger?.ForContext<DOEAnalysisViewModel>() ?? throw new ArgumentNullException(nameof(logger));
             _modelRouter = modelRouter;
             _desirabilityService = desirabilityService;
-            _dialogService = dialogService;                      // ★ 修复: 赋值
+            _dialogService = dialogService;                      //  修复: 赋值
 
             RefreshAllCommand = new DelegateCommand(async () => await LoadAllChartsAsync(), () => !string.IsNullOrEmpty(BatchId));
             GenerateSurfaceCommand = new DelegateCommand(async () => await LoadSurfaceAsync(),
@@ -111,7 +111,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public string? SurfaceFactor1 { get => _surfaceFactor1; set { SetProperty(ref _surfaceFactor1, value); GenerateSurfaceCommand.RaiseCanExecuteChanged(); } }
         public string? SurfaceFactor2 { get => _surfaceFactor2; set { SetProperty(ref _surfaceFactor2, value); GenerateSurfaceCommand.RaiseCanExecuteChanged(); } }
 
-        // ── ★ 新增属性 ──
+        // ──  新增属性 ──
         public AnalysisStrategy CurrentStrategy { get => _currentStrategy; set => SetProperty(ref _currentStrategy, value); }
         public string StrategyReason { get => _strategyReason; set => SetProperty(ref _strategyReason, value); }
         public bool IsOlsMode { get => _isOlsMode; set => SetProperty(ref _isOlsMode, value); }
@@ -145,7 +145,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             FactorNames = batch.Factors.Select(f => f.FactorName).ToList();
             ResponseNames = batch.Responses.Select(r => r.ResponseName).ToList();
 
-            // ★ 新增: 选择默认响应变量
+            //  新增: 选择默认响应变量
             SelectedResponseName = ResponseNames.FirstOrDefault() ?? "";
 
             if (FactorNames.Count >= 2)
@@ -154,17 +154,17 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 SurfaceFactor2 = FactorNames[1];
             }
 
-            // ★ 新增: ModelRouter 自动选择分析策略
+            //  新增: ModelRouter 自动选择分析策略
             var completedCount = batch.Runs.Count(r => r.Status == DOERunStatus.Completed);
             CurrentStrategy = _modelRouter.SelectStrategy(batch.DesignMethod, batch.Factors.Count, completedCount);
             StrategyReason = _modelRouter.GetStrategyReason(CurrentStrategy, batch.DesignMethod, batch.Factors.Count, completedCount);
             IsOlsMode = (CurrentStrategy == AnalysisStrategy.OLS);
             RaisePropertyChanged(nameof(IsGprMode));
 
-            _logger.LogInformation("★ ModelRouter 决策: Strategy={Strategy}, Method={Method}, Factors={K}, Data={N}",
+            _logger.LogInformation(" ModelRouter 决策: Strategy={Strategy}, Method={Method}, Factors={K}, Data={N}",
                 CurrentStrategy, batch.DesignMethod, batch.Factors.Count, completedCount);
 
-            // ★ 新增: 如果是 OLS 模式，加载 OLS 分析
+            //  新增: 如果是 OLS 模式，加载 OLS 分析
             if (IsOlsMode && !string.IsNullOrEmpty(SelectedResponseName))
             {
                 await RefreshOlsAnalysisAsync();
@@ -173,7 +173,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             await LoadAllChartsAsync();
         }
 
-        // ══════════════ ★ 新增: OLS 分析 ══════════════
+        // ══════════════  新增: OLS 分析 ══════════════
 
         private async Task RefreshOlsAnalysisAsync()
         {
@@ -193,7 +193,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                                    $"R²adj={OlsResult.ModelSummary.RSquaredAdj:F4}, " +
                                    $"R²pred={OlsResult.ModelSummary.RSquaredPred:F4}";
 
-                    _logger.LogInformation("★ OLS 分析: R²={R2}, RMSE={RMSE}, LOF_P={LOFP}",
+                    _logger.LogInformation(" OLS 分析: R²={R2}, RMSE={RMSE}, LOF_P={LOFP}",
                         OlsResult.ModelSummary.RSquared,
                         OlsResult.ModelSummary.RMSE,
                         OlsResult.ModelSummary.LackOfFitP);
@@ -210,7 +210,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
         }
 
-        // ══════════════ ★ 新增: Desirability 优化 ══════════════
+        // ══════════════  新增: Desirability 优化 ══════════════
 
         private async Task RunDesirabilityOptimizationAsync()
         {
@@ -510,7 +510,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             [JsonProperty("residuals")] public List<double> Residuals { get; set; } = new();
         }
 
-        // ★ 修复: 重命名避免和 Models.AnovaRow 冲突
+        //  修复: 重命名避免和 Models.AnovaRow 冲突
         private class AnovaRowDto
         {
             [JsonProperty("source")] public string Source { get; set; } = "";

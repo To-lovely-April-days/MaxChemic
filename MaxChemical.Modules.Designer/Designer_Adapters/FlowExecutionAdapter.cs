@@ -15,7 +15,7 @@ namespace MaxChemical.Modules.Designer.Service
     /// DOE 模块通过此适配器间接调用 Designer 的流程执行引擎，避免直接引用 Designer 模块。
     /// 在 Shell 的 RegisterTypes 中注册为单例。
     /// 
-    /// ★ DOE 连续执行修复: 
+    ///  DOE 连续执行修复: 
     ///   FlowExecutionEngine 执行完成后 State 经过 Completed → (延迟2s) → Idle。
     ///   DOE 连续调用时必须等待引擎回到 Idle 才能发起下一组。
     /// </summary>
@@ -68,7 +68,7 @@ namespace MaxChemical.Modules.Designer.Service
                     };
                 }
 
-                // ★★★ 关键修复: 等待引擎回到 Idle 状态 ★★★
+                //  关键修复: 等待引擎回到 Idle 状态 
                 if (_engine.State != FlowExecutionState.Idle)
                 {
                     _logger.LogInformation("DOE 适配器: 引擎状态为 {State}，等待回到 Idle...", _engine.State);
@@ -98,7 +98,7 @@ namespace MaxChemical.Modules.Designer.Service
                     _logger.LogInformation("DOE 适配器: 引擎已回到 Idle，等待 {Ms}ms", (int)waited);
                 }
 
-                // ★ 额外安全延迟：确保引擎内部状态（设备、上下文等）完全清理
+                //  额外安全延迟：确保引擎内部状态（设备、上下文等）完全清理
                 await Task.Delay(500, cancellationToken);
 
                 _logger.LogInformation("DOE 适配器: 开始执行流程 (引擎状态: {State})", _engine.State);
@@ -140,13 +140,22 @@ namespace MaxChemical.Modules.Designer.Service
         public void PauseExecution()
         {
             _logger.LogInformation("DOE 适配器: 暂停执行");
-            _engine.PauseAsync().ConfigureAwait(false);
+            _ = Task.Run(async () =>
+            {
+                try { await _engine.PauseAsync(); }
+                catch (Exception ex) { _logger.LogError(ex, "DOE 适配器: 暂停执行失败"); }
+            });
         }
+
 
         public void ResumeExecution()
         {
             _logger.LogInformation("DOE 适配器: 恢复执行");
-            _engine.ResumeAsync().ConfigureAwait(false);
+            _ = Task.Run(async () =>
+            {
+                try { await _engine.ResumeAsync(); }
+                catch (Exception ex) { _logger.LogError(ex, "DOE 适配器: 恢复执行失败"); }
+            });
         }
 
         public async Task StopExecutionAsync()

@@ -153,7 +153,7 @@
             </Grid>
         </Border>
 
-        <!-- ═══ ★ 迷你面板（执行时覆盖显示） ═══ -->
+        <!-- ═══  迷你面板（执行时覆盖显示） ═══ -->
         <views:DOEMiniPanel x:Name="MiniPanel"
             Visibility="Collapsed"
             VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>

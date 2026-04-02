@@ -13,7 +13,7 @@ namespace MaxChemical.Modules.DOE.Services
     /// <summary>
     /// DOE 实验设计服务 — 调用 Python doe_engine.py 生成参数矩阵
     /// 
-    /// ★ 修改: 新增 GenerateCCDAsync / GenerateBoxBehnkenAsync / GenerateDOptimalAsync / GetDesignQualityAsync
+    ///  修改: 新增 GenerateCCDAsync / GenerateBoxBehnkenAsync / GenerateDOptimalAsync / GetDesignQualityAsync
     /// </summary>
     public class DOEDesignService : IDOEDesignService
     {
@@ -166,21 +166,21 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         // ═══════════════════════════════════════════════════════
-        // ★ 新增: RSM 设计方法
+        //  新增: RSM 设计方法
         // ═══════════════════════════════════════════════════════
 
         public Task<DOEDesignMatrix> GenerateCCDAsync(List<DOEFactor> factors, string alphaType = "rotatable", int centerCount = -1)
         {
             EnsurePythonReady();
             var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation("★ 生成 CCD 设计: {FactorCount} 个因子, alpha={Alpha}, 中心点={Center}",
+            _logger.LogInformation(" 生成 CCD 设计: {FactorCount} 个因子, alpha={Alpha}, 中心点={Center}",
                 factors.Count, alphaType, centerCount);
 
             using (Py.GIL())
             {
                 string matrixJson = _pythonDesigner!.ccd(factorsJson, alphaType, centerCount).ToString();
                 var result = ParseDesignMatrix(matrixJson, factors);
-                _logger.LogInformation("★ CCD 生成完成: {RunCount} 组实验", result.RunCount);
+                _logger.LogInformation(" CCD 生成完成: {RunCount} 组实验", result.RunCount);
                 return Task.FromResult(result);
             }
         }
@@ -189,14 +189,14 @@ namespace MaxChemical.Modules.DOE.Services
         {
             EnsurePythonReady();
             var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation("★ 生成 Box-Behnken 设计: {FactorCount} 个因子, 中心点={Center}",
+            _logger.LogInformation(" 生成 Box-Behnken 设计: {FactorCount} 个因子, 中心点={Center}",
                 factors.Count, centerCount);
 
             using (Py.GIL())
             {
                 string matrixJson = _pythonDesigner!.box_behnken(factorsJson, centerCount).ToString();
                 var result = ParseDesignMatrix(matrixJson, factors);
-                _logger.LogInformation("★ BBD 生成完成: {RunCount} 组实验", result.RunCount);
+                _logger.LogInformation(" BBD 生成完成: {RunCount} 组实验", result.RunCount);
                 return Task.FromResult(result);
             }
         }
@@ -205,20 +205,20 @@ namespace MaxChemical.Modules.DOE.Services
         {
             EnsurePythonReady();
             var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation("★ 生成 D-Optimal 设计: {FactorCount} 个因子, 组数={Runs}, 模型={Model}",
+            _logger.LogInformation(" 生成 D-Optimal 设计: {FactorCount} 个因子, 组数={Runs}, 模型={Model}",
                 factors.Count, numRuns, modelType);
 
             using (Py.GIL())
             {
                 string matrixJson = _pythonDesigner!.d_optimal(factorsJson, numRuns, modelType).ToString();
                 var result = ParseDesignMatrix(matrixJson, factors);
-                _logger.LogInformation("★ D-Optimal 生成完成: {RunCount} 组实验", result.RunCount);
+                _logger.LogInformation(" D-Optimal 生成完成: {RunCount} 组实验", result.RunCount);
                 return Task.FromResult(result);
             }
         }
 
         // ═══════════════════════════════════════════════════════
-        // ★ 新增: 设计质量评估
+        //  新增: 设计质量评估
         // ═══════════════════════════════════════════════════════
 
         public Task<DOEDesignQuality> GetDesignQualityAsync(List<DOEFactor> factors, DOEDesignMatrix matrix, string modelType = "quadratic")
@@ -226,7 +226,7 @@ namespace MaxChemical.Modules.DOE.Services
             EnsurePythonReady();
             var factorsJson = BuildFactorsJsonWithBounds(factors);
             var matrixJson = matrix.ToJson();
-            _logger.LogInformation("★ 评估设计质量: {FactorCount} 因子, {RunCount} 组, 模型={Model}",
+            _logger.LogInformation(" 评估设计质量: {FactorCount} 因子, {RunCount} 组, 模型={Model}",
                 factors.Count, matrix.RunCount, modelType);
 
             using (Py.GIL())
@@ -247,7 +247,7 @@ namespace MaxChemical.Modules.DOE.Services
                     DegreesOfFreedom = pyResult.DegreesOfFreedom
                 };
 
-                _logger.LogInformation("★ 设计质量: D-eff={DEff}, A-eff={AEff}, G-eff={GEff}",
+                _logger.LogInformation(" 设计质量: D-eff={DEff}, A-eff={AEff}, G-eff={GEff}",
                     quality.DEfficiency, quality.AEfficiency, quality.GEfficiency);
 
                 return Task.FromResult(quality);
@@ -304,7 +304,7 @@ namespace MaxChemical.Modules.DOE.Services
             [JsonProperty("valid_row_count")] public int ValidRowCount { get; set; }
         }
 
-        // ★ 新增: 设计质量反序列化类
+        //  新增: 设计质量反序列化类
         private class PythonDesignQuality
         {
             [JsonProperty("d_efficiency")] public double DEfficiency { get; set; }

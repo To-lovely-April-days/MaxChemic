@@ -194,7 +194,7 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                             ResetNodeAndChildren(node);
                         }
                     }
-                    // ★ 新增：通知 ViewModel 流程已重置
+                    //  新增：通知 ViewModel 流程已重置
                     _currentFlowViewModel?.ResetFlowStartTime();
                 }), System.Windows.Threading.DispatcherPriority.Normal);
 

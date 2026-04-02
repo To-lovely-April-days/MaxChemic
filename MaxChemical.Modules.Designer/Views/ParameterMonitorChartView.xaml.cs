@@ -477,7 +477,7 @@ namespace MaxChemical.Modules.Designer.Views
                 for (int j = 0; j < paramData.Count; j++)
                 {
                     int r = headerR + 1 + j;
-                    // ★ 关键：用 ToOADate() 写入数值，Excel XYScatter 才能正确识别为时间
+                    //  关键：用 ToOADate() 写入数值，Excel XYScatter 才能正确识别为时间
                     cs.Cells[r, colX].Value = paramData[j].Timestamp.ToOADate();
                     cs.Cells[r, colX].Style.Numberformat.Format = "HH:mm:ss";
                     cs.Cells[r, colY].Value = paramData[j].ParameterValues[paramName];
@@ -652,7 +652,7 @@ namespace MaxChemical.Modules.Designer.Views
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
                 Points = new PointCollection(pts),
-                IsHitTestVisible = false  // ★ 防止折线抢鼠标事件
+                IsHitTestVisible = false  //  防止折线抢鼠标事件
             });
         }
 
@@ -680,7 +680,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
-        #region 鼠标交互（★ 修复Tooltip抖动）
+        #region 鼠标交互（ 修复Tooltip抖动）
 
         private void OnChartMouseMove(object sender, MouseEventArgs e)
         {
@@ -708,7 +708,7 @@ namespace MaxChemical.Modules.Designer.Views
             CrosshairV.X1 = nx; CrosshairV.Y1 = MT; CrosshairV.X2 = nx; CrosshairV.Y2 = MT + ch;
             CrosshairV.Visibility = Visibility.Visible;
 
-            // ★ 清旧hover点
+            //  清旧hover点
             var oldDots = ChartCanvas.Children.OfType<Ellipse>().Where(x => x.Tag?.ToString() == "h").ToList();
             foreach (var od in oldDots) ChartCanvas.Children.Remove(od);
 
@@ -728,7 +728,7 @@ namespace MaxChemical.Modules.Designer.Views
                     Stroke = new SolidColorBrush(dk),
                     StrokeThickness = 2,
                     Tag = "h",
-                    IsHitTestVisible = false  // ★ 防止hover点抢鼠标导致抖动
+                    IsHitTestVisible = false  //  防止hover点抢鼠标导致抖动
                 };
                 Canvas.SetLeft(r, cp.X - 5); Canvas.SetTop(r, cp.Y - 5); Canvas.SetZIndex(r, 100);
                 ChartCanvas.Children.Add(r);
@@ -737,7 +737,7 @@ namespace MaxChemical.Modules.Designer.Views
             // Tooltip 内容
             BuildTooltip(near, en);
 
-            // ★ Tooltip 定位：严格限制在 Canvas 范围内
+            //  Tooltip 定位：严格限制在 Canvas 范围内
             TooltipPanel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             double tw = TooltipPanel.DesiredSize.Width, th = TooltipPanel.DesiredSize.Height;
             double tx, ty;

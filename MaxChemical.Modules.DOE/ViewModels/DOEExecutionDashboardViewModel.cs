@@ -64,7 +64,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private int _pendingCount;
         private int _failedCount;
 
-        // ── ★ 迷你模式 ──
+        // ──  迷你模式 ──
         private bool _isMiniMode;
         private ObservableCollection<ProgressSegment> _progressSegments = new();
         private ObservableCollection<FactorDisplayItem> _currentFactorItems = new();
@@ -133,7 +133,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool HasFailedRuns => FailedCount > 0;
         public string StartButtonText => CurrentRun > 0 ? "继续执行" : "开始执行";
 
-        // ── ★ 迷你模式属性 ──
+        // ──  迷你模式属性 ──
 
         /// <summary>是否处于迷你监控模式</summary>
         public bool IsMiniMode
@@ -409,7 +409,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ETADetailText = $"均 {avgPerRun:F0}s/组 · 剩 {TotalRuns - CurrentRun} 组";
         }
 
-        // ══════════════ ★ 迷你模式辅助方法 ══════════════
+        // ══════════════  迷你模式辅助方法 ══════════════
 
         /// <summary>
         /// 根据当前进度生成分段进度条数据
@@ -523,7 +523,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 _firstRunStartTime = DateTime.Now;
                 StatusMessage = $"正在执行... 剩余 {PendingCount} 组";
 
-                // ★ 切换到迷你模式
+                //  切换到迷你模式
                 IsMiniMode = true;
 
                 _executionService.RunCompleted += OnRunCompleted;
@@ -583,7 +583,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 StatusMessage = $"已重置 {failedRuns.Count} 组，正在执行...";
 
-                // ★ 切换到迷你模式
+                //  切换到迷你模式
                 IsMiniMode = true;
 
                 _executionService.RunCompleted += OnRunCompleted;
@@ -673,7 +673,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         UpdateBestResult();
                         RecalculateProgress();
 
-                        // ★ 更新迷你面板的因子参数显示
+                        //  更新迷你面板的因子参数显示
                         UpdateCurrentFactors(run);
                     }
                 }
@@ -702,7 +702,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 BatchStatus = e.FinalStatus;
                 StatusMessage = $"批次完成: {e.StopReason} (完成 {e.CompletedRuns}/{e.TotalRuns} 组)";
 
-                // ★ 执行完成，恢复大窗口
+                //  执行完成，恢复大窗口
                 IsMiniMode = false;
 
                 _executionService.RunCompleted -= OnRunCompleted;

@@ -25,7 +25,7 @@ namespace MaxChemical.Modules.Designer.Services
         private readonly object _lockObject = new object();
 
         /// <summary>
-        /// ★ 保存 BeginAllowThreads 返回的线程状态指针，
+        ///  保存 BeginAllowThreads 返回的线程状态指针，
         /// Dispose 时需要用它恢复主线程状态才能安全 Shutdown。
         /// </summary>
         private IntPtr _mainThreadState;
@@ -71,7 +71,7 @@ namespace MaxChemical.Modules.Designer.Services
                         sys.path.append(@".\");
                     }
 
-                    // 关键修复：释放 GIL，允许其他线程获取 ★★★
+                    // 关键修复：释放 GIL，允许其他线程获取 
                     // PythonEngine.Initialize() 后，当前线程（UI线程）持有 GIL。
                     // 必须调用 BeginAllowThreads() 让出 GIL，否则其他线程的 Py.GIL()
                     // 会因为等待 UI 线程释放 GIL 而永久阻塞。
@@ -130,7 +130,7 @@ namespace MaxChemical.Modules.Designer.Services
                     {
                         _logger.LogInformation("关闭全局Python环境");
 
-                        // ★ 恢复主线程状态，然后才能安全 Shutdown
+                        //  恢复主线程状态，然后才能安全 Shutdown
                         if (_mainThreadState != IntPtr.Zero)
                         {
                             PythonEngine.EndAllowThreads(_mainThreadState);

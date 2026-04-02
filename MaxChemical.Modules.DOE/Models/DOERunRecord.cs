@@ -60,6 +60,6 @@ namespace MaxChemical.Modules.DOE.Models
         Completed,
         Failed,
         Skipped,
-        Suspended   // ★ 停止条件触发后，剩余未执行的组
+        Suspended   //  停止条件触发后，剩余未执行的组
     }
 }

@@ -56,7 +56,7 @@ namespace MaxChemical.Modules.Designer.Plugins
         }
 
         /// <summary>
-        /// ★ 修改：按钮从 44×44 缩小到 32×32，图标从 44×44 缩到 24×24
+        ///  修改：按钮从 44×44 缩小到 32×32，图标从 44×44 缩到 24×24
         ///   使用内联 ControlTemplate 替代 ToolButtonStyle，自带 hover/pressed 效果
         /// </summary>
         protected virtual Button CreateStandardToolbarButton()

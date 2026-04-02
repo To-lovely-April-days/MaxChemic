@@ -162,7 +162,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return;
                 }
 
-                // ★ 先清除所有固定宽度和MinWidth，让子内容完全自由
+                //  先清除所有固定宽度和MinWidth，让子内容完全自由
                 MainContainer.Width = double.NaN;
                 MainContainer.MinWidth = DEFAULT_WIDTH;
                 LoopContentWrapper.Width = double.NaN;
@@ -196,7 +196,7 @@ namespace MaxChemical.Modules.Designer.Views
                 double childAreaNeeded = maxChildWidth + 22;
                 double targetWidth = Math.Max(DEFAULT_WIDTH, childAreaNeeded);
 
-                // ★ 只用 MinWidth，不设固定 Width
+                //  只用 MinWidth，不设固定 Width
                 //   这样删除子节点后 MinWidth 会被重算为更小的值，控件自然缩小
                 MainContainer.MinWidth = targetWidth;
                 LoopContentWrapper.MinWidth = targetWidth;
@@ -229,7 +229,7 @@ namespace MaxChemical.Modules.Designer.Views
             this.MinHeight = 0;
             LoopContentWrapper.Height = double.NaN;
 
-            // ★ 关键修复：清除 RepeatArrowCanvas 的固定高度
+            //  关键修复：清除 RepeatArrowCanvas 的固定高度
             //   否则它的旧高度会撑住 ChildAreaGrid，阻止容器缩小
             RepeatArrowCanvas.Height = double.NaN;
         }
@@ -329,7 +329,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (!_isExpanded || _loopCommands.Count == 0)
                     return;
-                // ★ 先清除自身固定高度，让 Grid 行高完全由 LoopContentWrapper 决定
+                //  先清除自身固定高度，让 Grid 行高完全由 LoopContentWrapper 决定
                 RepeatArrowCanvas.Height = double.NaN;
                 LoopContentWrapper.UpdateLayout();
                 double contentHeight = LoopContentWrapper.ActualHeight;
@@ -514,7 +514,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                     ContentChanged?.Invoke(this, EventArgs.Empty);
 
-                    // ★ 二次同步：等子控件完全渲染后再校正一次宽度
+                    //  二次同步：等子控件完全渲染后再校正一次宽度
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         SyncWidths();
@@ -802,7 +802,7 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         ClearHighlight();
 
-                        // ★ 核心：添加子节点后同步宽度
+                        //  核心：添加子节点后同步宽度
                         OnLoopContentChanged();
 
                         NestedCommandAdded?.Invoke(this, new NestedCommandEventArgs
@@ -1012,7 +1012,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 UpdateSummaryText();
 
-                // ★ 只有非删除场景才在这里调用 SyncWidths
+                //  只有非删除场景才在这里调用 SyncWidths
                 if (!skipSyncWidths)
                 {
                     Dispatcher.BeginInvoke(new Action(() =>
@@ -1052,10 +1052,10 @@ namespace MaxChemical.Modules.Designer.Views
                     _loopCommands.Remove(childNode);
                     _logger.LogDebug("从循环移除命令: {NodeName}", childNode.DisplayName);
 
-                    // ★ 先重置所有宽度/高度约束
+                    //  先重置所有宽度/高度约束
                     ResetWidths();
 
-                    // ★ 重建子节点显示（这里面会清空 LoopChildrenContent 并重新添加）
+                    //  重建子节点显示（这里面会清空 LoopChildrenContent 并重新添加）
                     UpdateChildrenDisplay();
 
                     // 第一轮延迟：重新计算尺寸
@@ -1065,12 +1065,12 @@ namespace MaxChemical.Modules.Designer.Views
                         this.MinHeight = 0;
                         LoopContentWrapper.Height = double.NaN;
 
-                        // ★ 关键修复：先清除 RepeatArrowCanvas 的固定高度，打破死循环
+                        //  关键修复：先清除 RepeatArrowCanvas 的固定高度，打破死循环
                         RepeatArrowCanvas.Height = double.NaN;
 
                         LoopChildrenContent.InvalidateMeasure();
                         LoopContentWrapper.InvalidateMeasure();
-                        ChildAreaGrid.InvalidateMeasure();  // ★ Grid 也要 Invalidate
+                        ChildAreaGrid.InvalidateMeasure();  //  Grid 也要 Invalidate
                         this.InvalidateMeasure();
                         this.UpdateLayout();
 
@@ -1120,10 +1120,10 @@ namespace MaxChemical.Modules.Designer.Views
                         this.Height = double.NaN;
                         this.MinHeight = 0;
                         LoopContentWrapper.Height = double.NaN;
-                        RepeatArrowCanvas.Height = double.NaN;  // ★ 加这行
+                        RepeatArrowCanvas.Height = double.NaN;  //  加这行
                         LoopChildrenContent.InvalidateMeasure();
                         LoopContentWrapper.InvalidateMeasure();
-                        ChildAreaGrid.InvalidateMeasure();       // ★ 加这行
+                        ChildAreaGrid.InvalidateMeasure();       //  加这行
                         this.InvalidateMeasure();
                         this.UpdateLayout();
 

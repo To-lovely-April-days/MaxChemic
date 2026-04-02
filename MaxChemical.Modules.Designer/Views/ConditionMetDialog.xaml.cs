@@ -84,7 +84,7 @@ namespace MaxChemical.Modules.Designer.Views
             GaugeMinLabel.Text = gaugeMin.ToString("G4");
             GaugeMaxLabel.Text = gaugeMax.ToString("G4");
 
-            // ★ 关键修正：StrokeDashArray 的值是以 StrokeThickness 为单位的
+            //  关键修正：StrokeDashArray 的值是以 StrokeThickness 为单位的
             // 比如弧线总长 204.2px，StrokeThickness=10，则总长 = 20.42 个单位
             // 要画 valueRatio 比例的弧线：dash = totalUnits * ratio, gap = 很大值
             double valueRatio = Math.Min(1.0, Math.Max(0, (cv - gaugeMin) / (gaugeMax - gaugeMin)));

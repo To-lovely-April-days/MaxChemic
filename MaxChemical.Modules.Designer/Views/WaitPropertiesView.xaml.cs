@@ -78,7 +78,7 @@ namespace MaxChemical.Modules.Designer.Views
             if (!logicCommand.Properties.ContainsKey("Description"))
                 logicCommand.Properties["Description"] = "等待指定时间";
 
-            // ★ 新增：IsWarning 默认值
+            //  新增：IsWarning 默认值
             if (!logicCommand.Properties.ContainsKey("IsWarning"))
                 logicCommand.Properties["IsWarning"] = false;
         }
@@ -117,7 +117,7 @@ namespace MaxChemical.Modules.Designer.Views
                     break;
             }
 
-            // ★ 设置 IsWarning 复选框
+            //  设置 IsWarning 复选框
             var isWarning = Convert.ToBoolean(node.LogicCommand.Properties.GetValueOrDefault("IsWarning", false));
             IsWarningCheckBox.IsChecked = isWarning;
         }
@@ -171,7 +171,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         /// <summary>
-        /// ★ 新增：IsWarning 开关变化
+        ///  新增：IsWarning 开关变化
         /// </summary>
         private void IsWarning_Changed(object sender, RoutedEventArgs e)
         {
@@ -339,7 +339,7 @@ namespace MaxChemical.Modules.Designer.Views
                         _ => $"{leftVariable} {operatorDisplay} {rightValue}"
                     };
 
-                    // ★ 预览中显示警告模式标记
+                    //  预览中显示警告模式标记
                     var warningTag = isWarning ? " ⚠警告" : "";
 
                     if (isInfiniteTimeout)

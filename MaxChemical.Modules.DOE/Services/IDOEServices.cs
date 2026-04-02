@@ -8,7 +8,7 @@ namespace MaxChemical.Modules.DOE.Services
 {
     // ═══════════════════════════════════════════════════════
     // IDOEDesignService — 实验设计服务
-    // ★ 修改: 新增 CCD/BBD/DOptimal 设计方法 + 设计质量评估
+    //  修改: 新增 CCD/BBD/DOptimal 设计方法 + 设计质量评估
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
@@ -25,10 +25,10 @@ namespace MaxChemical.Modules.DOE.Services
         Task<DataValidationResult> ValidateImportedDataAsync(string excelPath, List<DOEFactor> factors, List<DOEResponse> responses);
         Task<List<DOERunRecord>> ImportHistoricalDataAsync(string excelPath, string batchId, List<DOEFactor> factors, List<DOEResponse> responses);
 
-        // ── ★ 新增: RSM 设计方法 ──
+        // ──  新增: RSM 设计方法 ──
 
         /// <summary>
-        /// ★ 新增: 生成 CCD 中心复合设计矩阵
+        ///  新增: 生成 CCD 中心复合设计矩阵
         /// </summary>
         /// <param name="factors">因子列表（需要 LowerBound/UpperBound）</param>
         /// <param name="alphaType">alpha 类型: "rotatable"(推荐) / "face" / "orthogonal"</param>
@@ -36,24 +36,24 @@ namespace MaxChemical.Modules.DOE.Services
         Task<DOEDesignMatrix> GenerateCCDAsync(List<DOEFactor> factors, string alphaType = "rotatable", int centerCount = -1);
 
         /// <summary>
-        /// ★ 新增: 生成 Box-Behnken 设计矩阵
+        ///  新增: 生成 Box-Behnken 设计矩阵
         /// </summary>
         /// <param name="factors">因子列表（至少3个）</param>
         /// <param name="centerCount">中心点数，-1 自动</param>
         Task<DOEDesignMatrix> GenerateBoxBehnkenAsync(List<DOEFactor> factors, int centerCount = -1);
 
         /// <summary>
-        /// ★ 新增: 生成 D-Optimal 设计矩阵
+        ///  新增: 生成 D-Optimal 设计矩阵
         /// </summary>
         /// <param name="factors">因子列表</param>
         /// <param name="numRuns">实验次数，-1 自动</param>
         /// <param name="modelType">模型类型: "linear"/"interaction"/"quadratic"</param>
         Task<DOEDesignMatrix> GenerateDOptimalAsync(List<DOEFactor> factors, int numRuns = -1, string modelType = "quadratic");
 
-        // ── ★ 新增: 设计质量评估 ──
+        // ──  新增: 设计质量评估 ──
 
         /// <summary>
-        /// ★ 新增: 评估设计矩阵的统计质量
+        ///  新增: 评估设计矩阵的统计质量
         /// 返回 D/A/G 效率、VIF、条件数、Power 分析等
         /// </summary>
         Task<DOEDesignQuality> GetDesignQualityAsync(List<DOEFactor> factors, DOEDesignMatrix matrix, string modelType = "quadratic");
@@ -179,7 +179,7 @@ namespace MaxChemical.Modules.DOE.Services
 
     // ═══════════════════════════════════════════════════════
     // IDOEAnalysisService — 数据分析服务
-    // ★ 修改: 新增 FitOlsAsync / GetResidualDiagnosticsAsync / GetEffectsParetoAsync
+    //  修改: 新增 FitOlsAsync / GetResidualDiagnosticsAsync / GetEffectsParetoAsync
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
@@ -203,10 +203,10 @@ namespace MaxChemical.Modules.DOE.Services
         Task<string> GetAcquisitionSurfaceAsync(string flowId, string factor1, string factor2);
         Task<string> GetModelEvolutionAsync(string flowId);
 
-        // ── ★ 新增: 完整 OLS 分析 ──
+        // ──  新增: 完整 OLS 分析 ──
 
         /// <summary>
-        /// ★ 新增: 完整 OLS 回归分析 — 返回 ANOVA 表 + 系数表 + 模型摘要
+        ///  新增: 完整 OLS 回归分析 — 返回 ANOVA 表 + 系数表 + 模型摘要
         /// 对标 JMP/Minitab 的分析报表
         /// </summary>
         /// <param name="batchId">批次 ID</param>
@@ -215,24 +215,24 @@ namespace MaxChemical.Modules.DOE.Services
         Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic");
 
         /// <summary>
-        /// ★ 新增: 残差诊断四图数据
+        ///  新增: 残差诊断四图数据
         /// 正态概率图 / 残差vs拟合 / 残差vs顺序 / 残差直方图 + Cook's距离
         /// </summary>
         Task<string> GetResidualDiagnosticsAsync(string batchId, string responseName);
 
         /// <summary>
-        /// ★ 新增: 效应 Pareto 图（基于 T 值）
+        ///  新增: 效应 Pareto 图（基于 T 值）
         /// 比原有的 GetParetoChartAsync 更准确（基于回归 T 值而非效应差值）
         /// </summary>
         Task<string> GetEffectsParetoAsync(string batchId, string responseName, double alpha = 0.05);
     }
 
     // ═══════════════════════════════════════════════════════
-    // ★ 新增: IDesirabilityService — 多响应优化服务
+    //  新增: IDesirabilityService — 多响应优化服务
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
-    /// ★ 新增: Desirability 多响应优化服务
+    ///  新增: Desirability 多响应优化服务
     /// 调用 Python doe_desirability.py 实现 Derringer-Suich 方法
     /// </summary>
     public interface IDesirabilityService
@@ -269,11 +269,11 @@ namespace MaxChemical.Modules.DOE.Services
     }
 
     // ═══════════════════════════════════════════════════════
-    // ★ 新增: IModelRouter — 模型策略路由器
+    //  新增: IModelRouter — 模型策略路由器
     // ═══════════════════════════════════════════════════════
 
     /// <summary>
-    /// ★ 新增: 分析策略类型
+    ///  新增: 分析策略类型
     /// </summary>
     public enum AnalysisStrategy
     {
@@ -296,7 +296,7 @@ namespace MaxChemical.Modules.DOE.Services
     }
 
     /// <summary>
-    /// ★ 新增: 模型策略路由器 — 根据设计方法和数据特征自动选择 OLS 或 GPR
+    ///  新增: 模型策略路由器 — 根据设计方法和数据特征自动选择 OLS 或 GPR
     /// </summary>
     public interface IModelRouter
     {

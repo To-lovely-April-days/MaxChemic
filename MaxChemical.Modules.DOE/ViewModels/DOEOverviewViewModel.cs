@@ -36,7 +36,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ResumeLastBatchCommand = new DelegateCommand(() => RequestResumeBatch?.Invoke(this, _resumableBatchId),
                 () => HasResumableBatch);
             GoToHistoryCommand = new DelegateCommand(() => RequestGoToHistory?.Invoke(this, EventArgs.Empty));
-            EditBatchCommand = new DelegateCommand(EditSelectedBatch);  // ★ 新增
+            EditBatchCommand = new DelegateCommand(EditSelectedBatch);  //  新增
         }
 
         public int TotalBatchCount { get => _totalBatchCount; set => SetProperty(ref _totalBatchCount, value); }
@@ -46,17 +46,17 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool HasResumableBatch { get => _hasResumableBatch; set { SetProperty(ref _hasResumableBatch, value); ResumeLastBatchCommand.RaiseCanExecuteChanged(); } }
         public string ResumableBatchSummary { get => _resumableBatchSummary; set => SetProperty(ref _resumableBatchSummary, value); }
         public ObservableCollection<DOEBatchSummary> RecentBatches { get => _recentBatches; set => SetProperty(ref _recentBatches, value); }
-        public DOEBatchSummary? SelectedBatch { get => _selectedBatch; set => SetProperty(ref _selectedBatch, value); }  // ★ 新增
+        public DOEBatchSummary? SelectedBatch { get => _selectedBatch; set => SetProperty(ref _selectedBatch, value); }  //  新增
 
         public DelegateCommand ResumeLastBatchCommand { get; }
         public DelegateCommand GoToHistoryCommand { get; }
-        public DelegateCommand EditBatchCommand { get; }  // ★ 新增
+        public DelegateCommand EditBatchCommand { get; }  //  新增
 
         public event EventHandler<string>? RequestResumeBatch;
         public event EventHandler? RequestGoToHistory;
-        public event EventHandler<string>? RequestEditBatch;  // ★ 新增
+        public event EventHandler<string>? RequestEditBatch;  //  新增
 
-        // ★ 编辑方案（仅 Ready 状态）
+        //  编辑方案（仅 Ready 状态）
         private void EditSelectedBatch()
         {
             if (SelectedBatch == null) return;

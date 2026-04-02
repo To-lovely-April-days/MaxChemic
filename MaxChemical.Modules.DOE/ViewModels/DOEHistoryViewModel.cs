@@ -57,7 +57,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             DeleteBatchCommand = new DelegateCommand<DOEBatchSummary>(async s => await DeleteBatchAsync(s));
             ExportBatchCommand = new DelegateCommand<DOEBatchSummary>(async s => await ExportBatchAsync(s));
             ExportComparisonCommand = new DelegateCommand(async () => await ExportComparisonAsync(), () => Batches.Count >= 2);
-            EditBatchCommand = new DelegateCommand<DOEBatchSummary>(s => EditBatch(s));  // ★ 新增
+            EditBatchCommand = new DelegateCommand<DOEBatchSummary>(s => EditBatch(s));  //  新增
             ResetGPRModelCommand = new DelegateCommand(async () => await ResetGPRModelAsync());
             RetrainGPRModelCommand = new DelegateCommand(async () => await RetrainGPRModelAsync());
 
@@ -83,7 +83,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public DelegateCommand<DOEBatchSummary> DeleteBatchCommand { get; }
         public DelegateCommand<DOEBatchSummary> ExportBatchCommand { get; }
         public DelegateCommand ExportComparisonCommand { get; }
-        public DelegateCommand<DOEBatchSummary> EditBatchCommand { get; }  // ★ 新增
+        public DelegateCommand<DOEBatchSummary> EditBatchCommand { get; }  //  新增
         public DelegateCommand ResetGPRModelCommand { get; }
         public DelegateCommand RetrainGPRModelCommand { get; }
 
@@ -103,7 +103,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public event EventHandler<string>? RequestAnalyzeBatch;
 
         /// <summary>
-        /// ★ 请求编辑方案事件（历史页右键菜单触发）
+        ///  请求编辑方案事件（历史页右键菜单触发）
         /// </summary>
         public event EventHandler<string>? RequestEditBatch;
 
@@ -115,7 +115,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 IsLoading = true;
 
-                // ★ 直接查所有批次的摘要（不依赖 FlowId）
+                //  直接查所有批次的摘要（不依赖 FlowId）
                 var summaries = await _repository.GetAllBatchSummariesAsync(50);
 
                 Batches = new ObservableCollection<DOEBatchSummary>(summaries);
@@ -159,7 +159,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         // ══════════════ 操作 ══════════════
 
         /// <summary>
-        /// ★ 编辑方案（仅 Ready 状态）
+        ///  编辑方案（仅 Ready 状态）
         /// </summary>
         private void EditBatch(DOEBatchSummary? summary)
         {
@@ -175,7 +175,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         }
 
         /// <summary>
-        /// ★ 删除方案（带 GPR 模型同步清理）
+        ///  删除方案（带 GPR 模型同步清理）
         /// </summary>
         private async Task DeleteBatchAsync(DOEBatchSummary? summary)
         {
@@ -201,7 +201,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 Batches.Remove(summary);
                 StatusMessage = $"已删除批次: {summary.BatchName}";
 
-                // ★ GPR 模型同步清理逻辑
+                //  GPR 模型同步清理逻辑
                 if (!string.IsNullOrEmpty(flowId) && !string.IsNullOrEmpty(signature))
                 {
                     var remaining = await _repository.GetBatchCountBySignatureAsync(flowId, signature);

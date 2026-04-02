@@ -2629,7 +2629,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                             double newH = capturedNode.NodeControl.ActualHeight;
                             if (newH <= 0) return;
 
-                            // ★ 用正确的方式计算 Y
+                            //  用正确的方式计算 Y
                             double correctY = CalculateNodeCorrectY(capturedNode, startNodeCenterY);
 
                             if (Math.Abs(capturedNode.Y - correctY) > 1.0)
@@ -2641,7 +2641,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                             int idx = CommandNodes.IndexOf(capturedNode);
                             if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
 
-                            // ★ 确保所有节点可见（如果有负值Y就整体下移）
+                            //  确保所有节点可见（如果有负值Y就整体下移）
                             EnsureAllNodesVisible();
 
                             RebuildAllConnections();
@@ -2749,7 +2749,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                             if (newH <= 0) return;
 
                             double correctY;
-                            // ★ 修复：IF 节点用 CardCenterOffsetY 对齐主卡片到中心线，允许负值
+                            //  修复：IF 节点用 CardCenterOffsetY 对齐主卡片到中心线，允许负值
                             if (capturedNode.IsIfNode && capturedNode.NodeControl is Views.IfNodeControlView ifView)
                             {
                                 correctY = startNodeCenterY - ifView.CardCenterOffsetY;
@@ -2836,13 +2836,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         node.X = prev.X + prevW + nodeSpacingX;
                     }
 
-                    // ★ Y 坐标：用统一方法
+                    //  Y 坐标：用统一方法
                     node.Y = CalculateNodeCorrectY(node, startNodeCenterY);
 
                     _logger.LogTrace("重排节点 {Index}: {Name} -> ({X}, {Y})", i, node.DisplayName, node.X, node.Y);
                 }
 
-                // ★ 确保所有节点可见
+                //  确保所有节点可见
                 EnsureAllNodesVisible();
             }
             catch (Exception ex)
@@ -2857,7 +2857,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             if (node.NodeControl is Views.IfNodeControlView ifCtrl && ifCtrl.TotalActualWidth > 0)
                 return ifCtrl.TotalActualWidth;
-            // ★ 新增：并行节点也用 TotalActualWidth
+            //  新增：并行节点也用 TotalActualWidth
             if (node.NodeControl is Views.ParallelNodeControlView parallelCtrl)
             {
                 parallelCtrl.UpdateLayout();
@@ -3098,7 +3098,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogDebug("处理嵌套命令添加: {NestedCommand}", e.NestedCommand.DisplayName);
 
-                // ★ 修复：找到主画布上的顶层祖先节点（可能是 IF、Loop、Parallel）
+                //  修复：找到主画布上的顶层祖先节点（可能是 IF、Loop、Parallel）
                 //   e.ParentIfNode 是嵌套命令的直接父节点，但对于深层嵌套（IF2 在 IF1 内部），
                 //   e.ParentIfNode 指向 IF2，而 IF2 不在 CommandNodes 中。
                 //   需要向上查找直到找到 CommandNodes 中的顶层节点。
@@ -3380,7 +3380,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             var lastNode = CommandNodes.Last();
 
-            // ★ 修复：ActualWidth为0时用估算宽度
+            //  修复：ActualWidth为0时用估算宽度
             double lastWidth = GetNodeActualRenderWidth(lastNode);
             if (double.IsNaN(lastWidth) || lastWidth <= 0) lastWidth = standardNodeWidth;
 
@@ -3498,7 +3498,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     maxBottom = Math.Max(maxBottom, nodeBottom);
                 }
 
-                // ★ 修复：node.Y 可能为负值，需要平移
+                //  修复：node.Y 可能为负值，需要平移
                 if (minY < -5)
                 {
                     double shift = -minY + 20;
@@ -3580,7 +3580,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     double prevWidth = GetNodeActualRenderWidth(previousNode);
                     currentNode.X = previousNode.X + prevWidth + nodeSpacingX;
 
-                    // ★ Y 坐标：用统一方法
+                    //  Y 坐标：用统一方法
                     currentNode.Y = CalculateNodeCorrectY(currentNode, startNodeCenterY);
 
                     _logger.LogTrace("重排节点 {Index}: {Name} -> ({X}, {Y})",
@@ -3718,7 +3718,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             const double cardHeight = 64.0;
 
-            // ★ IF 节点：直接用 CardCenterOffsetY（最精确）
+            //  IF 节点：直接用 CardCenterOffsetY（最精确）
             if (node.IsIfNode && node.NodeControl is Views.IfNodeControlView ifCtrl
                 && ifCtrl.CardCenterOffsetY > 0)
             {
@@ -3791,13 +3791,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         node.X = prev.X + prevWidth + nodeSpacingX;
                     }
 
-                    // ★ Y 坐标：用统一方法
+                    //  Y 坐标：用统一方法
                     node.Y = CalculateNodeCorrectY(node, startNodeCenterY);
 
                     _logger.LogTrace("节点 {Name} 位置: ({X}, {Y})", node.DisplayName, node.X, node.Y);
                 }
 
-                // ★ 确保所有节点都在画布可见区域
+                //  确保所有节点都在画布可见区域
                 EnsureAllNodesVisible();
             }
             catch (Exception ex)
@@ -3824,7 +3824,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             var rightmost = CommandNodes.Max(n => n.X + GetNodeActualRenderWidth(n));
             CanvasWidth = Math.Max(1200, rightmost + 200);
 
-            // ★ 修复：node.Y 可能为负值（IF节点向上展开），
+            //  修复：node.Y 可能为负值（IF节点向上展开），
             //   需要计算 minY 并在必要时调整所有节点位置
             double minY = 0;
             double maxBottom = 0;
@@ -3869,7 +3869,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 {
                     _logger.LogDebug("删除节点: {NodeName}", node.DisplayName);
 
-                    // ★ 修复：如果删除的是当前选中节点，清空选中状态
+                    //  修复：如果删除的是当前选中节点，清空选中状态
                     if (SelectedNode == node)
                     {
                         SelectedNode = null;
@@ -4125,7 +4125,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 result = startNodeCenterY - h / 2.0;
             }
 
-            // ★ 防御：确保不返回 NaN
+            //  防御：确保不返回 NaN
             if (double.IsNaN(result)) result = 0;
             return result;
         }
