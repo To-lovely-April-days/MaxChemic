@@ -116,7 +116,8 @@ namespace MaxChemical.Modules.DOE.Services
                 var matrix = new DOEDesignMatrix
                 {
                     FactorNames = factorNames,
-                    Rows = records.Select(r => r.Factors).ToList()
+                    // ★ 修复 (Bug#4): ImportedRecord.Factors 已是 Dict<string,object>，直接使用
+                    Rows = records.Select(r => new Dictionary<string, object>(r.Factors)).ToList()
                 };
                 return Task.FromResult(matrix);
             }
@@ -258,29 +259,96 @@ namespace MaxChemical.Modules.DOE.Services
 
         private string BuildFactorsJsonWithLevels(List<DOEFactor> factors)
         {
-            var list = factors.Select(f => new
+            var list = factors.Select(f =>
             {
-                name = f.FactorName,
-                levels = f.GetLevels().ToList()
+                if (f.IsCategorical)
+                {
+                    // ★ 修复 v4: 类别因子直接传字符串标签作为 levels
+                    var catLevels = f.GetCategoryLevelList();
+                    return new Dictionary<string, object>
+            {
+                { "name", f.FactorName },
+                { "type", "categorical" },
+                { "levels", catLevels }
+            };
+                }
+                else
+                {
+                    return new Dictionary<string, object>
+            {
+                { "name", f.FactorName },
+                { "type", "continuous" },
+                { "levels", f.GetLevels().Select(v => (object)v).ToList() }
+            };
+                }
             }).ToList();
             return JsonConvert.SerializeObject(list);
         }
 
         private string BuildFactorsJsonWithBounds(List<DOEFactor> factors)
         {
-            var list = factors.Select(f => new
+            var list = factors.Select(f =>
             {
-                name = f.FactorName,
-                lower = f.LowerBound,
-                upper = f.UpperBound
+                if (f.IsCategorical)
+                {
+                    return new Dictionary<string, object>
+                    {
+                        { "name", f.FactorName },
+                        { "type", "categorical" },
+                        { "levels", f.GetCategoryLevelList() }
+                    };
+                }
+                else
+                {
+                    return new Dictionary<string, object>
+                    {
+                        { "name", f.FactorName },
+                        { "type", "continuous" },
+                        { "lower", f.LowerBound },
+                        { "upper", f.UpperBound }
+                    };
+                }
             }).ToList();
             return JsonConvert.SerializeObject(list);
         }
 
         private DOEDesignMatrix ParseDesignMatrix(string matrixJson, List<DOEFactor> factors)
         {
-            var rows = JsonConvert.DeserializeObject<List<Dictionary<string, double>>>(matrixJson)
-                       ?? new List<Dictionary<string, double>>();
+            // ★ 修复 (v3): 类别因子保留字符串标签，不再转为数值索引
+            // 这样标签可以从设计矩阵一直透传到 GPR 的 _encode_factors()
+            var rawRows = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(matrixJson)
+                       ?? new List<Dictionary<string, object>>();
+
+            // 构建类别因子名称集合（用于判断是否需要保留字符串）
+            var categoricalFactorNames = new HashSet<string>(
+                factors.Where(f => f.IsCategorical).Select(f => f.FactorName));
+
+            var rows = rawRows.Select(rawRow =>
+            {
+                var row = new Dictionary<string, object>();
+                foreach (var kv in rawRow)
+                {
+                    if (categoricalFactorNames.Contains(kv.Key))
+                    {
+                        // 类别因子: 保留字符串标签（如 "催化剂A"）
+                        row[kv.Key] = kv.Value?.ToString() ?? "";
+                    }
+                    else
+                    {
+                        // 连续因子: 转为 double
+                        if (kv.Value is double d)
+                            row[kv.Key] = d;
+                        else if (kv.Value is long l)
+                            row[kv.Key] = (double)l;
+                        else if (double.TryParse(kv.Value?.ToString(), out var parsed))
+                            row[kv.Key] = parsed;
+                        else
+                            row[kv.Key] = 0.0;
+                    }
+                }
+                return row;
+            }).ToList();
+
             return new DOEDesignMatrix
             {
                 FactorNames = factors.Select(f => f.FactorName).ToList(),
@@ -292,7 +360,11 @@ namespace MaxChemical.Modules.DOE.Services
 
         private class ImportedRecord
         {
-            [JsonProperty("factors")] public Dictionary<string, double> Factors { get; set; } = new();
+            /// <summary>
+            /// ★ 修复 (Bug#4): 从 Dictionary&lt;string, double&gt; 改为 Dictionary&lt;string, object&gt;
+            /// 类别因子在 Excel 中是字符串值，double 反序列化会失败
+            /// </summary>
+            [JsonProperty("factors")] public Dictionary<string, object> Factors { get; set; } = new();
             [JsonProperty("responses")] public Dictionary<string, double> Responses { get; set; } = new();
         }
 

@@ -23,18 +23,31 @@ namespace MaxChemical.Modules.DOE.Views
         /// <param name="totalRuns">总组数</param>
         /// <param name="factorValues">本组因子值</param>
         /// <param name="responseDefinitions">响应变量定义列表 (名称, 单位)</param>
+        /// <summary>
+        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以支持类别因子标签
+        /// </summary>
         public DOEResponseCollectionDialog(
             int runIndex,
             int totalRuns,
-            Dictionary<string, double> factorValues,
+            Dictionary<string, object> factorValues,
             List<(string Name, string Unit)> responseDefinitions)
         {
             InitializeComponent();
 
             SubtitleText.Text = $"第 {runIndex + 1}/{totalRuns} 组实验已完成，请录入表征/分析结果";
 
-            // 显示当前因子值
-            FactorDisplay.ItemsSource = factorValues.Select(kv => new KeyValuePair<string, double>(kv.Key, kv.Value)).ToList();
+            // ★ 修复 (v3): 类别因子显示标签，连续因子显示数值
+            FactorDisplay.ItemsSource = factorValues.Select(kv =>
+            {
+                string display;
+                if (kv.Value is double d)
+                    display = d.ToString("F2");
+                else if (double.TryParse(kv.Value?.ToString(), out var parsed))
+                    display = parsed.ToString("F2");
+                else
+                    display = kv.Value?.ToString() ?? "—";
+                return new KeyValuePair<string, string>(kv.Key, display);
+            }).ToList();
 
             // 创建响应值输入项
             _responseItems = responseDefinitions.Select(r => new ResponseInputItem

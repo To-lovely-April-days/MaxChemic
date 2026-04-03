@@ -101,8 +101,23 @@ namespace MaxChemical.Modules.DOE.Services
 
             // 次要响应: 各自创建独立的 Python GPR 模型
             var factorNamesJson = JsonConvert.SerializeObject(factors.Select(f => f.FactorName).ToList());
-            var boundsJson = JsonConvert.SerializeObject(
-                factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound }));
+
+            // ★ 修复 (v3): bounds 区分连续因子 [lower, upper] 和类别因子 ["A", "B", "C"]
+            // 原来的 bug: 所有因子都传 [LowerBound, UpperBound]，类别因子无法正确初始化
+            var boundsDict = new Dictionary<string, object>();
+            foreach (var f in factors)
+            {
+                if (f.IsCategorical)
+                    boundsDict[f.FactorName] = f.GetCategoryLevelList();
+                else
+                    boundsDict[f.FactorName] = new[] { f.LowerBound, f.UpperBound };
+            }
+            var boundsJson = JsonConvert.SerializeObject(boundsDict);
+
+            // ★ 修复 (v3): 传入因子类型字典
+            var factorTypesJson = JsonConvert.SerializeObject(
+                factors.ToDictionary(f => f.FactorName,
+                    f => f.IsCategorical ? "categorical" : "continuous"));
 
             for (int i = 1; i < responses.Count; i++)
             {
@@ -128,7 +143,7 @@ namespace MaxChemical.Modules.DOE.Services
                         }
                         else
                         {
-                            _secondaryModels[respName] = doeGpr.create_model(factorNamesJson, boundsJson, 6);
+                            _secondaryModels[respName] = doeGpr.create_model(factorNamesJson, boundsJson, 6, factorTypesJson);
                             _logger.LogInformation("MultiResponseGPR: 新建次要模型 \"{Name}\"", respName);
                         }
                     }
@@ -145,8 +160,11 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 数据追加 ══════════════
 
+        /// <summary>
+        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以透传类别因子标签
+        /// </summary>
         public void AppendAllResponses(
-            Dictionary<string, double> factorValues,
+            Dictionary<string, object> factorValues,
             Dictionary<string, double> responseValues,
             string source = "measured",
             string batchName = "",
@@ -155,7 +173,7 @@ namespace MaxChemical.Modules.DOE.Services
             if (string.IsNullOrEmpty(timestamp))
                 timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
-            // 主响应: 通过 IGPRModelService 追加（已有逻辑）
+            // 主响应: 通过 IGPRModelService 追加
             if (responseValues.TryGetValue(_primaryResponseName, out var primaryVal))
             {
                 try
@@ -244,7 +262,10 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 多响应预测（Desirability 核心） ══════════════
 
-        public Dictionary<string, GPRPrediction> PredictAll(Dictionary<string, double> factorValues)
+        /// <summary>
+        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以支持类别因子标签
+        /// </summary>
+        public Dictionary<string, GPRPrediction> PredictAll(Dictionary<string, object> factorValues)
         {
             var predictions = new Dictionary<string, GPRPrediction>();
 
@@ -291,6 +312,57 @@ namespace MaxChemical.Modules.DOE.Services
 
             return predictions;
         }
+        /// <summary>
+        /// ★ 新增: GIL 安全版本的多响应预测
+        /// 调用者必须已持有 GIL（例如在 Python 回调委托中）
+        /// </summary>
+        public Dictionary<string, GPRPrediction> PredictAllInsideGIL(Dictionary<string, object> factorValues)
+        {
+            var predictions = new Dictionary<string, GPRPrediction>();
+
+            // 主响应: 需要确认 IGPRModelService.Predict 内部是否获取 GIL
+            // 如果是，同样需要一个 PredictInsideGIL 版本
+            // 目前先直接调用（pythonnet 的 Py.GIL() 在同一线程上是可重入的）
+            try
+            {
+                if (_primaryService.IsActive)
+                {
+                    predictions[_primaryResponseName] = _primaryService.Predict(factorValues);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "MultiResponseGPR: 主响应预测失败 (InsideGIL)");
+            }
+
+            // 次要响应: 直接调用 Python 对象，不再获取 GIL
+            var factorsJson = JsonConvert.SerializeObject(factorValues);
+            foreach (var kv in _secondaryModels)
+            {
+                if (!IsSecondaryActive(kv.Key)) continue;
+
+                try
+                {
+                    // ★ 关键修复: 不使用 using(Py.GIL())
+                    string resultJson = kv.Value.predict(factorsJson).ToString();
+                    var pyResult = JsonConvert.DeserializeObject<SecondaryPrediction>(resultJson);
+                    if (pyResult != null)
+                    {
+                        predictions[kv.Key] = new GPRPrediction
+                        {
+                            Mean = pyResult.Mean,
+                            Std = pyResult.Std
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "MultiResponseGPR: 次要响应 \"{Name}\" 预测失败 (InsideGIL)", kv.Key);
+                }
+            }
+
+            return predictions;
+        }
 
         // ══════════════ 持久化 ══════════════
 
@@ -328,30 +400,23 @@ namespace MaxChemical.Modules.DOE.Services
 
                     if (isActive)
                     {
-                        // 从最近的训练结果中取 R²/RMSE
+                        // ★ 修复 (v3): 不再重复训练，直接从 evolution 历史中提取最近的 R²/RMSE
+                        // 原来的 bug: 每次保存时调 train() 导致次要模型被训练两次（执行循环中一次+保存时一次）
                         try
                         {
-                            using (Py.GIL())
+                            var evolution = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(evolutionJson);
+                            if (evolution != null && evolution.Count > 0)
                             {
-                                string trainJson = kv.Value.train().ToString();
-                                var trainResult = JsonConvert.DeserializeObject<SecondaryTrainResult>(trainJson);
-                                if (trainResult != null)
-                                {
-                                    rSquared = trainResult.RSquared;
-                                    rmse = trainResult.RMSE;
-                                    isActive = trainResult.IsActive;
-
-                                    // 训练后重新序列化
-                                    dynamic pyBytes2 = kv.Value.serialize();
-                                    modelBytes = (byte[])pyBytes2;
-                                    trainingDataJson = kv.Value.get_training_data().ToString();
-                                    evolutionJson = kv.Value.get_evolution_data().ToString();
-                                }
+                                var last = evolution[evolution.Count - 1];
+                                if (last.TryGetValue("r_squared", out var r2Obj))
+                                    rSquared = Convert.ToDouble(r2Obj);
+                                if (last.TryGetValue("rmse", out var rmseObj))
+                                    rmse = Convert.ToDouble(rmseObj);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "MultiResponseGPR: 次要模型 \"{Name}\" 训练/序列化失败", kv.Key);
+                            _logger.LogError(ex, "MultiResponseGPR: 次要模型 \"{Name}\" 读取 evolution 失败", kv.Key);
                         }
                     }
 

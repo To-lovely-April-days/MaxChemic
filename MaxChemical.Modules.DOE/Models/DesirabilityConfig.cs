@@ -107,8 +107,12 @@ namespace MaxChemical.Modules.DOE.Models
     {
         /// <summary>
         /// 最优因子组合
+        /// ★ 修复 (Bug#1): 从 Dictionary&lt;string, double&gt; 改为 Dictionary&lt;string, object&gt;
+        /// 连续因子存 double (如 135.2)，类别因子存 string (如 "催化剂B")
+        /// 原来的 bug: Python 端 optimize() 返回的 optimal_factors 包含字符串值（类别因子），
+        /// JSON 反序列化为 double 时失败导致整个字典变 null
         /// </summary>
-        public Dictionary<string, double> OptimalFactors { get; set; } = new();
+        public Dictionary<string, object> OptimalFactors { get; set; } = new();
 
         /// <summary>
         /// 综合 Desirability 值 (0-1)

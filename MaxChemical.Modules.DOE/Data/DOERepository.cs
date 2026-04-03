@@ -171,8 +171,8 @@ namespace MaxChemical.Modules.DOE.Data
 
             const string sql = @"
                 INSERT INTO doe_factors (batch_id, factor_name, factor_source, source_node_id, source_param_name, 
-                lower_bound, upper_bound, level_count, factor_type, sort_order)
-                VALUES (@batchId, @name, @source, @nodeId, @paramName, @lower, @upper, @levels, @type, @order)";
+                lower_bound, upper_bound, level_count, factor_type, sort_order, category_levels)
+                VALUES (@batchId, @name, @source, @nodeId, @paramName, @lower, @upper, @levels, @type, @order, @catLevels)";
 
             for (int i = 0; i < factors.Count; i++)
             {
@@ -190,6 +190,7 @@ namespace MaxChemical.Modules.DOE.Data
                 cmd.Parameters.AddWithValue("@levels", f.LevelCount);
                 cmd.Parameters.AddWithValue("@type", f.FactorType.ToString());
                 cmd.Parameters.AddWithValue("@order", f.SortOrder);
+                cmd.Parameters.AddWithValue("@catLevels", f.CategoryLevels ?? (object)DBNull.Value);
                 await cmd.ExecuteNonQueryAsync();
             }
         }
@@ -551,9 +552,32 @@ namespace MaxChemical.Modules.DOE.Data
             LowerBound = GetDbl(r, "lower_bound"),
             UpperBound = GetDbl(r, "upper_bound"),
             LevelCount = GetInt(r, "level_count"),
-            FactorType = Enum.TryParse<DOEFactorType>(GetStr(r, "factor_type"), out var ft) ? ft : DOEFactorType.Continuous,
-            SortOrder = GetInt(r, "sort_order")
+            // ★ 兼容旧数据: "Discrete" 映射为 Categorical
+            FactorType = ParseFactorType(GetStr(r, "factor_type")),
+            SortOrder = GetInt(r, "sort_order"),
+            // ★ 新增: 类别因子水平标签
+            CategoryLevels = HasColumn(r, "category_levels") ? GetStrN(r, "category_levels") : null
         };
+
+        /// <summary>★ 新增: 解析因子类型，兼容旧的 "Discrete" 值</summary>
+        private static DOEFactorType ParseFactorType(string value)
+        {
+            if (string.Equals(value, "Discrete", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "Categorical", StringComparison.OrdinalIgnoreCase))
+                return DOEFactorType.Categorical;
+            return DOEFactorType.Continuous;
+        }
+
+        /// <summary>★ 新增: 安全检查列是否存在（兼容未升级的数据库）</summary>
+        private static bool HasColumn(DbDataReader r, string columnName)
+        {
+            try
+            {
+                r.GetOrdinal(columnName);
+                return !r.IsDBNull(r.GetOrdinal(columnName));
+            }
+            catch { return false; }
+        }
 
         private static DOEResponse MapResponse(DbDataReader r) => new()
         {

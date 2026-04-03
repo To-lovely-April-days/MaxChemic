@@ -224,7 +224,6 @@ namespace MaxChemical.Modules.DOE.Services
                 for (int i = 0; i < _runs.Count; i++)
                 {
                     _cts!.Token.ThrowIfCancellationRequested();
-                    _cts.Token.ThrowIfCancellationRequested();
 
                     var run = _runs[i];
                     _currentRunIndex = run.RunIndex;
@@ -237,18 +236,49 @@ namespace MaxChemical.Modules.DOE.Services
                     try
                     {
                         // ── Step 1: 注入参数 ──
-                        var factorValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.FactorValuesJson)
-                                           ?? new Dictionary<string, double>();
+                        // ★ 修复 (v3): 反序列化为 Dictionary<string, object> 以保留类别因子的字符串标签
+                        // 原来的 bug: Dictionary<string, double> 会丢失类别因子标签，
+                        // GPR 的 _encode_factors() 收到数字后 str(0.0) 不匹配任何水平标签
+                        var factorValuesRaw = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson)
+                                           ?? new Dictionary<string, object>();
 
+                        // 构建类别因子名称集合
+                        var categoricalFactorNames = _currentBatch?.Factors?
+                            .Where(f => f.IsCategorical).Select(f => f.FactorName).ToHashSet()
+                            ?? new HashSet<string>();
+
+                        // 提取连续因子的 double 值（用于参数注入和事件通知）
+                        var factorValues = new Dictionary<string, double>();
+                        foreach (var kv in factorValuesRaw)
+                        {
+                            if (categoricalFactorNames.Contains(kv.Key))
+                                continue; // 类别因子不参与连续因子的 double dict
+                            if (kv.Value is double d) factorValues[kv.Key] = d;
+                            else if (kv.Value is long l) factorValues[kv.Key] = l;
+                            else if (double.TryParse(kv.Value?.ToString(), out var parsed)) factorValues[kv.Key] = parsed;
+                        }
+
+                        // 注入连续因子参数到流程
                         var injectParams = new Dictionary<string, object>();
+
                         foreach (var kv in factorValues)
                         {
                             var paramId = factorNameToParamId.TryGetValue(kv.Key, out var pid) ? pid : kv.Key;
                             injectParams[paramId] = kv.Value;
                         }
 
-                        _logger.LogInformation("第 {Index} 组: 注入参数...", i + 1);
-                        bool injected = _paramProvider.InjectParameters(injectParams);
+                        // 记录类别因子信息（供日志和 UI 显示）
+                        foreach (var catName in categoricalFactorNames)
+                        {
+                            if (factorValuesRaw.TryGetValue(catName, out var catVal))
+                            {
+                                _logger.LogDebug("第 {Index} 组: 类别因子 {Name}={Value}（手动操作）",
+                                    i + 1, catName, catVal);
+                            }
+                        }
+
+                        _logger.LogInformation("第 {Index} 组: 注入参数（{Count} 个连续因子）...", i + 1, injectParams.Count);
+                        bool injected = injectParams.Count == 0 || _paramProvider.InjectParameters(injectParams);
                         if (!injected)
                         {
                             _logger.LogWarning("第 {Index} 组: 参数注入失败，跳过", i + 1);
@@ -290,7 +320,7 @@ namespace MaxChemical.Modules.DOE.Services
                         NotifyProgress(i, _runs.Count, $"第 {i + 1} 组流程完成，等待输入结果...");
 
                         _logger.LogInformation("第 {Index} 组: 弹框等待用户输入...", i + 1);
-                        var responseValues = CollectResponseFromDialog(run.RunIndex, _runs.Count, factorValues);
+                        var responseValues = CollectResponseFromDialog(run.RunIndex, _runs.Count, factorValuesRaw);
                         _logger.LogInformation("第 {Index} 组: 用户输入完成，响应值数量={Count}", i + 1, responseValues.Count);
 
                         //  修复: 用户关闭对话框（未输入）时标记为 Failed 而不是静默丢失
@@ -327,8 +357,9 @@ namespace MaxChemical.Modules.DOE.Services
                         });
 
                         // ── Step 4.5:  多响应 GPR 训练（加超时保护）──
+                        // ★ 修复 (v3): 传完整因子值（含类别因子标签）给 GPR
                         _logger.LogInformation("第 {Index} 组: 开始多响应 GPR 训练...", i + 1);
-                        await FeedGPRModelWithTimeoutAsync(factorValues, responseValues);
+                        await FeedGPRModelWithTimeoutAsync(factorValuesRaw, responseValues);
                         _logger.LogInformation("第 {Index} 组: GPR 训练完成", i + 1);
 
                         // ── Step 5:  停止条件（加超时保护）──
@@ -403,9 +434,9 @@ namespace MaxChemical.Modules.DOE.Services
         // ══════════════  GPR 训练（带超时保护）══════════════
 
         /// <summary>
-        ///  修改: 同时喂主响应和次要响应
+        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以透传类别因子标签
         /// </summary>
-        private async Task FeedGPRModelWithTimeoutAsync(Dictionary<string, double> factorValues, Dictionary<string, double> responseValues)
+        private async Task FeedGPRModelWithTimeoutAsync(Dictionary<string, object> factorValues, Dictionary<string, double> responseValues)
         {
             if (responseValues.Count == 0) return;
 
@@ -443,9 +474,9 @@ namespace MaxChemical.Modules.DOE.Services
         }
 
         /// <summary>
-        ///  修改: 使用 MultiResponseGPRService 同时喂所有响应
+        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以透传类别因子标签
         /// </summary>
-        private async Task FeedGPRModelAsync(Dictionary<string, double> factorValues, Dictionary<string, double> responseValues)
+        private async Task FeedGPRModelAsync(Dictionary<string, object> factorValues, Dictionary<string, double> responseValues)
         {
             if (responseValues.Count == 0) return;
             try
@@ -536,7 +567,7 @@ namespace MaxChemical.Modules.DOE.Services
         // ══════════════ 弹框采集响应值 ══════════════
 
         private Dictionary<string, double> CollectResponseFromDialog(
-            int runIndex, int totalRuns, Dictionary<string, double> factorValues)
+            int runIndex, int totalRuns, Dictionary<string, object> factorValues)
         {
             Dictionary<string, double> result = new();
 
@@ -593,8 +624,9 @@ namespace MaxChemical.Modules.DOE.Services
 
             try
             {
+                // ★ 修复 (v3): 用 Dictionary<string, object> 保留类别因子标签
                 var remaining = _runs.Where(r => r.Status == DOERunStatus.Pending)
-                    .Select(r => JsonConvert.DeserializeObject<Dictionary<string, double>>(r.FactorValuesJson)!)
+                    .Select(r => JsonConvert.DeserializeObject<Dictionary<string, object>>(r.FactorValuesJson)!)
                     .Where(d => d != null).ToList();
 
                 if (remaining.Count == 0) return new StopEvaluationResult { ShouldStop = false };

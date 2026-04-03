@@ -97,11 +97,24 @@ namespace MaxChemical.Modules.DOE.Services
             }).ToList();
 
             var factorNames = factors.Select(f => f.FactorName).ToList();
-            var bounds = factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound });
+
+            // ★ 修复 (v3): bounds 区分连续因子 [lower, upper] 和类别因子 ["A", "B", "C"]
+            // 原来的 bug: 所有因子都传 [LowerBound, UpperBound]，类别因子在 differential_evolution
+            // 中会被搜索为连续值（如 1.37），完全没有意义。
+            // 修复: 连续因子传 [lower, upper]，类别因子传水平标签列表。
+            // Python 端的 DesirabilityEngine.optimize() 也需要相应处理（见 doe_desirability.py 修复）。
+            var boundsDict = new Dictionary<string, object>();
+            foreach (var f in factors)
+            {
+                if (f.IsCategorical)
+                    boundsDict[f.FactorName] = f.GetCategoryLevelList();
+                else
+                    boundsDict[f.FactorName] = new[] { f.LowerBound, f.UpperBound };
+            }
+            var boundsJson = JsonConvert.SerializeObject(boundsDict);
 
             var configsJson = JsonConvert.SerializeObject(configsList);
             var factorNamesJson = JsonConvert.SerializeObject(factorNames);
-            var boundsJson = JsonConvert.SerializeObject(bounds);
 
             using (Py.GIL())
             {
@@ -192,10 +205,11 @@ namespace MaxChemical.Modules.DOE.Services
                 {
                     try
                     {
-                        var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(factorsJson) ?? new();
+                        // ★ 修复 (v3): 用 object 反序列化，保留类别因子标签
+                        var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(factorsJson) ?? new();
 
                         //  核心修复: 用 PredictAll 获取每个响应的独立预测
-                        var allPredictions = _multiGprService.PredictAll(factors);
+                        var allPredictions = _multiGprService.PredictAllInsideGIL(factors);
 
                         var predictions = new Dictionary<string, double>();
                         foreach (var config in _currentConfigs)
@@ -271,10 +285,11 @@ namespace MaxChemical.Modules.DOE.Services
                 {
                     try
                     {
-                        var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(factorsJson) ?? new();
+                        // ★ 修复 (v3): 用 object 反序列化，保留类别因子标签
+                        var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(factorsJson) ?? new();
 
                         //  修复: 使用多响应预测
-                        var allPredictions = _multiGprService.PredictAll(factors);
+                        var allPredictions = _multiGprService.PredictAllInsideGIL(factors);
 
                         var predictions = new Dictionary<string, double>();
                         foreach (var config in _currentConfigs)
@@ -343,7 +358,11 @@ namespace MaxChemical.Modules.DOE.Services
 
         private class PyOptimizeResult
         {
-            [JsonProperty("optimal_factors")] public Dictionary<string, double>? OptimalFactors { get; set; }
+            /// <summary>
+            /// ★ 修复 (Bug#1): 从 Dictionary&lt;string, double&gt; 改为 Dictionary&lt;string, object&gt;
+            /// Python 端 optimize() 返回类别因子为字符串值，double 反序列化会失败
+            /// </summary>
+            [JsonProperty("optimal_factors")] public Dictionary<string, object>? OptimalFactors { get; set; }
             [JsonProperty("composite_d")] public double CompositeD { get; set; }
             [JsonProperty("individual_d")] public Dictionary<string, PyIndividualD>? IndividualD { get; set; }
             [JsonProperty("success")] public bool Success { get; set; }

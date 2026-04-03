@@ -22,7 +22,7 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,2">
                                     <TextBlock Text="{Binding Key}" Width="120" FontWeight="SemiBold" Foreground="#444"/>
-                                    <TextBlock Text="{Binding Value, StringFormat={}{0:F4}}" Foreground="#2E75B6"/>
+                                    <TextBlock Text="{Binding Value}" Foreground="#2E75B6"/>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

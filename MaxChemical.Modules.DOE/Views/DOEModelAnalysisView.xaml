@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:oxy="http://oxyplot.org/wpf"
              xmlns:converters="clr-namespace:MaxChemical.Modules.DOE.Converters"
+           
              Background="#F2F4F7">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -11,6 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <converters:BoolToOlsBackgroundConverter x:Key="BoolToBackground"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -286,7 +288,7 @@
                     </Border>
                 </UniformGrid>
 
-             
+
 
                 <!-- 5. 响应曲面 -->
                 <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1">
@@ -473,8 +475,47 @@
                         </Grid>
                     </Border>
                     <!-- 回归方程 -->
-                    <Border Background="#FAFBFC" CornerRadius="8" Padding="12,8" Margin="0,0,0,12" BorderBrush="#E8EAED" BorderThickness="1">
-                        <TextBlock Text="{Binding OlsResult.ModelSummary.Equation}" FontSize="12" FontFamily="Consolas" Foreground="#2C3E50" TextWrapping="Wrap"/>
+                    <Border Background="#FAFBFC" CornerRadius="8" Padding="14,10" Margin="0,0,0,12" BorderBrush="#E8EAED" BorderThickness="1">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="回归方程" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                                <!-- 类别因子展开提示 -->
+                                <TextBlock Grid.Column="1" FontSize="10" Foreground="#8A8F9C"
+                       Visibility="{Binding HasCategoricalEquations, Converter={StaticResource BoolToVis}}">
+                <Run Text="按 "/>
+                <Run Text="{Binding CategoricalFactorName, Mode=OneWay}" FontWeight="Medium"/>
+                <Run Text=" 水平展开"/>
+                                </TextBlock>
+                            </Grid>
+
+                            <!-- 无类别因子: 显示单个方程 -->
+                            <TextBlock Text="{Binding OlsResult.ModelSummary.Equation}"
+                   FontSize="12" FontFamily="Consolas" Foreground="#2C3E50" TextWrapping="Wrap"
+                   Visibility="{Binding HasCategoricalEquations, Converter={StaticResource InverseBoolToVis}}"/>
+
+                            <!-- 有类别因子: 按水平展开多个方程 -->
+                            <ItemsControl ItemsSource="{Binding CategoryEquations}"
+                      Visibility="{Binding HasCategoricalEquations, Converter={StaticResource BoolToVis}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,6" Padding="10,6" Background="White" CornerRadius="4"
+                            BorderBrush="#E0E4EA" BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#0062B8" Margin="0,0,0,3">
+                                <Run Text="{Binding LevelName, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Equation}" FontSize="11.5" FontFamily="Consolas"
+                                       Foreground="#2C3E50" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </Border>
                     <!-- ANOVA 表 -->
                     <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,0,12">
@@ -494,6 +535,40 @@
                             </DataGrid>
                         </StackPanel>
                     </Border>
+                    <!-- Model Reduction 面板  -->
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,0,0,12">
+                        <StackPanel>
+                            <!-- 标题栏 -->
+                            <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="标准化效应 Pareto 图" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                                        <TextBlock Text="  (点击条形切换保留/删除)" FontSize="10" Foreground="#999" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="重新拟合精简模型" Command="{Binding RefitReducedModelCommand}"
+                        Padding="10,4" Margin="0,0,8,0" FontSize="11"
+                        Background="#FFF3E0" BorderBrush="#FFB74D" Cursor="Hand"
+                        ToolTip="按当前 Pareto 图中保留的项（蓝色条）重新拟合 OLS 模型"/>
+                                    <Button Grid.Column="2" Content="恢复完整模型" Command="{Binding RestoreFullModelCommand}"
+                        Padding="10,4" FontSize="11"
+                        Background="#F5F5F5" BorderBrush="#CCC" Cursor="Hand"/>
+                                </Grid>
+                            </Border>
+                            <!-- Pareto 图 -->
+                            <oxy:PlotView Model="{Binding OlsParetoPlot}" Height="280" Background="White" Margin="8"
+                       MouseDown="OlsPareto_MouseDown"/>
+                            <!-- 当前选中的项提示 -->
+                            <TextBlock Margin="14,0,14,10" FontSize="10" Foreground="#666" TextWrapping="Wrap">
+            <Run Text="保留项: "/><Run Text="{Binding IncludedTermsText, Mode=OneWay}" FontWeight="Medium" Foreground="#1565C0"/>
+            <Run Text="  |  删除项: "/><Run Text="{Binding ExcludedTermsText, Mode=OneWay}" Foreground="#999"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
                     <!-- 系数表 -->
                     <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1">
                         <StackPanel>
@@ -510,6 +585,82 @@
                                     <DataGridTextColumn Header="VIF" Binding="{Binding VIF, StringFormat={}{0:F2}}" Width="70"/>
                                 </DataGrid.Columns>
                             </DataGrid>
+                        </StackPanel>
+                    </Border>
+                    <!-- ─── (6) 残差四合一面板 — 在系数表后添加 -->
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,12,0,0">
+                        <StackPanel>
+                            <Border Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <TextBlock Text="残差诊断四合一图" FontSize="12" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                            </Border>
+                            <UniformGrid Rows="2" Columns="2" Margin="8">
+                                <!-- 左上: 正态概率图 -->
+                                <Border Margin="4">
+                                    <oxy:PlotView Model="{Binding NormalProbPlot}" Height="220" Background="White"/>
+                                </Border>
+                                <!-- 右上: 残差 vs 拟合值 -->
+                                <Border Margin="4">
+                                    <oxy:PlotView Model="{Binding ResidVsFittedPlot}" Height="220" Background="White"/>
+                                </Border>
+                                <!-- 左下: 残差直方图 -->
+                                <Border Margin="4">
+                                    <oxy:PlotView Model="{Binding ResidHistogramPlot}" Height="220" Background="White"/>
+                                </Border>
+                                <!-- 右下: 残差 vs 观测顺序 -->
+                                <Border Margin="4">
+                                    <oxy:PlotView Model="{Binding ResidVsOrderPlot}" Height="220" Background="White"/>
+                                </Border>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ─── (7) ★ v6: 交互式预测刻画器 + 最优化 ─── -->
+                    <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Margin="0,12,0,0">
+                        <StackPanel>
+                            <!-- 标题栏 -->
+                            <Border Background="#E8F5E9" Padding="14,8" BorderBrush="#C8E6C9" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                                <DockPanel>
+                                    <TextBlock Text="预测刻画器 &amp; 最优化" FontSize="12" FontWeight="SemiBold" Foreground="#2E7D32" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                                        <Button Content="生成刻画器" Command="{Binding LoadProfilerCommand}" 
+                                                Padding="10,4" FontSize="11" Background="#E8F5E9" BorderBrush="#66BB6A" Cursor="Hand" Margin="0,0,6,0"/>
+                                        <Button Content="求最大值" Command="{Binding FindOptimalMaxCommand}" 
+                                                Padding="10,4" FontSize="11" Background="#FFF3E0" BorderBrush="#FFA726" Cursor="Hand" Margin="0,0,6,0"/>
+                                        <Button Content="求最小值" Command="{Binding FindOptimalMinCommand}" 
+                                                Padding="10,4" FontSize="11" Background="#E3F2FD" BorderBrush="#42A5F5" Cursor="Hand"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- 最优化结果 + 当前预测值 -->
+                            <Border Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,0,0,1">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ProfilerCurrentPredicted}" FontSize="14" FontWeight="Bold" Foreground="#D32F2F" Margin="0,0,0,4"/>
+                                    <TextBlock Text="{Binding OptimalResultText}" FontSize="12" Foreground="#333" TextWrapping="Wrap"
+                                               FontFamily="Consolas" LineHeight="20"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 预测刻画器图表（支持鼠标拖动） -->
+                            <ItemsControl x:Name="ProfilerItemsControl" ItemsSource="{Binding ProfilerPlots}" Margin="8,4,8,8">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="2" BorderBrush="#E8EAED" BorderThickness="1" CornerRadius="4" Background="White">
+                                            <oxy:PlotView Model="{Binding}" MinWidth="200" Height="220" Background="White"
+                                                          PreviewMouseDown="Profiler_MouseDown" PreviewMouseMove="Profiler_MouseMove" PreviewMouseUp="Profiler_MouseUp"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- 提示文字 -->
+                            <TextBlock Text="拖动红色竖线可交互调整因子值，所有图同时更新。点击类别因子的条形可切换水平。"
+                                       FontSize="10" Foreground="#999" Margin="14,0,14,8" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                     <!-- 4. Desirability -->

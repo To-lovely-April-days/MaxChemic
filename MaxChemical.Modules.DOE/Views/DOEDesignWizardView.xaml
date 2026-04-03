@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:converters="clr-namespace:MaxChemical.Modules.DOE.Converters"
         xmlns:vm="clr-namespace:MaxChemical.Modules.DOE.ViewModels"
+        xmlns:models="clr-namespace:MaxChemical.Modules.DOE.Models"
         mc:Ignorable="d"
         Title="DOE 实验设计向导" 
         Width="960" Height="700"
@@ -113,45 +114,129 @@
                                     <!-- 因子名称（可编辑） -->
                                     <DataGridTextColumn Header="因子名称" Binding="{Binding FactorName, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
 
-                                    <!-- 绑定流程参数（下拉选择） -->
-                                    <DataGridTemplateColumn Header="绑定流程参数" Width="220">
+                                    <!-- ★ 新增: 因子类型选择 -->
+                                    <DataGridTemplateColumn Header="因子类型" Width="90">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <ComboBox ItemsSource="{Binding AvailableCandidates}"
-                                                          SelectedItem="{Binding SelectedCandidate, UpdateSourceTrigger=PropertyChanged}"
-                                                          DisplayMemberPath="DisplayName"
-                                                          IsEditable="False"
-                                                          Margin="2" Padding="4,2"
-                                                          BorderThickness="1">
-                                                    <ComboBox.Style>
-                                                        <Style TargetType="ComboBox">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsBound}" Value="False">
-                                                                    <Setter Property="BorderBrush" Value="#F39C12"/>
-                                                                    <Setter Property="Background" Value="#FFF8E1"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding IsBound}" Value="True">
-                                                                    <Setter Property="BorderBrush" Value="#27AE60"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ComboBox.Style>
+                                                <ComboBox SelectedItem="{Binding FactorType, UpdateSourceTrigger=PropertyChanged}"
+                                                          Margin="2" Padding="4,2" BorderThickness="1">
+                                                    <ComboBox.Items>
+                                                        <models:DOEFactorType>Continuous</models:DOEFactorType>
+                                                        <models:DOEFactorType>Categorical</models:DOEFactorType>
+                                                    </ComboBox.Items>
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock>
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="连续"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding}" Value="{x:Static models:DOEFactorType.Categorical}">
+                                                                                <Setter Property="Text" Value="类别"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
                                                 </ComboBox>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
 
-                                    <!-- 下界 -->
-                                    <DataGridTextColumn Header="下界" Binding="{Binding LowerBound, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                    <!-- 绑定流程参数（下拉选择，类别因子显示"手动操作"提示） -->
+                                    <DataGridTemplateColumn Header="绑定流程参数" Width="220">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <!-- 连续因子: 正常的参数下拉 -->
+                                                    <ComboBox ItemsSource="{Binding AvailableCandidates}"
+                                                              SelectedItem="{Binding SelectedCandidate, UpdateSourceTrigger=PropertyChanged}"
+                                                              DisplayMemberPath="DisplayName"
+                                                              IsEditable="False"
+                                                              Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"
+                                                              Margin="2" Padding="4,2"
+                                                              BorderThickness="1">
+                                                        <ComboBox.Style>
+                                                            <Style TargetType="ComboBox">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsBound}" Value="False">
+                                                                        <Setter Property="BorderBrush" Value="#F39C12"/>
+                                                                        <Setter Property="Background" Value="#FFF8E1"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsBound}" Value="True">
+                                                                        <Setter Property="BorderBrush" Value="#27AE60"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBox.Style>
+                                                    </ComboBox>
+                                                    <!-- 类别因子: 显示"手动操作"提示 -->
+                                                    <TextBlock Text="手动操作（无需绑定参数）" 
+                                                               Foreground="#999" FontStyle="Italic" FontSize="11"
+                                                               VerticalAlignment="Center" Margin="6,0"
+                                                               Visibility="{Binding IsCategorical, Converter={StaticResource BoolToVis}}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
-                                    <!-- 上界 -->
-                                    <DataGridTextColumn Header="上界" Binding="{Binding UpperBound, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                    <!-- 下界（仅连续因子显示） -->
+                                    <DataGridTemplateColumn Header="下界" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding LowerBound, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"
+                                                         Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"
+                                                         BorderThickness="0" Padding="4,2"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
-                                    <!-- 水平数 -->
-                                    <DataGridTextColumn Header="水平数" Binding="{Binding LevelCount, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                    <!-- 上界（仅连续因子显示） -->
+                                    <DataGridTemplateColumn Header="上界" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding UpperBound, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"
+                                                         Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"
+                                                         BorderThickness="0" Padding="4,2"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
-                                    <!-- 步长（只读） -->
-                                    <DataGridTextColumn Header="步长" Binding="{Binding StepSize, StringFormat={}{0:F4}}" Width="80" IsReadOnly="True"/>
+                                    <!-- 水平数（连续因子显示数字，类别因子自动计算） -->
+                                    <DataGridTemplateColumn Header="水平数" Width="60">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding LevelCount, UpdateSourceTrigger=PropertyChanged}"
+                                                         Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"
+                                                         BorderThickness="0" Padding="4,2"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- ★ 新增: 类别水平标签（仅类别因子显示） -->
+                                    <DataGridTemplateColumn Header="类别水平" Width="160">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding CategoryLevels, UpdateSourceTrigger=PropertyChanged}"
+                                                         Visibility="{Binding IsCategorical, Converter={StaticResource BoolToVis}}"
+                                                         BorderThickness="0" Padding="4,2"
+                                                         ToolTip="逗号分隔，如: 催化剂A,催化剂B,催化剂C"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- 步长（只读，仅连续因子） -->
+                                    <DataGridTemplateColumn Header="步长" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding StepSize, StringFormat={}{0:F4}}"
+                                                           Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"
+                                                           Padding="4,2"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
                                     <!-- 操作 -->
                                     <DataGridTemplateColumn Header="操作" Width="50">
@@ -294,7 +379,7 @@
                                 <TextBox Text="{Binding CenterPointCount}" Width="40" VerticalAlignment="Center"/>
                                 <Button Content="添加中心点" Command="{Binding AddCenterPointsCommand}" Padding="8,4" Margin="8,0,0,0"/>
                             </StackPanel>
-                       
+
                             <DataGrid ItemsSource="{Binding MatrixTable}" AutoGenerateColumns="True"
               IsReadOnly="True" MaxHeight="400"
               GridLinesVisibility="All" AlternatingRowBackground="#FAFAFA"

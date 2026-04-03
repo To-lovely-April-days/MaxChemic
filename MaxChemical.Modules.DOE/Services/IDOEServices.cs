@@ -129,9 +129,19 @@ namespace MaxChemical.Modules.DOE.Services
         Task InitializeModelAsync(string flowId, List<DOEFactor> factors);
         dynamic? GetPythonModel();
         Task<GPRTrainResult> TrainModelAsync();
+        /// <summary>★ 修复 (v3): factorValues 改为 object 以支持类别因子标签</summary>
+        GPRPrediction Predict(Dictionary<string, object> factorValues);
+        /// <summary>便利重载: 纯连续因子场景</summary>
         GPRPrediction Predict(Dictionary<string, double> factorValues);
+        /// <summary>★ 修复 (v3): factorValuesList 改为 object 以支持类别因子标签</summary>
+        List<GPRPrediction> PredictBatch(List<Dictionary<string, object>> factorValuesList);
+        /// <summary>便利重载: 纯连续因子场景</summary>
         List<GPRPrediction> PredictBatch(List<Dictionary<string, double>> factorValuesList);
         GPROptimalResult FindOptimal(bool maximize = true);
+        /// <summary>★ 修复 (v3): 参数类型改为 object 以支持类别因子标签</summary>
+        GPRStopDecision ShouldStop(List<Dictionary<string, object>> remainingRuns, double bestObserved,
+                                    bool maximize = true, double eiThreshold = 0.01, double minRunsRatio = 1.5);
+        /// <summary>便利重载: 纯连续因子场景</summary>
         GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved,
                                     bool maximize = true, double eiThreshold = 0.01, double minRunsRatio = 1.5);
         Dictionary<string, double> GetSensitivity();
@@ -141,6 +151,10 @@ namespace MaxChemical.Modules.DOE.Services
         bool IsActive { get; }
         int DataCount { get; }
         Task SaveInitialStateAsync(string flowId);
+        /// <summary>★ 修复 (v3): factorValues 改为 object 以支持类别因子标签</summary>
+        void AppendData(Dictionary<string, object> factorValues, double responseValue,
+                        string source = "measured", string batchName = "", string timestamp = "");
+        /// <summary>便利重载: 纯连续因子场景</summary>
         void AppendData(Dictionary<string, double> factorValues, double responseValue,
                         string source = "measured", string batchName = "", string timestamp = "");
     }
@@ -169,7 +183,22 @@ namespace MaxChemical.Modules.DOE.Services
         public Dictionary<string, double> OptimalFactors { get; set; } = new();
         public double PredictedResponse { get; set; }
         public double PredictionStd { get; set; }
-        public double Confidence => 1.0 - PredictionStd;
+        /// <summary>
+        /// ★ 修复 (v3): 归一化置信度 — 基于预测标准差相对于预测值的比例
+        /// 原来的 bug: 1.0 - PredictionStd 当 Std > 1 时为负数，完全无意义
+        /// 修复: 使用 1 / (1 + CV) 其中 CV = Std / |Mean|，映射到 (0, 1] 区间
+        /// CV=0 → 1.0 (完全确定), CV=1 → 0.5 (不确定性等于均值), CV→∞ → 0.0
+        /// </summary>
+        public double Confidence
+        {
+            get
+            {
+                if (Math.Abs(PredictedResponse) < 1e-12)
+                    return PredictionStd < 1e-12 ? 1.0 : 0.5;
+                double cv = PredictionStd / Math.Max(Math.Abs(PredictedResponse), 1e-12);
+                return 1.0 / (1.0 + cv);
+            }
+        }
         /// <summary>★ 新增: 优化方向 — "maximize" 或 "minimize"</summary>
         public string Direction { get; set; } = "maximize";
     }
@@ -220,7 +249,14 @@ namespace MaxChemical.Modules.DOE.Services
         /// <param name="responseName">响应变量名（支持多响应时逐个分析）</param>
         /// <param name="modelType">"linear"/"interaction"/"quadratic"</param>
         Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic");
-
+        /// <summary>
+        /// ★ 新增 v4: 自定义项列表的 OLS 回归（Model Reduction）
+        /// 用户从 Pareto 图选择保留的显著项，重新拟合精简模型
+        /// </summary>
+        /// <param name="batchId">批次 ID</param>
+        /// <param name="responseName">响应变量名</param>
+        /// <param name="terms">保留的项列表，如 ["温度", "压力", "温度×压力", "温度²"]</param>
+        Task<OLSAnalysisResult> FitOlsCustomAsync(string batchId, string responseName, List<string> terms);
         /// <summary>
         ///  新增: 残差诊断四图数据
         /// 正态概率图 / 残差vs拟合 / 残差vs顺序 / 残差直方图 + Cook's距离
@@ -232,6 +268,18 @@ namespace MaxChemical.Modules.DOE.Services
         /// 比原有的 GetParetoChartAsync 更准确（基于回归 T 值而非效应差值）
         /// </summary>
         Task<string> GetEffectsParetoAsync(string batchId, string responseName, double alpha = 0.05);
+
+        /// <summary>
+        /// ★ 新增 v5: 预测刻画器数据 — JMP Prediction Profiler 风格
+        /// 对每个因子在其范围内扫描，返回一维剖面曲线数据
+        /// </summary>
+        Task<string> GetPredictionProfilerAsync(string batchId, string responseName,
+            int gridSize = 50, Dictionary<string, object>? fixedValues = null);
+
+        /// <summary>
+        /// ★ 新增 v5: OLS 最优化求解 — 寻找使响应最大/最小的最优因子条件
+        /// </summary>
+        Task<string> FindOptimalAsync(string batchId, string responseName, bool maximize = true);
     }
 
     // ═══════════════════════════════════════════════════════

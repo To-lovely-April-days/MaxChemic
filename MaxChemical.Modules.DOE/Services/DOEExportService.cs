@@ -175,9 +175,9 @@ namespace MaxChemical.Modules.DOE.Services
                 col = 1;
                 ws.Cells[row, col++].Value = run.RunIndex + 1;
 
-                var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.FactorValuesJson) ?? new();
+                var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson) ?? new();
                 foreach (var name in factorNames)
-                    ws.Cells[row, col++].Value = factors.TryGetValue(name, out var v) ? v : 0;
+                    ws.Cells[row, col++].Value = factors.TryGetValue(name, out var v) ? v : "";
 
                 var responses = !string.IsNullOrEmpty(run.ResponseValuesJson)
                     ? JsonConvert.DeserializeObject<Dictionary<string, double>>(run.ResponseValuesJson) ?? new()

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace MaxChemical.Modules.DOE.Models
 {
@@ -163,5 +164,47 @@ namespace MaxChemical.Modules.DOE.Models
         /// 如: "转化率 = 85.2 + 12.3×温度 + 5.1×压力 - 2.5×温度²"
         /// </summary>
         public string Equation { get; set; } = string.Empty;
+
+        /// <summary>
+        /// ★ 新增 v4: Minitab 风格方程 — 按类别因子水平展开
+        /// 
+        /// 当模型包含类别因子时:
+        /// {
+        ///   "has_categorical": true,
+        ///   "categorical_factor": "催化剂",
+        ///   "equations": {
+        ///     "A": "产率 = -68.1 + 1.494×温度 + ...",
+        ///     "B": "产率 = -76.4 + 1.552×温度 + ...",
+        ///     "C": "产率 = -66.0 + 1.510×温度 + ..."
+        ///   },
+        ///   "common_equation": "产率 = 85.2 + 12.3×温度 + ... (含哑变量项)"
+        /// }
+        /// 
+        /// 无类别因子时:
+        /// {
+        ///   "has_categorical": false,
+        ///   "equations": {"全部": "产率 = 85.2 + 12.3×温度 + ..."},
+        ///   "common_equation": "产率 = 85.2 + 12.3×温度 + ..."
+        /// }
+        /// </summary>
+        public EquationsInfo? Equations { get; set; }
     }
+    /// <summary>
+    /// ★ 新增 v4: Minitab 风格方程展示信息
+    /// </summary>
+    public class EquationsInfo
+    {
+        [JsonProperty("has_categorical")]
+        public bool HasCategorical { get; set; }
+
+        [JsonProperty("categorical_factor")]
+        public string? CategoricalFactor { get; set; }
+
+        [JsonProperty("equations")]
+        public Dictionary<string, string> EquationsByLevel { get; set; } = new();
+
+        [JsonProperty("common_equation")]
+        public string CommonEquation { get; set; } = string.Empty;
+    }
+
 }

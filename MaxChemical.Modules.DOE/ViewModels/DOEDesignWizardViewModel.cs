@@ -111,7 +111,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         //
         //  新增: D-Optimal 属性
         public int DOptimalRunCount { get => _dOptimalRunCount; set => SetProperty(ref _dOptimalRunCount, value); }
-         public string DOptimalModelType { get => _dOptimalModelType; set => SetProperty(ref _dOptimalModelType, value); }
+        public string DOptimalModelType { get => _dOptimalModelType; set => SetProperty(ref _dOptimalModelType, value); }
         //  新增: 设计质量评估结果
         public DOEDesignQuality? DesignQuality
         {
@@ -196,6 +196,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         }
         /// <summary>
         /// 将 DOEDesignMatrix 转为 DataTable（WPF DataGrid 原生支持）
+        /// ★ 修复 (v3): 类别因子列用 string 类型显示标签
         /// </summary>
         private DataTable ConvertMatrixToDataTable(DOEDesignMatrix matrix)
         {
@@ -204,10 +205,16 @@ namespace MaxChemical.Modules.DOE.ViewModels
             // 添加序号列
             dt.Columns.Add("组号", typeof(int));
 
-            // 添加因子列
+            // ★ 修复 (v3): 类别因子列用 string 类型
+            var categoricalFactorNames = new HashSet<string>(
+                Factors.Where(f => f.IsCategorical).Select(f => f.FactorName));
+
             foreach (var name in matrix.FactorNames)
             {
-                dt.Columns.Add(name, typeof(double));
+                if (categoricalFactorNames.Contains(name))
+                    dt.Columns.Add(name, typeof(string));
+                else
+                    dt.Columns.Add(name, typeof(double));
             }
 
             // 填充数据
@@ -217,7 +224,17 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 dr["组号"] = i + 1;
                 foreach (var name in matrix.FactorNames)
                 {
-                    dr[name] = matrix.Rows[i].TryGetValue(name, out var val) ? val : 0.0;
+                    if (matrix.Rows[i].TryGetValue(name, out var val))
+                    {
+                        if (categoricalFactorNames.Contains(name))
+                            dr[name] = val?.ToString() ?? "";
+                        else
+                            dr[name] = val is double d ? d : Convert.ToDouble(val);
+                    }
+                    else
+                    {
+                        dr[name] = categoricalFactorNames.Contains(name) ? (object)"" : (object)0.0;
+                    }
                 }
                 dt.Rows.Add(dr);
             }
@@ -239,30 +256,43 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
                     foreach (var f in Factors)
                     {
-                        if (f.SelectedCandidate == null)
+                        // ★ 修改: 类别因子不需要绑定流程参数（手动操作）
+                        if (f.IsContinuous && f.SelectedCandidate == null)
                         {
-                            _dialogService.ShowError($"因子 '{f.FactorName}' 未绑定流程参数，请在下拉框中选择", "验证");
+                            _dialogService.ShowError($"连续因子 '{f.FactorName}' 未绑定流程参数，请在下拉框中选择", "验证");
                             return;
                         }
-                        if (f.LowerBound >= f.UpperBound)
+                        // ★ 修改: 仅连续因子检查上下界
+                        if (f.IsContinuous && f.LowerBound >= f.UpperBound)
                         {
                             _dialogService.ShowError($"因子 '{f.FactorName}' 的下界必须小于上界", "验证");
                             return;
+                        }
+                        // ★ 新增: 类别因子必须输入至少 2 个水平
+                        if (f.IsCategorical)
+                        {
+                            var levels = (f.CategoryLevels ?? "").Split(',')
+                                .Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+                            if (levels.Count < 2)
+                            {
+                                _dialogService.ShowError($"类别因子 '{f.FactorName}' 至少需要 2 个水平标签（逗号分隔）", "验证");
+                                return;
+                            }
                         }
                     }
                     break;
 
                 case 2: // 设计方法 → 生成矩阵
-                    //  新增: BBD 因子数校验
-                    if (SelectedMethod == DOEDesignMethod.BoxBehnken && Factors.Count < 3)
+                    //  修改: 连续因子数校验（类别因子不计入 RSM 最低要求）
+                    var continuousCount = Factors.Count(f => f.IsContinuous);
+                    if (SelectedMethod == DOEDesignMethod.BoxBehnken && continuousCount < 3)
                     {
-                        _dialogService.ShowError("Box-Behnken 设计至少需要 3 个因子", "验证");
+                        _dialogService.ShowError("Box-Behnken 设计至少需要 3 个连续因子", "验证");
                         return;
                     }
-                    //  新增: CCD 因子数校验
-                    if (SelectedMethod == DOEDesignMethod.CCD && Factors.Count < 2)
+                    if (SelectedMethod == DOEDesignMethod.CCD && continuousCount < 2)
                     {
-                        _dialogService.ShowError("CCD 设计至少需要 2 个因子", "验证");
+                        _dialogService.ShowError("CCD 设计至少需要 2 个连续因子", "验证");
                         return;
                     }
                     await GenerateMatrixAsync();
@@ -427,7 +457,20 @@ namespace MaxChemical.Modules.DOE.ViewModels
             if (_designMatrix == null || CenterPointCount <= 0) return;
 
             var factors = Factors.Select(f => f.ToModel()).ToList();
-            var centerValues = factors.ToDictionary(f => f.FactorName, f => f.CenterPoint);
+            // ★ 修复 (v3): 类别因子中心值用第一个水平标签，连续因子用 CenterPoint
+            var centerValues = new Dictionary<string, object>();
+            foreach (var f in factors)
+            {
+                if (f.IsCategorical)
+                {
+                    var levels = f.GetCategoryLevelList();
+                    centerValues[f.FactorName] = levels.Count > 0 ? levels[0] : "";
+                }
+                else
+                {
+                    centerValues[f.FactorName] = f.CenterPoint;
+                }
+            }
 
             for (int i = 0; i < CenterPointCount; i++)
                 _designMatrix.AddCenterPoint(centerValues);
@@ -653,7 +696,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         {
                             try
                             {
-                                var factorValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(
+                                // ★ 修复 (v3): 用 Dict<string, object> 反序列化，保留类别因子标签
+                                var factorValues = JsonConvert.DeserializeObject<Dictionary<string, object>>(
                                     run.FactorValuesJson);
                                 if (factorValues == null) continue;
 
@@ -713,11 +757,63 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private double _lowerBound;
         private double _upperBound;
         private int _levelCount = 3;
+        private DOEFactorType _factorType = DOEFactorType.Continuous;
+        private string _categoryLevels = "";
 
         /// <summary>
         /// 用户自定义的因子名称（如 "反应温度"）
         /// </summary>
         public string FactorName { get => _factorName; set => SetProperty(ref _factorName, value); }
+
+        /// <summary>
+        /// ★ 新增: 因子类型（连续/类别）
+        /// </summary>
+        public DOEFactorType FactorType
+        {
+            get => _factorType;
+            set
+            {
+                if (SetProperty(ref _factorType, value))
+                {
+                    RaisePropertyChanged(nameof(IsContinuous));
+                    RaisePropertyChanged(nameof(IsCategorical));
+                    RaisePropertyChanged(nameof(StepSize));
+                }
+            }
+        }
+
+        /// <summary>★ 新增: 是否连续因子（UI 绑定用）</summary>
+        public bool IsContinuous => FactorType == DOEFactorType.Continuous;
+
+        /// <summary>★ 新增: 是否类别因子（UI 绑定用）</summary>
+        public bool IsCategorical => FactorType == DOEFactorType.Categorical;
+
+        /// <summary>
+        /// ★ 新增: 类别因子的水平标签（逗号分隔，如 "催化剂A,催化剂B,催化剂C"）
+        /// </summary>
+        public string CategoryLevels
+        {
+            get => _categoryLevels;
+            set
+            {
+                if (SetProperty(ref _categoryLevels, value))
+                {
+                    // 自动更新 LevelCount
+                    var levels = (value ?? "").Split(',')
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToList();
+                    LevelCount = Math.Max(levels.Count, 1);
+                }
+            }
+        }
+
+        /// <summary>★ 新增: 因子类型选项（供 ComboBox 绑定）</summary>
+        public static List<DOEFactorType> FactorTypeOptions => new()
+        {
+            DOEFactorType.Continuous,
+            DOEFactorType.Categorical
+        };
 
         /// <summary>
         /// 绑定的流程参数候选项（下拉选择）
@@ -736,8 +832,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         FactorName = value.ParameterName ?? value.DisplayName;
                     }
 
-                    // 根据当前值自动设置上下界
-                    if (value.CurrentValue != null && double.TryParse(value.CurrentValue.ToString(), out var v) && v != 0)
+                    // 根据当前值自动设置上下界（仅连续因子）
+                    if (IsContinuous && value.CurrentValue != null && double.TryParse(value.CurrentValue.ToString(), out var v) && v != 0)
                     {
                         if (LowerBound == 0 && UpperBound == 100) // 只在默认值时自动填充
                         {
@@ -764,7 +860,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public double LowerBound { get => _lowerBound; set { SetProperty(ref _lowerBound, value); RaisePropertyChanged(nameof(StepSize)); } }
         public double UpperBound { get => _upperBound; set { SetProperty(ref _upperBound, value); RaisePropertyChanged(nameof(StepSize)); } }
         public int LevelCount { get => _levelCount; set { SetProperty(ref _levelCount, value); RaisePropertyChanged(nameof(StepSize)); } }
-        public double StepSize => LevelCount > 1 ? Math.Round((UpperBound - LowerBound) / (LevelCount - 1), 4) : 0;
+        public double StepSize => IsContinuous && LevelCount > 1 ? Math.Round((UpperBound - LowerBound) / (LevelCount - 1), 4) : 0;
 
         /// <summary>
         /// 可选的候选参数列表（绑定到 ComboBox 的 ItemsSource）
@@ -779,7 +875,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             SourceParamName = SelectedCandidate?.ParameterName,
             LowerBound = LowerBound,
             UpperBound = UpperBound,
-            LevelCount = LevelCount
+            LevelCount = LevelCount,
+            FactorType = FactorType,
+            CategoryLevels = IsCategorical ? CategoryLevels : null
         };
     }
 

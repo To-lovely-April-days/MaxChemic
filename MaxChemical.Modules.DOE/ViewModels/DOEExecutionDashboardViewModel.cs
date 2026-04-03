@@ -288,10 +288,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 row["#"] = displayIndex++;
                 row["_RunIndex"] = run.RunIndex;
 
-                var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.FactorValuesJson)
-                              ?? new Dictionary<string, double>();
+                var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson)
+                              ?? new Dictionary<string, object>();
                 foreach (var name in _factorNames)
-                    row[name] = factors.TryGetValue(name, out var v) ? v.ToString("F2") : "—";
+                    row[name] = factors.TryGetValue(name, out var v) ? v?.ToString() ?? "—" : "—";
 
                 var responses = !string.IsNullOrEmpty(run.ResponseValuesJson)
                     ? JsonConvert.DeserializeObject<Dictionary<string, double>>(run.ResponseValuesJson) ?? new()
@@ -451,7 +451,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             try
             {
-                var factors = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.FactorValuesJson);
+                var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson);
                 if (factors == null || factors.Count == 0)
                 {
                     HasCurrentFactors = false;
@@ -474,10 +474,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         .Replace("Target", "")
                         .Replace("target", "");
 
+                    // ★ 修复 (v3): 类别因子显示标签，连续因子显示数值
+                    string displayValue;
+                    if (kv.Value is double d)
+                        displayValue = d.ToString("F2");
+                    else if (double.TryParse(kv.Value?.ToString(), out var parsed))
+                        displayValue = parsed.ToString("F2");
+                    else
+                        displayValue = kv.Value?.ToString() ?? "—";
+
                     items.Add(new FactorDisplayItem
                     {
                         Label = shortName,
-                        Value = kv.Value.ToString("F2"),
+                        Value = displayValue,
                         Unit = unit
                     });
                 }
@@ -631,8 +640,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             try
             {
-                var factorValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(payload.FactorValuesJson)
-                                   ?? new Dictionary<string, double>();
+                var factorValues = JsonConvert.DeserializeObject<Dictionary<string, object>>(payload.FactorValuesJson)
+                                   ?? new Dictionary<string, object>();
 
                 var responseDefs = _responses.Select(r => (r.ResponseName, r.Unit)).ToList();
 

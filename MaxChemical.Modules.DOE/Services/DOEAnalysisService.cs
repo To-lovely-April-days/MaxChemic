@@ -77,7 +77,7 @@ namespace MaxChemical.Modules.DOE.Services
             var primaryResponse = responseName ?? batch.Responses.FirstOrDefault()?.ResponseName ?? "Y";
 
             var factorsData = completedRuns
-                .Select(r => JsonConvert.DeserializeObject<Dictionary<string, double>>(r.FactorValuesJson ?? "{}") ?? new())
+                .Select(r => JsonConvert.DeserializeObject<Dictionary<string, object>>(r.FactorValuesJson ?? "{}") ?? new())
                 .ToList();
 
             var responsesData = completedRuns
@@ -91,9 +91,20 @@ namespace MaxChemical.Modules.DOE.Services
             var factorsJson = JsonConvert.SerializeObject(factorsData);
             var responsesJson = JsonConvert.SerializeObject(responsesData);
 
+            // ★ 新增: 构建因子类型字典，传给 Python 区分连续/类别因子
+            var factorTypesDict = new Dictionary<string, string>();
+            if (batch.Factors != null)
+            {
+                foreach (var f in batch.Factors)
+                {
+                    factorTypesDict[f.FactorName] = f.IsCategorical ? "categorical" : "continuous";
+                }
+            }
+            var factorTypesJson = JsonConvert.SerializeObject(factorTypesDict);
+
             using (Py.GIL())
             {
-                _analyzer!.load_data(factorsJson, responsesJson, primaryResponse);
+                _analyzer!.load_data(factorsJson, responsesJson, primaryResponse, factorTypesJson);
             }
         }
 
@@ -163,7 +174,8 @@ namespace MaxChemical.Modules.DOE.Services
                         PRESS = pyResult.ModelSummary.PRESS,
                         LackOfFitP = pyResult.ModelSummary.LackOfFitP,
                         ModelP = pyResult.ModelSummary.ModelP,
-                        Equation = pyResult.ModelSummary.Equation ?? ""
+                        Equation = pyResult.ModelSummary.Equation ?? "",
+                        Equations = pyResult.ModelSummary.Equations
                     };
                 }
 
@@ -173,7 +185,78 @@ namespace MaxChemical.Modules.DOE.Services
                 return result;
             }
         }
+        public async Task<OLSAnalysisResult> FitOlsCustomAsync(string batchId, string responseName, List<string> terms)
+        {
+            EnsureReady();
+            await LoadBatchDataAsync(batchId, responseName);
 
+            var termsJson = JsonConvert.SerializeObject(terms);
+            _logger.LogInformation("★ FitOLS Custom: batchId={BatchId}, response={Response}, terms={Terms}",
+                batchId, responseName, termsJson);
+
+            using (Py.GIL())
+            {
+                // 调用 Python: fit_ols("custom", terms_json)
+                string resultJson = _analyzer!.fit_ols("custom", termsJson).ToString();
+                var pyResult = JsonConvert.DeserializeObject<PythonOLSResult>(resultJson);
+
+                if (pyResult == null || pyResult.Error != null)
+                {
+                    _logger.LogError("FitOLS Custom 失败: {Error}", pyResult?.Error ?? "未知错误");
+                    return new OLSAnalysisResult();
+                }
+
+                var result = new OLSAnalysisResult();
+
+                if (pyResult.AnovaTable != null)
+                {
+                    result.AnovaTable = pyResult.AnovaTable.Select(row => new AnovaRow
+                    {
+                        Source = row.Source ?? "",
+                        DF = row.DF,
+                        SS = row.SS,
+                        MS = row.MS,
+                        FValue = row.FValue,
+                        PValue = row.PValue
+                    }).ToList();
+                }
+
+                if (pyResult.Coefficients != null)
+                {
+                    result.Coefficients = pyResult.Coefficients.Select(c => new CoefficientRow
+                    {
+                        Term = c.Term ?? "",
+                        Coefficient = c.Coeff,
+                        StdError = c.SE,
+                        TValue = c.TValue,
+                        PValue = c.PValue,
+                        VIF = c.VIF
+                    }).ToList();
+                }
+
+                if (pyResult.ModelSummary != null)
+                {
+                    result.ModelSummary = new OLSModelSummary
+                    {
+                        RSquared = pyResult.ModelSummary.RSquared,
+                        RSquaredAdj = pyResult.ModelSummary.RSquaredAdj,
+                        RSquaredPred = pyResult.ModelSummary.RSquaredPred,
+                        RMSE = pyResult.ModelSummary.RMSE,
+                        AdequatePrecision = pyResult.ModelSummary.AdequatePrecision,
+                        PRESS = pyResult.ModelSummary.PRESS,
+                        LackOfFitP = pyResult.ModelSummary.LackOfFitP,
+                        ModelP = pyResult.ModelSummary.ModelP,
+                        Equation = pyResult.ModelSummary.Equation ?? "",
+                        Equations = pyResult.ModelSummary.Equations
+                    };
+                }
+
+                _logger.LogInformation("★ FitOLS Custom 完成: R²={R2}, R²adj={R2adj}, 项数={Terms}",
+                    result.ModelSummary.RSquared, result.ModelSummary.RSquaredAdj, result.Coefficients.Count);
+
+                return result;
+            }
+        }
         // ═══════════════════════════════════════════════════════
         //  新增: 残差诊断四图
         // ═══════════════════════════════════════════════════════
@@ -207,6 +290,43 @@ namespace MaxChemical.Modules.DOE.Services
             using (Py.GIL())
             {
                 string resultJson = _analyzer!.effects_pareto(alpha).ToString();
+                return resultJson;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ★ 新增 v5: 预测刻画器 + 最优化
+        // ═══════════════════════════════════════════════════════
+
+        public async Task<string> GetPredictionProfilerAsync(string batchId, string responseName,
+            int gridSize = 50, Dictionary<string, object>? fixedValues = null)
+        {
+            EnsureReady();
+            await LoadBatchDataAsync(batchId, responseName);
+
+            // 确保模型已拟合
+            using (Py.GIL())
+            {
+                _analyzer!.fit_ols("quadratic");
+
+                string fixedJson = fixedValues != null
+                    ? JsonConvert.SerializeObject(fixedValues)
+                    : "";
+
+                string resultJson = _analyzer!.prediction_profiler(gridSize, fixedJson).ToString();
+                return resultJson;
+            }
+        }
+
+        public async Task<string> FindOptimalAsync(string batchId, string responseName, bool maximize = true)
+        {
+            EnsureReady();
+            await LoadBatchDataAsync(batchId, responseName);
+
+            using (Py.GIL())
+            {
+                _analyzer!.fit_ols("quadratic");
+                string resultJson = _analyzer!.find_optimal(maximize).ToString();
                 return resultJson;
             }
         }
@@ -349,8 +469,19 @@ namespace MaxChemical.Modules.DOE.Services
             await LoadBatchDataAsync(batchId);
             var batch = await _repository.GetBatchWithDetailsAsync(batchId);
             if (batch == null) return;
-            var boundsDict = batch.Factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound });
+
+            // ★ 修复 (Bug#3): 区分连续因子 [lower, upper] 和类别因子 ["A", "B", "C"]
+            // 原来的 bug: 所有因子都用 [LowerBound, UpperBound]，类别因子的 0/0 会导致绘图范围错误
+            var boundsDict = new Dictionary<string, object>();
+            foreach (var f in batch.Factors)
+            {
+                if (f.IsCategorical)
+                    boundsDict[f.FactorName] = f.GetCategoryLevelList();
+                else
+                    boundsDict[f.FactorName] = new[] { f.LowerBound, f.UpperBound };
+            }
             var boundsJson = JsonConvert.SerializeObject(boundsDict);
+
             var gprModel = _gprService.GetPythonModel();
             using (Py.GIL())
             {
@@ -407,6 +538,8 @@ namespace MaxChemical.Modules.DOE.Services
             [JsonProperty("lack_of_fit_p")] public double? LackOfFitP { get; set; }
             [JsonProperty("model_p")] public double? ModelP { get; set; }
             [JsonProperty("equation")] public string? Equation { get; set; }
+
+            [JsonProperty("equations")] public EquationsInfo? Equations { get; set; }
         }
     }
 }

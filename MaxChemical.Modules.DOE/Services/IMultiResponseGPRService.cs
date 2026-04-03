@@ -43,13 +43,9 @@ namespace MaxChemical.Modules.DOE.Services
 
         /// <summary>
         /// 向所有响应模型追加一组实验数据。
+        /// ★ 修复 (v3): factorValues 改为 object 以支持类别因子标签
         /// </summary>
-        /// <param name="factorValues">因子值</param>
-        /// <param name="responseValues">所有响应值 {"转化率": 87.5, "选择性": 92.1, ...}</param>
-        /// <param name="source">数据来源: "measured" / "imported"</param>
-        /// <param name="batchName">批次名</param>
-        /// <param name="timestamp">时间戳</param>
-        void AppendAllResponses(Dictionary<string, double> factorValues,
+        void AppendAllResponses(Dictionary<string, object> factorValues,
                                 Dictionary<string, double> responseValues,
                                 string source = "measured",
                                 string batchName = "",
@@ -63,11 +59,9 @@ namespace MaxChemical.Modules.DOE.Services
 
         /// <summary>
         /// 对给定因子组合，预测所有响应的值。
-        /// 用于 Desirability 优化。
+        /// ★ 修复 (v3): factorValues 改为 object 以支持类别因子标签
         /// </summary>
-        /// <param name="factorValues">因子值</param>
-        /// <returns>每个响应的预测结果</returns>
-        Dictionary<string, GPRPrediction> PredictAll(Dictionary<string, double> factorValues);
+        Dictionary<string, GPRPrediction> PredictAll(Dictionary<string, object> factorValues);
 
         /// <summary>
         /// 保存所有模型状态到数据库。
@@ -93,6 +87,8 @@ namespace MaxChemical.Modules.DOE.Services
         /// 获取已初始化的响应变量名列表。
         /// </summary>
         List<string> ResponseNames { get; }
+
+        Dictionary<string, GPRPrediction> PredictAllInsideGIL(Dictionary<string, object> factorValues);
     }
 
     /// <summary>

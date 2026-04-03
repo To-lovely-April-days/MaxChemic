@@ -244,13 +244,27 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                     if (DesirabilityResult.OptimalFactors.Count > 0)
                     {
-                        var maxVal = DesirabilityResult.OptimalFactors.Values.DefaultIfEmpty(1).Max();
-                        OptimalFactors = DesirabilityResult.OptimalFactors.Select(kv => new OptimalFactorItem
+                        // ★ 修复: OptimalFactors 现在是 Dict<string, object>
+                        // 连续因子是 double，类别因子是 string
+                        // BarWidth 只对连续因子有意义，类别因子 BarWidth=0
+                        var items = DesirabilityResult.OptimalFactors.Select(kv => new OptimalFactorItem
                         {
                             Key = kv.Key,
-                            Value = kv.Value,
-                            BarWidth = maxVal > 0 ? kv.Value / maxVal * 200 : 0
+                            Value = kv.Value
                         }).ToList();
+
+                        // 计算连续因子的最大值用于 BarWidth 归一化
+                        var numericValues = items.Where(x => x.IsNumeric).Select(x => Math.Abs(x.NumericValue)).ToList();
+                        double maxVal = numericValues.Count > 0 ? numericValues.Max() : 1.0;
+
+                        foreach (var item in items)
+                        {
+                            item.BarWidth = item.IsNumeric && maxVal > 0
+                                ? Math.Abs(item.NumericValue) / maxVal * 200
+                                : 0;
+                        }
+
+                        OptimalFactors = items;
                         HasOptimalResult = true;
                     }
                 }
@@ -315,7 +329,21 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (data == null || data.Count == 0) return;
 
                 var model = new PlotModel { Title = "主效应图" };
-                model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "因子水平" });
+
+                // ★ 修复: 检测是否存在类别因子（level 为字符串）
+                // 混合因子时统一用索引做 X 轴，附加标签注释
+                bool hasCategory = data.Values.Any(pts => pts.Any(p => !p.IsNumericLevel));
+
+                if (hasCategory)
+                {
+                    // 有类别因子: 每个因子独立子图，X 轴用类别标签
+                    // 简化处理: 所有因子共用一个图，X 轴用索引
+                    model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "因子水平 (索引)" });
+                }
+                else
+                {
+                    model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "因子水平" });
+                }
                 model.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "响应均值" });
 
                 var colors = new[] { OxyColors.Blue, OxyColors.Red, OxyColors.Green, OxyColors.Orange, OxyColors.Purple };
@@ -324,8 +352,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 foreach (var kv in data)
                 {
                     var series = new LineSeries { Title = kv.Key, Color = colors[ci % colors.Length], MarkerType = MarkerType.Circle, MarkerSize = 5 };
-                    foreach (var pt in kv.Value)
-                        series.Points.Add(new DataPoint(pt.Level, pt.Mean));
+                    for (int i = 0; i < kv.Value.Count; i++)
+                    {
+                        var pt = kv.Value[i];
+                        // 连续因子用实际数值，类别因子用索引
+                        double xVal = pt.IsNumericLevel ? pt.NumericLevel : i;
+                        series.Points.Add(new DataPoint(xVal, pt.Mean));
+                    }
                     model.Series.Add(series);
                     ci++;
                 }
@@ -486,8 +519,28 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         private class LevelMean
         {
-            [JsonProperty("level")] public double Level { get; set; }
+            /// <summary>
+            /// ★ 修复: 从 double 改为 object，支持类别因子的字符串水平标签
+            /// 连续因子: 数值 (如 120.0)，类别因子: 字符串 (如 "催化剂A")
+            /// </summary>
+            [JsonProperty("level")] public object Level { get; set; } = 0.0;
             [JsonProperty("mean")] public double Mean { get; set; }
+
+            /// <summary>安全获取数值Level（类别因子返回索引值）</summary>
+            public double NumericLevel
+            {
+                get
+                {
+                    if (Level is double d) return d;
+                    if (Level is long l) return l;
+                    if (Level is int i) return i;
+                    if (double.TryParse(Level?.ToString(), out var parsed)) return parsed;
+                    return 0.0;
+                }
+            }
+
+            public bool IsNumericLevel => Level is double or long or int
+                || double.TryParse(Level?.ToString(), out _);
         }
 
         private class ParetoItem

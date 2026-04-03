@@ -70,8 +70,22 @@ namespace MaxChemical.Modules.DOE.Services
 
                 // 新建模型
                 var factorNamesJson = JsonConvert.SerializeObject(factorNames);
-                var boundsJson = JsonConvert.SerializeObject(
-                    factors.ToDictionary(f => f.FactorName, f => new[] { f.LowerBound, f.UpperBound }));
+
+                // ★ 修改: bounds 区分连续因子 [lower, upper] 和类别因子 ["A", "B", "C"]
+                var boundsDict = new Dictionary<string, object>();
+                foreach (var f in factors)
+                {
+                    if (f.IsCategorical)
+                        boundsDict[f.FactorName] = f.GetCategoryLevelList();
+                    else
+                        boundsDict[f.FactorName] = new[] { f.LowerBound, f.UpperBound };
+                }
+                var boundsJson = JsonConvert.SerializeObject(boundsDict);
+
+                // ★ 新增: 因子类型字典
+                var factorTypesJson = JsonConvert.SerializeObject(
+                    factors.ToDictionary(f => f.FactorName,
+                        f => f.IsCategorical ? "categorical" : "continuous"));
 
                 //  自动生成 ModelName
                 _currentModelName = $"{factorNames.Count}因子-{string.Join(",", factorNames.Take(3))}";
@@ -82,7 +96,7 @@ namespace MaxChemical.Modules.DOE.Services
                 using (Py.GIL())
                 {
                     dynamic doeGpr = Py.Import("doe_gpr");
-                    _pythonModel = doeGpr.create_model(factorNamesJson, boundsJson, 6);
+                    _pythonModel = doeGpr.create_model(factorNamesJson, boundsJson, 6, factorTypesJson);
                 }
 
                 _isPythonInitialized = true;
@@ -99,8 +113,11 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 数据追加 ══════════════
 
-        public void AppendData(Dictionary<string, double> factorValues, double responseValue,
-                        string batchName = "", string timestamp = "")
+        /// <summary>
+        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以支持类别因子标签
+        /// </summary>
+        public void AppendData(Dictionary<string, object> factorValues, double responseValue,
+                        string source = "measured", string batchName = "", string timestamp = "")
         {
             EnsureModelReady();
             var factorsJson = JsonConvert.SerializeObject(factorValues);
@@ -109,8 +126,8 @@ namespace MaxChemical.Modules.DOE.Services
 
             using (Py.GIL())
             {
-                int count = (int)_pythonModel!.append_data(factorsJson, responseValue, "measured", batchName, timestamp);
-                _logger.LogDebug("GPR 数据追加: count={Count}, batch={Batch}", count, batchName);
+                int count = (int)_pythonModel!.append_data(factorsJson, responseValue, source, batchName, timestamp);
+                _logger.LogDebug("GPR 数据追加: count={Count}, source={Source}, batch={Batch}", count, source, batchName);
             }
         }
         /// <summary>
@@ -145,7 +162,10 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 预测 ══════════════
 
-        public GPRPrediction Predict(Dictionary<string, double> factorValues)
+        /// <summary>
+        /// ★ 修复 (v3): factorValues 改为 object 以支持类别因子标签
+        /// </summary>
+        public GPRPrediction Predict(Dictionary<string, object> factorValues)
         {
             EnsureModelReady();
 
@@ -159,7 +179,16 @@ namespace MaxChemical.Modules.DOE.Services
             }
         }
 
-        public List<GPRPrediction> PredictBatch(List<Dictionary<string, double>> factorValuesList)
+        /// <summary>便利重载: 纯连续因子场景直接传 double dict</summary>
+        public GPRPrediction Predict(Dictionary<string, double> factorValues)
+        {
+            return Predict(factorValues.ToDictionary(kv => kv.Key, kv => (object)kv.Value));
+        }
+
+        /// <summary>
+        /// ★ 修复 (v3): factorValuesList 改为 object 以支持类别因子标签
+        /// </summary>
+        public List<GPRPrediction> PredictBatch(List<Dictionary<string, object>> factorValuesList)
         {
             EnsureModelReady();
 
@@ -171,6 +200,12 @@ namespace MaxChemical.Modules.DOE.Services
                 var pyResults = JsonConvert.DeserializeObject<List<PythonPrediction>>(resultJson) ?? new();
                 return pyResults.Select(p => new GPRPrediction { Mean = p.Mean, Std = p.Std }).ToList();
             }
+        }
+
+        /// <summary>便利重载: 纯连续因子场景直接传 double dict list</summary>
+        public List<GPRPrediction> PredictBatch(List<Dictionary<string, double>> factorValuesList)
+        {
+            return PredictBatch(factorValuesList.Select(d => d.ToDictionary(kv => kv.Key, kv => (object)kv.Value)).ToList());
         }
 
         // ══════════════ 最优搜索 ══════════════
@@ -200,7 +235,11 @@ namespace MaxChemical.Modules.DOE.Services
 
         // ══════════════ 智能停止判断 ══════════════
 
-        public GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved,
+        /// <summary>
+        /// ★ 修复 (v3): 参数类型从 Dictionary&lt;string, double&gt; 改为 Dictionary&lt;string, object&gt;
+        /// 以支持类别因子标签（字符串值）透传到 Python 的 _encode_factors()
+        /// </summary>
+        public GPRStopDecision ShouldStop(List<Dictionary<string, object>> remainingRuns, double bestObserved,
                                           bool maximize = true, double eiThreshold = 0.01, double minRunsRatio = 1.5)
         {
             if (!IsActive)
@@ -224,6 +263,15 @@ namespace MaxChemical.Modules.DOE.Services
                     MaxEI = pyResult.MaxEI  // ★ 新增
                 };
             }
+        }
+
+        /// <summary>便利重载: 纯连续因子场景直接传 double dict list</summary>
+        public GPRStopDecision ShouldStop(List<Dictionary<string, double>> remainingRuns, double bestObserved,
+                                          bool maximize = true, double eiThreshold = 0.01, double minRunsRatio = 1.5)
+        {
+            return ShouldStop(
+                remainingRuns.Select(d => d.ToDictionary(kv => kv.Key, kv => (object)kv.Value)).ToList(),
+                bestObserved, maximize, eiThreshold, minRunsRatio);
         }
 
         // ══════════════ 敏感性 ══════════════
@@ -250,31 +298,65 @@ namespace MaxChemical.Modules.DOE.Services
                 byte[] modelBytes;
                 string trainingDataJson;
                 string evolutionJson;
+                int dataCount;
+                bool isActive;
 
+                // ★ 修复: 不再调用 TrainModelAsync()，避免 FeedGPRModelAsync 中已训练过后的重复训练
+                // 原来的 bug: 每组实验完成后 GPR 被训练两次（MultiGPR.TrainAllAsync 一次 + SaveState 一次）
+                // 浪费 Python GIL 时间，在 30s 超时保护下可能导致不必要的超时
                 using (Py.GIL())
                 {
                     dynamic pyBytes = _pythonModel.serialize();
                     modelBytes = (byte[])pyBytes;
                     trainingDataJson = _pythonModel.get_training_data().ToString();
                     evolutionJson = _pythonModel.get_evolution_data().ToString();
+                    dataCount = (int)_pythonModel.data_count;
+                    isActive = (bool)_pythonModel.is_active;
                 }
 
-                var trainResult = await TrainModelAsync();
+                // 从 evolution 历史中提取最近的 R²/RMSE（避免重复训练）
+                double? rSquared = null;
+                double? rmse = null;
+                string? hyperparamsJson = null;
+
+                if (isActive)
+                {
+                    try
+                    {
+                        var evolution = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(evolutionJson);
+                        if (evolution != null && evolution.Count > 0)
+                        {
+                            var last = evolution[evolution.Count - 1];
+                            if (last.TryGetValue("r_squared", out var r2Obj))
+                                rSquared = Convert.ToDouble(r2Obj);
+                            if (last.TryGetValue("rmse", out var rmseObj))
+                                rmse = Convert.ToDouble(rmseObj);
+                        }
+
+                        // 提取 lengthscales
+                        var sensitivity = GetSensitivity();
+                        if (sensitivity.Count > 0)
+                            hyperparamsJson = JsonConvert.SerializeObject(sensitivity);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "GPR 读取 evolution/sensitivity 失败（不影响保存）");
+                    }
+                }
 
                 var state = new GPRModelState
                 {
                     FlowId = flowId,
-                    FactorSignature = _currentSignature,   //  新增
-                    ModelName = _currentModelName,          //  新增
+                    FactorSignature = _currentSignature,
+                    ModelName = _currentModelName,
                     ModelStateBytes = modelBytes,
                     TrainingDataJson = trainingDataJson,
                     EvolutionHistoryJson = evolutionJson,
-                    DataCount = trainResult.DataCount,
-                    RSquared = trainResult.IsActive ? trainResult.RSquared : null,
-                    RMSE = trainResult.IsActive ? trainResult.RMSE : null,
-                    IsActive = trainResult.IsActive,
-                    HyperparamsJson = trainResult.Lengthscales.Count > 0
-                        ? JsonConvert.SerializeObject(trainResult.Lengthscales) : null,
+                    DataCount = dataCount,
+                    RSquared = rSquared,
+                    RMSE = rmse,
+                    IsActive = isActive,
+                    HyperparamsJson = hyperparamsJson,
                     LastTrainedTime = DateTime.Now
                 };
 
@@ -467,20 +549,13 @@ namespace MaxChemical.Modules.DOE.Services
                 return defaultValue;
             }
         }
-        // 实现
+        // ★ 修复 (v3): 便利重载 — 纯连续因子场景的兼容入口
+        // 内部转发到 Dictionary<string, object> 版本
         public void AppendData(Dictionary<string, double> factorValues, double responseValue,
                                string source = "measured", string batchName = "", string timestamp = "")
         {
-            EnsureModelReady();
-            var factorsJson = JsonConvert.SerializeObject(factorValues);
-            if (string.IsNullOrEmpty(timestamp))
-                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-
-            using (Py.GIL())
-            {
-                int count = (int)_pythonModel!.append_data(factorsJson, responseValue, source, batchName, timestamp);
-                _logger.LogDebug("GPR 数据追加: count={Count}, source={Source}, batch={Batch}", count, source, batchName);
-            }
+            var objectDict = factorValues.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+            AppendData(objectDict, responseValue, source, batchName, timestamp);
         }
         // ── Python JSON 映射 DTO ──
 
