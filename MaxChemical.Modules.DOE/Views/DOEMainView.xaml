@@ -39,80 +39,43 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Viewbox Width="16" Height="16" Margin="16,0,10,0">
-                            <Canvas Width="16" Height="16">
-                                <Rectangle Canvas.Left="1" Canvas.Top="1" Width="5.5" Height="5.5" RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.7"/>
-                                <Rectangle Canvas.Left="9" Canvas.Top="1" Width="5.5" Height="5.5" RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.35"/>
-                                <Rectangle Canvas.Left="1" Canvas.Top="9" Width="5.5" Height="5.5" RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.35"/>
-                                <Rectangle Canvas.Left="9" Canvas.Top="9" Width="5.5" Height="5.5" RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.18"/>
-                            </Canvas>
-                        </Viewbox>
+                        <!-- Logo + 标题 -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="14,0,0,0">
+                            <Viewbox Width="16" Height="16" Margin="0,0,10,0">
+                                <Canvas Width="16" Height="16">
+                                    <Rectangle Canvas.Left="1" Canvas.Top="1" Width="5.5" Height="5.5" 
+                               RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.7"/>
+                                    <Rectangle Canvas.Left="9" Canvas.Top="1" Width="5.5" Height="5.5" 
+                               RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.35"/>
+                                    <Rectangle Canvas.Left="1" Canvas.Top="9" Width="5.5" Height="5.5" 
+                               RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.35"/>
+                                    <Rectangle Canvas.Left="9" Canvas.Top="9" Width="5.5" Height="5.5" 
+                               RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.18"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="DOE 实验设计与优化" VerticalAlignment="Center"
+                       Foreground="#DDFFFFFF" FontSize="12" FontWeight="SemiBold"/>
+                        </StackPanel>
 
-                        <TextBlock Grid.Column="1" Text="DOE 实验设计与优化" VerticalAlignment="Center"
-                                   Foreground="#DDFFFFFF" FontSize="12" FontWeight="SemiBold"/>
-
-                        <Button Grid.Column="2" Style="{StaticResource WinCloseBtn}" Click="CloseBtn_Click" Margin="0,0,8,0"/>
+                        <!-- 关闭按钮 -->
+                        <Button Grid.Column="2" Style="{StaticResource CloseButtonStyle}" 
+                Click="CloseBtn_Click" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
 
                 <!-- ═══ Tab 栏 ═══ -->
                 <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel x:Name="TabBar" Orientation="Horizontal" Margin="14,0,0,0">
-                            <RadioButton Content="概览" Tag="0" IsChecked="True" GroupName="DOETabs"
-                             Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
-                            <RadioButton Content="执行" Tag="1" GroupName="DOETabs"
-                             Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
-                            <RadioButton Content="模型分析" Tag="2" GroupName="DOETabs"
-                             Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
-                            <RadioButton Content="历史" Tag="3" GroupName="DOETabs"
-                             Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
-                        </StackPanel>
-
-                        <Button Grid.Column="1" Command="{Binding OpenDesignWizardCommand}" Margin="0,0,20,0"
-                            Height="30" VerticalAlignment="Center" Cursor="Hand" BorderThickness="0">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" CornerRadius="6" Padding="10,3">
-                                        <Border.Background>
-                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                <GradientStop Color="#0078D4" Offset="0"/>
-                                                <GradientStop Color="#005FA3" Offset="1"/>
-                                            </LinearGradientBrush>
-                                        </Border.Background>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Viewbox Width="11" Height="11" Margin="0,0,5,0">
-                                                <Canvas Width="16" Height="16">
-                                                    <Ellipse Canvas.Left="0.5" Canvas.Top="0.5" Width="15" Height="15"
-                                                             Stroke="White" StrokeThickness="1.3" Fill="Transparent"/>
-                                                    <Line X1="8" Y1="4.5" X2="8" Y2="11.5" Stroke="White" StrokeThickness="1.3"
-                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                    <Line X1="4.5" Y1="8" X2="11.5" Y2="8" Stroke="White" StrokeThickness="1.3"
-                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                </Canvas>
-                                            </Viewbox>
-                                            <TextBlock Text="新建方案" Foreground="White" FontSize="10.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Opacity" Value="0.9"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="Bd" Property="Opacity" Value="0.8"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </Grid>
+                    <StackPanel x:Name="TabBar" Orientation="Horizontal" Margin="14,0,0,0">
+                        <RadioButton Content="概览" Tag="0" IsChecked="True" GroupName="DOETabs"
+                                     Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
+                        <RadioButton Content="执行" Tag="1" GroupName="DOETabs"
+                                     Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
+                        <RadioButton Content="模型分析" Tag="2" GroupName="DOETabs"
+                                     Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
+                        <RadioButton Content="历史" Tag="3" GroupName="DOETabs"
+                                     Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
+                    </StackPanel>
                 </Border>
-
                 <!-- ═══ 内容区 ═══ -->
                 <Grid Grid.Row="2" Background="{StaticResource PageBgBrush}">
                     <views:DOEOverviewView x:Name="OverviewView"
@@ -126,29 +89,82 @@
                 </Grid>
 
                 <!-- ═══ Loading ═══ -->
-                <Border x:Name="LoadingOverlay" Grid.RowSpan="3" Background="#DD000000" CornerRadius="12"
-                        Visibility="Collapsed" Panel.ZIndex="100">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <Grid Width="52" Height="52" Margin="0,0,0,18">
-                            <Ellipse Width="52" Height="52" Stroke="#333" StrokeThickness="3"/>
-                            <Ellipse Width="52" Height="52" Style="{StaticResource DOESpinRing}" Stroke="#3B9EFF" RenderTransformOrigin="0.5,0.5">
-                                <Ellipse.RenderTransform>
-                                    <RotateTransform x:Name="LoadSpin" Angle="0"/>
-                                </Ellipse.RenderTransform>
-                                <Ellipse.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard RepeatBehavior="Forever">
-                                                <DoubleAnimation Storyboard.TargetName="LoadSpin" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:0.9"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Ellipse.Triggers>
-                            </Ellipse>
-                        </Grid>
-                        <TextBlock Text="正在初始化 DOE 模块" FontSize="15" Foreground="White" HorizontalAlignment="Center" FontWeight="Medium" Margin="0,0,0,4"/>
-                        <TextBlock Text="加载 Python 环境和分析引擎..." FontSize="11" Foreground="#6B8BBF" HorizontalAlignment="Center"/>
-                    </StackPanel>
+                <Border x:Name="LoadingOverlay" Grid.Row="1" Grid.RowSpan="2" Background="White"
+        Visibility="Collapsed" Panel.ZIndex="100">
+                    <Grid>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+
+                            <!-- Logo + 产品名 -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,28">
+                                <!-- Logo 方块 -->
+                                <Border Width="40" Height="40" CornerRadius="9" Margin="0,0,12,0">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#0062B8" Offset="0"/>
+                                            <GradientStop Color="#003A96" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Viewbox Width="22" Height="22">
+                                        <Canvas Width="16" Height="16">
+                                            <Rectangle Canvas.Left="1" Canvas.Top="1" Width="5.5" Height="5.5" 
+                                       RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.9"/>
+                                            <Rectangle Canvas.Left="9" Canvas.Top="1" Width="5.5" Height="5.5" 
+                                       RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.5"/>
+                                            <Rectangle Canvas.Left="1" Canvas.Top="9" Width="5.5" Height="5.5" 
+                                       RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.5"/>
+                                            <Rectangle Canvas.Left="9" Canvas.Top="9" Width="5.5" Height="5.5" 
+                                       RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.3"/>
+                                        </Canvas>
+                                    </Viewbox>
+                                </Border>
+                                <!-- 产品名 -->
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="DOE 优化平台" FontSize="17" FontWeight="Medium" Foreground="#1A1F36"/>
+                                    <TextBlock Text="MaxChemical" FontSize="11" Foreground="#A0A4B0" Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 进度条（带光扫动画） -->
+                            <Grid Width="220" Height="3" Margin="0,0,0,16">
+                                <!-- 轨道 -->
+                                <Border Background="#ECEEF2" CornerRadius="1.5"/>
+                                <!-- 进度 -->
+                                <Border x:Name="LoadingProgressBar" Background="#0078D4" CornerRadius="1.5"
+                        HorizontalAlignment="Left" Width="0">
+                                    <!-- 光扫层 -->
+                                    <Border CornerRadius="1.5" ClipToBounds="True">
+                                        <Border x:Name="LoadingShine" Width="60" Height="3" 
+                                HorizontalAlignment="Left" Margin="-60,0,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                                    <GradientStop Color="Transparent" Offset="0"/>
+                                                    <GradientStop Color="#55FFFFFF" Offset="0.5"/>
+                                                    <GradientStop Color="Transparent" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Border.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <ThicknessAnimation Storyboard.TargetName="LoadingShine"
+                                                Storyboard.TargetProperty="Margin"
+                                                From="-60,0,0,0" To="280,0,0,0"
+                                                Duration="0:0:1.5" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Border.Triggers>
+                                        </Border>
+                                    </Border>
+                                </Border>
+                            </Grid>
+
+                            <!-- 状态文字 -->
+                            <TextBlock x:Name="LoadingStatusText" Text="正在加载分析引擎..."
+                       FontSize="12.5" Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
         </Border>

@@ -49,8 +49,10 @@ namespace MaxChemical.Modules.DOE.Data
             batch.BatchId = $"DOE_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..6]}";
 
             const string sql = @"
-                INSERT INTO doe_batches (batch_id, flow_id, flow_name, batch_name, design_method, status, design_config_json)
-                VALUES (@batchId, @flowId, @flowName, @batchName, @designMethod, @status, @configJson)";
+    INSERT INTO doe_batches (batch_id, flow_id, flow_name, batch_name, design_method, status, design_config_json,
+        project_id, round_number, project_phase)
+    VALUES (@batchId, @flowId, @flowName, @batchName, @designMethod, @status, @configJson,
+        @projectId, @roundNumber, @projectPhase)";
 
             using var conn = CreateConnection();
             await conn.OpenAsync();
@@ -62,6 +64,9 @@ namespace MaxChemical.Modules.DOE.Data
             cmd.Parameters.AddWithValue("@designMethod", batch.DesignMethod.ToString());
             cmd.Parameters.AddWithValue("@status", batch.Status.ToString());
             cmd.Parameters.AddWithValue("@configJson", batch.DesignConfigJson ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@projectId", (object?)batch.ProjectId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@roundNumber", (object?)batch.RoundNumber ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@projectPhase", (object?)batch.ProjectPhase?.ToString() ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync();
 
             _logger.LogInformation("创建 DOE 批次: {BatchId} - {BatchName}", batch.BatchId, batch.BatchName);
@@ -385,9 +390,9 @@ namespace MaxChemical.Modules.DOE.Data
         public async Task SaveGPRModelStateAsync(GPRModelState state)
         {
             const string sql = @"
-        INSERT INTO doe_gpr_models (flow_id, factor_signature, model_name, model_state, training_data_json, hyperparams_json,
+        INSERT INTO doe_gpr_models (flow_id,project_id, factor_signature, model_name, model_state, training_data_json, hyperparams_json,
         data_count, r_squared, rmse, is_active, evolution_history_json, last_trained_time)
-        VALUES (@flowId, @sig, @name, @model, @data, @hyper, @count, @r2, @rmse, @active, @evo, @trained)
+        VALUES (@flowId,@projectId, @sig, @name, @model, @data, @hyper, @count, @r2, @rmse, @active, @evo, @trained)
         ON DUPLICATE KEY UPDATE 
         model_name=@name, model_state=@model, training_data_json=@data, hyperparams_json=@hyper,
         data_count=@count, r_squared=@r2, rmse=@rmse, is_active=@active, 
@@ -396,6 +401,7 @@ namespace MaxChemical.Modules.DOE.Data
             await conn.OpenAsync();
             using var cmd = new MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@flowId", state.FlowId);
+            cmd.Parameters.AddWithValue("@projectId", (object?)state.ProjectId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@sig", state.FactorSignature);
             cmd.Parameters.AddWithValue("@name", state.ModelName);
             cmd.Parameters.AddWithValue("@model", state.ModelStateBytes ?? (object)DBNull.Value);
@@ -538,7 +544,14 @@ namespace MaxChemical.Modules.DOE.Data
             Status = Enum.TryParse<DOEBatchStatus>(GetStr(r, "status"), out var s) ? s : DOEBatchStatus.Designing,
             DesignConfigJson = GetStrN(r, "design_config_json"),
             CreatedTime = GetDt(r, "created_time"),
-            UpdatedTime = GetDt(r, "updated_time")
+            UpdatedTime = GetDt(r, "updated_time"),
+            // ★ 新增: 安全读取项目关联字段
+            ProjectId = HasColumn(r, "project_id") ? GetStrN(r, "project_id") : null,
+            RoundNumber = HasColumn(r, "round_number") && !IsNull(r, "round_number")
+        ? GetInt(r, "round_number") : null,
+            ProjectPhase = HasColumn(r, "project_phase") && !IsNull(r, "project_phase")
+        ? (Enum.TryParse<DOEProjectPhase>(GetStr(r, "project_phase"), out var pp) ? pp : null)
+        : null
         };
 
         private static DOEFactor MapFactor(DbDataReader r) => new()
@@ -642,7 +655,7 @@ namespace MaxChemical.Modules.DOE.Data
             state.RMSE = GetDblN(r, "rmse");
             state.EvolutionHistoryJson = GetStrN(r, "evolution_history_json");
             state.LastTrainedTime = GetDtN(r, "last_trained_time");
-
+            state.ProjectId = HasColumn(r, "project_id") ? GetStrN(r, "project_id") : null;
             return state;
         }
 
@@ -745,6 +758,18 @@ namespace MaxChemical.Modules.DOE.Data
             return await reader.ReadAsync() ? MapGPRModelState(reader) : null;
         }
 
+        public async Task<List<GPRModelState>> GetGPRModelsByProjectAsync(string projectId)
+        {
+            const string sql = "SELECT * FROM doe_gpr_models WHERE project_id=@pid ORDER BY updated_time DESC";
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@pid", projectId);
+            using var reader = await cmd.ExecuteReaderAsync();
+            var list = new List<GPRModelState>();
+            while (await reader.ReadAsync()) list.Add(MapGPRModelState(reader));
+            return list;
+        }
 
     }
 

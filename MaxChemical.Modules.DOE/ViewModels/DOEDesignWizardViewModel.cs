@@ -9,6 +9,7 @@ using MaxChemical.Infrastructure.DOE;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
+using MaxChemical.Modules.DOE.Events;
 using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.Services;
 using Newtonsoft.Json;
@@ -32,6 +33,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IMultiResponseGPRService _multiGprService;
         private readonly IFlowParameterProvider _paramProvider;
         private readonly IDialogService _dialogService;
+        private readonly IEventAggregator _eventAggregator;      // ★ 新增: 事件聚合器
         private readonly ILogService _logger;
 
         // ── 向导状态 ──
@@ -73,6 +75,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private string? _importFilePath;
         private DataValidationResult? _validationResult;
         private int _importedDataCount;
+        private string? _customImportPath;  // ★ v6: 自定义导入 Excel 路径
+
+        // ★ 新增: 项目模式字段
+        private string? _currentProjectId;
+        private int? _currentRoundNumber;
+        private DOEProjectPhase? _currentProjectPhase;
+        private bool _isProjectMode;
 
         public DOEDesignWizardViewModel(
             IDOEDesignService designService,
@@ -81,6 +90,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             IMultiResponseGPRService multiGprService,
             IFlowParameterProvider paramProvider,
             IDialogService dialogService,
+            IEventAggregator eventAggregator,                    // ★ 新增
             ILogService logger)
         {
             _designService = designService;
@@ -88,12 +98,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _gprService = gprService;                            //  新增
             _paramProvider = paramProvider;
             _dialogService = dialogService;
+            _eventAggregator = eventAggregator;                  // ★ 新增
             _multiGprService = multiGprService ?? throw new ArgumentNullException(nameof(multiGprService));
             _logger = logger?.ForContext<DOEDesignWizardViewModel>()
                       ?? throw new ArgumentNullException(nameof(logger));
 
             InitializeCommands();
             LoadAvailableCandidates();
+
+            // ★ 新增: 订阅下一轮请求事件
+            _eventAggregator.GetEvent<RequestNextRoundEvent>().Subscribe(payload =>
+            {
+                InitializeFromProject(payload);
+            }, ThreadOption.UIThread);
         }
 
         // ══════════════ Properties ══════════════
@@ -123,6 +140,23 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public string QualityGEffText => DesignQuality != null ? $"{DesignQuality.GEfficiency:P1}" : "—";
         public string QualityDofText => DesignQuality != null ? $"{DesignQuality.DegreesOfFreedom}" : "—";
         public bool HasDesignQuality => DesignQuality != null;
+
+        // ★ 新增: 项目模式属性
+        /// <summary>是否在项目模式下创建批次</summary>
+        public bool IsProjectMode
+        {
+            get => _isProjectMode;
+            set => SetProperty(ref _isProjectMode, value);
+        }
+
+        private string _projectName = "";
+        /// <summary>项目名称（UI 显示用）</summary>
+        public string ProjectName
+        {
+            get => _projectName;
+            set => SetProperty(ref _projectName, value);
+        }
+
         // Step1
         public ObservableCollection<FactorViewModel> Factors { get => _factors; set => SetProperty(ref _factors, value); }
         public ObservableCollection<FactorCandidate> AvailableCandidates { get => _availableCandidates; set => SetProperty(ref _availableCandidates, value); }
@@ -143,7 +177,17 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public ObservableCollection<StopConditionViewModel> StopConditions { get => _stopConditions; set => SetProperty(ref _stopConditions, value); }
 
         // Step5
-        public string? ImportFilePath { get => _importFilePath; set => SetProperty(ref _importFilePath, value); }
+        public string? ImportFilePath
+        {
+            get => _importFilePath;
+            set
+            {
+                if (SetProperty(ref _importFilePath, value))
+                {
+                    ValidateImportCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
         public DataValidationResult? ValidationResult { get => _validationResult; set => SetProperty(ref _validationResult, value); }
         public int ImportedDataCount { get => _importedDataCount; set => SetProperty(ref _importedDataCount, value); }
 
@@ -194,6 +238,68 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ValidateImportCommand = new DelegateCommand(async () => await ValidateImportAsync(), () => !string.IsNullOrEmpty(ImportFilePath));
             SaveBatchCommand = new DelegateCommand(async () => await SaveBatchAsync());
         }
+
+        // ══════════════ ★ 新增: 项目模式初始化 ══════════════
+
+        /// <summary>
+        /// ★ 新增: 从项目模式初始化设计向导
+        ///
+        /// 由 RequestNextRoundEvent 触发调用。
+        /// 自动预填活跃因子、推荐设计方法、关联项目 ID。
+        /// </summary>
+        public void InitializeFromProject(NextRoundPayload payload)
+        {
+            _currentProjectId = payload.ProjectId;
+            _currentRoundNumber = payload.RoundNumber;
+            _currentProjectPhase = payload.RecommendedPhase;
+            IsProjectMode = true;
+
+            // 预填因子
+            Factors.Clear();
+            foreach (var f in payload.PrefilledFactors)
+            {
+                var fvm = new FactorViewModel
+                {
+                    FactorName = f.FactorName,
+                    FactorType = f.FactorType,
+                    LowerBound = f.LowerBound,
+                    UpperBound = f.UpperBound,
+                    LevelCount = f.LevelCount,
+                    CategoryLevels = f.CategoryLevels ?? "",
+                    AvailableCandidates = new ObservableCollection<FactorCandidate>(AvailableCandidates)
+                };
+                // 尝试绑定参数候选
+                if (!string.IsNullOrEmpty(f.SourceNodeId) && !string.IsNullOrEmpty(f.SourceParamName))
+                {
+                    var candidate = fvm.AvailableCandidates
+                        .FirstOrDefault(c => c.NodeId == f.SourceNodeId && c.ParameterName == f.SourceParamName);
+                    if (candidate != null)
+                        fvm.SelectedCandidate = candidate;
+                }
+                Factors.Add(fvm);
+            }
+
+            // 预选设计方法
+            SelectedMethod = payload.RecommendedMethod;
+
+            // ★ 优化2: 预填响应变量（从上一轮继承）
+            if (payload.PrefilledResponses.Count > 0)
+            {
+                Responses.Clear();
+                foreach (var r in payload.PrefilledResponses)
+                {
+                    Responses.Add(new ResponseViewModel
+                    {
+                        ResponseName = r.ResponseName,
+                        Unit = r.Unit
+                    });
+                }
+            }
+
+            // 提示信息
+            StatusMessage = $"项目模式: 第 {payload.RoundNumber} 轮 ({payload.RecommendedPhase})";
+        }
+
         /// <summary>
         /// 将 DOEDesignMatrix 转为 DataTable（WPF DataGrid 原生支持）
         /// ★ 修复 (v3): 类别因子列用 string 类型显示标签
@@ -295,10 +401,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         _dialogService.ShowError("CCD 设计至少需要 2 个连续因子", "验证");
                         return;
                     }
+                    // ★ 修复 v6: 自定义导入先选文件再导入矩阵
+                    if (SelectedMethod == DOEDesignMethod.Custom)
+                    {
+                        var path = _dialogService.ShowOpenFileDialog("Excel 文件|*.xlsx");
+                        if (string.IsNullOrEmpty(path))
+                            return;
+                        _customImportPath = path;
+                    }
                     await GenerateMatrixAsync();
                     if (_designMatrix == null || _designMatrix.IsEmpty)
                     {
-                        _dialogService.ShowError("矩阵生成失败，请检查因子配置", "验证");
+                        _dialogService.ShowError("矩阵生成失败，请检查因子配置或导入文件", "验证");
                         return;
                     }
                     break;
@@ -368,15 +482,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 var factors = Factors.Select(f => f.ToModel()).ToList();
 
-                //  修改: switch 新增 CCD / BoxBehnken / DOptimal 分支
+                //  修改: switch 新增 CCD / BoxBehnken / DOptimal / Custom 分支
                 _designMatrix = SelectedMethod switch
                 {
                     DOEDesignMethod.FullFactorial => await _designService.GenerateFullFactorialAsync(factors),
                     DOEDesignMethod.FractionalFactorial => await _designService.GenerateFractionalFactorialAsync(factors, FractionalResolution),
                     DOEDesignMethod.Taguchi => await _designService.GenerateTaguchiAsync(factors, TaguchiTableType),
-                    DOEDesignMethod.CCD => await _designService.GenerateCCDAsync(factors, CcdAlphaType, CcdCenterCount),             //  新增
-                    DOEDesignMethod.BoxBehnken => await _designService.GenerateBoxBehnkenAsync(factors, BbdCenterCount),               //  新增
-                    DOEDesignMethod.DOptimal => await _designService.GenerateDOptimalAsync(factors, DOptimalRunCount, DOptimalModelType), //  新增
+                    DOEDesignMethod.CCD => await _designService.GenerateCCDAsync(factors, CcdAlphaType, CcdCenterCount),
+                    DOEDesignMethod.BoxBehnken => await _designService.GenerateBoxBehnkenAsync(factors, BbdCenterCount),
+                    DOEDesignMethod.DOptimal => await _designService.GenerateDOptimalAsync(factors, DOptimalRunCount, DOptimalModelType),
+                    DOEDesignMethod.Custom => !string.IsNullOrEmpty(_customImportPath)
+                        ? await _designService.ImportCustomMatrixAsync(_customImportPath, factors)
+                        : null,
                     _ => null
                 };
 
@@ -580,7 +697,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
                             gEfficiency = DesignQuality.GEfficiency,
                             degreesOfFreedom = DesignQuality.DegreesOfFreedom
                         } : null
-                    })
+                    }),
+                    // ★ 新增: 项目关联（_currentProjectId 为 null 时行为与旧版一致）
+                    ProjectId = _currentProjectId,
+                    RoundNumber = _currentRoundNumber,
+                    ProjectPhase = _currentProjectPhase
                 };
 
                 var batchId = await _repository.CreateBatchAsync(batch);
@@ -633,6 +754,60 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 // ════════════════════════════════════════════════════════
                 await InitializeGPRModelAsync(batch.FlowId, batchId, factors, responses);
 
+                // ★ 新增: 项目模式下更新项目信息 + 同步因子池
+                if (!string.IsNullOrEmpty(_currentProjectId))
+                {
+                    try
+                    {
+                        var project = await _repository.GetProjectAsync(_currentProjectId);
+                        if (project != null)
+                        {
+                            if (_currentProjectPhase.HasValue)
+                                project.CurrentPhase = _currentProjectPhase.Value;
+
+                            // ★ 首轮时关联 FlowId
+                            if (string.IsNullOrEmpty(project.FlowId))
+                            {
+                                project.FlowId = batch.FlowId;
+                                project.FlowName = batch.FlowName;
+                            }
+
+                            await _repository.UpdateProjectAsync(project);
+
+                            // ★ 首轮时同步因子到项目因子池
+                            var existingFactors = await _repository.GetProjectFactorsAsync(_currentProjectId);
+                            if (existingFactors.Count == 0)
+                            {
+                                var projectFactors = factors.Select((f, idx) => new DOEProjectFactor
+                                {
+                                    ProjectId = _currentProjectId,
+                                    FactorName = f.FactorName,
+                                    FactorType = f.FactorType,
+                                    FactorStatus = ProjectFactorStatus.Active,
+                                    CurrentLowerBound = f.LowerBound,
+                                    CurrentUpperBound = f.UpperBound,
+                                    CategoryLevels = f.CategoryLevels,
+                                    SourceNodeId = f.SourceNodeId,
+                                    SourceParamName = f.SourceParamName,
+                                    BoundsHistoryJson = JsonConvert.SerializeObject(new[]
+                                    {
+                                        new { batch_id = batchId, lower = f.LowerBound, upper = f.UpperBound,
+                                              reason = "初始范围", timestamp = DateTime.Now }
+                                    }),
+                                    SortOrder = idx
+                                }).ToList();
+
+                                await _repository.SaveProjectFactorsAsync(_currentProjectId, projectFactors);
+                                _logger.LogInformation("项目因子池已初始化: {Count} 个因子", projectFactors.Count);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "更新项目信息失败（不影响方案保存）");
+                    }
+                }
+
                 StatusMessage = $"DOE 方案已保存: {batchId}";
                 _logger.LogInformation("DOE 方案保存成功: {BatchId} - {BatchName}", batchId, BatchName);
 
@@ -668,14 +843,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 StatusMessage = "正在初始化 GPR 预测模型...";
-
+                // ★ 新增：传入项目 ID
+                _gprService.SetProjectId(_currentProjectId);
                 // Step 1: 初始化主响应模型（新建或恢复已有同签名模型）
                 await _gprService.InitializeModelAsync(flowId, factors);
 
                 //  新增 Step 1.5: 初始化多响应模型（为每个响应创建独立的 GPR）
                 try
                 {
-                    await _multiGprService.InitializeAsync(flowId, factors, responses);
+                    await _multiGprService.InitializeAsync(flowId, factors, responses, _currentProjectId);
                     _logger.LogInformation("多响应 GPR 初始化成功: {Count} 个响应", responses.Count);
                 }
                 catch (Exception ex)

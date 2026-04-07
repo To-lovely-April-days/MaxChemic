@@ -5,8 +5,16 @@
     <UserControl.Resources>
         <ResourceDictionary Source="DOEStyles.xaml"/>
     </UserControl.Resources>
+
     <Grid Margin="22">
-        <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ═══ 左侧: 项目列表 ═══ -->
+        <Border Grid.Column="0" Background="White" CornerRadius="10" BorderBrush="#E8EAED" BorderThickness="1">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -14,62 +22,339 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Border Background="#FAFBFC" Padding="14,10" BorderBrush="#E8EAED" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0">
+                <Border Grid.Row="0" Padding="16,12" BorderBrush="#E8EAED" BorderThickness="0,0,0,1">
                     <Grid>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="历史批次" FontSize="13" FontWeight="SemiBold" Foreground="#1A1F36" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                            <Button Content="刷新" Style="{StaticResource DOEPrimaryBtn}" Padding="14,5" Height="26" Command="{Binding RefreshCommand}" Margin="0,0,6,0"/>
-                            <Button Content="导出对比报告" Padding="14,5" Height="26" Command="{Binding ExportComparisonCommand}" Foreground="White" FontSize="10" FontWeight="SemiBold" Cursor="Hand" BorderThickness="0">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border CornerRadius="6" Padding="{TemplateBinding Padding}" Background="#5B2D90">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                        </StackPanel>
-                        <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="#8A8F9C"/>
+                        <TextBlock Text="项目" FontSize="13" FontWeight="SemiBold" Foreground="#1A1F36"/>
+                        <Button Content="刷新" Style="{StaticResource DOELinkBtn}" HorizontalAlignment="Right"
+                                FontSize="11" Command="{Binding RefreshCommand}"/>
                     </Grid>
                 </Border>
 
-                <DataGrid Grid.Row="1" ItemsSource="{Binding Batches}" SelectedItem="{Binding SelectedBatch}"
-                          Style="{StaticResource DOEDataGrid}" ColumnHeaderStyle="{StaticResource DOEColHeader}"
-                          MouseDoubleClick="BatchList_DoubleClick">
-                    <DataGrid.ContextMenu>
-                        <ContextMenu Style="{StaticResource DOEContextMenu}"
-                                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="编辑方案" Style="{StaticResource DOEMenuItem}" Command="{Binding EditBatchCommand}"
-                                      CommandParameter="{Binding SelectedBatch}"/>
-                            <MenuItem Header="跳转执行" Style="{StaticResource DOEMenuItem}" Command="{Binding NavigateToExecutionCommand}"/>
-                            <MenuItem Header="查看分析" Style="{StaticResource DOEMenuItem}" Command="{Binding NavigateToAnalysisCommand}"/>
-                            <Separator/>
-                            <MenuItem Header="导出 Excel 报告" Style="{StaticResource DOEMenuItem}" Command="{Binding ExportBatchCommand}"/>
-                            <MenuItem Header="复用此方案" Style="{StaticResource DOEMenuItem}" Command="{Binding ReuseBatchCommand}"/>
-                            <Separator/>
-                            <MenuItem Header="删除批次" Style="{StaticResource DOEMenuItemDanger}" Command="{Binding DeleteBatchCommand}"/>
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="批次名称" Binding="{Binding BatchName}" Width="*">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="FontWeight" Value="SemiBold"/>
-                                    <Setter Property="Foreground" Value="#1A1F36"/>
-                                    <Setter Property="Padding" Value="18,0,0,0"/>
-                                    <Setter Property="VerticalAlignment" Value="Center"/>
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
-                        <DataGridTextColumn Header="设计方法" Binding="{Binding DesignMethod}" Width="110"/>
-                        <DataGridTextColumn Header="进度" Binding="{Binding ProgressText}" Width="90"/>
-                        <DataGridTextColumn Header="状态" Binding="{Binding Status}" Width="80"/>
-                        <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedTime, StringFormat={}{0:MM-dd HH:mm}}" Width="100"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <ListBox Grid.Row="1" ItemsSource="{Binding Projects}"
+                         SelectedItem="{Binding SelectedProject}"
+                         BorderThickness="0" Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="Transparent"
+                                                Padding="16,10" BorderBrush="Transparent"
+                                                BorderThickness="3,0,0,0" Cursor="Hand">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#EBF3FE"/>
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#0078D4"/>
+                                            </Trigger>
+                                            <MultiTrigger>
+                                                <MultiTrigger.Conditions>
+                                                    <Condition Property="IsMouseOver" Value="True"/>
+                                                    <Condition Property="IsSelected" Value="False"/>
+                                                </MultiTrigger.Conditions>
+                                                <Setter TargetName="Bd" Property="Background" Value="#F7F8FA"/>
+                                            </MultiTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding ProjectName}" FontSize="12" FontWeight="Medium"
+                                           Foreground="#1A1F36" TextTrimming="CharacterEllipsis" Margin="0,0,0,3"/>
+                                <TextBlock FontSize="10" Foreground="#8A8F9C">
+                                    <Run Text="{Binding TotalBatches, StringFormat='{}{0} 轮', Mode=OneWay}"/>
+                                    <Run Text=" · "/>
+                                    <Run Text="{Binding TotalExperiments, StringFormat='{}{0} 组', Mode=OneWay}"/>
+                                    <Run Text=" · 最优 "/>
+                                    <Run Text="{Binding BestResponseValue, StringFormat='{}{0:F2}', TargetNullValue='—', Mode=OneWay}"
+                                         FontWeight="Medium" Foreground="#0078D4"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
 
-                <Border Grid.Row="2" Background="#FAFBFC" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,1,0,0">
-                    <TextBlock Text="双击行 → 跳转执行页  |  右键行 → 操作菜单" FontSize="10" Foreground="#A0A4B0"/>
+                <Border Grid.Row="2" Padding="14,8" BorderBrush="#E8EAED" BorderThickness="0,1,0,0">
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="10.5" Foreground="#8A8F9C"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 右侧 ═══ -->
+        <Border Grid.Column="2" Background="White" CornerRadius="10" BorderBrush="#E8EAED" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 项目头 -->
+                <Border Grid.Row="0" Padding="18,12" BorderBrush="#E8EAED" BorderThickness="0,0,0,1"
+                        Visibility="{Binding HasSelectedProject, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding SelectedProject.ProjectName}" FontSize="14"
+                                       FontWeight="Medium" Foreground="#1A1F36"/>
+                            <TextBlock FontSize="11" Foreground="#8A8F9C" Margin="0,2,0,0">
+                                <Run Text="{Binding SelectedProject.PhaseText, Mode=OneWay}"/>
+                                <Run Text=" · "/>
+                                <Run Text="{Binding SelectedProject.TotalBatches, StringFormat='{}{0} 轮', Mode=OneWay}"/>
+                                <Run Text=" · "/>
+                                <Run Text="{Binding SelectedProject.TotalExperiments, StringFormat='{}{0} 组实验', Mode=OneWay}"/>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="查看分析" Padding="12,5" FontSize="11" Cursor="Hand" Margin="0,0,6,0"
+                                    Command="{Binding NavigateToAnalysisCommand}"
+                                    Style="{StaticResource DOEGhostBtn}" Foreground="#0078D4"/>
+                            <Button Content="删除项目" Padding="12,5" FontSize="11" Cursor="Hand"
+                                    Command="{Binding DeleteProjectCommand}" CommandParameter="{Binding SelectedProject}"
+                                    Style="{StaticResource DOEGhostBtn}" Foreground="#8A8F9C"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 轮次表格 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasSelectedProject, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <Grid Background="#FAFBFC" Height="32">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="轮次" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center" Margin="18,0,0,0"/>
+                            <TextBlock Grid.Column="1" Text="阶段" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="设计方法" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="进度" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="R²" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="状态" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="6" Text="日期" FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Rounds}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="Transparent" Cursor="Hand"
+                                            BorderBrush="#F2F3F5" BorderThickness="0,0,0,1"
+                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                        <Border.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick"
+                                                Command="{Binding DataContext.SelectRoundCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"/>
+                                        </Border.InputBindings>
+                                        <Border.ContextMenu>
+                                            <ContextMenu Style="{StaticResource DOEContextMenu}">
+                                                <MenuItem Header="跳转执行" Style="{StaticResource DOEMenuItem}"
+                                                          Command="{Binding PlacementTarget.Tag.NavigateToExecutionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="查看分析" Style="{StaticResource DOEMenuItem}"
+                                                          Command="{Binding PlacementTarget.Tag.NavigateToAnalysisCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="导出 Excel" Style="{StaticResource DOEMenuItem}"
+                                                          Command="{Binding PlacementTarget.Tag.ExportRoundCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding}"/>
+                                                <Separator/>
+                                                <MenuItem Header="删除此轮" Foreground="#D32F2F"
+                                                          Command="{Binding PlacementTarget.Tag.DeleteRoundCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F7F8FA"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="Background" Value="#EBF3FE"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid Height="38">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="70"/>
+                                                <ColumnDefinition Width="60"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding RoundNumber, StringFormat='R{0}'}" FontSize="11"
+                                                       FontWeight="Medium" Foreground="#0078D4" VerticalAlignment="Center" Margin="18,0,0,0"/>
+                                            <Border Grid.Column="1" CornerRadius="3" Padding="6,2"
+                                                    VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{Binding PhaseColor}" Opacity="0.12"/>
+                                                </Border.Background>
+                                                <TextBlock Text="{Binding PhaseText}" FontSize="9" FontWeight="SemiBold">
+                                                    <TextBlock.Foreground>
+                                                        <SolidColorBrush Color="{Binding PhaseColor}"/>
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text="{Binding DesignMethodText}" FontSize="11"
+                                                       Foreground="#1A1F36" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding ProgressText}" FontSize="11"
+                                                       Foreground="#8A8F9C" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding RSquaredText}" FontSize="11"
+                                                       FontWeight="Medium" Foreground="#0D7A3E" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding StatusText}" FontSize="10"
+                                                       Foreground="#8A8F9C" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding CreatedTime, StringFormat='{}{0:MM-dd}'}"
+                                                       FontSize="10" Foreground="#A0A4B0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 未选中项目 -->
+                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasSelectedProject}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="选择左侧项目查看历史记录" FontSize="13" Foreground="#A0A4B0" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- ═══ 底部详情抽屉 ═══ -->
+                <Border Grid.Row="2" BorderBrush="#E8EAED" BorderThickness="0,1,0,0"
+                        Visibility="{Binding HasSelectedRound, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="295"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 概况行 -->
+                        <Border Grid.Row="0" Padding="18,10" Background="#FAFBFC" BorderBrush="#E8EAED" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <TextBlock Text="{Binding SelectedRoundTitle}" FontSize="12"
+                                                   FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,12,0"/>
+                                        <TextBlock FontSize="11" Foreground="#8A8F9C" VerticalAlignment="Center">
+                                            <Run Text="R² = "/>
+                                            <Run Text="{Binding SelectedRoundR2Text, Mode=OneWay}"
+                                                 FontWeight="Medium" Foreground="#0D7A3E"/>
+                                            <Run Text="    实验 "/>
+                                            <Run Text="{Binding SelectedRoundRunCount, Mode=OneWay}"/>
+                                            <Run Text=" 组"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SelectedRoundRecommendation}" FontSize="11"
+                                               Foreground="#5A9C76" TextWrapping="Wrap"
+                                               Visibility="{Binding HasSelectedRoundRecommendation, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="跳转执行" Padding="10,4" FontSize="10" Cursor="Hand" Margin="0,0,6,0"
+                                            Command="{Binding NavigateToExecutionCommand}"
+                                            Style="{StaticResource DOEGhostBtn}" Foreground="#0078D4"/>
+                                    <Button Content="查看分析" Padding="10,4" FontSize="10" Cursor="Hand" Margin="0,0,6,0"
+                                            Command="{Binding NavigateToAnalysisCommand}"
+                                            Style="{StaticResource DOEGhostBtn}" Foreground="#0078D4"/>
+                                    <Button Content="导出" Padding="10,4" FontSize="10" Cursor="Hand"
+                                            Command="{Binding ExportRoundCommand}" CommandParameter="{Binding SelectedRound}"
+                                            Style="{StaticResource DOEGhostBtn}" Foreground="#0078D4"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- ★ 实验数据表 -->
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedRoundRuns.DefaultView}"
+                                  AutoGenerateColumns="True" IsReadOnly="True"
+                                  CanUserAddRows="False" CanUserDeleteRows="False"
+                                  GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F2F3F5"
+                                  HeadersVisibility="Column" BorderThickness="0"
+                                  RowHeight="28" Background="White" AlternationCount="2"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  SelectionMode="Single" SelectionUnit="FullRow"
+                                  FontSize="11" Foreground="#1A1F36" ColumnWidth="*">
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#FAFBFC"/>
+                                    <Setter Property="Foreground" Value="#A0A4B0"/>
+                                    <Setter Property="FontSize" Value="10"/>
+                                    <Setter Property="FontWeight" Value="Normal"/>
+                                    <Setter Property="Padding" Value="10,5"/>
+                                    <Setter Property="BorderBrush" Value="#E8EAED"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Padding" Value="10,0"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#EBF3FE"/>
+                                            <Setter Property="Foreground" Value="#1A1F36"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.CellStyle>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Background" Value="White"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="AlternationIndex" Value="1">
+                                            <Setter Property="Background" Value="#FAFBFC"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#F7F8FA"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#EBF3FE"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                        </DataGrid>
+                    </Grid>
                 </Border>
             </Grid>
         </Border>
