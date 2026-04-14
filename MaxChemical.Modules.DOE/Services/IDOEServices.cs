@@ -319,19 +319,19 @@ namespace MaxChemical.Modules.DOE.Services
     public interface IDesirabilityService
     {
         Task ConfigureAsync(string batchId, List<DesirabilityResponseConfig> configs, List<DOEFactor> factors);
-        Task<DesirabilityResult> ComputeDesirabilityAsync(Dictionary<string, double> predictions);
-        Task<DesirabilityResult> OptimizeAsync();
-        Task<string> GetProfileDataAsync(int gridSize = 50);
+        //Task<DesirabilityResult> ComputeDesirabilityAsync(Dictionary<string, double> predictions); 暂时不用
+        /*Task<DesirabilityResult> OptimizeAsync();*/ //暂时不用
+        //Task<string> GetProfileDataAsync(int gridSize = 50); 暂时不用
         Task SaveConfigAsync(string batchId, List<DesirabilityResponseConfig> configs);
         Task<List<DesirabilityResponseConfig>> LoadConfigAsync(string batchId);
 
-        // ★ v2 新增: OLS 模式
-        Task<DesirabilityResult> OptimizeWithOlsAsync(
-            string batchId,
-            List<DesirabilityResponseConfig> configs,
-            List<DOEFactor> factors,
-            IDOEAnalysisService analysisService);
-        Task<string> GetOlsProfileDataAsync(int gridSize = 50);
+        //// ★ v2 新增: OLS 模式
+        //Task<DesirabilityResult> OptimizeWithOlsAsync(
+        //    string batchId,
+        //    List<DesirabilityResponseConfig> configs,
+        //    List<DOEFactor> factors,
+        //    IDOEAnalysisService analysisService); 暂时不用
+        //Task<string> GetOlsProfileDataAsync(int gridSize = 50);暂时不用
     }
 
     // ═══════════════════════════════════════════════════════

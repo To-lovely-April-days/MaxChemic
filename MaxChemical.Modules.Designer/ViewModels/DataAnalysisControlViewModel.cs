@@ -267,7 +267,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _recommendations = new ObservableCollection<RecommendationItem>();
             InitializeReactionScenarios();
             InitializeCommands();
-            InitializePython();
+            //InitializePython(); 暂时不用
         }
 
         private void InitializeReactionScenarios()
@@ -479,60 +479,60 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void InitializePython()
         {
-            try
-            {
-                _logger.LogInformation("开始初始化Python模型");
+            //try
+            //{
+            //    _logger.LogInformation("开始初始化Python模型");
 
-                if (!PythonEnvironmentManager.Instance.IsInitialized)
-                {
-                    var success = PythonEnvironmentManager.Instance.Initialize();
-                    if (!success)
-                    {
-                        throw new Exception("Python环境初始化失败");
-                    }
-                }
+            //    if (!PythonEnvironmentManager.Instance.IsInitialized)
+            //    {
+            //        var success = PythonEnvironmentManager.Instance.Initialize();
+            //        if (!success)
+            //        {
+            //            throw new Exception("Python环境初始化失败");
+            //        }
+            //    }
 
-                _pythonModel = PythonEnvironmentManager.Instance.CreateModel();
-                _isPythonInitialized = true;
+            //    _pythonModel = PythonEnvironmentManager.Instance.CreateModel();
+            //    _isPythonInitialized = true;
 
-                ModelStatus = "已初始化";
-                ModelStatusBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 198, 12));
+            //    ModelStatus = "已初始化";
+            //    ModelStatusBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 198, 12));
 
-                _logger.LogInformation("Python模型初始化成功");
+            //    _logger.LogInformation("Python模型初始化成功");
 
-                LoadChartsOnStartup();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Python模型初始化失败");
-                ModelStatus = "初始化失败";
-                ModelStatusBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(231, 72, 86));
+            //    LoadChartsOnStartup();
+            //}
+            //catch (Exception ex)
+            //{
+            //    _logger.LogError(ex, "Python模型初始化失败");
+            //    ModelStatus = "初始化失败";
+            //    ModelStatusBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(231, 72, 86));
 
-                _dialogService?.ShowError($"Python模型初始化失败: {ex.Message}", "初始化错误");
-            }
+            //    _dialogService?.ShowError($"Python模型初始化失败: {ex.Message}", "初始化错误");
+            //}
         }
 
         private void LoadChartsOnStartup()
         {
-            if (!_isPythonInitialized) return;
+            //if (!_isPythonInitialized) return;
 
-            try
-            {
-                using (Py.GIL())
-                {
-                    dynamic windowInfo = _pythonModel.get_process_window_data();
-                    UpdateProcessWindowPlot(windowInfo);
+            //try
+            //{
+            //    using (Py.GIL())
+            //    {
+            //        dynamic windowInfo = _pythonModel.get_process_window_data();
+            //        UpdateProcessWindowPlot(windowInfo);
 
-                    dynamic sensitivityInfo = _pythonModel.get_parameter_sensitivity();
-                    UpdateSensitivityPlot(sensitivityInfo);
-                }
+            //        dynamic sensitivityInfo = _pythonModel.get_parameter_sensitivity();
+            //        UpdateSensitivityPlot(sensitivityInfo);
+            //    }
 
-                _logger.LogInformation("图表加载成功");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "自动加载图表失败");
-            }
+            //    _logger.LogInformation("图表加载成功");
+            //}
+            //catch (Exception ex)
+            //{
+            //    _logger.LogError(ex, "自动加载图表失败");
+            //}
         }
 
         private void ExecutePredict()

@@ -3879,22 +3879,23 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     if (batch == null) return;
 
                     // ★ 核心: 用 OLS 模型做优化
-                    DesirabilityResult = await _desirabilityService.OptimizeWithOlsAsync(
-                        batchId!, configs, batch.Factors, _analysisService);
+                    //DesirabilityResult = await _desirabilityService.OptimizeWithOlsAsync(
+                    //    batchId!, configs, batch.Factors, _analysisService);
 
-                    if (DesirabilityResult?.Success == true)
-                    {
-                        OlsStatusText = $"OLS 多响应优化完成: 综合 D = {DesirabilityResult.CompositeD:F4}";
-                        UpdateOptimalFactorsDisplay(DesirabilityResult);
-                    }
-                    else
-                    {
-                        OlsStatusText = $"OLS 优化失败: {DesirabilityResult?.ErrorMessage ?? "未知错误"}";
-                    }
+                    //if (DesirabilityResult?.Success == true)
+                    //{
+                    //    OlsStatusText = $"OLS 多响应优化完成: 综合 D = {DesirabilityResult.CompositeD:F4}";
+                    //    UpdateOptimalFactorsDisplay(DesirabilityResult);
+                    //}
+                    //else
+                    //{
+                    //    OlsStatusText = $"OLS 优化失败: {DesirabilityResult?.ErrorMessage ?? "未知错误"}";
+                    //}
                 }
                 else
                 {
                     // ═══ GPR 模式: 原有逻辑保持不变 ═══
+                    /* 暂时不用
                     StatusMessage = "正在搜索 GPR 多响应最优因子组合...";
 
                     var configs = await _desirabilityService.LoadConfigAsync(_currentBatchId);
@@ -3918,7 +3919,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     else
                     {
                         StatusMessage = $"GPR 优化失败: {DesirabilityResult?.ErrorMessage ?? "未知错误"}";
-                    }
+                    }*/
                 }
             }
             catch (Exception ex)
@@ -5779,12 +5780,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
                 else
                 {
-                    // GPR 模式保持不变
-                    var configs = await _desirabilityService.LoadConfigAsync(_currentBatchId);
-                    var batch = await _repository.GetBatchWithDetailsAsync(_currentBatchId);
-                    if (batch == null) return;
-                    await _desirabilityService.ConfigureAsync(_currentBatchId, configs, batch.Factors);
-                    DesirabilityResult = await _desirabilityService.OptimizeAsync();
+                    // GPR 模式保持不变 暂时不用
+                    /*
+                    //var configs = await _desirabilityService.LoadConfigAsync(_currentBatchId);
+                    //var batch = await _repository.GetBatchWithDetailsAsync(_currentBatchId);
+                    //if (batch == null) return;
+                    //await _desirabilityService.ConfigureAsync(_currentBatchId, configs, batch.Factors);
+                    //DesirabilityResult = await _desirabilityService.OptimizeAsync();*/
                 }
 
                 if (DesirabilityResult?.Success == true)

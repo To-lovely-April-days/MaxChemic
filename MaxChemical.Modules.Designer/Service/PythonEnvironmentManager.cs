@@ -55,7 +55,7 @@ namespace MaxChemical.Modules.Designer.Services
                 {
                     _logger.LogInformation("开始初始化全局Python环境");
 
-                    Runtime.PythonDLL = @"D:\Python\Python313\python313.dll";
+                    //Runtime.PythonDLL = @"D:\Python\Python313\python313.dll";
 
                     if (!PythonEngine.IsInitialized)
                     {

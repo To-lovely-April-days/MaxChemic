@@ -49,7 +49,7 @@ public partial class App : PrismApplication
         base.OnStartup(e);
 
         // 应用启动时初始化Python环境
-        PythonEnvironmentManager.Instance.Initialize();
+        //PythonEnvironmentManager.Instance.Initialize();
         QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
     }
 
@@ -182,7 +182,7 @@ public partial class App : PrismApplication
         try
         {
             //  应用退出时才关闭Python环境
-            PythonEnvironmentManager.Instance.Dispose();
+            //PythonEnvironmentManager.Instance.Dispose();
         }
         catch (Exception ex)
         {

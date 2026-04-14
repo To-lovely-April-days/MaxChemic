@@ -25,10 +25,10 @@ namespace MaxChemical.Modules.DOE.Services
     public class DesirabilityService : IDesirabilityService
     {
         private readonly IDOERepository _repository;
-        private readonly IGPRModelService _gprService;
+        //private readonly IGPRModelService _gprService;
         private readonly IMultiResponseGPRService _multiGprService;  //  新增
         private readonly ILogService _logger;
-        private dynamic? _pythonEngine;
+        //private dynamic? _pythonEngine;
         private bool _isPythonInitialized;
         private dynamic? _olsPredictor;
         // 当前配置缓存
@@ -42,13 +42,14 @@ namespace MaxChemical.Modules.DOE.Services
             ILogService logger)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            _gprService = gprService ?? throw new ArgumentNullException(nameof(gprService));
+            //_gprService = gprService ?? throw new ArgumentNullException(nameof(gprService));
             _multiGprService = multiGprService ?? throw new ArgumentNullException(nameof(multiGprService));
             _logger = logger?.ForContext<DesirabilityService>() ?? throw new ArgumentNullException(nameof(logger));
         }
 
         private void EnsurePythonReady()
         {
+            /* 暂时不用
             if (_isPythonInitialized && _pythonEngine != null) return;
             try
             {
@@ -68,7 +69,7 @@ namespace MaxChemical.Modules.DOE.Services
             {
                 _logger.LogError(ex, " Desirability 服务初始化失败");
                 throw;
-            }
+            }*/
         }
 
         /// <summary>
@@ -76,7 +77,7 @@ namespace MaxChemical.Modules.DOE.Services
         /// </summary>
         public Task ConfigureAsync(string batchId, List<DesirabilityResponseConfig> configs, List<DOEFactor> factors)
         {
-            EnsurePythonReady();
+            //EnsurePythonReady();
 
             _currentConfigs = configs;
             _currentFactors = factors;
@@ -116,28 +117,28 @@ namespace MaxChemical.Modules.DOE.Services
             var configsJson = JsonConvert.SerializeObject(configsList);
             var factorNamesJson = JsonConvert.SerializeObject(factorNames);
 
-            using (Py.GIL())
-            {
-                _pythonEngine!.configure(configsJson, factorNamesJson, boundsJson);
-            }
+            //using (Py.GIL()) 暂时不用
+            //{
+            //    _pythonEngine!.configure(configsJson, factorNamesJson, boundsJson);
+            //}
 
             _logger.LogInformation(" Desirability 已配置: {Count} 个响应变量", configs.Count);
             return Task.CompletedTask;
         }
-
+        /* 暂时不用
         /// <summary>
         /// 计算给定预测值的综合 Desirability
         /// </summary>
         public Task<DesirabilityResult> ComputeDesirabilityAsync(Dictionary<string, double> predictions)
         {
-            EnsurePythonReady();
+            //EnsurePythonReady();
 
             var predsJson = JsonConvert.SerializeObject(predictions);
 
             using (Py.GIL())
             {
-                string resultJson = _pythonEngine!.composite_desirability(predsJson).ToString();
-                var pyResult = JsonConvert.DeserializeObject<PyDesirabilityResult>(resultJson)!;
+                //string resultJson = _pythonEngine!.composite_desirability(predsJson).ToString();
+                //var pyResult = JsonConvert.DeserializeObject<PyDesirabilityResult>(resultJson)!;
 
                 var result = new DesirabilityResult
                 {
@@ -163,8 +164,8 @@ namespace MaxChemical.Modules.DOE.Services
 
                 return Task.FromResult(result);
             }
-        }
-
+        }*/
+        /* 暂时不用
         /// <summary>
         ///  修复: 搜索最优因子组合
         /// 
@@ -176,7 +177,8 @@ namespace MaxChemical.Modules.DOE.Services
         /// </summary>
         public Task<DesirabilityResult> OptimizeAsync()
         {
-            EnsurePythonReady();
+           
+            //EnsurePythonReady();
 
             //  修复: 改用多响应 GPR 检查
             if (!_multiGprService.AnyModelActive)
@@ -271,13 +273,15 @@ namespace MaxChemical.Modules.DOE.Services
                 return Task.FromResult(result);
             }
         }
+        */
 
+        /* 暂时不用
         /// <summary>
         ///  修复: 获取 Profiler 图数据（同样使用多响应预测）
         /// </summary>
         public Task<string> GetProfileDataAsync(int gridSize = 50)
         {
-            EnsurePythonReady();
+            //EnsurePythonReady();
 
             using (Py.GIL())
             {
@@ -316,7 +320,7 @@ namespace MaxChemical.Modules.DOE.Services
                 string resultJson = _pythonEngine!.profile_plot_data(pyPredictor, gridSize).ToString();
                 return Task.FromResult(resultJson);
             }
-        }
+        }*/
 
         /// <summary>
         /// 保存配置到数据库
@@ -340,6 +344,7 @@ namespace MaxChemical.Modules.DOE.Services
             return JsonConvert.DeserializeObject<List<DesirabilityResponseConfig>>(configJson)
                    ?? new List<DesirabilityResponseConfig>();
         }
+        /* 暂时不用
         /// <summary>
         /// ★ v2 新增: 基于 OLS 模型的多响应 Desirability 优化
         /// 对标 Minitab Response Optimizer
@@ -350,7 +355,8 @@ namespace MaxChemical.Modules.DOE.Services
             List<DOEFactor> factors,
             IDOEAnalysisService analysisService)
         {
-            EnsurePythonReady();
+
+           //EnsurePythonReady();
 
             _currentConfigs = configs;
             _currentFactors = factors;
@@ -497,13 +503,14 @@ namespace MaxChemical.Modules.DOE.Services
                 };
             }
         }
-
+        */
+        /* 暂时不用
         /// <summary>
         /// ★ v2 新增: 获取 OLS 模式的 Profile 图数据
         /// </summary>
         public Task<string> GetOlsProfileDataAsync(int gridSize = 50)
         {
-            EnsurePythonReady();
+           // EnsurePythonReady();
 
             if (_olsPredictor == null)
                 return Task.FromResult(JsonConvert.SerializeObject(new { error = "OLS 预测器未初始化，请先运行优化" }));
@@ -513,7 +520,7 @@ namespace MaxChemical.Modules.DOE.Services
                 string resultJson = _pythonEngine!.profile_plot_data(_olsPredictor.predict_json, gridSize).ToString();
                 return Task.FromResult(resultJson);
             }
-        }
+        }*/
         // ── Python 结果反序列化类 ──
 
         private class PyDesirabilityResult
