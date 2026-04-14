@@ -12,6 +12,7 @@
   "Menu_Language": "语言",
   "Tab_ProcessDesigner": "工艺设计器",
   "Tab_FlowDesigner": "流程设计器",
+  "Tab_Veriable":"查看变量管理",
   "Toolbar_New": "新建",
   "Toolbar_Open": "打开",
   "Toolbar_Save": "保存",
@@ -173,5 +174,20 @@
   "DeviceCommandProperty_CurrentDevice":"当前设备",
   "DeviceCommandProperty_InputParam":"输入参数",
   "DeviceCommandProperty_NoneParam":"暂无参数",
-  "DeviceCommandProperty_Abstract":"摘要"
+  "DeviceCommandProperty_Abstract":"摘要",
+
+  "FlowDesignView_Title":"流程编辑",
+  "FlowDesignView_FlowControl":"流程控制",
+  "FlowDesignView_Verify_Tip":"验证所有节点配置",
+  "FlowDesignView_Refresh_Tip":"刷新插件",
+  "FlowDesignView_Start_Title":"流程启动",
+  "FlowDesignView_Start_Label":"初始化执行环境",
+  "FlowDesignView_Execute_Title":"执行记录",
+  "FlowDesignView_Execute_Step":"步",
+  "FlowDesignView_Execute_Label":"步骤",
+  "FlowDesignView_Execute_Start":"开始",
+  "FlowDesignView_Execute_End":"结束",
+  "FlowDesignView_Execute_Total":"耗时",
+  "FlowDesignView_Node_Label":"未选择节点",
+  "FlowDesignView_Node_Tip":"点击画布中的节点以编辑属性"
 }

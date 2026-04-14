@@ -12,6 +12,7 @@
   "Menu_Language": "Language",
   "Tab_ProcessDesigner": "Process Designer",
   "Tab_FlowDesigner": "Flow Designer",
+  "Tab_Veriable":"View variable management",
   "Toolbar_New": "New",
   "Toolbar_Open": "Open",
   "Toolbar_Save": "Save",
@@ -174,5 +175,20 @@
   "DeviceCommandProperty_CurrentDevice":"Current device",
   "DeviceCommandProperty_InputParam":"Input parameters",
   "DeviceCommandProperty_NoneParam":"No parameters are provided",
-  "DeviceCommandProperty_Abstract":"Abstract"
+  "DeviceCommandProperty_Abstract":"Abstract",
+
+  "FlowDesignView_Title":"Workflow edtion",
+  "FlowDesignView_FlowControl":"Process control",
+  "FlowDesignView_Verify_Tip":"Verify the configuration of all nodes",
+  "FlowDesignView_Refresh_Tip":"Refresh plugin",
+  "FlowDesignView_Start_Title":"Process initiation",
+  "FlowDesignView_Start_Label":"Initialize the execution environment",
+  "FlowDesignView_Execute_Title":"Execution record",
+  "FlowDesignView_Execute_Step":"Step",
+  "FlowDesignView_Execute_Label":"Step",
+  "FlowDesignView_Execute_Start":"Start",
+  "FlowDesignView_Execute_End":"End",
+  "FlowDesignView_Execute_Total":"Elapse",
+  "FlowDesignView_Node_Label":"Unselected node",
+  "FlowDesignView_Node_Tip":"Click on the nodes on the canvas to edit their properties"
 }
