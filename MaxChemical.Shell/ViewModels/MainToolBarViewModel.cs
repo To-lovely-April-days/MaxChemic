@@ -71,6 +71,7 @@ namespace MaxChemical.Shell.ViewModels
         private string _tooltipDataAnalysis = string.Empty;
         private string _tooltipLog = string.Empty;
         private string _tooltipPredictiveAssessment = string.Empty;
+        private string _tooltipDoE = string.Empty;
         private string _tooltipStart = string.Empty;
         private string _tooltipPause = string.Empty;
         private string _tooltipStop = string.Empty;
@@ -206,6 +207,11 @@ namespace MaxChemical.Shell.ViewModels
         {
             get => _tooltipPredictiveAssessment;
             set => SetProperty(ref _tooltipPredictiveAssessment, value);
+        }
+        public string TooltipDoE
+        {
+            get => _tooltipDoE;
+            set => SetProperty(ref _tooltipDoE, value);
         }
         public string TooltipStart
         {
@@ -374,6 +380,7 @@ namespace MaxChemical.Shell.ViewModels
             TooltipDataAnalysis = _localizationService.GetString("ToolTip_DataAnalysis");
             TooltipLog = _localizationService.GetString("ToolTip_Log");
             TooltipPredictiveAssessment = _localizationService.GetString("ToolTip_PredictiveAssessment");
+            TooltipDoE = _localizationService.GetString("ToolTip_DOE");
             TooltipStart = _localizationService.GetString("ToolTip_Start");
             TooltipPause = _localizationService.GetString("ToolTip_Pause");
             TooltipStop = _localizationService.GetString("ToolTip_Stop");

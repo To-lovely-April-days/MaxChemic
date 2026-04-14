@@ -1,19 +1,37 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
-    public partial class DeviceCommandPropertiesView : UserControl
+    public partial class DeviceCommandPropertiesView : UserControl,INotifyPropertyChanged
     {
+        private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationService;
+
+        private string _title;
+        private string _bindDevice;
+        private string _selectDevice;
+        private string _currentDevice;
+        private string _inputParam;
+        private string _noneParam;
+
         private ObservableCollection<ParamItem> _paramItems = new ObservableCollection<ParamItem>();
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         public class ParamItem
         {
             public string Name { get; set; }
@@ -23,6 +41,12 @@ namespace MaxChemical.Modules.Designer.Views
         public DeviceCommandPropertiesView()
         {
             InitializeComponent();
+
+            _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>();
+
+            _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(LanguageChangedHandler);
+
             this.Loaded += OnLoaded;
             this.DataContextChanged += OnDataContextChanged;
         }
@@ -135,6 +159,15 @@ namespace MaxChemical.Modules.Designer.Views
                 parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
             }
             return false;
+        }
+
+
+        private void LanguageChangedHandler(string s)
+        {
+            if (_localizationService != null)
+            {
+
+            }
         }
     }
 }

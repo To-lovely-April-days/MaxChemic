@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Windows.Controls;
 using MaxChemical.Core;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.ViewModels.MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -16,7 +19,10 @@ namespace MaxChemical.Modules.Designer.Views
         public RegionSettingsControl(RegionLayout layout)
         {
             InitializeComponent();
-            this.DataContext = new RegionSettingsViewModel(layout);
+            this.DataContext = new RegionSettingsViewModel(
+                ContainerLocator.Container.Resolve<IEventAggregator>(),
+                ContainerLocator.Container.Resolve<ILocalizationService>(),
+                layout);
         }
 
         public RegionSettingsViewModel ViewModel => DataContext as RegionSettingsViewModel;

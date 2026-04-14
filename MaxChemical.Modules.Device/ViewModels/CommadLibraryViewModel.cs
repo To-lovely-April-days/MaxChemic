@@ -23,8 +23,15 @@ namespace MaxChemical.Modules.Device.ViewModels
     {
         private readonly IDeviceManager _deviceManager;
         private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationServer;
 
         private string _searchText = string.Empty;
+        private string _searchPlaceholder = string.Empty;
+        private string _libraryTitle = string.Empty;
+        private string _deviceCommandLabel;
+        private string _clearSearch;
+        private bool _hasSearchText;
+
         private ObservableCollection<CanvasDeviceWithCommands> _devices;
 
         public string SearchText
@@ -38,7 +45,8 @@ namespace MaxChemical.Modules.Device.ViewModels
             }
         }
 
-        public bool HasSearchText => !string.IsNullOrEmpty(SearchText);
+        public bool HasSearchText => !string.IsNullOrEmpty(_searchText);
+
 
         public ObservableCollection<CanvasDeviceWithCommands> Devices
         {
@@ -47,18 +55,45 @@ namespace MaxChemical.Modules.Device.ViewModels
         }
 
         // 绑定属性
-        public string SearchPlaceholder => "搜索设备命令...";
-        public string ClearSearchTooltip => "清除搜索";
+        public string SearchPlaceholder
+        {
+            get => _searchPlaceholder;
+            set
+            {
+                SetProperty(ref _searchPlaceholder, value);
+            }
+        }
+
+        public string LibraryTitle
+        {
+            get => _libraryTitle;
+            set => SetProperty(ref _libraryTitle, value);
+        }
+
+        public string DeviceCommandLabel
+        {
+            get => _deviceCommandLabel;
+            set => SetProperty(ref _deviceCommandLabel, value);
+        }
+
+        public string ClearSearchTooltip
+        {
+            get => _clearSearch;
+            set => SetProperty(ref _clearSearch, value);
+        }
+
 
         public ICommand ClearSearchCommand { get; }
         public ICommand RefreshDevicesCommand { get; }
         public ICommand CommandSelectedCommand { get; }
         public ICommand MenuCommand { get; }
 
-        public CommadLibraryViewModel(IDeviceManager deviceManager, IEventAggregator eventAggregator)
+
+        public CommadLibraryViewModel(IDeviceManager deviceManager, IEventAggregator eventAggregator, ILocalizationService localization)
         {
             _deviceManager = deviceManager ?? throw new ArgumentNullException(nameof(deviceManager));
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            _localizationServer = localization ?? throw new ArgumentNullException(nameof(localization));
 
             ClearSearchCommand = new DelegateCommand(ClearSearch);
             RefreshDevicesCommand = new DelegateCommand(RefreshDevices);
@@ -67,6 +102,7 @@ namespace MaxChemical.Modules.Device.ViewModels
 
             InitializeDevices();
             SubscribeToEvents();
+            LanguageChangedHandler("");
         }
 
         private void InitializeDevices()
@@ -89,6 +125,7 @@ namespace MaxChemical.Modules.Device.ViewModels
             // 订阅画布设备变化事件
             _eventAggregator?.GetEvent<Designer.Event.CanvasDevicesChangedEvent>()?.Subscribe(OnCanvasDevicesChanged);
             _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Subscribe(OnCanvasModified);
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(LanguageChangedHandler);
         }
 
         private void OnCanvasDevicesChanged(List<CanvasDeviceViewModel> canvasDevices)
@@ -261,6 +298,15 @@ namespace MaxChemical.Modules.Device.ViewModels
             {
                 Log.Error(ex, "发布命令拖拽完成事件时发生错误");
             }
+        }
+
+
+        private void LanguageChangedHandler(string cultureName)
+        {
+            SearchPlaceholder = _localizationServer.GetString("Device_Command_SearchPlaceholder");
+            DeviceCommandLabel = _localizationServer.GetString("Device_Command_Label");
+            LibraryTitle = _localizationServer.GetString("Device_Command_Library");
+            ClearSearchTooltip = _localizationServer.GetString("Device_Command_ClearSearch");
         }
     }
 
