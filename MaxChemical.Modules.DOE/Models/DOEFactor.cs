@@ -18,7 +18,13 @@ namespace MaxChemical.Modules.DOE.Models
         public int LevelCount { get; set; } = 3;
         public DOEFactorType FactorType { get; set; } = DOEFactorType.Continuous;
         public int SortOrder { get; set; }
+        // <summary>物理下限（透传用，不持久化到 doe_factors 表）</summary>
+        [Newtonsoft.Json.JsonIgnore]
+        public double? PhysicalLowerLimit { get; set; }
 
+        /// <summary>物理上限（透传用，不持久化到 doe_factors 表）</summary>
+        [Newtonsoft.Json.JsonIgnore]
+        public double? PhysicalUpperLimit { get; set; }
         /// <summary>
         /// ★ 新增: 类别因子的水平标签（逗号分隔，如 "催化剂A,催化剂B,催化剂C"）
         /// 仅当 FactorType == Categorical 时有效

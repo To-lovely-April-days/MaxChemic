@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
 using MaxChemical.Infrastructure.DOE;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
@@ -12,11 +5,19 @@ using MaxChemical.Modules.DOE.Data;
 using MaxChemical.Modules.DOE.Events;
 using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.Services;
+using MaxChemical.Modules.DOE.Services.Designs;
 using Newtonsoft.Json;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
 
 namespace MaxChemical.Modules.DOE.ViewModels
 {
@@ -38,7 +39,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         // ── 向导状态 ──
         private int _currentStep = 1;
-        private const int TOTAL_STEPS = 6;
+        private const int TOTAL_STEPS = 5;
         private bool _isLoading;
         private string _statusMessage = "";
         private string _batchName = "";
@@ -59,6 +60,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
         //  新增: D-Optimal 配置
         private int _dOptimalRunCount = -1;
         private string _dOptimalModelType = "quadratic";
+        private int _fullFactorialLevels = 2;
+        private int _fullFactorialCenterCount = 0;
         //  新增: 设计质量
         private DOEDesignQuality? _designQuality;
         // ── 参数矩阵 (Step3) ──
@@ -66,7 +69,39 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private DataTable? _matrixTable;
         private int _centerPointCount = 0;
         private bool _isRandomized;
+        // ── ★ 新增: Plackett-Burman 参数 ──
+        private int _pbRunCount = 12;
+        private int _pbCenterCount = 0;
+        private int _pbReplicates = 1;
 
+        // ── ★ 新增: Fractional Factorial 参数 ──
+        private int _ffRunCount = -1;          // -1 = 按分辨度自动
+        private int _ffCenterCount = 0;
+        private int _ffReplicates = 1;
+
+        // ── ★ 新增: Full Factorial 补全 ──
+        private int _fullFactorialReplicates = 1;
+
+        // ── ★ 新增: CCD 补全 ──
+        private int _ccdCubeCenterCount = -1;
+        private int _ccdAxialCenterCount = 0;
+        private int _ccdReplicates = 1;
+        private bool _ccdUseFractional = false;
+
+        // ── ★ 新增: BBD 补全 ──
+        private int _bbdReplicates = 1;
+
+        // ── ★ 新增: D-Optimal 补全 ──
+        private int _dOptRestarts = 20;
+        private int _dOptMaxIterations = 100;
+        private int _dOptRandomSeed = 0;
+        private int _dOptCandidateGridSize = 3;
+
+        // ── ★ 新增: Taguchi 补全 ──
+        private string _taguchiSnRatio = "larger";
+
+        // ── ★ 新增: 通用 ──
+        private bool _randomizeRunOrder = false;
         // ── 响应变量 + 停止条件 (Step4) ──
         private ObservableCollection<ResponseViewModel> _responses = new();
         private ObservableCollection<StopConditionViewModel> _stopConditions = new();
@@ -129,6 +164,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
         //  新增: D-Optimal 属性
         public int DOptimalRunCount { get => _dOptimalRunCount; set => SetProperty(ref _dOptimalRunCount, value); }
         public string DOptimalModelType { get => _dOptimalModelType; set => SetProperty(ref _dOptimalModelType, value); }
+        private string _customAnalysisType = "linear";
+        /// <summary>自定义导入的分析类型（linear/interaction/quadratic）</summary>
+        public string CustomAnalysisType
+        {
+            get => _customAnalysisType;
+            set => SetProperty(ref _customAnalysisType, value);
+        }
         //  新增: 设计质量评估结果
         public DOEDesignQuality? DesignQuality
         {
@@ -197,7 +239,53 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool IsStep3Visible => CurrentStep == 3;
         public bool IsStep4Visible => CurrentStep == 4;
         public bool IsStep5Visible => CurrentStep == 5;
-        public bool IsStep6Visible => CurrentStep == 6;
+        /// <summary>Full Factorial 水平数（2 或 3）</summary>
+        public int FullFactorialLevels
+        {
+            get => _fullFactorialLevels;
+            set => SetProperty(ref _fullFactorialLevels, value);
+        }
+
+        /// <summary>Full Factorial 中心点数</summary>
+        public int FullFactorialCenterCount
+        {
+            get => _fullFactorialCenterCount;
+            set => SetProperty(ref _fullFactorialCenterCount, value);
+        }
+        // Plackett-Burman
+        public int PbRunCount { get => _pbRunCount; set => SetProperty(ref _pbRunCount, value); }
+        public int PbCenterCount { get => _pbCenterCount; set => SetProperty(ref _pbCenterCount, value); }
+        public int PbReplicates { get => _pbReplicates; set => SetProperty(ref _pbReplicates, value); }
+
+        // Fractional Factorial
+        public int FfRunCount { get => _ffRunCount; set => SetProperty(ref _ffRunCount, value); }
+        public int FfCenterCount { get => _ffCenterCount; set => SetProperty(ref _ffCenterCount, value); }
+        public int FfReplicates { get => _ffReplicates; set => SetProperty(ref _ffReplicates, value); }
+
+        // Full Factorial (仿行)
+        public int FullFactorialReplicates { get => _fullFactorialReplicates; set => SetProperty(ref _fullFactorialReplicates, value); }
+
+        // CCD
+        public int CcdCubeCenterCount { get => _ccdCubeCenterCount; set => SetProperty(ref _ccdCubeCenterCount, value); }
+        public int CcdAxialCenterCount { get => _ccdAxialCenterCount; set => SetProperty(ref _ccdAxialCenterCount, value); }
+        public int CcdReplicates { get => _ccdReplicates; set => SetProperty(ref _ccdReplicates, value); }
+        public bool CcdUseFractional { get => _ccdUseFractional; set => SetProperty(ref _ccdUseFractional, value); }
+
+        // BBD
+        public int BbdReplicates { get => _bbdReplicates; set => SetProperty(ref _bbdReplicates, value); }
+
+        // D-Optimal
+        public int DOptRestarts { get => _dOptRestarts; set => SetProperty(ref _dOptRestarts, value); }
+        public int DOptMaxIterations { get => _dOptMaxIterations; set => SetProperty(ref _dOptMaxIterations, value); }
+        public int DOptRandomSeed { get => _dOptRandomSeed; set => SetProperty(ref _dOptRandomSeed, value); }
+        public int DOptCandidateGridSize { get => _dOptCandidateGridSize; set => SetProperty(ref _dOptCandidateGridSize, value); }
+
+        // Taguchi
+        public string TaguchiSnRatio { get => _taguchiSnRatio; set => SetProperty(ref _taguchiSnRatio, value); }
+
+        // 通用
+        public bool RandomizeRunOrder { get => _randomizeRunOrder; set => SetProperty(ref _randomizeRunOrder, value); }
+
 
         // ══════════════ Commands ══════════════
 
@@ -417,7 +505,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
                     break;
 
-                case 4: // 响应变量 → 历史导入
+                case 4: // 响应变量 → 确认保存
                     if (Responses.Count == 0)
                     {
                         _dialogService.ShowError("请至少添加一个响应变量", "验证");
@@ -436,7 +524,6 @@ namespace MaxChemical.Modules.DOE.ViewModels
             RaisePropertyChanged(nameof(IsStep3Visible));
             RaisePropertyChanged(nameof(IsStep4Visible));
             RaisePropertyChanged(nameof(IsStep5Visible));
-            RaisePropertyChanged(nameof(IsStep6Visible));
             NextStepCommand.RaiseCanExecuteChanged();
             PreviousStepCommand.RaiseCanExecuteChanged();
         }
@@ -479,31 +566,81 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 IsLoading = true;
                 StatusMessage = "正在生成参数矩阵...";
-
                 var factors = Factors.Select(f => f.ToModel()).ToList();
 
-                //  修改: switch 新增 CCD / BoxBehnken / DOptimal / Custom 分支
-                _designMatrix = SelectedMethod switch
+                DesignOptions? options = SelectedMethod switch
                 {
-                    DOEDesignMethod.FullFactorial => await _designService.GenerateFullFactorialAsync(factors),
-                    DOEDesignMethod.FractionalFactorial => await _designService.GenerateFractionalFactorialAsync(factors, FractionalResolution),
-                    DOEDesignMethod.Taguchi => await _designService.GenerateTaguchiAsync(factors, TaguchiTableType),
-                    DOEDesignMethod.CCD => await _designService.GenerateCCDAsync(factors, CcdAlphaType, CcdCenterCount),
-                    DOEDesignMethod.BoxBehnken => await _designService.GenerateBoxBehnkenAsync(factors, BbdCenterCount),
-                    DOEDesignMethod.DOptimal => await _designService.GenerateDOptimalAsync(factors, DOptimalRunCount, DOptimalModelType),
-                    DOEDesignMethod.Custom => !string.IsNullOrEmpty(_customImportPath)
-                        ? await _designService.ImportCustomMatrixAsync(_customImportPath, factors)
-                        : null,
+                    DOEDesignMethod.FullFactorial => new FullFactorialOptions
+                    {
+                        LevelCount = FullFactorialLevels,
+                        CenterPointCount = FullFactorialCenterCount,
+                        Replicates = FullFactorialReplicates,
+                        Randomize = RandomizeRunOrder
+                    },
+                    DOEDesignMethod.FractionalFactorial => new FractionalFactorialOptions
+                    {
+                        RunCount = FfRunCount > 0 ? FfRunCount : InferFractionalRunCount(factors.Count, FractionalResolution),
+                        CenterPointCount = FfCenterCount,
+                        Replicates = FfReplicates,
+                        Randomize = RandomizeRunOrder
+                    },
+                    DOEDesignMethod.PlackettBurman => new PlackettBurmanOptions
+                    {
+                        RunCount = PbRunCount,
+                        CenterPointCount = PbCenterCount,
+                        Replicates = PbReplicates,
+                        Randomize = RandomizeRunOrder
+                    },
+                    DOEDesignMethod.CCD => new CCDOptions
+                    {
+                        AlphaType = CcdAlphaType,
+                        CubeCenterCount = CcdCubeCenterCount >= 0 ? CcdCubeCenterCount : CcdCenterCount,
+                        AxialCenterCount = CcdAxialCenterCount,
+                        UseFractional = CcdUseFractional,
+                        Replicates = CcdReplicates,
+                        Randomize = RandomizeRunOrder
+                    },
+                    DOEDesignMethod.BoxBehnken => new BoxBehnkenOptions
+                    {
+                        BbdCenterCount = BbdCenterCount,
+                        Replicates = BbdReplicates,
+                        Randomize = RandomizeRunOrder
+                    },
+                    DOEDesignMethod.DOptimal => new DOptimalOptions
+                    {
+                        RunCount = DOptimalRunCount > 0 ? DOptimalRunCount : InferDOptimalRunCount(factors.Count, DOptimalModelType),
+                        ModelType = DOptimalModelType,
+                        Restarts = DOptRestarts,
+                        MaxIterations = DOptMaxIterations,
+                        CandidateGridSize = DOptCandidateGridSize,
+                        RandomSeed = DOptRandomSeed == 0 ? (int?)null : DOptRandomSeed,
+                        Randomize = RandomizeRunOrder
+                    },
+                    DOEDesignMethod.Taguchi => new TaguchiOptions
+                    {
+                        LArray = TaguchiTableType,
+                        SnRatio = TaguchiSnRatio,
+                        Randomize = RandomizeRunOrder
+                    },
                     _ => null
                 };
+
+                if (SelectedMethod == DOEDesignMethod.Custom)
+                {
+                    _designMatrix = !string.IsNullOrEmpty(_customImportPath)
+                        ? await _designService.ImportCustomMatrixAsync(_customImportPath, factors)
+                        : null;
+                }
+                else if (options != null)
+                {
+                    _designMatrix = await _designService.GenerateAsync(factors, options);
+                }
 
                 if (_designMatrix != null)
                 {
                     MatrixTable = ConvertMatrixToDataTable(_designMatrix);
                     RaisePropertyChanged(nameof(MatrixRunCount));
                     StatusMessage = $"已生成 {_designMatrix.RunCount} 组实验";
-
-                    //  新增: 自动计算设计质量
                     await EvaluateDesignQualityAsync(factors);
                 }
             }
@@ -519,6 +656,31 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 AddCenterPointsCommand.RaiseCanExecuteChanged();
             }
         }
+
+        // ★ 新增辅助方法 (放在 GenerateMatrixAsync 下面):
+
+        private int InferFractionalRunCount(int k, int desiredResolution)
+        {
+            // 选最小满足分辨度的 runs
+            // 通用规则: Res III = k+1 取整 2 的幂; Res IV 翻倍; Res V 再翻倍
+            int baseRuns = 1;
+            while (baseRuns <= k) baseRuns <<= 1;
+            if (desiredResolution == 3) return Math.Max(4, baseRuns);
+            if (desiredResolution == 4) return Math.Max(8, baseRuns * 2);
+            return Math.Max(16, baseRuns * 4); // Res V+
+        }
+
+        private int InferDOptimalRunCount(int k, string modelType)
+        {
+            int p = 1 + k;
+            if (modelType == "interaction" || modelType == "quadratic")
+                p += k * (k - 1) / 2;
+            if (modelType == "quadratic")
+                p += k;
+            return p + 4;
+        }
+
+
         /// <summary>
         ///  新增: 评估设计质量
         /// 在生成矩阵后自动调用，结果展示在 Step3 的设计质量面板
@@ -559,6 +721,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 _logger.LogError(ex, "设计质量评估失败");
                 DesignQuality = null;
+            }
+            finally
+            {
+                StatusMessage = "设计质量评估完成";
             }
         }
         private void RandomizeMatrix()
@@ -696,7 +862,29 @@ namespace MaxChemical.Modules.DOE.ViewModels
                             aEfficiency = DesignQuality.AEfficiency,
                             gEfficiency = DesignQuality.GEfficiency,
                             degreesOfFreedom = DesignQuality.DegreesOfFreedom
-                        } : null
+                        } : null,
+                        // ★ 新增: 持久化 OLS 模型类型（分析页读取用）
+                        olsModelType = GetOlsModelTypeForBatch(),
+                        fullFactorialLevels = FullFactorialLevels,
+                        fullFactorialCenterCount = FullFactorialCenterCount,
+                        pbRunCount = PbRunCount,
+                        pbCenterCount = PbCenterCount,
+                        pbReplicates = PbReplicates,
+                        ffRunCount = FfRunCount,
+                        ffCenterCount = FfCenterCount,
+                        ffReplicates = FfReplicates,
+                        fullFactorialReplicates = FullFactorialReplicates,
+                        ccdCubeCenterCount = CcdCubeCenterCount,
+                        ccdAxialCenterCount = CcdAxialCenterCount,
+                        ccdReplicates = CcdReplicates,
+                        ccdUseFractional = CcdUseFractional,
+                        bbdReplicates = BbdReplicates,
+                        dOptRestarts = DOptRestarts,
+                        dOptMaxIterations = DOptMaxIterations,
+                        dOptRandomSeed = DOptRandomSeed,
+                        dOptCandidateGridSize = DOptCandidateGridSize,
+                        taguchiSnRatio = TaguchiSnRatio,
+                        randomizeRunOrder = RandomizeRunOrder,
                     }),
                     // ★ 新增: 项目关联（_currentProjectId 为 null 时行为与旧版一致）
                     ProjectId = _currentProjectId,
@@ -822,6 +1010,37 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 IsLoading = false;
             }
+        }
+        /// <summary>
+        /// 根据设计方法自动推断 OLS 模型类型
+        /// 持久化到 DesignConfigJson.olsModelType，分析时直接读取
+        /// </summary>
+        private string GetOlsModelTypeForBatch()
+        {
+            return SelectedMethod switch
+            {
+                // 筛选类 → 一阶主效应
+                DOEDesignMethod.PlackettBurman => "linear",
+                DOEDesignMethod.FractionalFactorial => FractionalResolution >= 4 ? "interaction" : "linear",
+
+                // 因子类 → 按因子数
+                DOEDesignMethod.FullFactorial => FullFactorialLevels == 2
+                      ? (Factors.Count <= 4 ? "interaction" : "linear")
+                      : "quadratic",  // 3水平可拟合二次项
+
+                // 响应曲面类 → 二阶
+                DOEDesignMethod.CCD => "quadratic",
+                DOEDesignMethod.BoxBehnken => "quadratic",
+
+                // D-Optimal → 用户选择
+                DOEDesignMethod.DOptimal => DOptimalModelType,
+
+                // 自定义 → 用户在 Step2 选的分析类型
+                DOEDesignMethod.Custom => CustomAnalysisType,
+
+                // 兜底
+                _ => "quadratic"
+            };
         }
 
         /// <summary>

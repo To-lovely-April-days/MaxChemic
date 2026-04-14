@@ -292,7 +292,8 @@ namespace MaxChemical.Modules.DOE.Services
             helpWs.Cells[5, 1].Value = "2. 蓝色列头 = 因子（实验输入参数）";
             helpWs.Cells[6, 1].Value = "3. 绿色列头 = 响应（实验结果）";
             helpWs.Cells[7, 1].Value = "4. 所有单元格必须填写数值，不能为空";
-            helpWs.Cells[8, 1].Value = "5. 保存后在「模型分析」页面点击「导入数据」";
+            // GPR 禁用: "模型分析" 页面已移除
+            helpWs.Cells[8, 1].Value = "5. 保存后在相应页面导入数据";
 
             helpWs.Cells[10, 1].Value = "因子列表:";
             for (int i = 0; i < factorNames.Count; i++)

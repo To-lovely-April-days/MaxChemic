@@ -1,160 +1,200 @@
 <UserControl x:Class="MaxChemical.Modules.DOE.Views.DOEExecutionDashboardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#F2F4F7">
+             Background="#F8F9FB">
     <UserControl.Resources>
-        <ResourceDictionary Source="DOEStyles.xaml"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="DOEWizardStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource WzScrollViewer}">
             <StackPanel Margin="22">
 
-                <!-- ═══ 顶部: 批次名 + 控制按钮 ═══ -->
-                <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1" Padding="18,14" Margin="0,0,0,14">
-                    <Grid>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding BatchName}" FontSize="15" FontWeight="SemiBold" Foreground="#1A1F36"/>
-                            <TextBlock Text="{Binding BatchId}" FontSize="10" Foreground="#A0A4B0" FontFamily="Consolas" Margin="0,2,0,0"/>
+                <!-- ═══════════════════════════════════════════
+                     顶部: 集成进度带（Style B）
+                     批次名 + 进度条 + 指标行 全部在一个卡片内
+                     ═══════════════════════════════════════════ -->
+                <Border Background="White" CornerRadius="10" BorderBrush="{StaticResource WzDivider}" BorderThickness="0.5" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+
+                        <!-- 第一行: 批次名 + 徽章 | 操作按钮 -->
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                    <TextBlock Text="{Binding BatchName}" FontSize="15" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
+                                    <!-- 设计方法标签 -->
+                                    <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="3" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DesignMethodText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource WzPrimary}"/>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding FlowName}" FontSize="11" Foreground="{StaticResource WzTextMuted}" VerticalAlignment="Center"/>
+                                    <TextBlock Text=" · " FontSize="11" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding BatchId}" FontSize="10" Foreground="{StaticResource WzTextHint}" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                    <!-- 执行状态徽章 -->
+                                    <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="执行中" FontSize="10" FontWeight="Medium" Foreground="{StaticResource WzPrimary}"/>
+                                    </Border>
+                                    <Border Background="#ECFDF5" CornerRadius="4" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding IsPaused, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="已暂停" FontSize="10" FontWeight="Medium" Foreground="#059669"/>
+                                    </Border>
+                                    <!-- 智能决策标记 -->
+                                    <Border Background="{StaticResource WzSurface}" CornerRadius="4" Padding="8,3" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding IsProjectBatch, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="智能决策" FontSize="10" Foreground="{StaticResource WzTextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <CheckBox IsChecked="{Binding IsAutoPilotEnabled, Mode=TwoWay}" Style="{StaticResource WzCheckBox}" Padding="0" FontSize="10" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding AutoPilotStatusText}" FontSize="10" Foreground="{StaticResource WzTextHint}"/>
+                                            </CheckBox>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 操作按钮组 -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                <!-- 开始/继续 -->
+                                <Button Content="{Binding StartButtonText}" Command="{Binding ContinueCommand}" Style="{StaticResource WzBtnPrimary}" Padding="16,7" Margin="0,0,6,0" FontSize="11"/>
+                                <!-- 重试失败 -->
+                                <Button Command="{Binding RetryFailedCommand}" Cursor="Hand" Margin="0,0,6,0"
+                                        Visibility="{Binding HasFailedRuns, Converter={StaticResource BoolToVis}}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" CornerRadius="6" Padding="14,7" Background="Transparent" BorderBrush="#D97706" BorderThickness="0.5">
+                                                <TextBlock Text="重试失败" FontSize="11" FontWeight="Medium" Foreground="#D97706" HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#FEF3C7"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <!-- 暂停 -->
+                                <Button Command="{Binding PauseCommand}" Style="{StaticResource WzBtnGhost}" Content="暂停" FontSize="11" Padding="14,7" Margin="0,0,6,0"/>
+                                <!-- 恢复 -->
+                                <Button Command="{Binding ResumeCommand}" Cursor="Hand" Margin="0,0,6,0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" CornerRadius="6" Padding="14,7" Background="Transparent" BorderBrush="#059669" BorderThickness="0.5">
+                                                <TextBlock Text="恢复" FontSize="11" FontWeight="Medium" Foreground="#059669" HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#ECFDF5"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <!-- 终止 -->
+                                <Button Command="{Binding AbortCommand}" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" CornerRadius="6" Padding="14,7" Background="Transparent" BorderBrush="{StaticResource WzBorder}" BorderThickness="0.5">
+                                                <TextBlock Text="终止" FontSize="11" FontWeight="Medium" Foreground="#DC2626" HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#FEF2F2"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 全宽进度条（6px 高，视觉锚点） -->
+                        <Border Height="6" Background="#E8EAED" CornerRadius="3" Margin="0,0,0,14" ClipToBounds="True">
+                            <Border Background="{StaticResource WzPrimary}" CornerRadius="3"
+            HorizontalAlignment="Stretch"
+            RenderTransformOrigin="0,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="{Binding ProgressRatio}"/>
+                                </Border.RenderTransform>
+                            </Border>
+                        </Border>
+
+                        <!-- 指标行: 竖线分隔 -->
+                        <StackPanel Orientation="Horizontal">
+                            <!-- 进度数字 -->
+                            <StackPanel Margin="0,0,24,0">
+                                <TextBlock Text="执行进度" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding CurrentRun}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
+                                    <TextBlock FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Bottom" Margin="2,0,0,1">
+                                        <Run Text=" / "/><Run Text="{Binding TotalRuns, Mode=OneWay}"/>
+                                        <Run Text=" 组"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 分隔线 -->
+                            <Border Width="0.5" Background="{StaticResource WzDivider}" Margin="0,2,24,2"/>
+
+                            <!-- 当前最优 -->
+                            <StackPanel Margin="0,0,24,0">
+                                <TextBlock Text="当前最优" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding BestRunText}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
+                                    <TextBlock Text="{Binding BestValueText}" FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Bottom" Margin="6,0,0,1"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 分隔线 -->
+                            <Border Width="0.5" Background="{StaticResource WzDivider}" Margin="0,2,24,2"/>
+
+                            <!-- 预计剩余 -->
+                            <StackPanel Margin="0,0,24,0">
+                                <TextBlock Text="预计剩余" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding ETAText}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
+                                    <TextBlock Text="{Binding ETADetailText}" FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Bottom" Margin="6,0,0,1"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 失败组（条件显示） -->
+                            <Border Width="0.5" Background="{StaticResource WzDivider}" Margin="0,2,24,2"
+                                    Visibility="{Binding HasFailedRuns, Converter={StaticResource BoolToVis}}"/>
+                            <StackPanel Visibility="{Binding HasFailedRuns, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="失败" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <TextBlock FontSize="14" FontWeight="Medium" Foreground="#DC2626">
+                                        <Run Text="{Binding FailedCount, Mode=OneWay}"/><Run Text=" 组"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <Button Style="{StaticResource DOEPrimaryBtn}" Padding="18,7" Margin="0,0,6,0"
-                                Content="{Binding StartButtonText}"
-                                Command="{Binding ContinueCommand}"/>
-                            <Button Padding="14,7" Margin="0,0,6,0" Cursor="Hand"
-                                Command="{Binding RetryFailedCommand}"
-                                Visibility="{Binding HasFailedRuns, Converter={StaticResource BoolToVis}}">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                            Background="White" BorderBrush="#FF8C00" BorderThickness="1">
-                                            <TextBlock Text="重试失败" FontSize="11" FontWeight="SemiBold" Foreground="#FF8C00"
-                                                   HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#FFF5E6"/>
-                                            </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                            <!-- 暂停按钮 -->
-                            <Button Padding="14,7" Margin="0,0,6,0" Cursor="Hand"
-                                Command="{Binding PauseCommand}">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                            Background="White" BorderBrush="#D0D0D0" BorderThickness="1">
-                                            <TextBlock Text="暂停" FontSize="11" FontWeight="SemiBold" Foreground="#4A5066"
-                                                   HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#F7F8FA"/>
-                                            </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                            <!-- 恢复按钮 -->
-                            <Button Padding="14,7" Margin="0,0,6,0" Cursor="Hand"
-                                Command="{Binding ResumeCommand}">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                            Background="White" BorderBrush="#16C60C" BorderThickness="1">
-                                            <TextBlock Text="恢复" FontSize="11" FontWeight="SemiBold" Foreground="#0D7A3E"
-                                                   HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#E8F8EE"/>
-                                            </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                            <Button Padding="14,7" Cursor="Hand"
-                                Command="{Binding AbortCommand}">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                            Background="White" BorderBrush="#E8A0A0" BorderThickness="1">
-                                            <TextBlock Text="终止" FontSize="11" FontWeight="SemiBold" Foreground="#C73845"
-                                                   HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#FDE7E9"/>
-                                            </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                        </StackPanel>
-                    </Grid>
+                    </StackPanel>
                 </Border>
 
-                <!-- ═══ 4 指标卡片 ═══ -->
-                <UniformGrid Columns="4" Margin="0,0,0,14">
-                    <!-- 执行进度 -->
-                    <Border Background="#FAFBFC" CornerRadius="8" Padding="16,14" Margin="0,0,6,0">
-                        <StackPanel>
-                            <TextBlock Text="执行进度" FontSize="11" Foreground="#8A8F9C" Margin="0,0,0,6"/>
-                            <TextBlock FontSize="22" FontWeight="SemiBold" Foreground="#1A1F36" Margin="0,0,0,8">
-                            <Run Text="{Binding CurrentRun, Mode=OneWay}"/>
-                            <Run Text=" / " FontSize="14" Foreground="#A0A4B0"/>
-                            <Run Text="{Binding TotalRuns, Mode=OneWay}" FontSize="14" Foreground="#A0A4B0"/>
-                            </TextBlock>
-                            <ProgressBar Height="4" Minimum="0" Maximum="100"
-                                     Value="{Binding ProgressPercent, Mode=OneWay}"
-                                     Background="#E8EAED" Foreground="#0078D4" BorderThickness="0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 当前最优 -->
-                    <Border Background="#FAFBFC" CornerRadius="8" Padding="16,14" Margin="3,0">
-                        <StackPanel>
-                            <TextBlock Text="当前最优" FontSize="11" Foreground="#8A8F9C" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding BestRunText}" FontSize="22" FontWeight="SemiBold" Foreground="#1A1F36"/>
-                            <TextBlock Text="{Binding BestValueText}" FontSize="11" Foreground="#A0A4B0" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- GPR 模型 -->
-                    <Border Background="#FAFBFC" CornerRadius="8" Padding="16,14" Margin="3,0">
-                        <StackPanel>
-                            <TextBlock Text="GPR 模型" FontSize="11" Foreground="#8A8F9C" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding GPRStatusText}" FontSize="22" FontWeight="SemiBold" Foreground="#1A1F36"/>
-                            <TextBlock Text="{Binding GPRDetailText}" FontSize="11" Foreground="#A0A4B0" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 预计剩余 -->
-                    <Border Background="#FAFBFC" CornerRadius="8" Padding="16,14" Margin="6,0,0,0">
-                        <StackPanel>
-                            <TextBlock Text="预计剩余" FontSize="11" Foreground="#8A8F9C" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding ETAText}" FontSize="22" FontWeight="SemiBold" Foreground="#1A1F36"/>
-                            <TextBlock Text="{Binding ETADetailText}" FontSize="11" Foreground="#A0A4B0" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-                </UniformGrid>
-
-                <!-- ═══ 实验矩阵表 ═══ -->
-                <Border Background="White" CornerRadius="10" BorderBrush="#ECEEF2" BorderThickness="1">
+                <!-- ═══════════════════════════════════════════
+                     实验矩阵表
+                     ═══════════════════════════════════════════ -->
+                <Border Background="White" CornerRadius="10" BorderBrush="{StaticResource WzDivider}" BorderThickness="0.5" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -162,48 +202,39 @@
                         </Grid.RowDefinitions>
 
                         <!-- 表头 -->
-                        <Border Background="#FAFBFC" Padding="18,10" BorderBrush="#E8EAED" BorderThickness="0,0,0,1"
-                            CornerRadius="10,10,0,0">
+                        <Border Grid.Row="0" Background="#FAFBFC" Padding="18,10" BorderBrush="{StaticResource WzDivider}" BorderThickness="0,0,0,0.5" CornerRadius="10,10,0,0">
                             <Grid>
-                                <TextBlock Text="实验矩阵" FontSize="13" FontWeight="SemiBold" Foreground="#1A1F36"/>
-                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       FontSize="11" Foreground="#A0A4B0">
-                                <Run Text="{Binding MatrixTable.Rows.Count, Mode=OneWay}"/>
-                                <Run Text=" 组实验"/>
+                                <TextBlock Text="实验矩阵" FontSize="13" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
+                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource WzTextHint}">
+                                    <Run Text="{Binding MatrixTable.Rows.Count, Mode=OneWay}"/><Run Text=" 组实验"/>
                                 </TextBlock>
                             </Grid>
                         </Border>
 
-                        <!-- 动态 DataGrid（AutoGenerateColumns，列由 DataTable 决定） -->
+                        <!-- 动态 DataGrid -->
                         <DataGrid Grid.Row="1"
-                              ItemsSource="{Binding MatrixTable}"
-                              AutoGenerateColumns="True"
-                              CanUserAddRows="False"
-                              IsReadOnly="True"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#F2F3F5"
-                              BorderThickness="0"
-                              Background="White"
-                              RowBackground="White"
-                              AlternatingRowBackground="White"
-                              HeadersVisibility="Column"
-                              SelectionMode="Single"
-                              FontSize="12"
-                              FontFamily="Segoe UI"
-                              RowHeight="40"
-                              ColumnHeaderHeight="38"
-                              MaxHeight="520"
-                              AutoGeneratingColumn="OnAutoGeneratingColumn">
+                                  ItemsSource="{Binding MatrixTable}"
+                                  Style="{StaticResource WzDataGrid}"
+                                  AutoGenerateColumns="True"
+                                  IsReadOnly="True"
+                                  SelectionMode="Single"
+                                  FontSize="12"
+                                  FontFamily="Segoe UI"
+                                  RowHeight="40"
+                                  ColumnHeaderHeight="36"
+                                  MaxHeight="520"
+                                  AutoGeneratingColumn="OnAutoGeneratingColumn">
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#FAFBFC"/>
-                                    <Setter Property="Foreground" Value="#8A8F9C"/>
+                                    <Setter Property="Foreground" Value="{StaticResource WzTextHint}"/>
                                     <Setter Property="FontSize" Value="11"/>
                                     <Setter Property="FontWeight" Value="SemiBold"/>
                                     <Setter Property="Padding" Value="12,0"/>
-                                    <Setter Property="BorderBrush" Value="#E8EAED"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource WzDivider}"/>
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                     <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                    <Setter Property="SeparatorVisibility" Value="Collapsed"/>
                                 </Style>
                             </DataGrid.ColumnHeaderStyle>
                             <DataGrid.CellStyle>
@@ -211,7 +242,7 @@
                                     <Setter Property="Padding" Value="12,0"/>
                                     <Setter Property="BorderThickness" Value="0"/>
                                     <Setter Property="FontFamily" Value="Consolas"/>
-                                    <Setter Property="Foreground" Value="#1A1F36"/>
+                                    <Setter Property="Foreground" Value="{StaticResource WzText}"/>
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="DataGridCell">
@@ -223,39 +254,72 @@
                                     </Setter>
                                     <Style.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#EBF3FE"/>
-                                            <Setter Property="Foreground" Value="#1A1F36"/>
+                                            <Setter Property="Background" Value="{StaticResource WzPrimaryLight}"/>
+                                            <Setter Property="Foreground" Value="{StaticResource WzText}"/>
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
                             </DataGrid.CellStyle>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource WzDivider}"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,0.5"/>
+                                    <Setter Property="MinHeight" Value="38"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource WzSurface}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource WzPrimaryLight}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
                         </DataGrid>
                     </Grid>
                 </Border>
 
                 <!-- ═══ 底部状态条 ═══ -->
-                <Border Background="White" CornerRadius="8" BorderBrush="#ECEEF2" BorderThickness="1"
-                    Padding="14,8" Margin="0,10,0,0">
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="#8A8F9C"/>
+                <Border Background="White" CornerRadius="8" BorderBrush="{StaticResource WzDivider}" BorderThickness="0.5"
+                        Padding="14,10" Margin="0,10,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- 绿色圆点（执行中） -->
+                        <Ellipse Width="6" Height="6" Margin="0,0,8,0" VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{StaticResource WzTextHint}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                            <Setter Property="Fill" Value="#059669"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                            <Setter Property="Fill" Value="#D97706"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Border>
 
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ═══  暂停等待遮罩 ═══ -->
+        <!-- ═══ 暂停等待遮罩 ═══ -->
         <Border Background="#80FFFFFF" Visibility="{Binding IsPausing, Converter={StaticResource BoolToVis}}"
-            VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
             <Border Background="White" CornerRadius="12" Padding="36,28"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                BorderBrush="#ECEEF2" BorderThickness="1">
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    BorderBrush="{StaticResource WzDivider}" BorderThickness="0.5">
                 <Border.Effect>
-                    <DropShadowEffect Color="#000" Direction="270" ShadowDepth="4" BlurRadius="20" Opacity="0.08"/>
+                    <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="4" Opacity="0.06"/>
                 </Border.Effect>
                 <StackPanel HorizontalAlignment="Center">
-                    <!-- 旋转动画 -->
-                    <Ellipse Width="36" Height="36" StrokeThickness="3" StrokeDashArray="8 6"
-                         Stroke="{StaticResource PrimaryBrush}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                         RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <Ellipse Width="36" Height="36" StrokeThickness="2.5" StrokeDashArray="8 6"
+                             Stroke="{StaticResource WzPrimary}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                             RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Center" Margin="0,0,0,16">
                         <Ellipse.RenderTransform>
                             <RotateTransform x:Name="PauseSpinAngle"/>
                         </Ellipse.RenderTransform>
@@ -264,17 +328,15 @@
                                 <BeginStoryboard>
                                     <Storyboard RepeatBehavior="Forever">
                                         <DoubleAnimation Storyboard.TargetName="PauseSpinAngle"
-                                                     Storyboard.TargetProperty="Angle"
-                                                     From="0" To="360" Duration="0:0:1"/>
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:0.8"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </EventTrigger>
                         </Ellipse.Triggers>
                     </Ellipse>
-                    <TextBlock Text="正在等待当前实验组完成..." FontSize="14" FontWeight="SemiBold" Foreground="#1A1F36"
-                           HorizontalAlignment="Center" Margin="0,0,0,6"/>
-                    <TextBlock Text="当前组执行完毕后将自动暂停" FontSize="11" Foreground="#8A8F9C"
-                           HorizontalAlignment="Center"/>
+                    <TextBlock Text="正在等待当前实验组完成..." FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                    <TextBlock Text="当前组执行完毕后将自动暂停" FontSize="11" Foreground="{StaticResource WzTextHint}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
         </Border>

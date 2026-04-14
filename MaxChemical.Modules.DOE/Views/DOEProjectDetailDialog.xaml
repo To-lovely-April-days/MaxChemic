@@ -1,7 +1,7 @@
 ﻿<Window x:Class="MaxChemical.Modules.DOE.Views.DOEProjectDetailDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="项目详情" Width="780" Height="540"
+        Title="项目详情" Width="780" Height="660"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" ResizeMode="NoResize">
@@ -24,7 +24,7 @@
 
             <!-- ═══ 左侧：项目概况 ═══ -->
             <Border Grid.Column="0" BorderBrush="#E8EAED" BorderThickness="0,0,1,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Style="{StaticResource ThinScrollViewerStyle}">
                     <StackPanel Margin="22,22,22,16">
 
                         <!-- 标题行 -->
@@ -159,7 +159,7 @@
             </Border>
 
             <!-- ═══ 右侧：因子 + 模型 + 批次 ═══ -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Style="{StaticResource ThinScrollViewerStyle}">
                 <StackPanel Margin="22">
 
                     <!-- ── 因子池（三列表格） ── -->

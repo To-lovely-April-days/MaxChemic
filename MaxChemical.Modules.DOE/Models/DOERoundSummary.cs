@@ -113,6 +113,9 @@ namespace MaxChemical.Modules.DOE.Models
         public string? UserNotes { get; set; }
 
         public DateTime CreatedTime { get; set; } = DateTime.Now;
+
+        /// <summary>决策推荐的下一阶段</summary>
+        public DOEProjectPhase? NextPhase { get; set; }
     }
 
     /// <summary>

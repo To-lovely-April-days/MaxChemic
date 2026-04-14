@@ -27,6 +27,11 @@ namespace MaxChemical.Modules.DOE
         {
             // 项目决策引擎（单例）
             containerRegistry.RegisterSingleton<IProjectDecisionEngine, ProjectDecisionEngine>();
+            // 决策引擎（单例，跨页面共享状态）
+            containerRegistry.RegisterSingleton<IProjectDecisionEngine, ProjectDecisionEngine>();
+
+            // ★ 新增: AutoPilot 执行服务（单例）
+            containerRegistry.RegisterSingleton<AutoPilotService>();
         }
     }
 }

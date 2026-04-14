@@ -1,27 +1,42 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
 using MaxChemical.Modules.DOE.Models;
+using MaxChemical.Modules.DOE.Services.Designs;
 using Newtonsoft.Json;
-using Python.Runtime;
+using OfficeOpenXml;
 
 namespace MaxChemical.Modules.DOE.Services
 {
     /// <summary>
-    /// DOE 实验设计服务 — 调用 Python doe_engine.py 生成参数矩阵
-    /// 
-    ///  修改: 新增 GenerateCCDAsync / GenerateBoxBehnkenAsync / GenerateDOptimalAsync / GetDesignQualityAsync
+    /// DOE 实验设计服务 —— 纯 C# 原生实现,已移除所有 Python 调用。
+    ///
+    /// 所有设计方法通过 Services/Designs/ 下的 IDesignGenerator 实现。
+    /// 设计质量评估通过 DesignQualityEvaluator (MathNet.Numerics)。
+    /// Excel 导入通过 EPPlus。
+    ///
+    /// ★ 重写说明:
+    ///   - 旧的 Python 调用 (_pythonDesigner / _pythonImporter / Py.GIL) 全部删除
+    ///   - 旧的接口签名全部保留, 内部转发到新的 generator
+    ///   - 新增 GenerateAsync(factors, options) 统一入口
     /// </summary>
     public partial class DOEDesignService : IDOEDesignService
     {
         private readonly IDOERepository _repository;
         private readonly ILogService _logger;
-        private dynamic? _pythonDesigner;
-        private dynamic? _pythonImporter;
-        private bool _isPythonInitialized;
+
+        // 各个生成器 (单例, 无状态)
+        private readonly FullFactorialGenerator _fullFactorial = new();
+        private readonly FractionalFactorialGenerator _fractional = new();
+        private readonly PlackettBurmanGenerator _plackettBurman = new();
+        private readonly CCDGenerator _ccd = new();
+        private readonly BoxBehnkenGenerator _boxBehnken = new();
+        private readonly DOptimalGenerator _dOptimal = new();
+        private readonly TaguchiGenerator _taguchi = new();
 
         public DOEDesignService(IDOERepository repository, ILogService logger)
         {
@@ -29,365 +44,293 @@ namespace MaxChemical.Modules.DOE.Services
             _logger = logger?.ForContext<DOEDesignService>() ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        private void EnsurePythonReady()
+        // ══════════════════════════════════════════════════════
+        // 统一入口 (新)
+        // ══════════════════════════════════════════════════════
+
+        public Task<DOEDesignMatrix> GenerateAsync(List<DOEFactor> factors, DesignOptions options)
         {
-            if (_isPythonInitialized && _pythonDesigner != null) return;
+            _logger.LogInformation("生成设计: {Type}, {FactorCount} 个因子",
+                options.GetType().Name, factors.Count);
 
-            try
+            DOEDesignMatrix matrix = options switch
             {
-                var envManager = MaxChemical.Modules.Designer.Services.PythonEnvironmentManager.Instance;
-                if (!envManager.IsInitialized)
-                {
-                    var success = envManager.Initialize();
-                    if (!success)
-                        throw new InvalidOperationException("Python 环境初始化失败");
-                }
+                FullFactorialOptions f => _fullFactorial.Generate(factors, f),
+                FractionalFactorialOptions f => _fractional.Generate(factors, f),
+                PlackettBurmanOptions f => _plackettBurman.Generate(factors, f),
+                CCDOptions f => _ccd.Generate(factors, f),
+                BoxBehnkenOptions f => _boxBehnken.Generate(factors, f),
+                DOptimalOptions f => _dOptimal.Generate(factors, f),
+                TaguchiOptions f => _taguchi.Generate(factors, f),
+                _ => throw new ArgumentException($"不支持的选项类型: {options.GetType().Name}")
+            };
 
-                using (Py.GIL())
-                {
-                    dynamic doeEngine = Py.Import("doe_engine");
-                    _pythonDesigner = doeEngine.create_designer();
-                    _pythonImporter = doeEngine.create_importer();
-                }
-
-                _isPythonInitialized = true;
-                _logger.LogInformation("DOE 设计服务 Python 模块初始化成功");
-            }
-            catch (Exception ex)
-            {
-                _isPythonInitialized = false;
-                _logger.LogError(ex, "DOE 设计服务 Python 模块初始化失败");
-                throw;
-            }
+            _logger.LogInformation("设计生成完成: {RunCount} 组实验", matrix.RunCount);
+            return Task.FromResult(matrix);
         }
 
-        // ══════════════ 原有方法（保留） ══════════════
+        // ══════════════════════════════════════════════════════
+        // 旧签名 (保留向后兼容, 内部转发到新 generator)
+        // ══════════════════════════════════════════════════════
 
         public Task<DOEDesignMatrix> GenerateFullFactorialAsync(List<DOEFactor> factors)
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithLevels(factors);
-            _logger.LogInformation("生成全因子设计: {FactorCount} 个因子", factors.Count);
-            using (Py.GIL())
+            var opts = new FullFactorialOptions
             {
-                string matrixJson = _pythonDesigner!.full_factorial(factorsJson).ToString();
-                var result = ParseDesignMatrix(matrixJson, factors);
-                return Task.FromResult(result);
-            }
+                LevelCount = factors.FirstOrDefault(f => f.IsContinuous)?.LevelCount ?? 2,
+                CenterPointCount = 0
+            };
+            return GenerateAsync(factors, opts);
         }
 
         public Task<DOEDesignMatrix> GenerateFractionalFactorialAsync(List<DOEFactor> factors, int resolution)
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation("生成部分因子设计: {FactorCount} 个因子, 分辨度 {Resolution}", factors.Count, resolution);
-            using (Py.GIL())
+            // 从分辨度推断合适的 runs: 选最小满足该分辨度的 runs
+            int k = factors.Count;
+            var entries = FractionalFactorialTables.GetFeasibleRuns(k);
+            int chosen = entries
+                .Where(e => e.resolution >= resolution || e.resolution == 99)
+                .OrderBy(e => e.runs)
+                .FirstOrDefault().runs;
+
+            if (chosen == 0)
+                throw new ArgumentException($"k={k} 无法满足 Res {resolution}");
+
+            var opts = new FractionalFactorialOptions
             {
-                string matrixJson = _pythonDesigner!.fractional_factorial(factorsJson, resolution).ToString();
-                var result = ParseDesignMatrix(matrixJson, factors);
-                return Task.FromResult(result);
-            }
+                RunCount = chosen,
+                CenterPointCount = 0
+            };
+            return GenerateAsync(factors, opts);
         }
 
-        public Task<DOEDesignMatrix> GenerateTaguchiAsync(List<DOEFactor> factors, string tableType)
+        public Task<DOEDesignMatrix> GeneratePlackettBurmanAsync(List<DOEFactor> factors)
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithLevels(factors);
-            _logger.LogInformation("生成正交设计: {FactorCount} 个因子, 表类型 {TableType}", factors.Count, tableType);
-            using (Py.GIL())
+            var opts = new PlackettBurmanOptions
             {
-                string matrixJson = _pythonDesigner!.taguchi(factorsJson, tableType).ToString();
-                var result = ParseDesignMatrix(matrixJson, factors);
-                return Task.FromResult(result);
-            }
+                RunCount = PlackettBurmanTables.RecommendRunCount(factors.Count),
+                CenterPointCount = 0
+            };
+            return GenerateAsync(factors, opts);
         }
-
-        public Task<DOEDesignMatrix> ImportCustomMatrixAsync(string excelPath, List<DOEFactor> factors)
-        {
-            EnsurePythonReady();
-            var factorNames = factors.Select(f => f.FactorName).ToList();
-            var factorNamesJson = JsonConvert.SerializeObject(factorNames);
-            var emptyResponsesJson = "[]";
-            _logger.LogInformation("导入自定义参数矩阵: {Path}", excelPath);
-            using (Py.GIL())
-            {
-                string dataJson = _pythonImporter!.import_excel(excelPath, factorNamesJson, emptyResponsesJson).ToString();
-                var records = JsonConvert.DeserializeObject<List<ImportedRecord>>(dataJson) ?? new();
-                var matrix = new DOEDesignMatrix
-                {
-                    FactorNames = factorNames,
-                    // ★ 修复 (Bug#4): ImportedRecord.Factors 已是 Dict<string,object>，直接使用
-                    Rows = records.Select(r => new Dictionary<string, object>(r.Factors)).ToList()
-                };
-                return Task.FromResult(matrix);
-            }
-        }
-
-        public Task<DataValidationResult> ValidateImportedDataAsync(string excelPath, List<DOEFactor> factors, List<DOEResponse> responses)
-        {
-            EnsurePythonReady();
-            var factorNamesJson = JsonConvert.SerializeObject(factors.Select(f => f.FactorName).ToList());
-            var responseNamesJson = JsonConvert.SerializeObject(responses.Select(r => r.ResponseName).ToList());
-            using (Py.GIL())
-            {
-                string resultJson = _pythonImporter!.validate_excel(excelPath, factorNamesJson, responseNamesJson).ToString();
-                var pyResult = JsonConvert.DeserializeObject<PythonValidationResult>(resultJson)!;
-                return Task.FromResult(new DataValidationResult
-                {
-                    IsValid = pyResult.IsValid,
-                    Errors = pyResult.Errors ?? new(),
-                    Warnings = pyResult.Warnings ?? new(),
-                    ValidRowCount = pyResult.ValidRowCount
-                });
-            }
-        }
-
-        public Task<List<DOERunRecord>> ImportHistoricalDataAsync(string excelPath, string batchId, List<DOEFactor> factors, List<DOEResponse> responses)
-        {
-            EnsurePythonReady();
-            var factorNamesJson = JsonConvert.SerializeObject(factors.Select(f => f.FactorName).ToList());
-            var responseNamesJson = JsonConvert.SerializeObject(responses.Select(r => r.ResponseName).ToList());
-            using (Py.GIL())
-            {
-                string dataJson = _pythonImporter!.import_excel(excelPath, factorNamesJson, responseNamesJson).ToString();
-                var records = JsonConvert.DeserializeObject<List<ImportedRecord>>(dataJson) ?? new();
-                var runs = records.Select((r, idx) => new DOERunRecord
-                {
-                    BatchId = batchId,
-                    RunIndex = 10000 + idx,
-                    FactorValuesJson = JsonConvert.SerializeObject(r.Factors),
-                    ResponseValuesJson = JsonConvert.SerializeObject(r.Responses),
-                    DataSource = DOEDataSource.Imported,
-                    Status = DOERunStatus.Completed,
-                    StartTime = DateTime.Now,
-                    EndTime = DateTime.Now
-                }).ToList();
-                return Task.FromResult(runs);
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════
-        //  新增: RSM 设计方法
-        // ═══════════════════════════════════════════════════════
 
         public Task<DOEDesignMatrix> GenerateCCDAsync(List<DOEFactor> factors, string alphaType = "rotatable", int centerCount = -1)
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation(" 生成 CCD 设计: {FactorCount} 个因子, alpha={Alpha}, 中心点={Center}",
-                factors.Count, alphaType, centerCount);
-
-            using (Py.GIL())
+            var opts = new CCDOptions
             {
-                string matrixJson = _pythonDesigner!.ccd(factorsJson, alphaType, centerCount).ToString();
-                var result = ParseDesignMatrix(matrixJson, factors);
-                _logger.LogInformation(" CCD 生成完成: {RunCount} 组实验", result.RunCount);
-                return Task.FromResult(result);
-            }
+                AlphaType = alphaType,
+                CubeCenterCount = centerCount
+            };
+            return GenerateAsync(factors, opts);
         }
 
         public Task<DOEDesignMatrix> GenerateBoxBehnkenAsync(List<DOEFactor> factors, int centerCount = -1)
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation(" 生成 Box-Behnken 设计: {FactorCount} 个因子, 中心点={Center}",
-                factors.Count, centerCount);
-
-            using (Py.GIL())
+            var opts = new BoxBehnkenOptions
             {
-                string matrixJson = _pythonDesigner!.box_behnken(factorsJson, centerCount).ToString();
-                var result = ParseDesignMatrix(matrixJson, factors);
-                _logger.LogInformation(" BBD 生成完成: {RunCount} 组实验", result.RunCount);
-                return Task.FromResult(result);
-            }
+                BbdCenterCount = centerCount
+            };
+            return GenerateAsync(factors, opts);
         }
 
         public Task<DOEDesignMatrix> GenerateDOptimalAsync(List<DOEFactor> factors, int numRuns = -1, string modelType = "quadratic")
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithBounds(factors);
-            _logger.LogInformation(" 生成 D-Optimal 设计: {FactorCount} 个因子, 组数={Runs}, 模型={Model}",
-                factors.Count, numRuns, modelType);
-
-            using (Py.GIL())
+            int n = numRuns;
+            if (n <= 0)
             {
-                string matrixJson = _pythonDesigner!.d_optimal(factorsJson, numRuns, modelType).ToString();
-                var result = ParseDesignMatrix(matrixJson, factors);
-                _logger.LogInformation(" D-Optimal 生成完成: {RunCount} 组实验", result.RunCount);
-                return Task.FromResult(result);
+                // 默认: quadratic 模型参数数 + 4
+                int k = factors.Count;
+                n = 1 + 2 * k + k * (k - 1) / 2 + 4;
             }
+            var opts = new DOptimalOptions
+            {
+                RunCount = n,
+                ModelType = modelType,
+                Restarts = 20,
+                MaxIterations = 100
+            };
+            return GenerateAsync(factors, opts);
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  新增: 设计质量评估
-        // ═══════════════════════════════════════════════════════
-
-        public Task<DOEDesignQuality> GetDesignQualityAsync(List<DOEFactor> factors, DOEDesignMatrix matrix, string modelType = "quadratic")
+        public Task<DOEDesignMatrix> GenerateTaguchiAsync(List<DOEFactor> factors, string tableType)
         {
-            EnsurePythonReady();
-            var factorsJson = BuildFactorsJsonWithBounds(factors);
-            var matrixJson = matrix.ToJson();
-            _logger.LogInformation(" 评估设计质量: {FactorCount} 因子, {RunCount} 组, 模型={Model}",
+            var opts = new TaguchiOptions
+            {
+                LArray = tableType ?? "auto"
+            };
+            return GenerateAsync(factors, opts);
+        }
+
+        // ══════════════════════════════════════════════════════
+        // 设计质量评估 (C# 实现)
+        // ══════════════════════════════════════════════════════
+
+        public Task<DOEDesignQuality> GetDesignQualityAsync(
+            List<DOEFactor> factors, DOEDesignMatrix matrix, string modelType = "quadratic")
+        {
+            _logger.LogInformation("评估设计质量: {FactorCount} 因子, {RunCount} 组, 模型={Model}",
                 factors.Count, matrix.RunCount, modelType);
-
-            using (Py.GIL())
-            {
-                string resultJson = _pythonDesigner!.get_design_quality(factorsJson, matrixJson, modelType).ToString();
-                var pyResult = JsonConvert.DeserializeObject<PythonDesignQuality>(resultJson)!;
-
-                var quality = new DOEDesignQuality
-                {
-                    DEfficiency = pyResult.DEfficiency,
-                    AEfficiency = pyResult.AEfficiency,
-                    GEfficiency = pyResult.GEfficiency,
-                    VIF = pyResult.VIF ?? new(),
-                    ConditionNumber = pyResult.ConditionNumber,
-                    PowerAnalysis = pyResult.PowerAnalysis ?? new(),
-                    RunCount = pyResult.RunCount,
-                    ParameterCount = pyResult.ParameterCount,
-                    DegreesOfFreedom = pyResult.DegreesOfFreedom
-                };
-
-                _logger.LogInformation(" 设计质量: D-eff={DEff}, A-eff={AEff}, G-eff={GEff}",
-                    quality.DEfficiency, quality.AEfficiency, quality.GEfficiency);
-
-                return Task.FromResult(quality);
-            }
+            var quality = DesignQualityEvaluator.Evaluate(factors, matrix, modelType);
+            _logger.LogInformation("设计质量: D-eff={DEff:F4}, A-eff={AEff:F4}, G-eff={GEff:F4}",
+                quality.DEfficiency, quality.AEfficiency, quality.GEfficiency);
+            return Task.FromResult(quality);
         }
 
-        // ══════════════ 内部辅助方法 ══════════════
+        // ══════════════════════════════════════════════════════
+        // Excel 导入 (EPPlus 实现, 替代 Python import_excel)
+        // ══════════════════════════════════════════════════════
 
-        private string BuildFactorsJsonWithLevels(List<DOEFactor> factors)
+        public Task<DOEDesignMatrix> ImportCustomMatrixAsync(string excelPath, List<DOEFactor> factors)
         {
-            var list = factors.Select(f =>
-            {
-                if (f.IsCategorical)
-                {
-                    // ★ 修复 v4: 类别因子直接传字符串标签作为 levels
-                    var catLevels = f.GetCategoryLevelList();
-                    return new Dictionary<string, object>
-            {
-                { "name", f.FactorName },
-                { "type", "categorical" },
-                { "levels", catLevels }
-            };
-                }
-                else
-                {
-                    return new Dictionary<string, object>
-            {
-                { "name", f.FactorName },
-                { "type", "continuous" },
-                { "levels", f.GetLevels().Select(v => (object)v).ToList() }
-            };
-                }
-            }).ToList();
-            return JsonConvert.SerializeObject(list);
-        }
+            _logger.LogInformation("导入自定义参数矩阵: {Path}", excelPath);
+            var rows = ReadExcelRows(excelPath, factors.Select(f => f.FactorName).ToList(),
+                                     new List<string>(), out _);
 
-        private string BuildFactorsJsonWithBounds(List<DOEFactor> factors)
-        {
-            var list = factors.Select(f =>
+            var categoricalNames = new HashSet<string>(factors.Where(f => f.IsCategorical).Select(f => f.FactorName));
+            var normalized = rows.Select(r =>
             {
-                if (f.IsCategorical)
+                var dict = new Dictionary<string, object>();
+                foreach (var kv in r)
                 {
-                    return new Dictionary<string, object>
-                    {
-                        { "name", f.FactorName },
-                        { "type", "categorical" },
-                        { "levels", f.GetCategoryLevelList() }
-                    };
+                    if (categoricalNames.Contains(kv.Key))
+                        dict[kv.Key] = kv.Value?.ToString() ?? "";
+                    else if (kv.Value is double d) dict[kv.Key] = d;
+                    else if (double.TryParse(kv.Value?.ToString(), out var parsed)) dict[kv.Key] = parsed;
+                    else dict[kv.Key] = 0.0;
                 }
-                else
-                {
-                    return new Dictionary<string, object>
-                    {
-                        { "name", f.FactorName },
-                        { "type", "continuous" },
-                        { "lower", f.LowerBound },
-                        { "upper", f.UpperBound }
-                    };
-                }
-            }).ToList();
-            return JsonConvert.SerializeObject(list);
-        }
-
-        private DOEDesignMatrix ParseDesignMatrix(string matrixJson, List<DOEFactor> factors)
-        {
-            // ★ 修复 (v3): 类别因子保留字符串标签，不再转为数值索引
-            // 这样标签可以从设计矩阵一直透传到 GPR 的 _encode_factors()
-            var rawRows = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(matrixJson)
-                       ?? new List<Dictionary<string, object>>();
-
-            // 构建类别因子名称集合（用于判断是否需要保留字符串）
-            var categoricalFactorNames = new HashSet<string>(
-                factors.Where(f => f.IsCategorical).Select(f => f.FactorName));
-
-            var rows = rawRows.Select(rawRow =>
-            {
-                var row = new Dictionary<string, object>();
-                foreach (var kv in rawRow)
-                {
-                    if (categoricalFactorNames.Contains(kv.Key))
-                    {
-                        // 类别因子: 保留字符串标签（如 "催化剂A"）
-                        row[kv.Key] = kv.Value?.ToString() ?? "";
-                    }
-                    else
-                    {
-                        // 连续因子: 转为 double
-                        if (kv.Value is double d)
-                            row[kv.Key] = d;
-                        else if (kv.Value is long l)
-                            row[kv.Key] = (double)l;
-                        else if (double.TryParse(kv.Value?.ToString(), out var parsed))
-                            row[kv.Key] = parsed;
-                        else
-                            row[kv.Key] = 0.0;
-                    }
-                }
-                return row;
+                return dict;
             }).ToList();
 
-            return new DOEDesignMatrix
+            var matrix = new DOEDesignMatrix
             {
                 FactorNames = factors.Select(f => f.FactorName).ToList(),
-                Rows = rows
+                Rows = normalized
             };
+            return Task.FromResult(matrix);
         }
 
-        // ── Python 结果反序列化辅助类 ──
-
-        private class ImportedRecord
+        public Task<DataValidationResult> ValidateImportedDataAsync(
+            string excelPath, List<DOEFactor> factors, List<DOEResponse> responses)
         {
-            /// <summary>
-            /// ★ 修复 (Bug#4): 从 Dictionary&lt;string, double&gt; 改为 Dictionary&lt;string, object&gt;
-            /// 类别因子在 Excel 中是字符串值，double 反序列化会失败
-            /// </summary>
-            [JsonProperty("factors")] public Dictionary<string, object> Factors { get; set; } = new();
-            [JsonProperty("responses")] public Dictionary<string, double> Responses { get; set; } = new();
+            var result = new DataValidationResult { IsValid = true };
+            try
+            {
+                var rows = ReadExcelRows(
+                    excelPath,
+                    factors.Select(f => f.FactorName).ToList(),
+                    responses.Select(r => r.ResponseName).ToList(),
+                    out var warnings);
+                result.ValidRowCount = rows.Count;
+                result.Warnings = warnings;
+                if (rows.Count == 0)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("Excel 中未找到有效数据行");
+                }
+            }
+            catch (Exception ex)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"读取 Excel 失败: {ex.Message}");
+            }
+            return Task.FromResult(result);
         }
 
-        private class PythonValidationResult
+        public Task<List<DOERunRecord>> ImportHistoricalDataAsync(
+            string excelPath, string batchId, List<DOEFactor> factors, List<DOEResponse> responses)
         {
-            [JsonProperty("is_valid")] public bool IsValid { get; set; }
-            [JsonProperty("errors")] public List<string>? Errors { get; set; }
-            [JsonProperty("warnings")] public List<string>? Warnings { get; set; }
-            [JsonProperty("valid_row_count")] public int ValidRowCount { get; set; }
+            var factorNames = factors.Select(f => f.FactorName).ToList();
+            var responseNames = responses.Select(r => r.ResponseName).ToList();
+            var rows = ReadExcelRows(excelPath, factorNames, responseNames, out _);
+
+            var categoricalNames = new HashSet<string>(factors.Where(f => f.IsCategorical).Select(f => f.FactorName));
+
+            var runs = rows.Select((r, idx) =>
+            {
+                var factorsDict = new Dictionary<string, object>();
+                var responsesDict = new Dictionary<string, double>();
+                foreach (var n in factorNames)
+                {
+                    if (!r.TryGetValue(n, out var v)) continue;
+                    if (categoricalNames.Contains(n))
+                        factorsDict[n] = v?.ToString() ?? "";
+                    else if (v is double d) factorsDict[n] = d;
+                    else if (double.TryParse(v?.ToString(), out var p)) factorsDict[n] = p;
+                }
+                foreach (var n in responseNames)
+                {
+                    if (r.TryGetValue(n, out var v) && v is double d) responsesDict[n] = d;
+                    else if (r.TryGetValue(n, out var v2) && double.TryParse(v2?.ToString(), out var p)) responsesDict[n] = p;
+                }
+
+                return new DOERunRecord
+                {
+                    BatchId = batchId,
+                    RunIndex = 10000 + idx,
+                    FactorValuesJson = JsonConvert.SerializeObject(factorsDict),
+                    ResponseValuesJson = JsonConvert.SerializeObject(responsesDict),
+                    DataSource = DOEDataSource.Imported,
+                    Status = DOERunStatus.Completed,
+                    StartTime = DateTime.Now,
+                    EndTime = DateTime.Now
+                };
+            }).ToList();
+            return Task.FromResult(runs);
         }
 
-        //  新增: 设计质量反序列化类
-        private class PythonDesignQuality
+        // ══════════════════════════════════════════════════════
+        // Excel 读取辅助 (EPPlus)
+        // ══════════════════════════════════════════════════════
+
+        private List<Dictionary<string, object>> ReadExcelRows(
+            string path, List<string> factorNames, List<string> responseNames,
+            out List<string> warnings)
         {
-            [JsonProperty("d_efficiency")] public double DEfficiency { get; set; }
-            [JsonProperty("a_efficiency")] public double AEfficiency { get; set; }
-            [JsonProperty("g_efficiency")] public double GEfficiency { get; set; }
-            [JsonProperty("vif")] public Dictionary<string, double>? VIF { get; set; }
-            [JsonProperty("condition_number")] public double ConditionNumber { get; set; }
-            [JsonProperty("power_analysis")] public Dictionary<string, double>? PowerAnalysis { get; set; }
-            [JsonProperty("run_count")] public int RunCount { get; set; }
-            [JsonProperty("parameter_count")] public int ParameterCount { get; set; }
-            [JsonProperty("degrees_of_freedom")] public int DegreesOfFreedom { get; set; }
+            warnings = new List<string>();
+            var result = new List<Dictionary<string, object>>();
+            if (!File.Exists(path))
+                throw new FileNotFoundException("Excel 文件不存在", path);
+
+            ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(new FileInfo(path));
+            var ws = package.Workbook.Worksheets.FirstOrDefault();
+            if (ws == null || ws.Dimension == null) return result;
+
+            int nRows = ws.Dimension.End.Row;
+            int nCols = ws.Dimension.End.Column;
+
+            // 第一行为列头
+            var header = new Dictionary<string, int>();
+            for (int c = 1; c <= nCols; c++)
+            {
+                var name = ws.Cells[1, c].Text?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(name)) header[name] = c;
+            }
+
+            // 检查缺失列
+            var allNames = factorNames.Concat(responseNames).ToList();
+            foreach (var n in allNames)
+                if (!header.ContainsKey(n))
+                    warnings.Add($"列 '{n}' 在 Excel 中未找到");
+
+            for (int r = 2; r <= nRows; r++)
+            {
+                var row = new Dictionary<string, object>();
+                bool hasAny = false;
+                foreach (var n in allNames)
+                {
+                    if (!header.TryGetValue(n, out var col)) continue;
+                    var cell = ws.Cells[r, col];
+                    var raw = cell.Value;
+                    if (raw == null) continue;
+                    if (raw is double d) row[n] = d;
+                    else if (double.TryParse(raw.ToString(), out var p)) row[n] = p;
+                    else row[n] = raw.ToString() ?? "";
+                    hasAny = true;
+                }
+                if (hasAny) result.Add(row);
+            }
+            return result;
         }
     }
 }

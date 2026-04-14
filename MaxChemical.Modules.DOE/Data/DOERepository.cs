@@ -226,8 +226,8 @@ namespace MaxChemical.Modules.DOE.Data
             }
 
             const string sql = @"
-                INSERT INTO doe_responses (batch_id, response_name, unit, collection_method, sort_order)
-                VALUES (@batchId, @name, @unit, @method, @order)";
+        INSERT INTO doe_responses (batch_id, response_name, unit, collection_method, sort_order, model_order)
+        VALUES (@batchId, @name, @unit, @method, @order, @modelOrder)";
 
             for (int i = 0; i < responses.Count; i++)
             {
@@ -240,6 +240,7 @@ namespace MaxChemical.Modules.DOE.Data
                 cmd.Parameters.AddWithValue("@unit", r.Unit ?? "");
                 cmd.Parameters.AddWithValue("@method", r.CollectionMethod.ToString());
                 cmd.Parameters.AddWithValue("@order", r.SortOrder);
+                cmd.Parameters.AddWithValue("@modelOrder", r.ModelOrder.HasValue ? (object)r.ModelOrder.Value : DBNull.Value);
                 await cmd.ExecuteNonQueryAsync();
             }
         }
@@ -599,9 +600,22 @@ namespace MaxChemical.Modules.DOE.Data
             ResponseName = GetStr(r, "response_name"),
             Unit = IsNull(r, "unit") ? "" : GetStr(r, "unit"),
             CollectionMethod = Enum.TryParse<DOECollectionMethod>(GetStr(r, "collection_method"), out var cm) ? cm : DOECollectionMethod.Manual,
-            SortOrder = GetInt(r, "sort_order")
+            SortOrder = GetInt(r, "sort_order"),
+            ModelOrder = IsNull(r, "model_order") ? null : GetInt(r, "model_order")
         };
-
+        public async Task UpdateResponseModelOrderAsync(string batchId, string responseName, int? modelOrder)
+        {
+            const string sql = @"
+        UPDATE doe_responses SET model_order = @modelOrder
+        WHERE batch_id = @batchId AND response_name = @responseName";
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@batchId", batchId);
+            cmd.Parameters.AddWithValue("@responseName", responseName);
+            cmd.Parameters.AddWithValue("@modelOrder", modelOrder.HasValue ? (object)modelOrder.Value : DBNull.Value);
+            await cmd.ExecuteNonQueryAsync();
+        }
         private static DOERunRecord MapRun(DbDataReader r) => new()
         {
             Id = GetInt(r, "id"),

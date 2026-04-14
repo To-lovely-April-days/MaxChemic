@@ -219,6 +219,11 @@ namespace MaxChemical.Modules.DOE.Services
                 }
             }
 
+            // ★ 修复: 计算弹框显示用的总数和偏移量
+            int totalActiveRuns = _currentBatch!.Runs.Count(r => r.Status != DOERunStatus.Skipped);
+            // 已经执行过的（完成+失败），恢复执行时 i 从 0 开始，需要加上这个偏移
+            int executedOffset = _currentBatch!.Runs.Count(r => r.Status == DOERunStatus.Completed || r.Status == DOERunStatus.Failed);
+
             try
             {
                 for (int i = 0; i < _runs.Count; i++)
@@ -229,36 +234,30 @@ namespace MaxChemical.Modules.DOE.Services
                     _currentRunIndex = run.RunIndex;
 
                     _logger.LogInformation("═══════ DOE 开始第 {Index}/{Total} 组 (RunIndex={RunIndex}) ═══════",
-                        i + 1, _runs.Count, run.RunIndex);
+                        executedOffset + i + 1, totalActiveRuns, run.RunIndex);
 
-                    NotifyProgress(i, _runs.Count, $"正在执行第 {i + 1}/{_runs.Count} 组实验...");
+                    NotifyProgress(i, _runs.Count, $"正在执行第 {executedOffset + i + 1}/{totalActiveRuns} 组实验...");
 
                     try
                     {
                         // ── Step 1: 注入参数 ──
-                        // ★ 修复 (v3): 反序列化为 Dictionary<string, object> 以保留类别因子的字符串标签
-                        // 原来的 bug: Dictionary<string, double> 会丢失类别因子标签，
-                        // GPR 的 _encode_factors() 收到数字后 str(0.0) 不匹配任何水平标签
                         var factorValuesRaw = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson)
                                            ?? new Dictionary<string, object>();
 
-                        // 构建类别因子名称集合
                         var categoricalFactorNames = _currentBatch?.Factors?
                             .Where(f => f.IsCategorical).Select(f => f.FactorName).ToHashSet()
                             ?? new HashSet<string>();
 
-                        // 提取连续因子的 double 值（用于参数注入和事件通知）
                         var factorValues = new Dictionary<string, double>();
                         foreach (var kv in factorValuesRaw)
                         {
                             if (categoricalFactorNames.Contains(kv.Key))
-                                continue; // 类别因子不参与连续因子的 double dict
+                                continue;
                             if (kv.Value is double d) factorValues[kv.Key] = d;
                             else if (kv.Value is long l) factorValues[kv.Key] = l;
                             else if (double.TryParse(kv.Value?.ToString(), out var parsed)) factorValues[kv.Key] = parsed;
                         }
 
-                        // 注入连续因子参数到流程
                         var injectParams = new Dictionary<string, object>();
 
                         foreach (var kv in factorValues)
@@ -267,39 +266,46 @@ namespace MaxChemical.Modules.DOE.Services
                             injectParams[paramId] = kv.Value;
                         }
 
-                        // 记录类别因子信息（供日志和 UI 显示）
                         foreach (var catName in categoricalFactorNames)
                         {
                             if (factorValuesRaw.TryGetValue(catName, out var catVal))
                             {
                                 _logger.LogDebug("第 {Index} 组: 类别因子 {Name}={Value}（手动操作）",
-                                    i + 1, catName, catVal);
+                                    executedOffset + i + 1, catName, catVal);
                             }
                         }
 
-                        _logger.LogInformation("第 {Index} 组: 注入参数（{Count} 个连续因子）...", i + 1, injectParams.Count);
+                        _logger.LogInformation("第 {Index} 组: 注入参数（{Count} 个连续因子）...", executedOffset + i + 1, injectParams.Count);
                         bool injected = injectParams.Count == 0 || _paramProvider.InjectParameters(injectParams);
                         if (!injected)
                         {
-                            _logger.LogWarning("第 {Index} 组: 参数注入失败，跳过", i + 1);
+                            _logger.LogWarning("第 {Index} 组: 参数注入失败，跳过", executedOffset + i + 1);
                             run.Status = DOERunStatus.Failed;
                             await _repository.UpdateRunAsync(run);
                             continue;
                         }
-                        _logger.LogInformation("第 {Index} 组: 参数注入成功", i + 1);
+                        _logger.LogInformation("第 {Index} 组: 参数注入成功", executedOffset + i + 1);
 
                         // ── Step 2: 执行流程 ──
                         run.Status = DOERunStatus.Running;
                         run.StartTime = DateTime.Now;
                         await _repository.UpdateRunAsync(run);
-
-                        _logger.LogInformation("第 {Index} 组: 调用 ExecuteCurrentFlowAsync...", i + 1);
+                        // ★ 新增: 通知 mini 面板更新当前因子显示
+                        _eventAggregator.GetEvent<DOEProgressChangedEvent>().Publish(new DOEProgressPayload
+                        {
+                            BatchId = _currentBatchId,
+                            CurrentRun = executedOffset + i + 1,
+                            TotalRuns = totalActiveRuns,
+                            StatusMessage = $"正在执行第 {executedOffset + i + 1}/{totalActiveRuns} 组实验...",
+                            CurrentFactorValuesJson = run.FactorValuesJson
+                        });
+                        _logger.LogInformation("第 {Index} 组: 调用 ExecuteCurrentFlowAsync...", executedOffset + i + 1);
                         var flowResult = await _flowExecution.ExecuteCurrentFlowAsync(_cts.Token);
-                        _logger.LogInformation("第 {Index} 组: 流程返回 Success={Success}", i + 1, flowResult.IsSuccessful);
+                        _logger.LogInformation("第 {Index} 组: 流程返回 Success={Success}", executedOffset + i + 1, flowResult.IsSuccessful);
 
                         if (!flowResult.IsSuccessful)
                         {
-                            _logger.LogWarning("第 {Index} 组: 流程执行失败: {Error}", i + 1, flowResult.ErrorMessage);
+                            _logger.LogWarning("第 {Index} 组: 流程执行失败: {Error}", executedOffset + i + 1, flowResult.ErrorMessage);
                             run.Status = DOERunStatus.Failed;
                             run.EndTime = DateTime.Now;
                             await _repository.UpdateRunAsync(run);
@@ -317,16 +323,16 @@ namespace MaxChemical.Modules.DOE.Services
                         // ── Step 3: 同步弹框采集响应值 ──
                         run.Status = DOERunStatus.WaitingResponse;
                         await _repository.UpdateRunAsync(run);
-                        NotifyProgress(i, _runs.Count, $"第 {i + 1} 组流程完成，等待输入结果...");
+                        NotifyProgress(i, _runs.Count, $"第 {executedOffset + i + 1} 组流程完成，等待输入结果...");
 
-                        _logger.LogInformation("第 {Index} 组: 弹框等待用户输入...", i + 1);
-                        var responseValues = CollectResponseFromDialog(run.RunIndex, _runs.Count, factorValuesRaw);
-                        _logger.LogInformation("第 {Index} 组: 用户输入完成，响应值数量={Count}", i + 1, responseValues.Count);
+                        _logger.LogInformation("第 {Index} 组: 弹框等待用户输入...", executedOffset + i + 1);
+                        // ★ 修复: executedOffset + i = 0-based全局序号，totalActiveRuns = 总组数
+                        var responseValues = CollectResponseFromDialog(executedOffset + i, totalActiveRuns, factorValuesRaw);
+                        _logger.LogInformation("第 {Index} 组: 用户输入完成，响应值数量={Count}", executedOffset + i + 1, responseValues.Count);
 
-                        //  修复: 用户关闭对话框（未输入）时标记为 Failed 而不是静默丢失
                         if (responseValues.Count == 0)
                         {
-                            _logger.LogWarning("第 {Index} 组: 用户未输入响应值，标记为 Failed", i + 1);
+                            _logger.LogWarning("第 {Index} 组: 用户未输入响应值，标记为 Failed", executedOffset + i + 1);
                             run.Status = DOERunStatus.Failed;
                             run.EndTime = DateTime.Now;
                             await _repository.UpdateRunAsync(run);
@@ -346,7 +352,7 @@ namespace MaxChemical.Modules.DOE.Services
                         await _repository.UpdateRunAsync(run);
                         completedCount++;
 
-                        _logger.LogInformation("第 {Index} 组完成: 响应={Responses}", i + 1, run.ResponseValuesJson);
+                        _logger.LogInformation("第 {Index} 组完成: 响应={Responses}", executedOffset + i + 1, run.ResponseValuesJson);
 
                         RunCompleted?.Invoke(this, new DOERunCompletedEventArgs
                         {
@@ -356,16 +362,15 @@ namespace MaxChemical.Modules.DOE.Services
                             IsSuccessful = true
                         });
 
-                        // ── Step 4.5:  多响应 GPR 训练（加超时保护）──
-                        // ★ 修复 (v3): 传完整因子值（含类别因子标签）给 GPR
-                        _logger.LogInformation("第 {Index} 组: 开始多响应 GPR 训练...", i + 1);
+                        // ── Step 4.5: 多响应 GPR 训练（加超时保护）──
+                        _logger.LogInformation("第 {Index} 组: 开始多响应 GPR 训练...", executedOffset + i + 1);
                         await FeedGPRModelWithTimeoutAsync(factorValuesRaw, responseValues);
-                        _logger.LogInformation("第 {Index} 组: GPR 训练完成", i + 1);
+                        _logger.LogInformation("第 {Index} 组: GPR 训练完成", executedOffset + i + 1);
 
-                        // ── Step 5:  停止条件（加超时保护）──
-                        _logger.LogInformation("第 {Index} 组: 评估停止条件...", i + 1);
+                        // ── Step 5: 停止条件（加超时保护）──
+                        _logger.LogInformation("第 {Index} 组: 评估停止条件...", executedOffset + i + 1);
                         var stopDecision = EvaluateAllStopConditionsWithTimeout(responseValues, i);
-                        _logger.LogInformation("第 {Index} 组: 停止条件: ShouldStop={Stop}", i + 1, stopDecision.ShouldStop);
+                        _logger.LogInformation("第 {Index} 组: 停止条件: ShouldStop={Stop}", executedOffset + i + 1, stopDecision.ShouldStop);
 
                         if (stopDecision.ShouldStop)
                         {
@@ -375,13 +380,11 @@ namespace MaxChemical.Modules.DOE.Services
                             {
                                 _runs[j].Status = DOERunStatus.Suspended;
                                 await _repository.UpdateRunAsync(_runs[j]);
-
                             }
                             break;
-
                         }
                         await CheckPauseAsync(i);
-                        _logger.LogInformation("═══════ DOE 第 {Index}/{Total} 组结束，继续下一组 ═══════", i + 1, _runs.Count);
+                        _logger.LogInformation("═══════ DOE 第 {Index}/{Total} 组结束，继续下一组 ═══════", executedOffset + i + 1, totalActiveRuns);
                     }
                     catch (OperationCanceledException)
                     {
@@ -389,7 +392,7 @@ namespace MaxChemical.Modules.DOE.Services
                     }
                     catch (Exception runEx)
                     {
-                        _logger.LogError(runEx, "第 {Index} 组异常: {Message}", i + 1, runEx.Message);
+                        _logger.LogError(runEx, "第 {Index} 组异常: {Message}", executedOffset + i + 1, runEx.Message);
                         run.Status = DOERunStatus.Failed;
                         run.EndTime = DateTime.Now;
                         try { await _repository.UpdateRunAsync(run); } catch { }
@@ -405,7 +408,6 @@ namespace MaxChemical.Modules.DOE.Services
                 await _repository.UpdateBatchStatusAsync(_currentBatchId, DOEBatchStatus.Completed);
                 NotifyBatchCompleted(DOEBatchStatus.Completed, stopReason ?? "所有实验组已执行完毕");
 
-                // ★ 新增: 项目模式下发布轮次完成事件，触发决策分析弹窗
                 if (_currentBatch?.BelongsToProject == true)
                 {
                     try
@@ -445,7 +447,7 @@ namespace MaxChemical.Modules.DOE.Services
             finally
             {
                 await SaveGPRModelSafe();
-                await SaveMultiGPRModelSafe();  //  新增
+                await SaveMultiGPRModelSafe();
                 _currentRunIndex = -1;
                 _cts?.Dispose();
                 _cts = null;

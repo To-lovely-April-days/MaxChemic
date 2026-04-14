@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 
 namespace MaxChemical.Modules.DOE.Views
 {
@@ -23,9 +24,6 @@ namespace MaxChemical.Modules.DOE.Views
         /// <param name="totalRuns">总组数</param>
         /// <param name="factorValues">本组因子值</param>
         /// <param name="responseDefinitions">响应变量定义列表 (名称, 单位)</param>
-        /// <summary>
-        /// ★ 修复 (v3): factorValues 改为 Dictionary&lt;string, object&gt; 以支持类别因子标签
-        /// </summary>
         public DOEResponseCollectionDialog(
             int runIndex,
             int totalRuns,
@@ -34,9 +32,13 @@ namespace MaxChemical.Modules.DOE.Views
         {
             InitializeComponent();
 
-            SubtitleText.Text = $"第 {runIndex + 1}/{totalRuns} 组实验已完成，请录入表征/分析结果";
+            // 进度徽章
+            ProgressBadge.Text = $"{runIndex + 1} / {totalRuns}";
 
-            // ★ 修复 (v3): 类别因子显示标签，连续因子显示数值
+            // 副标题
+            SubtitleText.Text = $"第 {runIndex + 1} 组实验已完成，请录入表征结果";
+
+            // ★ 因子值显示：类别因子显示标签，连续因子显示数值
             FactorDisplay.ItemsSource = factorValues.Select(kv =>
             {
                 string display;
@@ -58,6 +60,13 @@ namespace MaxChemical.Modules.DOE.Views
             }).ToList();
 
             ResponseInputs.ItemsSource = _responseItems;
+        }
+
+        /// <summary>窗口拖拽支持（无标题栏模式）</summary>
+        private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+                DragMove();
         }
 
         private void Submit_Click(object sender, RoutedEventArgs e)
@@ -85,7 +94,8 @@ namespace MaxChemical.Modules.DOE.Views
 
             if (errors.Count > 0)
             {
-                MessageBox.Show(string.Join("\n", errors), "输入验证", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(string.Join("\n", errors), "输入验证",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -96,7 +106,8 @@ namespace MaxChemical.Modules.DOE.Views
 
         private void Skip_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("跳过本组将不会记录响应值，确定跳过？", "确认",
+            var result = MessageBox.Show(
+                "跳过本组将不会记录响应值，确定跳过？", "确认",
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (result == MessageBoxResult.Yes)
@@ -118,10 +129,17 @@ namespace MaxChemical.Modules.DOE.Views
         public string Name { get; set; } = "";
         public string Unit { get; set; } = "";
 
+        /// <summary>是否有单位（控制单位后缀显示）</summary>
+        public bool HasUnit => !string.IsNullOrWhiteSpace(Unit);
+
         public string Value
         {
             get => _value;
-            set { _value = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value))); }
+            set
+            {
+                _value = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+            }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

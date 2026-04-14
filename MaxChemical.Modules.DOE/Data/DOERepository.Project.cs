@@ -224,13 +224,13 @@ namespace MaxChemical.Modules.DOE.Data
                      current_lower_bound, current_upper_bound, category_levels,
                      fixed_value, fixed_category_level, source_node_id, source_param_name,
                      status_reason, status_changed_in_batch_id, bounds_history_json,
-                     sort_order, created_time, updated_time)
+                     sort_order, created_time, updated_time, physical_lower_limit, physical_upper_limit)
                     VALUES
                     (@pid, @name, @type, @status,
                      @lower, @upper, @catLevels,
                      @fixedVal, @fixedCat, @nodeId, @paramName,
                      @reason, @changedBatch, @history,
-                     @sort, NOW(), NOW())";
+                     @sort, NOW(), NOW(), @physLower, @physUpper)";
 
                 for (int i = 0; i < factors.Count; i++)
                 {
@@ -254,6 +254,8 @@ namespace MaxChemical.Modules.DOE.Data
                     cmd.Parameters.AddWithValue("@changedBatch", (object?)f.StatusChangedInBatchId ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@history", (object?)f.BoundsHistoryJson ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@sort", f.SortOrder);
+                    cmd.Parameters.AddWithValue("@physLower", (object?)f.PhysicalLowerLimit ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@physUpper", (object?)f.PhysicalUpperLimit ?? DBNull.Value);
                     await cmd.ExecuteNonQueryAsync();
                 }
 
@@ -532,7 +534,9 @@ namespace MaxChemical.Modules.DOE.Data
             BoundsHistoryJson = GetStrN(r, "bounds_history_json"),
             SortOrder = GetInt(r, "sort_order"),
             CreatedTime = GetDt(r, "created_time"),
-            UpdatedTime = GetDt(r, "updated_time")
+            UpdatedTime = GetDt(r, "updated_time"),
+            PhysicalLowerLimit = IsNull(r, "physical_lower_limit") ? null : GetDbl(r, "physical_lower_limit"),
+            PhysicalUpperLimit = IsNull(r, "physical_upper_limit") ? null : GetDbl(r, "physical_upper_limit"),
         };
 
         private static DOERoundSummary MapRoundSummary(DbDataReader r) => new()

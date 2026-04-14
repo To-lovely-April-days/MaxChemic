@@ -138,4 +138,59 @@ namespace MaxChemical.Modules.DOE.Converters
             throw new NotImplementedException();
         }
     }
+    /// <summary>
+    /// 枚举值 → Visibility 的转换器。
+    /// 当 value.ToString() == parameter.ToString() 时返回 Visible, 否则 Collapsed。
+    /// </summary>
+    public class EnumToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null || parameter == null)
+                return Visibility.Collapsed;
+
+            bool match = string.Equals(
+                value.ToString(),
+                parameter.ToString(),
+                StringComparison.OrdinalIgnoreCase);
+
+            return match ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+    public class BindingProxy : Freezable
+    {
+        protected override Freezable CreateInstanceCore() => new BindingProxy();
+
+        public object Data
+        {
+            get => GetValue(DataProperty);
+            set => SetValue(DataProperty, value);
+        }
+
+        public static readonly DependencyProperty DataProperty =
+            DependencyProperty.Register("Data", typeof(object), typeof(BindingProxy), new UIPropertyMetadata(null));
+    }
+    /// <summary>
+    /// 将整数值 +1 后返回。
+    /// 用于 MiniPanel: CurrentRun 是已完成数（0-based），当前执行组号 = CurrentRun + 1
+    /// </summary>
+    public class PlusOneConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int i)
+                return i + 1;
+            if (value is double d)
+                return (int)d + 1;
+            return 1;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
 }

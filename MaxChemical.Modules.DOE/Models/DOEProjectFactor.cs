@@ -52,7 +52,19 @@ namespace MaxChemical.Modules.DOE.Models
         /// 固定的类别水平（当类别因子被固定时）
         /// </summary>
         public string? FixedCategoryLevel { get; set; }
+        /// <summary>
+        /// 物理下限（不可突破的硬约束）
+        /// 例如设备最低温度、管道最低压力等。
+        /// null 表示没有物理限制，扩展范围时不受约束。
+        /// </summary>
+        public double? PhysicalLowerLimit { get; set; }
 
+        /// <summary>
+        /// 物理上限（不可突破的硬约束）
+        /// 例如设备最高温度 150°C、安全压力上限 10 MPa 等。
+        /// null 表示没有物理限制，扩展范围时不受约束。
+        /// </summary>
+        public double? PhysicalUpperLimit { get; set; }
         /// <summary>
         /// 参数绑定: 来源节点 ID
         /// </summary>
@@ -124,7 +136,9 @@ namespace MaxChemical.Modules.DOE.Models
                 FactorSource = !string.IsNullOrEmpty(SourceNodeId)
                     ? Infrastructure.DOE.FactorSourceType.ParameterOverride
                     : Infrastructure.DOE.FactorSourceType.ParameterOverride,
-                SortOrder = SortOrder
+                SortOrder = SortOrder,
+                PhysicalLowerLimit = PhysicalLowerLimit,   // ★ 新增：透传物理极限
+                PhysicalUpperLimit = PhysicalUpperLimit     // ★ 新增
             };
         }
 

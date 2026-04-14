@@ -17,5 +17,20 @@ namespace MaxChemical.Modules.DOE.Views
                     mainVm.NavigateToExecution(summary.BatchId);
             }
         }
+        private void NewProjectCard_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (Window.GetWindow(this)?.DataContext is ViewModels.DOEMainViewModel mainVm)
+                mainVm.CreateProjectCommand.Execute();
+        }
+        private void ProjectCard_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ViewModels.ProjectCardItem card)
+            {
+                if (DataContext is ViewModels.DOEOverviewViewModel vm)
+                {
+                    vm.SelectProjectCommand.Execute(card.ProjectId);
+                }
+            }
+        }
     }
 }

@@ -13,16 +13,17 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Media;
 
 namespace MaxChemical.Modules.DOE.ViewModels
 {
     /// <summary>
-    /// DOE 历史管理 ViewModel — 项目模式
+    /// DOE 历史管理 ViewModel — 项目 → 批次 树形结构
     /// 
-    /// ★ 重写: 从批次平铺改为 项目列表 → 展开轮次 两级结构
+    ///  重写: 左侧项目/批次树 → 右侧批次详情 + 数据表
     /// 
-    /// 左侧: 项目列表（含状态、阶段、最优值）
-    /// 右侧: 选中项目的轮次列表 + 轮次详情 + 轮次总结
+    /// 左侧: 项目树（展开后显示批次子节点，含编号圆、状态药丸）
+    /// 右侧: 面包屑头 + 数据表
     /// </summary>
     public class DOEHistoryViewModel : BindableBase
     {
@@ -33,16 +34,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IDialogService _dialogService;
         private readonly ILogService _logger;
 
-        // ── 项目列表（左侧）──
-        private ObservableCollection<DOEProjectSummary> _projects = new();
-        private DOEProjectSummary? _selectedProject;
+        // ── 项目列表（左侧树）──
+        private ObservableCollection<DOEProjectTreeNode> _projects = new();
+        private DOEProjectTreeNode? _selectedProject;
 
-        // ── 轮次列表（右侧）──
-        private ObservableCollection<RoundListItem> _rounds = new();
+        // ── 当前选中的批次 ──
         private RoundListItem? _selectedRound;
         private DOEBatch? _roundDetail;
-
-        // ── 轮次总结 ──
         private DOERoundSummary? _roundSummary;
 
         private bool _isLoading;
@@ -59,7 +57,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private int _selectedRoundRunCount;
         private string _selectedRoundRecommendation = "";
         private bool _hasSelectedRoundRecommendation;
+        private string _selectedRoundDateText = "";
         private DataTable _selectedRoundRuns = new();
+
         public DOEHistoryViewModel(
             IDOERepository repository,
             IGPRModelService gprService,
@@ -76,7 +76,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _logger = logger?.ForContext<DOEHistoryViewModel>() ?? throw new ArgumentNullException(nameof(logger));
 
             RefreshCommand = new DelegateCommand(async () => await LoadProjectsAsync());
-            DeleteProjectCommand = new DelegateCommand<DOEProjectSummary>(async s => await DeleteProjectAsync(s));
+            SelectProjectCommand = new DelegateCommand<DOEProjectTreeNode>(OnSelectProject);
+            DeleteProjectCommand = new DelegateCommand<DOEProjectTreeNode>(async s => await DeleteProjectAsync(s));
             DeleteRoundCommand = new DelegateCommand<RoundListItem>(async r => await DeleteRoundAsync(r));
             ExportRoundCommand = new DelegateCommand<RoundListItem>(async r => await ExportRoundAsync(r));
             NavigateToExecutionCommand = new DelegateCommand(
@@ -86,22 +87,21 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 () => { if (_selectedRound != null) RequestAnalyzeBatch?.Invoke(this, _selectedRound.BatchId); },
                 () => _selectedRound != null);
             SelectRoundCommand = new DelegateCommand<RoundListItem>(r => { if (r != null) SelectedRound = r; });
+
             // 初始加载
             _ = LoadProjectsAsync();
         }
 
         // ══════════════ Properties ══════════════
 
-        // 项目列表
-        public ObservableCollection<DOEProjectSummary> Projects { get => _projects; set => SetProperty(ref _projects, value); }
-        public DOEProjectSummary? SelectedProject
+        public ObservableCollection<DOEProjectTreeNode> Projects { get => _projects; set => SetProperty(ref _projects, value); }
+
+        public DOEProjectTreeNode? SelectedProject
         {
             get => _selectedProject;
-            set { SetProperty(ref _selectedProject, value); _ = OnSelectedProjectChangedAsync(); }
+            set => SetProperty(ref _selectedProject, value);
         }
 
-        // 轮次列表
-        public ObservableCollection<RoundListItem> Rounds { get => _rounds; set => SetProperty(ref _rounds, value); }
         public RoundListItem? SelectedRound
         {
             get => _selectedRound;
@@ -114,7 +114,6 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
         }
 
-        // 轮次详情
         public DOEBatch? RoundDetail { get => _roundDetail; set => SetProperty(ref _roundDetail, value); }
         public DOERoundSummary? RoundSummary { get => _roundSummary; set => SetProperty(ref _roundSummary, value); }
 
@@ -124,10 +123,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool GPRIsActive { get => _gprIsActive; set => SetProperty(ref _gprIsActive, value); }
         public int GPRDataCount { get => _gprDataCount; set => SetProperty(ref _gprDataCount, value); }
 
-        /// <summary>是否有选中的项目（控制右侧面板显示）</summary>
         public bool HasSelectedProject => SelectedProject != null;
-
-        /// <summary>是否有轮次总结（控制总结面板显示）</summary>
         public bool HasRoundSummary => RoundSummary != null;
         public bool HasSelectedRound { get => _hasSelectedRound; set => SetProperty(ref _hasSelectedRound, value); }
         public string SelectedRoundTitle { get => _selectedRoundTitle; set => SetProperty(ref _selectedRoundTitle, value); }
@@ -135,17 +131,20 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public int SelectedRoundRunCount { get => _selectedRoundRunCount; set => SetProperty(ref _selectedRoundRunCount, value); }
         public string SelectedRoundRecommendation { get => _selectedRoundRecommendation; set => SetProperty(ref _selectedRoundRecommendation, value); }
         public bool HasSelectedRoundRecommendation { get => _hasSelectedRoundRecommendation; set => SetProperty(ref _hasSelectedRoundRecommendation, value); }
+        public string SelectedRoundDateText { get => _selectedRoundDateText; set => SetProperty(ref _selectedRoundDateText, value); }
         public DataTable SelectedRoundRuns { get => _selectedRoundRuns; set => SetProperty(ref _selectedRoundRuns, value); }
 
         // ══════════════ Commands ══════════════
 
         public DelegateCommand RefreshCommand { get; }
-        public DelegateCommand<DOEProjectSummary> DeleteProjectCommand { get; }
+        public DelegateCommand<DOEProjectTreeNode> SelectProjectCommand { get; }
+        public DelegateCommand<DOEProjectTreeNode> DeleteProjectCommand { get; }
         public DelegateCommand<RoundListItem> DeleteRoundCommand { get; }
         public DelegateCommand<RoundListItem> ExportRoundCommand { get; }
         public DelegateCommand NavigateToExecutionCommand { get; }
         public DelegateCommand NavigateToAnalysisCommand { get; }
         public DelegateCommand<RoundListItem> SelectRoundCommand { get; }
+
         // ══════════════ Events ══════════════
 
         public event EventHandler<string>? RequestExecuteBatch;
@@ -153,15 +152,32 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         // ══════════════ 加载 ══════════════
 
-        /// <summary>加载项目列表（原 LoadBatchesAsync 重写）</summary>
         public async Task LoadProjectsAsync()
         {
             try
             {
                 IsLoading = true;
                 var projects = await _repository.GetAllProjectSummariesAsync(50);
-                Projects = new ObservableCollection<DOEProjectSummary>(projects);
-                StatusMessage = $"共 {projects.Count} 个项目";
+                var treeNodes = new List<DOEProjectTreeNode>();
+                int totalBatches = 0;
+
+                foreach (var p in projects)
+                {
+                    var node = new DOEProjectTreeNode
+                    {
+                        ProjectId = p.ProjectId,
+                        ProjectName = p.ProjectName,
+                        PhaseText = p.PhaseText,
+                        TotalBatches = p.TotalBatches,
+                        TotalExperiments = p.TotalExperiments,
+                        BestResponseValue = p.BestResponseValue,
+                    };
+                    totalBatches += p.TotalBatches;
+                    treeNodes.Add(node);
+                }
+
+                Projects = new ObservableCollection<DOEProjectTreeNode>(treeNodes);
+                StatusMessage = $"{projects.Count} 个项目 · {totalBatches} 批";
 
                 // GPR 状态
                 var flowId = _paramProvider.GetCurrentFlowId();
@@ -189,35 +205,49 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
         }
 
-        /// <summary>兼容旧调用点（DOEMainView.xaml.cs 中 case 3 调用的）</summary>
+        /// <summary>兼容旧调用点</summary>
         public async Task LoadBatchesAsync() => await LoadProjectsAsync();
 
-        private async Task OnSelectedProjectChangedAsync()
+        /// <summary>点击项目行：展开/折叠 + 懒加载批次</summary>
+        private async void OnSelectProject(DOEProjectTreeNode? node)
         {
-            RaisePropertyChanged(nameof(HasSelectedProject));
-            RoundDetail = null;
-            RoundSummary = null;
-            RaisePropertyChanged(nameof(HasRoundSummary));
+            if (node == null) return;
 
-            if (SelectedProject == null)
+            // 折叠其它项目
+            foreach (var p in Projects)
             {
-                Rounds = new ObservableCollection<RoundListItem>();
-                return;
+                if (p != node)
+                    p.IsExpanded = false;
             }
 
+            // 切换展开
+            node.IsExpanded = !node.IsExpanded;
+            SelectedProject = node.IsExpanded ? node : null;
+            RaisePropertyChanged(nameof(HasSelectedProject));
+
+            if (!node.IsExpanded)
+                return;
+
+            // 懒加载批次
+            if (node.Batches.Count == 0)
+            {
+                await LoadBatchesForProjectAsync(node);
+            }
+        }
+
+        private async Task LoadBatchesForProjectAsync(DOEProjectTreeNode node)
+        {
             try
             {
                 IsLoading = true;
-                var batches = await _repository.GetBatchesByProjectAsync(SelectedProject.ProjectId);
-                var summaries = await _repository.GetRoundSummariesAsync(SelectedProject.ProjectId);
+                var batches = await _repository.GetBatchesByProjectAsync(node.ProjectId);
+                var summaries = await _repository.GetRoundSummariesAsync(node.ProjectId);
 
-                // ★ 修复: 为每个批次查询 Runs 统计（GetBatchesByProjectAsync 不含 Runs）
                 var roundItems = new List<RoundListItem>();
                 foreach (var b in batches)
                 {
                     var summary = summaries.FirstOrDefault(s => s.BatchId == b.BatchId);
 
-                    // 查询该批次的 Runs 统计
                     int totalRuns = 0;
                     int completedRuns = 0;
                     try
@@ -246,8 +276,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         DesignMethod = b.DesignMethod,
                         DesignMethodText = b.DesignMethod switch
                         {
-                            DOEDesignMethod.CCD => "CCD",
-                            DOEDesignMethod.BoxBehnken => "BBD",
+                            DOEDesignMethod.CCD => "CCD 中心复合",
+                            DOEDesignMethod.BoxBehnken => "Box-Behnken",
                             DOEDesignMethod.DOptimal => "D-Optimal",
                             DOEDesignMethod.FullFactorial => "全因子",
                             DOEDesignMethod.FractionalFactorial => "部分因子",
@@ -255,6 +285,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                             DOEDesignMethod.SteepestAscent => "最速上升",
                             DOEDesignMethod.AugmentedDesign => "增强设计",
                             DOEDesignMethod.ConfirmationRuns => "验证实验",
+                            DOEDesignMethod.PlackettBurman => "Plackett-Burman",
                             _ => b.DesignMethod.ToString()
                         },
                         Status = b.Status,
@@ -268,12 +299,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     });
                 }
 
-                Rounds = new ObservableCollection<RoundListItem>(roundItems);
-                StatusMessage = $"项目 \"{SelectedProject.ProjectName}\" — {roundItems.Count} 轮";
+                node.Batches = new ObservableCollection<RoundListItem>(roundItems);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "加载项目轮次失败");
+                _logger.LogError(ex, "加载项目批次失败");
             }
             finally
             {
@@ -283,9 +313,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         private async Task OnSelectedRoundChangedAsync()
         {
-            // 清理旧选中状态
-            foreach (var r in Rounds)
-                r.IsSelected = false;
+            // 清理所有项目下的批次选中状态
+            foreach (var p in Projects)
+                foreach (var r in p.Batches)
+                    r.IsSelected = false;
 
             RoundSummary = null;
             RaisePropertyChanged(nameof(HasRoundSummary));
@@ -298,24 +329,25 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 return;
             }
 
-            // 标记选中
             _selectedRound.IsSelected = true;
             HasSelectedRound = true;
 
             try
             {
-                // 加载批次详情
                 RoundDetail = await _repository.GetBatchWithDetailsAsync(_selectedRound.BatchId);
                 RoundSummary = await _repository.GetRoundSummaryByBatchAsync(_selectedRound.BatchId);
                 RaisePropertyChanged(nameof(HasRoundSummary));
 
-                // 更新概况文字
-                SelectedRoundTitle = $"R{_selectedRound.RoundNumber} · {_selectedRound.DesignMethodText} · {_selectedRound.PhaseText}";
-                SelectedRoundR2Text = _selectedRound.RSquaredText ?? "—";
+                SelectedRoundTitle = $"批次 {_selectedRound.RoundNumber} · {_selectedRound.DesignMethodText}";
+                SelectedRoundR2Text = _selectedRound.RSquaredText.Contains("R²=")
+                    ? _selectedRound.RSquaredText.Replace("R²=", "")
+                    : "—";
                 SelectedRoundRecommendation = RoundSummary?.RecommendationReason ?? "";
                 HasSelectedRoundRecommendation = !string.IsNullOrEmpty(SelectedRoundRecommendation);
+                SelectedRoundDateText = _selectedRound.CreatedTime != default
+                    ? $" · {_selectedRound.CreatedTime:yyyy-MM-dd}"
+                    : "";
 
-                // ★ 加载实验数据表
                 await LoadRunDataTableAsync(_selectedRound.BatchId);
             }
             catch (Exception ex)
@@ -323,6 +355,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 _logger.LogError(ex, "加载轮次详情失败");
             }
         }
+
         private async Task LoadRunDataTableAsync(string batchId)
         {
             try
@@ -333,14 +366,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var runs = await _repository.GetRunsAsync(batchId);
                 SelectedRoundRunCount = runs.Count;
 
-                // 获取因子名和响应名
                 var factors = batch.Factors ?? await _repository.GetFactorsAsync(batchId);
                 var responses = batch.Responses ?? await _repository.GetResponsesAsync(batchId);
 
                 var factorNames = factors.OrderBy(f => f.SortOrder).Select(f => f.FactorName).ToList();
                 var responseNames = responses.OrderBy(r => r.SortOrder).Select(r => r.ResponseName).ToList();
 
-                // 构建 DataTable
                 var dt = new DataTable();
                 dt.Columns.Add("#", typeof(int));
                 foreach (var fn in factorNames)
@@ -349,70 +380,35 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     dt.Columns.Add(rn, typeof(string));
                 dt.Columns.Add("状态", typeof(string));
 
-                // 找最优值（用于标记最优行）
-                double? bestValue = null;
-                int bestIndex = -1;
-                if (responseNames.Count > 0)
-                {
-                    foreach (var run in runs.Where(r => r.Status == DOERunStatus.Completed))
-                    {
-                        try
-                        {
-                            var respValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.ResponseValuesJson ?? "{}");
-                            if (respValues != null && respValues.TryGetValue(responseNames[0], out var val))
-                            {
-                                if (!bestValue.HasValue || val > bestValue.Value)
-                                {
-                                    bestValue = val;
-                                    bestIndex = run.RunIndex;
-                                }
-                            }
-                        }
-                        catch { }
-                    }
-                }
-
-                // 填充行
                 foreach (var run in runs.OrderBy(r => r.RunIndex))
                 {
                     var row = dt.NewRow();
                     row["#"] = run.RunIndex + 1;
 
-                    // 因子值
                     try
                     {
                         var factorValues = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson ?? "{}");
                         if (factorValues != null)
-                        {
                             foreach (var fn in factorNames)
-                            {
                                 if (factorValues.TryGetValue(fn, out var val))
                                     row[fn] = val?.ToString() ?? "";
-                            }
-                        }
                     }
                     catch { }
 
-                    // 响应值
                     try
                     {
                         var respValues = JsonConvert.DeserializeObject<Dictionary<string, double>>(run.ResponseValuesJson ?? "{}");
                         if (respValues != null)
-                        {
                             foreach (var rn in responseNames)
-                            {
                                 if (respValues.TryGetValue(rn, out var val))
                                     row[rn] = val.ToString("F2");
-                            }
-                        }
                     }
                     catch { }
 
-                    // 状态
                     row["状态"] = run.Status switch
                     {
-                        DOERunStatus.Completed => "✓",
-                        DOERunStatus.Failed => "✗",
+                        DOERunStatus.Completed => "已完成",
+                        DOERunStatus.Failed => "失败",
                         DOERunStatus.Pending => "待执行",
                         DOERunStatus.Running => "执行中",
                         _ => run.Status.ToString()
@@ -429,14 +425,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 SelectedRoundRuns = new DataTable();
             }
         }
+
         // ══════════════ 操作 ══════════════
 
-        private async Task DeleteProjectAsync(DOEProjectSummary? project)
+        private async Task DeleteProjectAsync(DOEProjectTreeNode? project)
         {
             if (project == null) return;
             if (!_dialogService.ShowConfirmation(
                 $"确定删除项目 \"{project.ProjectName}\"？\n" +
-                $"该项目包含 {project.TotalBatches} 轮、{project.TotalExperiments} 组实验数据。\n" +
+                $"该项目包含 {project.TotalBatches} 批、{project.TotalExperiments} 组实验数据。\n" +
                 $"项目下的批次将被解除关联（不删除实验数据）。\n\n此操作不可恢复。",
                 "删除项目"))
                 return;
@@ -450,7 +447,6 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (SelectedProject?.ProjectId == project.ProjectId)
                 {
                     SelectedProject = null;
-                    Rounds.Clear();
                 }
             }
             catch (Exception ex)
@@ -464,15 +460,20 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             if (round == null || SelectedProject == null) return;
             if (!_dialogService.ShowConfirmation(
-                $"确定删除第 {round.RoundNumber} 轮 \"{round.BatchName}\"？\n此操作不可恢复。",
-                "删除轮次"))
+                $"确定删除批次 {round.RoundNumber} \"{round.BatchName}\"？\n此操作不可恢复。",
+                "删除批次"))
                 return;
 
             try
             {
                 await _repository.DeleteBatchWithChildrenAsync(round.BatchId);
-                Rounds.Remove(round);
-                StatusMessage = $"已删除轮次: {round.BatchName}";
+                SelectedProject.Batches.Remove(round);
+                StatusMessage = $"已删除批次: {round.BatchName}";
+
+                if (SelectedRound?.BatchId == round.BatchId)
+                {
+                    SelectedRound = null;
+                }
             }
             catch (Exception ex)
             {
@@ -510,10 +511,56 @@ namespace MaxChemical.Modules.DOE.ViewModels
         }
     }
 
-    /// <summary>
-    /// 轮次列表项（历史页右侧列表绑定）
-    /// </summary>
-    public class RoundListItem
+    // ══════════════════════════════════════════════════════
+    //  项目树节点（左侧树形结构）
+    // ══════════════════════════════════════════════════════
+    public class DOEProjectTreeNode : BindableBase
+    {
+        public string ProjectId { get; set; } = "";
+        public string ProjectName { get; set; } = "";
+        public string PhaseText { get; set; } = "";
+        public int TotalBatches { get; set; }
+        public int TotalExperiments { get; set; }
+        public double? BestResponseValue { get; set; }
+
+        private bool _isExpanded;
+        public bool IsExpanded
+        {
+            get => _isExpanded;
+            set
+            {
+                SetProperty(ref _isExpanded, value);
+                RaisePropertyChanged(nameof(ChevronData));
+                RaisePropertyChanged(nameof(ChevronColor));
+                RaisePropertyChanged(nameof(ProjectNameColor));
+                RaisePropertyChanged(nameof(SubtitleColor));
+            }
+        }
+
+        private ObservableCollection<RoundListItem> _batches = new();
+        public ObservableCollection<RoundListItem> Batches
+        {
+            get => _batches;
+            set => SetProperty(ref _batches, value);
+        }
+
+        /// <summary>展开向下 ▼ / 折叠向右 ▶ — 匹配 HTML SVG Path</summary>
+        public string ChevronData => IsExpanded
+            ? "M2,3 L5,6 L8,3"   // 向下
+            : "M3,2 L6,5 L3,8";  // 向右
+
+        /// <summary>展开时靛蓝，折叠时灰色</summary>
+        public SolidColorBrush ChevronColor => new(IsExpanded ? Hex("#2D3A8C") : Hex("#9CA3AF"));
+        public SolidColorBrush ProjectNameColor => new(IsExpanded ? Hex("#2D3A8C") : Hex("#374151"));
+        public SolidColorBrush SubtitleColor => new(IsExpanded ? Hex("#6B7280") : Hex("#9CA3AF"));
+
+        private static Color Hex(string hex) => (Color)ColorConverter.ConvertFromString(hex);
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  批次列表项（树子节点 + 右侧详情绑定）
+    // ══════════════════════════════════════════════════════
+    public class RoundListItem : BindableBase
     {
         public string BatchId { get; set; } = "";
         public string BatchName { get; set; } = "";
@@ -531,7 +578,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public string Recommendation { get; set; } = "";
         public DateTime CreatedTime { get; set; }
 
-        /// <summary>状态显示文本</summary>
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                SetProperty(ref _isSelected, value);
+                RaisePropertyChanged(nameof(TitleColor));
+            }
+        }
+
+        // ── 显示属性 ──
+
         public string StatusText => Status switch
         {
             DOEBatchStatus.Ready => "就绪",
@@ -542,16 +601,48 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _ => Status.ToString()
         };
 
-        private bool _isSelected;
-        public bool IsSelected { get => _isSelected; set { _isSelected = value; } }
-        public string PhaseColor => Phase switch
+        /// <summary>R² 在左侧子节点的显示文本，带前缀</summary>
+        public string RSquaredDisplayText => RSquared.HasValue
+            ? $" · R²={RSquared:F4}"
+            : "";
+
+        /// <summary>选中时加深标题色</summary>
+        public SolidColorBrush TitleColor => new(IsSelected ? Hex("#1E2A6E") : Hex("#1A1F36"));
+        public SolidColorBrush SubtitleColor => new(Hex("#6B7280"));
+
+        /// <summary>编号圆背景色 — 匹配 HTML 阶段色</summary>
+        public Color PhaseColor => Phase switch
         {
-            DOEProjectPhase.Screening => "#E67E22",
-            DOEProjectPhase.PathSearch => "#3498DB",
-            DOEProjectPhase.RSM => "#9B59B6",
-            DOEProjectPhase.Augmenting => "#1ABC9C",
-            DOEProjectPhase.Confirmation => "#27AE60",
-            _ => "#7F8C8D"
+            DOEProjectPhase.Screening => Hex("#D97706"),
+            DOEProjectPhase.PathSearch => Hex("#3B5BDB"),
+            DOEProjectPhase.RSM => Hex("#2D3A8C"),
+            DOEProjectPhase.Augmenting => Hex("#1ABC9C"),
+            DOEProjectPhase.Confirmation => Hex("#27AE60"),
+            _ => Hex("#6B7280")
         };
+
+        /// <summary>状态药丸背景色</summary>
+        public Color StatusBgColor => Status switch
+        {
+            DOEBatchStatus.Completed => Hex("#ECFDF5"),
+            DOEBatchStatus.Running => Hex("#FEF3C7"),
+            DOEBatchStatus.Ready => Hex("#DBEAFE"),
+            DOEBatchStatus.Paused => Hex("#F3F4F6"),
+            DOEBatchStatus.Aborted => Hex("#FEF2F2"),
+            _ => Hex("#F3F4F6")
+        };
+
+        /// <summary>状态药丸文本色</summary>
+        public Color StatusFgColor => Status switch
+        {
+            DOEBatchStatus.Completed => Hex("#059669"),
+            DOEBatchStatus.Running => Hex("#D97706"),
+            DOEBatchStatus.Ready => Hex("#2563EB"),
+            DOEBatchStatus.Paused => Hex("#6B7280"),
+            DOEBatchStatus.Aborted => Hex("#DC2626"),
+            _ => Hex("#6B7280")
+        };
+
+        private static Color Hex(string hex) => (Color)ColorConverter.ConvertFromString(hex);
     }
 }

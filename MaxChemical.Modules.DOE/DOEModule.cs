@@ -1,4 +1,5 @@
 using MaxChemical.Modules.DOE.Data;
+using MaxChemical.Modules.DOE.OLS.Services;
 using MaxChemical.Modules.DOE.Services;
 using MaxChemical.Modules.DOE.ViewModels;
 using MaxChemical.Modules.DOE.Views;
@@ -27,7 +28,7 @@ namespace MaxChemical.Modules.DOE
             containerRegistry.RegisterSingleton<IDOEExecutionService, DOEBatchExecutor>();
             containerRegistry.RegisterSingleton<IGPRModelService, GPRModelService>();
             containerRegistry.RegisterSingleton<IMultiResponseGPRService, MultiResponseGPRService>();  //  新增
-            containerRegistry.RegisterSingleton<IDOEAnalysisService, DOEAnalysisService>();
+            containerRegistry.RegisterSingleton<IDOEAnalysisService, CSharpOlsAnalysisService>();
             containerRegistry.RegisterSingleton<DOEExportService>();
             containerRegistry.RegisterSingleton<IDesirabilityService, DesirabilityService>();
             containerRegistry.RegisterSingleton<IModelRouter, ModelRouter>();

@@ -44,7 +44,35 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private bool _hasResumableBatch;
         private string _resumableBatchSummary = "";
         private string _resumableBatchId = "";
+        // ═══ 时间线数据 ═══
 
+        public ObservableCollection<TimelineItem> RecentTimelineItems
+        {
+            get => _recentTimelineItems;
+            set => SetProperty(ref _recentTimelineItems, value);
+        }
+        private ObservableCollection<TimelineItem> _recentTimelineItems = new();
+        public ObservableCollection<ProjectCardItem> BottomCards
+        {
+            get => _bottomCards;
+            set => SetProperty(ref _bottomCards, value);
+        }
+        private ObservableCollection<ProjectCardItem> _bottomCards = new();
+
+        // 新增两个属性（Properties 区域）
+        public double ResumableProgress
+        {
+            get => _resumableProgress;
+            set => SetProperty(ref _resumableProgress, value);
+        }
+        private double _resumableProgress;
+
+        public string ResumableProgressText
+        {
+            get => _resumableProgressText;
+            set => SetProperty(ref _resumableProgressText, value);
+        }
+        private string _resumableProgressText = "";
         public DOEOverviewViewModel(
             IDOERepository repository,
             IFlowParameterProvider paramProvider,
@@ -67,6 +95,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ViewProjectAnalysisCommand = new DelegateCommand<string>(id => { if (!string.IsNullOrEmpty(id)) RequestViewAnalysis?.Invoke(this, id); });
             ArchiveProjectCommand = new DelegateCommand<string>(async id => await ArchiveProjectAsync(id));
             DeleteProjectCommand = new DelegateCommand<string>(async id => await DeleteProjectAsync(id));
+            SelectProjectCommand = new DelegateCommand<string>(async id => await SelectProjectAsync(id));
         }
 
         // ══════════════ Properties ══════════════
@@ -75,7 +104,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public int ActiveProjectCount { get => _activeProjectCount; set => SetProperty(ref _activeProjectCount, value); }
         public int TotalExperiments { get => _totalExperiments; set => SetProperty(ref _totalExperiments, value); }
         public string GPRStatusSummary { get => _gprStatusSummary; set => SetProperty(ref _gprStatusSummary, value); }
-
+        /// <summary>焦点项目（焦点卡片绑定此对象）</summary>
+        public ProjectCardItem? FocusedProject
+        {
+            get => _focusedProject;
+            set => SetProperty(ref _focusedProject, value);
+        }
+        private ProjectCardItem? _focusedProject;
         public ObservableCollection<ProjectCardItem> ProjectCards
         {
             get => _projectCards;
@@ -108,6 +143,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public DelegateCommand<string> ViewProjectAnalysisCommand { get; }
         public DelegateCommand<string> ArchiveProjectCommand { get; }
         public DelegateCommand<string> DeleteProjectCommand { get; }
+        public DelegateCommand<string> SelectProjectCommand { get; }
         // ══════════════ Events ══════════════
 
         public event EventHandler<string>? RequestResumeBatch;
@@ -127,13 +163,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 var projects = await _repository.GetAllProjectSummariesAsync(20);
-
                 TotalProjectCount = projects.Count;
                 ActiveProjectCount = projects.Count(p => p.Status == DOEProjectStatus.Active);
                 TotalExperiments = projects.Sum(p => p.TotalExperiments);
 
                 var cards = new List<ProjectCardItem>();
-
                 foreach (var p in projects)
                 {
                     var card = new ProjectCardItem
@@ -156,24 +190,276 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         PhaseSegments = BuildPhaseSegments(p.CurrentPhase),
                         PhaseProgressText = BuildPhaseProgressText(p.CurrentPhase),
                     };
-
-                    // ★ 查询最新批次的因子和响应，构建标签和详细摘要
                     await BuildCardDetails(card, p);
-
+                    // ★ 构建最优因子和响应值
+                    await BuildOptimalData(card, p.ProjectId);
                     cards.Add(card);
                 }
+
+                // 底部卡片：新建占位 + 所有项目
+                var bottomList = new List<ProjectCardItem>();
+                bottomList.Add(new ProjectCardItem
+                {
+                    ProjectId = "__NEW__",
+                    ProjectName = "新建项目",
+                    IsNewPlaceholder = true,
+                    PhaseColor = "#3949AB",
+                });
+                bottomList.AddRange(cards);
+                BottomCards = new ObservableCollection<ProjectCardItem>(bottomList);
 
                 ProjectCards = new ObservableCollection<ProjectCardItem>(cards);
                 RaisePropertyChanged(nameof(HasProjects));
 
+                // 默认选中第一个项目
+                if (cards.Count > 0)
+                {
+                    cards[0].IsSelected = true;
+                    FocusedProject = cards[0];
+                }
+
                 await FindResumableBatchAsync();
+                await LoadTimelineForProjectAsync(FocusedProject?.ProjectId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "加载概览数据失败");
             }
         }
+        private async Task SelectProjectAsync(string? projectId)
+        {
+            if (string.IsNullOrEmpty(projectId) || projectId == "__NEW__") return;
 
+            var card = ProjectCards.FirstOrDefault(c => c.ProjectId == projectId);
+            if (card == null) return;
+
+            // 清除所有选中态
+            foreach (var c in ProjectCards)
+                c.IsSelected = false;
+
+            card.IsSelected = true;
+            FocusedProject = card;
+
+            // 重新加载该项目的时间线
+            await LoadTimelineForProjectAsync(projectId);
+        }
+        private async Task LoadTimelineForProjectAsync(string? projectId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(projectId))
+                {
+                    RecentTimelineItems = new ObservableCollection<TimelineItem>();
+                    return;
+                }
+
+                var summaries = await _repository.GetRoundSummariesAsync(projectId);
+                if (summaries == null || summaries.Count == 0)
+                {
+                    RecentTimelineItems = new ObservableCollection<TimelineItem>();
+                    return;
+                }
+
+                // 按轮次倒序，取最近 4 轮
+                var recent = summaries
+                    .OrderByDescending(s => s.RoundNumber)
+                    .Take(4)
+                    .ToList();
+
+                var items = new ObservableCollection<TimelineItem>();
+                for (int i = 0; i < recent.Count; i++)
+                {
+                    var s = recent[i];
+                    var item = new TimelineItem
+                    {
+                        RoundNumber = s.RoundNumber,
+                        PhaseText = GetTimelinePhaseText(s.Phase, s.DesignMethod),
+                        EventText = BuildTimelineEventText(s),
+                        MetaText = BuildTimelineMetaText(s),
+                        IsLatest = i == 0,
+                        ShowLine = i < recent.Count - 1,
+                    };
+                    SetTimelineChip(item, s);
+                    items.Add(item);
+                }
+
+                RecentTimelineItems = items;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "加载时间线失败");
+                RecentTimelineItems = new ObservableCollection<TimelineItem>();
+            }
+        }
+        private async Task BuildOptimalData(ProjectCardItem card, string projectId)
+        {
+            try
+            {
+                // 获取该项目所有完成的实验
+                var runs = await _repository.GetAllCompletedRunsByProjectAsync(projectId);
+                if (runs == null || runs.Count == 0) return;
+
+                // 找到最优实验（响应值最大的那组）
+                var bestRun = runs
+                    .Where(r => !string.IsNullOrEmpty(r.ResponseValuesJson))
+                    .OrderByDescending(r =>
+                    {
+                        try
+                        {
+                            var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(r.ResponseValuesJson!);
+                            return dict?.Values.FirstOrDefault() ?? 0;
+                        }
+                        catch { return 0.0; }
+                    })
+                    .FirstOrDefault();
+
+                if (bestRun == null) return;
+
+                // 解析因子值
+                if (!string.IsNullOrEmpty(bestRun.FactorValuesJson))
+                {
+                    try
+                    {
+                        var factors = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(bestRun.FactorValuesJson);
+                        if (factors != null)
+                        {
+                            // 因子值
+                            card.OptimalFactorItems = new ObservableCollection<FocusFactorItem>(
+                                factors.Select(kv => new FocusFactorItem
+                                {
+                                    Name = kv.Key,
+                                    Value = kv.Value.ToString("F2")
+                                }));
+                        }
+                    }
+                    catch { }
+                }
+
+                // 解析响应值
+                if (!string.IsNullOrEmpty(bestRun.ResponseValuesJson))
+                {
+                    try
+                    {
+                        var responses = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(bestRun.ResponseValuesJson);
+                        if (responses != null)
+                        {
+                            // 响应值
+                            card.ResponseValueItems = new ObservableCollection<FocusResponseItem>(
+                                responses.Select(kv => new FocusResponseItem
+                                {
+                                    Name = kv.Key,
+                                    Value = kv.Value.ToString("F2")
+                                }));
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "构建最优数据失败: {ProjectId}", projectId);
+            }
+        }
+        private static string GetTimelinePhaseText(DOEProjectPhase phase, DOEDesignMethod method)
+        {
+            if (method == DOEDesignMethod.SteepestAscent) return "爬坡";
+            if (method == DOEDesignMethod.ConfirmationRuns) return "验证";
+            return phase switch
+            {
+                DOEProjectPhase.Screening => "筛选",
+                DOEProjectPhase.PathSearch => "路径探索",
+                DOEProjectPhase.RSM => "RSM",
+                DOEProjectPhase.Augmenting => "补点",
+                DOEProjectPhase.Confirmation => "验证",
+                DOEProjectPhase.Completed => "完成",
+                _ => phase.ToString()
+            };
+        }
+
+        private static string BuildTimelineEventText(DOERoundSummary s)
+        {
+            // 优先用 RecommendationReason（决策引擎生成的文字）
+            if (!string.IsNullOrEmpty(s.RecommendationReason))
+            {
+                // 截取前40字符，避免太长
+                var text = s.RecommendationReason;
+                if (text.Length > 50) text = text.Substring(0, 47) + "...";
+                return text;
+            }
+
+            // 回退：根据推荐类型生成简短文字
+            return s.Recommendation switch
+            {
+                NextStepRecommendation.ContinueScreening => "继续筛选不显著因子",
+                NextStepRecommendation.SteepestAscent => "沿梯度方向爬坡",
+                NextStepRecommendation.StartRSM => "进入响应面优化",
+                NextStepRecommendation.ExpandRange => "扩展因子范围",
+                NextStepRecommendation.ConfirmationRuns => "推荐验证实验",
+                NextStepRecommendation.AugmentDesign => "补充实验点",
+                NextStepRecommendation.Complete => "优化完成",
+                _ => $"第 {s.RoundNumber} 轮完成"
+            };
+        }
+
+        private static string BuildTimelineMetaText(DOERoundSummary s)
+        {
+            var parts = new List<string>();
+            if (s.RSquared.HasValue) parts.Add($"R²={s.RSquared:F3}");
+            if (s.RunCount > 0) parts.Add($"{s.RunCount} 组");
+            if (s.BestResponseValue.HasValue) parts.Add($"最优 {s.BestResponseValue:F2}");
+            return parts.Count > 0 ? string.Join(" · ", parts) : "";
+        }
+
+        private static void SetTimelineChip(TimelineItem item, DOERoundSummary s)
+        {
+            // 根据推荐结果设置标签颜色
+            switch (s.Recommendation)
+            {
+                case NextStepRecommendation.Complete:
+                    item.HasChip = true;
+                    item.ChipText = "完成";
+                    item.ChipBgColor = "#D1FAE5";
+                    item.ChipFgColor = "#065F46";
+                    break;
+                case NextStepRecommendation.ConfirmationRuns:
+                    item.HasChip = true;
+                    item.ChipText = "验证";
+                    item.ChipBgColor = "#D1FAE5";
+                    item.ChipFgColor = "#065F46";
+                    break;
+                case NextStepRecommendation.ExpandRange:
+                    item.HasChip = true;
+                    item.ChipText = "扩展";
+                    item.ChipBgColor = "#E8EAF6";
+                    item.ChipFgColor = "#2D3A8C";
+                    break;
+                case NextStepRecommendation.ContinueScreening:
+                    // 检查是否有淘汰因子
+                    if (!string.IsNullOrEmpty(s.ScreenedOutFactors))
+                    {
+                        item.HasChip = true;
+                        item.ChipText = "淘汰";
+                        item.ChipBgColor = "#FEE2E2";
+                        item.ChipFgColor = "#991B1B";
+                    }
+                    break;
+                case NextStepRecommendation.SteepestAscent:
+                    item.HasChip = true;
+                    item.ChipText = "爬坡";
+                    item.ChipBgColor = "#E8EAF6";
+                    item.ChipFgColor = "#2D3A8C";
+                    break;
+                case NextStepRecommendation.StartRSM:
+                    item.HasChip = true;
+                    item.ChipText = "RSM";
+                    item.ChipBgColor = "#EDE9FE";
+                    item.ChipFgColor = "#5B21B6";
+                    break;
+                default:
+                    item.HasChip = false;
+                    break;
+            }
+        }
         private async Task BuildCardDetails(ProjectCardItem card, DOEProjectSummary p)
         {
             try
@@ -279,6 +565,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             DOEDesignMethod.SteepestAscent => "最速上升",
             DOEDesignMethod.AugmentedDesign => "增强设计",
             DOEDesignMethod.ConfirmationRuns => "验证实验",
+            DOEDesignMethod.PlackettBurman => "Plackett-Burman",
             _ => method.ToString()
         };
 
@@ -329,8 +616,26 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 {
                     HasResumableBatch = true;
                     _resumableBatchId = resumable.BatchId;
-                    var done = resumable.Runs.Count(r => r.Status == DOERunStatus.Completed);
-                    ResumableBatchSummary = $"{resumable.BatchName} — 已完成 {done}/{resumable.Runs.Count} 组";
+
+                    // 单独查询该批次的 runs
+                    var runs = await _repository.GetRunsAsync(resumable.BatchId);
+                    var total = runs?.Count ?? 0;
+                    var done = runs?.Count(r => r.Status == DOERunStatus.Completed) ?? 0;
+
+                    var methodText = GetDesignMethodText(resumable.DesignMethod);
+                    var roundText = resumable.RoundNumber.HasValue ? $"R{resumable.RoundNumber}" : "";
+                    ResumableBatchSummary = $"{roundText} · {methodText} · {total} 组实验";
+
+                    if (total > 0)
+                    {
+                        ResumableProgress = (double)done / total;
+                        ResumableProgressText = $"{done}/{total}";
+                    }
+                    else
+                    {
+                        ResumableProgress = 0;
+                        ResumableProgressText = "待执行";
+                    }
                 }
                 else
                 {
@@ -394,6 +699,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex) { _logger.LogError(ex, "删除项目失败"); }
         }
     }
+    // <summary>最优因子项（名称+值）</summary>
+    public class FocusFactorItem
+    {
+        public string Name { get; set; } = "";
+        public string Value { get; set; } = "";
+    }
+
+    /// <summary>响应值项（名称+值）</summary>
+    public class FocusResponseItem
+    {
+        public string Name { get; set; } = "";
+        public string Value { get; set; } = "";
+    }
 
     /// <summary>
     /// 项目卡片展示数据（供概览页 ItemsControl 绑定）
@@ -436,9 +754,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         /// <summary>因子+响应标签列表</summary>
         public ObservableCollection<TagItem> TagItems { get; set; } = new();
+        /// <summary>是否是"新建项目"占位卡</summary>
+        public bool IsNewPlaceholder { get; set; }
 
-
-
+        /// <summary>是否被选中（底部卡片高亮）</summary>
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+        public ObservableCollection<FocusFactorItem> OptimalFactorItems { get; set; } = new();
+        public ObservableCollection<FocusResponseItem> ResponseValueItems { get; set; } = new();
     }
     /// <summary>
     /// 阶段进度条分段项
@@ -456,5 +783,35 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public string Text { get; set; } = "";
         public SolidColorBrush Foreground { get; set; } = new(Colors.Gray);
         public SolidColorBrush Background { get; set; } = new(Colors.LightGray);
+    }
+
+    /// <summary>
+    /// 优化历程时间线项
+    /// </summary>
+    public class TimelineItem : BindableBase
+    {
+        public int RoundNumber { get; set; }
+        public string PhaseText { get; set; } = "";
+        public string EventText { get; set; } = "";
+        public string MetaText { get; set; } = "";
+        public bool IsLatest { get; set; }
+        public bool ShowLine { get; set; }
+
+        // 标签
+        public bool HasChip { get; set; }
+        public string ChipText { get; set; } = "";
+        public string ChipBgColor { get; set; } = "#E8EAF6";
+        public string ChipFgColor { get; set; } = "#2D3A8C";
+
+        // ═══ XAML 绑定用的便捷属性 ═══
+
+        /// <summary>时间线显示文字（如 "R9 · 验证"）</summary>
+        public string RoundLabel => $"R{RoundNumber} · {PhaseText}";
+
+        /// <summary>标签背景画刷</summary>
+        public SolidColorBrush ChipBackground => new((Color)ColorConverter.ConvertFromString(ChipBgColor));
+
+        /// <summary>标签前景画刷</summary>
+        public SolidColorBrush ChipForeground => new((Color)ColorConverter.ConvertFromString(ChipFgColor));
     }
 }

@@ -91,7 +91,7 @@ namespace DevicePlugins.Simulated
                     double waitTime = parameters.GetValue<double>("WaitTime");
                     // 模拟硬件通信延迟
                     await Task.Delay(new Random().Next(200, 500));
-                    await Task.Delay((int)waitTime*1000);
+                    //await Task.Delay((int)waitTime*1000);
 
                     lock (_stateLock)
                     {

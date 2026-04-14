@@ -31,6 +31,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
         // ── 批次基本信息 ──
         private string _batchId = "";
         private string _batchName = "";
+        private string _flowName = "";
+        private string _designMethodText = "";
         private DOEBatchStatus _batchStatus = DOEBatchStatus.Designing;
 
         // ── 执行状态 ──
@@ -69,18 +71,25 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private ObservableCollection<ProgressSegment> _progressSegments = new();
         private ObservableCollection<FactorDisplayItem> _currentFactorItems = new();
         private bool _hasCurrentFactors;
+        private readonly AutoPilotService _autoPilotService;
+        private bool _autoPilotEnabledForThisRun = false;
+        private bool _isAutoPilotEnabled = false;
+        private string _autoPilotStatusText = "";
+        private string _currentProjectId = "";
 
         public DOEExecutionDashboardViewModel(
             IDOEExecutionService executionService,
             IDOERepository repository,
             IEventAggregator eventAggregator,
             IDialogService dialogService,
+            AutoPilotService autoPilotService,
             ILogService logger)
         {
             _executionService = executionService;
             _repository = repository;
             _eventAggregator = eventAggregator;
             _dialogService = dialogService;
+            _autoPilotService = autoPilotService;
             _logger = logger?.ForContext<DOEExecutionDashboardViewModel>()
                       ?? throw new ArgumentNullException(nameof(logger));
 
@@ -92,24 +101,29 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         public string BatchId { get => _batchId; set => SetProperty(ref _batchId, value); }
         public string BatchName { get => _batchName; set => SetProperty(ref _batchName, value); }
+        public string FlowName { get => _flowName; set => SetProperty(ref _flowName, value); }
+        public string DesignMethodText { get => _designMethodText; set => SetProperty(ref _designMethodText, value); }
         public DOEBatchStatus BatchStatus { get => _batchStatus; set => SetProperty(ref _batchStatus, value); }
 
         public int CurrentRun
         {
             get => _currentRun;
-            set { if (SetProperty(ref _currentRun, value)) { RaisePropertyChanged(nameof(ProgressText)); RaisePropertyChanged(nameof(ProgressBarWidth)); RaisePropertyChanged(nameof(StartButtonText)); UpdateETA(); UpdateProgressSegments(); } }
+            // ★ 修复: ProgressBarWidth → ProgressRatio
+            set { if (SetProperty(ref _currentRun, value)) { RaisePropertyChanged(nameof(ProgressText)); RaisePropertyChanged(nameof(ProgressRatio)); RaisePropertyChanged(nameof(StartButtonText)); UpdateETA(); UpdateProgressSegments(); } }
         }
 
         public int TotalRuns
         {
             get => _totalRuns;
-            set { if (SetProperty(ref _totalRuns, value)) { RaisePropertyChanged(nameof(ProgressText)); RaisePropertyChanged(nameof(ProgressBarWidth)); UpdateETA(); UpdateProgressSegments(); } }
+            // ★ 修复: ProgressBarWidth → ProgressRatio
+            set { if (SetProperty(ref _totalRuns, value)) { RaisePropertyChanged(nameof(ProgressText)); RaisePropertyChanged(nameof(ProgressRatio)); UpdateETA(); UpdateProgressSegments(); } }
         }
 
         public double ProgressPercent
         {
             get => _progressPercent;
-            set { if (SetProperty(ref _progressPercent, value)) RaisePropertyChanged(nameof(ProgressBarWidth)); }
+            // ★ 修复: ProgressBarWidth → ProgressRatio
+            set { if (SetProperty(ref _progressPercent, value)) RaisePropertyChanged(nameof(ProgressRatio)); }
         }
 
         public bool IsRunning { get => _isRunning; set { SetProperty(ref _isRunning, value); RaiseCommandCanExecute(); } }
@@ -118,7 +132,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         public string ProgressText => $"{CurrentRun} / {TotalRuns}";
-        public double ProgressBarWidth => TotalRuns > 0 ? ProgressPercent / 100.0 * 600 : 0;
+
+        // ★ 修复: 进度条改为 0~1 比例值，配合 XAML 的 ScaleTransform 自适应宽度
+        public double ProgressRatio => TotalRuns > 0 ? ProgressPercent / 100.0 : 0;
+
         public string BestRunText { get => _bestRunText; set => SetProperty(ref _bestRunText, value); }
         public string BestValueText { get => _bestValueText; set => SetProperty(ref _bestValueText, value); }
         public string GPRStatusText { get => _gprStatusText; set => SetProperty(ref _gprStatusText, value); }
@@ -162,7 +179,32 @@ namespace MaxChemical.Modules.DOE.ViewModels
             get => _hasCurrentFactors;
             set => SetProperty(ref _hasCurrentFactors, value);
         }
+        /// <summary>智能决策是否启用（面板显示 + 用户可切换）</summary>
+        public bool IsAutoPilotEnabled
+        {
+            get => _isAutoPilotEnabled;
+            set
+            {
+                if (SetProperty(ref _isAutoPilotEnabled, value))
+                {
+                    _autoPilotEnabledForThisRun = value;
+                    AutoPilotStatusText = value ? "已启用" : "未启用";
+                    // 同步到数据库
+                    if (!string.IsNullOrEmpty(_currentProjectId))
+                        _ = _repository.SetAutoPilotEnabledAsync(_currentProjectId, value);
+                }
+            }
+        }
 
+        /// <summary>智能决策状态文本</summary>
+        public string AutoPilotStatusText
+        {
+            get => _autoPilotStatusText;
+            set => SetProperty(ref _autoPilotStatusText, value);
+        }
+
+        /// <summary>是否是项目批次（控制 AutoPilot 控件显隐）</summary>
+        public bool IsProjectBatch => !string.IsNullOrEmpty(_currentProjectId);
         // ══════════════ Commands ══════════════
 
         public DelegateCommand ContinueCommand { get; private set; } = null!;
@@ -174,6 +216,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         public DelegateCommand StartCommand => ContinueCommand;
 
+        public DelegateCommand TestAutoPilotCommand { get; private set; } = null!;
         private void InitializeCommands()
         {
             ContinueCommand = new DelegateCommand(async () => await ContinueExecutionAsync(),
@@ -196,6 +239,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }, () => IsPaused);
             AbortCommand = new DelegateCommand(async () => await AbortExecutionAsync(), () => IsRunning || IsPaused);
             ToggleMiniModeCommand = new DelegateCommand(() => IsMiniMode = !IsMiniMode);
+            // 临时测试用，加到 InitializeCommands 里
+            TestAutoPilotCommand = new DelegateCommand(async () =>
+            {
+                _autoPilotEnabledForThisRun = true;
+                await TriggerAutoPilotAsync();
+            });
         }
 
         private void RaiseCommandCanExecute()
@@ -228,6 +277,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 BatchId = batchId;
                 BatchName = batch.BatchName;
                 BatchStatus = batch.Status;
+                FlowName = batch.FlowName;
+                DesignMethodText = batch.DesignMethod switch
+                {
+                    DOEDesignMethod.CCD => "CCD 中心复合",
+                    DOEDesignMethod.BoxBehnken => "Box-Behnken",
+                    DOEDesignMethod.FullFactorial => "全因子",
+                    DOEDesignMethod.FractionalFactorial => "部分因子",
+                    DOEDesignMethod.PlackettBurman => "Plackett-Burman",
+                    DOEDesignMethod.DOptimal => "D-Optimal",
+                    DOEDesignMethod.Taguchi => "Taguchi",
+                    DOEDesignMethod.Custom => "自定义",
+                    _ => batch.DesignMethod.ToString()
+                };
                 _responses = batch.Responses;
                 _factors = batch.Factors;
                 _factorNames = _factors.Select(f => f.FactorName).ToList();
@@ -237,9 +299,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var completedCount = activeRuns.Count(r => r.Status == DOERunStatus.Completed);
                 PendingCount = activeRuns.Count(r => r.Status == DOERunStatus.Pending || r.Status == DOERunStatus.Suspended);
                 FailedCount = activeRuns.Count(r => r.Status == DOERunStatus.Failed);
+                // ★ 修复: CurrentRun = 已执行过的组数（完成+失败），表示"进行到第几组"
+                var executedCount = completedCount + FailedCount;
                 TotalRuns = activeRuns.Count;
-                CurrentRun = completedCount;
-                ProgressPercent = TotalRuns > 0 ? (double)completedCount / TotalRuns * 100 : 0;
+                CurrentRun = executedCount;
+                ProgressPercent = TotalRuns > 0 ? (double)executedCount / TotalRuns * 100 : 0;
 
                 BuildMatrixTable(batch.Runs);
                 UpdateBestResult();
@@ -251,7 +315,23 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     + (FailedCount > 0 ? $", {FailedCount} 组失败" : "");
                 ContinueCommand.RaiseCanExecuteChanged();
                 RetryFailedCommand.RaiseCanExecuteChanged();
-
+                // ★ 加载 AutoPilot 状态
+                _currentProjectId = batch.ProjectId ?? "";
+                if (!string.IsNullOrEmpty(_currentProjectId))
+                {
+                    var apConfig = await _repository.GetAutoPilotConfigAsync(_currentProjectId);
+                    _isAutoPilotEnabled = apConfig?.Enabled == true;
+                    _autoPilotEnabledForThisRun = _isAutoPilotEnabled;
+                    AutoPilotStatusText = _isAutoPilotEnabled ? "已启用" : "未启用";
+                    RaisePropertyChanged(nameof(IsAutoPilotEnabled));
+                }
+                else
+                {
+                    _isAutoPilotEnabled = false;
+                    _autoPilotEnabledForThisRun = false;
+                    AutoPilotStatusText = "";
+                }
+                RaisePropertyChanged(nameof(IsProjectBatch));
                 _logger.LogInformation("加载 DOE 批次: {BatchId}, 总计 {Total} 组, 已完成 {Done} 组",
                     batchId, TotalRuns, completedCount);
             }
@@ -461,13 +541,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var items = new ObservableCollection<FactorDisplayItem>();
                 foreach (var kv in factors)
                 {
-                    // 尝试找到对应因子的单位信息
-                    var factorDef = _factors.FirstOrDefault(f => f.FactorName == kv.Key);
+                    // ★ 修复: 删除硬编码单位推断，DOEFactor 无 Unit 属性，不猜测单位
                     string unit = "";
-                    // 简单的单位推断：根据因子名
-                    if (kv.Key.Contains("温度") || kv.Key.Contains("Temperature")) unit = "℃";
-                    else if (kv.Key.Contains("流量") || kv.Key.Contains("Flow")) unit = kv.Key.Contains("H2") || kv.Key.Contains("氢") ? "sccm" : "mL/min";
-                    else if (kv.Key.Contains("压力") || kv.Key.Contains("Pressure")) unit = "bar";
 
                     // 缩短因子名用于显示
                     string shortName = kv.Key
@@ -500,12 +575,66 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
         }
 
+        /// <summary>
+        /// 从因子值 JSON 更新迷你面板因子显示（供 OnDOEProgressChanged 调用）
+        /// </summary>
+        private void UpdateCurrentFactorsFromJson(string factorValuesJson)
+        {
+            if (string.IsNullOrEmpty(factorValuesJson))
+            {
+                HasCurrentFactors = false;
+                return;
+            }
+
+            try
+            {
+                var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(factorValuesJson);
+                if (factors == null || factors.Count == 0)
+                {
+                    HasCurrentFactors = false;
+                    return;
+                }
+
+                var items = new ObservableCollection<FactorDisplayItem>();
+                foreach (var kv in factors)
+                {
+                    string unit = "";  // DOEFactor 无 Unit 属性，不猜测单位
+
+                    string shortName = kv.Key
+                        .Replace("Target", "")
+                        .Replace("target", "");
+
+                    string displayValue;
+                    if (kv.Value is double d)
+                        displayValue = d.ToString("F2");
+                    else if (double.TryParse(kv.Value?.ToString(), out var parsed))
+                        displayValue = parsed.ToString("F2");
+                    else
+                        displayValue = kv.Value?.ToString() ?? "—";
+
+                    items.Add(new FactorDisplayItem
+                    {
+                        Label = shortName,
+                        Value = displayValue,
+                        Unit = unit
+                    });
+                }
+                CurrentFactorItems = items;
+                HasCurrentFactors = items.Count > 0;
+            }
+            catch
+            {
+                HasCurrentFactors = false;
+            }
+        }
+
         // ══════════════ 执行控制 ══════════════
 
         private async Task ContinueExecutionAsync()
         {
             try
             {
+                // ── 继续执行确认 ──
                 if (CurrentRun > 0)
                 {
                     var confirm = _dialogService.ShowConfirmation(
@@ -514,7 +643,52 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     if (!confirm) return;
                 }
 
+                // ── 智能决策处理（仅项目批次） ──
                 var batch = await _repository.GetBatchWithDetailsAsync(BatchId);
+                bool isProjectBatch = batch != null && !string.IsNullOrEmpty(batch.ProjectId);
+
+                if (isProjectBatch)
+                {
+                    var config = await _repository.GetOrCreateAutoPilotConfigAsync(batch!.ProjectId!);
+
+                    if (!config.Enabled)
+                    {
+                        // 未启用 → 询问是否开启
+                        var enableAP = _dialogService.ShowConfirmation(
+                            "是否在本轮执行完成后启用智能决策？\n\n" +
+                            "启用后系统将自动:\n" +
+                            "  · 分析实验结果和模型质量\n" +
+                            "  · 筛选显著/不显著因子\n" +
+                            "  · 推荐下一轮设计方案\n\n" +
+                            "点击「是」后将打开参数配置界面。",
+                            "智能决策");
+
+                        if (enableAP)
+                        {
+                            config.Enabled = true;
+                            // 弹出配置界面
+                            if (!ShowAutoPilotConfigDialog(config)) return; // 用户取消
+                            await _repository.SaveAutoPilotConfigAsync(config);
+                            _isAutoPilotEnabled = true;
+                            _autoPilotEnabledForThisRun = true;
+                            AutoPilotStatusText = "已启用";
+                            RaisePropertyChanged(nameof(IsAutoPilotEnabled));
+                        }
+                        else
+                        {
+                            _autoPilotEnabledForThisRun = false;
+                        }
+                    }
+                    else
+                    {
+                        // 已启用 → 直接弹配置界面确认参数
+                        if (!ShowAutoPilotConfigDialog(config)) return; // 用户取消
+                        await _repository.SaveAutoPilotConfigAsync(config);
+                        _autoPilotEnabledForThisRun = true;
+                    }
+                }
+
+                // ── 恢复 Suspended 的 runs ──
                 if (batch != null)
                 {
                     var suspendedRuns = batch.Runs.Where(r => r.Status == DOERunStatus.Suspended).ToList();
@@ -527,12 +701,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         _logger.LogInformation("恢复 {Count} 组 Suspended 为 Pending", suspendedRuns.Count);
                 }
 
+                // ── 启动执行 ──
                 IsRunning = true;
                 IsPaused = false;
                 _firstRunStartTime = DateTime.Now;
-                StatusMessage = $"正在执行... 剩余 {PendingCount} 组";
+                StatusMessage = _autoPilotEnabledForThisRun
+                    ? $"正在执行... 剩余 {PendingCount} 组 [智能决策已启用]"
+                    : $"正在执行... 剩余 {PendingCount} 组";
 
-                //  切换到迷你模式
                 IsMiniMode = true;
 
                 _executionService.RunCompleted += OnRunCompleted;
@@ -550,6 +726,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 IsMiniMode = false;
             }
         }
+
 
         private void OnPauseConfirmed(object? sender, EventArgs e)
         {
@@ -667,6 +844,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             if (payload.BatchId != BatchId) return;
             StatusMessage = payload.StatusMessage;
+
+            // ★ 新增: 如果携带了因子值，更新 mini 面板因子显示
+            if (!string.IsNullOrEmpty(payload.CurrentFactorValuesJson))
+            {
+                UpdateCurrentFactorsFromJson(payload.CurrentFactorValuesJson);
+            }
         }
 
         private void OnRunCompleted(object? sender, DOERunCompletedEventArgs e)
@@ -703,15 +886,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         private void OnBatchCompleted(object? sender, DOEBatchCompletedEventArgs e)
         {
-            Application.Current?.Dispatcher.InvokeAsync(() =>
+            Application.Current?.Dispatcher.InvokeAsync(async () =>
             {
                 IsRunning = false;
                 IsPaused = false;
                 IsPausing = false;
                 BatchStatus = e.FinalStatus;
-                StatusMessage = $"批次完成: {e.StopReason} (完成 {e.CompletedRuns}/{e.TotalRuns} 组)";
+                StatusMessage = $"执行完成 ({e.CompletedRuns}/{e.TotalRuns} 组)";
 
-                //  执行完成，恢复大窗口
                 IsMiniMode = false;
 
                 _executionService.RunCompleted -= OnRunCompleted;
@@ -720,10 +902,135 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 _executionService.PauseConfirmed -= OnPauseConfirmed;
 
                 RecalculateProgress();
-                _dialogService.ShowInfo(StatusMessage, "DOE 执行完成");
+
+                if (e.FinalStatus == DOEBatchStatus.Completed && _autoPilotEnabledForThisRun)
+                {
+                    // 智能决策已启用 → 直接触发分析，不弹多余提示
+                    await TriggerAutoPilotAsync();
+                }
+                // 未启用或非正常完成 → 什么都不弹，状态栏已显示结果
             });
         }
+        /// <summary>
+        /// 弹出 AutoPilot 配置对话框，返回用户是否确认
+        /// </summary>
+        private bool ShowAutoPilotConfigDialog(AutoPilotConfig config)
+        {
+            var dialog = new AutoPilotConfigDialog(config)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            dialog.ShowDialog();
 
+            if (dialog.Confirmed)
+            {
+                // 用户确认，把修改后的值写回 config
+                var updated = dialog.Config;
+                config.AlphaScreen = updated.AlphaScreen;
+                config.R2Min = updated.R2Min;
+                config.R2Good = updated.R2Good;
+                config.AlphaLOF = updated.AlphaLOF;
+                config.R2ImprovementMin = updated.R2ImprovementMin;
+                config.DTarget = updated.DTarget;
+                config.ConfirmationReps = updated.ConfirmationReps;
+                config.MaxRounds = updated.MaxRounds;
+                config.MaxTotalRuns = updated.MaxTotalRuns;
+                config.RangeExpansionRatio = updated.RangeExpansionRatio;
+                config.MaxConsecutiveSameAction = updated.MaxConsecutiveSameAction;
+                config.Enabled = updated.Enabled;
+                return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// 批次完成后触发 AutoPilot 决策
+        /// 先查该批次是否关联项目，有项目则弹出决策报告
+        /// </summary>
+        private async Task TriggerAutoPilotAsync()
+        {
+            try
+            {
+                var batch = await _repository.GetBatchWithDetailsAsync(BatchId);
+                if (batch == null || string.IsNullOrEmpty(batch.ProjectId)) return;
+
+                StatusMessage = "智能决策: 正在分析实验结果...";
+
+                var report = await _autoPilotService.OnRoundCompletedAsync(
+                    batch.ProjectId, BatchId);
+
+                if (!report.Success)
+                {
+                    StatusMessage = $"智能决策分析失败: {report.Error}";
+                    return;
+                }
+
+                // 只弹决策报告，用户在里面操作
+                ShowAutoPilotReport(report);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "智能决策触发失败");
+                StatusMessage = $"智能决策异常: {ex.Message}";
+            }
+        }
+
+
+        /// <summary>
+        /// 弹出 AutoPilot 决策报告弹窗，处理用户选择
+        /// </summary>
+        private void ShowAutoPilotReport(AutoPilotReport report)
+        {
+            var dialog = new AutoPilotReportDialog(report)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            dialog.ShowDialog();
+
+            switch (dialog.SelectedAction)
+            {
+                case AutoPilotReportDialog.UserAction.Accept:
+                    _ = AcceptAndLoadNextRoundAsync(report);
+                    break;
+
+                case AutoPilotReportDialog.UserAction.Manual:
+                    StatusMessage = "手动决策模式，请在设计向导中创建下一轮。";
+                    break;
+
+                case AutoPilotReportDialog.UserAction.Skip:
+                case AutoPilotReportDialog.UserAction.None:
+                    StatusMessage = "已跳过本轮智能决策。";
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 用户点击"采纳推荐"后执行，创建下一轮并加载到执行面板
+        /// </summary>
+        private async Task AcceptAndLoadNextRoundAsync(AutoPilotReport report)
+        {
+            try
+            {
+                StatusMessage = "正在创建下一轮实验...";
+
+                var nextBatchId = await _autoPilotService.AcceptRecommendationAsync(
+                    report.ProjectId, report.BatchId);
+
+                if (!string.IsNullOrEmpty(nextBatchId))
+                {
+                    await LoadBatchAsync(nextBatchId);
+                    StatusMessage = $"下一轮已就绪: {report.NextDesignMethodDisplay}, {report.EstimatedRuns} 组实验";
+                }
+                else
+                {
+                    StatusMessage = "创建下一轮失败，请手动操作。";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "创建下一轮失败");
+                StatusMessage = $"创建下一轮失败: {ex.Message}";
+            }
+        }
         // ══════════════ 表格行更新 ══════════════
 
         private void UpdateTableRow(DOERunRecord run)
@@ -768,10 +1075,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 else if (status == "失败") failed++;
             }
 
-            CurrentRun = completed;
+            // ★ 修复: 已执行 = 完成 + 失败，不管成功失败都算执行过
+            var executed = completed + failed;
+            CurrentRun = executed;
             PendingCount = pending;
             FailedCount = failed;
-            ProgressPercent = TotalRuns > 0 ? (double)completed / TotalRuns * 100 : 0;
+            ProgressPercent = TotalRuns > 0 ? (double)executed / TotalRuns * 100 : 0;
         }
     }
 }

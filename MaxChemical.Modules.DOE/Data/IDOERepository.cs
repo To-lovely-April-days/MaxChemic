@@ -11,7 +11,7 @@ namespace MaxChemical.Modules.DOE.Data
     /// ★ 修改: 新增 Project / ProjectFactor / RoundSummary 相关方法
     ///   所有原有方法签名不变，保持完全兼容。
     /// </summary>
-    public interface IDOERepository
+    public partial interface IDOERepository
     {
         // ══════════════════════════════════════════════════════
         // ★ 新增: Project 项目
@@ -166,6 +166,7 @@ namespace MaxChemical.Modules.DOE.Data
         Task<string?> GetOlsResultJsonAsync(string batchId, string responseName);
         /// <summary>获取项目下所有 GPR 模型</summary>
         Task<List<GPRModelState>> GetGPRModelsByProjectAsync(string projectId);
+        Task UpdateResponseModelOrderAsync(string batchId, string responseName, int? modelOrder);
     }
 
     /// <summary>

@@ -134,6 +134,8 @@ namespace MaxChemical.Modules.DOE.Models
         /// 错误信息（失败时）
         /// </summary>
         public string? ErrorMessage { get; set; }
+
+        public double PredictedResponse { get; set; }
     }
 
     /// <summary>

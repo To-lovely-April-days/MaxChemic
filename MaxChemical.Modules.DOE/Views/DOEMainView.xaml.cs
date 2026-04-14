@@ -3,6 +3,7 @@ using MaxChemical.Modules.DOE.ViewModels;
 using Prism.Events;
 using Prism.Ioc;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,9 +30,9 @@ namespace MaxChemical.Modules.DOE.Views
         private static readonly CubicEase AnimEase = new() { EasingMode = EasingMode.EaseInOut };
         private static readonly string[] LoadingMessages = new[]
 {
-    "正在启动 Python 运行时...",
+   "正在启动 Python 运行时...",
     "正在加载统计分析引擎...",
-    "正在初始化 GPR 模型服务...",
+    // GPR 禁用: "正在初始化 GPR 模型服务...",
     "正在加载项目数据..."
 };
         public DOEMainView(DOEMainViewModel mainVm, IContainerProvider container)
@@ -142,7 +143,7 @@ namespace MaxChemical.Modules.DOE.Views
 
                 OverviewView.DataContext = _overviewVm;
                 ExecutionView.DataContext = _execVm;
-                ModelAnalysisView.DataContext = _modelAnalysisVm;
+                //ModelAnalysisView.DataContext = _modelAnalysisVm;
                 HistoryView.DataContext = _historyVm;
                 MiniPanel.DataContext = _execVm;
 
@@ -174,13 +175,67 @@ namespace MaxChemical.Modules.DOE.Views
 
                 if (_historyVm != null)
                 {
+                   
+
                     _historyVm.RequestExecuteBatch += (s, id) => mainVm.NavigateToExecution(id);
-                    _historyVm.RequestAnalyzeBatch += (s, id) =>
+                    _historyVm.RequestAnalyzeBatch += async (s, batchId) =>
                     {
-                        mainVm.CurrentBatchId = id;
-                        mainVm.SelectedTabIndex = 2;
-                        // ★ 直接跳到 OLS Tab 并加载该批次的分析
-                        _ = _modelAnalysisVm?.NavigateToOlsBatchAsync(id);
+                        try
+                        {
+                            var vm = _modelAnalysisVm;
+                            if (vm == null) return;
+                            var loading = new OlsLoadingWindow();
+                            loading.Owner = System.Windows.Application.Current.MainWindow;
+                            loading.Show();
+                            // ★ 关键: 断开主窗口 ModelAnalysisView 的 DataContext
+                            // 这样其内部所有 PlotView 的绑定全部解除，PlotModel 被释放
+                            //var savedContext = ModelAnalysisView.DataContext;
+                            //ModelAnalysisView.DataContext = null;
+
+                            // 加载该批次的 OLS 分析（内部会 new 新的 PlotModel）
+                            await vm.NavigateToOlsBatchAsync(batchId);
+
+                            // 后台加载
+                            loading.UpdateStatus("正在加载实验数据...");
+                            await vm.NavigateToOlsBatchAsync(batchId);
+
+                            loading.UpdateStatus("正在构建分析窗口...");
+                            await Task.Delay(50);
+
+                            // 弹出非模态窗口
+                            var win = new OlsAnalysisWindow
+                            {
+                                DataContext = vm
+                            };
+
+                            // ★ Closing：窗口还在，强制清理所有子控件
+                            win.Closing += (_, __) =>
+                            {
+                                win.DataContext = null;   // 断开所有绑定
+                                win.Content = null;       // 移除视觉树 → 触发 PlotView.Unloaded → 释放 PlotModel
+                            };
+
+                            // ★ Closed：窗口已销毁，安全恢复主窗口
+                            win.Closed += (_, __) =>
+                            {
+                                //// ApplicationIdle = 最低优先级，等 WPF 完成所有布局/渲染清理
+                                //Dispatcher.BeginInvoke(
+                                //    System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+                                //    () => { ModelAnalysisView.DataContext = savedContext; });
+                            };
+                            // 关闭 Loading → 打开分析窗口
+                            loading.Close();
+                            win.Show();
+                        }
+                        catch (Exception ex)
+                        {
+                            //// 出错时也要恢复
+                            //if (ModelAnalysisView.DataContext == null)
+                            //    ModelAnalysisView.DataContext = _modelAnalysisVm;
+
+                            MessageBox.Show($"打开分析窗口失败: {ex.Message}", "错误",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
                     };
                 }
 
@@ -264,11 +319,17 @@ namespace MaxChemical.Modules.DOE.Views
             MiniPanel.Visibility = Visibility.Visible;
             MiniPanel.Opacity = 0;
 
-            SizeToContent = SizeToContent.Height;
-            Width = MINI_WIDTH;
+            SizeToContent = SizeToContent.WidthAndHeight;  // ★ 改这里：宽高都自适应
+            MinWidth = 480;   // ★ 新增：最小宽度，防止太窄
+            MaxWidth = 720;   // ★ 新增：最大宽度，防止太宽
+
+            // ★ 灵动岛定位：屏幕顶部居中（等布局完成后再定位）
             var screen = SystemParameters.WorkArea;
-            Left = screen.Right - MINI_WIDTH - 20;
-            Top = screen.Bottom - 260 - 20;
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+            {
+                Left = (screen.Width - ActualWidth) / 2;
+                Top = screen.Top + 12;
+            });
 
             Topmost = true;
             ResizeMode = ResizeMode.NoResize;
@@ -287,6 +348,8 @@ namespace MaxChemical.Modules.DOE.Views
                 MainContent.Opacity = 0;
 
                 SizeToContent = SizeToContent.Manual;
+                MinWidth = 0;      // ★ 清除迷你模式的约束
+                MaxWidth = double.PositiveInfinity;
                 Topmost = false;
                 ResizeMode = ResizeMode.CanResizeWithGrip;
 

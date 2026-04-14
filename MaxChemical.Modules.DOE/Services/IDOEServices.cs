@@ -1,8 +1,9 @@
+using MaxChemical.Modules.DOE.Models;
+using MaxChemical.Modules.DOE.Services.Designs;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MaxChemical.Modules.DOE.Models;
 
 namespace MaxChemical.Modules.DOE.Services
 {
@@ -22,6 +23,15 @@ namespace MaxChemical.Modules.DOE.Services
         Task<DOEDesignMatrix> GenerateBoxBehnkenAsync(List<DOEFactor> factors, int centerCount = -1);
         Task<DOEDesignMatrix> GenerateDOptimalAsync(List<DOEFactor> factors, int numRuns = -1, string modelType = "quadratic");
         Task<DOEDesignQuality> GetDesignQualityAsync(List<DOEFactor> factors, DOEDesignMatrix matrix, string modelType = "quadratic");
+        Task<DOEDesignMatrix> GeneratePlackettBurmanAsync(List<DOEFactor> factors);
+
+        /// <summary>
+        /// 统一设计生成入口 (新)。根据 options 类型分发到对应 generator。
+        /// 支持的 options 类型:
+        ///   FullFactorialOptions, FractionalFactorialOptions, PlackettBurmanOptions,
+        ///   CCDOptions, BoxBehnkenOptions, DOptimalOptions, TaguchiOptions
+        /// </summary>
+        Task<DOEDesignMatrix> GenerateAsync(List<DOEFactor> factors, DesignOptions options);
     }
 
     public class DataValidationResult
@@ -107,6 +117,7 @@ namespace MaxChemical.Modules.DOE.Services
                         string source = "measured", string batchName = "", string timestamp = "");
         /// <summary>设置当前关联的项目 ID</summary>
         void SetProjectId(string? projectId);
+
     }
 
     public class GPRTrainResult
@@ -178,14 +189,13 @@ namespace MaxChemical.Modules.DOE.Services
         Task<string> GetModelEvolutionAsync(string flowId);
 
         // ── OLS 分析 ──
-        Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic");
-        Task<OLSAnalysisResult> FitOlsCustomAsync(string batchId, string responseName, List<string> terms);
+        Task<OLSAnalysisResult> FitOlsAsync(string batchId, string responseName, string modelType = "quadratic", bool includeCtPt = true, int modelOrder = 0);
+        Task<OLSAnalysisResult> FitOlsCustomAsync(string batchId, string responseName, List<string> terms, bool keepCtPt = true);
         Task<string> GetResidualDiagnosticsAsync(string batchId, string responseName);
         Task<string> GetEffectsParetoAsync(string batchId, string responseName, double alpha = 0.05);
         Task<string> GetPredictionProfilerAsync(string batchId, string responseName,
             int gridSize = 50, Dictionary<string, object>? fixedValues = null);
         Task<string> FindOptimalAsync(string batchId, string responseName, bool maximize = true);
-
         // ── ★ v7 新增: OLS 响应曲面 + 等高线 ──
 
         /// <summary>
@@ -250,12 +260,7 @@ namespace MaxChemical.Modules.DOE.Services
         /// </summary>
         Task<string> GetInteractionEffectsForResponseAsync(string batchId, string responseName);
 
-        /// <summary>★ v9: Box-Cox 变换分析</summary>
-        Task<string> GetBoxCoxAnalysisAsync(string batchId, string responseName);
-
-        /// <summary>★ v9: 应用 Box-Cox 变换后重拟合</summary>
-        Task<OLSAnalysisResult> ApplyBoxCoxAsync(string batchId, string responseName,
-            double lambdaValue, string modelType = "quadratic");
+     
 
         /// <summary>★ v9: 导出 OLS 报告为 Word 文件</summary>
         Task<string> ExportOlsReportAsync(string batchId, string responseName, string outputPath,
@@ -287,13 +292,24 @@ namespace MaxChemical.Modules.DOE.Services
         string GetMainEffectsDirectAsync(string responseName);
         string GetInteractionEffectsDirectAsync(string responseName);
         string GetOutlierAnalysisDirectAsync(string responseName);
-        string GetBoxCoxAnalysisDirectAsync(string responseName);
         string GetOlsSurfaceDataDirectAsync(string factor1, string factor2, string boundsJson, int gridSize = 30);
         byte[] GetOlsSurfaceImageDirectAsync(string factor1, string factor2, string boundsJson);
         string GetOlsContourDataDirectAsync(string factor1, string factor2, string boundsJson, int gridSize = 30);
         string GetPredictionProfilerDirectAsync(string responseName, int gridSize = 50, string fixedValuesJson = "");
         string FindOptimalDirectAsync(string responseName, bool maximize = true);
         string GetTukeyHSDDirectAsync(string responseName, string categoricalFactorName);
+        /// <summary>★ v17: 从当前已拟合模型获取 Pareto（精简模型后用）</summary>
+        string GetEffectsParetoFromCurrentModel(double alpha = 0.05);
+
+        /// <summary>★ v17: 从当前已拟合模型获取残差（精简模型后用）</summary>
+        string GetResidualDiagnosticsFromCurrentModel();
+        string FindOptimalFromCurrentModel(bool maximize = true);
+        string GetPredictionProfilerFromCurrentModel(int gridSize = 50, string fixedValuesJson = "");
+        /// <summary>快速预测: 直接用缓存的 β 系数, 不构建 ProfilerResult</summary>
+        double PredictFromCurrentModel(Dictionary<string, double> naturalFactorValues);
+        double PredictFromCurrentModel(
+    Dictionary<string, double> continuousValues,
+    Dictionary<string, string>? categoricalValues = null);
     }
 
     // ═══════════════════════════════════════════════════════

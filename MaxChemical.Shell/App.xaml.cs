@@ -50,6 +50,7 @@ public partial class App : PrismApplication
 
         // 应用启动时初始化Python环境
         PythonEnvironmentManager.Instance.Initialize();
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
     }
 
     private void CreateHost()

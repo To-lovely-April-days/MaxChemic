@@ -45,6 +45,9 @@ namespace MaxChemical.Modules.DOE.Events
         public int CurrentRun { get; set; }
         public int TotalRuns { get; set; }
         public string StatusMessage { get; set; } = string.Empty;
+
+        /// <summary>★ 当前组的因子值 JSON（可为 null）</summary>
+        public string? CurrentFactorValuesJson { get; set; }
     }
 
     /// <summary>

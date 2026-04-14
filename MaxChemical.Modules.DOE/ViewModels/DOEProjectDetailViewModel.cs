@@ -11,7 +11,7 @@ using System.Windows.Media;
 
 namespace MaxChemical.Modules.DOE.ViewModels
 {
-    public class DOEProjectDetailViewModel : BindableBase
+    public partial class  DOEProjectDetailViewModel : BindableBase
     {
         private readonly IDOERepository _repository;
 
@@ -46,6 +46,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public DOEProjectDetailViewModel(IDOERepository repository)
         {
             _repository = repository;
+
         }
 
         public async Task LoadAsync(string projectId)

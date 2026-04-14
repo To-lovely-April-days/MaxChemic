@@ -76,9 +76,92 @@ namespace MaxChemical.Modules.DOE.Models
 
         [JsonProperty("param_count")]
         public int ParamCount { get; set; }
-
+        /// <summary>
+        /// ★ v17 新增: 弯曲检验结果 (全因子设计 + 中心点时有值)
+        /// 对标 Minitab 的 Ct Pt 行和弯曲检验
+        /// </summary>
+        public CurvatureTestResult? CurvatureTest { get; set; }
+        /// <summary>
+        /// ★ 新增: 模型精简信息 (部分因子 / 全因子 backward elimination 结果)
+        /// 包括:
+        ///   - 因混杂(alias/共线)自动删除的项
+        ///   - 因 backward p 值超过阈值删除的项
+        ///   - 完整 / 精简模型的 R² 对比
+        /// 
+        /// 当设计方法为 FractionalFactorial 且使用了新版 Analyzer 时有值。
+        /// 其他设计方法保持 null。
+        /// </summary>
+        public ModelReductionInfo? Reduction { get; set; }
     }
+    /// <summary>
+    /// ★ v17 新增: 弯曲检验结果 — 对标 Minitab 全因子分析的 Ct Pt
+    /// 
+    /// 当设计方法为 FullFactorial/FractionalFactorial 且数据含中心点时,
+    /// Python 端会自动执行弯曲检验:
+    ///   1. 仅用角点拟合模型
+    ///   2. 中心点做弯曲检验 (Ct Pt)
+    ///   3. 误差 = 失拟 + 纯误差
+    /// 
+    /// 此时 ANOVA 表和系数表已经包含弯曲行,
+    /// 本类提供额外的检验元数据供 UI 层使用。
+    /// </summary>
+    public class CurvatureTestResult
+    {
+        /// <summary>是否执行了弯曲检验</summary>
+        [JsonProperty("has_curvature_test")]
+        public bool HasCurvatureTest { get; set; }
 
+        /// <summary>角点(因子点)数量</summary>
+        [JsonProperty("n_corner")]
+        public int CornerCount { get; set; }
+
+        /// <summary>中心点数量</summary>
+        [JsonProperty("n_center")]
+        public int CenterCount { get; set; }
+
+        /// <summary>角点响应均值 (= Minitab 截距)</summary>
+        [JsonProperty("corner_mean")]
+        public double CornerMean { get; set; }
+
+        /// <summary>中心点响应均值</summary>
+        [JsonProperty("center_mean")]
+        public double CenterMean { get; set; }
+
+        /// <summary>Ct Pt 系数 = 中心点均值 - 角点均值</summary>
+        [JsonProperty("ct_pt_coeff")]
+        public double CtPtCoefficient { get; set; }
+
+        /// <summary>Ct Pt 标准误</summary>
+        [JsonProperty("ct_pt_se")]
+        public double CtPtStdError { get; set; }
+
+        /// <summary>Ct Pt T值</summary>
+        [JsonProperty("ct_pt_t")]
+        public double CtPtTValue { get; set; }
+
+        /// <summary>Ct Pt P值</summary>
+        [JsonProperty("ct_pt_p")]
+        public double CtPtPValue { get; set; }
+
+        /// <summary>弯曲 SS</summary>
+        [JsonProperty("curvature_ss")]
+        public double CurvatureSS { get; set; }
+
+        /// <summary>弯曲 DF</summary>
+        [JsonProperty("curvature_df")]
+        public int CurvatureDF { get; set; }
+
+        /// <summary>弯曲 F值</summary>
+        [JsonProperty("curvature_f")]
+        public double CurvatureF { get; set; }
+
+        /// <summary>弯曲 P值</summary>
+        [JsonProperty("curvature_p")]
+        public double CurvatureP { get; set; }
+
+        /// <summary>弯曲是否显著 (P < 0.05 表示存在曲率，需要做 RSM)</summary>
+        public bool IsSignificant => CurvatureP < 0.05;
+    }
     /// <summary>
     /// ANOVA 表行
     /// </summary>
@@ -104,6 +187,12 @@ namespace MaxChemical.Modules.DOE.Models
         public double TValue { get; set; }
         public double PValue { get; set; }
         public double? VIF { get; set; }
+        /// <summary>
+        /// ★ v17 新增: 效应值 (Effect = 2 × 编码系数)
+        /// 仅全因子设计时有值，RSM 时为 null
+        /// UI 层判断: 如果 CurvatureTest != null，则显示效应列
+        /// </summary>
+        public double? Effect { get; set; }
     }
 
     // 新代码:

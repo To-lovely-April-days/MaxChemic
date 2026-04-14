@@ -11,6 +11,11 @@ namespace MaxChemical.Modules.DOE.Models
         public string Unit { get; set; } = string.Empty;
         public DOECollectionMethod CollectionMethod { get; set; } = DOECollectionMethod.Manual;
         public int SortOrder { get; set; }
+        /// <summary>
+        /// 模型中包含项的最高阶数（部分因子/全因子分析用）。
+        /// null 表示未设置过，使用默认值 2。
+        /// </summary>
+        public int? ModelOrder { get; set; }
     }
 
     /// <summary>
