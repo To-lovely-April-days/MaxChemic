@@ -166,5 +166,13 @@
   "RegionSetting_RegionType_PreHeat":"PreHeat",
   "RegionSetting_RegionType_Reaction":"Reaction",
   "RegionSetting_RegionType_Quench":"Quench",
-  "RegionSetting_RegionType_PostProcess":"PostProcess"
+  "RegionSetting_RegionType_PostProcess":"PostProcess",
+
+  "DeviceCommandProperty_Title":"Device command",
+  "DeviceCommandProperty_BindDevice":"Bind device",
+  "DeviceCommandProperty_SelectDevice":"Select device",
+  "DeviceCommandProperty_CurrentDevice":"Current device",
+  "DeviceCommandProperty_InputParam":"Input parameters",
+  "DeviceCommandProperty_NoneParam":"No parameters are provided",
+  "DeviceCommandProperty_Abstract":"Abstract"
 }

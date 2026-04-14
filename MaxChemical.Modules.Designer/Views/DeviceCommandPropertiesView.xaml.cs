@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -27,6 +28,8 @@ namespace MaxChemical.Modules.Designer.Views
         private string _currentDevice;
         private string _inputParam;
         private string _noneParam;
+        private string _abstractLabel;
+
 
         private ObservableCollection<ParamItem> _paramItems = new ObservableCollection<ParamItem>();
 
@@ -41,6 +44,7 @@ namespace MaxChemical.Modules.Designer.Views
         public DeviceCommandPropertiesView()
         {
             InitializeComponent();
+            this.DataContext = this;
 
             _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
             _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>();
@@ -51,10 +55,90 @@ namespace MaxChemical.Modules.Designer.Views
             this.DataContextChanged += OnDataContextChanged;
         }
 
+
+        public string Title
+        {
+            get { return _title; }
+            set
+            {
+                _title = value;
+                RaisePropertyChanged(nameof(Title));
+            }
+        }
+
+        public string BindDeviceLabel
+        {
+            get { return _bindDevice; }
+            set
+            {
+                _bindDevice = value;
+                RaisePropertyChanged(nameof(BindDeviceLabel));
+            }
+        }
+
+        public string InputParamLabel
+        {
+            get { return _inputParam; }
+            set
+            {
+                _inputParam = value;
+                RaisePropertyChanged(nameof(InputParamLabel));
+            }
+        }
+
+        public string SelectDeviceLabel
+        {
+            get { return _selectDevice; }
+            set
+            {
+                _selectDevice = value;
+                RaisePropertyChanged(nameof(SelectDeviceLabel));
+            }
+        }
+
+        public string CurrentDeviceLabel
+        {
+            get { return _currentDevice; }
+            set
+            {
+                _currentDevice = value;
+                RaisePropertyChanged(nameof(CurrentDeviceLabel));
+            }
+        }
+
+        public string NoneParamLabel
+        {
+            get { return _noneParam; }
+            set
+            {
+                _noneParam = value;
+                RaisePropertyChanged(nameof(NoneParamLabel));
+            }
+        }
+        public string AbstractLabel
+        {
+            get { return _abstractLabel; }
+            set
+            {
+                _abstractLabel = value;
+                RaisePropertyChanged(nameof(AbstractLabel));
+            }
+        }
+
+        private void RaisePropertyChanged([CallerMemberName]string propertyName = "")
+        {
+            var handler = PropertyChanged;
+            handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             TryBuildParams();
             HookDeviceSelectionChange();
+
+            //
+            LanguageChangedHandler("");
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -166,7 +250,13 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (_localizationService != null)
             {
-
+                Title = _localizationService.GetString("DeviceCommandProperty_Title");
+                CurrentDeviceLabel = _localizationService.GetString("DeviceCommandProperty_CurrentDevice");
+                SelectDeviceLabel = _localizationService.GetString("DeviceCommandProperty_SelectDevice");
+                BindDeviceLabel = _localizationService.GetString("DeviceCommandProperty_BindDevice");
+                InputParamLabel = _localizationService.GetString("DeviceCommandProperty_InputParam");
+                NoneParamLabel = _localizationService.GetString("DeviceCommandProperty_NoneParam");
+                AbstractLabel = _localizationService.GetString("DeviceCommandProperty_Abstract");
             }
         }
     }

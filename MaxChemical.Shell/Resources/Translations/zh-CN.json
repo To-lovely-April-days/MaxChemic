@@ -165,5 +165,13 @@
   "RegionSetting_RegionType_PreHeat":"预热",
   "RegionSetting_RegionType_Reaction":"反应",
   "RegionSetting_RegionType_Quench":"淬火",
-  "RegionSetting_RegionType_PostProcess":"后处理"
+  "RegionSetting_RegionType_PostProcess":"后处理",
+
+  "DeviceCommandProperty_Title":"设备命令",
+  "DeviceCommandProperty_BindDevice":"绑定设备",
+  "DeviceCommandProperty_SelectDevice":"选择设备",
+  "DeviceCommandProperty_CurrentDevice":"当前设备",
+  "DeviceCommandProperty_InputParam":"输入参数",
+  "DeviceCommandProperty_NoneParam":"暂无参数",
+  "DeviceCommandProperty_Abstract":"摘要"
 }
