@@ -1,4 +1,10 @@
-﻿using System;
+﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -6,10 +12,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.ViewModels;
-using Prism.Events;
-using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -25,9 +27,43 @@ namespace MaxChemical.Modules.Designer.Views
         public IfCommandPropertiesView()
         {
             InitializeComponent();
+
+            _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
+
             this.DataContextChanged += OnDataContextChanged;
             this.Loaded += OnLoaded;
         }
+
+        /// <summary>
+        /// 本地化
+        /// </summary>
+        /// <param name="s"></param>
+        private void OnLanguageChanged(string s)
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service is null)
+            {
+                return;
+            }
+
+            NodeTitle.Text = service.GetString("Logic_Title");
+            OperatorTitle.Text = service.GetString("Logic_Op_Title");
+            LeftOpLabel.Text = service.GetString("Logic_Op_Llabel");
+            RightOpLabel.Text = service.GetString("Logic_Op_Rlabel");
+            LeftButton.Content = service.GetString("Logic_Op_btnlabel");
+            RightButton.Content = service.GetString("Logic_Op_btnlabel");
+            LeftOperandBox.ToolTip = service.GetString("Logic_Op_Ltip");
+            RightOperandBox.ToolTip = service.GetString("Logic_Op_Rtip");
+            OperatorLabel.Text = service.GetString("Logic_Compar");
+            PreviewLabel.Text = service.GetString("Logic_Preview");
+            UseDescLabel.Text = service.GetString("Logic_Use_Title");
+            Desc1.Text = service.GetString("Logic_Use_Desc1");
+            Desc2.Text = service.GetString("Logic_Use_Desc2");
+            Desc3.Text = service.GetString("Logic_Use_Desc3");
+            Desc4.Text = service.GetString("Logic_Use_Desc4");
+        }
+
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {

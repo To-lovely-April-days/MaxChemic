@@ -236,5 +236,20 @@
   "SetVar_Use_Title":"使用说明",
   "SetVar_Use_Desc1":"• 变量名：直接输入或点击「选择」从已有变量中选取",
   "SetVar_Use_Desc2":"• 变量值：可以是常量，也可以引用其他变量 ${变量名}",
-  "SetVar_Use_Desc3":"• 类型会影响后续比较和运算的行为"
+  "SetVar_Use_Desc3":"• 类型会影响后续比较和运算的行为",
+
+  "Logic_Title":"逻辑判断",
+  "Logic_Op_Title":"操作数",
+  "Logic_Op_Llabel":"左操作数",
+  "Logic_Op_Rlabel":"右操作数",
+  "Logic_Op_btnlabel":"+ 变量",
+  "Logic_Op_Ltip":"输入变量名或常量值",
+  "Logic_Op_Rtip":"输入比较直、常量或变量名",
+  "Logic_Compar":"比较符",
+  "Logic_Preview":"条件预览",
+  "Logic_Use_Title":"变量引用说明",
+  "Logic_Use_Desc1":"• 点击「+ 变量」按钮从列表中选择已定义变量",
+  "Logic_Use_Desc2":"• 字符串常量请用引号包围：'文本'",
+  "Logic_Use_Desc3":"• 数字常量直接输入：123 或 45.67",
+  "Logic_Use_Desc4":"• 布尔值：true 或 false"
 }

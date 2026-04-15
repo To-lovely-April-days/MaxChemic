@@ -237,5 +237,20 @@
   "SetVar_Use_Title":"Instruction for Use",
   "SetVar_Use_Desc1":"• Variable name: Enter directly or click \"Select\" to choose from the existing variables.",
   "SetVar_Use_Desc2":"• Variable value: It can be a constant or it can refer to another variable ${variable name}",
-  "SetVar_Use_Desc3":"• The type will affect the behavior of subsequent comparisons and operations."
+  "SetVar_Use_Desc3":"• The type will affect the behavior of subsequent comparisons and operations.",
+
+  "Logic_Title":"Logical reasoning",
+  "Logic_Op_Title":"Operand",
+  "Logic_Op_Llabel":"Left operand",
+  "Logic_Op_Rlabel":"Right operand",
+  "Logic_Op_btnlabel":"+ Variable",
+  "Logic_Op_Ltip":"Enter the variable name or constant value",
+  "Logic_Op_Rtip":"Input simple, constant or variable names",
+  "Logic_Compar":"Operator",
+  "Logic_Preview":"Conditional preview",
+  "Logic_Use_Title":"Variable reference explanation",
+  "Logic_Use_Desc1":"• Click the \"Variable\" button and select the defined variables from the list.",
+  "Logic_Use_Desc2":"• String constants should be enclosed in quotation marks: 'Text'",
+  "Logic_Use_Desc3":"• Numeric constants can be directly input as follows: 123 or 45.67",
+  "Logic_Use_Desc4":"• Boolean value: true or false"
 }
