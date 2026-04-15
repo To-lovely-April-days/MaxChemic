@@ -278,7 +278,7 @@
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="设置变量" FontSize="15" FontWeight="Medium"
+                            <TextBlock Name="NodeTitle" Text="设置变量" FontSize="15" FontWeight="Medium"
                                        Foreground="#212121" VerticalAlignment="Center"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -300,17 +300,17 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="基本信息" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="NodeInfoTitle" Text="基本信息" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
-                        <TextBlock Text="名称" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="NodeNameLabel" Text="名称" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox x:Name="NodeNameBox"
                                  Style="{StaticResource FieldInputStyle}"
                                  Margin="0,0,0,10"
                                  Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
                                  TextChanged="OnValueChanged"/>
 
-                        <TextBlock Text="描述" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="NodeDesc" Text="描述" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox x:Name="DescriptionBox"
                                  Height="60" Padding="9,6" FontSize="13"
                                  TextWrapping="Wrap" AcceptsReturn="True"
@@ -341,11 +341,11 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="变量配置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="VarSetTitle" Text="变量配置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
                         <!-- 变量名 -->
-                        <TextBlock Text="变量名" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="VarNameLabel" Text="变量名" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -357,13 +357,13 @@
                                      Margin="0,0,6,0"
                                      Text="{Binding LogicCommand.Properties[VariableName], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <Button Grid.Column="1" Content="选择"
+                            <Button Name="VarSelect" Grid.Column="1" Content="选择"
                                     Style="{StaticResource VarButtonStyle}"
                                     Click="SelectVariableName_Click"/>
                         </Grid>
 
                         <!-- 变量类型 -->
-                        <TextBlock Text="变量类型" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="VarTypeLabel" Text="变量类型" Style="{StaticResource FieldLabelStyle}"/>
                         <ComboBox x:Name="VariableTypeCombo"
                                   Style="{StaticResource FieldComboStyle}"
                                   Margin="0,0,0,10"
@@ -379,7 +379,7 @@
                         </ComboBox>
 
                         <!-- 变量值 -->
-                        <TextBlock Text="变量值" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="VarValueLabel" Text="变量值" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -391,7 +391,7 @@
                                      Margin="0,0,6,0"
                                      Text="{Binding LogicCommand.Properties[VariableValue], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <Button Grid.Column="1" Content="选择"
+                            <Button Name="ValueSelect" Grid.Column="1" Content="选择"
                                     Style="{StaticResource VarButtonStyle}"
                                     Click="SelectVariableValue_Click"/>
                         </Grid>
@@ -433,7 +433,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="赋值预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="NodePreviewTitle" Text="赋值预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Border Background="#FAFAFA" BorderBrush="#E0E0E0"
                                 BorderThickness="1" CornerRadius="6" Padding="10,8">
@@ -467,7 +467,7 @@
                         <Border Width="6" Height="6" CornerRadius="3"
                                 Background="#E53935" Margin="0,0,8,0"
                                 VerticalAlignment="Center"/>
-                        <TextBlock Text="变量名不能为空"
+                        <TextBlock Name="WarnInfo" Text="变量名不能为空"
                                    FontSize="12" Foreground="#C62828"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -480,15 +480,15 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="使用说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
+                            <TextBlock Name="NodeUseDescTitle" Text="使用说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
                         </StackPanel>
                         <TextBlock FontSize="11" Foreground="#1976D2"
                                    LineHeight="20" TextWrapping="Wrap">
-                            <Run Text="• 变量名：直接输入或点击「选择」从已有变量中选取"/>
+                            <Run Name="Desc1" Text="• 变量名：直接输入或点击「选择」从已有变量中选取"/>
                             <LineBreak/>
-                            <Run Text="• 变量值：可以是常量，也可以引用其他变量 ${变量名}"/>
+                            <Run Name="Desc2" Text="• 变量值：可以是常量，也可以引用其他变量 ${变量名}"/>
                             <LineBreak/>
-                            <Run Text="• 类型会影响后续比较和运算的行为"/>
+                            <Run Name="Desc3" Text="• 类型会影响后续比较和运算的行为"/>
                         </TextBlock>
                     </StackPanel>
                 </Border>

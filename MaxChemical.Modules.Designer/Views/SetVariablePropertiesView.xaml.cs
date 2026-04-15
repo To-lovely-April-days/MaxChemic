@@ -1,4 +1,10 @@
-﻿using System;
+﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -6,10 +12,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.ViewModels;
-using Prism.Events;
-using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -25,8 +27,41 @@ namespace MaxChemical.Modules.Designer.Views
         public SetVariablePropertiesView()
         {
             InitializeComponent();
+
+            _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
+
             DataContextChanged += OnDataContextChanged;
             Loaded += OnLoaded;
+        }
+
+        /// <summary>
+        /// 本地化
+        /// </summary>
+        /// <param name="s"></param>
+        private void OnLanguageChanged(string s)
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service is null)
+            {
+                return;
+            }
+
+            NodeTitle.Text = service.GetString("SetVar_Title");
+            NodeInfoTitle.Text = service.GetString("SetVar_Info_Title");
+            NodeNameLabel.Text = service.GetString("SetVar_Info_Name");
+            VarSetTitle.Text = service.GetString("SetVar_Info_Desc");
+            VarNameLabel.Text = service.GetString("SetVar_Set_Title");
+            VarTypeLabel.Text = service.GetString("SetVar_Set_Name");
+            VarValueLabel.Text = service.GetString("SetVar_Set_Type");
+            VarSelect.Content = service.GetString("SetVar_Set_Select");
+            ValueSelect.Content = service.GetString("SetVar_Set_Select");
+            NodePreviewTitle.Text = service.GetString("SetVar_Set_Preview");
+            NodeUseDescTitle.Text = service.GetString("SetVar_Use_Title");
+            Desc1.Text = service.GetString("SetVar_Use_Desc1");
+            Desc2.Text = service.GetString("SetVar_Use_Desc2");
+            Desc3.Text = service.GetString("SetVar_Use_Desc3");
+            WarnInfo.Text = service.GetString("SetVar_WarnInfo");
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
