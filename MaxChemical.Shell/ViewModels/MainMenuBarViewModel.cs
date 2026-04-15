@@ -478,7 +478,7 @@ public class MainMenuBarViewModel : BindableBase
             {
                 Title = "实验历史记录",
                 Content = new MaxChemical.Modules.Designer.Views.ExperimentHistoryView { DataContext = historyViewModel },
-                Width = 1200,
+                Width = 980,
                 Height = 800,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen
             };

@@ -428,7 +428,7 @@
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
@@ -1327,114 +1327,154 @@
 
 
             <!-- ==================== 右侧属性栏（Row=0~1, Column=1，跨两行） ==================== -->
-            <Border x:Name="PropertyPanelRoot"
-                    Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
-                    Margin="0,50,0,0"
-                    Background="#F5F5F5"
-                    BorderBrush="#E0E0E0"
-                    BorderThickness="1,0,0,0"
-                    MouseDown="PropertyPanelRoot_MouseDown">
+            <!-- ==================== 右侧属性栏（Row=0~1, Column=1，跨两行） ==================== -->
+            <Grid Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
+      Margin="0,50,0,0">
 
-                <!-- 去掉外层标题栏，直接由内部各属性视图的 Header 提供标题 -->
-                <ContentControl Content="{Binding SelectedNode}">
-                    <ContentControl.Style>
-                        <Style TargetType="ContentControl">
-                            <Setter Property="ContentTemplate" Value="{StaticResource DefaultPropertiesTemplate}"/>
-                            <Setter Property="RenderTransform">
-                                <Setter.Value>
-                                    <TranslateTransform X="0"/>
-                                </Setter.Value>
-                            </Setter>
+                <!-- 胶囊拉手（始终可见，贴在面板左边缘外侧） -->
+                <Border x:Name="PanelToggleCapsule"
+            HorizontalAlignment="Left" VerticalAlignment="Center"
+            Margin="-22,0,0,0"
+            Panel.ZIndex="10"
+            Width="22" Height="72"
+            Background="White"
+            BorderBrush="#E0E0E0"
+            BorderThickness="0.5,0.5,0,0.5"
+            CornerRadius="8,0,0,8"
+            Cursor="Hand"
+            MouseLeftButtonUp="TogglePropertyPanel_Click">
+                    <Border.Style>
+                        <Style TargetType="Border">
                             <Style.Triggers>
-                                <!-- 设备命令 -->
-                                <DataTrigger Binding="{Binding SelectedNode.IsDeviceCommand}" Value="True">
-                                    <Setter Property="ContentTemplate" Value="{StaticResource DeviceCommandPropertiesTemplate}"/>
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                 From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                </DataTrigger>
-                                <!-- IF命令 -->
-                                <DataTrigger Binding="{Binding SelectedNode.IsIfNode}" Value="True">
-                                    <Setter Property="ContentTemplate" Value="{StaticResource IfCommandPropertiesTemplate}"/>
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                 From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                </DataTrigger>
-                                <!-- 循环命令 -->
-                                <DataTrigger Binding="{Binding SelectedNode.IsLoopNode}" Value="True">
-                                    <Setter Property="ContentTemplate" Value="{StaticResource LoopCommandPropertiesTemplate}"/>
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                 From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                </DataTrigger>
-                                <!-- 并行命令 -->
-                                <DataTrigger Binding="{Binding SelectedNode.IsParallelNode}" Value="True">
-                                    <Setter Property="ContentTemplate" Value="{StaticResource ParallelCommandPropertiesTemplate}"/>
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                 From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                </DataTrigger>
-                                <!-- 设置变量命令 -->
-                                <DataTrigger Binding="{Binding SelectedNode.IsSetVariableNode}" Value="True">
-                                    <Setter Property="ContentTemplate" Value="{StaticResource SetVariableCommandPropertiesTemplate}"/>
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                 From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                </DataTrigger>
-                                <!-- 等待命令 -->
-                                <DataTrigger Binding="{Binding SelectedNode.IsWaitNode}" Value="True">
-                                    <Setter Property="ContentTemplate" Value="{StaticResource WaitCommandPropertiesTemplate}"/>
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                 From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.8" To="1.0" Duration="0:0:0.2"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#F8F9FB"/>
+                                </Trigger>
                             </Style.Triggers>
                         </Style>
-                    </ContentControl.Style>
-                </ContentControl>
-            </Border>
+                    </Border.Style>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <!-- 箭头 -->
+                        <Path x:Name="PanelToggleChevron"
+                  Data="M5,1 L1,5 L5,9"
+                  Stroke="#6B7280" StrokeThickness="1.3"
+                  Fill="Transparent"
+                  Width="6" Height="10" Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  StrokeLineJoin="Round"/>
+                        <!-- 竖排文字 -->
+                        <StackPanel Margin="0,6,0,0" HorizontalAlignment="Center">
+                            <TextBlock Text="属" FontSize="11" Foreground="#9CA3AF"
+                           HorizontalAlignment="Center" LineHeight="14"/>
+                            <TextBlock Text="性" FontSize="11" Foreground="#9CA3AF"
+                           HorizontalAlignment="Center" LineHeight="14"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 属性面板主体（默认折叠） -->
+                <Border x:Name="PropertyPanelRoot"
+            Width="360"
+            Background="#F5F5F5"
+            BorderBrush="#E0E0E0"
+            BorderThickness="1,0,0,0"
+            MouseDown="PropertyPanelRoot_MouseDown"
+            Visibility="Collapsed">
+
+                    <ContentControl Content="{Binding SelectedNode}">
+                        <ContentControl.Style>
+                            <Style TargetType="ContentControl">
+                                <Setter Property="ContentTemplate" Value="{StaticResource DefaultPropertiesTemplate}"/>
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform X="0"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedNode.IsDeviceCommand}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource DeviceCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SelectedNode.IsIfNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource IfCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SelectedNode.IsLoopNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource LoopCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SelectedNode.IsParallelNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource ParallelCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SelectedNode.IsSetVariableNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource SetVariableCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SelectedNode.IsWaitNode}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource WaitCommandPropertiesTemplate}"/>
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="20" To="0" Duration="0:0:0.2" DecelerationRatio="0.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.8" To="1.0" Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ContentControl.Style>
+                    </ContentControl>
+                </Border>
+            </Grid>
 
         </Grid>
 

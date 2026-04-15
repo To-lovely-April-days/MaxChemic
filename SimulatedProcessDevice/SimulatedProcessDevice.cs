@@ -34,7 +34,10 @@ namespace DevicePlugins.Simulated
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
-
+        private int _tempStep = 0;
+        private int _pressureStep = 0;
+        private int _chromStep = 0;
+        private int _flowRespStep = 0;
         public SimulatedProcessDevice()
         {
             _logger = LogManager.GetLogger<SimulatedProcessDevice>();
@@ -270,6 +273,202 @@ namespace DevicePlugins.Simulated
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false }
                         }
+                    };
+                })
+            });
+
+            Commands.Add(new DeviceCommand
+            {
+                Name = "获取温度数据",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/temperature.png",
+                HelpText = "每次调用返回一个温度数据点，多次调用形成S型升温曲线",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+        {
+            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
+            new NumberParameter("Temperature", -50, 500, 0, "温度(℃)") { IsVisibleInVariableManager = true }
+        }
+                },
+                Action = WrapAction("获取温度数据", async delegate (DeviceParameters parameters)
+                {
+                    await Task.Delay(50);
+
+                    int step;
+                    lock (_stateLock) { step = _tempStep++; }
+
+                    double t = step * 0.5; // 每步0.5秒
+                                           // S型曲线 (sigmoid): 从25℃升到200℃
+                    double midPoint = 30.0; // 中间拐点时间
+                    double steepness = 0.15;
+                    double value = 25.0 + 175.0 / (1.0 + Math.Exp(-steepness * (t - midPoint)));
+                    // 加噪声
+                    double noise = (new Random().NextDouble() - 0.5) * 0.6;
+                    value = Math.Round(value + noise, 2);
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+            {
+                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "") { IsVisibleInVariableManager = true },
+                new NumberParameter("Temperature", -50, 500, value, "") { IsVisibleInVariableManager = true }
+            }
+                    };
+                })
+            });
+            Commands.Add(new DeviceCommand
+            {
+                Name = "获取压力数据",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/gas.png",
+                HelpText = "每次调用返回一个压力数据点，多次调用形成周期性波动曲线",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+        {
+            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
+            new NumberParameter("Pressure", 0, 100, 0, "压力(bar)") { IsVisibleInVariableManager = true }
+        }
+                },
+                Action = WrapAction("获取压力数据", async delegate (DeviceParameters parameters)
+                {
+                    await Task.Delay(50);
+
+                    int step;
+                    lock (_stateLock) { step = _pressureStep++; }
+
+                    double t = step * 0.5;
+                    // 三个正弦叠加: 主波 + 谐波 + 慢漂移，形成丰富的波形
+                    double wave1 = 2.0 * Math.Sin(2 * Math.PI * 0.03 * t);           // 慢呼吸波
+                    double wave2 = 0.8 * Math.Sin(2 * Math.PI * 0.12 * t + 0.7);     // 中频泵脉动
+                    double wave3 = 0.3 * Math.Sin(2 * Math.PI * 0.31 * t + 2.1);     // 高频扰动
+                    double noise = (new Random().NextDouble() - 0.5) * 0.15;
+                    double value = Math.Round(10.0 + wave1 + wave2 + wave3 + noise, 3);
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+            {
+                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "") { IsVisibleInVariableManager = true },
+                new NumberParameter("Pressure", 0, 100, value, "") { IsVisibleInVariableManager = true }
+            }
+                    };
+                })
+            });
+            Commands.Add(new DeviceCommand
+            {
+                Name = "获取色谱信号",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/Default.png",
+                HelpText = "每次调用返回一个色谱信号点，多次调用形成多峰色谱图",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+        {
+            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
+            new NumberParameter("Signal", 0, 99999, 0, "信号(mAU)") { IsVisibleInVariableManager = true }
+        }
+                },
+                Action = WrapAction("获取色谱信号", async delegate (DeviceParameters parameters)
+                {
+                    await Task.Delay(50);
+
+                    int step;
+                    lock (_stateLock) { step = _chromStep++; }
+
+                    double t = step * 0.5;
+
+                    // 5个高斯峰，手工调好位置和宽度，保证好看
+                    // (保留时间, 峰宽sigma, 峰高)
+                    var peaks = new (double rt, double sigma, double height)[]
+                    {
+            (15.0,  2.0,  800),    // 小前峰
+            (35.0,  3.0,  4500),   // 主峰1
+            (48.0,  2.5,  3200),   // 主峰2（与1有轻微重叠）
+            (70.0,  4.0,  6000),   // 最高峰
+            (95.0,  3.5,  2000),   // 尾峰
+                    };
+
+                    double signal = 0;
+                    foreach (var (rt, sigma, height) in peaks)
+                    {
+                        signal += height * Math.Exp(-0.5 * Math.Pow((t - rt) / sigma, 2));
+                    }
+
+                    // 基线缓慢漂移 + 微小噪声
+                    double baseline = 3.0 * Math.Sin(2 * Math.PI * t / 200.0) + 5.0;
+                    double noise = (new Random().NextDouble() - 0.5) * 8;
+                    signal = Math.Round(signal + baseline + noise, 2);
+                    if (signal < 0) signal = 0;
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+            {
+                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "") { IsVisibleInVariableManager = true },
+                new NumberParameter("Signal", 0, 99999, signal, "") { IsVisibleInVariableManager = true }
+            }
+                    };
+                })
+            });
+            Commands.Add(new DeviceCommand
+            {
+                Name = "获取流量响应",
+                ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
+                HelpText = "每次调用返回一个流量响应点，多次调用形成阶跃振荡衰减曲线",
+                InputParameters = new DeviceParameters(),
+                OutputParameters = new DeviceParameters
+                {
+                    Variables = new ObservableCollection<ParameterBase>
+        {
+            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
+            new NumberParameter("Flow", 0, 200, 0, "流量(mL/min)") { IsVisibleInVariableManager = true }
+        }
+                },
+                Action = WrapAction("获取流量响应", async delegate (DeviceParameters parameters)
+                {
+                    await Task.Delay(50);
+
+                    int step;
+                    lock (_stateLock) { step = _flowRespStep++; }
+
+                    double t = step * 0.2; // 每步0.2秒，更密
+                    double target = 20.0;
+                    double zeta = 0.2;   // 欠阻尼，振荡明显
+                    double wn = 1.2;
+                    double wd = wn * Math.Sqrt(1 - zeta * zeta);
+
+                    double value;
+                    if (t < 1.0)
+                    {
+                        value = 0; // 初始静止
+                    }
+                    else
+                    {
+                        double ts = t - 1.0;
+                        value = target * (1 - Math.Exp(-zeta * wn * ts) *
+                            (Math.Cos(wd * ts) + (zeta * wn / wd) * Math.Sin(wd * ts)));
+                    }
+
+                    double noise = (new Random().NextDouble() - 0.5) * 0.1;
+                    value = Math.Round(value + noise, 3);
+
+                    return new DeviceParameters
+                    {
+                        Variables = new ObservableCollection<ParameterBase>
+            {
+                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                new NumberParameter("Time", 0, 99999, Math.Round(t, 2), "") { IsVisibleInVariableManager = true },
+                new NumberParameter("Flow", 0, 200, value, "") { IsVisibleInVariableManager = true }
+            }
                     };
                 })
             });

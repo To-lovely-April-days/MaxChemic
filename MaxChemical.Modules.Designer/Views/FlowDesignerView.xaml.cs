@@ -817,9 +817,15 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 _nodeManagementService.ClearAllSelections(viewModel);
                 node.IsSelected = true;
-                //ScrollToNodeSmooth(node);
                 viewModel.NodeClickCommand?.Execute(node);
                 _logger.LogDebug("已选中命令节点: {NodeName}", node.DisplayName);
+
+                // 选中节点时自动展开属性栏
+                if (!_isPropertyPanelOpen)
+                {
+                    _isPropertyPanelOpen = true;
+                    UpdatePropertyPanelState();
+                }
             }
         }
 
@@ -1231,11 +1237,32 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         #endregion
-
         private void PropertyPanelRoot_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // 让事件在此处“终止”，不再冒泡到整体的“清空选中”逻辑
+            // 让事件在此处终止，不再冒泡到整体的"清空选中"逻辑
             e.Handled = true;
+        }
+        private bool _isPropertyPanelOpen = false;
+        private void TogglePropertyPanel_Click(object sender, MouseButtonEventArgs e)
+        {
+            _isPropertyPanelOpen = !_isPropertyPanelOpen;
+            UpdatePropertyPanelState();
+            e.Handled = true;
+        }
+        private void UpdatePropertyPanelState()
+        {
+            if (_isPropertyPanelOpen)
+            {
+                PropertyPanelRoot.Visibility = Visibility.Visible;
+                // 箭头指向右（提示可折叠）
+                PanelToggleChevron.Data = Geometry.Parse("M1,1 L5,5 L1,9");
+            }
+            else
+            {
+                PropertyPanelRoot.Visibility = Visibility.Collapsed;
+                // 箭头指向左（提示可展开）
+                PanelToggleChevron.Data = Geometry.Parse("M5,1 L1,5 L5,9");
+            }
         }
         private void CanvasHost_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -1255,6 +1282,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
             return false;
         }
+       
         #region 缩放功能
 
         private double _currentZoom = 1.0;

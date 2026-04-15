@@ -404,18 +404,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 }
                 else
                 {
-                    // 停止状态 - 灰色渐变
+                    // 停止状态 - 薰衣草靛蓝
                     var stoppedShellBrush = this.Resources["StoppedShellGradient"] as LinearGradientBrush;
                     var stoppedCylinderBrush = this.Resources["StoppedCylinderGradient"] as LinearGradientBrush;
 
+                    Brush shellFill = (Brush)stoppedShellBrush
+                        ?? new SolidColorBrush(Color.FromRgb(0xDF, 0xE3, 0xF0));
+                    Brush bodyFill = (Brush)stoppedShellBrush
+                        ?? new SolidColorBrush(Color.FromRgb(0xCD, 0xD3, 0xE8));
+
                     if (pumpShell != null)
-                        pumpShell.Fill = new SolidColorBrush(Color.FromRgb(240, 244, 246)); // 恢复默认灰白色
+                        pumpShell.Fill = shellFill;
 
                     if (pumpCurvedShell != null)
-                        pumpCurvedShell.Fill = new SolidColorBrush(Color.FromRgb(240, 244, 246));
+                        pumpCurvedShell.Fill = shellFill;
 
                     if (pumpBody != null)
-                        pumpBody.Fill = new SolidColorBrush(Color.FromRgb(200, 211, 218));
+                        pumpBody.Fill = bodyFill;
 
                     if (cylinder1 != null && stoppedCylinderBrush != null)
                         cylinder1.Fill = stoppedCylinderBrush;

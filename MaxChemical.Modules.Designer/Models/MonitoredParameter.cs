@@ -186,6 +186,8 @@ namespace MaxChemical.Modules.Designer.Models
         {
             return $"{DisplayName} ({(IsEnabled ? "启用" : "禁用")})";
         }
+        public double MinRange { get; set; }
+        public double MaxRange { get; set; }
     }
 
     /// <summary>

@@ -3,6 +3,7 @@ using MaxChemical.Data.Models;
 using MaxChemical.Data.Repositories;
 using MaxChemical.Data.Services;
 using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Models;
 using Microsoft.Win32;
 using Prism.Commands;
 using Prism.Mvvm;
@@ -11,6 +12,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -350,17 +352,52 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
         }
 
-        private void ViewDetails()
+        private async void ViewDetails()
         {
             if (SelectedExperiment == null) return;
 
+            var owner = Application.Current.Windows
+                .OfType<Window>()
+                .FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
+
+            var loading = new LoadingOverlayWindow("正在加载实验详情...", owner);
+            loading.Show();
+
             try
             {
-                var detailWindow = new Views.ExperimentDetailWindow(SelectedExperiment.ExperimentId);
+                var container = ContainerLocator.Container;
+                var vm = container.Resolve<ExperimentDetailWindowViewModel>();
+
+                await vm.LoadDataAsync(SelectedExperiment.ExperimentId, loading);
+
+                if (vm.Experiment == null)
+                {
+                    loading.Close();
+                    MessageBox.Show("未找到实验记录", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                loading.UpdateMessage("正在渲染界面...");
+
+                // 创建详情窗口
+                var detailWindow = new Views.ExperimentDetailWindow(vm, owner);
+
+                // 窗口完成渲染后再关闭 loading
+                detailWindow.ContentRendered += (s, e) =>
+                {
+                    loading?.Close();
+                    loading = null;
+                };
+
+                // ShowDialog 是阻塞的，但 ContentRendered 会在窗口显示后触发
                 detailWindow.ShowDialog();
+
+                // 兜底：如果 ContentRendered 没触发（异常情况）
+                loading?.Close();
             }
             catch (Exception ex)
             {
+                loading?.Close();
                 _logger.LogError(ex, "查看实验详情失败");
                 MessageBox.Show($"查看实验详情失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }

@@ -49,26 +49,26 @@
 
         <!-- 停止状态：灰色外壳渐变（保持原样） -->
         <LinearGradientBrush x:Key="StoppedShellGradient" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#B0BCC3" Offset="0"/>
-            <GradientStop Color="#C4CFD6" Offset="0.1"/>
-            <GradientStop Color="#D8E0E5" Offset="0.2"/>
-            <GradientStop Color="#E8EEF1" Offset="0.35"/>
-            <GradientStop Color="#F4F7F9" Offset="0.5"/>
-            <GradientStop Color="#E8EEF1" Offset="0.65"/>
-            <GradientStop Color="#D8E0E5" Offset="0.8"/>
-            <GradientStop Color="#C4CFD6" Offset="0.9"/>
-            <GradientStop Color="#B0BCC3" Offset="1"/>
+            <GradientStop Color="#A8B0D4" Offset="0"/>
+            <GradientStop Color="#B4BBD9" Offset="0.1"/>
+            <GradientStop Color="#BBC2DE" Offset="0.2"/>
+            <GradientStop Color="#CDD3E8" Offset="0.35"/>
+            <GradientStop Color="#F1F2F8" Offset="0.5"/>
+            <GradientStop Color="#CDD3E8" Offset="0.65"/>
+            <GradientStop Color="#BBC2DE" Offset="0.8"/>
+            <GradientStop Color="#B4BBD9" Offset="0.9"/>
+            <GradientStop Color="#A8B0D4" Offset="1"/>
         </LinearGradientBrush>
 
         <!-- 停止状态：气缸渐变（保持原样） -->
         <LinearGradientBrush x:Key="StoppedCylinderGradient" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#5A6870" Offset="0"/>
-            <GradientStop Color="#7A8890" Offset="0.15"/>
-            <GradientStop Color="#A0ADB5" Offset="0.35"/>
-            <GradientStop Color="#C8D3DA" Offset="0.5"/>
-            <GradientStop Color="#A0ADB5" Offset="0.65"/>
-            <GradientStop Color="#7A8890" Offset="0.85"/>
-            <GradientStop Color="#5A6870" Offset="1"/>
+            <GradientStop Color="#6E78A8" Offset="0"/>
+            <GradientStop Color="#8890B8" Offset="0.15"/>
+            <GradientStop Color="#B4BAD5" Offset="0.35"/>
+            <GradientStop Color="#D2D6E8" Offset="0.5"/>
+            <GradientStop Color="#B4BAD5" Offset="0.65"/>
+            <GradientStop Color="#8890B8" Offset="0.85"/>
+            <GradientStop Color="#6E78A8" Offset="1"/>
         </LinearGradientBrush>
 
         <!-- ========== 正常运行动画 (保持不变) ========== -->
@@ -364,13 +364,13 @@
         </LinearGradientBrush>
 
         <LinearGradientBrush x:Key="CylinderGradient" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#5A6870" Offset="0"/>
-            <GradientStop Color="#7A8890" Offset="0.15"/>
-            <GradientStop Color="#A0ADB5" Offset="0.35"/>
-            <GradientStop Color="#C8D3DA" Offset="0.5"/>
-            <GradientStop Color="#A0ADB5" Offset="0.65"/>
-            <GradientStop Color="#7A8890" Offset="0.85"/>
-            <GradientStop Color="#5A6870" Offset="1"/>
+            <GradientStop Color="#6E78A8" Offset="0"/>
+            <GradientStop Color="#8890B8" Offset="0.15"/>
+            <GradientStop Color="#B4BAD5" Offset="0.35"/>
+            <GradientStop Color="#D2D6E8" Offset="0.5"/>
+            <GradientStop Color="#B4BAD5" Offset="0.65"/>
+            <GradientStop Color="#8890B8" Offset="0.85"/>
+            <GradientStop Color="#6E78A8" Offset="1"/>
         </LinearGradientBrush>
 
         <!-- 按钮样式 -->
@@ -733,7 +733,7 @@
                        Canvas.Left="380" Canvas.Top="120" 
                        Width="300" Height="320" 
                        RadiusX="15" RadiusY="15" 
-                       Fill="#C8D3DA"
+                       Fill="#CDD3E8"
                        RenderOptions.CachingHint="Cache">
                 <Rectangle.Effect>
                     <DropShadowEffect Color="#2A4A68" Opacity="0.3" BlurRadius="10" ShadowDepth="6" Direction="315"

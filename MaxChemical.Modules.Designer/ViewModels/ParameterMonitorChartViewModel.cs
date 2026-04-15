@@ -1,17 +1,19 @@
 ﻿// ParameterMonitorChartViewModel.cs - 完整清理版
+using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Event;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.Service.Execution;
+using MaxChemical.Modules.Designer.Services;
+using OxyPlot;
+using Prism.Commands;
+using Prism.Events;
+using Prism.Mvvm;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.Services;
-using MaxChemical.Logging;
-using Prism.Commands;
-using Prism.Mvvm;
-using MaxChemical.Modules.Designer.Event;
-using MaxChemical.Modules.Designer.Service.Execution;
-using Prism.Events;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -38,6 +40,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private bool _isRealTimeMode = true;
         private AvailableParameter _selectedAvailableParameter;
         private MonitoredParameter _selectedMonitoredParameter;
+        private PlotModel _normalizedChartModel;
+        private bool _hasAlarm;
+        private string _alarmMessage = "";
+        private DateTime _alarmTime;
 
         #endregion
 
@@ -208,6 +214,47 @@ namespace MaxChemical.Modules.Designer.ViewModels
         /// 状态文本
         /// </summary>
         public string StatusText => $"数据点: {DataPointsCount} | 最后更新: {LastUpdateTime:HH:mm:ss}";
+        /// <summary>
+        /// 归一化图表模型（OxyPlot）
+        /// </summary>
+        public PlotModel NormalizedChartModel
+        {
+            get => _normalizedChartModel;
+            set => SetProperty(ref _normalizedChartModel, value);
+        }
+
+        /// <summary>
+        /// 图表图例项
+        /// </summary>
+        public ObservableCollection<ChartLegendItem> ChartLegendItems { get; }
+            = new ObservableCollection<ChartLegendItem>();
+
+        /// <summary>
+        /// 是否有报警
+        /// </summary>
+        public bool HasAlarm
+        {
+            get => _hasAlarm;
+            set => SetProperty(ref _hasAlarm, value);
+        }
+
+        /// <summary>
+        /// 报警消息
+        /// </summary>
+        public string AlarmMessage
+        {
+            get => _alarmMessage;
+            set => SetProperty(ref _alarmMessage, value);
+        }
+
+        /// <summary>
+        /// 报警时间
+        /// </summary>
+        public DateTime AlarmTime
+        {
+            get => _alarmTime;
+            set => SetProperty(ref _alarmTime, value);
+        }
 
         #endregion
 
@@ -243,7 +290,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             InitializeDateTimeFormatter();
             SubscribeToFlowEvents();
             InitializeAsync();
-
+            NormalizedChartModel = NormalizedChartBuilder.CreateModel();
             _logger.LogInformation("参数监控图表ViewModel已初始化，基准时间: {BaseTime}", _baseTime);
         }
 
@@ -492,7 +539,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 LimitChartDataPoints();
 
                 RaisePropertyChanged(nameof(StatusText));
-
+                RebuildNormalizedChart();
                 _logger.LogDebug("增量更新完成，当前数据点: {Count}", DataPointsCount);
             }
             catch (Exception ex)
@@ -867,12 +914,91 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 LastUpdateTime = DateTime.Now;
                 _baseTime = DateTime.Now;
                 InitializeDateTimeFormatter();
-
+                NormalizedChartModel = NormalizedChartBuilder.CreateModel();
+                ChartLegendItems.Clear();
+                HasAlarm = false;
                 _logger.LogInformation("清空所有图表数据");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "清空数据失败");
+            }
+        }
+        /// <summary>
+        /// 重建归一化图表
+        /// </summary>
+        private void RebuildNormalizedChart()
+        {
+            try
+            {
+                var model = NormalizedChartBuilder.CreateModel();
+                var enabledParameters = MonitoredParameters.Where(p => p.IsEnabled).ToList();
+
+                ChartLegendItems.Clear();
+                HasAlarm = false;
+
+                int colorIndex = 0;
+                foreach (var param in enabledParameters)
+                {
+                    var color = NormalizedChartBuilder.LineColors[colorIndex % NormalizedChartBuilder.LineColors.Length];
+                    var lineStyle = NormalizedChartBuilder.LineStyleCycle[colorIndex % NormalizedChartBuilder.LineStyleCycle.Length];
+
+                    // 从 ChartData 中提取该参数的数据点
+                    var dataPoints = ChartData
+                        .Where(cd => cd.ParameterValues.ContainsKey(param.DisplayName))
+                        .Select(cd => (cd.Timestamp, cd.ParameterValues[param.DisplayName]))
+                        .OrderBy(x => x.Timestamp)
+                        .ToList();
+
+                    if (!dataPoints.Any()) continue;
+
+                    // 获取参数量程（如果 MonitoredParameter 没有量程属性，用数据的 min/max 自动推算）
+                    double minRange = param.MinRange != 0 || param.MaxRange != 0
+                        ? param.MinRange
+                        : dataPoints.Min(d => d.Item2) * 0.8;
+                    double maxRange = param.MinRange != 0 || param.MaxRange != 0
+                        ? param.MaxRange
+                        : dataPoints.Max(d => d.Item2) * 1.2;
+
+                    var info = new NormalizedParameterInfo
+                    {
+                        DisplayName = param.DisplayName,
+                        DeviceName = param.DeviceName,
+                        MinRange = minRange,
+                        MaxRange = maxRange,
+                        LineColor = color,
+                        LineStyle = lineStyle,
+                    };
+
+                    NormalizedChartBuilder.AddNormalizedSeries(model, info, dataPoints);
+
+                    // 添加图例
+                    var wpfColor = System.Windows.Media.Color.FromRgb(color.R, color.G, color.B);
+                    ChartLegendItems.Add(new ChartLegendItem
+                    {
+                        Name = param.DisplayName,
+                        ColorBrush = new SolidColorBrush(wpfColor),
+                    });
+
+                    // 检查最新值是否超限
+                    var lastValue = dataPoints.Last().Item2;
+                    double normalizedLast = NormalizedChartBuilder.Normalize(lastValue, minRange, maxRange);
+                    if (normalizedLast > 90 || normalizedLast < 10)
+                    {
+                        HasAlarm = true;
+                        AlarmMessage = $"{param.DeviceName} {param.DisplayName} 归一化 {normalizedLast:F1}% 超出安全阈值";
+                        AlarmTime = dataPoints.Last().Timestamp;
+                    }
+
+                    colorIndex++;
+                }
+
+                model.InvalidatePlot(true);
+                NormalizedChartModel = model;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "重建归一化图表失败");
             }
         }
 

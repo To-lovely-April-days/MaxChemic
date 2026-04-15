@@ -7,8 +7,9 @@
             <ResourceDictionary.MergedDictionaries>
                 <!-- 这里只能引用外部资源字典文件 -->
                 <!-- <ResourceDictionary Source="Themes/Generic.xaml"/> -->
+                <ResourceDictionary Source="Resources/SharedStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-
+            
             <!-- 自定义细滚动条样式 -->
             <Style x:Key="ThinScrollBarStyle" TargetType="ScrollBar">
                 <Setter Property="Background" Value="Transparent"/>
