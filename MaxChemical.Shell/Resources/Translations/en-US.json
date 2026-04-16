@@ -293,5 +293,32 @@
   "Loop_Interval_Unit":"MS",
   "Loop_Description":"Description",
   "Loop_Preview_Title":"Conditional preview",
-  "Loop_Abstract_Title":"Abstract"
+  "Loop_Abstract_Title":"Abstract",
+  
+  "VarManage_New":"New",
+  "VarManage_Delete":"Delete",
+  "VarManage_OnlyCustonVar":"Only show custom variables",
+  "VarManage_Col_Source":"Source",
+  "VarManage_Col_Command":"Command",
+  "VarManage_Col_Name":"Name",
+  "VarManage_Col_Value":"Value",
+  "VarManage_Col_Type":"Type",
+  "VarManage_Col_Format":"Format",
+  "VarManage_OK":"OK",
+  "VarManage_Cancel":"Cancel",
+  "VarManage_Watermark":"Search for devices, commands or variable names...",
+  "变量管理器":"Variable Manager",
+  "选择自定义变量":"Select custom variables",
+  "VarManage_VarCount":"Total",
+
+  "NewProj_Title":"New project",
+  "NewProj_Please":"Please enter the name of the new project.",
+  "NewProj_NameLabel":"Project name：",
+  "NewProj_Desc":"The project name will be used as the identifier for file names and experimental records.",
+  "NewProj_OK":"OK",
+  "NewProj_Cancel":"Cancel",
+  "NewProj_NotNull":"The project name cannot be empty",
+  "NewProj_NotThan100":"The length of the project name cannot exceed 100 characters",
+  "NewProj_NameInvalid":"The project name contains invalid characters. Please use valid file name characters",
+  "NewProj_NotReserve":"The project name cannot use the reserved names of the system"
 }
