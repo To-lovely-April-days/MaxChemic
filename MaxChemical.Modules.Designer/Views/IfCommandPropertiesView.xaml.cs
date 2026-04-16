@@ -69,6 +69,8 @@ namespace MaxChemical.Modules.Designer.Views
         {
             UpdateConditionPreview();
             SyncOperatorRadio(); // ← 新增
+
+            OnLanguageChanged("");
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

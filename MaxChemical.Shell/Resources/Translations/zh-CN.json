@@ -251,5 +251,21 @@
   "Logic_Use_Desc1":"• 点击「+ 变量」按钮从列表中选择已定义变量",
   "Logic_Use_Desc2":"• 字符串常量请用引号包围：'文本'",
   "Logic_Use_Desc3":"• 数字常量直接输入：123 或 45.67",
-  "Logic_Use_Desc4":"• 布尔值：true 或 false"
+  "Logic_Use_Desc4":"• 布尔值：true 或 false",
+
+  "Parallel_Title":"并行",
+  "Parallel_Strategy_Title":"等待策略",
+  "Parallel_Strategy_Nowait":"不等待",
+  "Parallel_Strategy_All":"等待全部",
+  "Parallel_Strategy_Any":"等待任一",
+  "Parallel_Parameter_Title":"并行参数",
+  "Parallel_Parameter_Maxcount":"最大并行数",
+  "Parallel_Parameter_Timeout":"超时时间",
+  "Parallel_Parameter_Countunit":"个",
+  "Parallel_Paremeter_Timeunit":"秒",
+  "Parallel_Desc_Title":"描述",
+  "Parallel_Instruction_Title":"策略说明",
+  "Parallel_Instruction_Desc1":"• 不等待：启动所有分支后立即继续，分支在后台运行",
+  "Parallel_Instruction_Desc2":"• 等待全部：等待所有分支都完成后才继续",
+  "Parallel_Instruction_Desc3":"• 等待任一：任意一个分支完成后即继续，其余后台运行"
 }

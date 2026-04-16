@@ -252,5 +252,21 @@
   "Logic_Use_Desc1":"• Click the \"Variable\" button and select the defined variables from the list.",
   "Logic_Use_Desc2":"• String constants should be enclosed in quotation marks: 'Text'",
   "Logic_Use_Desc3":"• Numeric constants can be directly input as follows: 123 or 45.67",
-  "Logic_Use_Desc4":"• Boolean value: true or false"
+  "Logic_Use_Desc4":"• Boolean value: true or false",
+  
+  "Parallel_Title":"Parallel",
+  "Parallel_Strategy_Title":"Waiting strategy",
+  "Parallel_Strategy_Nowait":"Not waiting",
+  "Parallel_Strategy_All":"Wait for all",
+  "Parallel_Strategy_Any":"Wait for any",
+  "Parallel_Parameter_Title":"Parallel parameters",
+  "Parallel_Parameter_Maxcount":"Maximum parallelism",
+  "Parallel_Parameter_Timeout":"Timeout time",
+  "Parallel_Parameter_Countunit":"个",
+  "Parallel_Paremeter_Timeunit":"S",
+  "Parallel_Desc_Title":"Description",
+  "Parallel_Instruction_Title":"Strategy description",
+  "Parallel_Instruction_Desc1":"• No waiting: Start all branches immediately and continue without delay. The branches will run in the background.",
+  "Parallel_Instruction_Desc2":"• Wait for all: Continue only after all the branches have been completed.",
+  "Parallel_Instruction_Desc3":"• Wait for any one: Continue once any one of the branches is completed, and the rest will run in the background."
 }

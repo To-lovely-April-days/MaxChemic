@@ -67,6 +67,8 @@ namespace MaxChemical.Modules.Designer.Views
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             UpdateVariablePreview();
+
+            OnLanguageChanged("");
         }
 
         private void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
