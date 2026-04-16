@@ -1,4 +1,6 @@
-﻿using MaxChemical.Logging;
+﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using Prism.Events;
@@ -27,8 +29,52 @@ namespace MaxChemical.Modules.Designer.Views
         public LoopCommandPropertiesView()
         {
             InitializeComponent();
+
+            _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
+            OnLanguageChanged("");
+
             DataContextChanged += OnDataContextChanged;
             Loaded += OnLoaded;
+        }
+
+        /// <summary>
+        /// 本地化
+        /// </summary>
+        /// <param name="s"></param>
+        private void OnLanguageChanged(string s)
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service is null)
+            {
+                return;
+            }
+
+            NodeTitle.Text = service.GetString("Loop_Title");
+            LoopTypeTitle.Text = service.GetString("Loop_Type_Title");
+            RbFixed.Content = service.GetString("Loop_Type_Fixed");
+            RbConditionLoop.Content = service.GetString("Loop_Type_Condition");
+            RbInfiniteLoop.Content = service.GetString("Loop_Type_Infinite");
+            LoopParamTitle.Text = service.GetString("Loop_Param_Title");
+            LoopParamLabel.Text = service.GetString("Loop_Param_Number");
+            LoopCountUnitLabel.Text = service.GetString("Loop_Param_Numberunit");
+            LoopConditionTitle.Text = service.GetString("Loop_Condition_Title");
+            LoopModeLabel.Text = service.GetString("Loop_Condition_Mode");
+            IsDoWhileCheckBox.Content = service.GetString("Loop_Condition_Mode_Dowhile");
+            LeftOpLabel.Text = service.GetString("Loop_Condition_Leftoperand");
+            OperatorLabel.Text = service.GetString("Loop_Condition_Operator");
+            RightOpLabel.Text = service.GetString("Loop_Condition_Rightoperand");
+            LeftOperandBox.ToolTip = service.GetString("Loop_Condition_Lefttip");
+            RightOperandBox.ToolTip = service.GetString("Loop_Condition_Righttip");
+            LeftVarButton.Content = service.GetString("Loop_Condition_VarLabel");
+            RightVarButton.Content = service.GetString("Loop_Condition_VarLabel");
+            LoopIntervalLabel.Text = service.GetString("Loop_Interval_Title");
+            TimeUnitLabel.Text = service.GetString("Loop_Interval_Unit");
+            DescriptionLabel.Text = service.GetString("Loop_Description");
+            ConditionPreviewLabel.Text = service.GetString("Loop_Preview_Title");
+            AbstractLabel.Text = service.GetString("Loop_Abstract_Title");
+            AttentionLabel.Text = service.GetString("Loop_Attention_Title");
+            AttentionText.Text = service.GetString("Loop_Attention_Text");
         }
 
         private CommandNode CurrentNode => DataContext as CommandNode;
