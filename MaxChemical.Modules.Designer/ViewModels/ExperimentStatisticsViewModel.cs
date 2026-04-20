@@ -2,8 +2,10 @@
 using MaxChemical.Data.Models;
 using MaxChemical.Data.Repositories;
 using MaxChemical.Data.Services;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using Prism.Commands;
+using Prism.Ioc;
 using Prism.Mvvm;
 using System;
 using System.Collections.ObjectModel;
@@ -39,6 +41,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             InitializeCommands();
             InitializeData();
             _ = LoadStatisticsAsync();
+            // 新增：本地化标签
+            UpdateLacalizationText();
         }
 
         #region Properties
@@ -198,5 +202,98 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 IsLoading = false;
             }
         }
+
+        #region 本地化
+
+        public string ViewTitle { get; set; }
+        public string RangeLabel { get; set; }
+        public string ToLabel { get; set; }
+        public string DurationLabel { get; set; }
+        public string RefreshLabel { get; set; }
+        public string LastSevenLabel { get; set; }
+        public string LastThirtyLabel { get; set; }
+        public string LastNinetyLabel { get; set; }
+        public string ExportReportLabel { get; set; }
+        public string OverviewLabel { get; set; }
+        public string AnalysisLabel { get; set; }
+        public string StatisticalLabel { get; set; }
+        public string TotalLabel { get; set; }
+        public string SuccessRateLabel { get; set; }
+        public string AvgDurationLabel { get; set; }
+        public string SimulationTotalLabel { get; set; }
+        public string DetailsGroupLabel { get; set; }
+        public string ExecStatistic { get; set; }
+        public string SuccessTotal { get; set; }
+        public string FailTotal { get; set; }
+        public string ActualTotal { get; set; }
+        public string TimeStatistic { get; set; }
+        public string LongDuration { get; set; }
+        public string SortDuration { get; set; }
+        public string TimeRange { get; set; }
+        public string TimeHeader { get; set; }
+        public string ExprimentTotalHeader { get; set; }
+        public string SuccessTotalHeader { get; set; }
+        public string FailureTotalHeader { get; set; }
+        public string RateHeader { get; set; }
+        public string SimulationTotalHeader { get; set; }
+        public string ActaulTotalHeader { get; set; }
+        public string AvgDurationHeader { get; set; }
+        public string IdentityHeader { get; set; }
+        public string Nameheader { get; set; }
+        public string UseTotalHeader { get; set; }
+        public string SuccessNumberHeader { get; set; }
+        public string FailureNumberHeader { get; set; }
+        public string AvgExecTimeHeader { get; set; }
+
+
+        private void UpdateLacalizationText()
+        {
+            ILocalizationService service=ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service == null)
+            {
+                return;
+            }
+            ViewTitle = service.GetString("Statistic_Title");
+            RangeLabel = service.GetString("Statistic_TimeRange");
+            ToLabel = service.GetString("Statistic_To");
+            DurationLabel = service.GetString("Statistic_Interval");
+            RefreshLabel = service.GetString("Statistic_Refresh");
+            LastSevenLabel = service.GetString("Statistic_Last7Day");
+            LastThirtyLabel = service.GetString("Statistic_Last30Day");
+            LastNinetyLabel = service.GetString("Statistic_Last90Day");
+            ExportReportLabel = service.GetString("Statistic_ExportReport");
+            OverviewLabel = service.GetString("Statistic_Overview");
+            AnalysisLabel = service.GetString("Statistic_Analysis");
+            StatisticalLabel = service.GetString("Statistic_UseStatistic");
+            TotalLabel = service.GetString("Statistic_Total");
+            SuccessRateLabel = service.GetString("Statistic_SuccessRate");
+            AvgDurationLabel = service.GetString("Statistic_AvgDuration");
+            SimulationTotalLabel = service.GetString("Statistic_SimulationTotal");
+            DetailsGroupLabel = service.GetString("Statistic_DetailsLabel");
+            ExecStatistic = service.GetString("Statistic_Detail_Execute");
+            SuccessTotal = service.GetString("Statistic_Detail_Success");
+            FailTotal = service.GetString("Statistic_Detail_Failure");
+            ActualTotal = service.GetString("Statistic_Detail_Actual");
+            TimeStatistic = service.GetString("Statistic_Detail_Time");
+            LongDuration = service.GetString("Statistic_Detail_Long");
+            SortDuration = service.GetString("Statistic_Detail_Sort");
+            TimeRange = service.GetString("Statistic_Detail_Range");
+            TimeHeader = service.GetString("Statistic_Header_Time");
+            ExprimentTotalHeader = service.GetString("Statistic_Header_Total");
+            SuccessTotalHeader = service.GetString("Statistic_Header_Success");
+            FailureTotalHeader = service.GetString("Statistic_Header_Failure");
+            RateHeader = service.GetString("Statistic_Header_SuccessRate");
+            SimulationTotalHeader = service.GetString("Statistic_Header_SimulationNumber");
+            ActaulTotalHeader = service.GetString("Statistic_Header_ActualNumber");
+            AvgDurationHeader = service.GetString("Statistic_Header_AvgDuration");
+            IdentityHeader = service.GetString("Statistic_Header_Identity");
+            Nameheader = service.GetString("Statistic_Header_Name");
+            UseTotalHeader = service.GetString("Statistic_Header_UseNumber");
+            SuccessNumberHeader = service.GetString("Statistic_Header_Success");
+            FailureNumberHeader = service.GetString("Statistic_Header_Failure");
+            AvgExecTimeHeader = service.GetString("Statistic_Header_AvgExecTime");
+        }
+
+        #endregion
     }
 }

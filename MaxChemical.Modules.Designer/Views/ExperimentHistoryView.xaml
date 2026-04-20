@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:prism="http://prismlibrary.com/"
+             xmlns:views="clr-namespace:MaxChemical.Modules.Designer.Views"
              prism:ViewModelLocator.AutoWireViewModel="True"
              mc:Ignorable="d"
              d:DesignHeight="800" d:DesignWidth="1200">
@@ -21,6 +22,9 @@
             <Setter Property="BorderBrush" Value="#CCCCCC"/>
             <Setter Property="BorderThickness" Value="0,1,0,0"/>
         </Style>
+
+        <!--新增：绑定代理-->
+        <views:BindingProxy x:Key="BindingProxyKey" Data="{Binding}"/>
     </UserControl.Resources>
 
     <Grid>
@@ -34,7 +38,7 @@
         <!-- 筛选条件区域 -->
         <Border Grid.Row="0" Background="#F8F9FA" BorderBrush="#DEE2E6" BorderThickness="0,0,0,1" Padding="10">
             <StackPanel>
-                <TextBlock Text="实验历史记录" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+                <TextBlock Text="{Binding ViewTitle}" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -45,43 +49,43 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- 时间范围 -->
-                    <GroupBox Grid.Column="0" Header="时间范围" Style="{StaticResource FilterGroupBoxStyle}">
+                    <GroupBox Grid.Column="0" Header="{Binding TimeRange}" Style="{StaticResource FilterGroupBoxStyle}">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                <TextBlock Text="开始时间:" VerticalAlignment="Center" Width="60"/>
+                                <TextBlock Text="{Binding StartTimeLabel,StringFormat='{}{0}: '}" VerticalAlignment="Center" Width="60"/>
                                 <DatePicker SelectedDate="{Binding StartDate}" Width="120"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="结束时间:" VerticalAlignment="Center" Width="60"/>
+                                <TextBlock Text="{Binding EndTimeLabel,StringFormat='{}{0}: '}" VerticalAlignment="Center" Width="60"/>
                                 <DatePicker SelectedDate="{Binding EndDate}" Width="120"/>
                             </StackPanel>
                         </StackPanel>
                     </GroupBox>
 
                     <!-- 执行状态 -->
-                    <GroupBox Grid.Column="1" Header="执行状态" Style="{StaticResource FilterGroupBoxStyle}">
+                    <GroupBox Grid.Column="1" Header="{Binding ExecuteStatus}" Style="{StaticResource FilterGroupBoxStyle}">
                         <StackPanel>
                             <ComboBox SelectedValue="{Binding IsSuccessful}" Width="100">
-                                <ComboBoxItem Content="全部" Tag="{x:Null}"/>
-                                <ComboBoxItem Content="成功" Tag="True"/>
-                                <ComboBoxItem Content="失败" Tag="False"/>
+                                <ComboBoxItem Content="{Binding StatusItemAll}" Tag="{x:Null}"/>
+                                <ComboBoxItem Content="{Binding StatusItemSuccess}" Tag="True"/>
+                                <ComboBoxItem Content="{Binding StatusItemFail}" Tag="False"/>
                             </ComboBox>
                         </StackPanel>
                     </GroupBox>
 
                     <!-- 运行模式 -->
-                    <GroupBox Grid.Column="2" Header="运行模式" Style="{StaticResource FilterGroupBoxStyle}">
+                    <GroupBox Grid.Column="2" Header="{Binding RunMode}" Style="{StaticResource FilterGroupBoxStyle}">
                         <StackPanel>
                             <ComboBox SelectedValue="{Binding IsSimulation}" Width="100">
-                                <ComboBoxItem Content="全部" Tag="{x:Null}"/>
-                                <ComboBoxItem Content="实际" Tag="False"/>
-                                <ComboBoxItem Content="仿真" Tag="True"/>
+                                <ComboBoxItem Content="{Binding RunItemAll}" Tag="{x:Null}"/>
+                                <ComboBoxItem Content="{Binding RunItemActual}" Tag="False"/>
+                                <ComboBoxItem Content="{Binding RunItemSimulation}" Tag="True"/>
                             </ComboBox>
                         </StackPanel>
                     </GroupBox>
 
                     <!-- 搜索和操作按钮 -->
-                    <GroupBox Grid.Column="3" Header="搜索" Style="{StaticResource FilterGroupBoxStyle}">
+                    <GroupBox Grid.Column="3" Header="{Binding SearchLabel}" Style="{StaticResource FilterGroupBoxStyle}">
                         <StackPanel>
                             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" 
                                      Width="200" Margin="0,0,0,5">
@@ -93,7 +97,7 @@
                                                     <Setter.Value>
                                                         <VisualBrush AlignmentX="Left" AlignmentY="Center" Stretch="None">
                                                             <VisualBrush.Visual>
-                                                                <TextBlock Text="搜索实验名称、流程名称或操作员" 
+                                                                <TextBlock Text="{Binding  Data.SearchWatermark,Source={StaticResource BindingProxyKey}}" 
                                                                            Foreground="Gray" Margin="2,0,0,0"/>
                                                             </VisualBrush.Visual>
                                                         </VisualBrush>
@@ -105,9 +109,9 @@
                                 </TextBox.Style>
                             </TextBox>
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="搜索" Command="{Binding SearchCommand}" Width="60" Margin="0,0,5,0"/>
-                                <Button Content="重置" Command="{Binding ResetFiltersCommand}" Width="60" Margin="0,0,5,0"/>
-                                <Button Content="刷新" Command="{Binding RefreshCommand}" Width="60"/>
+                                <Button Content="{Binding SearchBtnLabel}" Command="{Binding SearchCommand}" Width="60" Margin="0,0,5,0"/>
+                                <Button Content="{Binding ResetBtnLabel}" Command="{Binding ResetFiltersCommand}" Width="60" Margin="0,0,5,0"/>
+                                <Button Content="{Binding RefreshBtnLabel}" Command="{Binding RefreshCommand}" Width="60"/>
                             </StackPanel>
                         </StackPanel>
                     </GroupBox>
@@ -115,15 +119,15 @@
 
                 <!-- 操作按钮 -->
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                    <Button Content="导出全部" Command="{Binding ExportAllCommand}" Width="80" Margin="0,0,10,0"
-                            Background="#007BFF" Foreground="White" ToolTip="导出所有实验记录（包含参数变化记录）"/>
-                    <Button Content="导出选中" Command="{Binding ExportSelectedCommand}" Width="80" Margin="0,0,10,0"
-                            Background="#28A745" Foreground="White" ToolTip="导出选中实验的详细信息"/>
-                    <Button Content="参数变化" Command="{Binding ExportParameterChangesCommand}" Width="80" Margin="0,0,10,0"
-                            Background="#FFC107" Foreground="Black" ToolTip="导出设备参数变化记录（去重后的数据）"/>
-                    <Button Content="查看详情" Command="{Binding ViewDetailsCommand}" Width="80" Margin="0,0,10,0"
+                    <Button Content="{Binding ExportAllLabel}" Command="{Binding ExportAllCommand}" Width="80" Margin="0,0,10,0"
+                            Background="#007BFF" Foreground="White" ToolTip="{Binding ExportAllTip}"/>
+                    <Button Content="{Binding ExportSelectLabel}" Command="{Binding ExportSelectedCommand}" Width="80" Margin="0,0,10,0"
+                            Background="#28A745" Foreground="White" ToolTip="{Binding ExportSelectTip}"/>
+                    <Button Content="{Binding ParamChangeLabel}" Command="{Binding ExportParameterChangesCommand}" Width="80" Margin="0,0,10,0"
+                            Background="#FFC107" Foreground="Black" ToolTip="{Binding ParamChangeTip}"/>
+                    <Button Content="{Binding ViewDetailsLabel}" Command="{Binding ViewDetailsCommand}" Width="80" Margin="0,0,10,0"
                             Background="#17A2B8" Foreground="White"/>
-                    <Button Content="删除记录" Command="{Binding DeleteSelectedCommand}" Width="80"
+                    <Button Content="{Binding DeleteRecordLabel}" Command="{Binding DeleteSelectedCommand}" Width="80"
                             Background="#DC3545" Foreground="White"/>
                 </StackPanel>
             </StackPanel>
@@ -137,13 +141,13 @@
                   SelectionChanged="DataGrid_SelectionChanged">
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="实验名称" Binding="{Binding ExperimentName}" Width="200"/>
-                <DataGridTextColumn Header="流程名称" Binding="{Binding FlowName}" Width="150"/>
-                <DataGridTextColumn Header="开始时间" Binding="{Binding StartTime, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
-                <DataGridTextColumn Header="结束时间" Binding="{Binding EndTime, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
-                <DataGridTextColumn Header="持续时间" Binding="{Binding Duration, StringFormat=hh\\:mm\\:ss}" Width="100"/>
+                <DataGridTextColumn Header="{Binding Data.ExperimentnameHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding ExperimentName}" Width="200"/>
+                <DataGridTextColumn Header="{Binding Data.FlownameHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding FlowName}" Width="150"/>
+                <DataGridTextColumn Header="{Binding Data.StartHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding StartTime, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
+                <DataGridTextColumn Header="{Binding Data.EndHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding EndTime, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
+                <DataGridTextColumn Header="{Binding Data.DurationHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding Duration, StringFormat=hh\\:mm\\:ss}" Width="100"/>
 
-                <DataGridTemplateColumn Header="执行状态" Width="80">
+                <DataGridTemplateColumn Header="{Binding Data.ExcuteStatusHeader,Source={StaticResource BindingProxyKey}}" Width="80">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center">
@@ -166,7 +170,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="运行模式" Width="80">
+                <DataGridTemplateColumn Header="{Binding Data.RunModeHeader,Source={StaticResource BindingProxyKey}}" Width="80">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding ModeText}" HorizontalAlignment="Center">
@@ -187,10 +191,10 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="完成度" Binding="{Binding ProgressPercentage, StringFormat={}{0:F1}%}" Width="80"/>
-                <DataGridTextColumn Header="操作员" Binding="{Binding OperatorName}" Width="100"/>
-                <DataGridTextColumn Header="标签" Binding="{Binding Tags}" Width="120"/>
-                <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="*"/>
+                <DataGridTextColumn Header="{Binding Data.CompletionrateHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding ProgressPercentage, StringFormat={}{0:F1}%}" Width="80"/>
+                <DataGridTextColumn Header="{Binding Data.OperatorHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding OperatorName}" Width="100"/>
+                <DataGridTextColumn Header="{Binding Data.LabelHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding Tags}" Width="120"/>
+                <DataGridTextColumn Header="{Binding Data.DescHeader,Source={StaticResource BindingProxyKey}}" Binding="{Binding Description}" Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
 
@@ -204,27 +208,31 @@
 
                 <!-- 记录信息 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="每页显示:"/>
+                    <TextBlock Text="{Binding EachPageShow}"/>
                     <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize}" Width="60" Margin="5,0"/>
-                    <TextBlock Text="条记录" Margin="5,0,20,0"/>
+                    <TextBlock Text="{Binding RecordsText}" Margin="5,0,20,0"/>
                     <TextBlock>
-                        <TextBlock.Text>
-                            <MultiBinding StringFormat="共 {0} 条记录，第 {1}/{2} 页">
+                            <!--<MultiBinding StringFormat="共 {0} 条记录，第 {1}/{2} 页">
                                 <Binding Path="TotalRecords"/>
                                 <Binding Path="CurrentPage"/>
                                 <Binding Path="TotalPages"/>
-                            </MultiBinding>
-                        </TextBlock.Text>
+                            </MultiBinding>-->
+                            <Run Text="{Binding ATotalText}"/>
+                            <Run Text="{Binding TotalRecords}"/>
+                            <Run Text="{Binding SecondText}"/>
+                            <Run Text="{Binding CurrentPage}"/>
+                            <Run Text="{Binding TotalPages,StringFormat='/ {0}'}"/>
+                            <Run Text="{Binding PageText}"/>
                     </TextBlock>
                 </StackPanel>
 
                 <!-- 分页按钮 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="首页" Command="{Binding FirstPageCommand}" Width="50" Margin="2"/>
-                    <Button Content="上一页" Command="{Binding PreviousPageCommand}" Width="60" Margin="2"/>
+                    <Button Content="{Binding IndexLabel}" Command="{Binding FirstPageCommand}" Width="50" Margin="2"/>
+                    <Button Content="{Binding NextPageLabel}" Command="{Binding PreviousPageCommand}" Width="60" Margin="2"/>
                     <TextBlock Text="{Binding CurrentPage}" VerticalAlignment="Center" Margin="10,0" FontWeight="Bold"/>
-                    <Button Content="下一页" Command="{Binding NextPageCommand}" Width="60" Margin="2"/>
-                    <Button Content="末页" Command="{Binding LastPageCommand}" Width="50" Margin="2"/>
+                    <Button Content="{Binding PreviousPageLabel}" Command="{Binding NextPageCommand}" Width="60" Margin="2"/>
+                    <Button Content="{Binding BackoverLabel}" Command="{Binding LastPageCommand}" Width="50" Margin="2"/>
                 </StackPanel>
             </Grid>
         </Border>

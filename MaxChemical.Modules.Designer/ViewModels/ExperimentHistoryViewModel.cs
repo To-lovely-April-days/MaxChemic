@@ -2,12 +2,19 @@
 using MaxChemical.Data.Models;
 using MaxChemical.Data.Repositories;
 using MaxChemical.Data.Services;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using Microsoft.Win32;
+using Org.BouncyCastle.Asn1.Mozilla;
 using Prism.Commands;
+using Prism.Events;
+using Prism.Ioc;
 using Prism.Mvvm;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -51,6 +58,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             InitializeCommands();
             InitializeFilters();
             _ = LoadDataAsync();
+            UpdateLocalizationText();
         }
 
         #region Properties
@@ -412,6 +420,114 @@ namespace MaxChemical.Modules.Designer.ViewModels
             ViewDetailsCommand.RaiseCanExecuteChanged();
             DeleteSelectedCommand.RaiseCanExecuteChanged();
         }
+
+        #region 视图本地化
+        
+        public string ViewTitle { get; set; }
+        public string TimeRange {  get; set; }
+        public string StartTimeLabel { get; set; }
+        public string EndTimeLabel { get; set; }
+        public string ExecuteStatus {  get; set; }
+        public string RunMode { get; set; }
+        public string SearchLabel {  get; set; }
+        public string SearchWatermark { get; set; }
+        public string SearchBtnLabel { get; set; }
+        public string ResetBtnLabel { get; set; }
+        public string RefreshBtnLabel { get; set; }
+        public string ExportAllLabel { get; set; }
+        public string ExportAllTip { get; set; }
+        public string ExportSelectLabel { get; set; }
+        public string ExportSelectTip { get; set; }
+        public string ParamChangeLabel { get; set; }
+        public string ParamChangeTip { get; set; }
+        public string ViewDetailsLabel { get; set; }
+        public string ViewDetailsTip { get; set; }
+        public string DeleteRecordLabel { get; set; }
+        public string DeleteRecordTip { get; set; }
+        public string IndexLabel { get; set; }
+        public string NextPageLabel { get; set; }
+        public string PreviousPageLabel { get; set; }
+        public string BackoverLabel { get; set; }
+        public string ExperimentnameHeader { get; set; }
+        public string FlownameHeader { get; set; }
+        public string StartHeader { get; set; }
+        public string EndHeader { get; set; }
+        public string DurationHeader { get; set; }
+        public string ExcuteStatusHeader { get; set; }
+        public string RunModeHeader { get; set; }
+        public string CompletionrateHeader { get; set; }
+        public string OperatorHeader { get; set; }
+        public string LabelHeader { get; set; }
+        public string DescHeader { get; set; }
+        public string StatusItemAll { get; set; }
+        public string StatusItemSuccess { get; set; }
+        public string StatusItemFail { get; set; }
+        public string RunItemAll { get; set; }
+        public string RunItemActual { get; set; }
+        public string RunItemSimulation { get; set; }
+        public string EachPageShow { get; set; }
+        public string RecordsText { get; set; }
+        public string ATotalText { get; set; }
+        public string SecondText { get; set; }
+        public string PageText { get; set; }
+
+        private void UpdateLocalizationText()
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service == null)
+            {
+                return;
+            }
+
+            ViewTitle = service.GetString("ExperimentHistory_Title");
+            TimeRange = service.GetString("ExperimentHistory_Range");
+            StartTimeLabel = service.GetString("ExperimentHistory_Range_Start");
+            EndTimeLabel = service.GetString("ExperimentHistory_Range_End");
+            ExecuteStatus = service.GetString("ExperimentHistory_ES");
+            RunMode = service.GetString("ExperimentHistory_RM");
+            SearchLabel = service.GetString("ExperimentHistory_Search");
+            SearchWatermark = service.GetString("ExperimentHistory_Search_Watermark");
+            SearchBtnLabel = service.GetString("ExperimentHistory_Search_Search");
+            ResetBtnLabel = service.GetString("ExperimentHistory_Search_Reset");
+            RefreshBtnLabel = service.GetString("ExperimentHistory_Search_Refresh");
+            ExportAllLabel = service.GetString("ExperimentHistory_ExportAll");
+            ExportAllTip = service.GetString("ExperimentHistory_ExportAll_Tip");
+            ExportSelectLabel = service.GetString("ExperimentHistory_ExportSelect");
+            ExportSelectTip = service.GetString("ExperimentHistory_ExportSelect_Tip");
+            ParamChangeLabel = service.GetString("ExperimentHistory_ParamChange");
+            ParamChangeTip = service.GetString("ExperimentHistory_ParamChange_Tip");
+            ViewDetailsLabel = service.GetString("ExperimentHistory_Details");
+            //ViewDetailsTip = service.GetString("");
+            DeleteRecordLabel = service.GetString("ExperimentHistory_DeleteRecord");
+            //DeleteRecordTip = service.GetString("");
+            IndexLabel = service.GetString("ExperimentHistory_Index");
+            NextPageLabel = service.GetString("ExperimentHistory_Next");
+            PreviousPageLabel = service.GetString("ExperimentHistory_Previous");
+            BackoverLabel = service.GetString("ExperimentHistory_BackOver");
+            ExperimentnameHeader = service.GetString("ExperimentHistory_Header_ExpName");
+            FlownameHeader = service.GetString("ExperimentHistory_Header_FlowName");
+            StartHeader = service.GetString("ExperimentHistory_Header_Start");
+            EndHeader = service.GetString("ExperimentHistory_Header_End");
+            DurationHeader = service.GetString("ExperimentHistory_Header_Duration");
+            ExcuteStatusHeader = service.GetString("ExperimentHistory_Header_Sttatus");
+            RunModeHeader = service.GetString("ExperimentHistory_Header_Mode");
+            CompletionrateHeader = service.GetString("ExperimentHistory_Header_Completion");
+            OperatorHeader = service.GetString("ExperimentHistroy_Header_Operator");
+            LabelHeader = service.GetString("ExperimentHistory_Header_Label");
+            DescHeader = service.GetString("ExperimentHistory_Header_Desc");
+            StatusItemAll = service.GetString("ExperimentHistory_Sitem_All");
+            StatusItemSuccess = service.GetString("ExperimentHistory_Sitem_Success");
+            StatusItemFail = service.GetString("ExperimentHistory_Sitem_Fail");
+            RunItemAll = service.GetString("ExperimentHistory_Ritem_All");
+            RunItemActual = service.GetString("ExperimentHistory_Ritem_Actual");
+            RunItemSimulation = service.GetString("ExperimentHistory_Ritem_Simulation");
+            EachPageShow = service.GetString("ExperimentHistory_Each");
+            RecordsText = service.GetString("ExperimentHistory_Number");
+            ATotalText = service.GetString("ExperimentHistory_Atotal");
+            SecondText = service.GetString("ExperimentHistory_Second");
+            PageText = service.GetString("ExperimentHistory_Pages");
+        }
+        #endregion
     }
 }
 
