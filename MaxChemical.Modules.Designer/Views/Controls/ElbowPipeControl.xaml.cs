@@ -1,4 +1,6 @@
-﻿using System;
+﻿using MaxChemical.Modules.Designer.Service;
+using MaxChemical.Modules.Designer.Views.Controls.Service;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -6,13 +8,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using MaxChemical.Modules.Designer.Service;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
 {
-    public partial class ElbowPipeControl : UserControl, IPipeSnapPoints
+    public partial class ElbowPipeControl : UserControl, IPipeSnapPoints, IPipeProperties
     {
         #region 事件定义
 
@@ -28,84 +30,237 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ElbowPipeRotateEventArgs> PipeRotated;
         public event EventHandler<ElbowPipeEventArgs> PipeDeleted;
         public event EventHandler<ElbowPipeEventArgs> ShowPipeProperties;
-
-        //  管道选中事件
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
+        /// <summary>双击事件（打开属性对话框）</summary>
+        public event EventHandler<string> PipeDoubleClicked;
 
         #endregion
 
-        #region  IsSelected 依赖属性
+        #region 依赖属性 — 选择状态
 
-        /// <summary>
-        /// 是否选中的依赖属性
-        /// </summary>
         public static readonly DependencyProperty IsSelectedProperty =
-            DependencyProperty.Register(
-                nameof(IsSelected),
-                typeof(bool),
-                typeof(ElbowPipeControl),
+            DependencyProperty.Register(nameof(IsSelected), typeof(bool), typeof(ElbowPipeControl),
                 new PropertyMetadata(false, OnIsSelectedChanged));
 
-        /// <summary>
-        /// 是否选中
-        /// </summary>
         public bool IsSelected
         {
             get => (bool)GetValue(IsSelectedProperty);
             set => SetValue(IsSelectedProperty, value);
         }
 
-        /// <summary>
-        /// 选中状态变化回调
-        /// </summary>
         private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is ElbowPipeControl control)
-            {
-                control.UpdateSelectionVisual((bool)e.NewValue);
-            }
+            if (d is ElbowPipeControl c) c.UpdateSelectionVisual((bool)e.NewValue);
         }
 
         #endregion
 
-        #region 字段
+        #region 依赖属性 — 管道外观（与 StraightPipeControl 完全一致）
+
+        // ═══ 管道颜色 ═══
+        public static readonly DependencyProperty PipeColorProperty =
+            DependencyProperty.Register(nameof(PipeColor), typeof(Color), typeof(ElbowPipeControl),
+                new PropertyMetadata(Color.FromRgb(0x72, 0x71, 0x71), OnPipeColorChanged));
+
+        public Color PipeColor
+        {
+            get => (Color)GetValue(PipeColorProperty);
+            set => SetValue(PipeColorProperty, value);
+        }
+
+        private static void OnPipeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyPipeColor();
+        }
+
+        // ═══ 法兰颜色 ═══
+        public static readonly DependencyProperty FlangeColorProperty =
+            DependencyProperty.Register(nameof(FlangeColor), typeof(Color), typeof(ElbowPipeControl),
+                new PropertyMetadata(Color.FromRgb(0xD9, 0xD9, 0xD9), OnFlangeColorChanged));
+
+        public Color FlangeColor
+        {
+            get => (Color)GetValue(FlangeColorProperty);
+            set => SetValue(FlangeColorProperty, value);
+        }
+
+        private static void OnFlangeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFlangeColor();
+        }
+
+        #endregion
+
+        #region 依赖属性 — 流体
+
+        // ═══ 流体颜色 ═══
+        public static readonly DependencyProperty FluidColorProperty =
+            DependencyProperty.Register(nameof(FluidColor), typeof(Color), typeof(ElbowPipeControl),
+                new PropertyMetadata(Color.FromRgb(0x1E, 0xC1, 0xF4), OnFluidColorChanged));
+
+        public Color FluidColor
+        {
+            get => (Color)GetValue(FluidColorProperty);
+            set => SetValue(FluidColorProperty, value);
+        }
+
+        private static void OnFluidColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFluidColor();
+        }
+
+        // ═══ 流体不透明度 ═══
+        public static readonly DependencyProperty FluidOpacityProperty =
+            DependencyProperty.Register(nameof(FluidOpacity), typeof(double), typeof(ElbowPipeControl),
+                new PropertyMetadata(0.5, OnFluidOpacityChanged));
+
+        public double FluidOpacity
+        {
+            get => (double)GetValue(FluidOpacityProperty);
+            set => SetValue(FluidOpacityProperty, value);
+        }
+
+        private static void OnFluidOpacityChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFluidOpacity();
+        }
+
+        // ═══ 流体是否可见 ═══
+        public static readonly DependencyProperty IsFluidVisibleProperty =
+            DependencyProperty.Register(nameof(IsFluidVisible), typeof(bool), typeof(ElbowPipeControl),
+                new PropertyMetadata(false, OnIsFluidVisibleChanged));
+
+        public bool IsFluidVisible
+        {
+            get => (bool)GetValue(IsFluidVisibleProperty);
+            set => SetValue(IsFluidVisibleProperty, value);
+        }
+
+        private static void OnIsFluidVisibleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFluidVisibility();
+        }
+
+        #endregion
+
+        #region 依赖属性 — 流动控制
+
+        // ═══ 是否流动 ═══
+        public static readonly DependencyProperty IsFlowingProperty =
+            DependencyProperty.Register(nameof(IsFlowing), typeof(bool), typeof(ElbowPipeControl),
+                new PropertyMetadata(false, OnIsFlowingChanged));
+
+        public bool IsFlowing
+        {
+            get => (bool)GetValue(IsFlowingProperty);
+            set => SetValue(IsFlowingProperty, value);
+        }
+
+        private static void OnIsFlowingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFlowAnimation();
+        }
+
+        // ═══ 流动方向 ═══
+        public static readonly DependencyProperty PipeFlowDirProperty =
+            DependencyProperty.Register(nameof(PipeFlowDir), typeof(PipeFlowDirection), typeof(ElbowPipeControl),
+                new PropertyMetadata(PipeFlowDirection.LeftToRight, OnPipeFlowDirChanged));
+
+        public PipeFlowDirection PipeFlowDir
+        {
+            get => (PipeFlowDirection)GetValue(PipeFlowDirProperty);
+            set => SetValue(PipeFlowDirProperty, value);
+        }
+
+        private static void OnPipeFlowDirChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFlowAnimation();
+        }
+
+        // ═══ 流动速度 ═══
+        public static readonly DependencyProperty FlowSpeedProperty =
+            DependencyProperty.Register(nameof(FlowSpeed), typeof(double), typeof(ElbowPipeControl),
+                new PropertyMetadata(1.0, OnFlowSpeedChanged));
+
+        public double FlowSpeed
+        {
+            get => (double)GetValue(FlowSpeedProperty);
+            set => SetValue(FlowSpeedProperty, value);
+        }
+
+        private static void OnFlowSpeedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ElbowPipeControl c) c.ApplyFlowAnimation();
+        }
+
+        #endregion
+
+        #region 私有字段
 
         public string PipeId { get; set; }
 
-        private bool _isDraggingPipe = false;
-        private bool _isResizing = false;
-        private bool _isRotating = false;
-        private ElbowAnchorPosition? _resizingAnchor = null;
+        // 交互状态
+        private bool _isDraggingPipe;
+        private bool _isResizing;
+        private bool _isRotating;
+        private ElbowAnchorPosition? _resizingAnchor;
         private Point _dragStartPoint;
         private Point _originalPosition;
         private ElbowPipeSize _originalSize;
-        private double _originalRotation = 0;
+        private double _originalRotation;
         private Point _fixedPoint;
 
+        // 尺寸
+        private double _horizontalLength = 50;
+        private double _verticalLength = 60;
+        private double _pipeWidth = 20;
+        private double _rotationAngle;
+
+        // 常量
         private const double MinArmLength = 30;
         private const double MaxArmLength = 300;
         private const double MinPipeWidth = 8;
         private const double MaxPipeWidth = 60;
-
-        //  法兰尺寸常量（与直管道统一）
         private const double FlangeWidth = 2.54;
         private const double FlangeOffset = 0.35;
-        private const double FlangeSpacing = 2.0; // 法兰与管道之间的间距
+        private const double FLANGE_EXTENSION = 5.8;
 
-        private double _horizontalLength = 50;
-        private double _verticalLength = 60;
-        private double _pipeWidth = 20;
-        private double _rotationAngle = 0;
-
+        // 变换
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private ScaleTransform _flipTransform;
         private DispatcherTimer _rotationLabelTimer;
 
+        // ═══ 流体动画字段 ═══
+        private TranslateTransform _horizontalFlowTransform;
+        private TranslateTransform _verticalFlowTransform;
+        private DrawingBrush _horizontalPatternBrush;
+        private DrawingBrush _verticalPatternBrush;
+
+        // SVG 气泡图案数据（与 StraightPipeControl 一致）
+        private const double PATTERN_W = 172.0;
+        private const double PATTERN_H = 72.0;
+
+        private static readonly (double X, double Y, double R)[] BubbleData = new[]
+        {
+            (21.0, 15.0, 8.0),   (150.0, 15.0, 8.0),  (113.0, 16.0, 8.0),
+            (34.0, 58.0, 8.0),   (155.0, 58.0, 8.0),
+            (33.0, 26.0, 5.0),   (162.0, 26.0, 5.0),   (5.0, 37.0, 5.0),
+            (94.0, 8.0, 4.0),    (72.0, 60.0, 4.0),
+            (112.0, 37.0, 5.0),  (59.0, 39.0, 5.0),    (115.0, 62.0, 5.0),
+            (139.0, 42.0, 5.0),  (76.0, 21.0, 5.0),
+            (126.5, 50.5, 2.5),  (169.5, 46.5, 2.5),   (57.5, 9.5, 2.5),
+            (96.5, 35.5, 2.5),   (91.5, 23.5, 2.5),    (22.5, 40.5, 2.5),
+            (124.5, 23.5, 2.5),  (86.5, 47.5, 2.5),    (51.5, 21.5, 2.5),
+            (48.5, 51.5, 2.5),
+            (14.0, 64.0, 4.0),   (135.0, 64.0, 4.0),
+            (95.5, 58.5, 9.5)
+        };
+
         #endregion
 
-        #region 属性
+        #region CLR 属性（尺寸）
 
         public double HorizontalLength
         {
@@ -156,56 +311,52 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             InitializeComponent();
             PipeId = Guid.NewGuid().ToString();
-            this.DataContext = this;
+            DataContext = this;
 
             _rotateTransform = new RotateTransform(0);
             _flipTransform = new ScaleTransform(1, 1);
             _transformGroup = new TransformGroup();
             _transformGroup.Children.Add(_flipTransform);
             _transformGroup.Children.Add(_rotateTransform);
-            this.RenderTransform = _transformGroup;
-            this.RenderTransformOrigin = new Point(0.5, 0.5);
+            RenderTransform = _transformGroup;
+            RenderTransformOrigin = new Point(0.5, 0.5);
 
-            bool isInDesignMode = DesignerProperties.GetIsInDesignMode(this);
+            // ★ 初始化外观（使用依赖属性默认值）
+            InitializeAppearance();
 
-            if (!isInDesignMode)
+            if (!DesignerProperties.GetIsInDesignMode(this))
             {
-                _rotationLabelTimer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromSeconds(2)
-                };
+                _rotationLabelTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
                 _rotationLabelTimer.Tick += (s, e) =>
                 {
                     RotationLabel.Visibility = Visibility.Collapsed;
                     _rotationLabelTimer.Stop();
                 };
 
-                this.MouseEnter += OnPipeMouseEnter;
-                this.MouseLeave += OnPipeMouseLeave;
-                this.MouseDown += OnControlMouseDown;
-                this.MouseMove += OnControlMouseMove;
-                this.MouseUp += OnControlMouseUp;
-                this.MouseLeave += OnControlMouseLeave;
-
+                MouseEnter += OnPipeMouseEnter;
+                MouseLeave += OnPipeMouseLeave;
+                MouseDown += OnControlMouseDown;
+                MouseMove += OnControlMouseMove;
+                MouseUp += OnControlMouseUp;
+                MouseLeave += OnControlMouseLeave;
                 SetupAnchorEvents();
             }
 
-            this.Loaded += (s, e) => UpdatePipeGeometry();
+            Loaded += (s, e) =>
+            {
+                UpdatePipeGeometry();
+                ApplyFlowAnimation();
+            };
+
             Dispatcher.BeginInvoke(new Action(() => UpdatePipeGeometry()),
-                System.Windows.Threading.DispatcherPriority.Loaded);
+                DispatcherPriority.Loaded);
 
-            // ==========  硬件加速配置（优化版） ==========
-
-            // 1. 高质量渲染
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
-
-            // 2. 启用缓存提示
             RenderOptions.SetCachingHint(this, CachingHint.Cache);
             RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
             RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
 
-            // 3. 配置位图缓存（关键优化）
             CacheMode = new BitmapCache
             {
                 RenderAtScale = 1.0,
@@ -213,16 +364,392 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 EnableClearType = false
             };
 
-            // 4. 像素对齐
-            this.SnapsToDevicePixels = true;
-            this.UseLayoutRounding = true;
+            SnapsToDevicePixels = true;
+            UseLayoutRounding = true;
 
-            //  5. 弯头路径优化（禁用缓存，使用 GPU）
             ElbowPath.CacheMode = null;
             ElbowOuterEdge.CacheMode = null;
             ElbowHighlight.CacheMode = null;
+        }
 
-            Debug.WriteLine($" 弯管 {PipeId} 硬件加速已启用");
+        /// <summary>
+        /// 初始化外观：根据默认属性值生成所有画刷
+        /// </summary>
+        private void InitializeAppearance()
+        {
+            ApplyPipeColor();
+            ApplyFlangeColor();
+            ApplyFluidColor();
+            RebuildFluidPatternBrushes();
+            ApplyFluidVisibility();
+        }
+
+        #endregion
+
+        #region 管道外观 — 管体渐变（动态颜色）
+
+        /// <summary>
+        /// 根据 PipeColor 生成水平段 / 垂直段 / 弯头段的圆柱渐变画刷
+        /// </summary>
+        private void ApplyPipeColor()
+        {
+            if (HorizontalPipe == null) return;
+
+            var c = PipeColor;
+
+            // ─── 水平管道渐变（上→下）─── 与 StraightPipeControl 相同的 7-stop 对称渐变
+            var hGrad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+            hGrad.GradientStops.Add(new GradientStop(c, 0));
+            hGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, c.R, c.G, c.B), 0.264));
+            hGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, c.R, c.G, c.B), 0.418));
+            hGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.498));
+            hGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, c.R, c.G, c.B), 0.581));
+            hGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, c.R, c.G, c.B), 0.719));
+            hGrad.GradientStops.Add(new GradientStop(c, 1));
+            hGrad.Freeze();
+            HorizontalPipe.Fill = hGrad;
+
+            // ─── 垂直管道渐变（左→右）───
+            var vGrad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0) };
+            vGrad.GradientStops.Add(new GradientStop(c, 0));
+            vGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, c.R, c.G, c.B), 0.264));
+            vGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, c.R, c.G, c.B), 0.418));
+            vGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.498));
+            vGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, c.R, c.G, c.B), 0.581));
+            vGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, c.R, c.G, c.B), 0.719));
+            vGrad.GradientStops.Add(new GradientStop(c, 1));
+            vGrad.Freeze();
+            VerticalPipe.Fill = vGrad;
+
+            // ─── 弯头渐变（对角线）───
+            var darkC = DarkenColor(c, 25);
+            var lightC = LightenColor(c, 25);
+            var eGrad = new LinearGradientBrush { StartPoint = new Point(1, 1), EndPoint = new Point(0, 0) };
+            eGrad.GradientStops.Add(new GradientStop(darkC, 0));
+            eGrad.GradientStops.Add(new GradientStop(c, 0.22));
+            eGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x40, c.R, c.G, c.B), 0.40));
+            eGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.50));
+            eGrad.GradientStops.Add(new GradientStop(Color.FromArgb(0x40, c.R, c.G, c.B), 0.60));
+            eGrad.GradientStops.Add(new GradientStop(c, 0.78));
+            eGrad.GradientStops.Add(new GradientStop(lightC, 1));
+            eGrad.Freeze();
+            ElbowPath.Fill = eGrad;
+
+            // ─── 弯头描边 ───
+            var strokeBrush = new SolidColorBrush(c);
+            strokeBrush.Freeze();
+            ElbowPath.Stroke = strokeBrush;
+
+            // ─── 弯头外侧强化边缘 ───
+            var outerEdgeStroke = new LinearGradientBrush { StartPoint = new Point(1, 1), EndPoint = new Point(0, 0) };
+            outerEdgeStroke.GradientStops.Add(new GradientStop(DarkenColor(c, 50), 0));
+            outerEdgeStroke.GradientStops.Add(new GradientStop(DarkenColor(c, 25), 0.5));
+            outerEdgeStroke.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
+            outerEdgeStroke.Freeze();
+            ElbowOuterEdge.Stroke = outerEdgeStroke;
+
+            // ─── 弯头高光 ───
+            var highlightStroke = new LinearGradientBrush { StartPoint = new Point(1, 1), EndPoint = new Point(0, 0) };
+            highlightStroke.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
+            highlightStroke.GradientStops.Add(new GradientStop(LightenColor(c, 100), 0.5));
+            highlightStroke.GradientStops.Add(new GradientStop(LightenColor(c, 120), 1));
+            highlightStroke.Freeze();
+            ElbowHighlight.Stroke = highlightStroke;
+
+            // ─── 法兰边框跟随管道色 ───
+            LeftFlangeBorder.Stroke = strokeBrush;
+            TopFlangeBorder.Stroke = strokeBrush;
+
+            // ─── 连接处颜色 ───
+            LeftConnection.Fill = new SolidColorBrush(c);
+            TopConnection.Fill = new SolidColorBrush(c);
+
+            // 流体纹理边带使用管道色 → 需要重建
+            RebuildFluidPatternBrushes();
+        }
+
+        #endregion
+
+        #region 管道外观 — 法兰颜色
+
+        private void ApplyFlangeColor()
+        {
+            if (LeftFlangeBase == null) return;
+
+            var c = FlangeColor;
+            var baseBrush = new SolidColorBrush(c);
+            baseBrush.Freeze();
+
+            LeftFlangeBase.Fill = baseBrush;
+            TopFlangeBase.Fill = baseBrush;
+
+            var midColor = BlendColors(c, Colors.Gray, 0.4);
+
+            // 左侧法兰渐变（左→右 = 圆柱感）
+            var leftGrad = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
+            leftGrad.GradientStops.Add(new GradientStop(c, 0));
+            leftGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
+            leftGrad.GradientStops.Add(new GradientStop(c, 1));
+            leftGrad.Freeze();
+            LeftFlangeGradient.Fill = leftGrad;
+
+            // 顶部法兰渐变（上→下 = 圆柱感）
+            var topGrad = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
+            topGrad.GradientStops.Add(new GradientStop(c, 0));
+            topGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
+            topGrad.GradientStops.Add(new GradientStop(c, 1));
+            topGrad.Freeze();
+            TopFlangeGradient.Fill = topGrad;
+        }
+
+        #endregion
+
+        #region 流体 — 颜色、透明度与可见性
+
+        private void ApplyFluidColor()
+        {
+            if (HorizontalFluidBackground == null) return;
+
+            var brush = new SolidColorBrush(FluidColor);
+
+            HorizontalFluidBackground.Fill = brush;
+            VerticalFluidBackground.Fill = brush;
+            ElbowFluidBackground.Fill = brush;
+
+            ApplyFluidOpacity();
+        }
+
+        private void ApplyFluidOpacity()
+        {
+            if (HorizontalFluidBackground == null) return;
+
+            HorizontalFluidBackground.Opacity = FluidOpacity;
+            VerticalFluidBackground.Opacity = FluidOpacity;
+            ElbowFluidBackground.Opacity = FluidOpacity;
+        }
+
+        private void ApplyFluidVisibility()
+        {
+            if (HorizontalFluidBackground == null) return;
+
+            var vis = IsFluidVisible ? Visibility.Visible : Visibility.Collapsed;
+
+            HorizontalFluidBackground.Visibility = vis;
+            HorizontalFluidPattern.Visibility = vis;
+            VerticalFluidBackground.Visibility = vis;
+            VerticalFluidPattern.Visibility = vis;
+            ElbowFluidBackground.Visibility = vis;
+
+            if (IsFluidVisible && IsFlowing)
+                StartFlowAnimation();
+            else
+                StopFlowAnimation();
+        }
+
+        #endregion
+
+        #region 流体 — 气泡纹理画刷
+
+        /// <summary>
+        /// 重建水平段 + 垂直段的气泡纹理画刷
+        /// </summary>
+        private void RebuildFluidPatternBrushes()
+        {
+            if (HorizontalFluidPattern == null) return;
+
+            var pipeC = PipeColor;
+
+            // ── 水平段画刷（与 StraightPipeControl 完全一致）──
+            var hDrawing = CreateBubbleDrawing(pipeC, false);
+            _horizontalFlowTransform = new TranslateTransform(0, 0);
+            _horizontalPatternBrush = new DrawingBrush(hDrawing)
+            {
+                TileMode = TileMode.Tile,
+                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
+                ViewboxUnits = BrushMappingMode.Absolute,
+                ViewportUnits = BrushMappingMode.Absolute,
+                Transform = _horizontalFlowTransform
+            };
+            UpdateFluidPatternViewports();
+            HorizontalFluidPattern.Fill = _horizontalPatternBrush;
+
+            // ── 垂直段画刷（边带方向为左/右，配合垂直管道的左右渐变）──
+            var vDrawing = CreateBubbleDrawing(pipeC, true);
+            _verticalFlowTransform = new TranslateTransform(0, 0);
+            _verticalPatternBrush = new DrawingBrush(vDrawing)
+            {
+                TileMode = TileMode.Tile,
+                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
+                ViewboxUnits = BrushMappingMode.Absolute,
+                ViewportUnits = BrushMappingMode.Absolute,
+                Transform = _verticalFlowTransform
+            };
+            UpdateFluidPatternViewports();
+            VerticalFluidPattern.Fill = _verticalPatternBrush;
+
+            // 如果正在流动，重新启动动画
+            if (IsFlowing && IsFluidVisible)
+                StartFlowAnimation();
+        }
+
+        /// <summary>
+        /// 创建气泡 DrawingGroup
+        /// </summary>
+        /// <param name="pipeC">管道颜色（用于边带）</param>
+        /// <param name="isVertical">true = 边带在左/右（用于垂直管道）</param>
+        private DrawingGroup CreateBubbleDrawing(Color pipeC, bool isVertical)
+        {
+            var group = new DrawingGroup();
+
+            // ── 气泡 ──
+            foreach (var (x, y, r) in BubbleData)
+            {
+                var radial = new RadialGradientBrush
+                {
+                    GradientOrigin = new Point(0.3, 0.3),
+                    Center = new Point(0.5, 0.5)
+                };
+                radial.GradientStops.Add(new GradientStop(Color.FromArgb(102, 255, 255, 255), 0));
+                radial.GradientStops.Add(new GradientStop(Color.FromArgb(38, 0, 0, 0), 1));
+                radial.Freeze();
+
+                group.Children.Add(new GeometryDrawing(
+                    radial, null,
+                    new EllipseGeometry(new Point(x, y), r, r)));
+            }
+
+            // ── 边带（让流体融合到管壁颜色）──
+            LinearGradientBrush edgeBrush;
+            if (!isVertical)
+            {
+                // 水平管道 → 边带在上/下
+                edgeBrush = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
+            }
+            else
+            {
+                // 垂直管道 → 边带在左/右
+                edgeBrush = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
+            }
+            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0));
+            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.109));
+            edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.113));
+            edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.887));
+            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.891));
+            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 1));
+            edgeBrush.Freeze();
+
+            group.Children.Add(new GeometryDrawing(
+                edgeBrush, null,
+                new RectangleGeometry(new Rect(0, 0, PATTERN_W, PATTERN_H))));
+
+            return group;
+        }
+
+        /// <summary>
+        /// 根据管道当前宽度，更新纹理平铺尺寸
+        /// </summary>
+        private void UpdateFluidPatternViewports()
+        {
+            double tileH = _pipeWidth;
+            double tileW = tileH * (PATTERN_W / PATTERN_H);
+
+            if (_horizontalPatternBrush != null)
+                _horizontalPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+
+            if (_verticalPatternBrush != null)
+                _verticalPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+        }
+
+        #endregion
+
+        #region 流体 — 流动动画
+
+        private void ApplyFlowAnimation()
+        {
+            if (IsFlowing && IsFluidVisible)
+                StartFlowAnimation();
+            else
+                StopFlowAnimation();
+        }
+
+        private void StartFlowAnimation()
+        {
+            if (_horizontalFlowTransform == null || _verticalFlowTransform == null) return;
+
+            // 停止旧动画
+            _horizontalFlowTransform.BeginAnimation(TranslateTransform.XProperty, null);
+            _verticalFlowTransform.BeginAnimation(TranslateTransform.YProperty, null);
+
+            double tileW = _pipeWidth * (PATTERN_W / PATTERN_H);
+            double baseDurationMs = 1000.0 / Math.Max(0.1, FlowSpeed);
+
+            // ── 水平段动画：左法兰 → 弯头 → 上法兰 ──
+            // LeftToRight = 左→上（水平段向右流）
+            double hTo = PipeFlowDir == PipeFlowDirection.LeftToRight ? tileW : -tileW;
+            var hAnim = new DoubleAnimation
+            {
+                From = 0,
+                To = hTo,
+                Duration = TimeSpan.FromMilliseconds(baseDurationMs),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            _horizontalFlowTransform.BeginAnimation(TranslateTransform.XProperty, hAnim);
+
+            // ── 垂直段动画 ──
+            // LeftToRight 时流体向上流（-Y），RightToLeft 时向下（+Y）
+            double vPeriod = _pipeWidth; // 垂直方向的平铺高度
+            double vDurationMs = baseDurationMs * (vPeriod / tileW); // 保持同样的视觉速度
+            double vTo = PipeFlowDir == PipeFlowDirection.LeftToRight ? -vPeriod : vPeriod;
+            var vAnim = new DoubleAnimation
+            {
+                From = 0,
+                To = vTo,
+                Duration = TimeSpan.FromMilliseconds(vDurationMs),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            _verticalFlowTransform.BeginAnimation(TranslateTransform.YProperty, vAnim);
+        }
+
+        private void StopFlowAnimation()
+        {
+            if (_horizontalFlowTransform != null)
+            {
+                _horizontalFlowTransform.BeginAnimation(TranslateTransform.XProperty, null);
+                _horizontalFlowTransform.X = 0;
+            }
+            if (_verticalFlowTransform != null)
+            {
+                _verticalFlowTransform.BeginAnimation(TranslateTransform.YProperty, null);
+                _verticalFlowTransform.Y = 0;
+            }
+        }
+
+        #endregion
+
+        #region 辅助方法（颜色计算）
+
+        private static Color LightenColor(Color c, byte amount)
+        {
+            return Color.FromRgb(
+                (byte)Math.Min(255, c.R + amount),
+                (byte)Math.Min(255, c.G + amount),
+                (byte)Math.Min(255, c.B + amount));
+        }
+
+        private static Color DarkenColor(Color c, byte amount)
+        {
+            return Color.FromRgb(
+                (byte)Math.Max(0, c.R - amount),
+                (byte)Math.Max(0, c.G - amount),
+                (byte)Math.Max(0, c.B - amount));
+        }
+
+        private static Color BlendColors(Color c1, Color c2, double ratio)
+        {
+            return Color.FromRgb(
+                (byte)(c1.R * (1 - ratio) + c2.R * ratio),
+                (byte)(c1.G * (1 - ratio) + c2.G * ratio),
+                (byte)(c1.B * (1 - ratio) + c2.B * ratio));
         }
 
         #endregion
@@ -231,18 +758,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnPipeMouseEnter(object sender, MouseEventArgs e)
         {
-            if (!_isResizing && !_isDraggingPipe && !_isRotating)
-            {
-                ShowAllAnchors();
-            }
+            if (!_isResizing && !_isDraggingPipe && !_isRotating) ShowAllAnchors();
         }
 
         private void OnPipeMouseLeave(object sender, MouseEventArgs e)
         {
-            if (!_isResizing && !_isRotating && !IsSelected)
-            {
-                HideAllAnchors();
-            }
+            if (!_isResizing && !_isRotating && !IsSelected) HideAllAnchors();
         }
 
         private void ShowAllAnchors()
@@ -265,9 +786,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchorLine.Opacity = 0;
         }
 
-        /// <summary>
-        ///  更新选中视觉效果
-        /// </summary>
         private void UpdateSelectionVisual(bool isSelected)
         {
             if (isSelected)
@@ -278,11 +796,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             else
             {
                 SelectionBorder.Visibility = Visibility.Collapsed;
-
-                if (!this.IsMouseOver && !_isResizing && !_isRotating)
-                {
-                    HideAllAnchors();
-                }
+                if (!IsMouseOver && !_isResizing && !_isRotating) HideAllAnchors();
             }
         }
 
@@ -290,105 +804,53 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region 右键菜单事件处理
 
-        private void RotateClockwise15_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(15);
-        }
-
-        private void RotateClockwise30_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(30);
-        }
-
-        private void RotateClockwise45_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(45);
-        }
-
-        private void RotateClockwise90_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(90);
-        }
-
-        private void Rotate180_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(180);
-        }
-
-        private void RotateCounterClockwise15_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(-15);
-        }
-
-        private void RotateCounterClockwise30_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(-30);
-        }
-
-        private void RotateCounterClockwise45_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(-45);
-        }
-
-        private void RotateCounterClockwise90_Click(object sender, RoutedEventArgs e)
-        {
-            RotatePipe(-90);
-        }
+        private void RotateClockwise15_Click(object sender, RoutedEventArgs e) => RotatePipe(15);
+        private void RotateClockwise30_Click(object sender, RoutedEventArgs e) => RotatePipe(30);
+        private void RotateClockwise45_Click(object sender, RoutedEventArgs e) => RotatePipe(45);
+        private void RotateClockwise90_Click(object sender, RoutedEventArgs e) => RotatePipe(90);
+        private void Rotate180_Click(object sender, RoutedEventArgs e) => RotatePipe(180);
+        private void RotateCounterClockwise15_Click(object sender, RoutedEventArgs e) => RotatePipe(-15);
+        private void RotateCounterClockwise30_Click(object sender, RoutedEventArgs e) => RotatePipe(-30);
+        private void RotateCounterClockwise45_Click(object sender, RoutedEventArgs e) => RotatePipe(-45);
+        private void RotateCounterClockwise90_Click(object sender, RoutedEventArgs e) => RotatePipe(-90);
 
         private void ResetRotation_Click(object sender, RoutedEventArgs e)
         {
             double oldAngle = _rotationAngle;
             RotationAngle = 0;
-
             PipeRotated?.Invoke(this, new ElbowPipeRotateEventArgs
             {
                 PipeId = PipeId,
                 OriginalAngle = oldAngle,
                 CurrentAngle = _rotationAngle
             });
-
             ShowRotationLabel();
-            Debug.WriteLine($"弯管旋转已重置: {PipeId}");
         }
 
-        private void FlipHorizontal_Click(object sender, RoutedEventArgs e)
-        {
-            _flipTransform.ScaleX *= -1;
-            Debug.WriteLine($"弯管水平翻转: ScaleX={_flipTransform.ScaleX}");
-        }
-
-        private void FlipVertical_Click(object sender, RoutedEventArgs e)
-        {
-            _flipTransform.ScaleY *= -1;
-            Debug.WriteLine($"弯管垂直翻转: ScaleY={_flipTransform.ScaleY}");
-        }
+        private void FlipHorizontal_Click(object sender, RoutedEventArgs e) => _flipTransform.ScaleX *= -1;
+        private void FlipVertical_Click(object sender, RoutedEventArgs e) => _flipTransform.ScaleY *= -1;
 
         private void ShowProperties_Click(object sender, RoutedEventArgs e)
         {
             ShowPipeProperties?.Invoke(this, new ElbowPipeEventArgs { PipeId = PipeId });
-            Debug.WriteLine($"显示弯管属性: {PipeId}");
         }
 
         private void DeletePipe_Click(object sender, RoutedEventArgs e)
         {
             PipeDeleted?.Invoke(this, new ElbowPipeEventArgs { PipeId = PipeId });
-            Debug.WriteLine($"删除弯管: {PipeId}");
         }
 
         private void RotatePipe(double deltaAngle)
         {
             double oldAngle = _rotationAngle;
             RotationAngle = _rotationAngle + deltaAngle;
-
             PipeRotated?.Invoke(this, new ElbowPipeRotateEventArgs
             {
                 PipeId = PipeId,
                 OriginalAngle = oldAngle,
                 CurrentAngle = _rotationAngle
             });
-
             ShowRotationLabel();
-            Debug.WriteLine($"弯管旋转: {deltaAngle:+#;-#;0}° → 当前角度: {_rotationAngle:F0}°");
         }
 
         private void ShowRotationLabel()
@@ -401,7 +863,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateRotationLabelPosition()
         {
-            double centerX = this.Width / 2;
+            double centerX = Width / 2;
             Canvas.SetLeft(RotationLabel, centerX - 20);
             Canvas.SetTop(RotationLabel, -50);
         }
@@ -464,36 +926,38 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdatePipeGeometry()
         {
-            //  开始批量更新
             PipeCanvas.BeginInit();
 
-            // =======================================================================
-            // 1. 尺寸常数定义 (与 Straight/TShape 保持完全一致)
-            // =======================================================================
-            const double FLANGE_WIDTH = 2.54;
-            const double FLANGE_OFFSET = 0.35;
-            // 关键：法兰比管道宽出的总长度 (StraightPipeControl 是 5.8)
-            const double FLANGE_EXTENSION = 5.8;
-
-            // 计算法兰尺寸
             double flangeSize = _pipeWidth + FLANGE_EXTENSION;
 
-            this.Width = _horizontalLength + 20;
-            this.Height = _verticalLength + 20;
+            Width = _horizontalLength + 20;
+            Height = _verticalLength + 20;
 
             double elbowRadius = _pipeWidth;
-            double horizontalCenterY = this.Height - 10 - _pipeWidth / 2;
-            double verticalCenterX = this.Width - 10 - _pipeWidth / 2;
+            double horizontalCenterY = Height - 10 - _pipeWidth / 2;
+            double verticalCenterX = Width - 10 - _pipeWidth / 2;
             double elbowCenterX = verticalCenterX;
             double elbowCenterY = horizontalCenterY;
 
-            // =======================================================================
-            // 2. 更新水平管道
-            // =======================================================================
-            // pipeLeft = 间隙 + 法兰宽
-            double pipeLeft = FLANGE_OFFSET + FLANGE_WIDTH;
+            // ═══ 水平管道 ═══
+            double pipeLeft = FlangeOffset + FlangeWidth;
             double pipeWidth = Math.Max(0, elbowCenterX - elbowRadius - pipeLeft);
             double pipeTop = horizontalCenterY - _pipeWidth / 2;
+
+            HorizontalPipeBackground.Width = pipeWidth;
+            HorizontalPipeBackground.Height = _pipeWidth;
+            Canvas.SetLeft(HorizontalPipeBackground, pipeLeft);
+            Canvas.SetTop(HorizontalPipeBackground, pipeTop);
+
+            HorizontalFluidBackground.Width = pipeWidth;
+            HorizontalFluidBackground.Height = _pipeWidth;
+            Canvas.SetLeft(HorizontalFluidBackground, pipeLeft);
+            Canvas.SetTop(HorizontalFluidBackground, pipeTop);
+
+            HorizontalFluidPattern.Width = pipeWidth;
+            HorizontalFluidPattern.Height = _pipeWidth;
+            Canvas.SetLeft(HorizontalFluidPattern, pipeLeft);
+            Canvas.SetTop(HorizontalFluidPattern, pipeTop);
 
             HorizontalPipe.Width = pipeWidth;
             HorizontalPipe.Height = _pipeWidth;
@@ -511,12 +975,25 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             HorizontalBottomEdge.Y1 = pipeTop + _pipeWidth - 0.32;
             HorizontalBottomEdge.Y2 = pipeTop + _pipeWidth - 0.32;
 
-            // =======================================================================
-            // 3. 更新垂直管道
-            // =======================================================================
-            double vPipeTop = FLANGE_OFFSET + FLANGE_WIDTH;
+            // ═══ 垂直管道 ═══
+            double vPipeTop = FlangeOffset + FlangeWidth;
             double pipeHeight = Math.Max(0, elbowCenterY - elbowRadius - vPipeTop);
             double vPipeLeft = verticalCenterX - _pipeWidth / 2;
+
+            VerticalPipeBackground.Width = _pipeWidth;
+            VerticalPipeBackground.Height = pipeHeight;
+            Canvas.SetLeft(VerticalPipeBackground, vPipeLeft);
+            Canvas.SetTop(VerticalPipeBackground, vPipeTop);
+
+            VerticalFluidBackground.Width = _pipeWidth;
+            VerticalFluidBackground.Height = pipeHeight;
+            Canvas.SetLeft(VerticalFluidBackground, vPipeLeft);
+            Canvas.SetTop(VerticalFluidBackground, vPipeTop);
+
+            VerticalFluidPattern.Width = _pipeWidth;
+            VerticalFluidPattern.Height = pipeHeight;
+            Canvas.SetLeft(VerticalFluidPattern, vPipeLeft);
+            Canvas.SetTop(VerticalFluidPattern, vPipeTop);
 
             VerticalPipe.Width = _pipeWidth;
             VerticalPipe.Height = pipeHeight;
@@ -533,305 +1010,135 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             VerticalRightEdge.Y1 = vPipeTop + edgeOffset;
             VerticalRightEdge.Y2 = vPipeTop + pipeHeight - edgeOffset;
 
-            // =======================================================================
-            // 4. 更新弯头 (保持不变)
-            // =======================================================================
+            // ═══ 弯头 ═══
             UpdateElbow(elbowCenterX, elbowCenterY, elbowRadius);
 
-            // =======================================================================
-            // 5. 更新法兰 (使用新的尺寸逻辑)
-            // =======================================================================
-            // 左侧法兰 (Vertical orientation relative to pipe end)
-            Canvas.SetLeft(LeftFlangeGroup, FLANGE_OFFSET);
+            // ═══ 法兰 ═══
+            Canvas.SetLeft(LeftFlangeGroup, FlangeOffset);
             Canvas.SetTop(LeftFlangeGroup, horizontalCenterY - flangeSize / 2);
-            LeftFlangeGroup.Width = FLANGE_WIDTH;
+            LeftFlangeGroup.Width = FlangeWidth;
             LeftFlangeGroup.Height = flangeSize;
-
-            LeftFlangeBase.Width = FLANGE_WIDTH;
+            LeftFlangeBase.Width = FlangeWidth;
             LeftFlangeBase.Height = flangeSize;
-            LeftFlangeGradient.Width = FLANGE_WIDTH;
+            LeftFlangeGradient.Width = FlangeWidth;
             LeftFlangeGradient.Height = flangeSize;
-            LeftFlangeBorder.Width = FLANGE_WIDTH;
+            LeftFlangeBorder.Width = FlangeWidth;
             LeftFlangeBorder.Height = flangeSize;
 
-            // 顶部法兰 (Horizontal orientation relative to pipe end)
             Canvas.SetLeft(TopFlangeGroup, verticalCenterX - flangeSize / 2);
-            Canvas.SetTop(TopFlangeGroup, FLANGE_OFFSET);
+            Canvas.SetTop(TopFlangeGroup, FlangeOffset);
             TopFlangeGroup.Width = flangeSize;
-            TopFlangeGroup.Height = FLANGE_WIDTH;
-
+            TopFlangeGroup.Height = FlangeWidth;
             TopFlangeBase.Width = flangeSize;
-            TopFlangeBase.Height = FLANGE_WIDTH;
+            TopFlangeBase.Height = FlangeWidth;
             TopFlangeGradient.Width = flangeSize;
-            TopFlangeGradient.Height = FLANGE_WIDTH;
+            TopFlangeGradient.Height = FlangeWidth;
             TopFlangeBorder.Width = flangeSize;
-            TopFlangeBorder.Height = FLANGE_WIDTH;
+            TopFlangeBorder.Height = FlangeWidth;
 
-            // =======================================================================
-            // 6. 更新连接处
-            // =======================================================================
+            // ═══ 连接处 ═══
             LeftConnection.Height = _pipeWidth;
-            // 连接处紧贴法兰
-            Canvas.SetLeft(LeftConnection, FLANGE_WIDTH + FLANGE_OFFSET);
+            Canvas.SetLeft(LeftConnection, FlangeWidth + FlangeOffset);
             Canvas.SetTop(LeftConnection, horizontalCenterY - _pipeWidth / 2);
 
             TopConnection.Width = _pipeWidth;
             Canvas.SetLeft(TopConnection, verticalCenterX - _pipeWidth / 2);
-            Canvas.SetTop(TopConnection, FLANGE_WIDTH + FLANGE_OFFSET);
+            Canvas.SetTop(TopConnection, FlangeWidth + FlangeOffset);
 
-            // =======================================================================
-            // 7. 杂项更新
-            // =======================================================================
-            SelectionBorder.Width = this.Width;
-            SelectionBorder.Height = this.Height;
-
+            // ═══ 杂项 ═══
+            SelectionBorder.Width = Width;
+            SelectionBorder.Height = Height;
             UpdateAnchorPositions(horizontalCenterY, verticalCenterX);
             UpdateRotationLabelPosition();
 
-            //  结束批量更新
             PipeCanvas.EndInit();
-        }
 
-        // 注意：请确保删除了 UpdateFlanges 方法，因为逻辑已经合并到 UpdatePipeGeometry 中，
-        // 或者你可以保留 UpdateFlanges 但必须将上面的第5步代码放进去。
-        // 建议直接用上面的 UpdatePipeGeometry 覆盖原有方法。
-
-        private void UpdateHorizontalPipe(double centerY, double elbowCenterX, double elbowRadius)
-        {
-            //  修改：pipeLeft = 法兰宽度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
-            double pipeLeft = FlangeWidth + FlangeSpacing + FlangeOffset;
-            double pipeWidth = Math.Max(0, elbowCenterX - elbowRadius - pipeLeft);
-            double pipeTop = centerY - _pipeWidth / 2;
-
-            HorizontalPipe.Width = pipeWidth;
-            HorizontalPipe.Height = _pipeWidth;
-            Canvas.SetLeft(HorizontalPipe, pipeLeft);
-            Canvas.SetTop(HorizontalPipe, pipeTop);
-
-            //  边缘线位置微调
-            double edgeOffset = 0.38; // (3.58 - 3.2) = 0.38
-            HorizontalTopEdge.X1 = pipeLeft + edgeOffset;
-            HorizontalTopEdge.X2 = pipeLeft + pipeWidth - edgeOffset;
-            HorizontalTopEdge.Y1 = pipeTop + 0.32;
-            HorizontalTopEdge.Y2 = pipeTop + 0.32;
-
-            HorizontalBottomEdge.X1 = pipeLeft + edgeOffset;
-            HorizontalBottomEdge.X2 = pipeLeft + pipeWidth - edgeOffset;
-            HorizontalBottomEdge.Y1 = pipeTop + _pipeWidth - 0.32;
-            HorizontalBottomEdge.Y2 = pipeTop + _pipeWidth - 0.32;
-        }
-
-        private void UpdateVerticalPipe(double centerX, double elbowCenterY, double elbowRadius)
-        {
-            //  修改：pipeTop = 法兰高度2.54 + 间距2 + 偏移0.35 = 4.89，简化为3.2（与XAML一致）
-            double pipeTop = FlangeWidth + FlangeSpacing + FlangeOffset;
-            double pipeHeight = Math.Max(0, elbowCenterY - elbowRadius - pipeTop);
-            double pipeLeft = centerX - _pipeWidth / 2;
-
-            VerticalPipe.Width = _pipeWidth;
-            VerticalPipe.Height = pipeHeight;
-            Canvas.SetLeft(VerticalPipe, pipeLeft);
-            Canvas.SetTop(VerticalPipe, pipeTop);
-
-            //  边缘线位置微调
-            double edgeOffset = 0.38;
-            VerticalLeftEdge.X1 = pipeLeft + 0.32;
-            VerticalLeftEdge.X2 = pipeLeft + 0.32;
-            VerticalLeftEdge.Y1 = pipeTop + edgeOffset;
-            VerticalLeftEdge.Y2 = pipeTop + pipeHeight - edgeOffset;
-
-            VerticalRightEdge.X1 = pipeLeft + _pipeWidth - 0.32;
-            VerticalRightEdge.X2 = pipeLeft + _pipeWidth - 0.32;
-            VerticalRightEdge.Y1 = pipeTop + edgeOffset;
-            VerticalRightEdge.Y2 = pipeTop + pipeHeight - edgeOffset;
+            // ═══ 更新纹理平铺 + 重启动画 ═══
+            UpdateFluidPatternViewports();
+            if (IsFlowing && IsFluidVisible)
+                StartFlowAnimation();
         }
 
         private void UpdateElbow(double centerX, double centerY, double radius)
         {
-            // ========== 🔧 修正：弯头路径应该严格在管道内部 ==========
-
+            // ── 弯头几何 ──
             PathGeometry elbowGeometry = new PathGeometry();
             PathFigure figure = new PathFigure();
 
-            //  外弧起点：弯头左侧底部（水平管道右端底部）
             Point outerStart = new Point(centerX - radius, centerY + _pipeWidth / 2);
             figure.StartPoint = outerStart;
 
-            //  外弧：从左下到右上（逆时针）
-            // 外弧半径 = 弯头中心半径 + 管道宽度一半
             ArcSegment outerArc = new ArcSegment(
                 new Point(centerX + _pipeWidth / 2, centerY - radius),
                 new Size(radius + _pipeWidth / 2, radius + _pipeWidth / 2),
                 0, false, SweepDirection.Counterclockwise, true);
             figure.Segments.Add(outerArc);
 
-            //  顶部横线：从外弧终点到内弧起点
             LineSegment toInner = new LineSegment(
                 new Point(centerX - _pipeWidth / 2, centerY - radius), true);
             figure.Segments.Add(toInner);
 
-            //  内弧：从右上到左下（顺时针）
-            // 内弧半径 = 弯头中心半径 - 管道宽度一半
             ArcSegment innerArc = new ArcSegment(
                 new Point(centerX - radius, centerY - _pipeWidth / 2),
                 new Size(radius - _pipeWidth / 2, radius - _pipeWidth / 2),
                 0, false, SweepDirection.Clockwise, true);
             figure.Segments.Add(innerArc);
 
-            //  封闭路径
             figure.IsClosed = true;
             elbowGeometry.Figures.Add(figure);
+            elbowGeometry.Freeze();
+
+            // 共享几何到白底 + 流体 + 渐变层
+            ElbowPipeBackground.Data = elbowGeometry;
+            ElbowFluidBackground.Data = elbowGeometry;
             ElbowPath.Data = elbowGeometry;
 
-            // ========== 弯头外侧强化边缘 ==========
+            // ── 弯头外侧强化边缘 ──
             if (ElbowOuterEdge != null)
             {
                 PathGeometry outerEdgeGeometry = new PathGeometry();
                 PathFigure outerEdgeFigure = new PathFigure();
-
-                //  外侧边缘略微偏移（视觉强化）
-                double edgeOffset = 0.5;
-                Point edgeStart = new Point(centerX - radius, centerY + _pipeWidth / 2 - edgeOffset);
-                outerEdgeFigure.StartPoint = edgeStart;
-
-                ArcSegment edgeArc = new ArcSegment(
-                    new Point(centerX + _pipeWidth / 2 - edgeOffset, centerY - radius),
-                    new Size(radius + _pipeWidth / 2 - edgeOffset, radius + _pipeWidth / 2 - edgeOffset),
-                    0, false, SweepDirection.Counterclockwise, true);
-                outerEdgeFigure.Segments.Add(edgeArc);
-
+                double edgeOff = 0.5;
+                outerEdgeFigure.StartPoint = new Point(centerX - radius, centerY + _pipeWidth / 2 - edgeOff);
+                outerEdgeFigure.Segments.Add(new ArcSegment(
+                    new Point(centerX + _pipeWidth / 2 - edgeOff, centerY - radius),
+                    new Size(radius + _pipeWidth / 2 - edgeOff, radius + _pipeWidth / 2 - edgeOff),
+                    0, false, SweepDirection.Counterclockwise, true));
                 outerEdgeGeometry.Figures.Add(outerEdgeFigure);
                 ElbowOuterEdge.Data = outerEdgeGeometry;
             }
 
-            // ========== 弯头高光路径 ==========
+            // ── 弯头高光 ──
             if (ElbowHighlight != null)
             {
                 PathGeometry highlightGeometry = new PathGeometry();
                 PathFigure highlightFigure = new PathFigure();
-
-                //  高光位置：从内弧偏移一定距离
-                double highlightOffset = _pipeWidth * 0.25;
-                double highlightRadius = radius - highlightOffset;
-
-                Point highlightStart = new Point(
-                    centerX - highlightRadius,
-                    centerY - highlightOffset);
-                highlightFigure.StartPoint = highlightStart;
-
-                ArcSegment highlightArc = new ArcSegment(
-                    new Point(centerX - highlightOffset, centerY - highlightRadius),
-                    new Size(highlightRadius, highlightRadius),
-                    0, false, SweepDirection.Counterclockwise, true);
-                highlightFigure.Segments.Add(highlightArc);
-
+                double hlOff = _pipeWidth * 0.25;
+                double hlRadius = radius - hlOff;
+                highlightFigure.StartPoint = new Point(centerX - hlRadius, centerY - hlOff);
+                highlightFigure.Segments.Add(new ArcSegment(
+                    new Point(centerX - hlOff, centerY - hlRadius),
+                    new Size(hlRadius, hlRadius),
+                    0, false, SweepDirection.Counterclockwise, true));
                 highlightGeometry.Figures.Add(highlightFigure);
                 ElbowHighlight.Data = highlightGeometry;
             }
-        }
-
-        private void UpdateFlanges(double horizontalY, double verticalX)
-        {
-            //  法兰高度/宽度 = 管道宽度 + 4（上下/左右各多出2px）
-            double flangeHeight = _pipeWidth + 4;
-            double flangeWidth = _pipeWidth + 4;
-
-            // 左侧法兰（垂直方向）
-            Canvas.SetLeft(LeftFlangeGroup, FlangeOffset);
-            Canvas.SetTop(LeftFlangeGroup, horizontalY - flangeHeight / 2);
-            LeftFlangeGroup.Width = FlangeWidth;
-            LeftFlangeGroup.Height = flangeHeight;
-
-            LeftFlangeBase.Width = FlangeWidth;
-            LeftFlangeBase.Height = flangeHeight;
-            LeftFlangeGradient.Width = FlangeWidth;
-            LeftFlangeGradient.Height = flangeHeight;
-            LeftFlangeBorder.Width = FlangeWidth;
-            LeftFlangeBorder.Height = flangeHeight;
-
-            //  移除螺栓更新
-            // UpdateFlangeBoltsVertical(LeftBolt1, LeftBolt2, LeftBolt3, flangeHeight);
-
-            // 顶部法兰（水平方向）
-            Canvas.SetLeft(TopFlangeGroup, verticalX - flangeWidth / 2);
-            Canvas.SetTop(TopFlangeGroup, FlangeOffset);
-            TopFlangeGroup.Width = flangeWidth;
-            TopFlangeGroup.Height = FlangeWidth;
-
-            TopFlangeBase.Width = flangeWidth;
-            TopFlangeBase.Height = FlangeWidth;
-            TopFlangeGradient.Width = flangeWidth;
-            TopFlangeGradient.Height = FlangeWidth;
-            TopFlangeBorder.Width = flangeWidth;
-            TopFlangeBorder.Height = FlangeWidth;
-
-            //  移除螺栓更新
-            // UpdateFlangeBoltsHorizontal(TopBolt1, TopBolt2, TopBolt3, flangeWidth);
-        }
-
-        private void UpdateFlangeBoltsVertical(Ellipse bolt1, Ellipse bolt2, Ellipse bolt3, double flangeHeight)
-        {
-            double boltSize = 1.5;
-            double leftPosition = (FlangeWidth - boltSize) / 2; // 居中
-
-            // 螺栓垂直分布
-            Canvas.SetLeft(bolt1, leftPosition);
-            Canvas.SetTop(bolt1, flangeHeight * 0.2 - boltSize / 2);
-
-            Canvas.SetLeft(bolt2, leftPosition);
-            Canvas.SetTop(bolt2, (flangeHeight - boltSize) / 2);
-
-            Canvas.SetLeft(bolt3, leftPosition);
-            Canvas.SetTop(bolt3, flangeHeight * 0.8 - boltSize / 2);
-        }
-
-        private void UpdateFlangeBoltsHorizontal(Ellipse bolt1, Ellipse bolt2, Ellipse bolt3, double flangeWidth)
-        {
-            double boltSize = 1.5;
-            double topPosition = (FlangeWidth - boltSize) / 2; // 居中
-
-            // 螺栓水平分布
-            Canvas.SetLeft(bolt1, flangeWidth * 0.2 - boltSize / 2);
-            Canvas.SetTop(bolt1, topPosition);
-
-            Canvas.SetLeft(bolt2, (flangeWidth - boltSize) / 2);
-            Canvas.SetTop(bolt2, topPosition);
-
-            Canvas.SetLeft(bolt3, flangeWidth * 0.8 - boltSize / 2);
-            Canvas.SetTop(bolt3, topPosition);
-        }
-
-        private void UpdateConnections(double horizontalY, double verticalX)
-        {
-            LeftConnection.Height = _pipeWidth;
-            //  左连接位置 = 法兰宽度2.54 + 偏移0.35 = 2.89
-            Canvas.SetLeft(LeftConnection, FlangeWidth + FlangeOffset);
-            Canvas.SetTop(LeftConnection, horizontalY - _pipeWidth / 2);
-
-            TopConnection.Width = _pipeWidth;
-            Canvas.SetLeft(TopConnection, verticalX - _pipeWidth / 2);
-            //  顶连接位置 = 法兰高度2.54 + 偏移0.35 = 2.89
-            Canvas.SetTop(TopConnection, FlangeWidth + FlangeOffset);
         }
 
         private void UpdateAnchorPositions(double horizontalY, double verticalX)
         {
             Canvas.SetLeft(LeftAnchor, -6);
             Canvas.SetTop(LeftAnchor, horizontalY - 6);
-
             Canvas.SetLeft(TopAnchor, verticalX - 6);
             Canvas.SetTop(TopAnchor, -6);
-
             Canvas.SetLeft(HorizontalWidthAnchor, _horizontalLength / 2);
-            Canvas.SetTop(HorizontalWidthAnchor, this.Height - 6);
-
-            Canvas.SetLeft(VerticalWidthAnchor, this.Width - 6);
+            Canvas.SetTop(HorizontalWidthAnchor, Height - 6);
+            Canvas.SetLeft(VerticalWidthAnchor, Width - 6);
             Canvas.SetTop(VerticalWidthAnchor, _verticalLength / 2);
 
-            double centerX = this.Width / 2;
+            double centerX = Width / 2;
             Canvas.SetLeft(RotateAnchor, centerX - 6);
             Canvas.SetTop(RotateAnchor, -30);
-
             RotateAnchorLine.X1 = centerX;
             RotateAnchorLine.Y1 = 0;
             RotateAnchorLine.X2 = centerX;
@@ -846,7 +1153,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 拖动、调整大小、旋转功能
+        #region 拖动、调整大小、旋转
 
         private void OnControlMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -854,11 +1161,22 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
-                PipeSelected?.Invoke(this, this.PipeId);
-                this.IsSelected = true;
+                // ★ 双击 → 打开属性对话框
+                if (e.ClickCount == 2)
+                {
+                    _isDraggingPipe = false;
+                    ReleaseMouseCapture();
+                    Opacity = 1.0;
+                    PipeDoubleClicked?.Invoke(this, PipeId);
+                    e.Handled = true;
+                    return;
+                }
+
+                PipeSelected?.Invoke(this, PipeId);
+                IsSelected = true;
 
                 _isDraggingPipe = true;
-                var parent = this.Parent as Canvas;
+                var parent = Parent as Canvas;
                 if (parent != null)
                 {
                     _dragStartPoint = e.GetPosition(parent);
@@ -867,12 +1185,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
                 }
 
-                //  拖拽时禁用缓存，降低质量
-                this.CacheMode = null;
+                CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
-
-                this.CaptureMouse();
-                this.Opacity = 0.7;
+                CaptureMouse();
+                Opacity = 0.7;
 
                 PipeDragStarted?.Invoke(this, new ElbowPipeDragEventArgs
                 {
@@ -887,14 +1203,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (_isDraggingPipe && e.LeftButton == MouseButtonState.Pressed)
             {
-                var parent = this.Parent as Canvas;
+                var parent = Parent as Canvas;
                 if (parent != null)
                 {
                     var currentPoint = e.GetPosition(parent);
                     double deltaX = currentPoint.X - _dragStartPoint.X;
                     double deltaY = currentPoint.Y - _dragStartPoint.Y;
-                    double newLeft = Math.Max(0, Math.Min(parent.ActualWidth - this.ActualWidth, _originalPosition.X + deltaX));
-                    double newTop = Math.Max(0, Math.Min(parent.ActualHeight - this.ActualHeight, _originalPosition.Y + deltaY));
+                    double newLeft = Math.Max(0, Math.Min(parent.ActualWidth - ActualWidth, _originalPosition.X + deltaX));
+                    double newTop = Math.Max(0, Math.Min(parent.ActualHeight - ActualHeight, _originalPosition.Y + deltaY));
                     Canvas.SetLeft(this, newLeft);
                     Canvas.SetTop(this, newTop);
                     PipeDragging?.Invoke(this, new ElbowPipeDragEventArgs { PipeId = PipeId, CurrentPosition = new Point(newLeft, newTop) });
@@ -932,7 +1248,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (!_isDraggingPipe) return;
 
             var finalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
-
             PipeDragCompleted?.Invoke(this, new ElbowPipeDragEventArgs
             {
                 PipeId = PipeId,
@@ -940,21 +1255,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 CurrentPosition = finalPosition
             });
 
-            this.Opacity = 1.0;
+            Opacity = 1.0;
             _isDraggingPipe = false;
 
-            //  拖拽结束后恢复缓存和高质量
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
-            this.CacheMode = new BitmapCache
-            {
-                RenderAtScale = 1.0,
-                SnapsToDevicePixels = true,
-                EnableClearType = false
-            };
-
-            this.ReleaseMouseCapture();
+            CacheMode = new BitmapCache { RenderAtScale = 1.0, SnapsToDevicePixels = true, EnableClearType = false };
+            ReleaseMouseCapture();
         }
-
 
         private bool IsClickOnAnchor(object source)
         {
@@ -962,6 +1269,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                    source == HorizontalWidthAnchor || source == VerticalWidthAnchor ||
                    source == RotateAnchor;
         }
+
+        #endregion
 
         #region 锚点调整大小
 
@@ -972,7 +1281,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 _isResizing = true;
                 _resizingAnchor = position;
 
-                var parent = this.Parent as Canvas;
+                var parent = Parent as Canvas;
                 if (parent != null)
                 {
                     _dragStartPoint = e.GetPosition(parent);
@@ -985,17 +1294,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     };
                     if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
                     if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
-
                     _fixedPoint = CalculateElbowFixedPoint(position);
-
-                    Debug.WriteLine($"开始调整弯管大小: 锚点={position}, 固定点=({_fixedPoint.X:F1}, {_fixedPoint.Y:F1})");
                 }
 
-                //  调整大小时禁用缓存
-                this.CacheMode = null;
+                CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
-
-                this.CaptureMouse();
+                CaptureMouse();
 
                 PipeResizeStarted?.Invoke(this, new ElbowPipeResizeEventArgs
                 {
@@ -1009,7 +1313,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private Point CalculateElbowFixedPoint(ElbowAnchorPosition draggedAnchor)
         {
-            var parent = this.Parent as Canvas;
+            var parent = Parent as Canvas;
             if (parent == null) return new Point();
 
             var pipeLeft = Canvas.GetLeft(this);
@@ -1017,54 +1321,31 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            Point center = new Point(
-                pipeLeft + this.ActualWidth / 2,
-                pipeTop + this.ActualHeight / 2
-            );
-
+            Point center = new Point(pipeLeft + ActualWidth / 2, pipeTop + ActualHeight / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
-            double cos = Math.Cos(radians);
-            double sin = Math.Sin(radians);
 
-            Point localFixed = new Point();
-
+            Point localFixed;
             switch (draggedAnchor)
             {
                 case ElbowAnchorPosition.Left:
-                    localFixed = new Point(
-                        this.Width / 2 - 10 - _pipeWidth / 2,
-                        this.Height / 2 - 10 - _pipeWidth / 2
-                    );
-                    break;
-
                 case ElbowAnchorPosition.Top:
                     localFixed = new Point(
-                        this.Width / 2 - 10 - _pipeWidth / 2,
-                        this.Height / 2 - 10 - _pipeWidth / 2
-                    );
+                        Width / 2 - 10 - _pipeWidth / 2,
+                        Height / 2 - 10 - _pipeWidth / 2);
                     break;
-
-                case ElbowAnchorPosition.HorizontalWidth:
-                case ElbowAnchorPosition.VerticalWidth:
+                default:
                     localFixed = new Point(0, 0);
                     break;
             }
 
-            Point worldFixed = new Point(
-                localFixed.X * cos - localFixed.Y * sin,
-                localFixed.X * sin + localFixed.Y * cos
-            );
-
-            return new Point(
-                center.X + worldFixed.X,
-                center.Y + worldFixed.Y
-            );
+            Point worldFixed = RotatePoint(localFixed, radians);
+            return new Point(center.X + worldFixed.X, center.Y + worldFixed.Y);
         }
 
         private void HandleResize(MouseEventArgs e)
         {
             if (!_resizingAnchor.HasValue) return;
-            var parent = this.Parent as Canvas;
+            var parent = Parent as Canvas;
             if (parent == null) return;
 
             var currentPoint = e.GetPosition(parent);
@@ -1074,11 +1355,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 case ElbowAnchorPosition.Left:
                     ResizeHorizontalArmFromLeft(currentPoint);
                     break;
-
                 case ElbowAnchorPosition.Top:
                     ResizeVerticalArmFromTop(currentPoint);
                     break;
-
                 case ElbowAnchorPosition.HorizontalWidth:
                 case ElbowAnchorPosition.VerticalWidth:
                     ResizePipeWidthFromAnchor(currentPoint);
@@ -1102,53 +1381,30 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             double deltaX = currentMousePosition.X - _fixedPoint.X;
             double deltaY = currentMousePosition.Y - _fixedPoint.Y;
-
             double radians = _rotationAngle * Math.PI / 180.0;
-            double cos = Math.Cos(radians);
-            double sin = Math.Sin(radians);
-
-            double projectedLength = deltaX * cos + deltaY * sin;
-
-            double newLength = Math.Abs(projectedLength);
-            newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newLength));
-
+            double projectedLength = deltaX * Math.Cos(radians) + deltaY * Math.Sin(radians);
+            double newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, Math.Abs(projectedLength)));
             _horizontalLength = newLength;
-
             RecalculatePositionForElbow();
-
             UpdatePipeGeometry();
-
-            Debug.WriteLine($"调整水平臂: {newLength:F1}px");
         }
 
         private void ResizeVerticalArmFromTop(Point currentMousePosition)
         {
             double deltaX = currentMousePosition.X - _fixedPoint.X;
             double deltaY = currentMousePosition.Y - _fixedPoint.Y;
-
             double radians = _rotationAngle * Math.PI / 180.0;
-            double cos = Math.Cos(radians);
-            double sin = Math.Sin(radians);
-
-            double projectedLength = -deltaX * sin + deltaY * cos;
-
-            double newLength = Math.Abs(projectedLength);
-            newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newLength));
-
+            double projectedLength = -deltaX * Math.Sin(radians) + deltaY * Math.Cos(radians);
+            double newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, Math.Abs(projectedLength)));
             _verticalLength = newLength;
-
             RecalculatePositionForElbow();
-
             UpdatePipeGeometry();
-
-            Debug.WriteLine($"调整垂直臂: {newLength:F1}px");
         }
 
         private void ResizePipeWidthFromAnchor(Point currentMousePosition)
         {
             double deltaX = currentMousePosition.X - _dragStartPoint.X;
             double deltaY = currentMousePosition.Y - _dragStartPoint.Y;
-
             double delta = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
             if (deltaX < 0 || deltaY < 0) delta = -delta;
 
@@ -1156,48 +1412,30 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             newWidth = Math.Max(MinPipeWidth, Math.Min(MaxPipeWidth, newWidth));
 
             double widthRatio = newWidth / _originalSize.PipeWidth;
-
-            double newHorizontalLength = _originalSize.HorizontalLength * widthRatio;
-            double newVerticalLength = _originalSize.VerticalLength * widthRatio;
-
-            newHorizontalLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newHorizontalLength));
-            newVerticalLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, newVerticalLength));
+            double newHL = Math.Max(MinArmLength, Math.Min(MaxArmLength, _originalSize.HorizontalLength * widthRatio));
+            double newVL = Math.Max(MinArmLength, Math.Min(MaxArmLength, _originalSize.VerticalLength * widthRatio));
 
             _pipeWidth = newWidth;
-            _horizontalLength = newHorizontalLength;
-            _verticalLength = newVerticalLength;
-
+            _horizontalLength = newHL;
+            _verticalLength = newVL;
             UpdatePipeGeometry();
-
-            Debug.WriteLine($"协调调整 - 宽度: {newWidth:F1}px, 水平: {newHorizontalLength:F1}px, 垂直: {newVerticalLength:F1}px, 比例: {widthRatio:F2}");
         }
 
         private void RecalculatePositionForElbow()
         {
             double radians = _rotationAngle * Math.PI / 180.0;
-            double cos = Math.Cos(radians);
-            double sin = Math.Sin(radians);
-
             Point elbowLocalOffset = new Point(
-                this.Width / 2 - 10 - _pipeWidth / 2,
-                this.Height / 2 - 10 - _pipeWidth / 2
-            );
-
-            Point elbowWorldOffset = new Point(
-                elbowLocalOffset.X * cos - elbowLocalOffset.Y * sin,
-                elbowLocalOffset.X * sin + elbowLocalOffset.Y * cos
-            );
-
+                Width / 2 - 10 - _pipeWidth / 2,
+                Height / 2 - 10 - _pipeWidth / 2);
+            Point elbowWorldOffset = RotatePoint(elbowLocalOffset, radians);
             Point newCenter = new Point(
                 _fixedPoint.X - elbowWorldOffset.X,
-                _fixedPoint.Y - elbowWorldOffset.Y
-            );
+                _fixedPoint.Y - elbowWorldOffset.Y);
 
-            this.Width = _horizontalLength + 20;
-            this.Height = _verticalLength + 20;
-
-            Canvas.SetLeft(this, newCenter.X - this.Width / 2);
-            Canvas.SetTop(this, newCenter.Y - this.Height / 2);
+            Width = _horizontalLength + 20;
+            Height = _verticalLength + 20;
+            Canvas.SetLeft(this, newCenter.X - Width / 2);
+            Canvas.SetTop(this, newCenter.Y - Height / 2);
         }
 
         private void CompleteResize()
@@ -1219,21 +1457,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             _isResizing = false;
             _resizingAnchor = null;
-
-            //  调整大小结束后恢复缓存
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
-            this.CacheMode = new BitmapCache
-            {
-                RenderAtScale = 1.0,
-                SnapsToDevicePixels = true,
-                EnableClearType = false
-            };
-
-            this.ReleaseMouseCapture();
+            CacheMode = new BitmapCache { RenderAtScale = 1.0, SnapsToDevicePixels = true, EnableClearType = false };
+            ReleaseMouseCapture();
         }
 
-
         #endregion
+
+        #region 旋转功能
 
         private void OnRotateAnchorMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -1242,15 +1473,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 _isRotating = true;
                 _originalRotation = _rotationAngle;
 
-                var parent = this.Parent as Canvas;
-                if (parent != null)
-                    _dragStartPoint = e.GetPosition(parent);
+                var parent = Parent as Canvas;
+                if (parent != null) _dragStartPoint = e.GetPosition(parent);
 
-                //  旋转时禁用缓存（关键优化）
-                this.CacheMode = null;
+                CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
-
-                this.CaptureMouse();
+                CaptureMouse();
 
                 PipeRotateStarted?.Invoke(this, new ElbowPipeRotateEventArgs
                 {
@@ -1263,7 +1491,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void HandleRotate(MouseEventArgs e)
         {
-            var parent = this.Parent as Canvas;
+            var parent = Parent as Canvas;
             if (parent == null) return;
             var currentPoint = e.GetPosition(parent);
             var pipeLeft = Canvas.GetLeft(this);
@@ -1271,11 +1499,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            Point center = new Point(pipeLeft + this.ActualWidth / 2, pipeTop + this.ActualHeight / 2);
+            Point center = new Point(pipeLeft + ActualWidth / 2, pipeTop + ActualHeight / 2);
             double startAngle = Math.Atan2(_dragStartPoint.Y - center.Y, _dragStartPoint.X - center.X) * 180 / Math.PI;
             double currentAngle = Math.Atan2(currentPoint.Y - center.Y, currentPoint.X - center.X) * 180 / Math.PI;
-            double deltaAngle = currentAngle - startAngle;
-            double newAngle = _originalRotation + deltaAngle;
+            double newAngle = _originalRotation + (currentAngle - startAngle);
 
             if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
                 newAngle = Math.Round(newAngle / 15) * 15;
@@ -1297,25 +1524,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             });
 
             _isRotating = false;
-
-            //  旋转结束后恢复缓存（关键优化）
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
-            this.CacheMode = new BitmapCache
-            {
-                RenderAtScale = 1.0,
-                SnapsToDevicePixels = true,
-                EnableClearType = false
-            };
-
-            this.ReleaseMouseCapture();
+            CacheMode = new BitmapCache { RenderAtScale = 1.0, SnapsToDevicePixels = true, EnableClearType = false };
+            ReleaseMouseCapture();
         }
 
         #endregion
 
-        public void SetSelected(bool selected)
-        {
-            IsSelected = selected;
-        }
+        #region 选择状态
+
+        public void SetSelected(bool selected) => IsSelected = selected;
+
+        #endregion
 
         #region IPipeSnapPoints 实现
 
@@ -1323,7 +1543,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             var snapPoints = new List<PipeSnapPoint>();
 
-            var parent = this.Parent as Canvas;
+            var parent = Parent as Canvas;
             if (parent == null) return snapPoints;
 
             var pipeLeft = Canvas.GetLeft(this);
@@ -1331,43 +1551,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            Point center = new Point(
-                pipeLeft + this.ActualWidth / 2,
-                pipeTop + this.ActualHeight / 2
-            );
-
+            Point center = new Point(pipeLeft + ActualWidth / 2, pipeTop + ActualHeight / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            //  左侧法兰中心位置：Canvas.Left=0.35, 法兰宽度=2.54, 中心X=0.35+1.27=1.62
-            double leftFlangeX = FlangeOffset + FlangeWidth / 2 - this.ActualWidth / 2;
-            double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - this.ActualHeight / 2;
-
-            Point leftFlangeLocal = new Point(leftFlangeX, leftFlangeY);
-            Point leftFlangeWorld = RotatePoint(leftFlangeLocal, radians);
-
+            // 左侧法兰
+            double leftFlangeX = FlangeOffset + FlangeWidth / 2 - ActualWidth / 2;
+            double leftFlangeY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - ActualHeight / 2;
+            Point leftFlangeWorld = RotatePoint(new Point(leftFlangeX, leftFlangeY), radians);
             snapPoints.Add(new PipeSnapPoint
             {
-                WorldPosition = new Point(
-                    center.X + leftFlangeWorld.X,
-                    center.Y + leftFlangeWorld.Y
-                ),
+                WorldPosition = new Point(center.X + leftFlangeWorld.X, center.Y + leftFlangeWorld.Y),
                 Direction = GetSnapDirectionFromAngle(radians + Math.PI),
                 Description = $"弯管水平法兰 (水平:{_horizontalLength:F0})"
             });
 
-            //  顶部法兰中心位置：Canvas.Top=0.35, 法兰高度=2.54, 中心Y=0.35+1.27=1.62
-            double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - this.ActualWidth / 2;
-            double topFlangeY = FlangeOffset + FlangeWidth / 2 - this.ActualHeight / 2;
-
-            Point topFlangeLocal = new Point(topFlangeX, topFlangeY);
-            Point topFlangeWorld = RotatePoint(topFlangeLocal, radians);
-
+            // 顶部法兰
+            double topFlangeX = Canvas.GetLeft(TopFlangeGroup) + TopFlangeGroup.Width / 2 - ActualWidth / 2;
+            double topFlangeY = FlangeOffset + FlangeWidth / 2 - ActualHeight / 2;
+            Point topFlangeWorld = RotatePoint(new Point(topFlangeX, topFlangeY), radians);
             snapPoints.Add(new PipeSnapPoint
             {
-                WorldPosition = new Point(
-                    center.X + topFlangeWorld.X,
-                    center.Y + topFlangeWorld.Y
-                ),
+                WorldPosition = new Point(center.X + topFlangeWorld.X, center.Y + topFlangeWorld.Y),
                 Direction = GetSnapDirectionFromAngle(radians - Math.PI / 2),
                 Description = $"弯管垂直法兰 (垂直:{_verticalLength:F0})"
             });
@@ -1379,17 +1583,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
-
             return new Point(
                 localPoint.X * cos - localPoint.Y * sin,
-                localPoint.X * sin + localPoint.Y * cos
-            );
+                localPoint.X * sin + localPoint.Y * cos);
         }
 
         private SnapDirection GetSnapDirectionFromAngle(double radians)
         {
             double degrees = (radians * 180 / Math.PI + 360) % 360;
-
             if (degrees >= 315 || degrees < 45) return SnapDirection.Right;
             if (degrees >= 45 && degrees < 135) return SnapDirection.Down;
             if (degrees >= 135 && degrees < 225) return SnapDirection.Left;
@@ -1399,7 +1600,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
     }
 
-    #region 事件参数类
+    #region 事件参数类（保持不变）
 
     public class ElbowPipeDragEventArgs : EventArgs
     {

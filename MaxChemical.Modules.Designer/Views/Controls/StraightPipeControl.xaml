@@ -6,250 +6,156 @@
              Cursor="SizeAll"
              ClipToBounds="False">
 
-    <UserControl.Resources>
-        <!-- SVG管道渐变 -->
-        <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.264"/>
-            <GradientStop Color="#1A727171" Offset="0.418"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.498"/>
-            <GradientStop Color="#1A727171" Offset="0.581"/>
-            <GradientStop Color="#59727171" Offset="0.719"/>
-            <GradientStop Color="#727171" Offset="1"/>
-        </LinearGradientBrush>
-
-        <!--  SVG端盖渐变（左侧-从左到右亮） -->
-        <LinearGradientBrush x:Key="LeftEndCapGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#D9D9D9" Offset="0"/>
-            <GradientStop Color="#A0A0A0" Offset="0.5"/>
-            <GradientStop Color="#D9D9D9" Offset="1"/>
-        </LinearGradientBrush>
-
-        <!--  SVG端盖渐变（右侧-从右到左亮） -->
-        <LinearGradientBrush x:Key="RightEndCapGradient" StartPoint="1,0.5" EndPoint="0,0.5">
-            <GradientStop Color="#D9D9D9" Offset="0"/>
-            <GradientStop Color="#A0A0A0" Offset="0.5"/>
-            <GradientStop Color="#D9D9D9" Offset="1"/>
-        </LinearGradientBrush>
-    </UserControl.Resources>
-
     <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
 
-        <!--  左侧法兰组（参考SVG端盖设计） -->
+        <!-- ═══════════════ 左侧法兰组 ═══════════════ -->
         <Canvas x:Name="LeftFlangeGroup" Canvas.Left="0.35" Canvas.Top="11.9">
-            <!-- 法兰基础层 -->
             <Rectangle x:Name="LeftFlangeBase"
-               Width="2.54"
-               Height="22.4"
-               Fill="#D9D9D9"
-               RadiusX="1.27" 
-               RadiusY="1.27"/>
-
-            <!-- 法兰渐变层（立体效果） -->
+                       Width="2.54" Height="22.4"
+                       RadiusX="1.27" RadiusY="1.27"/>
             <Rectangle x:Name="LeftFlangeGradient"
-               Width="2.54"
-               Height="22.4"
-               Fill="{StaticResource LeftEndCapGradient}"
-               Opacity="0.6"
-               RadiusX="1.27" 
-               RadiusY="1.27"/>
-
-            <!-- 法兰边框 -->
+                       Width="2.54" Height="22.4"
+                       Opacity="0.6"
+                       RadiusX="1.27" RadiusY="1.27"/>
             <Rectangle x:Name="LeftFlangeBorder"
-               Width="2.54"
-               Height="22.4"
-               Stroke="#727171" 
-               StrokeThickness="0.7"
-               RadiusX="1.27" 
-               RadiusY="1.27" 
-               Fill="Transparent"/>
+                       Width="2.54" Height="22.4"
+                       StrokeThickness="0.7"
+                       Fill="Transparent"
+                       RadiusX="1.27" RadiusY="1.27"/>
         </Canvas>
 
-        <!-- 管道背景层（白色） -->
-        <Rectangle x:Name="PipeBackground" 
-                   Canvas.Left="3.2" 
-                   Canvas.Top="14.8"
-                   Width="85.9"
-                   Height="16.6"
+        <!-- ═══════════════ 管道白色底层（产生高光） ═══════════════ -->
+        <Rectangle x:Name="PipeBackground"
+                   Canvas.Left="3.2" Canvas.Top="14.8"
+                   Width="85.9" Height="16.6"
                    Fill="White"/>
 
-        <!-- 管道主体（使用SVG渐变） -->
-        <Rectangle x:Name="MainPipe" 
-                   Canvas.Left="3.2" 
-                   Canvas.Top="14.8"
-                   Width="85.9"
-                   Height="16.6"
-                   Fill="{StaticResource PipeGradient}"/>
+        <!-- ═══════════════ 流体背景层（纯色填充） ═══════════════ -->
+        <Rectangle x:Name="FluidBackground"
+                   Canvas.Left="3.2" Canvas.Top="14.8"
+                   Width="85.9" Height="16.6"
+                   Visibility="Collapsed"/>
 
-        <!-- 管道顶部边缘线 -->
+        <!-- ═══════════════ 流体气泡纹理层（可动画） ═══════════════ -->
+        <Rectangle x:Name="FluidPattern"
+                   Canvas.Left="3.2" Canvas.Top="14.8"
+                   Width="85.9" Height="16.6"
+                   Visibility="Collapsed"/>
+
+        <!-- ═══════════════ 管道圆柱渐变层（3D立体效果） ═══════════════ -->
+        <Rectangle x:Name="MainPipe"
+                   Canvas.Left="3.2" Canvas.Top="14.8"
+                   Width="85.9" Height="16.6"/>
+
+        <!-- ═══════════════ 管道顶部边缘线 ═══════════════ -->
         <Line x:Name="TopEdgeLine"
-              X1="3.58" Y1="15.12"
-              X2="89.18" Y2="15.12"
-              Stroke="#000000" 
-              StrokeThickness="0.7"
-              Opacity="0.12"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"/>
+              X1="3.58" Y1="15.12" X2="89.18" Y2="15.12"
+              Stroke="#000000" StrokeThickness="0.7" Opacity="0.12"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
 
-        <!-- 管道底部边缘线 -->
+        <!-- ═══════════════ 管道底部边缘线 ═══════════════ -->
         <Line x:Name="BottomEdgeLine"
-              X1="3.58" Y1="31.06"
-              X2="89.18" Y2="31.06"
-              Stroke="#000000" 
-              StrokeThickness="0.7"
-              Opacity="0.12"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"/>
+              X1="3.58" Y1="31.06" X2="89.18" Y2="31.06"
+              Stroke="#000000" StrokeThickness="0.7" Opacity="0.12"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
 
-        <!--  右侧法兰组（参考SVG端盖设计） -->
+        <!-- ═══════════════ 右侧法兰组 ═══════════════ -->
         <Canvas x:Name="RightFlangeGroup" Canvas.Left="89.4" Canvas.Top="11.9">
-            <!-- 法兰基础层 -->
             <Rectangle x:Name="RightFlangeBase"
-               Width="2.54"
-               Height="22.4"
-               Fill="#D9D9D9"
-               RadiusX="1.27" 
-               RadiusY="1.27"/>
-
-            <!-- 法兰渐变层（立体效果） -->
+                       Width="2.54" Height="22.4"
+                       RadiusX="1.27" RadiusY="1.27"/>
             <Rectangle x:Name="RightFlangeGradient"
-               Width="2.54"
-               Height="22.4"
-               Fill="{StaticResource RightEndCapGradient}"
-               Opacity="0.6"
-               RadiusX="1.27" 
-               RadiusY="1.27"/>
-
-            <!-- 法兰边框 -->
+                       Width="2.54" Height="22.4"
+                       Opacity="0.6"
+                       RadiusX="1.27" RadiusY="1.27"/>
             <Rectangle x:Name="RightFlangeBorder"
-               Width="2.54"
-               Height="22.4"
-               Stroke="#727171" 
-               StrokeThickness="0.7"
-               RadiusX="1.27" 
-               RadiusY="1.27" 
-               Fill="Transparent"/>
+                       Width="2.54" Height="22.4"
+                       StrokeThickness="0.7"
+                       Fill="Transparent"
+                       RadiusX="1.27" RadiusY="1.27"/>
         </Canvas>
 
-        <!-- 选中时的高亮边框 -->
+        <!-- ═══════════════ 选中高亮边框 ═══════════════ -->
         <Rectangle x:Name="SelectionBorder"
-                   Canvas.Left="1" 
-                   Canvas.Top="13"
-                   Width="90"
-                   Height="20"
-                   Stroke="#FF9500" 
-                   StrokeThickness="2"
+                   Canvas.Left="1" Canvas.Top="13"
+                   Width="90" Height="20"
+                   Stroke="#FF9500" StrokeThickness="2"
                    Fill="Transparent"
-                   RadiusX="3" 
-                   RadiusY="3"
+                   RadiusX="3" RadiusY="3"
                    Visibility="Collapsed">
             <Rectangle.Effect>
                 <DropShadowEffect Color="Orange" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <!-- 调整大小的锚点 -->
-
-        <!-- 左侧锚点 -->
+        <!-- ═══════════════ 左侧锚点 ═══════════════ -->
         <Ellipse x:Name="LeftAnchor"
-                 Canvas.Left="-6"
-                 Canvas.Top="16.5"
-                 Width="12" 
-                 Height="12"
-                 Fill="Orange" 
-                 Stroke="White"
-                 StrokeThickness="2"
-                 Opacity="0"
-                 Cursor="SizeWE">
+                 Canvas.Left="-6" Canvas.Top="16.5"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeWE">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整长度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 右侧锚点 -->
+        <!-- ═══════════════ 右侧锚点 ═══════════════ -->
         <Ellipse x:Name="RightAnchor"
-                 Canvas.Left="94"
-                 Canvas.Top="16.5"
-                 Width="12" 
-                 Height="12"
-                 Fill="Orange" 
-                 Stroke="White"
-                 StrokeThickness="2"
-                 Opacity="0"
-                 Cursor="SizeWE">
+                 Canvas.Left="94" Canvas.Top="16.5"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeWE">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整长度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 上侧锚点 -->
+        <!-- ═══════════════ 上侧锚点 ═══════════════ -->
         <Ellipse x:Name="TopAnchor"
-                 Canvas.Left="44"
-                 Canvas.Top="4"
-                 Width="12" 
-                 Height="12"
-                 Fill="Orange" 
-                 Stroke="White"
-                 StrokeThickness="2"
-                 Opacity="0"
-                 Cursor="SizeNS">
+                 Canvas.Left="44" Canvas.Top="4"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeNS">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整宽度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 下侧锚点 -->
+        <!-- ═══════════════ 下侧锚点 ═══════════════ -->
         <Ellipse x:Name="BottomAnchor"
-                 Canvas.Left="44"
-                 Canvas.Top="30"
-                 Width="12" 
-                 Height="12"
-                 Fill="Orange" 
-                 Stroke="White"
-                 StrokeThickness="2"
-                 Opacity="0"
-                 Cursor="SizeNS">
+                 Canvas.Left="44" Canvas.Top="30"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeNS">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整宽度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 旋转锚点 -->
-        <Ellipse x:Name="RotateAnchor" 
-                 Canvas.Left="44"
-                 Canvas.Top="-30"
-                 Width="12" Height="12" 
-                 Fill="#4CAF50" 
-                 Stroke="White" 
-                 StrokeThickness="2" 
-                 Opacity="0" 
-                 Cursor="Hand">
+        <!-- ═══════════════ 旋转锚点 ═══════════════ -->
+        <Ellipse x:Name="RotateAnchor"
+                 Canvas.Left="44" Canvas.Top="-30"
+                 Width="12" Height="12"
+                 Fill="#4CAF50" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="Hand">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动旋转 (按住Shift=15°步进)"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- 旋转辅助线 -->
-        <Line x:Name="RotateAnchorLine" 
-              X1="50" Y1="0"
-              X2="50" Y2="-24"
-              Stroke="Orange" 
-              StrokeThickness="1" 
-              StrokeDashArray="2,2" 
-              Opacity="0"/>
+        <!-- ═══════════════ 旋转辅助线 ═══════════════ -->
+        <Line x:Name="RotateAnchorLine"
+              X1="50" Y1="0" X2="50" Y2="-24"
+              Stroke="Orange" StrokeThickness="1"
+              StrokeDashArray="2,2" Opacity="0"/>
 
-        <!-- 旋转角度显示标签 -->
+        <!-- ═══════════════ 旋转角度标签 ═══════════════ -->
         <Border x:Name="RotationLabel"
-                Canvas.Left="34"
-                Canvas.Top="-50"
-                Background="#CC000000"
-                CornerRadius="3"
-                Padding="5,2"
+                Canvas.Left="34" Canvas.Top="-50"
+                Background="#CC000000" CornerRadius="3" Padding="5,2"
                 Visibility="Collapsed">
             <TextBlock x:Name="RotationText"
-                       Foreground="White"
-                       FontSize="11"
-                       Text="0°"/>
+                       Foreground="White" FontSize="11" Text="0°"/>
         </Border>
 
     </Canvas>

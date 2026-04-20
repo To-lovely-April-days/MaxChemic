@@ -149,5 +149,33 @@ namespace MaxChemical.Modules.Designer.Models
         {
             return $"Pipe[{PipeType}] ID:{PipeId} at ({X:F0},{Y:F0})";
         }
+        #region 管道外观属性（保存/加载用）
+
+        /// <summary>管体颜色 (HEX, e.g. "#727171")</summary>
+        public string PipeColorHex { get; set; }
+
+        /// <summary>法兰颜色 (HEX)</summary>
+        public string FlangeColorHex { get; set; }
+
+        /// <summary>流体颜色 (HEX)</summary>
+        public string FluidColorHex { get; set; }
+
+        /// <summary>流体不透明度 (0.0~1.0)</summary>
+        public double FluidOpacity { get; set; } = 0.5;
+
+        /// <summary>是否显示流体</summary>
+        public bool IsFluidVisible { get; set; }
+
+        /// <summary>是否流动</summary>
+        public bool IsFlowing { get; set; }
+
+        /// <summary>流动方向 ("LeftToRight" / "RightToLeft")</summary>
+        public string FlowDirectionStr { get; set; } = "LeftToRight";
+
+        /// <summary>流动速度倍率</summary>
+        public double FlowSpeed { get; set; } = 1.0;
+
+        #endregion
+
     }
 }

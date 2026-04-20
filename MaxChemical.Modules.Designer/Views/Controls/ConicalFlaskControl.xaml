@@ -4,33 +4,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="120" 
-             d:DesignWidth="80"
+             d:DesignHeight="120" d:DesignWidth="80"
              Width="80" Height="120"
-             Background="Transparent"
-             Cursor="SizeAll"
-             ClipToBounds="False"
-             SnapsToDevicePixels="True"
-             UseLayoutRounding="True"
-             RenderOptions.BitmapScalingMode="HighQuality"
-             RenderOptions.EdgeMode="Unspecified"
-             RenderOptions.CachingHint="Cache">
-
-    <!--  根级别缓存配置 -->
-    <UserControl.CacheMode>
-        <BitmapCache RenderAtScale="1.0" 
-                     SnapsToDevicePixels="True" 
-                     EnableClearType="False"/>
-    </UserControl.CacheMode>
-
+             Background="Transparent" Cursor="SizeAll" ClipToBounds="False"
+             SnapsToDevicePixels="True" UseLayoutRounding="True">
     <UserControl.Resources>
-        <!-- 液体波动动画 - 添加帧率限制 -->
         <Storyboard x:Key="WaveAnimation" RepeatBehavior="Forever">
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Wave1" 
-                                          Storyboard.TargetProperty="(Canvas.Top)"
-                                          Timeline.DesiredFrameRate="30">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="MeniscusWave"
+                                           Storyboard.TargetProperty="(Canvas.Top)" Timeline.DesiredFrameRate="24">
                 <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="-2">
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="-1.5">
                     <EasingDoubleKeyFrame.EasingFunction>
                         <SineEase EasingMode="EaseInOut"/>
                     </EasingDoubleKeyFrame.EasingFunction>
@@ -41,504 +24,86 @@
                     </EasingDoubleKeyFrame.EasingFunction>
                 </EasingDoubleKeyFrame>
             </DoubleAnimationUsingKeyFrames>
-
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Wave2" 
-                                          Storyboard.TargetProperty="(Canvas.Top)"
-                                          Timeline.DesiredFrameRate="30">
-                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="-1"/>
-                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0">
-                    <EasingDoubleKeyFrame.EasingFunction>
-                        <SineEase EasingMode="EaseInOut"/>
-                    </EasingDoubleKeyFrame.EasingFunction>
-                </EasingDoubleKeyFrame>
-                <EasingDoubleKeyFrame KeyTime="0:0:4" Value="-1">
-                    <EasingDoubleKeyFrame.EasingFunction>
-                        <SineEase EasingMode="EaseInOut"/>
-                    </EasingDoubleKeyFrame.EasingFunction>
-                </EasingDoubleKeyFrame>
-            </DoubleAnimationUsingKeyFrames>
-
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Wave1" 
-                                          Storyboard.TargetProperty="Opacity"
-                                          Timeline.DesiredFrameRate="30">
-                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0.2"/>
-                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0.4"/>
-                <EasingDoubleKeyFrame KeyTime="0:0:4" Value="0.2"/>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="MeniscusWave"
+                                           Storyboard.TargetProperty="Opacity" Timeline.DesiredFrameRate="24">
+                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0.1"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0.25"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:4" Value="0.1"/>
             </DoubleAnimationUsingKeyFrames>
         </Storyboard>
     </UserControl.Resources>
-
     <Canvas x:Name="FlaskCanvas" Background="Transparent" ClipToBounds="False">
-
-        <!--  静态层：地面阴影（使用性能模式） -->
-        <Ellipse x:Name="FlaskGroundShadow"
-                 Canvas.Left="4"
-                 Canvas.Top="114"
-                 Width="72"
-                 Height="4"
-                 Opacity="0.12"
-                 Panel.ZIndex="0"
-                 RenderOptions.BitmapScalingMode="LowQuality">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#2A4A68" Offset="0"/>
-                    <GradientStop Color="#2A4A68" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-            <Ellipse.Effect>
-                <BlurEffect Radius="4" RenderingBias="Performance"/>
-            </Ellipse.Effect>
-        </Ellipse>
-
-        <!--  静态层：瓶口（缓存） -->
-        <Rectangle x:Name="FlaskNeck"
-                   Canvas.Left="28"
-                   Canvas.Top="2"
-                   Width="24"
-                   Height="12"
-                   RadiusX="1.5"
-                   RadiusY="1.5"
-                   Panel.ZIndex="5"
-                   RenderOptions.CachingHint="Cache">
-            <!-- ... 原有 Fill 和 Stroke 保持不变 ... -->
+        <Path x:Name="GlassBody" Panel.ZIndex="1"/>
+        <Path x:Name="LeftEdgeShadow" Opacity="0.08" Panel.ZIndex="2">
+            <Path.Fill>
+                <SolidColorBrush Color="#605850"/>
+            </Path.Fill>
+        </Path>
+        <Path x:Name="RightEdgeShadow" Opacity="0.06" Panel.ZIndex="2">
+            <Path.Fill>
+                <SolidColorBrush Color="#605850"/>
+            </Path.Fill>
+        </Path>
+        <Path x:Name="LeftHighlight" Opacity="0.50" Panel.ZIndex="3">
+            <Path.Fill>
+                <SolidColorBrush Color="White"/>
+            </Path.Fill>
+        </Path>
+        <Line x:Name="SecondaryHighlight" Stroke="White" StrokeThickness="0.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.18" Panel.ZIndex="3"/>
+        <Rectangle x:Name="FlaskNeck" Panel.ZIndex="3"/>
+        <Rectangle x:Name="NeckLeftShadow" Opacity="0.05" Panel.ZIndex="3">
             <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                    <GradientStop Color="#DCDCDC" Offset="0"/>
-                    <GradientStop Color="#EFEFEF" Offset="0.15"/>
-                    <GradientStop Color="#FAFAFA" Offset="0.35"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
-                    <GradientStop Color="#FAFAFA" Offset="0.65"/>
-                    <GradientStop Color="#EFEFEF" Offset="0.85"/>
-                    <GradientStop Color="#DCDCDC" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-            <Rectangle.Stroke>
-                <SolidColorBrush Color="#2A4A68" Opacity="0.8"/>
-            </Rectangle.Stroke>
-            <Rectangle.StrokeThickness>0.7</Rectangle.StrokeThickness>
-        </Rectangle>
-
-        <!-- 其他瓶口层保持不变... -->
-        <Rectangle Canvas.Left="29" Canvas.Top="3"
-                   Width="22" Height="4"
-                   RadiusX="1" RadiusY="1"
-                   Opacity="0.75" Panel.ZIndex="6">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FCFCFC" Offset="0.4"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
+                <SolidColorBrush Color="#605850"/>
             </Rectangle.Fill>
         </Rectangle>
-
-        <Rectangle Canvas.Left="29" Canvas.Top="11"
-                   Width="22" Height="2"
-                   RadiusX="0.5" RadiusY="0.5"
-                   Opacity="0.2" Panel.ZIndex="6">
+        <Rectangle x:Name="NeckRightShadow" Opacity="0.04" Panel.ZIndex="3">
             <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                    <GradientStop Color="#2A4A68" Offset="0"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
+                <SolidColorBrush Color="#605850"/>
             </Rectangle.Fill>
         </Rectangle>
-
-        <!--  静态层：瓶颈过渡（缓存） -->
-        <Path x:Name="FlaskNeckTransition" 
-              Panel.ZIndex="5"
-              RenderOptions.CachingHint="Cache">
-            <!-- ... 原有 Data、Fill、Stroke 保持不变 ... -->
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="28,14">
-                        <LineSegment Point="28,26"/>
-                        <LineSegment Point="52,26"/>
-                        <LineSegment Point="52,14"/>
-                        <LineSegment Point="28,14"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
+        <Rectangle x:Name="NeckHighlight" Fill="White" Opacity="0.25" RadiusX="1.5" RadiusY="1.5" Panel.ZIndex="3"/>
+        <Rectangle x:Name="RimCap" RadiusX="2" RadiusY="2" Panel.ZIndex="4"/>
+        <Rectangle x:Name="RimCapHighlight" Fill="White" Opacity="0.18" RadiusX="1" RadiusY="1" Panel.ZIndex="5"/>
+        <Canvas x:Name="JointHatchContainer" Panel.ZIndex="3"/>
+        <Line x:Name="OutlineLeft" Stroke="#4A5A64" StrokeThickness="0.8" Opacity="0.55" Panel.ZIndex="4"/>
+        <Line x:Name="OutlineRight" Stroke="#4A5A64" StrokeThickness="0.8" Opacity="0.55" Panel.ZIndex="4"/>
+        <Line x:Name="InnerWallLeft" Stroke="#8A9AA0" StrokeThickness="0.4" Opacity="0.2" Panel.ZIndex="4"/>
+        <Line x:Name="InnerWallRight" Stroke="#8A9AA0" StrokeThickness="0.4" Opacity="0.2" Panel.ZIndex="4"/>
+        <Path x:Name="LiquidFill" Visibility="Collapsed" Panel.ZIndex="2"/>
+        <Path x:Name="LiquidLeftEdge" Visibility="Collapsed" Opacity="0.05" Panel.ZIndex="2">
             <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                    <GradientStop Color="#D8D8D8" Offset="0"/>
-                    <GradientStop Color="#ECECEC" Offset="0.2"/>
-                    <GradientStop Color="#F8F8F8" Offset="0.4"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
-                    <GradientStop Color="#F8F8F8" Offset="0.6"/>
-                    <GradientStop Color="#ECECEC" Offset="0.8"/>
-                    <GradientStop Color="#D8D8D8" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-            <Path.Stroke>
-                <SolidColorBrush Color="#2A4A68" Opacity="0.7"/>
-            </Path.Stroke>
-            <Path.StrokeThickness>0.7</Path.StrokeThickness>
-        </Path>
-
-        <!--  动画层：液体容器（禁用缓存，启用硬件渲染） -->
-        <Canvas x:Name="LiquidContainer" 
-                Canvas.Left="0" 
-                Canvas.Top="0"
-                Width="{Binding FlaskWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                Height="{Binding FlaskHeight, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                Panel.ZIndex="100" 
-                ClipToBounds="False"
-                RenderOptions.BitmapScalingMode="LowQuality">
-
-            <!--  液体层不使用 CacheMode -->
-
-            <!-- 液体主体 -->
-            <Path x:Name="FlaskLiquid" Visibility="Collapsed">
-                <Path.Fill>
-                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                        <GradientStop Color="#80CDE1" Offset="0"/>
-                        <GradientStop Color="#6EC0D8" Offset="0.3"/>
-                        <GradientStop Color="#5CB3CF" Offset="0.5"/>
-                        <GradientStop Color="#6EC0D8" Offset="0.7"/>
-                        <GradientStop Color="#80CDE1" Offset="1"/>
-                    </LinearGradientBrush>
-                </Path.Fill>
-                <Path.Opacity>0.65</Path.Opacity>
-            </Path>
-
-            <!-- 液体表面 -->
-            <Ellipse x:Name="LiquidSurface" Visibility="Collapsed">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="#E0F5FB" Offset="0"/>
-                        <GradientStop Color="#B8E5F3" Offset="0.4"/>
-                        <GradientStop Color="#90D5EB" Offset="0.7"/>
-                        <GradientStop Color="#80CDE1" Offset="1"/>
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-                <Ellipse.Opacity>0.6</Ellipse.Opacity>
-            </Ellipse>
-
-            <!-- 波纹1（动画元素） -->
-            <Ellipse x:Name="Wave1" Visibility="Collapsed">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="#F0FAFD" Offset="0"/>
-                        <GradientStop Color="#C8ECF8" Offset="0.5"/>
-                        <GradientStop Color="Transparent" Offset="1"/>
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-                <Ellipse.Opacity>0.25</Ellipse.Opacity>
-            </Ellipse>
-
-            <!-- 波纹2（动画元素） -->
-            <Ellipse x:Name="Wave2" Visibility="Collapsed">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="#FFFFFF" Offset="0"/>
-                        <GradientStop Color="#D8F0FC" Offset="0.4"/>
-                        <GradientStop Color="Transparent" Offset="1"/>
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-                <Ellipse.Opacity>0.2</Ellipse.Opacity>
-            </Ellipse>
-        </Canvas>
-
-        <!--  静态层：瓶身主体（缓存 + 阴影优化） -->
-        <Path x:Name="FlaskBody" Panel.ZIndex="5"
-              RenderOptions.CachingHint="Cache">
-            <!-- ... 原有 Data、Fill、Stroke 保持不变 ... -->
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="28,26">
-                        <LineSegment Point="8,108"/>
-                        <LineSegment Point="72,108"/>
-                        <LineSegment Point="52,26"/>
-                        <LineSegment Point="28,26"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                    <GradientStop Color="#DCDCDC" Offset="0"/>
-                    <GradientStop Color="#ECECEC" Offset="0.1"/>
-                    <GradientStop Color="#F5F5F5" Offset="0.2"/>
-                    <GradientStop Color="#FCFCFC" Offset="0.35"/>
-                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
-                    <GradientStop Color="#FCFCFC" Offset="0.65"/>
-                    <GradientStop Color="#F5F5F5" Offset="0.8"/>
-                    <GradientStop Color="#ECECEC" Offset="0.9"/>
-                    <GradientStop Color="#DCDCDC" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-            <Path.Stroke>
-                <SolidColorBrush Color="#2A4A68" Opacity="0.8"/>
-            </Path.Stroke>
-            <Path.StrokeThickness>0.9</Path.StrokeThickness>
-            <Path.Effect>
-                <DropShadowEffect Color="#2A4A68" 
-                                  BlurRadius="5" 
-                                  ShadowDepth="2" 
-                                  Opacity="0.18" 
-                                  Direction="135"
-                                  RenderingBias="Performance"/>
-            </Path.Effect>
-        </Path>
-
-        <!-- 其他静态装饰层保持不变，添加 RenderOptions.CachingHint="Cache" -->
-
-        <!-- 暗部 -->
-        <Path x:Name="RightDarkArea" Opacity="0.12" Panel.ZIndex="6"
-              RenderOptions.CachingHint="Cache">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="50,30">
-                        <LineSegment Point="68,100"/>
-                        <LineSegment Point="72,100"/>
-                        <LineSegment Point="52,30"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#2A4A68" Offset="0"/>
-                    <GradientStop Color="#456078" Offset="0.3"/>
-                    <GradientStop Color="#607888" Offset="0.6"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
+                <SolidColorBrush Color="#084858"/>
             </Path.Fill>
         </Path>
-
-        <!-- 高光 -->
-        <Path x:Name="LeftHighlight" Opacity="0.8" Panel.ZIndex="6"
-              RenderOptions.CachingHint="Cache">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="30,30">
-                        <LineSegment Point="12,100"/>
-                        <LineSegment Point="18,100"/>
-                        <LineSegment Point="34,32"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
+        <Path x:Name="LiquidRightEdge" Visibility="Collapsed" Opacity="0.04" Panel.ZIndex="2">
             <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0.7,1">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FEFEFE" Offset="0.2"/>
-                    <GradientStop Color="#FAFAFA" Offset="0.4"/>
-                    <GradientStop Color="#F0F0F0" Offset="0.6"/>
-                    <GradientStop Color="#E0E0E0" Offset="0.8"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
+                <SolidColorBrush Color="#084858"/>
             </Path.Fill>
         </Path>
-
-        <Path x:Name="TopHighlight" Opacity="0.7" Panel.ZIndex="6"
-              RenderOptions.CachingHint="Cache">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="30,28">
-                        <LineSegment Point="50,28"/>
-                        <LineSegment Point="48,32"/>
-                        <LineSegment Point="32,32"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FCFCFC" Offset="0.3"/>
-                    <GradientStop Color="#F5F5F5" Offset="0.6"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-        </Path>
-
-        <Path Opacity="0.3" Panel.ZIndex="6" RenderOptions.CachingHint="Cache">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="38,35">
-                        <LineSegment Point="32,90"/>
-                        <LineSegment Point="35,90"/>
-                        <LineSegment Point="40,37"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#F8F8F8" Offset="0.4"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-        </Path>
-
-        <!-- 刻度线（静态缓存） -->
-        <Line x:Name="ScaleLine1" X1="18" Y1="50" X2="28" Y2="50" 
-              Stroke="#2A4A68" StrokeThickness="0.7" Opacity="0.8" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-        <Line x:Name="ScaleLine2" X1="16" Y1="65" X2="26" Y2="65" 
-              Stroke="#2A4A68" StrokeThickness="0.7" Opacity="0.8" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-        <Line x:Name="ScaleLine3" X1="14" Y1="80" X2="24" Y2="80" 
-              Stroke="#2A4A68" StrokeThickness="0.7" Opacity="0.8" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-        <Line x:Name="ScaleLine4" X1="12" Y1="95" X2="22" Y2="95" 
-              Stroke="#2A4A68" StrokeThickness="0.7" Opacity="0.8" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-
-        <Line X1="20" Y1="42" X2="25" Y2="42" 
-              Stroke="#2A4A68" StrokeThickness="0.5" Opacity="0.6" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-        <Line X1="19" Y1="57" X2="24" Y2="57" 
-              Stroke="#2A4A68" StrokeThickness="0.5" Opacity="0.6" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-        <Line X1="17" Y1="72" X2="22" Y2="72" 
-              Stroke="#2A4A68" StrokeThickness="0.5" Opacity="0.6" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-        <Line X1="15" Y1="87" X2="20" Y2="87" 
-              Stroke="#2A4A68" StrokeThickness="0.5" Opacity="0.6" Panel.ZIndex="7"
-              RenderOptions.EdgeMode="Aliased"/>
-
-        <!-- 刻度文本（缓存） -->
-        <TextBlock x:Name="ScaleText1" Canvas.Left="3" Canvas.Top="47" 
-                   Text="100" FontSize="7" Foreground="#2A4A68" FontWeight="SemiBold" Panel.ZIndex="7"
-                   RenderOptions.CachingHint="Cache"/>
-        <TextBlock x:Name="ScaleText2" Canvas.Left="4" Canvas.Top="62" 
-                   Text="75" FontSize="7" Foreground="#2A4A68" FontWeight="SemiBold" Panel.ZIndex="7"
-                   RenderOptions.CachingHint="Cache"/>
-        <TextBlock x:Name="ScaleText3" Canvas.Left="4" Canvas.Top="77" 
-                   Text="50" FontSize="7" Foreground="#2A4A68" FontWeight="SemiBold" Panel.ZIndex="7"
-                   RenderOptions.CachingHint="Cache"/>
-        <TextBlock x:Name="ScaleText4" Canvas.Left="4" Canvas.Top="92" 
-                   Text="25" FontSize="7" Foreground="#2A4A68" FontWeight="SemiBold" Panel.ZIndex="7"
-                   RenderOptions.CachingHint="Cache"/>
-
-        <!-- 底部（缓存） -->
-        <Ellipse x:Name="FlaskBottom"
-                 Canvas.Left="8"
-                 Canvas.Top="106"
-                 Width="64"
-                 Height="10"
-                 Panel.ZIndex="2"
-                 RenderOptions.CachingHint="Cache">
-            <Ellipse.Fill>
-                <RadialGradientBrush GradientOrigin="0.5,0.25">
-                    <GradientStop Color="#FAFAFA" Offset="0"/>
-                    <GradientStop Color="#ECECEC" Offset="0.25"/>
-                    <GradientStop Color="#E0E0E0" Offset="0.5"/>
-                    <GradientStop Color="#D8D8D8" Offset="0.7"/>
-                    <GradientStop Color="#CCCCCC" Offset="0.9"/>
-                    <GradientStop Color="#C0C0C0" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-            <Ellipse.Stroke>
-                <SolidColorBrush Color="#2A4A68" Opacity="0.7"/>
-            </Ellipse.Stroke>
-            <Ellipse.StrokeThickness>0.8</Ellipse.StrokeThickness>
-        </Ellipse>
-
-        <Ellipse x:Name="BottomHighlight"
-                 Canvas.Left="14"
-                 Canvas.Top="107"
-                 Width="52"
-                 Height="4"
-                 Opacity="0.75"
-                 Panel.ZIndex="3"
-                 RenderOptions.CachingHint="Cache">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#FCFCFC" Offset="0.3"/>
-                    <GradientStop Color="#F5F5F5" Offset="0.6"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <Ellipse Canvas.Left="9"
-                 Canvas.Top="113"
-                 Width="62"
-                 Height="2"
-                 Opacity="0.2"
-                 Panel.ZIndex="2"
-                 RenderOptions.CachingHint="Cache">
-            <Ellipse.Fill>
-                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                    <GradientStop Color="Transparent" Offset="0"/>
-                    <GradientStop Color="#2A4A68" Offset="1"/>
-                </LinearGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <!-- 选中边框（不缓存） -->
-        <Rectangle x:Name="SelectionBorder" 
-                   Canvas.Left="-2"
-                   Canvas.Top="-2"
-                   Width="84"
-                   Height="124"
-                   Stroke="#FF9500" 
-                   StrokeThickness="2" 
-                   StrokeDashArray="4,2" 
-                   Fill="Transparent" 
-                   RadiusX="3" 
-                   RadiusY="3" 
-                   Visibility="Collapsed"
-                   Panel.ZIndex="10"/>
-
-        <!-- 锚点（优化阴影） -->
-        <Ellipse x:Name="TopAnchor" 
-                 Canvas.Left="34" Canvas.Top="-6"
-                 Width="12" Height="12" 
-                 Fill="#4ECDC4" Stroke="White" StrokeThickness="2" 
-                 Opacity="0" Cursor="SizeNS" Panel.ZIndex="11">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" 
-                                  BlurRadius="4" 
-                                  ShadowDepth="1" 
-                                  Opacity="0.3"
-                                  RenderingBias="Performance"/>
-            </Ellipse.Effect>
-        </Ellipse>
-
-        <Ellipse x:Name="BottomAnchor" 
-                 Canvas.Left="34" Canvas.Top="114"
-                 Width="12" Height="12" 
-                 Fill="#4ECDC4" Stroke="White" StrokeThickness="2" 
-                 Opacity="0" Cursor="SizeNS" Panel.ZIndex="11">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" 
-                                  BlurRadius="4" 
-                                  ShadowDepth="1" 
-                                  Opacity="0.3"
-                                  RenderingBias="Performance"/>
-            </Ellipse.Effect>
-        </Ellipse>
-
-        <Ellipse x:Name="LeftAnchor" 
-                 Canvas.Left="2" Canvas.Top="54"
-                 Width="12" Height="12" 
-                 Fill="#FF6B6B" Stroke="White" StrokeThickness="2" 
-                 Opacity="0" Cursor="SizeWE" Panel.ZIndex="11">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" 
-                                  BlurRadius="4" 
-                                  ShadowDepth="1" 
-                                  Opacity="0.3"
-                                  RenderingBias="Performance"/>
-            </Ellipse.Effect>
-        </Ellipse>
-
-        <Ellipse x:Name="RightAnchor" 
-                 Canvas.Left="66" Canvas.Top="54"
-                 Width="12" Height="12" 
-                 Fill="#FF6B6B" Stroke="White" StrokeThickness="2" 
-                 Opacity="0" Cursor="SizeWE" Panel.ZIndex="11">
-            <Ellipse.Effect>
-                <DropShadowEffect Color="Black" 
-                                  BlurRadius="4" 
-                                  ShadowDepth="1" 
-                                  Opacity="0.3"
-                                  RenderingBias="Performance"/>
-            </Ellipse.Effect>
-        </Ellipse>
-
+        <Path x:Name="BottomArcFill" Panel.ZIndex="2"/>
+        <Path x:Name="BottomArcStroke" Fill="Transparent" StrokeThickness="0.6" Panel.ZIndex="4"/>
+        <Ellipse x:Name="LiquidSurface" Visibility="Collapsed" Panel.ZIndex="5"/>
+        <Ellipse x:Name="SurfaceHighlight" Visibility="Collapsed" Fill="White" Opacity="0.12" Panel.ZIndex="6"/>
+        <Ellipse x:Name="MeniscusWave" Visibility="Collapsed" Opacity="0.15" Panel.ZIndex="5"/>
+        <Line x:Name="LabelLine" Stroke="#C05040" StrokeThickness="0.5" StrokeDashArray="2,1.5" Opacity="0.6" Visibility="Collapsed" Panel.ZIndex="8"/>
+        <TextBlock x:Name="LabelText" Foreground="#C05040" FontSize="9" FontStyle="Italic" FontFamily="Times New Roman" Opacity="0.7" Visibility="Collapsed" Panel.ZIndex="8"/>
+        <Line x:Name="MajorTick1" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MajorTick2" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MajorTick3" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MajorTick4" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick1" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick2" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick3" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick4" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText1" Text="25" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText2" Text="50" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText3" Text="75" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText4" Text="100" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="UnitLabel" Text="mL" FontSize="7" Foreground="#2C3E50" FontFamily="Times New Roman" FontStyle="Italic" Opacity="0.55" Panel.ZIndex="6"/>
+        <Rectangle x:Name="SelectionBorder" Stroke="#FF9500" StrokeThickness="2" StrokeDashArray="4,2" Fill="Transparent" RadiusX="3" RadiusY="3" Visibility="Collapsed" Panel.ZIndex="10"/>
+        <Ellipse x:Name="TopAnchor" Width="10" Height="10" Fill="#4ECDC4" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeNS" Panel.ZIndex="11"/>
+        <Ellipse x:Name="BottomAnchor" Width="10" Height="10" Fill="#4ECDC4" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeNS" Panel.ZIndex="11"/>
+        <Ellipse x:Name="LeftAnchor" Width="10" Height="10" Fill="#FF6B6B" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeWE" Panel.ZIndex="11"/>
+        <Ellipse x:Name="RightAnchor" Width="10" Height="10" Fill="#FF6B6B" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeWE" Panel.ZIndex="11"/>
     </Canvas>
 </UserControl>

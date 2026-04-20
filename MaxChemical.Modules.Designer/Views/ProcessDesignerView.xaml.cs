@@ -9,6 +9,7 @@ using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views.Controls;
+using MaxChemical.Modules.Designer.Views.Controls.Service;
 using Prism.Events;
 using System;
 using System.ComponentModel;
@@ -108,7 +109,7 @@ namespace MaxChemical.Modules.Designer.Views
         private SnapResult _currentSnapResult = null; // 当前吸附结果
         private PipeSnapSolution _currentSnapSolution = null; // 当前吸附方案
 
-
+        private string _editingDeviceId; 
         #region 私有字段 管道管理
 
         // 管道集合
@@ -122,7 +123,9 @@ namespace MaxChemical.Modules.Designer.Views
         private Point _pipeOriginalPosition;
 
         #endregion
+        // ═══ 1. 添加字段 ═══
 
+        private Window _pipePropertyWindow;
         #region 管道选择和删除
 
         /// <summary>
@@ -4263,41 +4266,21 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private TextBlock CreateDeviceNameText(string deviceName)
         {
-            if (deviceName.Contains("高低温循环器"))
+            return new TextBlock
             {
-                return new TextBlock
-                {
-                    Text = deviceName,
-                    FontSize = 9,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center,
-                    Foreground = Brushes.DarkBlue,
-                    Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
-                    Padding = new Thickness(2, 1, 2, 1),
-                    //Margin = new Thickness(0, 0, 0, 15), //  新增：底部边距 15 像素
-                    IsHitTestVisible = false,
-                    MaxHeight = 20
-                };
-            }
-            else
-            {
-                return new TextBlock
-                {
-                    Text = deviceName,
-                    FontSize = 9,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center,
-                    Foreground = Brushes.DarkBlue,
-                    Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
-                    Padding = new Thickness(2, 1, 2, 1),
-                    Margin = new Thickness(0, 0, 0, 15), //  新增：底部边距 15 像素
-                    IsHitTestVisible = false,
-                    MaxHeight = 20
-                };
-            }
-            
+                Text = deviceName,
+                FontSize = 9,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                Foreground = Brushes.DarkBlue,
+                Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
+                Padding = new Thickness(2, 1, 2, 1),
+               // Margin = new Thickness(0, 0, 0, 0), //  新增：底部边距 15 像素
+                IsHitTestVisible = false,
+                MaxHeight = 20
+            };
+
         }
 
         /// <summary>
@@ -4369,6 +4352,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
+                _editingDeviceId = deviceId;
                 var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == deviceId);
                 if (canvasDevice == null)
                 {
@@ -4837,20 +4821,64 @@ namespace MaxChemical.Modules.Designer.Views
                 if (result)
                 {
                     Debug.WriteLine("设备属性已保存");
-                    // 标记画布已修改
+
+                   
+
                     _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
                 }
-                else
+                if (!string.IsNullOrEmpty(_editingDeviceId))
                 {
-                    Debug.WriteLine("设备属性对话框已取消");
+                    RefreshConicalFlaskLiquidName(_editingDeviceId);
                 }
+                _editingDeviceId = null;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"处理设备属性弹窗结果失败: {ex.Message}");
             }
         }
+        /// <summary>
+        /// 刷新锥形瓶的液体名称显示
+        /// </summary>
+        private void RefreshConicalFlaskLiquidName(string deviceId)
+        {
+            try
+            {
+                var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d => d.DeviceId == deviceId);
+                if (canvasDevice?.Device == null) return;
 
+                var imageLocationProp = canvasDevice.Device.GetType().GetProperty("ImageLocation");
+                var imageLocation = imageLocationProp?.GetValue(canvasDevice.Device) as string;
+                if (imageLocation != "CUSTOM_CONTROL:ConicalFlaskControl") return;
+
+                var liquidNameParam = canvasDevice.Device.Parameters?.Variables?
+                    .FirstOrDefault(p => p.Name == "LiquidName");
+                string liquidName = liquidNameParam?.Value as string ?? "";
+
+                var deviceElement = FindDeviceElementInCanvas(deviceId);
+                if (deviceElement == null) return;
+
+                var flaskControl = FindVisualChild<ConicalFlaskControl>(deviceElement);
+                if (flaskControl != null)
+                {
+                    flaskControl.LiquidName = liquidName;
+                    Debug.WriteLine($"锥形瓶 {deviceId} 液体名称已更新: {liquidName}");
+                }
+                var colorParam = canvasDevice.Device.Parameters?.Variables?
+    .FirstOrDefault(p => p.Name == "LiquidColor");
+                if (colorParam?.Value is string colorName && !string.IsNullOrEmpty(colorName))
+                {
+                    if (colorName == "无色")
+                        flaskControl.SetLiquidColor(200, 220, 235, 80);
+                    else
+                        flaskControl.SetLiquidColor(colorName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"刷新锥形瓶液体名称失败: {ex.Message}");
+            }
+        }
         #endregion
         /// <summary>
         /// 设备专用鼠标按下事件
@@ -5482,7 +5510,7 @@ namespace MaxChemical.Modules.Designer.Views
                 //  新增：检查是否为自定义控件
                 if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
                 {
-                    return CreateCustomControlIcon(imageLocation, targetWidth, targetHeight);
+                    return CreateCustomControlIcon(imageLocation, targetWidth, targetHeight, device);
                 }
                 // 普通图片处理
                 else if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
@@ -5503,7 +5531,7 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 创建自定义控件图标（锥形瓶、柱塞泵等）
         /// </summary>
-        private UIElement CreateCustomControlIcon(string imageLocation, double targetWidth, double targetHeight)
+        private UIElement CreateCustomControlIcon(string imageLocation, double targetWidth, double targetHeight, IDevice device)
         {
             try
             {
@@ -5513,7 +5541,7 @@ namespace MaxChemical.Modules.Designer.Views
                 switch (controlType)
                 {
                     case "ConicalFlaskControl":
-                        return CreateConicalFlaskIcon(targetWidth, targetHeight);
+                        return CreateConicalFlaskIcon(targetWidth, targetHeight, device);
 
                     //  新增：柱塞泵控件
                     case "PistonPumpControl":
@@ -5555,10 +5583,11 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
+      
         /// <summary>
-        /// 创建锥形瓶图标（用于画布上的小图标显示）- 优化版
+        /// 创建锥形瓶图标（手动缩放，标注可溢出）
         /// </summary>
-        private UIElement CreateConicalFlaskIcon(double targetWidth, double targetHeight)
+        private UIElement CreateConicalFlaskIcon(double targetWidth, double targetHeight, IDevice device)
         {
             try
             {
@@ -5567,58 +5596,71 @@ namespace MaxChemical.Modules.Designer.Views
                     FlaskWidth = 80,
                     FlaskHeight = 120,
                     IsHitTestVisible = false,
-                    Cursor = System.Windows.Input.Cursors.Hand
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    ClipToBounds = false
                 };
 
-                // 隐藏交互元素
                 HideFlaskInteractiveElements(flaskControl);
 
-                //  关键修复：使用 Loaded 事件而不是 SizeChanged
+                // 手动缩放：计算比例（等同于 Viewbox 的 Stretch.Uniform）
+                double scaleX = targetWidth / 80.0;
+                double scaleY = targetHeight / 120.0;
+                double scale = Math.Min(scaleX, scaleY);
+
+                flaskControl.RenderTransform = new ScaleTransform(scale, scale);
+                flaskControl.RenderTransformOrigin = new Point(0, 0);
+
                 flaskControl.Loaded += (s, e) =>
                 {
-                    try
+                    // 读取液体颜色
+                    var colorParam = device?.Parameters?.Variables?
+                        .FirstOrDefault(p => p.Name == "LiquidColor");
+                    if (colorParam?.Value is string colorName && !string.IsNullOrEmpty(colorName))
                     {
-                        Debug.WriteLine("锥形瓶 Loaded 事件触发");
-
-                        //  方法1：直接设置液体（推荐）
-                        flaskControl.SetLiquidColor(96, 176, 224, 180);  // 增加透明度到180
-                        flaskControl.SetLiquidLevel(65, animated: true);
-                        //flaskControl.IsWaveAnimationEnabled = true;
-
-                        //  强制更新布局和几何
-                        flaskControl.UpdateLayout();
-
-                        //  延迟调用，确保控件完全渲染
-                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                        if (colorName == "无色")
                         {
-                            flaskControl.InvalidateVisual();
-                            flaskControl.DebugLiquidGeometry();
-                            Debug.WriteLine(" 液体初始化完成");
-                        }), System.Windows.Threading.DispatcherPriority.Loaded);
+                            flaskControl.SetLiquidColor(200, 220, 235, 80); // 极淡透明
+                        }
+                        else
+                        {
+                            flaskControl.SetLiquidColor(colorName);
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Debug.WriteLine($" 锥形瓶液体初始化失败: {ex.Message}");
+                        flaskControl.SetLiquidColor(96, 176, 224, 180); // 默认蓝
+                    }
+
+                    flaskControl.SetLiquidLevel(65, animated: true);
+
+                    // 读取液体名称
+                    var nameParam = device?.Parameters?.Variables?
+                        .FirstOrDefault(p => p.Name == "LiquidName");
+                    if (nameParam?.Value is string name && !string.IsNullOrEmpty(name))
+                    {
+                        flaskControl.LiquidName = name;
                     }
                 };
 
-                //  包装在 Viewbox 中
-                var viewbox = new System.Windows.Controls.Viewbox
+                // Canvas 容器代替 Viewbox，允许标注溢出
+                var container = new Canvas
                 {
                     Width = targetWidth,
                     Height = targetHeight,
-                    Stretch = System.Windows.Media.Stretch.Uniform,
-                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
-                    Child = flaskControl,
+                    ClipToBounds = false,
                     IsHitTestVisible = false
                 };
 
-                Debug.WriteLine($"创建锥形瓶图标容器: {targetWidth}x{targetHeight}");
-                return viewbox;
+                Canvas.SetLeft(flaskControl, 0);
+                Canvas.SetTop(flaskControl, 0);
+                container.Children.Add(flaskControl);
+
+                Debug.WriteLine($"创建锥形瓶图标容器（手动缩放 {scale:F2}x）: {targetWidth}x{targetHeight}");
+                return container;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($" 创建锥形瓶图标失败: {ex.Message}");
+                Debug.WriteLine($"创建锥形瓶图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "锥形瓶");
             }
         }
@@ -6295,24 +6337,22 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine("---------- 清空画布视觉元素 ----------");
 
-                // 收集所有需要删除的元素
                 var elementsToRemove = new List<UIElement>();
 
                 foreach (UIElement child in DesignCanvas.Children)
                 {
-                    // 设备元素
                     if (child is Border border && !string.IsNullOrEmpty(border.Tag as string))
                     {
                         elementsToRemove.Add(child);
                     }
-                    // 管道元素
+                    // ★ 确保所有四种管道类型都能被清理
                     else if (child is StraightPipeControl ||
                              child is ElbowPipeControl ||
-                             child is ZShapePipeControl)
+                             child is ZShapePipeControl ||
+                             child is TShapePipeControl)
                     {
                         elementsToRemove.Add(child);
                     }
-                    // 监控卡片
                     else if (child is MonitoringCard)
                     {
                         elementsToRemove.Add(child);
@@ -6321,13 +6361,11 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"找到 {elementsToRemove.Count} 个元素需要清除");
 
-                // 批量移除
                 foreach (var element in elementsToRemove)
                 {
                     DesignCanvas.Children.Remove(element);
                 }
 
-                // 强制清空（双重保险）
                 DesignCanvas.Children.Clear();
 
                 Debug.WriteLine($"清除后画布子元素数量: {DesignCanvas.Children.Count}");
@@ -6758,7 +6796,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var pipeIdsToRestore = pipesData.Select(p => p.PipeId).ToHashSet();
 
-            // 查找画布上已存在的相同ID管道
             var existingPipes = DesignCanvas.Children
                 .OfType<FrameworkElement>()
                 .Where(e =>
@@ -6768,6 +6805,9 @@ namespace MaxChemical.Modules.Designer.Views
                     if (e is ElbowPipeControl ep && pipeIdsToRestore.Contains(ep.PipeId))
                         return true;
                     if (e is ZShapePipeControl zp && pipeIdsToRestore.Contains(zp.PipeId))
+                        return true;
+                    // ★ 新增
+                    if (e is TShapePipeControl tp && pipeIdsToRestore.Contains(tp.PipeId))
                         return true;
                     return false;
                 })
@@ -6781,6 +6821,7 @@ namespace MaxChemical.Modules.Designer.Views
                 if (existingPipe is StraightPipeControl sp) pipeId = sp.PipeId;
                 else if (existingPipe is ElbowPipeControl ep) pipeId = ep.PipeId;
                 else if (existingPipe is ZShapePipeControl zp) pipeId = zp.PipeId;
+                else if (existingPipe is TShapePipeControl tp) pipeId = tp.PipeId;  // ★ 新增
 
                 if (!string.IsNullOrEmpty(pipeId) && _pipes.ContainsKey(pipeId))
                 {
@@ -7102,10 +7143,13 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine("========== 最终验证管道状态 ==========");
 
-                // 检查画布上的管道数量
+                // ★ 确保所有四种管道类型都参与统计
                 var pipesInCanvas = DesignCanvas.Children
                     .OfType<FrameworkElement>()
-                    .Count(e => e is StraightPipeControl || e is ElbowPipeControl || e is ZShapePipeControl);
+                    .Count(e => e is StraightPipeControl ||
+                                e is ElbowPipeControl ||
+                                e is ZShapePipeControl ||
+                                e is TShapePipeControl);
 
                 Debug.WriteLine($"画布上管道数量: {pipesInCanvas}");
                 Debug.WriteLine($"管道字典数量: {_pipes.Count}");
@@ -8447,11 +8491,22 @@ namespace MaxChemical.Modules.Designer.Views
                             ZIndex = Panel.GetZIndex(straightPipe),
                             PipeWidth = straightPipe.PipeWidth,
                             RotationAngle = straightPipe.RotationAngle,
-                            PipeLength = straightPipe.PipeLength
+                            PipeLength = straightPipe.PipeLength,
+
+                            // ★ 新增：保存管道外观属性
+                            PipeColorHex = ColorToHex(straightPipe.PipeColor),
+                            FlangeColorHex = ColorToHex(straightPipe.FlangeColor),
+                            FluidColorHex = ColorToHex(straightPipe.FluidColor),
+                            FluidOpacity = straightPipe.FluidOpacity,
+                            IsFluidVisible = straightPipe.IsFluidVisible,
+                            IsFlowing = straightPipe.IsFlowing,
+                            FlowDirectionStr = straightPipe.PipeFlowDir.ToString(),
+                            FlowSpeed = straightPipe.FlowSpeed
                         };
 
-                        Debug.WriteLine($"收集直管道: {straightPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                        Debug.WriteLine($"收集直管道: {straightPipe.PipeId}, 流体可见={straightPipe.IsFluidVisible}");
                     }
+
                     // 处理弯管道
                     else if (child is ElbowPipeControl elbowPipe)
                     {
@@ -8468,10 +8523,20 @@ namespace MaxChemical.Modules.Designer.Views
                             PipeWidth = elbowPipe.PipeWidth,
                             RotationAngle = elbowPipe.RotationAngle,
                             HorizontalLength = elbowPipe.HorizontalLength,
-                            VerticalLength = elbowPipe.VerticalLength
+                            VerticalLength = elbowPipe.VerticalLength,
+
+                            // ★ 新增：保存管道外观属性
+                            PipeColorHex = ColorToHex(elbowPipe.PipeColor),
+                            FlangeColorHex = ColorToHex(elbowPipe.FlangeColor),
+                            FluidColorHex = ColorToHex(elbowPipe.FluidColor),
+                            FluidOpacity = elbowPipe.FluidOpacity,
+                            IsFluidVisible = elbowPipe.IsFluidVisible,
+                            IsFlowing = elbowPipe.IsFlowing,
+                            FlowDirectionStr = elbowPipe.PipeFlowDir.ToString(),
+                            FlowSpeed = elbowPipe.FlowSpeed
                         };
 
-                        Debug.WriteLine($"收集弯管道: {elbowPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                        Debug.WriteLine($"收集弯管道: {elbowPipe.PipeId}, 流体可见={elbowPipe.IsFluidVisible}");
                     }
                     // 处理Z形管道
                     else if (child is ZShapePipeControl zPipe)
@@ -8490,11 +8555,22 @@ namespace MaxChemical.Modules.Designer.Views
                             RotationAngle = zPipe.RotationAngle,
                             TopHorizontalLength = zPipe.TopHorizontalLength,
                             BottomHorizontalLength = zPipe.BottomHorizontalLength,
-                            VerticalOffset = zPipe.VerticalOffset
+                            VerticalOffset = zPipe.VerticalOffset,
+
+                            // ★ 新增：保存管道外观属性
+                            PipeColorHex = ColorToHex(zPipe.PipeColor),
+                            FlangeColorHex = ColorToHex(zPipe.FlangeColor),
+                            FluidColorHex = ColorToHex(zPipe.FluidColor),
+                            FluidOpacity = zPipe.FluidOpacity,
+                            IsFluidVisible = zPipe.IsFluidVisible,
+                            IsFlowing = zPipe.IsFlowing,
+                            FlowDirectionStr = zPipe.PipeFlowDir.ToString(),
+                            FlowSpeed = zPipe.FlowSpeed
                         };
 
-                        Debug.WriteLine($"收集Z形管道: {zPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                        Debug.WriteLine($"收集Z形管道: {zPipe.PipeId}, 流体可见={zPipe.IsFluidVisible}");
                     }
+
                     // 处理T形管道
                     else if (child is TShapePipeControl tPipe)
                     {
@@ -8512,10 +8588,20 @@ namespace MaxChemical.Modules.Designer.Views
                             RotationAngle = tPipe.RotationAngle,
                             MainPipeLength = tPipe.MainPipeLength,
                             BranchPipeLength = tPipe.BranchPipeLength,
-                            BranchPosition = tPipe.BranchPosition
+                            BranchPosition = tPipe.BranchPosition,
+
+                            // ★ 新增：保存管道外观属性
+                            PipeColorHex = ColorToHex(tPipe.PipeColor),
+                            FlangeColorHex = ColorToHex(tPipe.FlangeColor),
+                            FluidColorHex = ColorToHex(tPipe.FluidColor),
+                            FluidOpacity = tPipe.FluidOpacity,
+                            IsFluidVisible = tPipe.IsFluidVisible,
+                            IsFlowing = tPipe.IsFlowing,
+                            FlowDirectionStr = tPipe.PipeFlowDir.ToString(),
+                            FlowSpeed = tPipe.FlowSpeed
                         };
 
-                        Debug.WriteLine($"收集T形管道: {tPipe.PipeId} at ({pipeData.X:F0}, {pipeData.Y:F0})");
+                        Debug.WriteLine($"收集T形管道: {tPipe.PipeId}, 流体可见={tPipe.IsFluidVisible}");
                     }
                     if (pipeData != null)
                     {
@@ -8552,12 +8638,57 @@ namespace MaxChemical.Modules.Designer.Views
                 IsSelected = false
             };
 
+            // ★ 新增：恢复管道外观属性
+            if (!string.IsNullOrEmpty(pipeData.PipeColorHex))
+                pipe.PipeColor = HexToColor(pipeData.PipeColorHex);
+
+            if (!string.IsNullOrEmpty(pipeData.FlangeColorHex))
+                pipe.FlangeColor = HexToColor(pipeData.FlangeColorHex);
+
+            if (!string.IsNullOrEmpty(pipeData.FluidColorHex))
+                pipe.FluidColor = HexToColor(pipeData.FluidColorHex);
+
+            pipe.FluidOpacity = pipeData.FluidOpacity > 0 ? pipeData.FluidOpacity : 0.5;
+            pipe.IsFluidVisible = pipeData.IsFluidVisible;
+            pipe.IsFlowing = pipeData.IsFlowing;
+            pipe.FlowSpeed = pipeData.FlowSpeed > 0 ? pipeData.FlowSpeed : 1.0;
+
+            if (!string.IsNullOrEmpty(pipeData.FlowDirectionStr) &&
+                Enum.TryParse<PipeFlowDirection>(pipeData.FlowDirectionStr, out var dir))
+            {
+                pipe.PipeFlowDir = dir;
+            }
+
             // 订阅事件
             SubscribeStraightPipeEvents(pipe);
 
             return pipe;
         }
+        // ═══ 6. 添加颜色转换辅助方法 ═══
+        private static string ColorToHex(Color c)
+        {
+            return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+        }
 
+        private static Color HexToColor(string hex)
+        {
+            try
+            {
+                hex = hex.TrimStart('#');
+                if (hex.Length == 6)
+                {
+                    return Color.FromRgb(
+                        Convert.ToByte(hex.Substring(0, 2), 16),
+                        Convert.ToByte(hex.Substring(2, 2), 16),
+                        Convert.ToByte(hex.Substring(4, 2), 16));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"颜色解析失败: {hex}, {ex.Message}");
+            }
+            return Color.FromRgb(0x72, 0x71, 0x71);
+        }
         /// <summary>
         /// 创建恢复的弯管道
         /// </summary>
@@ -8573,9 +8704,28 @@ namespace MaxChemical.Modules.Designer.Views
                 IsSelected = false
             };
 
-            // 订阅事件
-            SubscribeElbowPipeEvents(pipe);
+            // ★ 新增：恢复管道外观属性
+            if (!string.IsNullOrEmpty(pipeData.PipeColorHex))
+                pipe.PipeColor = HexToColor(pipeData.PipeColorHex);
 
+            if (!string.IsNullOrEmpty(pipeData.FlangeColorHex))
+                pipe.FlangeColor = HexToColor(pipeData.FlangeColorHex);
+
+            if (!string.IsNullOrEmpty(pipeData.FluidColorHex))
+                pipe.FluidColor = HexToColor(pipeData.FluidColorHex);
+
+            pipe.FluidOpacity = pipeData.FluidOpacity > 0 ? pipeData.FluidOpacity : 0.5;
+            pipe.IsFluidVisible = pipeData.IsFluidVisible;
+            pipe.IsFlowing = pipeData.IsFlowing;
+            pipe.FlowSpeed = pipeData.FlowSpeed > 0 ? pipeData.FlowSpeed : 1.0;
+
+            if (!string.IsNullOrEmpty(pipeData.FlowDirectionStr) &&
+                Enum.TryParse<PipeFlowDirection>(pipeData.FlowDirectionStr, out var dir))
+            {
+                pipe.PipeFlowDir = dir;
+            }
+
+            SubscribeElbowPipeEvents(pipe);
             return pipe;
         }
 
@@ -8595,9 +8745,28 @@ namespace MaxChemical.Modules.Designer.Views
                 IsSelected = false
             };
 
-            // 订阅事件
-            SubscribeZShapePipeEvents(pipe);
+            // ★ 新增：恢复管道外观属性
+            if (!string.IsNullOrEmpty(pipeData.PipeColorHex))
+                pipe.PipeColor = HexToColor(pipeData.PipeColorHex);
 
+            if (!string.IsNullOrEmpty(pipeData.FlangeColorHex))
+                pipe.FlangeColor = HexToColor(pipeData.FlangeColorHex);
+
+            if (!string.IsNullOrEmpty(pipeData.FluidColorHex))
+                pipe.FluidColor = HexToColor(pipeData.FluidColorHex);
+
+            pipe.FluidOpacity = pipeData.FluidOpacity > 0 ? pipeData.FluidOpacity : 0.5;
+            pipe.IsFluidVisible = pipeData.IsFluidVisible;
+            pipe.IsFlowing = pipeData.IsFlowing;
+            pipe.FlowSpeed = pipeData.FlowSpeed > 0 ? pipeData.FlowSpeed : 1.0;
+
+            if (!string.IsNullOrEmpty(pipeData.FlowDirectionStr) &&
+                Enum.TryParse<PipeFlowDirection>(pipeData.FlowDirectionStr, out var dir))
+            {
+                pipe.PipeFlowDir = dir;
+            }
+
+            SubscribeZShapePipeEvents(pipe);
             return pipe;
         }
 
@@ -8618,9 +8787,28 @@ namespace MaxChemical.Modules.Designer.Views
                 IsSelected = false
             };
 
-            // 订阅事件
-            SubscribeTShapePipeEvents(pipe);
+            // ★ 新增：恢复管道外观属性
+            if (!string.IsNullOrEmpty(pipeData.PipeColorHex))
+                pipe.PipeColor = HexToColor(pipeData.PipeColorHex);
 
+            if (!string.IsNullOrEmpty(pipeData.FlangeColorHex))
+                pipe.FlangeColor = HexToColor(pipeData.FlangeColorHex);
+
+            if (!string.IsNullOrEmpty(pipeData.FluidColorHex))
+                pipe.FluidColor = HexToColor(pipeData.FluidColorHex);
+
+            pipe.FluidOpacity = pipeData.FluidOpacity > 0 ? pipeData.FluidOpacity : 0.5;
+            pipe.IsFluidVisible = pipeData.IsFluidVisible;
+            pipe.IsFlowing = pipeData.IsFlowing;
+            pipe.FlowSpeed = pipeData.FlowSpeed > 0 ? pipeData.FlowSpeed : 1.0;
+
+            if (!string.IsNullOrEmpty(pipeData.FlowDirectionStr) &&
+                Enum.TryParse<PipeFlowDirection>(pipeData.FlowDirectionStr, out var dir))
+            {
+                pipe.PipeFlowDir = dir;
+            }
+
+            SubscribeTShapePipeEvents(pipe);
             return pipe;
         }
         #endregion
@@ -8972,6 +9160,8 @@ namespace MaxChemical.Modules.Designer.Views
             //  订阅管道选中事件（新增）
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
+            // ★ 新增：双击打开属性对话框
+            pipe.PipeDoubleClicked += OnPipeDoubleClicked;
         }
 
         /// <summary>
@@ -9033,6 +9223,117 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"处理管道取消选中通知失败: {ex.Message}");
             }
         }
+        // ═══ 3. 添加双击处理方法 ═══
+        /// <summary>
+        /// 管道双击事件处理 — 打开管道属性对话框（统一所有管道类型）
+        /// </summary>
+        private void OnPipeDoubleClicked(object sender, string pipeId)
+        {
+            try
+            {
+                Debug.WriteLine($"管道双击: {pipeId}, 类型: {sender?.GetType().Name}");
+
+                // ★ 统一通过 IPipeProperties 接口处理所有管道类型
+                if (sender is IPipeProperties pipeWithProperties)
+                {
+                    ShowPipePropertyDialog(pipeWithProperties);
+                }
+                else
+                {
+                    Debug.WriteLine($"管道类型 {sender?.GetType().Name} 未实现 IPipeProperties，无法打开属性对话框");
+                    _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("此管道类型暂不支持属性编辑");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"管道双击处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 显示管道属性对话框
+        /// </summary>
+        /// <summary>
+        /// 显示管道属性对话框（统一接口版，支持所有管道类型）
+        /// </summary>
+        private void ShowPipePropertyDialog(IPipeProperties pipe)
+        {
+            try
+            {
+                // 获取管道ID（统一提取）
+                string pipeId = pipe switch
+                {
+                    StraightPipeControl sp => sp.PipeId,
+                    ElbowPipeControl ep => ep.PipeId,
+                    ZShapePipeControl zp => zp.PipeId,
+                    TShapePipeControl tp => tp.PipeId,
+                    _ => "unknown"
+                };
+
+                Debug.WriteLine($"打开管道属性对话框: {pipeId}, 类型: {pipe.GetType().Name}");
+
+                // 关闭之前的弹窗
+                if (_pipePropertyWindow != null)
+                {
+                    _pipePropertyWindow.Close();
+                    _pipePropertyWindow = null;
+                }
+
+                // 清理拖拽状态，防止对话框关闭后误触发拖拽
+                CleanupDragState();
+
+                // 创建对话框
+                var dialog = new PipePropertyDialog();
+                dialog.SetTargetPipe(pipe);  // ★ PipePropertyDialog.SetTargetPipe 需改为接受 IPipeProperties
+
+                // 创建窗口
+                _pipePropertyWindow = new Window
+                {
+                    Title = "管道属性",
+                    Content = dialog,
+                    Width = 540,
+                    Height = 600,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Owner = Window.GetWindow(this),
+                    ResizeMode = ResizeMode.NoResize,
+                    WindowStyle = WindowStyle.None,
+                    ShowInTaskbar = false,
+                    AllowsTransparency = true,
+                    Background = Brushes.Transparent
+                };
+
+                // 订阅事件
+                dialog.CloseRequested += (s, e) =>
+                {
+                    _pipePropertyWindow?.Close();
+                    _pipePropertyWindow = null;
+                };
+
+                dialog.DialogResult += (s, result) =>
+                {
+                    _pipePropertyWindow?.Close();
+                    _pipePropertyWindow = null;
+
+                    if (result)
+                    {
+                        Debug.WriteLine("管道属性已保存");
+                        _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+                        _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("管道属性已更新");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("管道属性已取消");
+                    }
+                };
+
+                _pipePropertyWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"显示管道属性对话框失败: {ex.Message}");
+            }
+        }
+
 
         /// <summary>
         /// 清除除指定管道外的所有管道选择
@@ -9072,29 +9373,33 @@ namespace MaxChemical.Modules.Designer.Views
                 VerticalLength = 42,
                 PipeWidth = 8
             };
-            // 【修改】设置管道 ZIndex 为 10
             Panel.SetZIndex(pipe, 10);
 
-            // 订阅事件
+            // ★ 新增：启用管道级别缓存（与直管道一致）
+            RenderOptions.SetCachingHint(pipe, CachingHint.Cache);
+            pipe.CacheMode = new BitmapCache
+            {
+                EnableClearType = false,
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true
+            };
+
             SubscribeElbowPipeEvents(pipe);
 
-            //  使用命令创建管道
             var addCommand = new AddPipeCommand(
-                DesignCanvas,
-                pipe,
-                position,
-                "弯管道",
-                _pipeConnectionService);
+                DesignCanvas, pipe, position, "弯管道", _pipeConnectionService);
 
             _commandHistory.ExecuteCommand(addCommand);
-
-            // 添加到管道集合
             _pipes[pipe.PipeId] = pipe;
 
-            // 标记画布已修改
-            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+            // ★ 新增：标记四叉树需要重建
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                snapService.MarkQuadTreeDirty();
+            }
 
-            Debug.WriteLine($"弯管道已创建: {pipe.PipeId}");
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+            Debug.WriteLine($"弯管道已创建（带缓存）: {pipe.PipeId}");
         }
 
         /// <summary>
@@ -9114,6 +9419,8 @@ namespace MaxChemical.Modules.Designer.Views
             //  订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
+            // ★ 新增：双击打开属性对话框
+            pipe.PipeDoubleClicked += OnPipeDoubleClicked;
         }
 
         /// <summary>
@@ -9129,28 +9436,33 @@ namespace MaxChemical.Modules.Designer.Views
                 VerticalOffset = 40,
                 PipeWidth = 8
             };
-            // 【修改】设置管道 ZIndex 为 10
             Panel.SetZIndex(pipe, 10);
-            // 订阅事件
+
+            // ★ 新增：启用管道级别缓存
+            RenderOptions.SetCachingHint(pipe, CachingHint.Cache);
+            pipe.CacheMode = new BitmapCache
+            {
+                EnableClearType = false,
+                RenderAtScale = 1.0,
+                SnapsToDevicePixels = true
+            };
+
             SubscribeZShapePipeEvents(pipe);
 
-            //  使用命令创建管道
             var addCommand = new AddPipeCommand(
-                DesignCanvas,
-                pipe,
-                position,
-                "Z形管道",
-                _pipeConnectionService);
+                DesignCanvas, pipe, position, "Z形管道", _pipeConnectionService);
 
             _commandHistory.ExecuteCommand(addCommand);
-
-            // 添加到管道集合
             _pipes[pipe.PipeId] = pipe;
 
-            // 标记画布已修改
-            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+            // ★ 新增：标记四叉树需要重建
+            if (_pipeSnapService is PipeSnapService snapService)
+            {
+                snapService.MarkQuadTreeDirty();
+            }
 
-            Debug.WriteLine($"Z形管道已创建: {pipe.PipeId}");
+            _eventAggregator?.GetEvent<CanvasModifiedEvent>()?.Publish();
+            Debug.WriteLine($"Z形管道已创建（带缓存）: {pipe.PipeId}");
         }
 
         /// <summary>
@@ -9170,6 +9482,8 @@ namespace MaxChemical.Modules.Designer.Views
             //  订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
+            // ★ 新增：双击打开属性对话框
+            pipe.PipeDoubleClicked += OnPipeDoubleClicked;
         }
 
         /// <summary>
@@ -9240,6 +9554,8 @@ namespace MaxChemical.Modules.Designer.Views
             //  订阅选中事件
             pipe.PipeSelected += OnPipeSelectedFromControl;
             pipe.PipeDeselected += OnPipeDeselectedFromControl;
+            // ★ 新增：双击打开属性对话框
+            pipe.PipeDoubleClicked += OnPipeDoubleClicked;
         }
 
         #endregion

@@ -96,6 +96,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<FlowValueChangedEventArgs> TargetFlowChanged;
         public event EventHandler<FlowStateChangedEventArgs> FlowStateChanged;
 
+        public event EventHandler<FlowMeterStateChangeRequestEventArgs> StateChangeRequested;
+        public event EventHandler<FlowMeterTargetFlowChangeRequestEventArgs> TargetFlowChangeRequested;
+
         #endregion
 
         #region 字段
@@ -116,32 +119,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
 
-        private Storyboard _fluidFlowAnimation;
-        private Storyboard _dataGlowAnimation;
+        private bool _isLoading = false;
+        public bool IsLoading => _isLoading;
 
         public string MeterId { get; set; }
 
         #endregion
-
-        #region 新增：UI → 设备驱动的请求事件
-
-        public event EventHandler<FlowMeterStateChangeRequestEventArgs> StateChangeRequested;
-        public event EventHandler<FlowMeterTargetFlowChangeRequestEventArgs> TargetFlowChangeRequested;
-
-        #endregion
-
-        #region 新增：加载和错误动画资源
-
-        //private Storyboard _loadingAnimation;
-        //private Storyboard _errorBlinkAnimation;
-        //private Storyboard _errorStateHoldAnimation;
-        //private DispatcherTimer _errorResetTimer;
-        private bool _isLoading = false;
-
-        public bool IsLoading => _isLoading;
-
-        #endregion
-
 
         #region 构造函数
 
@@ -175,25 +158,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _rotationLabelTimer.Stop();
                 };
 
-                // 注释: 错误重置定时器已禁用
-                /*
-                _errorResetTimer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromSeconds(3)
-                };
-                _errorResetTimer.Tick += (s, e) =>
-                {
-                    ResetErrorState();
-                    _errorResetTimer.Stop();
-                };
-                */
-
                 this.Loaded += OnControlLoaded;
                 this.MouseEnter += OnMeterMouseEnter;
                 this.MouseLeave += OnMeterMouseLeave;
                 SetupRotateAnchorEvents();
 
-                // 硬件加速配置
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
                 RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
                 RenderOptions.SetCachingHint(this, CachingHint.Cache);
@@ -210,95 +179,47 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.SnapsToDevicePixels = true;
                 this.UseLayoutRounding = true;
 
-                // 注释: 液体动画层和指针缓存禁用已移除
-                /*
-                if (FluidFlowContainer != null)
-                {
-                    FluidFlowContainer.CacheMode = null;
-                }
-
-                if (CurrentPointer != null)
-                {
-                    CurrentPointer.CacheMode = null;
-                }
-                */
-
                 Debug.WriteLine($"流量计 {MeterId} 硬件加速已启用");
             }
         }
-
-
 
         private void OnControlLoaded(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("OnControlLoaded 开始");
 
-            // 初始化显示
             UpdatePointerAngle(CurrentFlow);
             UpdateCurrentValueText(CurrentFlow);
             UpdateTargetValueText(TargetFlow);
-
-            // 注释: 数据发光动画已禁用
-            /*
-            _dataGlowAnimation = this.Resources["DataGlowAnimation"] as Storyboard;
-            _dataGlowAnimation?.Begin();
-            */
-
-            // 注释: 加载和错误动画资源加载已禁用
-            /*
-            _loadingAnimation = this.Resources["LoadingAnimation"] as Storyboard;
-            _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
-            _errorStateHoldAnimation = this.Resources["ErrorStateHoldAnimation"] as Storyboard;
-
-            if (_errorBlinkAnimation != null)
-            {
-                _errorBlinkAnimation.Completed += OnErrorBlinkCompleted;
-            }
-            */
-
-            // 根据当前流量值更新颜色
             UpdateMeterColorsByFlowValue(CurrentFlow);
 
             Debug.WriteLine("OnControlLoaded 结束");
         }
 
-
         #endregion
 
-        // 新增: 更新流量计颜色方法
+        #region 颜色更新
+
         private void UpdateMeterColors()
         {
             try
             {
-                // 获取主外壳元素
                 var meterShell = this.FindName("MeterShell") as Rectangle;
-                var dialInnerCircle = this.FindName("DialInnerCircle") as Ellipse;
 
                 if (IsFlowing)
                 {
-                    // 运行状态 - 蓝绿色渐变
                     var runningShellBrush = this.Resources["RunningShellGradient"] as LinearGradientBrush;
-                    var runningDialBrush = this.Resources["RunningDialGradient"] as RadialGradientBrush;
-
                     if (meterShell != null && runningShellBrush != null)
                         meterShell.Fill = runningShellBrush;
-
-                    if (dialInnerCircle != null && runningDialBrush != null)
-                        dialInnerCircle.Fill = runningDialBrush;
 
                     Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 状态:蓝绿色(运行中)");
                 }
                 else
                 {
-                    // 停止状态 - 灰色渐变
-                    if (meterShell != null)
-                        meterShell.Fill = new SolidColorBrush(Color.FromRgb(240, 244, 246));
+                    var stoppedShellBrush = this.Resources["StoppedShellGradient"] as LinearGradientBrush;
+                    if (meterShell != null && stoppedShellBrush != null)
+                        meterShell.Fill = stoppedShellBrush;
 
-                    var stoppedDialBrush = this.Resources["StoppedDialGradient"] as RadialGradientBrush;
-                    if (dialInnerCircle != null && stoppedDialBrush != null)
-                        dialInnerCircle.Fill = stoppedDialBrush;
-
-                    Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 状态:灰色(已停止)");
+                    Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 状态:深灰色(已停止)");
                 }
             }
             catch (Exception ex)
@@ -307,104 +228,82 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        #region  新增：加载和错误动画方法
-
         /// <summary>
-        /// 显示加载动画
+        /// 根据实时流量值更新流量计颜色
         /// </summary>
+        private void UpdateMeterColorsByFlowValue(double flowValue)
+        {
+            try
+            {
+                var meterShell = this.FindName("MeterShell") as Rectangle;
+
+                if (flowValue > 0)
+                {
+                    var runningShellBrush = this.Resources["RunningShellGradient"] as LinearGradientBrush;
+                    if (meterShell != null && runningShellBrush != null)
+                        meterShell.Fill = runningShellBrush;
+
+                    Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 流量:{flowValue:F1} | 状态:蓝绿色(运行中)");
+                }
+                else
+                {
+                    var stoppedShellBrush = this.Resources["StoppedShellGradient"] as LinearGradientBrush;
+                    if (meterShell != null && stoppedShellBrush != null)
+                        meterShell.Fill = stoppedShellBrush;
+
+                    Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 流量:0.0 | 状态:深灰色(已停止)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"更新流量计颜色失败 | MeterId:{MeterId} | 错误:{ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region 加载和错误状态
+
         public void ShowLoading()
         {
             if (_isLoading) return;
             _isLoading = true;
-            Debug.WriteLine($"显示加载状态(无动画) | MeterId:{MeterId}");
+            Debug.WriteLine($"显示加载状态 | MeterId:{MeterId}");
 
-            // 注释: 仅改变外壳颜色为黄色表示加载中
             var meterShell = this.FindName("MeterShell") as Rectangle;
             if (meterShell != null)
                 meterShell.Fill = new SolidColorBrush(Color.FromRgb(255, 193, 7));
         }
 
-
-        /// <summary>
-        /// 隐藏加载动画
-        /// </summary>
         public void HideLoading()
         {
             if (!_isLoading) return;
             _isLoading = false;
-            Debug.WriteLine($"隐藏加载状态(无动画) | MeterId:{MeterId}");
+            Debug.WriteLine($"隐藏加载状态 | MeterId:{MeterId}");
 
-            // 恢复正常颜色 - 根据当前流量值
             UpdateMeterColorsByFlowValue(CurrentFlow);
         }
 
-        /// <summary>
-        /// 显示操作失败动画
-        /// </summary>
         public void ShowOperationFailure()
         {
-            Debug.WriteLine($"显示操作失败状态(无动画) | MeterId:{MeterId}");
+            Debug.WriteLine($"显示操作失败状态 | MeterId:{MeterId}");
 
             HideLoading();
 
-            // 注释: 仅改变外壳颜色为红色表示错误
             var meterShell = this.FindName("MeterShell") as Rectangle;
             if (meterShell != null)
                 meterShell.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
         }
 
-
-        ///// <summary>
-        ///// 错误闪烁完成后启动持续状态
-        ///// </summary>
-        //private void OnErrorBlinkCompleted(object sender, EventArgs e)
-        //{
-        //    Debug.WriteLine($" 错误闪烁完成，进入持续错误状态");
-        //    _errorStateHoldAnimation?.Begin(this, true);
-        //}
-
         public void ClearError()
         {
             Debug.WriteLine($"清除错误状态 | MeterId:{MeterId}");
-
-            // 恢复正常颜色 - 根据当前流量值
             UpdateMeterColorsByFlowValue(CurrentFlow);
         }
-        ///// <summary>
-        ///// 重置所有光效
-        ///// </summary>
-        //private void ResetAllGlowEffects()
-        //{
-        //    try
-        //    {
-        //        var shellGlow = this.FindName("ShellGlow") as DropShadowEffect;
-        //        if (shellGlow != null)
-        //        {
-        //            shellGlow.Color = Colors.Transparent;
-        //            shellGlow.BlurRadius = 0;
-        //        }
-
-        //        // 恢复数据发光
-        //        if (_dataGlowAnimation != null)
-        //        {
-        //            _dataGlowAnimation.Begin();
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine($" 重置光效失败: {ex.Message}");
-        //    }
-        //}
-
-        //private void ResetErrorState()
-        //{
-        //    Debug.WriteLine($" 重置错误状态");
-        //}
 
         #endregion
 
-
-        #region 动画控制
+        #region 状态变化回调
 
         private static void OnIsFlowingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -412,8 +311,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 bool isFlowing = (bool)e.NewValue;
 
-                // 注释: 颜色更新已移至CurrentFlow属性变化时处理
-                // 此处仅触发流动状态变化事件
                 meter.FlowStateChanged?.Invoke(meter, new FlowStateChangedEventArgs
                 {
                     MeterId = meter.MeterId,
@@ -423,244 +320,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Debug.WriteLine($"流量计 {meter.MeterId} IsFlowing属性变更: {(isFlowing ? "启动" : "停止")}");
             }
         }
-
-        //private void UpdateFlowAnimationState(bool isFlowing)
-        //{
-        //    Debug.WriteLine($" UpdateFlowAnimationState 调用: isFlowing={isFlowing}");
-
-        //    if (FluidFlowContainer == null)
-        //    {
-        //        Debug.WriteLine(" FluidFlowContainer 为 NULL!");
-        //        return;
-        //    }
-
-        //    Debug.WriteLine($" FluidFlowContainer 存在, Children={FluidFlowContainer.Children.Count}");
-
-        //    if (isFlowing)
-        //    {
-        //        // 显示容器
-        //        FluidFlowContainer.Visibility = Visibility.Visible;
-        //        Debug.WriteLine(" 容器已显示");
-
-        //        // 创建并启动动画
-        //        CreateAndStartFluidAnimation();
-        //    }
-        //    else
-        //    {
-        //        // 停止动画
-        //        StopAllFluidAnimations();
-
-        //        // 隐藏容器
-        //        FluidFlowContainer.Visibility = Visibility.Collapsed;
-        //        Debug.WriteLine(" 容器已隐藏");
-        //    }
-        //}
-
-        //private void CreateAndStartFluidAnimation()
-        //{
-        //    Debug.WriteLine("🎬 开始创建液体流动动画...");
-
-        //    StopAllFluidAnimations();
-
-        //    _fluidFlowAnimation = new Storyboard
-        //    {
-        //        RepeatBehavior = RepeatBehavior.Forever
-        //    };
-
-        //    //  设置动画帧率为30fps（降低CPU占用）
-        //    Timeline.SetDesiredFrameRate(_fluidFlowAnimation, 30);
-
-        //    // 1. 渐变流动动画
-        //    if (FluidGradientTransform != null)
-        //    {
-        //        var gradientAnim = new DoubleAnimation
-        //        {
-        //            From = 0,
-        //            To = 100,
-        //            Duration = TimeSpan.FromSeconds(2),
-        //            RepeatBehavior = RepeatBehavior.Forever
-        //        };
-        //        Storyboard.SetTarget(gradientAnim, FluidGradientTransform);
-        //        Storyboard.SetTargetProperty(gradientAnim, new PropertyPath("X"));
-        //        _fluidFlowAnimation.Children.Add(gradientAnim);
-        //        Debug.WriteLine(" 渐变动画已添加");
-        //    }
-
-        //    // 2. 波浪动画
-        //    if (WaveTransform1 != null)
-        //    {
-        //        var waveAnim = new DoubleAnimation
-        //        {
-        //            From = 0,
-        //            To = 100,
-        //            Duration = TimeSpan.FromSeconds(2),
-        //            RepeatBehavior = RepeatBehavior.Forever
-        //        };
-        //        Storyboard.SetTarget(waveAnim, WaveTransform1);
-        //        Storyboard.SetTargetProperty(waveAnim, new PropertyPath("X"));
-        //        _fluidFlowAnimation.Children.Add(waveAnim);
-        //    }
-
-        //    if (WaveTransform2 != null)
-        //    {
-        //        var waveAnim = new DoubleAnimation
-        //        {
-        //            From = 0,
-        //            To = 100,
-        //            Duration = TimeSpan.FromSeconds(2),
-        //            RepeatBehavior = RepeatBehavior.Forever
-        //        };
-        //        Storyboard.SetTarget(waveAnim, WaveTransform2);
-        //        Storyboard.SetTargetProperty(waveAnim, new PropertyPath("X"));
-        //        _fluidFlowAnimation.Children.Add(waveAnim);
-        //    }
-
-        //    // 3. 气泡动画
-        //    AddBubbleAnimation(Bubble1, 4.0, 20, 8, 2.0, 0);
-        //    AddBubbleAnimation(Bubble2, 3.5, 24, 12, 1.8, 0.8);
-        //    AddBubbleAnimation(Bubble3, 4.2, 16, 6, 2.2, 1.5);
-        //    AddBubbleAnimation(Bubble4, 3.8, 22, 10, 1.9, 2.2);
-        //    AddBubbleAnimation(Bubble5, 4.5, 18, 7, 2.5, 0.5);
-
-        //    try
-        //    {
-        //        _fluidFlowAnimation.Begin();
-        //        Debug.WriteLine(" 液体流动动画已启动（30fps GPU加速）! ");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine($" 动画启动失败: {ex.Message}");
-        //    }
-        //}
-
-        //private void AddBubbleAnimation(Ellipse bubble, double duration, double fromTop, double toTop,
-        //                                 double verticalDuration, double delay)
-        //{
-        //    if (bubble == null)
-        //    {
-        //        Debug.WriteLine(" 气泡元素为 NULL,跳过");
-        //        return;
-        //    }
-
-        //    // 水平移动动画
-        //    var leftAnim = new DoubleAnimation
-        //    {
-        //        From = -10,
-        //        To = 440,
-        //        Duration = TimeSpan.FromSeconds(duration),
-        //        BeginTime = TimeSpan.FromSeconds(delay),
-        //        RepeatBehavior = RepeatBehavior.Forever
-        //    };
-        //    Storyboard.SetTarget(leftAnim, bubble);
-        //    Storyboard.SetTargetProperty(leftAnim, new PropertyPath("(Canvas.Left)"));
-        //    _fluidFlowAnimation.Children.Add(leftAnim);
-
-        //    // 垂直波动动画
-        //    var topAnim = new DoubleAnimation
-        //    {
-        //        From = fromTop,
-        //        To = toTop,
-        //        Duration = TimeSpan.FromSeconds(verticalDuration),
-        //        AutoReverse = true,
-        //        RepeatBehavior = RepeatBehavior.Forever
-        //    };
-        //    Storyboard.SetTarget(topAnim, bubble);
-        //    Storyboard.SetTargetProperty(topAnim, new PropertyPath("(Canvas.Top)"));
-        //    _fluidFlowAnimation.Children.Add(topAnim);
-
-        //    Debug.WriteLine($" 气泡动画已添加: {bubble.Name ?? "未命名气泡"}");
-        //}
-
-        //private void StopAllFluidAnimations()
-        //{
-        //    if (_fluidFlowAnimation != null)
-        //    {
-        //        _fluidFlowAnimation.Stop();
-        //        _fluidFlowAnimation = null;
-        //        Debug.WriteLine(" 液体动画已停止");
-        //    }
-
-        //    // 重置所有 Transform 位置
-        //    if (FluidGradientTransform != null)
-        //        FluidGradientTransform.X = 0;
-        //    if (WaveTransform1 != null)
-        //        WaveTransform1.X = 0;
-        //    if (WaveTransform2 != null)
-        //        WaveTransform2.X = 0;
-
-        //    // 重置气泡位置
-        //    ResetBubblePosition(Bubble1);
-        //    ResetBubblePosition(Bubble2);
-        //    ResetBubblePosition(Bubble3);
-        //    ResetBubblePosition(Bubble4);
-        //    ResetBubblePosition(Bubble5);
-        //}
-
-        //private void ResetBubblePosition(Ellipse bubble)
-        //{
-        //    if (bubble != null)
-        //    {
-        //        Canvas.SetLeft(bubble, -10);
-        //    }
-        //}
-
-        //private void StartFlowAnimation()
-        //{
-        //    IsFlowing = true;
-        //}
-
-        //private void StopFlowAnimation()
-        //{
-        //    IsFlowing = false;
-        //}
-
-        #endregion
-
-        #region 锚点显示控制
-
-        private void OnMeterMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (!_isDragging && !_isRotating)
-            {
-                ShowAllAnchors();
-            }
-        }
-
-        private void OnMeterMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (!_isRotating && !IsSelected)
-            {
-                HideAllAnchors();
-            }
-        }
-
-        private void ShowAllAnchors()
-        {
-            if (RotateAnchor != null)
-            {
-                RotateAnchor.Opacity = 0.7;
-            }
-            if (RotateAnchorLine != null)
-            {
-                RotateAnchorLine.Opacity = 0.7;
-            }
-        }
-
-        private void HideAllAnchors()
-        {
-            if (RotateAnchor != null)
-            {
-                RotateAnchor.Opacity = 0;
-            }
-            if (RotateAnchorLine != null)
-            {
-                RotateAnchorLine.Opacity = 0;
-            }
-        }
-
-        #endregion
-
-        #region 状态变化处理
 
         private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -697,58 +356,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 double newValue = (double)e.NewValue;
                 meter.UpdatePointerAngle(newValue);
                 meter.UpdateCurrentValueText(newValue);
-
-                // 根据实时流量值更新颜色状态
                 meter.UpdateMeterColorsByFlowValue(newValue);
 
                 Debug.WriteLine($"流量计 {meter.MeterId} 当前流量: {newValue:F1} g/min");
             }
         }
-        /// <summary>
-        /// 根据实时流量值更新流量计颜色
-        /// 注释: 只要有流量数据(CurrentFlow > 0)就显示运行状态颜色
-        /// </summary>
-        private void UpdateMeterColorsByFlowValue(double flowValue)
-        {
-            try
-            {
-                var meterShell = this.FindName("MeterShell") as Rectangle;
-                var dialInnerCircle = this.FindName("DialInnerCircle") as Ellipse;
 
-                if (flowValue > 0)
-                {
-                    // 有流量 - 运行状态 - 蓝绿色渐变
-                    var runningShellBrush = this.Resources["RunningShellGradient"] as LinearGradientBrush;
-                    var runningDialBrush = this.Resources["RunningDialGradient"] as RadialGradientBrush;
-
-                    if (meterShell != null && runningShellBrush != null)
-                        meterShell.Fill = runningShellBrush;
-
-                    if (dialInnerCircle != null && runningDialBrush != null)
-                        dialInnerCircle.Fill = runningDialBrush;
-
-                    Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 流量:{flowValue:F1} | 状态:蓝绿色(运行中)");
-                }
-                else
-                {
-                    // 无流量 - 停止状态 - 灰色渐变
-                    var stoppedShellBrush = this.Resources["StoppedShellGradient"] as LinearGradientBrush;
-                    var stoppedDialBrush = this.Resources["StoppedDialGradient"] as RadialGradientBrush;
-
-                    if (meterShell != null && stoppedShellBrush != null)
-                        meterShell.Fill = stoppedShellBrush;
-
-                    if (dialInnerCircle != null && stoppedDialBrush != null)
-                        dialInnerCircle.Fill = stoppedDialBrush;
-
-                    Debug.WriteLine($"流量计颜色已更新 | MeterId:{MeterId} | 流量:0.0 | 状态:灰色(已停止)");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新流量计颜色失败 | MeterId:{MeterId} | 错误:{ex.Message}");
-            }
-        }
         private static void OnTargetFlowChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is MassFlowMeterControl meter)
@@ -762,14 +375,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void UpdatePointerAngle(double flowValue)
         {
             if (PointerRotation == null) return;
-
             double normalizedValue = Math.Max(0, Math.Min(flowValue, MaxFlow));
             double angle = (normalizedValue / MaxFlow) * 270 - 90;
-
-            // 注释: 动画过渡已禁用, 直接设置角度
-            // var animation = new DoubleAnimation { ... };
-            // PointerRotation.BeginAnimation(RotateTransform.AngleProperty, animation);
-
             PointerRotation.Angle = angle;
         }
 
@@ -777,7 +384,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (CurrentValueText != null)
             {
-                CurrentValueText.Text = $"{value:F1} g/min";
+                CurrentValueText.Text = $"{value:F1}";
             }
         }
 
@@ -791,19 +398,49 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 按钮事件处理
+        #region 锚点显示
+
+        private void OnMeterMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (!_isDragging && !_isRotating)
+            {
+                ShowAllAnchors();
+            }
+        }
+
+        private void OnMeterMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (!_isRotating && !IsSelected)
+            {
+                HideAllAnchors();
+            }
+        }
+
+        private void ShowAllAnchors()
+        {
+            if (RotateAnchor != null) RotateAnchor.Opacity = 0.7;
+            if (RotateAnchorLine != null) RotateAnchorLine.Opacity = 0.7;
+        }
+
+        private void HideAllAnchors()
+        {
+            if (RotateAnchor != null) RotateAnchor.Opacity = 0;
+            if (RotateAnchorLine != null) RotateAnchorLine.Opacity = 0;
+        }
+
+        #endregion
+
+        #region 按钮点击
 
         private void OnIncreaseButtonClick(object sender, RoutedEventArgs e)
         {
             try
             {
                 double newFlow = Math.Min(TargetFlow + 1, MaxFlow);
-                Debug.WriteLine($"⬆️ 增加流量: {TargetFlow:F1} → {newFlow:F1}");
+                Debug.WriteLine($"增加流量: {TargetFlow:F1} → {newFlow:F1}");
 
-                //  显示加载动画
                 ShowLoading();
 
-                //  触发目标流量变化请求事件
                 TargetFlowChangeRequested?.Invoke(this, new FlowMeterTargetFlowChangeRequestEventArgs
                 {
                     MeterId = this.MeterId,
@@ -818,11 +455,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             if (!success)
                             {
                                 ShowOperationFailure();
-                                Debug.WriteLine($" 流量增加失败");
+                                Debug.WriteLine($"流量增加失败");
                             }
                             else
                             {
-                                Debug.WriteLine($" 流量增加成功: {newFlow:F1}");
+                                Debug.WriteLine($"流量增加成功: {newFlow:F1}");
                             }
                         }));
                     }
@@ -832,7 +469,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($" 增加流量失败: {ex.Message}");
+                Debug.WriteLine($"增加流量失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -843,7 +480,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 double newFlow = Math.Max(TargetFlow - 1, 0);
-                Debug.WriteLine($" 减少流量: {TargetFlow:F1} → {newFlow:F1}");
+                Debug.WriteLine($"减少流量: {TargetFlow:F1} → {newFlow:F1}");
 
                 ShowLoading();
 
@@ -870,7 +507,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($" 减少流量失败: {ex.Message}");
+                Debug.WriteLine($"减少流量失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -880,11 +517,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                Debug.WriteLine($" SET按钮点击: 目标流量={TargetFlow:F1}");
+                Debug.WriteLine($"SET按钮点击: 目标流量={TargetFlow:F1}");
 
                 ShowLoading();
 
-                //  触发状态切换请求（启动流量控制）
                 StateChangeRequested?.Invoke(this, new FlowMeterStateChangeRequestEventArgs
                 {
                     MeterId = this.MeterId,
@@ -912,7 +548,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($" SET按钮处理失败: {ex.Message}");
+                Debug.WriteLine($"SET按钮处理失败: {ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -920,7 +556,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 交互覆盖层事件处理
+        #region 覆盖层事件
 
         private void OnOverlayMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -953,7 +589,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 if (!_isDragging && distance > ClickDistanceThreshold)
                 {
-                    Debug.WriteLine(" 超过阈值,开始拖拽模式");
+                    Debug.WriteLine("超过阈值,开始拖拽模式");
                     _isDragging = true;
 
                     if (((UIElement)sender).IsMouseCaptured)
@@ -997,7 +633,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                     ShowLoading();
 
-                    //  触发状态切换请求
                     StateChangeRequested?.Invoke(this, new FlowMeterStateChangeRequestEventArgs
                     {
                         MeterId = this.MeterId,
@@ -1049,7 +684,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.IsSelected = false;
                 MeterDeselected?.Invoke(this, this.MeterId);
                 autoHideTimer.Stop();
-                Debug.WriteLine(" 流量计选中效果已自动取消");
+                Debug.WriteLine("流量计选中效果已自动取消");
             };
 
             autoHideTimer.Start();
@@ -1116,7 +751,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     _dragStartPoint = e.GetPosition(canvas);
                 }
 
-                //  旋转时禁用缓存
                 this.CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -1146,7 +780,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             _isRotating = false;
 
-            //  旋转结束后恢复缓存
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             this.CacheMode = new BitmapCache
             {
@@ -1216,8 +849,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 CurrentAngle = _rotationAngle
             });
         }
-
-       
 
         private void UpdateRotation()
         {
@@ -1315,11 +946,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(meterLeft)) meterLeft = 0;
             if (double.IsNaN(meterTop)) meterTop = 0;
 
+            // 中心点: 控件中心 (200, 250)
+            // 左管端头位置: x=-16+4=-12 (相对控件), y=467 (水平管中心)
+            //   → 相对中心: offsetX = -212, offsetY = 217
+            // 右管端头位置: x=416 (相对控件), y=467
+            //   → 相对中心: offsetX = 216, offsetY = 217
             Point center = new Point(meterLeft + 200, meterTop + 250);
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            AddSnapPoint(snapPoints, center, radians, Math.PI, "左侧进口", 184, -147);
-            AddSnapPoint(snapPoints, center, radians, 0, "右侧出口", 114, -147);
+            AddSnapPoint(snapPoints, center, radians, Math.PI, "左侧进口", -212, 217);
+            AddSnapPoint(snapPoints, center, radians, 0, "右侧出口", 216, 217);
 
             return snapPoints;
         }

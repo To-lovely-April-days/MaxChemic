@@ -22,46 +22,11 @@
                      EnableClearType="False"/>
     </UserControl.CacheMode>
 
-    <UserControl.Resources>
-        <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.25"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-            <GradientStop Color="#59727171" Offset="0.75"/>
-            <GradientStop Color="#727171" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="HorizontalPipeGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.25"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-            <GradientStop Color="#59727171" Offset="0.75"/>
-            <GradientStop Color="#727171" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="VerticalPipeGradient" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#59727171" Offset="0.25"/>
-            <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-            <GradientStop Color="#59727171" Offset="0.75"/>
-            <GradientStop Color="#727171" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="LeftEndCapGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#D9D9D9" Offset="0"/>
-            <GradientStop Color="#A0A0A0" Offset="0.5"/>
-            <GradientStop Color="#D9D9D9" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="TopEndCapGradient" StartPoint="0.5,0" EndPoint="0.5,1">
-            <GradientStop Color="#D9D9D9" Offset="0"/>
-            <GradientStop Color="#A0A0A0" Offset="0.5"/>
-            <GradientStop Color="#D9D9D9" Offset="1"/>
-        </LinearGradientBrush>
-    </UserControl.Resources>
+    <!-- ═══ 不再使用 StaticResource，所有画刷均由代码动态生成 ═══ -->
 
     <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
 
+        <!-- ═══════════════ 左侧法兰组 ═══════════════ -->
         <Canvas x:Name="LeftFlangeGroup" 
                 Canvas.Left="0.35" 
                 Canvas.Top="32"
@@ -70,203 +35,154 @@
                 RenderOptions.CachingHint="Cache">
 
             <Rectangle x:Name="LeftFlangeBase"
-                       Width="2.54"
-                       Height="24"
-                       Fill="#D9D9D9"
-                       RadiusX="1.27" 
-                       RadiusY="1.27"/>
+                       Width="2.54" Height="24"
+                       RadiusX="1.27" RadiusY="1.27"/>
 
             <Rectangle x:Name="LeftFlangeGradient"
-                       Width="2.54"
-                       Height="24"
-                       Fill="{StaticResource LeftEndCapGradient}"
+                       Width="2.54" Height="24"
                        Opacity="0.6"
-                       RadiusX="1.27" 
-                       RadiusY="1.27"/>
+                       RadiusX="1.27" RadiusY="1.27"/>
 
             <Rectangle x:Name="LeftFlangeBorder"
-                       Width="2.54"
-                       Height="24"
-                       Stroke="#727171" 
+                       Width="2.54" Height="24"
                        StrokeThickness="0.7"
-                       RadiusX="1.27" 
-                       RadiusY="1.27" 
-                       Fill="Transparent"/>
+                       Fill="Transparent"
+                       RadiusX="1.27" RadiusY="1.27"/>
         </Canvas>
 
+        <!-- ═══════════════ 水平段 — 白底 + 流体 + 渐变 ═══════════════ -->
+        <Rectangle x:Name="HorizontalPipeBackground"
+                   Canvas.Left="3.2" Canvas.Top="34"
+                   Width="34" Height="20"
+                   Fill="White"
+                   RenderOptions.CachingHint="Cache"/>
+
+        <Rectangle x:Name="HorizontalFluidBackground"
+                   Canvas.Left="3.2" Canvas.Top="34"
+                   Width="34" Height="20"
+                   Visibility="Collapsed"
+                   RenderOptions.CachingHint="Cache"/>
+
+        <Rectangle x:Name="HorizontalFluidPattern"
+                   Canvas.Left="3.2" Canvas.Top="34"
+                   Width="34" Height="20"
+                   Visibility="Collapsed"
+                   RenderOptions.CachingHint="Cache"/>
+
         <Rectangle x:Name="HorizontalPipe" 
-                   Canvas.Left="3.2" 
-                   Canvas.Top="34"
-                   Width="34"
-                   Height="20"
-                   Fill="{StaticResource HorizontalPipeGradient}"
+                   Canvas.Left="3.2" Canvas.Top="34"
+                   Width="34" Height="20"
                    RenderOptions.CachingHint="Cache"/>
 
         <Line x:Name="HorizontalTopEdge" 
-              X1="3.58" Y1="34.32" 
-              X2="37.18" Y2="34.32"
-              Stroke="#000000" 
-              StrokeThickness="0.7"
-              Opacity="0.12"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"
+              X1="3.58" Y1="34.32" X2="37.18" Y2="34.32"
+              Stroke="#000000" StrokeThickness="0.7" Opacity="0.12"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
               RenderOptions.EdgeMode="Aliased"/>
 
         <Line x:Name="HorizontalBottomEdge" 
-              X1="3.58" Y1="53.68" 
-              X2="37.18" Y2="53.68"
-              Stroke="#000000" 
-              StrokeThickness="0.7"
-              Opacity="0.12"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"
+              X1="3.58" Y1="53.68" X2="37.18" Y2="53.68"
+              Stroke="#000000" StrokeThickness="0.7" Opacity="0.12"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
               RenderOptions.EdgeMode="Aliased"/>
 
+        <!-- ═══════════════ 弯头段 — 白底 + 流体 + 渐变 ═══════════════ -->
+        <Path x:Name="ElbowPipeBackground"
+              Fill="White"
+              RenderOptions.BitmapScalingMode="HighQuality"/>
+
+        <Path x:Name="ElbowFluidBackground"
+              Visibility="Collapsed"
+              RenderOptions.BitmapScalingMode="HighQuality"/>
+
         <Path x:Name="ElbowPath" 
-              StrokeThickness="0.7" 
-              Stroke="#727171"
-              RenderOptions.BitmapScalingMode="HighQuality">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="40,54">
-                        <ArcSegment Point="60,34" Size="20,20" SweepDirection="Counterclockwise"/>
-                        <LineSegment Point="50,34"/>
-                        <ArcSegment Point="40,44" Size="10,10" SweepDirection="Clockwise"/>
-                        <LineSegment Point="40,54"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
-                    <GradientStop Color="#5A5A5A" Offset="0"/>
-                    <GradientStop Color="#727171" Offset="0.22"/>
-                    <GradientStop Color="#40727171" Offset="0.40"/>
-                    <GradientStop Color="#00FFFFFF" Offset="0.5"/>
-                    <GradientStop Color="#40727171" Offset="0.60"/>
-                    <GradientStop Color="#727171" Offset="0.78"/>
-                    <GradientStop Color="#8A8A8A" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-        </Path>
+              StrokeThickness="0.7"
+              RenderOptions.BitmapScalingMode="HighQuality"/>
 
         <Path x:Name="ElbowOuterEdge" 
               Opacity="0.25"
               RenderOptions.EdgeMode="Aliased">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="40,53.5">
-                        <ArcSegment Point="59.5,34" Size="19.5,19.5" SweepDirection="Counterclockwise"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Stroke>
-                <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
-                    <GradientStop Color="#3E3E3E" Offset="0"/>
-                    <GradientStop Color="#5A5A5A" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Stroke>
             <Path.StrokeThickness>1.8</Path.StrokeThickness>
         </Path>
 
         <Path x:Name="ElbowHighlight" 
               Opacity="0.25"
               RenderOptions.EdgeMode="Aliased">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="43,51">
-                        <ArcSegment Point="57,37" Size="17,17" SweepDirection="Counterclockwise"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Stroke>
-                <LinearGradientBrush StartPoint="1,1" EndPoint="0,0">
-                    <GradientStop Color="Transparent" Offset="0"/>
-                    <GradientStop Color="#E8E8E8" Offset="0.5"/>
-                    <GradientStop Color="#F0F0F0" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Stroke>
             <Path.StrokeThickness>1.5</Path.StrokeThickness>
         </Path>
 
+        <!-- ═══════════════ 垂直段 — 白底 + 流体 + 渐变 ═══════════════ -->
+        <Rectangle x:Name="VerticalPipeBackground"
+                   Canvas.Left="50" Canvas.Top="3.2"
+                   Width="20" Height="28"
+                   Fill="White"
+                   RenderOptions.CachingHint="Cache"/>
+
+        <Rectangle x:Name="VerticalFluidBackground"
+                   Canvas.Left="50" Canvas.Top="3.2"
+                   Width="20" Height="28"
+                   Visibility="Collapsed"
+                   RenderOptions.CachingHint="Cache"/>
+
+        <Rectangle x:Name="VerticalFluidPattern"
+                   Canvas.Left="50" Canvas.Top="3.2"
+                   Width="20" Height="28"
+                   Visibility="Collapsed"
+                   RenderOptions.CachingHint="Cache"/>
+
         <Rectangle x:Name="VerticalPipe" 
-                   Canvas.Left="50"
-                   Canvas.Top="3.2"
-                   Width="20"
-                   Height="28"
-                   Fill="{StaticResource VerticalPipeGradient}"
+                   Canvas.Left="50" Canvas.Top="3.2"
+                   Width="20" Height="28"
                    RenderOptions.CachingHint="Cache"/>
 
         <Line x:Name="VerticalLeftEdge" 
-              X1="50.32" Y1="3.58" 
-              X2="50.32" Y2="31.18"
-              Stroke="#000000" 
-              StrokeThickness="0.7"
-              Opacity="0.12"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"
+              X1="50.32" Y1="3.58" X2="50.32" Y2="31.18"
+              Stroke="#000000" StrokeThickness="0.7" Opacity="0.12"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
               RenderOptions.EdgeMode="Aliased"/>
 
         <Line x:Name="VerticalRightEdge" 
-              X1="69.68" Y1="3.58" 
-              X2="69.68" Y2="31.18"
-              Stroke="#000000" 
-              StrokeThickness="0.7"
-              Opacity="0.12"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"
+              X1="69.68" Y1="3.58" X2="69.68" Y2="31.18"
+              Stroke="#000000" StrokeThickness="0.7" Opacity="0.12"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
               RenderOptions.EdgeMode="Aliased"/>
 
+        <!-- ═══════════════ 顶部法兰组 ═══════════════ -->
         <Canvas x:Name="TopFlangeGroup" 
-                Canvas.Left="48"
-                Canvas.Top="0.35"
-                Width="24"
-                Height="2.54"
+                Canvas.Left="48" Canvas.Top="0.35"
+                Width="24" Height="2.54"
                 RenderOptions.CachingHint="Cache">
 
             <Rectangle x:Name="TopFlangeBase" 
-                       Width="24"
-                       Height="2.54" 
-                       Fill="#D9D9D9" 
-                       RadiusX="1.27" 
-                       RadiusY="1.27"/>
+                       Width="24" Height="2.54" 
+                       RadiusX="1.27" RadiusY="1.27"/>
 
             <Rectangle x:Name="TopFlangeGradient" 
-                       Width="24"
-                       Height="2.54" 
-                       Fill="{StaticResource TopEndCapGradient}"
+                       Width="24" Height="2.54" 
                        Opacity="0.6"
-                       RadiusX="1.27" 
-                       RadiusY="1.27"/>
+                       RadiusX="1.27" RadiusY="1.27"/>
 
             <Rectangle x:Name="TopFlangeBorder" 
-                       Width="24"
-                       Height="2.54" 
-                       Stroke="#727171" 
+                       Width="24" Height="2.54" 
                        StrokeThickness="0.7" 
-                       RadiusX="1.27" 
-                       RadiusY="1.27" 
+                       RadiusX="1.27" RadiusY="1.27" 
                        Fill="Transparent"/>
         </Canvas>
 
+        <!-- ═══════════════ 连接处 ═══════════════ -->
         <Rectangle x:Name="LeftConnection" 
-                   Canvas.Left="2.89"
-                   Canvas.Top="34"
-                   Width="1"
-                   Height="20"
-                   Fill="#727171" 
+                   Canvas.Left="2.89" Canvas.Top="34"
+                   Width="1" Height="20"
                    Opacity="0.6"
                    RenderOptions.CachingHint="Cache"/>
 
         <Rectangle x:Name="TopConnection" 
-                   Canvas.Left="50"
-                   Canvas.Top="2.89"
-                   Width="20"
-                   Height="1"
-                   Fill="#727171" 
+                   Canvas.Left="50" Canvas.Top="2.89"
+                   Width="20" Height="1"
                    Opacity="0.6"
                    RenderOptions.CachingHint="Cache"/>
 
+        <!-- ═══════════════ 锚点 ═══════════════ -->
         <Ellipse x:Name="LeftAnchor" Canvas.Left="-6" Canvas.Top="38" Width="12" Height="12" Fill="Orange" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="SizeWE" RenderOptions.CachingHint="Cache">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整水平长度"/>
@@ -288,12 +204,14 @@
             </Ellipse.ToolTip>
         </Ellipse>
 
+        <!-- ═══════════════ 选中高亮边框 ═══════════════ -->
         <Rectangle x:Name="SelectionBorder" Canvas.Left="-2" Canvas.Top="-2" Width="84" Height="84" Stroke="#FF9500" StrokeThickness="2" Fill="Transparent" RadiusX="3" RadiusY="3" Visibility="Collapsed">
             <Rectangle.Effect>
                 <DropShadowEffect Color="Orange" BlurRadius="10" ShadowDepth="0" Opacity="0.8" RenderingBias="Performance"/>
             </Rectangle.Effect>
         </Rectangle>
 
+        <!-- ═══════════════ 旋转锚点 ═══════════════ -->
         <Ellipse x:Name="RotateAnchor" Canvas.Left="34" Canvas.Top="-30" Width="12" Height="12" Fill="#4CAF50" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="Hand" RenderOptions.CachingHint="Cache"/>
         <Line x:Name="RotateAnchorLine" X1="40" Y1="0" X2="40" Y2="-24" Stroke="Orange" StrokeThickness="1" StrokeDashArray="2,2" Opacity="0" RenderOptions.EdgeMode="Aliased"/>
         <Border x:Name="RotationLabel" Canvas.Left="20" Canvas.Top="-50" Background="#CC000000" CornerRadius="3" Padding="5,2" Visibility="Collapsed">

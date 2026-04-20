@@ -160,7 +160,31 @@ namespace ConicalFlask_ModbusTCP
                 }),
                 HelpText = "锥形瓶材质"
             });
-
+            Parameters.Variables.Add(new StringParameter("LiquidName", "")
+            {
+                Options = new ObservableCollection<string>(new List<string>()
+    {
+        "", "HCl", "NaOH", "H₂SO₄", "CuSO₄", "NaCl", "C₂H₅OH", "H₂O"
+    }),
+                HelpText = "液体名称标注（显示在瓶体旁，留空则不显示）"
+            });
+            Parameters.Variables.Add(new StringParameter("LiquidColor", "蓝色")
+            {
+                Options = new ObservableCollection<string>(new List<string>()
+    {
+        "蓝色",      // 默认 - CuSO₄溶液色
+        "淡蓝色",    // 稀酸/碱
+        "绿色",      // FeSO₄/CuCl₂
+        "紫色",      // KMnO₄
+        "橙色",      // K₂Cr₂O₇
+        "红色",      // 品红/酚酞碱性
+        "黄色",      // FeCl₃
+        "青色",      // Cu(NH₃)₄
+        "粉色",      // 稀高锰酸钾
+        "无色"       // 透明液体（水、乙醇等）
+    }),
+                HelpText = "液体颜色（用于画布上的锥形瓶显示）"
+            });
             // 锥形瓶是被动设备，不需要初始化命令
             InfoLog("锥形瓶设备初始化完成 - 被动容器设备");
         }

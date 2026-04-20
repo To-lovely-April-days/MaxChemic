@@ -15,242 +15,18 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
-        <!-- 陶瓷白机身渐变 -->
-        <LinearGradientBrush x:Key="CeramicWhiteGradient" StartPoint="0,0" EndPoint="0.3,1">
-            <GradientStop Color="#FEFEFE" Offset="0"/>
-            <GradientStop Color="#F8F8F8" Offset="0.3"/>
-            <GradientStop Color="#F2F2F2" Offset="0.7"/>
-            <GradientStop Color="#ECECEC" Offset="1"/>
-        </LinearGradientBrush>
+        <!-- ============================================================ -->
+        <!-- 渐变定义 — 1:1复刻SVG C方案 A&D风格                          -->
+        <!-- ============================================================ -->
 
-        <!-- 金属银侧面渐变 -->
-        <LinearGradientBrush x:Key="MetallicSilverGradient" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#E8E8E8" Offset="0"/>
-            <GradientStop Color="#DADADA" Offset="0.5"/>
-            <GradientStop Color="#CDCDCD" Offset="1"/>
-        </LinearGradientBrush>
-
-        <!-- 深蓝色面板渐变 -->
-        <LinearGradientBrush x:Key="DeepBlueGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#4A6FA5" Offset="0"/>
-            <GradientStop Color="#3D5E8C" Offset="0.4"/>
-            <GradientStop Color="#2F4A6D" Offset="0.7"/>
-            <GradientStop Color="#243A56" Offset="1"/>
-        </LinearGradientBrush>
-
-        <!-- LCD屏幕渐变 -->
-        <LinearGradientBrush x:Key="LcdGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#E8F4F8" Offset="0"/>
-            <GradientStop Color="#D5E9F0" Offset="0.5"/>
-            <GradientStop Color="#C2DDE8" Offset="1"/>
+        <!-- 屏幕渐变 SVG id="s3": 垂直 #1A3048 → #0E2030 -->
+        <LinearGradientBrush x:Key="ScreenGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#1A3048" Offset="0"/>
+            <GradientStop Color="#0E2030" Offset="1"/>
         </LinearGradientBrush>
 
         <SolidColorBrush x:Key="LcdTextBrush" Color="#1A1A1A"/>
         <SolidColorBrush x:Key="LcdInactiveBrush" Color="#15000000"/>
-
-        <!-- 磨砂金属按钮样式 -->
-        <Style x:Key="MetallicButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <!-- 外部阴影 -->
-                            <Border CornerRadius="8" Background="#25000000" Margin="-0.5,-0.5,-0.5,0.5">
-                                <Border.Effect>
-                                    <BlurEffect Radius="3"/>
-                                </Border.Effect>
-                            </Border>
-
-                            <!-- 按钮主体 -->
-                            <Border x:Name="BtnBorder" CornerRadius="8" BorderThickness="0.8" BorderBrush="#50FFFFFF">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#959595" Offset="0"/>
-                                        <GradientStop Color="#808080" Offset="0.4"/>
-                                        <GradientStop Color="#686868" Offset="0.7"/>
-                                        <GradientStop Color="#555555" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Border.Background>
-
-                                <Grid>
-                                    <!-- 顶部高光 -->
-                                    <Border BorderThickness="0,2,0,0" BorderBrush="#65FFFFFF" CornerRadius="8" Margin="1,0.5,1,10">
-                                        <Border.Effect>
-                                            <BlurEffect Radius="0.8"/>
-                                        </Border.Effect>
-                                    </Border>
-
-                                    <!-- 底部阴影 -->
-                                    <Border BorderThickness="0,0,0,1" BorderBrush="#45000000" CornerRadius="8" Margin="1.5,12,1.5,0.8"/>
-                                </Grid>
-                            </Border>
-
-                            <!-- 内容 -->
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                              Margin="0,-0.2,0,0"
-                                              TextElement.Foreground="{TemplateBinding Foreground}"
-                                              TextElement.FontSize="{TemplateBinding FontSize}"
-                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
-                                              TextElement.FontWeight="{TemplateBinding FontWeight}">
-                                <ContentPresenter.Effect>
-                                    <DropShadowEffect Color="Black" BlurRadius="1.5" ShadowDepth="0.8" Opacity="0.7" Direction="270"/>
-                                </ContentPresenter.Effect>
-                            </ContentPresenter>
-
-                            <!-- 交互效果 -->
-                            <Border x:Name="HoverGlow" CornerRadius="8" Background="#10FFFFFF" Opacity="0"/>
-                            <Border x:Name="PressOverlay" CornerRadius="8" Background="#50000000" Opacity="0"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="PressOverlay" Property="Opacity" Value="1"/>
-                                <Setter TargetName="BtnBorder" Property="RenderTransform">
-                                    <Setter.Value>
-                                        <TranslateTransform Y="0.8"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HoverGlow" Property="Opacity" Value="1"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 蓝色TARE按钮样式 -->
-        <Style x:Key="BlueTareButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <!-- 蓝色光晕 -->
-                            <Border CornerRadius="8" Background="#30427AA1" Margin="-1.5,-1.5,-1.5,0.5">
-                                <Border.Effect>
-                                    <BlurEffect Radius="4"/>
-                                </Border.Effect>
-                            </Border>
-
-                            <!-- 按钮主体 -->
-                            <Border x:Name="BtnBorder" CornerRadius="8" BorderThickness="0.8" BorderBrush="#60FFFFFF">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#5B8FC9" Offset="0"/>
-                                        <GradientStop Color="#4A7BB5" Offset="0.4"/>
-                                        <GradientStop Color="#3968A0" Offset="0.7"/>
-                                        <GradientStop Color="#2C5488" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Border.Background>
-
-                                <Grid>
-                                    <!-- 顶部高光 -->
-                                    <Border BorderThickness="0,2,0,0" BorderBrush="#70FFFFFF" CornerRadius="8" Margin="1,0.5,1,10">
-                                        <Border.Effect>
-                                            <BlurEffect Radius="0.8"/>
-                                        </Border.Effect>
-                                    </Border>
-
-                                    <!-- 底部阴影 -->
-                                    <Border BorderThickness="0,0,0,1" BorderBrush="#40001428" CornerRadius="8" Margin="1.5,12,1.5,0.8"/>
-                                </Grid>
-                            </Border>
-
-                            <!-- 内容 -->
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                              Margin="0,-0.2,0,0"
-                                              TextElement.Foreground="{TemplateBinding Foreground}"
-                                              TextElement.FontSize="{TemplateBinding FontSize}"
-                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
-                                              TextElement.FontWeight="{TemplateBinding FontWeight}">
-                                <ContentPresenter.Effect>
-                                    <DropShadowEffect Color="#001428" BlurRadius="1.5" ShadowDepth="0.8" Opacity="0.6" Direction="270"/>
-                                </ContentPresenter.Effect>
-                            </ContentPresenter>
-
-                            <!-- 交互效果 -->
-                            <Border x:Name="HoverGlow" CornerRadius="8" Background="#15FFFFFF" Opacity="0"/>
-                            <Border x:Name="PressOverlay" CornerRadius="8" Background="#40000000" Opacity="0"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="PressOverlay" Property="Opacity" Value="1"/>
-                                <Setter TargetName="BtnBorder" Property="RenderTransform">
-                                    <Setter.Value>
-                                        <TranslateTransform Y="0.8"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HoverGlow" Property="Opacity" Value="1"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 深色电源按钮 -->
-        <Style x:Key="DarkPowerButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <!-- 外部阴影 -->
-                            <Border CornerRadius="8" Background="#30000000" Margin="-0.5,-0.5,-0.5,0.5">
-                                <Border.Effect>
-                                    <BlurEffect Radius="3"/>
-                                </Border.Effect>
-                            </Border>
-
-                            <!-- 按钮主体 -->
-                            <Border x:Name="BtnBorder" CornerRadius="8" BorderThickness="0.8" BorderBrush="#45FFFFFF">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#656565" Offset="0"/>
-                                        <GradientStop Color="#505050" Offset="0.4"/>
-                                        <GradientStop Color="#383838" Offset="0.7"/>
-                                        <GradientStop Color="#252525" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Border.Background>
-
-                                <Grid>
-                                    <!-- 顶部高光 -->
-                                    <Border BorderThickness="0,2,0,0" BorderBrush="#55FFFFFF" CornerRadius="8" Margin="1,0.5,1,10">
-                                        <Border.Effect>
-                                            <BlurEffect Radius="0.8"/>
-                                        </Border.Effect>
-                                    </Border>
-
-                                    <!-- 底部阴影 -->
-                                    <Border BorderThickness="0,0,0,1" BorderBrush="#45000000" CornerRadius="8" Margin="1.5,12,1.5,0.8"/>
-                                </Grid>
-                            </Border>
-
-                            <!-- 内容 -->
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-
-                            <!-- 交互效果 -->
-                            <Border x:Name="HoverGlow" CornerRadius="8" Background="#10FFFFFF" Opacity="0"/>
-                            <Border x:Name="PressOverlay" CornerRadius="8" Background="#50000000" Opacity="0"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="PressOverlay" Property="Opacity" Value="1"/>
-                                <Setter TargetName="BtnBorder" Property="RenderTransform">
-                                    <Setter.Value>
-                                        <TranslateTransform Y="0.8"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HoverGlow" Property="Opacity" Value="1"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <Viewbox Stretch="Fill">
@@ -268,280 +44,218 @@
                        MouseUp="OnDraggableAreaMouseUp"
                        MouseLeave="OnDraggableAreaMouseLeave"/>
 
-            <!-- 顶部平面 -->
-            <Path Fill="{StaticResource CeramicWhiteGradient}" Stroke="#D8D8D8" StrokeThickness="1" Panel.ZIndex="2">
+            <!-- ============================================================ -->
+            <!-- 1. 顶面 — 米白色                                             -->
+            <!-- SVG: fill=#EDE8E0 stroke=#C0B8AE 0.6px                       -->
+            <!-- ============================================================ -->
+            <Path Fill="#EDE8E0" Stroke="#C0B8AE" StrokeThickness="0.6" Panel.ZIndex="2">
                 <Path.Data>
-                    <PathGeometry Figures="M 70,5 L 380,5 L 410,75 L 45,75 Z"/>
+                    <PathGeometry Figures="M 110,5 L 342,5 Q 366,5 378,30 L 402,98 L 50,98 L 74,30 Q 86,5 110,5 Z"/>
                 </Path.Data>
-                <Path.Effect>
-                    <DropShadowEffect Color="Black" Opacity="0.1" BlurRadius="6" Direction="270" ShadowDepth="2"/>
-                </Path.Effect>
             </Path>
 
-            <!-- 顶部陶瓷光泽 -->
-            <Path Opacity="0.5" IsHitTestVisible="False" Panel.ZIndex="2">
+            <!-- 2. 顶面光泽 — white opacity=0.35 -->
+            <Path Fill="White" Opacity="0.35" IsHitTestVisible="False" Panel.ZIndex="2">
                 <Path.Data>
-                    <PathGeometry Figures="M 72,7 L 210,7 L 188,71 L 47,71 Z"/>
+                    <PathGeometry Figures="M 114,9 L 226,9 L 170,94 L 54,94 Z"/>
                 </Path.Data>
-                <Path.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#85FFFFFF" Offset="0"/>
-                        <GradientStop Color="#55FFFFFF" Offset="0.4"/>
-                        <GradientStop Color="#25FFFFFF" Offset="0.7"/>
-                        <GradientStop Color="Transparent" Offset="1"/>
-                    </LinearGradientBrush>
-                </Path.Fill>
             </Path>
 
-            <!-- 前面板主体 -->
-            <Path Fill="{StaticResource CeramicWhiteGradient}" Stroke="#CFCFCF" StrokeThickness="1" Panel.ZIndex="3">
+            <!-- 3-5. 顶面透视线 — stroke=#C0B8AE 0.4px -->
+            <Line X1="110" Y1="5" X2="50" Y2="98" Stroke="#C0B8AE" StrokeThickness="0.4" Opacity="0.4" Panel.ZIndex="2"/>
+            <Line X1="342" Y1="5" X2="402" Y2="98" Stroke="#C0B8AE" StrokeThickness="0.4" Opacity="0.4" Panel.ZIndex="2"/>
+            <Line X1="110" Y1="5" X2="342" Y2="5" Stroke="#C0B8AE" StrokeThickness="0.4" Opacity="0.3" Panel.ZIndex="2"/>
+
+            <!-- ============================================================ -->
+            <!-- 6. 机身 — 米白微灰 梯形后倾                                  -->
+            <!-- SVG: fill=#E2DCD4 stroke=#AAA49C 0.7px                       -->
+            <!-- ============================================================ -->
+            <Path Fill="#E2DCD4" Stroke="#AAA49C" StrokeThickness="0.7" Panel.ZIndex="3">
                 <Path.Data>
-                    <PathGeometry Figures="M 45,75 L 405,75 L 410,190 C 410,205 392,218 374,218 L 70,218 C 52,218 34,205 34,190 Z"/>
+                    <PathGeometry Figures="M 50,98 L 402,98 L 418,192 Q 422,218 390,218 L 62,218 Q 30,218 34,192 Z"/>
                 </Path.Data>
-                <Path.Effect>
-                    <DropShadowEffect Color="Black" Opacity="0.15" BlurRadius="8" Direction="270" ShadowDepth="3"/>
-                </Path.Effect>
             </Path>
 
-            <!-- 前面板陶瓷光泽 -->
-            <Path Opacity="0.45" IsHitTestVisible="False" Panel.ZIndex="3">
+            <!-- 7. 机身左高光 — white opacity=0.3 -->
+            <Path Fill="White" Opacity="0.3" IsHitTestVisible="False" Panel.ZIndex="3">
                 <Path.Data>
-                    <PathGeometry Figures="M 47,77 L 180,77 L 165,165 L 75,195 C 57,195 40,185 40,173 Z"/>
+                    <PathGeometry Figures="M 54,103 L 38,188 Q 34,214 66,214 L 82,214 L 94,103 Z"/>
                 </Path.Data>
-                <Path.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#80FFFFFF" Offset="0"/>
-                        <GradientStop Color="#45FFFFFF" Offset="0.4"/>
-                        <GradientStop Color="#20FFFFFF" Offset="0.7"/>
-                        <GradientStop Color="Transparent" Offset="1"/>
-                    </LinearGradientBrush>
-                </Path.Fill>
             </Path>
 
-            <!-- 深蓝色面板 -->
-            <Path Fill="{StaticResource DeepBlueGradient}" Canvas.Top="18" Stroke="#233A54" StrokeThickness="1" Panel.ZIndex="4">
+            <!-- 8. 机身右暗影 — #706860 opacity=0.05 -->
+            <Path Fill="#706860" Opacity="0.05" IsHitTestVisible="False" Panel.ZIndex="3">
                 <Path.Data>
-                    <PathGeometry Figures="M 50,73 L 400,73 L 405,182 C 405,192 390,202 372,202 L 72,202 C 54,202 40,192 40,182 Z"/>
+                    <PathGeometry Figures="M 398,103 L 414,184 Q 418,214 394,214 L 382,214 L 374,103 Z"/>
                 </Path.Data>
-                <Path.Effect>
-                    <DropShadowEffect Color="#1A2A3E" Direction="90" BlurRadius="2.5" ShadowDepth="0.8" Opacity="0.25"/>
-                </Path.Effect>
             </Path>
 
-            <!-- 面板顶部边缘光泽 -->
-            <Path Opacity="0.35" IsHitTestVisible="False" Canvas.Top="18" Panel.ZIndex="4">
+            <!-- ============================================================ -->
+            <!-- 9. 海军蓝面板区                                               -->
+            <!-- SVG: rect fill=#1A3050 stroke=#0E2040 opacity=0.95           -->
+            <!-- SVG: x=30 y=46 w=158 h=48 rx=3                              -->
+            <!-- WPF: x=66 y=107 w=316 h=102 rx=6                            -->
+            <!-- ============================================================ -->
+            <Rectangle Canvas.Left="66" Canvas.Top="107" 
+                       Width="316" Height="102" RadiusX="6" RadiusY="6"
+                       Fill="#1A3050" Stroke="#0E2040" StrokeThickness="0.5" Opacity="0.95" 
+                       Panel.ZIndex="4"/>
+
+            <!-- ============================================================ -->
+            <!-- 10. 屏幕 — 深海军蓝底 白色数字                               -->
+            <!-- SVG: fill=s3 stroke=#081828 0.5px                            -->
+            <!-- SVG: x=36 y=50 w=110 h=24 rx=3                              -->
+            <!-- WPF: x=78 y=116 w=220 h=51 rx=6                             -->
+            <!-- ============================================================ -->
+            <Rectangle Canvas.Left="78" Canvas.Top="116" 
+                       Width="220" Height="51" RadiusX="6" RadiusY="6"
+                       Fill="{StaticResource ScreenGradient}" 
+                       Stroke="#081828" StrokeThickness="0.5" Panel.ZIndex="5"/>
+
+            <!-- 11. 屏幕顶部高光线 — #5A90B0 @0.1 -->
+            <Rectangle Canvas.Left="82" Canvas.Top="120" 
+                       Width="212" Height="2.5" RadiusX="1" RadiusY="1"
+                       Fill="#5A90B0" Opacity="0.1" IsHitTestVisible="False" Panel.ZIndex="5"/>
+
+            <!-- 12. 数字显示 — fill=#E8F0F8 Consolas 18px bold -->
+            <TextBlock x:Name="ValueText"
+                       Canvas.Left="82" Canvas.Top="120" Width="212" Height="46"
+                       Text="{Binding WeightValue, StringFormat={}{0:F2}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       FontFamily="Consolas" FontSize="36" FontWeight="Bold"
+                       Foreground="#E8F0F8"
+                       TextAlignment="Right" Padding="0,4,60,0"
+                       Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       Panel.ZIndex="6"/>
+
+            <!-- 13. 单位 — fill=#C0D8E8 Times 7px -->
+            <TextBlock Canvas.Left="276" Canvas.Top="124"
+                       Text="{Binding CurrentUnit, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       FontFamily="Times New Roman" FontSize="14" 
+                       Foreground="#C0D8E8"
+                       Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       Panel.ZIndex="6"/>
+
+            <!-- 14. 信号条 — #C0D8E8 @0.3 -->
+            <Rectangle Canvas.Left="82" Canvas.Top="130" 
+                       Width="14" Height="5" RadiusX="1.5" RadiusY="1.5"
+                       Fill="#C0D8E8" Opacity="0.3" IsHitTestVisible="False" Panel.ZIndex="6"/>
+
+            <!-- ============================================================ -->
+            <!-- 按钮组 — 面板内(TARE/UNIT) + 机身上(CF/SEL/ENT)              -->
+            <!-- ============================================================ -->
+
+            <!-- 15. TARE按钮 — fill=#2A5070 stroke=#1A3858 -->
+            <Rectangle Canvas.Left="314" Canvas.Top="120" 
+                       Width="56" Height="21" RadiusX="6" RadiusY="6"
+                       Fill="#2A5070" Stroke="#1A3858" StrokeThickness="0.4" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="314" Canvas.Top="122" Width="56" Height="21"
+                       Text="TARE" FontFamily="Arial" FontSize="11" FontWeight="Bold"
+                       Foreground="#B0D0E0" TextAlignment="Center"
+                       Panel.ZIndex="6"/>
+            <Button Canvas.Left="314" Canvas.Top="120" Width="56" Height="21" 
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnTareButtonClick"/>
+
+            <!-- 16. UNIT按钮 — fill=#2A5070 @0.7 stroke=#1A3858 -->
+            <Rectangle Canvas.Left="314" Canvas.Top="146" 
+                       Width="56" Height="21" RadiusX="6" RadiusY="6"
+                       Stroke="#1A3858" StrokeThickness="0.35" Panel.ZIndex="5">
+                <Rectangle.Fill>
+                    <SolidColorBrush Color="#2A5070" Opacity="0.7"/>
+                </Rectangle.Fill>
+            </Rectangle>
+            <TextBlock Canvas.Left="314" Canvas.Top="148" Width="56" Height="21"
+                       Text="UNIT" FontFamily="Arial" FontSize="11" FontWeight="Bold"
+                       Foreground="#90B8C8" TextAlignment="Center"
+                       Panel.ZIndex="6"/>
+            <Button Canvas.Left="314" Canvas.Top="146" Width="56" Height="21" 
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnUnitButtonClick"/>
+
+            <!-- 17. CF按钮 — fill=#AAA49C @0.35 stroke=#8A8480 -->
+            <Rectangle Canvas.Left="118" Canvas.Top="183" 
+                       Width="44" Height="15" RadiusX="5" RadiusY="5"
+                       Stroke="#8A8480" StrokeThickness="0.35" Panel.ZIndex="5">
+                <Rectangle.Fill>
+                    <SolidColorBrush Color="#AAA49C" Opacity="0.35"/>
+                </Rectangle.Fill>
+            </Rectangle>
+            <TextBlock Canvas.Left="118" Canvas.Top="184" Width="44" Height="15"
+                       Text="CF" FontFamily="Arial" FontSize="9" FontWeight="SemiBold"
+                       Foreground="#585450" TextAlignment="Center"
+                       Panel.ZIndex="6"/>
+
+            <!-- 18. SEL按钮 -->
+            <Rectangle Canvas.Left="170" Canvas.Top="183" 
+                       Width="44" Height="15" RadiusX="5" RadiusY="5"
+                       Stroke="#8A8480" StrokeThickness="0.35" Panel.ZIndex="5">
+                <Rectangle.Fill>
+                    <SolidColorBrush Color="#AAA49C" Opacity="0.35"/>
+                </Rectangle.Fill>
+            </Rectangle>
+            <TextBlock Canvas.Left="170" Canvas.Top="184" Width="44" Height="15"
+                       Text="SEL" FontFamily="Arial" FontSize="9" FontWeight="SemiBold"
+                       Foreground="#585450" TextAlignment="Center"
+                       Panel.ZIndex="6"/>
+
+            <!-- 19. ENT按钮 -->
+            <Rectangle Canvas.Left="222" Canvas.Top="183" 
+                       Width="44" Height="15" RadiusX="5" RadiusY="5"
+                       Stroke="#8A8480" StrokeThickness="0.35" Panel.ZIndex="5">
+                <Rectangle.Fill>
+                    <SolidColorBrush Color="#AAA49C" Opacity="0.35"/>
+                </Rectangle.Fill>
+            </Rectangle>
+            <TextBlock Canvas.Left="222" Canvas.Top="184" Width="44" Height="15"
+                       Text="ENT" FontFamily="Arial" FontSize="9" FontWeight="SemiBold"
+                       Foreground="#585450" TextAlignment="Center"
+                       Panel.ZIndex="6"/>
+
+            <!-- ============================================================ -->
+            <!-- 20. 电源按钮                                                  -->
+            <!-- SVG: circle fill=#3A6A40 @0.15 stroke=#3A6A40 0.5px op=0.6  -->
+            <!-- ============================================================ -->
+            <Ellipse Canvas.Left="62" Canvas.Top="178" 
+                     Width="16" Height="16"
+                     Stroke="#3A6A40" StrokeThickness="0.5" Opacity="0.6" Panel.ZIndex="5">
+                <Ellipse.Fill>
+                    <SolidColorBrush Color="#3A6A40" Opacity="0.15"/>
+                </Ellipse.Fill>
+            </Ellipse>
+            <!-- 电源图标 -->
+            <Path Stroke="#3A6A40" StrokeThickness="0.6" Opacity="0.6" 
+                  Canvas.Left="65" Canvas.Top="181" Panel.ZIndex="6">
                 <Path.Data>
-                    <PathGeometry Figures="M 50,73 L 400,73 L 400,75.5 L 50,75.5 Z"/>
+                    <PathGeometry Figures="M 5,2.5 L 5,7.5 M 2,4 A 3.5,3.5 0 0 0 8,4"/>
                 </Path.Data>
-                <Path.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#A0FFFFFF" Offset="0"/>
-                        <GradientStop Color="#60FFFFFF" Offset="1"/>
-                    </LinearGradientBrush>
-                </Path.Fill>
             </Path>
+            <Button Canvas.Left="60" Canvas.Top="176" Width="20" Height="20" 
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnPowerButtonClick"/>
 
-            <!-- 面板内部渐变 -->
-            <Path Opacity="0.2" IsHitTestVisible="False" Canvas.Top="18" Panel.ZIndex="4">
-                <Path.Data>
-                    <PathGeometry Figures="M 50,73 L 400,73 L 400,95 L 50,98 Z"/>
-                </Path.Data>
-                <Path.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#50000000" Offset="0"/>
-                        <GradientStop Color="#20000000" Offset="0.7"/>
-                        <GradientStop Color="Transparent" Offset="1"/>
-                    </LinearGradientBrush>
-                </Path.Fill>
-            </Path>
+            <!-- ============================================================ -->
+            <!-- 品牌标识 — #8A8680 Times italic opacity=0.5                  -->
+            <!-- ============================================================ -->
+            <TextBlock Canvas.Left="170" Canvas.Top="82"
+                       Text="PRECISION SCALE"
+                       FontFamily="Times New Roman" FontSize="11" FontStyle="Italic"
+                       Foreground="#8A8680" Opacity="0.5"
+                       IsHitTestVisible="False" Panel.ZIndex="2"/>
 
-            <!-- LCD显示屏 -->
-            <Canvas Panel.ZIndex="5" Canvas.Left="155" Canvas.Top="105"
-                    TextOptions.TextFormattingMode="Display" 
-                    TextOptions.TextRenderingMode="ClearType">
-
-                <!-- 屏幕光晕 -->
-                <Border Width="144" Height="48" CornerRadius="5" 
-                        Background="#35B3D9E8" Canvas.Left="-1.5" Canvas.Top="-1.5">
-                    <Border.Effect>
-                        <BlurEffect Radius="5"/>
-                    </Border.Effect>
-                </Border>
-
-                <!-- 屏幕金属外框 -->
-                <Border Width="140" Height="44" CornerRadius="5" BorderThickness="1">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                            <GradientStop Color="#C2CFD9" Offset="0"/>
-                            <GradientStop Color="#AEC0CE" Offset="0.5"/>
-                            <GradientStop Color="#9BB0C2" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Border.Background>
-                    <Border.BorderBrush>
-                        <SolidColorBrush Color="#5E6D7C"/>
-                    </Border.BorderBrush>
-                    <Border.Effect>
-                        <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="2" Opacity="0.35"/>
-                    </Border.Effect>
-                </Border>
-
-                <!-- 外框顶部光泽 -->
-                <Border Width="138" Height="3" Canvas.Left="1" Canvas.Top="0.8" 
-                        CornerRadius="5,5,0,0" Background="#65FFFFFF" IsHitTestVisible="False">
-                    <Border.Effect>
-                        <BlurEffect Radius="0.6"/>
-                    </Border.Effect>
-                </Border>
-
-                <!-- 屏幕内陷阴影 -->
-                <Border Width="136" Height="40" Canvas.Left="2" Canvas.Top="2" 
-                        CornerRadius="4" Background="#55000000">
-                    <Border.Effect>
-                        <DropShadowEffect Color="#000" BlurRadius="2.5" ShadowDepth="0" Opacity="0.45"/>
-                    </Border.Effect>
-                </Border>
-
-                <!-- LCD屏幕 -->
-                <Border Width="132" Height="36" Canvas.Left="4" Canvas.Top="4" 
-                        CornerRadius="3" Background="{StaticResource LcdGradient}"
-                        BorderBrush="#C5DBE5" BorderThickness="0.5">
-                    <Border.Effect>
-                        <DropShadowEffect Color="#000" BlurRadius="3" ShadowDepth="0" Opacity="0.15"/>
-                    </Border.Effect>
-
-                    <Grid>
-                        <!-- 电池图标 -->
-                        <Canvas Margin="6,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" 
-                                Opacity="0.4"
-                                Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                            <Rectangle Width="13" Height="7" Stroke="#2A2A2A" StrokeThickness="0.8" Fill="Transparent" RadiusX="1" RadiusY="1"/>
-                            <Rectangle Canvas.Left="13" Canvas.Top="2" Width="1.5" Height="3" Fill="#2A2A2A" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle Canvas.Left="1.5" Canvas.Top="1.5" Width="3" Height="4" Fill="#2A2A2A" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle Canvas.Left="5.5" Canvas.Top="1.5" Width="3" Height="4" Fill="#2A2A2A" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle Canvas.Left="9.5" Canvas.Top="1.5" Width="1.5" Height="4" Fill="#2A2A2A" RadiusX="0.5" RadiusY="0.5"/>
-                        </Canvas>
-
-                        <!-- 背景数字 -->
-                        <TextBlock Text="88.88" FontFamily="Consolas" FontSize="28" FontWeight="Bold"  
-                                   Foreground="{StaticResource LcdInactiveBrush}"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,30,0"
-                                   Opacity="0.1"
-                                   Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-
-                        <!-- 背景单位 -->
-                        <TextBlock Text="kg" FontFamily="Consolas" FontSize="14" FontWeight="Bold" 
-                                   Foreground="{StaticResource LcdInactiveBrush}"
-                                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,9,8,0" 
-                                   Opacity="0.1"
-                                   Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-
-                        <!-- 实际显示值 -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0">
-                            <TextBlock x:Name="ValueText" 
-                                       Text="{Binding WeightValue, StringFormat={}{0:F2}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                       FontFamily="Consolas" FontSize="28" FontWeight="Bold" 
-                                       Foreground="{StaticResource LcdTextBrush}"
-                                       Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                <TextBlock.Effect>
-                                    <DropShadowEffect Color="#000" BlurRadius="0.4" ShadowDepth="0.4" Opacity="0.06"/>
-                                </TextBlock.Effect>
-                            </TextBlock>
-
-                            <TextBlock Text="{Binding CurrentUnit, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                       FontFamily="Consolas" FontSize="14" FontWeight="Bold" 
-                                       Foreground="{StaticResource LcdTextBrush}" 
-                                       Margin="4,9,0,0"
-                                       Visibility="{Binding IsPoweredOn, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                        </StackPanel>
-
-                        <!-- LCD玻璃反光 -->
-                        <Path Data="M 0,0 L 95,0 L 60,36 L 0,36 Z" Opacity="0.12" IsHitTestVisible="False">
-                            <Path.Fill>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                                    <GradientStop Color="#85FFFFFF" Offset="0.25"/>
-                                    <GradientStop Color="#35FFFFFF" Offset="0.6"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Path.Fill>
-                        </Path>
-                    </Grid>
-                </Border>
-
-                <!-- 加载覆盖层 -->
-                <Border x:Name="LoadingOverlay" Width="140" Height="44" CornerRadius="5" 
-                        Background="#85FFFFFF" Visibility="Collapsed">
-                    <TextBlock Text="-  -  -  -  -" HorizontalAlignment="Center" VerticalAlignment="Center" 
-                               FontSize="16" FontWeight="Bold" Foreground="#2A2A2A" FontFamily="Consolas"/>
-                </Border>
-            </Canvas>
-
-            <!-- 按钮组 -->
-            <Canvas Panel.ZIndex="6">
-
-                <!-- 电源按钮 -->
-                <Button Canvas.Left="70" Canvas.Top="110" Width="30" Height="22"
-                        Style="{StaticResource DarkPowerButtonStyle}"
-                        Click="OnPowerButtonClick">
-                    <Viewbox Margin="7,5">
-                        <Path Data="M 10 2 L 10 8.5 M 5.5 4 A 5.5 5.5 0 1 0 14.5 4" 
-                              Stroke="#EFEFEF" StrokeThickness="2.5" 
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round">
-                            <Path.Effect>
-                                <DropShadowEffect Color="#FF4444" BlurRadius="2.5" ShadowDepth="0" Opacity="0.5"/>
-                            </Path.Effect>
-                        </Path>
-                    </Viewbox>
-                </Button>
-
-                <!-- TARE按钮 - 蓝色 -->
-                <Button Canvas.Left="350" Canvas.Top="110" Width="30" Height="22"
-                        Style="{StaticResource BlueTareButtonStyle}"
-                        FontSize="8.5" Content="TARE" FontFamily="Arial"
-                        FontWeight="Bold" Foreground="#FAFAFA"
-                        Click="OnTareButtonClick"/>
-
-                <!-- 功能按钮组 -->
-                <Button Canvas.Left="150" Canvas.Top="168" Width="32" Height="18"
-                        Style="{StaticResource MetallicButtonStyle}" 
-                        Foreground="#F5F5F5" FontSize="7.5" FontWeight="Bold" Content="Unit"
-                        Click="OnUnitButtonClick"/>
-
-                <Button Canvas.Left="187" Canvas.Top="168" Width="32" Height="18"
-                        Style="{StaticResource MetallicButtonStyle}" 
-                        Foreground="#F5F5F5" FontSize="7.5" FontWeight="Bold" Content="CF"/>
-
-                <Button Canvas.Left="224" Canvas.Top="168" Width="32" Height="18"
-                        Style="{StaticResource MetallicButtonStyle}" 
-                        Foreground="#F5F5F5" FontSize="7.5" FontWeight="Bold" Content="Sel"/>
-
-                <Button Canvas.Left="261" Canvas.Top="168" Width="32" Height="18"
-                        Style="{StaticResource MetallicButtonStyle}" 
-                        Foreground="#F5F5F5" FontSize="7.5" FontWeight="Bold" Content="Ent"/>
-            </Canvas>
-
-            <!-- 品牌标识 -->
-            <Canvas Panel.ZIndex="5" Canvas.Left="172" Canvas.Top="63">
-                <TextBlock Text="P R E C I S I O N" 
-                           FontSize="7" FontWeight="SemiBold" Foreground="#C5C5C5" 
-                           Opacity="0.6">
-                    <TextBlock.Effect>
-                        <DropShadowEffect Color="White" BlurRadius="1" ShadowDepth="0.3" Opacity="0.55"/>
-                    </TextBlock.Effect>
-                </TextBlock>
-                <TextBlock Canvas.Top="9" Text="D I G I T A L  S C A L E" 
-                           FontSize="9" FontWeight="Bold" Foreground="#D0D0D0" 
-                           Opacity="0.65">
-                    <TextBlock.Effect>
-                        <DropShadowEffect Color="White" BlurRadius="1.2" ShadowDepth="0.4" Opacity="0.6"/>
-                    </TextBlock.Effect>
-                </TextBlock>
-            </Canvas>
+            <!-- ============================================================ -->
+            <!-- 加载覆盖层                                                    -->
+            <!-- ============================================================ -->
+            <Border x:Name="LoadingOverlay" 
+                    Canvas.Left="78" Canvas.Top="116" Width="220" Height="51"
+                    CornerRadius="6" Background="#85FFFFFF" Visibility="Collapsed" Panel.ZIndex="10">
+                <TextBlock Text="-  -  -  -  -" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                           FontSize="16" FontWeight="Bold" Foreground="#2A2A2A" FontFamily="Consolas"/>
+            </Border>
 
             <!-- 选择边框 -->
             <Rectangle x:Name="SelectionBorder"
                        Canvas.Left="25" Canvas.Top="0" 
-                       Width="395" Height="225" 
+                       Width="400" Height="225" 
                        RadiusX="14" RadiusY="14"
                        Stroke="#2196F3" StrokeThickness="2"
                        StrokeDashArray="5,3"

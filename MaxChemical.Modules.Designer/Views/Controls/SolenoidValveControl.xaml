@@ -11,119 +11,108 @@
              ClipToBounds="False">
 
     <UserControl.Resources>
-        <!-- ===== 管道渐变 ===== -->
+        <!-- ================================================================ -->
+        <!--  C款 深灰工业风 - Bronkhorst Style                                -->
+        <!--  特征: 磨砂金属质感 / 水平渐变 / 左高光右暗边 / 细线描边         -->
+        <!-- ================================================================ -->
+
+        <!-- ===== 管道渐变 (深灰金属磨砂) ===== -->
         <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#A8B5BC" Offset="0"/>
-            <GradientStop Color="#C4CFD6" Offset="0.2"/>
-            <GradientStop Color="#DCE4E9" Offset="0.4"/>
-            <GradientStop Color="#F4F7F9" Offset="0.5"/>
-            <GradientStop Color="#DCE4E9" Offset="0.6"/>
-            <GradientStop Color="#C4CFD6" Offset="0.8"/>
-            <GradientStop Color="#A8B5BC" Offset="1"/>
+            <GradientStop Color="#6A6A72" Offset="0"/>
+            <GradientStop Color="#868690" Offset="0.2"/>
+            <GradientStop Color="#A8A8B0" Offset="0.5"/>
+            <GradientStop Color="#868690" Offset="0.8"/>
+            <GradientStop Color="#6A6A72" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ===== 关闭状态渐变 ===== -->
+        <!-- ===== 关闭状态 - 深炭灰 ===== -->
         <LinearGradientBrush x:Key="ClosedBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#B0BCC3" Offset="0"/>
-            <GradientStop Color="#C4CFD6" Offset="0.1"/>
-            <GradientStop Color="#D8E0E5" Offset="0.2"/>
-            <GradientStop Color="#E8EEF1" Offset="0.35"/>
-            <GradientStop Color="#F4F7F9" Offset="0.5"/>
-            <GradientStop Color="#E8EEF1" Offset="0.65"/>
-            <GradientStop Color="#D8E0E5" Offset="0.8"/>
-            <GradientStop Color="#C4CFD6" Offset="0.9"/>
-            <GradientStop Color="#B0BCC3" Offset="1"/>
+            <GradientStop Color="#5A5A62" Offset="0"/>
+            <GradientStop Color="#74747E" Offset="0.15"/>
+            <GradientStop Color="#8A8A94" Offset="0.35"/>
+            <GradientStop Color="#94949E" Offset="0.5"/>
+            <GradientStop Color="#8A8A94" Offset="0.65"/>
+            <GradientStop Color="#74747E" Offset="0.85"/>
+            <GradientStop Color="#5A5A62" Offset="1"/>
         </LinearGradientBrush>
 
-        <RadialGradientBrush x:Key="ClosedCenterGradient" GradientOrigin="0.3,0.3">
-            <GradientStop Color="#E8EEF1" Offset="0"/>
-            <GradientStop Color="#C8D3DA" Offset="0.3"/>
-            <GradientStop Color="#A0ADB5" Offset="0.6"/>
-            <GradientStop Color="#7A8890" Offset="0.85"/>
-            <GradientStop Color="#5A6870" Offset="1"/>
+        <RadialGradientBrush x:Key="ClosedCenterGradient" GradientOrigin="0.35,0.35">
+            <GradientStop Color="#94949E" Offset="0"/>
+            <GradientStop Color="#74747E" Offset="0.4"/>
+            <GradientStop Color="#5E5E68" Offset="0.7"/>
+            <GradientStop Color="#3A3A44" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- ===== 开启状态渐变 ===== -->
+        <!-- ===== 开启状态 - 墨绿工业 ===== -->
         <LinearGradientBrush x:Key="OpenBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#7FB89D" Offset="0"/>
-            <GradientStop Color="#9AC9B3" Offset="0.1"/>
-            <GradientStop Color="#B5D9C8" Offset="0.2"/>
-            <GradientStop Color="#CFE8DC" Offset="0.35"/>
-            <GradientStop Color="#E5F4ED" Offset="0.5"/>
-            <GradientStop Color="#CFE8DC" Offset="0.65"/>
-            <GradientStop Color="#B5D9C8" Offset="0.8"/>
-            <GradientStop Color="#9AC9B3" Offset="0.9"/>
-            <GradientStop Color="#7FB89D" Offset="1"/>
+            <GradientStop Color="#4A6A5A" Offset="0"/>
+            <GradientStop Color="#648272" Offset="0.15"/>
+            <GradientStop Color="#7A9686" Offset="0.35"/>
+            <GradientStop Color="#86A090" Offset="0.5"/>
+            <GradientStop Color="#7A9686" Offset="0.65"/>
+            <GradientStop Color="#648272" Offset="0.85"/>
+            <GradientStop Color="#4A6A5A" Offset="1"/>
         </LinearGradientBrush>
 
-        <RadialGradientBrush x:Key="OpenCenterGradient" GradientOrigin="0.3,0.3">
-            <GradientStop Color="#D4F1E8" Offset="0"/>
-            <GradientStop Color="#A3E0CA" Offset="0.3"/>
-            <GradientStop Color="#7FD4B8" Offset="0.6"/>
-            <GradientStop Color="#5CB89D" Offset="0.85"/>
-            <GradientStop Color="#3D9A7F" Offset="1"/>
+        <RadialGradientBrush x:Key="OpenCenterGradient" GradientOrigin="0.35,0.35">
+            <GradientStop Color="#86A090" Offset="0"/>
+            <GradientStop Color="#648272" Offset="0.4"/>
+            <GradientStop Color="#4A6A5A" Offset="0.7"/>
+            <GradientStop Color="#2A4236" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- ===== 轮盘外圈渐变 ===== -->
-        <RadialGradientBrush x:Key="WheelRingGradient" GradientOrigin="0.5,0.5">
-            <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#727171" Offset="0.75"/>
-            <GradientStop Color="#FFFFFF" Offset="0.87"/>
-            <GradientStop Color="#727171" Offset="1"/>
-        </RadialGradientBrush>
+        <!-- ===== 轮盘外圈 (深灰金属) ===== -->
+        <LinearGradientBrush x:Key="WheelRingGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#3A3A42" Offset="0"/>
+            <GradientStop Color="#5E5E68" Offset="0.5"/>
+            <GradientStop Color="#2C2C34" Offset="1"/>
+        </LinearGradientBrush>
 
         <!-- ===== 辐条渐变 ===== -->
         <LinearGradientBrush x:Key="SpokeGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#727171" Offset="0"/>
-            <GradientStop Color="#FFFFFF" Offset="0.5"/>
-            <GradientStop Color="#727171" Offset="1"/>
+            <GradientStop Color="#2C2C34" Offset="0"/>
+            <GradientStop Color="#9898A0" Offset="0.5"/>
+            <GradientStop Color="#2C2C34" Offset="1"/>
         </LinearGradientBrush>
 
         <!-- ===== 失败状态渐变 ===== -->
         <LinearGradientBrush x:Key="ErrorBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#D32F2F" Offset="0"/>
-            <GradientStop Color="#E57373" Offset="0.1"/>
-            <GradientStop Color="#EF9A9A" Offset="0.2"/>
-            <GradientStop Color="#FFCDD2" Offset="0.35"/>
-            <GradientStop Color="#FFEBEE" Offset="0.5"/>
-            <GradientStop Color="#FFCDD2" Offset="0.65"/>
-            <GradientStop Color="#EF9A9A" Offset="0.8"/>
-            <GradientStop Color="#E57373" Offset="0.9"/>
-            <GradientStop Color="#D32F2F" Offset="1"/>
+            <GradientStop Color="#8B2020" Offset="0"/>
+            <GradientStop Color="#A53030" Offset="0.15"/>
+            <GradientStop Color="#BF4040" Offset="0.35"/>
+            <GradientStop Color="#CC5050" Offset="0.5"/>
+            <GradientStop Color="#BF4040" Offset="0.65"/>
+            <GradientStop Color="#A53030" Offset="0.85"/>
+            <GradientStop Color="#8B2020" Offset="1"/>
         </LinearGradientBrush>
 
-        <RadialGradientBrush x:Key="ErrorCenterGradient" GradientOrigin="0.3,0.3">
-            <GradientStop Color="#FFEBEE" Offset="0"/>
-            <GradientStop Color="#EF9A9A" Offset="0.3"/>
-            <GradientStop Color="#E57373" Offset="0.6"/>
-            <GradientStop Color="#D32F2F" Offset="0.85"/>
-            <GradientStop Color="#B71C1C" Offset="1"/>
+        <RadialGradientBrush x:Key="ErrorCenterGradient" GradientOrigin="0.35,0.35">
+            <GradientStop Color="#CC5050" Offset="0"/>
+            <GradientStop Color="#A53030" Offset="0.4"/>
+            <GradientStop Color="#8B2020" Offset="0.7"/>
+            <GradientStop Color="#5A1010" Offset="1"/>
         </RadialGradientBrush>
 
         <!-- ===== 加载状态渐变 ===== -->
         <LinearGradientBrush x:Key="LoadingBodyGradient" StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="#FFB74D" Offset="0"/>
-            <GradientStop Color="#FFCC80" Offset="0.1"/>
-            <GradientStop Color="#FFE0B2" Offset="0.2"/>
-            <GradientStop Color="#FFF3E0" Offset="0.35"/>
-            <GradientStop Color="#FFF8E1" Offset="0.5"/>
-            <GradientStop Color="#FFF3E0" Offset="0.65"/>
-            <GradientStop Color="#FFE0B2" Offset="0.8"/>
-            <GradientStop Color="#FFCC80" Offset="0.9"/>
-            <GradientStop Color="#FFB74D" Offset="1"/>
+            <GradientStop Color="#8B6A20" Offset="0"/>
+            <GradientStop Color="#A58030" Offset="0.15"/>
+            <GradientStop Color="#BF9840" Offset="0.35"/>
+            <GradientStop Color="#CCAA50" Offset="0.5"/>
+            <GradientStop Color="#BF9840" Offset="0.65"/>
+            <GradientStop Color="#A58030" Offset="0.85"/>
+            <GradientStop Color="#8B6A20" Offset="1"/>
         </LinearGradientBrush>
 
-        <RadialGradientBrush x:Key="LoadingCenterGradient" GradientOrigin="0.3,0.3">
-            <GradientStop Color="#FFF8E1" Offset="0"/>
-            <GradientStop Color="#FFE0B2" Offset="0.3"/>
-            <GradientStop Color="#FFCC80" Offset="0.6"/>
-            <GradientStop Color="#FFB74D" Offset="0.85"/>
-            <GradientStop Color="#FF9800" Offset="1"/>
+        <RadialGradientBrush x:Key="LoadingCenterGradient" GradientOrigin="0.35,0.35">
+            <GradientStop Color="#CCAA50" Offset="0"/>
+            <GradientStop Color="#A58030" Offset="0.4"/>
+            <GradientStop Color="#8B6A20" Offset="0.7"/>
+            <GradientStop Color="#5A4210" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- ========== 🆕 改进的加载动画：蓝色扫描光效 ========== -->
+        <!-- ========== 加载动画：蓝色扫描光效 ========== -->
         <Storyboard x:Key="LoadingAnimation" RepeatBehavior="Forever">
-            <!-- 1. 显示加载层 -->
             <DoubleAnimation Storyboard.TargetName="LoadingOverlay"
                              Storyboard.TargetProperty="Opacity"
                              To="1" Duration="0:0:0.2"/>
@@ -132,7 +121,6 @@
                              Storyboard.TargetProperty="Opacity"
                              To="0.7" Duration="0:0:0.2"/>
 
-            <!-- 2. 🎯 蓝色扫描光效：在阀体上来回移动 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingScannerTranslate"
                                           Storyboard.TargetProperty="X"
                                           Duration="0:0:2">
@@ -141,14 +129,12 @@
                 <LinearDoubleKeyFrame KeyTime="0:0:2" Value="-250"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 3. 轮盘旋转（保留原有设计） -->
             <DoubleAnimation Storyboard.TargetName="LoadingWheelRotation"
                              Storyboard.TargetProperty="Angle"
                              From="0" To="360"
                              Duration="0:0:1.2"
                              BeginTime="0:0:0.2"/>
 
-            <!-- 4. 脉冲呼吸效果 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingPulse"
                                            Storyboard.TargetProperty="Opacity"
                                            BeginTime="0:0:0.2">
@@ -173,7 +159,6 @@
                 <LinearDoubleKeyFrame Value="1" KeyTime="0:0:1"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 5. 整体蓝色呼吸光晕 -->
             <ColorAnimationUsingKeyFrames Storyboard.TargetName="ValveBodyGlow"
                                          Storyboard.TargetProperty="Color"
                                          Duration="0:0:1.5">
@@ -191,9 +176,8 @@
             </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
-        <!-- ========== 🆕 改进的错误动画：红色扫描光效 + 警告图标 ========== -->
+        <!-- ========== 错误动画：红色扫描光效 + 警告图标 ========== -->
         <Storyboard x:Key="ErrorBlinkAnimation" RepeatBehavior="3x">
-            <!-- 1. 显示错误层 -->
             <DoubleAnimation Storyboard.TargetName="ErrorOverlay"
                              Storyboard.TargetProperty="Opacity"
                              To="1" Duration="0:0:0.1"/>
@@ -206,7 +190,6 @@
                              Storyboard.TargetProperty="Opacity"
                              To="1" Duration="0:0:0.1"/>
 
-            <!-- 2. 剧烈震动效果 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ValveShakeTransform"
                                           Storyboard.TargetProperty="X"
                                           Duration="0:0:0.1" RepeatBehavior="5x">
@@ -218,7 +201,6 @@
                 <DiscreteDoubleKeyFrame KeyTime="0:0:0.10" Value="0"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 3. 🎯 红色扫描光效：急促来回移动 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorScannerTranslate"
                                           Storyboard.TargetProperty="X"
                                           Duration="0:0:0.5">
@@ -229,7 +211,6 @@
                 <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="-250"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 4. 红色警报灯急促闪烁 -->
             <ColorAnimationUsingKeyFrames Storyboard.TargetName="ValveBodyGlow"
                                          Storyboard.TargetProperty="Color"
                                          Duration="0:0:0.5">
@@ -250,7 +231,6 @@
                 <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="0"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 5. 🎯 警告图标缩放弹跳 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorIconScale"
                                           Storyboard.TargetProperty="ScaleX"
                                           Duration="0:0:0.5">
@@ -268,9 +248,8 @@
             </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
-        <!-- ========== 🆕 错误保持动画：持续红色脉冲 + 图标呼吸 ========== -->
+        <!-- ========== 错误保持动画 ========== -->
         <Storyboard x:Key="ErrorStateHoldAnimation" RepeatBehavior="Forever">
-            <!-- 保持错误层显示 -->
             <DoubleAnimation Storyboard.TargetName="ErrorOverlay"
                              Storyboard.TargetProperty="Opacity"
                              To="0.8" Duration="0"/>
@@ -283,7 +262,6 @@
                              Storyboard.TargetProperty="Opacity"
                              To="1" Duration="0"/>
 
-            <!-- 🎯 红色扫描光效：持续缓慢移动 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorScannerTranslate"
                                           Storyboard.TargetProperty="X"
                                           Duration="0:0:3">
@@ -292,7 +270,6 @@
                 <LinearDoubleKeyFrame KeyTime="0:0:3" Value="-250"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 柔和的红色呼吸 -->
             <ColorAnimationUsingKeyFrames Storyboard.TargetName="ValveBodyGlow"
                                          Storyboard.TargetProperty="Color"
                                          Duration="0:0:2">
@@ -309,7 +286,6 @@
                 <LinearDoubleKeyFrame KeyTime="0:0:2" Value="12"/>
             </DoubleAnimationUsingKeyFrames>
 
-            <!-- 🎯 图标透明度呼吸 -->
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ErrorWarningIcon"
                                           Storyboard.TargetProperty="Opacity"
                                           Duration="0:0:1.5">
@@ -331,13 +307,13 @@
         <!-- ===== 地面阴影 ===== -->
         <Ellipse Canvas.Left="10" Canvas.Top="192"
                  Width="180" Height="6"
-                 Opacity="0.15"
+                 Opacity="0.18"
                  Panel.ZIndex="0"
                  IsHitTestVisible="False">
             <Ellipse.Fill>
                 <RadialGradientBrush>
-                    <GradientStop Color="#2A4A68" Offset="0"/>
-                    <GradientStop Color="#2A4A68" Offset="0.5"/>
+                    <GradientStop Color="#1A1A22" Offset="0"/>
+                    <GradientStop Color="#1A1A22" Offset="0.5"/>
                     <GradientStop Color="Transparent" Offset="1"/>
                 </RadialGradientBrush>
             </Ellipse.Fill>
@@ -347,83 +323,86 @@
         </Ellipse>
 
         <!-- ===== 左管道主体 ===== -->
-        <Rectangle Canvas.Left="91.25" Canvas.Top="1.5"
-                   Width="17.5" Height="97"
-                   RadiusX="5.5" RadiusY="5.5"
+        <Rectangle Canvas.Left="91" Canvas.Top="2"
+                   Width="18" Height="96"
+                   RadiusX="4" RadiusY="4"
                    Fill="{StaticResource PipeGradient}"
                    Panel.ZIndex="1"
                    IsHitTestVisible="False">
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" BlurRadius="6" ShadowDepth="3" Opacity="0.2" Direction="135"/>
+                <DropShadowEffect Color="#1A1A22" BlurRadius="5" ShadowDepth="2" Opacity="0.25" Direction="135"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <Rectangle Canvas.Left="91.25" Canvas.Top="1.5"
-                   Width="17.5" Height="97"
-                   RadiusX="5.5" RadiusY="5.5"
-                   Stroke="#2A4A68"
-                   StrokeThickness="1.2"
-                   Fill="Transparent"
-                   Opacity="0.3"
-                   Panel.ZIndex="1"
+        <!-- 左管道高光条 -->
+        <Rectangle Canvas.Left="93" Canvas.Top="4"
+                   Width="3.5" Height="92"
+                   RadiusX="1.5" RadiusY="1.5"
+                   Fill="White"
+                   Opacity="0.25"
+                   Panel.ZIndex="2"
                    IsHitTestVisible="False"/>
 
-        <Rectangle Canvas.Left="92.5" Canvas.Top="3"
-                   Width="5" Height="94"
-                   RadiusX="2" RadiusY="2"
+        <!-- 左管道右暗边 -->
+        <Rectangle Canvas.Left="107" Canvas.Top="4"
+                   Width="0.5" Height="92"
+                   Fill="#1E1E26"
                    Opacity="0.4"
                    Panel.ZIndex="2"
-                   IsHitTestVisible="False">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#F4F7F9" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
+                   IsHitTestVisible="False"/>
+
+        <!-- 左管道描边 -->
+        <Rectangle Canvas.Left="91" Canvas.Top="2"
+                   Width="18" Height="96"
+                   RadiusX="4" RadiusY="4"
+                   Stroke="#4A4A52"
+                   StrokeThickness="0.5"
+                   Fill="Transparent"
+                   Panel.ZIndex="2"
+                   IsHitTestVisible="False"/>
 
         <!-- ===== 右管道主体 ===== -->
-        <Rectangle Canvas.Left="91.25" Canvas.Top="101.5"
-                   Width="17.5" Height="97"
-                   RadiusX="5.5" RadiusY="5.5"
+        <Rectangle Canvas.Left="91" Canvas.Top="102"
+                   Width="18" Height="96"
+                   RadiusX="4" RadiusY="4"
                    Fill="{StaticResource PipeGradient}"
                    Panel.ZIndex="1"
                    IsHitTestVisible="False">
             <Rectangle.Effect>
-                <DropShadowEffect Color="#2A4A68" BlurRadius="6" ShadowDepth="3" Opacity="0.2" Direction="135"/>
+                <DropShadowEffect Color="#1A1A22" BlurRadius="5" ShadowDepth="2" Opacity="0.25" Direction="135"/>
             </Rectangle.Effect>
         </Rectangle>
 
-        <Rectangle Canvas.Left="91.25" Canvas.Top="101.5"
-                   Width="17.5" Height="97"
-                   RadiusX="5.5" RadiusY="5.5"
-                   Stroke="#2A4A68"
-                   StrokeThickness="1.2"
-                   Fill="Transparent"
-                   Opacity="0.3"
-                   Panel.ZIndex="1"
+        <Rectangle Canvas.Left="93" Canvas.Top="104"
+                   Width="3.5" Height="92"
+                   RadiusX="1.5" RadiusY="1.5"
+                   Fill="White"
+                   Opacity="0.25"
+                   Panel.ZIndex="2"
                    IsHitTestVisible="False"/>
 
-        <Rectangle Canvas.Left="92.5" Canvas.Top="103"
-                   Width="5" Height="94"
-                   RadiusX="2" RadiusY="2"
+        <Rectangle Canvas.Left="107" Canvas.Top="104"
+                   Width="0.5" Height="92"
+                   Fill="#1E1E26"
                    Opacity="0.4"
                    Panel.ZIndex="2"
-                   IsHitTestVisible="False">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#F4F7F9" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
+                   IsHitTestVisible="False"/>
+
+        <Rectangle Canvas.Left="91" Canvas.Top="102"
+                   Width="18" Height="96"
+                   RadiusX="4" RadiusY="4"
+                   Stroke="#4A4A52"
+                   StrokeThickness="0.5"
+                   Fill="Transparent"
+                   Panel.ZIndex="2"
+                   IsHitTestVisible="False"/>
 
         <!-- ===== 阀门主体 ===== -->
         <Path x:Name="ValveBody"
               Data="M 63.075,186 C 63.075,186 57.506,160.118 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 Z"
               Fill="{Binding BodyColor, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue={StaticResource ClosedBodyGradient}}"
+              Stroke="#2A2A32"
+              StrokeThickness="0.6"
               Panel.ZIndex="3"
               IsHitTestVisible="False">
             <Path.Effect>
@@ -435,7 +414,30 @@
             </Path.Effect>
         </Path>
 
-        <!-- 🎯 加载状态覆盖层：蓝色扫描光效 -->
+        <!-- 阀体左侧高光带 (Bronkhorst 风格) -->
+        <Path Data="M 63.075,186 C 57.506,160.118 54.267,143 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 67.075,14 C 67.075,14 62,40 59,57 C 56,73.8 55.3,83.3 55.3,100 C 55.3,116.9 56,126.4 59,143 C 62,160 67.075,186 67.075,186 Z"
+              Fill="White"
+              Opacity="0.15"
+              Panel.ZIndex="4"
+              IsHitTestVisible="False"/>
+
+        <!-- 阀体右侧暗边 -->
+        <Path Data="M 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 L 132.908,186 C 132.908,186 138,160 141,143 C 144,126.4 144.7,116.9 144.5,100 C 144.3,83.3 144,73.8 141,57 C 138,40 132.908,14 132.908,14 Z"
+              Fill="#0A0A10"
+              Opacity="0.3"
+              Panel.ZIndex="4"
+              IsHitTestVisible="False"/>
+
+        <!-- 阀体细描边 -->
+        <Path Data="M 63.075,186 C 63.075,186 57.506,160.118 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 Z"
+              Stroke="#1A1A22"
+              StrokeThickness="0.4"
+              Fill="Transparent"
+              Opacity="0.6"
+              Panel.ZIndex="5"
+              IsHitTestVisible="False"/>
+
+        <!-- 加载状态覆盖层：蓝色扫描光效 -->
         <Canvas x:Name="LoadingOverlay" Opacity="0" IsHitTestVisible="False" Panel.ZIndex="20">
             <Path Data="M 63.075,186 C 63.075,186 57.506,160.118 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 Z">
                 <Path.Fill>
@@ -478,11 +480,9 @@
                 <RotateTransform x:Name="LoadingWheelRotation" Angle="0" CenterX="100" CenterY="100"/>
             </Canvas.RenderTransform>
 
-            <!-- 简化的加载指示器 -->
             <Path Fill="#2196F3" Opacity="0.8">
                 <Path.Data>
                     <GeometryGroup>
-                        <!-- 外圈小圆点 (3个) -->
                         <EllipseGeometry Center="100,55" RadiusX="4" RadiusY="4"/>
                         <EllipseGeometry Center="130,80" RadiusX="4" RadiusY="4"/>
                         <EllipseGeometry Center="130,120" RadiusX="4" RadiusY="4"/>
@@ -513,7 +513,7 @@
             </Ellipse.Effect>
         </Ellipse>
 
-        <!-- 🎯 错误状态覆盖层：红色扫描光效 -->
+        <!-- 错误状态覆盖层：红色扫描光效 -->
         <Canvas x:Name="ErrorOverlay" Opacity="0" IsHitTestVisible="False" Panel.ZIndex="25">
             <Path Data="M 63.075,186 C 63.075,186 57.506,160.118 54.267,143 C 51.12,126.368 50.5,116.818 50.5,100 C 50.5,83.182 51.12,73.632 54.267,57 C 57.506,39.882 63.075,14 63.075,14 L 136.908,14 C 136.908,14 141.724,39.882 144.963,57 C 148.11,73.632 149.337,83.182 149.483,100 C 149.63,116.807 148.844,126.377 145.716,143 C 142.485,160.177 136.908,186 136.908,186 Z">
                 <Path.Fill>
@@ -544,7 +544,7 @@
             </Ellipse.Effect>
         </Ellipse>
 
-        <!-- 🎯 错误警告图标（超大版 + 椭圆形光晕） -->
+        <!-- 错误警告图标 -->
         <Grid Canvas.Left="50.5" Canvas.Top="14" Width="99" Height="172" 
               x:Name="ErrorWarningIcon" Opacity="0" IsHitTestVisible="False"
               Panel.ZIndex="30">
@@ -552,7 +552,6 @@
                 <ScaleTransform x:Name="ErrorIconScale" ScaleX="1" ScaleY="1" CenterX="49.5" CenterY="86"/>
             </Grid.RenderTransform>
 
-            <!-- 半透明红色椭圆形背景 - 匹配阀体形状 -->
             <Path Data="M 12.575,172 C 12.575,172 7.006,146.118 3.767,129 C 0.62,112.368 0,102.818 0,86 C 0,69.182 0.62,59.632 3.767,43 C 7.006,25.882 12.575,0 12.575,0 L 86.408,0 C 86.408,0 91.224,25.882 94.463,43 C 97.61,59.632 98.837,69.182 98.983,86 C 99.13,102.807 98.344,112.377 95.216,129 C 91.985,146.177 86.408,172 86.408,172 Z"
                   Fill="#66D32F2F">
                 <Path.Effect>
@@ -560,71 +559,17 @@
                 </Path.Effect>
             </Path>
 
-            <!-- 警告三角形图标 - 超大清晰 -->
             <Viewbox Width="65" Height="65">
                 <Canvas Width="1024" Height="1024">
-                    <!-- 三角形背景 -->
                     <Path Data="M512 128l384 640H128z" Fill="#D32F2F" Stroke="White" StrokeThickness="40" StrokeLineJoin="Round"/>
-                    <!-- 感叹号 -->
                     <Path Data="M512 320v256M512 672v64" Stroke="White" StrokeThickness="60" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                 </Canvas>
             </Viewbox>
 
-            <!-- 整体投影效果 -->
             <Grid.Effect>
                 <DropShadowEffect Color="#D32F2F" BlurRadius="30" ShadowDepth="0" Opacity="1"/>
             </Grid.Effect>
         </Grid>
-
-        <!-- ===== 阀门边框 ===== -->
-        <Path Data="M 63.621,18.62 C 63.902,17.299 64.129,16.236 64.287,15.497 L 135.662,15.497 C 135.799,16.235 135.995,17.284 136.237,18.583 C 136.739,21.277 137.442,25.048 138.247,29.353 C 139.855,37.964 141.869,48.715 143.489,57.276 C 146.624,73.844 147.838,83.302 147.983,100.01 C 148.129,116.724 147.351,126.196 144.242,142.72 C 142.629,151.293 140.43,162.031 138.632,170.632 C 137.734,174.931 136.936,178.694 136.363,181.381 C 136.082,182.7 135.855,183.759 135.697,184.497 L 64.287,184.497 C 64.129,183.758 63.902,182.695 63.621,181.374 C 63.049,178.681 62.252,174.913 61.354,170.61 C 59.557,162.002 57.358,151.263 55.741,142.718 C 52.615,126.197 52,116.743 52,100 C 52,83.257 52.615,73.8 55.741,57.279 C 57.358,48.734 59.557,37.996 61.354,29.387 C 62.252,25.084 63.049,21.316 63.621,18.624 Z"
-              Stroke="#2A4A68"
-              StrokeThickness="1.5"
-              Fill="Transparent"
-              Opacity="0.3"
-              Panel.ZIndex="4"
-              IsHitTestVisible="False"/>
-
-        <Path Opacity="0.35" Panel.ZIndex="5" IsHitTestVisible="False">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="65,20">
-                        <LineSegment Point="57,150"/>
-                        <LineSegment Point="62,150"/>
-                        <LineSegment Point="68,22"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0.6,1">
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#F4F7F9" Offset="0.2"/>
-                    <GradientStop Color="#E8EEF1" Offset="0.4"/>
-                    <GradientStop Color="#D8E0E5" Offset="0.6"/>
-                    <GradientStop Color="#C4CFD6" Offset="0.8"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-        </Path>
-
-        <Path Opacity="0.15" Panel.ZIndex="5" IsHitTestVisible="False">
-            <Path.Data>
-                <PathGeometry>
-                    <PathFigure StartPoint="132,22">
-                        <LineSegment Point="138,150"/>
-                        <LineSegment Point="143,150"/>
-                        <LineSegment Point="135,22"/>
-                    </PathFigure>
-                </PathGeometry>
-            </Path.Data>
-            <Path.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#2A4A68" Offset="0"/>
-                    <GradientStop Color="#456078" Offset="0.4"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </LinearGradientBrush>
-            </Path.Fill>
-        </Path>
 
         <!-- ===== 辐条层（ZIndex=9）===== -->
         <Canvas x:Name="SpokesContainer"
@@ -641,8 +586,8 @@
 
             <!-- 辐条1: 0° -->
             <Rectangle Canvas.Left="97.5" Canvas.Top="50"
-                       Width="5" Height="37.5"
-                       RadiusX="2.5" RadiusY="2.5"
+                       Width="5" Height="38"
+                       RadiusX="2" RadiusY="2"
                        Fill="{StaticResource SpokeGradient}">
                 <Rectangle.RenderTransform>
                     <RotateTransform Angle="0" CenterX="2.5" CenterY="50"/>
@@ -651,8 +596,8 @@
 
             <!-- 辐条2: 72° -->
             <Rectangle Canvas.Left="97.5" Canvas.Top="50"
-                       Width="5" Height="37.5"
-                       RadiusX="2.5" RadiusY="2.5"
+                       Width="5" Height="38"
+                       RadiusX="2" RadiusY="2"
                        Fill="{StaticResource SpokeGradient}">
                 <Rectangle.RenderTransform>
                     <RotateTransform Angle="72" CenterX="2.5" CenterY="50"/>
@@ -661,8 +606,8 @@
 
             <!-- 辐条3: 144° -->
             <Rectangle Canvas.Left="97.5" Canvas.Top="50"
-                       Width="5" Height="37.5"
-                       RadiusX="2.5" RadiusY="2.5"
+                       Width="5" Height="38"
+                       RadiusX="2" RadiusY="2"
                        Fill="{StaticResource SpokeGradient}">
                 <Rectangle.RenderTransform>
                     <RotateTransform Angle="144" CenterX="2.5" CenterY="50"/>
@@ -671,8 +616,8 @@
 
             <!-- 辐条4: 216° -->
             <Rectangle Canvas.Left="97.5" Canvas.Top="50"
-                       Width="5" Height="37.5"
-                       RadiusX="2.5" RadiusY="2.5"
+                       Width="5" Height="38"
+                       RadiusX="2" RadiusY="2"
                        Fill="{StaticResource SpokeGradient}">
                 <Rectangle.RenderTransform>
                     <RotateTransform Angle="216" CenterX="2.5" CenterY="50"/>
@@ -681,8 +626,8 @@
 
             <!-- 辐条5: 288° -->
             <Rectangle Canvas.Left="97.5" Canvas.Top="50"
-                       Width="5" Height="37.5"
-                       RadiusX="2.5" RadiusY="2.5"
+                       Width="5" Height="38"
+                       RadiusX="2" RadiusY="2"
                        Fill="{StaticResource SpokeGradient}">
                 <Rectangle.RenderTransform>
                     <RotateTransform Angle="288" CenterX="2.5" CenterY="50"/>
@@ -704,91 +649,105 @@
                 </TransformGroup>
             </Canvas.RenderTransform>
 
+            <!-- 外圈环 (深灰磨砂金属) -->
             <Path Fill="{StaticResource WheelRingGradient}">
                 <Path.Data>
                     <GeometryGroup FillRule="EvenOdd">
                         <EllipseGeometry Center="100,100" RadiusX="50" RadiusY="50"/>
-                        <EllipseGeometry Center="100,100" RadiusX="37.5" RadiusY="37.5"/>
+                        <EllipseGeometry Center="100,100" RadiusX="38" RadiusY="38"/>
                     </GeometryGroup>
                 </Path.Data>
             </Path>
 
+            <!-- 外圈高光细线 -->
+            <Ellipse Canvas.Left="50" Canvas.Top="50"
+                     Width="100" Height="100"
+                     Stroke="White"
+                     StrokeThickness="0.8"
+                     Fill="Transparent"
+                     Opacity="0.3"/>
+
+            <!-- 内圈暗线 -->
+            <Ellipse Canvas.Left="62" Canvas.Top="62"
+                     Width="76" Height="76"
+                     Stroke="#0A0A10"
+                     StrokeThickness="0.5"
+                     Fill="Transparent"
+                     Opacity="0.6"/>
+
         </Canvas>
 
-        <!-- ===== 中心圆盘 ===== -->
+        <!-- ===== 中心圆盘外环 ===== -->
         <Ellipse Canvas.Left="73" Canvas.Top="73"
                  Width="54" Height="54"
-                 Fill="#A8B5BC"
+                 Fill="#444450"
                  Panel.ZIndex="15"
                  IsHitTestVisible="False">
             <Ellipse.Effect>
-                <DropShadowEffect Color="#2A4A68" BlurRadius="5" ShadowDepth="3" Opacity="0.2"/>
+                <DropShadowEffect Color="#0A0A10" BlurRadius="5" ShadowDepth="2" Opacity="0.3"/>
             </Ellipse.Effect>
         </Ellipse>
 
         <Ellipse Canvas.Left="73" Canvas.Top="73"
                  Width="54" Height="54"
-                 Stroke="#2A4A68"
-                 StrokeThickness="1.2"
+                 Stroke="#0E0E14"
+                 StrokeThickness="0.5"
                  Fill="Transparent"
-                 Opacity="0.3"
                  Panel.ZIndex="15"
                  IsHitTestVisible="False"/>
 
+        <!-- ===== 中心圆盘内阴影 ===== -->
         <Ellipse Canvas.Left="77" Canvas.Top="77"
                  Width="46" Height="46"
                  Fill="#0D000000"
                  Panel.ZIndex="16"
                  IsHitTestVisible="False">
             <Ellipse.Effect>
-                <DropShadowEffect Color="Black" Opacity="0.25" BlurRadius="8" ShadowDepth="0"/>
+                <DropShadowEffect Color="Black" Opacity="0.3" BlurRadius="6" ShadowDepth="0"/>
             </Ellipse.Effect>
         </Ellipse>
 
+        <!-- ===== 中心圆盘主体 ===== -->
         <Ellipse Canvas.Left="77" Canvas.Top="77"
                  Width="46" Height="46"
                  Fill="{Binding CenterColor, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue={StaticResource ClosedCenterGradient}}"
                  Panel.ZIndex="17"
                  IsHitTestVisible="False"/>
 
-        <Ellipse Canvas.Left="80" Canvas.Top="80"
-                 Width="20" Height="20"
-                 Opacity="0.3"
-                 Panel.ZIndex="18"
-                 IsHitTestVisible="False">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                    <GradientStop Color="#F4F7F9" Offset="0.5"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <Ellipse Canvas.Left="78" Canvas.Top="78"
-                 Width="44" Height="44"
-                 Stroke="#2A4A68"
-                 StrokeThickness="1.2"
-                 Fill="Transparent"
+        <!-- ===== 中心圆盘高光 ===== -->
+        <Ellipse Canvas.Left="82" Canvas.Top="82"
+                 Width="14" Height="10"
+                 Fill="White"
                  Opacity="0.3"
                  Panel.ZIndex="18"
                  IsHitTestVisible="False"/>
 
+        <!-- ===== 中心圆盘细描边 ===== -->
+        <Ellipse Canvas.Left="78" Canvas.Top="78"
+                 Width="44" Height="44"
+                 Stroke="#000000"
+                 StrokeThickness="0.4"
+                 Fill="Transparent"
+                 Opacity="0.5"
+                 Panel.ZIndex="18"
+                 IsHitTestVisible="False"/>
+
+        <!-- ===== 指示器 (亮色以在深底上清晰可见) ===== -->
         <Canvas Canvas.Left="100" Canvas.Top="100" Panel.ZIndex="19" IsHitTestVisible="False">
             <Path Data="M -2.717,-9.386 C -3.364,-9.386 -3.928,-8.965 -4.123,-8.384 C -8.256,-6.802 -11.191,-2.797 -11.191,1.89 C -11.191,7.965 -6.266,12.89 -0.191,12.89 C 5.884,12.89 10.809,7.965 10.809,1.89 C 10.809,-2.674 7.029,-6.589 3.07,-8.254 C 2.461,-8.51 1.827,-8.033 1.827,-7.372 C 1.827,-6.95 2.095,-6.578 2.482,-6.407 C 5.662,-5 7.88,-1.813 7.88,1.89 C 7.88,6.9 3.819,10.961 -1.191,10.961 C -6.201,10.961 -10.262,6.9 -10.262,1.89 C -10.262,-1.917 -7.917,-5.176 -4.593,-6.522 C -4.191,-6.685 -3.907,-7.063 -3.907,-7.497 C -3.907,-8.144 -3.296,-8.618 -2.717,-9.386 Z"
-                  Fill="#2A4A68"
-                  Opacity="0.8">
+                  Fill="#E0E0E8"
+                  Opacity="0.95">
                 <Path.Effect>
-                    <DropShadowEffect Color="White" BlurRadius="2" ShadowDepth="0" Opacity="0.3"/>
+                    <DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="1" Opacity="0.5"/>
                 </Path.Effect>
             </Path>
             <Rectangle Canvas.Left="-0.637" Canvas.Top="-12.363"
                        Width="1.274" Height="10.401"
                        RadiusX="0.637" RadiusY="0.637"
-                       Fill="#2A4A68"
-                       Opacity="0.8">
+                       Fill="#E0E0E8"
+                       Opacity="0.95">
                 <Rectangle.Effect>
-                    <DropShadowEffect Color="White" BlurRadius="2" ShadowDepth="0" Opacity="0.3"/>
+                    <DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="1" Opacity="0.5"/>
                 </Rectangle.Effect>
             </Rectangle>
         </Canvas>

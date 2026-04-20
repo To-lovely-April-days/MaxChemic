@@ -47,10 +47,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         // 泵运行状态
         private bool _isRunning = false;
-        private int _pumpSpeed = 20;
+        private int _pumpSpeed = 120;
 
         // 动画相关字段保留但不使用
-        private Storyboard _pistonStoryboard;
+        private Storyboard _rotorStoryboard;
         private bool _isLoading = false;
         private DispatcherTimer _errorResetTimer;
         private Storyboard _errorBlinkAnimation;
@@ -94,19 +94,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// 泵速度范围 0-100
+        /// 泵速度范围 0-600 (rpm)
         /// </summary>
         public static readonly DependencyProperty PumpSpeedProperty =
             DependencyProperty.Register(
                 nameof(PumpSpeed),
                 typeof(int),
                 typeof(PistonPumpControl),
-                new PropertyMetadata(20, OnPumpSpeedChanged));
+                new PropertyMetadata(120, OnPumpSpeedChanged));
 
         public int PumpSpeed
         {
             get => (int)GetValue(PumpSpeedProperty);
-            set => SetValue(PumpSpeedProperty, Math.Max(0, Math.Min(100, value)));
+            set => SetValue(PumpSpeedProperty, Math.Max(0, Math.Min(600, value)));
         }
 
         private static void OnPumpSpeedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -114,8 +114,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (d is PistonPumpControl control)
             {
                 control.UpdatePumpSpeedDisplay();
-                // 注释掉动画速度更新
-                // control.UpdatePistonAnimationSpeed();
                 control.OnPropertyChanged(nameof(PumpSpeed));
             }
         }
@@ -160,19 +158,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (!isInDesignMode)
             {
-                // 注释掉错误重置定时器（已不需要）
-                /*
-                _errorResetTimer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromSeconds(3)
-                };
-                _errorResetTimer.Tick += (s, e) =>
-                {
-                    ResetErrorState();
-                    _errorResetTimer.Stop();
-                };
-                */
-
                 // 硬件加速配置
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
                 RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
@@ -190,48 +175,30 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 this.SnapsToDevicePixels = true;
                 this.UseLayoutRounding = true;
 
-                Debug.WriteLine($"柱塞泵硬件加速已启用 | PumpId:{PumpId}");
+                Debug.WriteLine($"蠕动泵硬件加速已启用 | PumpId:{PumpId}");
             }
 
-            Debug.WriteLine($"柱塞泵控件已创建 | PumpId:{PumpId}");
+            Debug.WriteLine($"蠕动泵控件已创建 | PumpId:{PumpId}");
         }
 
         private void OnPumpControlLoaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                // 注释掉动画资源加载
-                /*
-                _pistonStoryboard = this.Resources["PistonMotionStoryboard"] as Storyboard;
-                _errorBlinkAnimation = this.Resources["ErrorBlinkAnimation"] as Storyboard;
-                _loadingAnimation = this.Resources["LoadingAnimation"] as Storyboard;
-                _errorStateHoldAnimation = this.Resources["ErrorStateHoldAnimation"] as Storyboard;
-
-                if (_pistonStoryboard == null)
-                {
-                    Debug.WriteLine("警告: 柱塞动画资源未找到");
-                }
-
-                if (_errorBlinkAnimation == null || _loadingAnimation == null)
-                {
-                    Debug.WriteLine("警告: 错误或加载动画资源未找到");
-                }
-                */
-
                 UpdatePumpSpeedDisplay();
                 UpdatePumpRunningState();
 
-                Debug.WriteLine($"柱塞泵控件已加载完成 | PumpId:{PumpId}");
+                Debug.WriteLine($"蠕动泵控件已加载完成 | PumpId:{PumpId}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"柱塞泵控件加载失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"蠕动泵控件加载失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
 
         #endregion
 
-        #region 泵控制方法（保留原有公共方法）
+        #region 泵控制方法
 
         public void StartPump()
         {
@@ -240,12 +207,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (!IsRunning)
                 {
                     IsRunning = true;
-                    Debug.WriteLine($"柱塞泵已启动 | PumpId:{PumpId} | 速度:{PumpSpeed}");
+                    Debug.WriteLine($"蠕动泵已启动 | PumpId:{PumpId} | 速度:{PumpSpeed}rpm");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"启动柱塞泵失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"启动蠕动泵失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
 
@@ -256,12 +223,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (IsRunning)
                 {
                     IsRunning = false;
-                    Debug.WriteLine($"柱塞泵已停止 | PumpId:{PumpId}");
+                    Debug.WriteLine($"蠕动泵已停止 | PumpId:{PumpId}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"停止柱塞泵失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"停止蠕动泵失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
 
@@ -270,11 +237,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 PumpSpeed = speed;
-                Debug.WriteLine($"柱塞泵速度已设置 | PumpId:{PumpId} | 速度:{PumpSpeed}");
+                Debug.WriteLine($"蠕动泵速度已设置 | PumpId:{PumpId} | 速度:{PumpSpeed}rpm");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"设置柱塞泵速度失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"设置蠕动泵速度失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
 
@@ -284,161 +251,97 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         /// <summary>
         /// 更新泵运行状态（设备驱动到UI）
-        /// 无动画版本，仅更新按钮颜色
+        /// 无动画版本，仅更新颜色
         /// </summary>
         private void UpdatePumpRunningState()
         {
             try
             {
-                // 注释掉柱塞动画，改为仅更新按钮颜色
-                /*
-                if (_pistonStoryboard != null)
-                {
-                    if (IsRunning)
-                    {
-                        Timeline.SetDesiredFrameRate(_pistonStoryboard, 30);
-                        _pistonStoryboard.Begin(this, true);
-                        Debug.WriteLine("柱塞动画已启动（30fps GPU加速）");
-                    }
-                    else
-                    {
-                        _pistonStoryboard.Stop(this);
-                        Debug.WriteLine("柱塞动画已停止");
-                    }
-                }
-                */
-
-                // 只更新电源按钮颜色
-                UpdatePowerButtonColor();
-                //更改外壳颜色
+                // 更新电源指示灯
+                UpdatePowerLed();
+                // 更改外壳颜色
                 UpdatePumpColors();
 
-                Debug.WriteLine($"泵运行状态已更新 | PumpId:{PumpId} | 状态:{(IsRunning ? "运行中" : "已停止")}");
+                Debug.WriteLine($"蠕动泵运行状态已更新 | PumpId:{PumpId} | 状态:{(IsRunning ? "运行中" : "已停止")}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"更新泵运行状态失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"更新蠕动泵运行状态失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
 
         /// <summary>
-        /// 更新电源按钮颜色
-        /// 运行时显示红色，停止时显示绿色
+        /// 更新电源指示灯颜色
+        /// 运行时亮绿，停止时暗绿
         /// </summary>
-        private void UpdatePowerButtonColor()
+        private void UpdatePowerLed()
         {
             try
             {
-                var powerIcon = this.FindName("PowerIcon") as System.Windows.Shapes.Path;
-                if (powerIcon != null)
+                var powerLed = this.FindName("PowerLed") as Ellipse;
+                var powerLedGlow = this.FindName("PowerLedGlow") as Ellipse;
+
+                if (powerLed != null && powerLedGlow != null)
                 {
                     if (IsRunning)
                     {
-                        // 运行时 - 红色
-                        powerIcon.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
-                        var effect = powerIcon.Effect as DropShadowEffect;
-                        if (effect != null)
-                        {
-                            effect.Color = Color.FromRgb(255, 59, 48);
-                        }
+                        // 运行时 - 亮绿
+                        powerLed.Fill = new SolidColorBrush(Color.FromRgb(26, 140, 50));
+                        powerLed.Opacity = 1.0;
+                        powerLedGlow.Fill = new SolidColorBrush(Color.FromRgb(80, 255, 100));
+                        powerLedGlow.Opacity = 0.9;
                     }
                     else
                     {
-                        // 停止时 - 绿色
-                        powerIcon.Fill = new SolidColorBrush(Color.FromRgb(26, 187, 72));
-                        var effect = powerIcon.Effect as DropShadowEffect;
-                        if (effect != null)
-                        {
-                            effect.Color = Color.FromRgb(26, 187, 72);
-                        }
+                        // 停止时 - 暗绿
+                        powerLed.Fill = new SolidColorBrush(Color.FromRgb(26, 90, 40));
+                        powerLed.Opacity = 0.8;
+                        powerLedGlow.Fill = new SolidColorBrush(Color.FromRgb(64, 224, 80));
+                        powerLedGlow.Opacity = 0.6;
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"更新电源按钮颜色失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"更新电源指示灯失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
 
         /// <summary>
-        /// 更新泵的外壳和气缸颜色
-        /// 运行时显示蓝绿色,停止时显示灰色
+        /// 更新泵的外壳颜色
+        /// 运行时显示蓝绿色,停止时显示蓝灰色
         /// </summary>
         private void UpdatePumpColors()
         {
             try
             {
-                // 获取主外壳元素
-                var pumpShell = this.FindName("PumpShell") as Rectangle;
-                var pumpCurvedShell = this.FindName("PumpCurvedShell") as System.Windows.Shapes.Path;
-                var pumpBody = this.FindName("PumpBody") as Rectangle;
-
-                // 获取气缸元素
-                var cylinder1 = this.FindName("Cylinder1") as Rectangle;
-                var cylinder2 = this.FindName("Cylinder2") as Rectangle;
-                var cylinder3 = this.FindName("Cylinder3") as Rectangle;
+                var pumpShell = this.FindName("PumpShell") as System.Windows.Shapes.Path;
 
                 if (IsRunning)
                 {
                     // 运行状态 - 蓝绿色渐变
                     var runningShellBrush = this.Resources["RunningShellGradient"] as LinearGradientBrush;
-                    var runningCylinderBrush = this.Resources["RunningCylinderGradient"] as RadialGradientBrush;
 
                     if (pumpShell != null && runningShellBrush != null)
                         pumpShell.Fill = runningShellBrush;
-
-                    if (pumpCurvedShell != null && runningShellBrush != null)
-                        pumpCurvedShell.Fill = runningShellBrush;
-
-                    if (pumpBody != null && runningShellBrush != null)
-                        pumpBody.Fill = runningShellBrush;
-
-                    if (cylinder1 != null && runningCylinderBrush != null)
-                        cylinder1.Fill = runningCylinderBrush;
-
-                    if (cylinder2 != null && runningCylinderBrush != null)
-                        cylinder2.Fill = runningCylinderBrush;
-
-                    if (cylinder3 != null && runningCylinderBrush != null)
-                        cylinder3.Fill = runningCylinderBrush;
                 }
                 else
                 {
-                    // 停止状态 - 薰衣草靛蓝
+                    // 停止状态 - 蓝灰色渐变
                     var stoppedShellBrush = this.Resources["StoppedShellGradient"] as LinearGradientBrush;
-                    var stoppedCylinderBrush = this.Resources["StoppedCylinderGradient"] as LinearGradientBrush;
 
-                    Brush shellFill = (Brush)stoppedShellBrush
-                        ?? new SolidColorBrush(Color.FromRgb(0xDF, 0xE3, 0xF0));
-                    Brush bodyFill = (Brush)stoppedShellBrush
-                        ?? new SolidColorBrush(Color.FromRgb(0xCD, 0xD3, 0xE8));
-
-                    if (pumpShell != null)
-                        pumpShell.Fill = shellFill;
-
-                    if (pumpCurvedShell != null)
-                        pumpCurvedShell.Fill = shellFill;
-
-                    if (pumpBody != null)
-                        pumpBody.Fill = bodyFill;
-
-                    if (cylinder1 != null && stoppedCylinderBrush != null)
-                        cylinder1.Fill = stoppedCylinderBrush;
-
-                    if (cylinder2 != null && stoppedCylinderBrush != null)
-                        cylinder2.Fill = stoppedCylinderBrush;
-
-                    if (cylinder3 != null && stoppedCylinderBrush != null)
-                        cylinder3.Fill = stoppedCylinderBrush;
+                    if (pumpShell != null && stoppedShellBrush != null)
+                        pumpShell.Fill = stoppedShellBrush;
                 }
 
-                Debug.WriteLine($"泵颜色已更新 | PumpId:{PumpId} | 状态:{(IsRunning ? "蓝绿色(运行中)" : "灰色(已停止)")}");
+                Debug.WriteLine($"蠕动泵颜色已更新 | PumpId:{PumpId} | 状态:{(IsRunning ? "蓝绿色(运行中)" : "蓝灰色(已停止)")}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"更新泵颜色失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"更新蠕动泵颜色失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
+
         /// <summary>
         /// 更新泵速度显示
         /// </summary>
@@ -446,7 +349,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
-                Debug.WriteLine($"泵速度显示已更新 | PumpId:{PumpId} | 速度:{PumpSpeed}");
+                Debug.WriteLine($"蠕动泵速度显示已更新 | PumpId:{PumpId} | 速度:{PumpSpeed}rpm");
             }
             catch (Exception ex)
             {
@@ -454,36 +357,112 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        // 注释掉动画速度更新方法（已不需要）
-        /*
-        /// <summary>
-        /// 更新柱塞动画速度
-        /// </summary>
-        private void UpdatePistonAnimationSpeed()
-        {
-            try
-            {
-                if (_pistonStoryboard != null && IsRunning)
-                {
-                    double speedRatio = 0.5 + (PumpSpeed / 100.0) * 1.5;
-                    _pistonStoryboard.SetSpeedRatio(this, speedRatio);
-                    Debug.WriteLine($"动画速率调整为: {speedRatio:F2}x (速度: {PumpSpeed})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新动画速度失败: {ex.Message}");
-            }
-        }
-        */
-
         #endregion
 
         #region 按钮事件处理（UI到设备驱动）
 
         /// <summary>
-        /// 电源按钮点击事件
-        /// 请求切换泵的运行状态
+        /// RUN按钮点击事件 — 请求启动泵
+        /// </summary>
+        private void OnRunButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (IsRunning)
+                {
+                    Debug.WriteLine($"蠕动泵已在运行中，忽略RUN | PumpId:{PumpId}");
+                    return;
+                }
+
+                Debug.WriteLine($"RUN按钮点击 | PumpId:{PumpId}");
+
+                ShowLoading();
+
+                StateChangeRequested?.Invoke(this, new PumpStateChangeRequestEventArgs
+                {
+                    PumpId = this.PumpId,
+                    CurrentState = IsRunning,
+                    RequestedState = true,
+                    OnCompleted = (success) =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            HideLoading();
+                            if (!success)
+                            {
+                                ShowOperationFailure();
+                                Debug.WriteLine($"启动蠕动泵失败 | PumpId:{PumpId}");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"启动蠕动泵成功 | PumpId:{PumpId}");
+                            }
+                        }));
+                    }
+                });
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"RUN按钮处理失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                HideLoading();
+                ShowOperationFailure();
+            }
+        }
+
+        /// <summary>
+        /// STOP按钮点击事件 — 请求停止泵
+        /// </summary>
+        private void OnStopButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!IsRunning)
+                {
+                    Debug.WriteLine($"蠕动泵已停止，忽略STOP | PumpId:{PumpId}");
+                    return;
+                }
+
+                Debug.WriteLine($"STOP按钮点击 | PumpId:{PumpId}");
+
+                ShowLoading();
+
+                StateChangeRequested?.Invoke(this, new PumpStateChangeRequestEventArgs
+                {
+                    PumpId = this.PumpId,
+                    CurrentState = IsRunning,
+                    RequestedState = false,
+                    OnCompleted = (success) =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            HideLoading();
+                            if (!success)
+                            {
+                                ShowOperationFailure();
+                                Debug.WriteLine($"停止蠕动泵失败 | PumpId:{PumpId}");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"停止蠕动泵成功 | PumpId:{PumpId}");
+                            }
+                        }));
+                    }
+                });
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"STOP按钮处理失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                HideLoading();
+                ShowOperationFailure();
+            }
+        }
+
+        /// <summary>
+        /// 电源按钮点击事件 — 切换运行/停止
         /// </summary>
         private void OnPowerButtonClick(object sender, RoutedEventArgs e)
         {
@@ -491,10 +470,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 Debug.WriteLine($"电源按钮点击 | PumpId:{PumpId} | 当前状态:{IsRunning}");
 
-                // 显示加载状态（无动画）
                 ShowLoading();
 
-                // 触发状态切换请求事件（带完成回调）
                 StateChangeRequested?.Invoke(this, new PumpStateChangeRequestEventArgs
                 {
                     PumpId = this.PumpId,
@@ -502,7 +479,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     RequestedState = !IsRunning,
                     OnCompleted = (success) =>
                     {
-                        // 回到UI线程执行
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             HideLoading();
@@ -523,7 +499,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"电源按钮点击处理失败 | PumpId:{PumpId} | 错误:{ex.Message}");
+                Debug.WriteLine($"电源按钮处理失败 | PumpId:{PumpId} | 错误:{ex.Message}");
                 HideLoading();
                 ShowOperationFailure();
             }
@@ -539,10 +515,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 int newSpeed = PumpSpeed + 10;
                 Debug.WriteLine($"增加速度按钮点击 | PumpId:{PumpId} | 当前速度:{PumpSpeed} | 目标速度:{newSpeed}");
 
-                // 显示加载状态（无动画）
                 ShowLoading();
 
-                // 触发速度变化请求事件（带完成回调）
                 SpeedChangeRequested?.Invoke(this, new PumpSpeedChangeRequestEventArgs
                 {
                     PumpId = this.PumpId,
@@ -551,7 +525,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     ChangeType = SpeedChangeType.Increase,
                     OnCompleted = (success) =>
                     {
-                        // 回到UI线程执行
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             HideLoading();
@@ -562,7 +535,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             }
                             else
                             {
-                                Debug.WriteLine($"速度增加成功 | PumpId:{PumpId} | 新速度:{newSpeed}");
+                                Debug.WriteLine($"速度增加成功 | PumpId:{PumpId} | 新速度:{newSpeed}rpm");
                             }
                         }));
                     }
@@ -588,10 +561,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 int newSpeed = PumpSpeed - 10;
                 Debug.WriteLine($"减少速度按钮点击 | PumpId:{PumpId} | 当前速度:{PumpSpeed} | 目标速度:{newSpeed}");
 
-                // 显示加载状态（无动画）
                 ShowLoading();
 
-                // 触发速度变化请求事件（带完成回调）
                 SpeedChangeRequested?.Invoke(this, new PumpSpeedChangeRequestEventArgs
                 {
                     PumpId = this.PumpId,
@@ -600,7 +571,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     ChangeType = SpeedChangeType.Decrease,
                     OnCompleted = (success) =>
                     {
-                        // 回到UI线程执行
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             HideLoading();
@@ -611,7 +581,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                             }
                             else
                             {
-                                Debug.WriteLine($"速度减少成功 | PumpId:{PumpId} | 新速度:{newSpeed}");
+                                Debug.WriteLine($"速度减少成功 | PumpId:{PumpId} | 新速度:{newSpeed}rpm");
                             }
                         }));
                     }
@@ -633,7 +603,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         /// <summary>
         /// 显示加载状态（无动画）
-        /// 通过改变柱塞杆颜色表示加载中
+        /// 通过改变LCD数字颜色表示加载中
         /// </summary>
         public void ShowLoading()
         {
@@ -645,29 +615,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 ClearError();
 
-                // 注释掉所有动画，改为直接设置状态
-                /*
-                // 停止正常动画
-                if (_pistonStoryboard != null && IsRunning)
+                // 改变LCD数字颜色为琥珀黄表示加载中
+                var speedDisplay = this.FindName("SpeedDisplay") as TextBlock;
+                if (speedDisplay != null)
                 {
-                    _pistonStoryboard.Pause(this);
+                    speedDisplay.Foreground = new SolidColorBrush(Color.FromRgb(255, 193, 7));
                 }
-
-                // 启动加载动画
-                if (_loadingAnimation != null)
-                {
-                    _loadingAnimation.Begin(this, true);
-                }
-                */
-
-                // 新代码：直接改变柱塞杆颜色表示加载中（黄色）
-                var piston1 = this.FindName("Piston1Rod") as Rectangle;
-                var piston2 = this.FindName("Piston2Rod") as Rectangle;
-                var piston3 = this.FindName("Piston3Rod") as Rectangle;
-
-                if (piston1 != null) piston1.Fill = new SolidColorBrush(Color.FromRgb(255, 193, 7));
-                if (piston2 != null) piston2.Fill = new SolidColorBrush(Color.FromRgb(255, 193, 7));
-                if (piston3 != null) piston3.Fill = new SolidColorBrush(Color.FromRgb(255, 193, 7));
             }
             catch (Exception ex)
             {
@@ -686,23 +639,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             try
             {
-                // 注释掉所有动画
-                /*
-                // 停止加载动画
-                if (_loadingAnimation != null)
-                {
-                    _loadingAnimation.Stop(this);
-                }
-
-                // 恢复正常动画
-                if (_pistonStoryboard != null && IsRunning)
-                {
-                    _pistonStoryboard.Resume(this);
-                }
-                */
-
-                // 恢复正常柱塞杆颜色
-                ResetPistonColors();
+                // 恢复正常LCD数字颜色
+                ResetDisplayColor();
             }
             catch (Exception ex)
             {
@@ -711,22 +649,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         /// <summary>
-        /// 重置柱塞杆颜色为默认灰色
+        /// 重置LCD数字颜色为默认白色
         /// </summary>
-        private void ResetPistonColors()
+        private void ResetDisplayColor()
         {
-            var piston1 = this.FindName("Piston1Rod") as Rectangle;
-            var piston2 = this.FindName("Piston2Rod") as Rectangle;
-            var piston3 = this.FindName("Piston3Rod") as Rectangle;
-
-            if (piston1 != null) piston1.Fill = new SolidColorBrush(Color.FromRgb(176, 188, 195));
-            if (piston2 != null) piston2.Fill = new SolidColorBrush(Color.FromRgb(176, 188, 195));
-            if (piston3 != null) piston3.Fill = new SolidColorBrush(Color.FromRgb(176, 188, 195));
+            var speedDisplay = this.FindName("SpeedDisplay") as TextBlock;
+            if (speedDisplay != null)
+            {
+                speedDisplay.Foreground = new SolidColorBrush(Color.FromRgb(232, 244, 255)); // #E8F4FF
+            }
         }
 
         /// <summary>
         /// 显示操作失败状态（无动画）
-        /// 通过改变柱塞杆颜色和光效表示错误
+        /// 通过改变LCD颜色和光效表示错误
         /// </summary>
         public void ShowOperationFailure()
         {
@@ -736,36 +672,30 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 HideLoading();
 
-                // 注释掉所有动画，改为直接显示红色状态
-                /*
-                // 停止正常动画
-                if (_pistonStoryboard != null && IsRunning)
+                // 直接显示红色错误状态
+                var speedDisplay = this.FindName("SpeedDisplay") as TextBlock;
+                if (speedDisplay != null)
                 {
-                    _pistonStoryboard.Stop(this);
+                    var originalText = speedDisplay.Text;
+                    speedDisplay.Text = "Err";
+                    speedDisplay.Foreground = new SolidColorBrush(Color.FromRgb(255, 59, 48));
+
+                    // 2秒后自动恢复
+                    var timer = new DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromSeconds(2)
+                    };
+                    timer.Tick += (s, ev) =>
+                    {
+                        speedDisplay.Text = originalText;
+                        ResetDisplayColor();
+                        ResetAllGlowEffects();
+                        timer.Stop();
+                    };
+                    timer.Start();
                 }
 
-                // 停止之前的错误状态保持动画
-                _errorStateHoldAnimation?.Stop(this);
-
-                // 启动错误闪烁动画
-                if (_errorBlinkAnimation != null)
-                {
-                    _errorBlinkAnimation.Completed -= OnErrorBlinkCompleted;
-                    _errorBlinkAnimation.Completed += OnErrorBlinkCompleted;
-                    _errorBlinkAnimation.Begin(this, true);
-                }
-                */
-
-                // 新代码：直接显示红色错误状态
-                var piston1 = this.FindName("Piston1Rod") as Rectangle;
-                var piston2 = this.FindName("Piston2Rod") as Rectangle;
-                var piston3 = this.FindName("Piston3Rod") as Rectangle;
-
-                if (piston1 != null) piston1.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
-                if (piston2 != null) piston2.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
-                if (piston3 != null) piston3.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
-
-                // 直接设置光效（可选）
+                // 设置错误光效
                 SetErrorGlowEffects();
             }
             catch (Exception ex)
@@ -773,15 +703,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Debug.WriteLine($"显示操作失败状态失败 | PumpId:{PumpId} | 错误:{ex.Message}");
             }
         }
-
-        // 注释掉错误闪烁完成事件（已不需要）
-        /*
-        private void OnErrorBlinkCompleted(object sender, EventArgs e)
-        {
-            Debug.WriteLine($"错误闪烁完成，进入持续错误状态 | PumpId:{PumpId}");
-            _errorStateHoldAnimation?.Begin(this, true);
-        }
-        */
 
         /// <summary>
         /// 设置错误光效（直接设置，无动画过渡）
@@ -791,10 +712,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 var shellGlow = this.FindName("ShellGlow") as DropShadowEffect;
-                var baseGlow = this.FindName("BaseGlow") as DropShadowEffect;
-                var cylinder1Glow = this.FindName("Cylinder1Glow") as DropShadowEffect;
-                var cylinder2Glow = this.FindName("Cylinder2Glow") as DropShadowEffect;
-                var cylinder3Glow = this.FindName("Cylinder3Glow") as DropShadowEffect;
 
                 Color errorColor = Color.FromRgb(255, 59, 48);
                 double errorBlur = 15;
@@ -803,26 +720,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 {
                     shellGlow.Color = errorColor;
                     shellGlow.BlurRadius = errorBlur;
-                }
-                if (baseGlow != null)
-                {
-                    baseGlow.Color = errorColor;
-                    baseGlow.BlurRadius = errorBlur;
-                }
-                if (cylinder1Glow != null)
-                {
-                    cylinder1Glow.Color = errorColor;
-                    cylinder1Glow.BlurRadius = errorBlur;
-                }
-                if (cylinder2Glow != null)
-                {
-                    cylinder2Glow.Color = errorColor;
-                    cylinder2Glow.BlurRadius = errorBlur;
-                }
-                if (cylinder3Glow != null)
-                {
-                    cylinder3Glow.Color = errorColor;
-                    cylinder3Glow.BlurRadius = errorBlur;
                 }
             }
             catch (Exception ex)
@@ -840,24 +737,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             try
             {
-                // 注释掉所有动画停止操作
-                /*
-                // 停止错误动画
-                _errorBlinkAnimation?.Stop(this);
-                _errorStateHoldAnimation?.Stop(this);
-
-                // 恢复正常动画
-                if (_pistonStoryboard != null && IsRunning)
-                {
-                    _pistonStoryboard.Begin(this, true);
-                }
-                */
-
                 // 重置所有光效
                 ResetAllGlowEffects();
 
-                // 重置柱塞杆颜色
-                ResetPistonColors();
+                // 重置LCD颜色
+                ResetDisplayColor();
             }
             catch (Exception ex)
             {
@@ -873,35 +757,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             try
             {
                 var shellGlow = this.FindName("ShellGlow") as DropShadowEffect;
-                var baseGlow = this.FindName("BaseGlow") as DropShadowEffect;
-                var cylinder1Glow = this.FindName("Cylinder1Glow") as DropShadowEffect;
-                var cylinder2Glow = this.FindName("Cylinder2Glow") as DropShadowEffect;
-                var cylinder3Glow = this.FindName("Cylinder3Glow") as DropShadowEffect;
 
                 if (shellGlow != null)
                 {
                     shellGlow.Color = Colors.Transparent;
                     shellGlow.BlurRadius = 0;
-                }
-                if (baseGlow != null)
-                {
-                    baseGlow.Color = Colors.Transparent;
-                    baseGlow.BlurRadius = 0;
-                }
-                if (cylinder1Glow != null)
-                {
-                    cylinder1Glow.Color = Colors.Transparent;
-                    cylinder1Glow.BlurRadius = 0;
-                }
-                if (cylinder2Glow != null)
-                {
-                    cylinder2Glow.Color = Colors.Transparent;
-                    cylinder2Glow.BlurRadius = 0;
-                }
-                if (cylinder3Glow != null)
-                {
-                    cylinder3Glow.Color = Colors.Transparent;
-                    cylinder3Glow.BlurRadius = 0;
                 }
             }
             catch (Exception ex)
@@ -910,17 +770,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        // 注释掉重置错误状态方法（已不需要）
-        /*
-        private void ResetErrorState()
-        {
-            Debug.WriteLine($"重置错误状态 | PumpId:{PumpId}");
-        }
-        */
-
         #endregion
 
-        #region 拖拽控制（保留原有代码）
+        #region 拖拽控制
 
         private void OnDraggableAreaMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -956,7 +808,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     });
 
                     e.Handled = true;
-                    Debug.WriteLine($"开始拖拽柱塞泵 | PumpId:{PumpId}");
+                    Debug.WriteLine($"开始拖拽蠕动泵 | PumpId:{PumpId}");
                 }
             }
             catch (Exception ex)
@@ -1065,7 +917,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     EnableClearType = false
                 };
 
-                Debug.WriteLine($"柱塞泵拖拽完成 | PumpId:{PumpId} | 位置:({finalPosition.X:F0}, {finalPosition.Y:F0})");
+                Debug.WriteLine($"蠕动泵拖拽完成 | PumpId:{PumpId} | 位置:({finalPosition.X:F0}, {finalPosition.Y:F0})");
             }
             catch (Exception ex)
             {
@@ -1077,13 +929,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             try
             {
+                var selectionBorder = this.FindName("SelectionBorder") as Rectangle;
+                if (selectionBorder != null)
+                {
+                    selectionBorder.Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed;
+                }
+
                 if (isSelected)
                 {
-                    Debug.WriteLine($"柱塞泵已选中 | PumpId:{PumpId}");
+                    Debug.WriteLine($"蠕动泵已选中 | PumpId:{PumpId}");
                 }
                 else
                 {
-                    Debug.WriteLine($"柱塞泵取消选中 | PumpId:{PumpId}");
+                    Debug.WriteLine($"蠕动泵取消选中 | PumpId:{PumpId}");
                 }
             }
             catch (Exception ex)
@@ -1094,7 +952,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region IPipeSnapPoints实现（保留原有代码）
+        #region IPipeSnapPoints实现
 
         public List<PipeSnapPoint> GetSnapPoints()
         {
@@ -1105,7 +963,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 var parent = this.Parent as Canvas;
                 if (parent == null)
                 {
-                    Debug.WriteLine("柱塞泵未添加到Canvas，无法获取吸附点");
+                    Debug.WriteLine("蠕动泵未添加到Canvas，无法获取吸附点");
                     return snapPoints;
                 }
 
@@ -1114,35 +972,39 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (double.IsNaN(pumpLeft)) pumpLeft = 0;
                 if (double.IsNaN(pumpTop)) pumpTop = 0;
 
+                // 入口 — 泵头左侧IN管口
                 snapPoints.Add(new PipeSnapPoint
                 {
-                    WorldPosition = new Point(pumpLeft + 14, pumpTop + 100),
+                    WorldPosition = new Point(pumpLeft + 2, pumpTop + 374),
                     Direction = SnapDirection.Left,
-                    Description = $"柱塞泵入口（左上）"
+                    Description = $"蠕动泵入口(IN)"
                 });
 
+                // 出口 — 泵头左侧OUT管口
                 snapPoints.Add(new PipeSnapPoint
                 {
-                    WorldPosition = new Point(pumpLeft + 868, pumpTop + 300),
-                    Direction = SnapDirection.Right,
-                    Description = $"柱塞泵出口（右下）"
+                    WorldPosition = new Point(pumpLeft + 2, pumpTop + 426),
+                    Direction = SnapDirection.Left,
+                    Description = $"蠕动泵出口(OUT)"
                 });
 
+                // 顶部
                 snapPoints.Add(new PipeSnapPoint
                 {
-                    WorldPosition = new Point(pumpLeft + 440, pumpTop + 0),
+                    WorldPosition = new Point(pumpLeft + 235, pumpTop + 0),
                     Direction = SnapDirection.Up,
-                    Description = $"柱塞泵顶部"
+                    Description = $"蠕动泵顶部"
                 });
 
+                // 底部
                 snapPoints.Add(new PipeSnapPoint
                 {
-                    WorldPosition = new Point(pumpLeft + 440, pumpTop + 600),
+                    WorldPosition = new Point(pumpLeft + 235, pumpTop + 500),
                     Direction = SnapDirection.Down,
-                    Description = $"柱塞泵底部"
+                    Description = $"蠕动泵底部"
                 });
 
-                Debug.WriteLine($"柱塞泵提供吸附点 | PumpId:{PumpId} | 数量:{snapPoints.Count}");
+                Debug.WriteLine($"蠕动泵提供吸附点 | PumpId:{PumpId} | 数量:{snapPoints.Count}");
             }
             catch (Exception ex)
             {
@@ -1163,63 +1025,62 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
     }
-
-    #region 事件参数类（保留不变）
-
-    /// <summary>
-    /// 泵状态切换请求事件参数
-    /// 从UI到设备驱动的请求
-    /// </summary>
-    public class PumpStateChangeRequestEventArgs : EventArgs
-    {
-        public string PumpId { get; set; }
-        public bool CurrentState { get; set; }
-        public bool RequestedState { get; set; }
-        public Action<bool> OnCompleted { get; set; }
-    }
-
-    /// <summary>
-    /// 泵速度变化请求事件参数
-    /// 从UI到设备驱动的请求
-    /// </summary>
-    public class PumpSpeedChangeRequestEventArgs : EventArgs
-    {
-        public string PumpId { get; set; }
-        public int CurrentSpeed { get; set; }
-        public int RequestedSpeed { get; set; }
-        public SpeedChangeType ChangeType { get; set; }
-        public Action<bool> OnCompleted { get; set; }
-    }
-
-    /// <summary>
-    /// 速度变化类型枚举
-    /// </summary>
-    public enum SpeedChangeType
-    {
-        Increase,
-        Decrease,
-        Set
-    }
-
-    /// <summary>
-    /// 泵拖拽事件参数
-    /// </summary>
-    public class PumpDragEventArgs : EventArgs
-    {
-        public string PumpId { get; set; }
-        public Point StartPosition { get; set; }
-        public Point CurrentPosition { get; set; }
-    }
-
-    /// <summary>
-    /// 泵状态变化事件参数
-    /// </summary>
-    public class PumpStateChangedEventArgs : EventArgs
-    {
-        public string PumpId { get; set; }
-        public bool IsRunning { get; set; }
-        public int Speed { get; set; }
-    }
-
-    #endregion
 }
+#region 事件参数类（保留不变）
+
+/// <summary>
+/// 泵状态切换请求事件参数
+/// 从UI到设备驱动的请求
+/// </summary>
+public class PumpStateChangeRequestEventArgs : EventArgs
+{
+    public string PumpId { get; set; }
+    public bool CurrentState { get; set; }
+    public bool RequestedState { get; set; }
+    public Action<bool> OnCompleted { get; set; }
+}
+
+/// <summary>
+/// 泵速度变化请求事件参数
+/// 从UI到设备驱动的请求
+/// </summary>
+public class PumpSpeedChangeRequestEventArgs : EventArgs
+{
+    public string PumpId { get; set; }
+    public int CurrentSpeed { get; set; }
+    public int RequestedSpeed { get; set; }
+    public SpeedChangeType ChangeType { get; set; }
+    public Action<bool> OnCompleted { get; set; }
+}
+
+/// <summary>
+/// 速度变化类型枚举
+/// </summary>
+public enum SpeedChangeType
+{
+    Increase,
+    Decrease,
+    Set
+}
+
+/// <summary>
+/// 泵拖拽事件参数
+/// </summary>
+public class PumpDragEventArgs : EventArgs
+{
+    public string PumpId { get; set; }
+    public Point StartPosition { get; set; }
+    public Point CurrentPosition { get; set; }
+}
+
+/// <summary>
+/// 泵状态变化事件参数
+/// </summary>
+public class PumpStateChangedEventArgs : EventArgs
+{
+    public string PumpId { get; set; }
+    public bool IsRunning { get; set; }
+    public int Speed { get; set; }
+}
+
+#endregion
