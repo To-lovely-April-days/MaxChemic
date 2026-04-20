@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using MaxChemical.Logging;
 
@@ -14,6 +15,35 @@ public interface ILocalizationService
     event EventHandler<CultureInfo>? CultureChanged;
 }
 
+/// <summary>
+/// 新增
+/// </summary>
+public static class LocalizationExtensions
+{
+    /// <summary>
+    /// 若本地化文本获取失败，则返回默认文本
+    /// </summary>
+    /// <param name="service"></param>
+    /// <param name="key"></param>
+    /// <param name="defaultTxt"></param>
+    /// <returns></returns>
+    public static string GetString(this ILocalizationService service, string key, string defaultTxt)
+    {
+        ArgumentNullException.ThrowIfNull(service);
+
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
+
+        string txt = service.GetString(key);
+        if (string.IsNullOrWhiteSpace(txt) || txt == key)
+        {
+            return defaultTxt;
+        }
+        return txt;
+    }
+}
 
 
 public class LocalizationService : ILocalizationService
