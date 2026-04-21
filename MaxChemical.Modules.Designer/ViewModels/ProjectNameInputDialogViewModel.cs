@@ -73,14 +73,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             if (string.IsNullOrWhiteSpace(ProjectName))
             {
-                ErrorMessage = _localizationService.GetString("NewProj_NotNull");
+                ErrorMessage = _localizationService.GetString("NewProj_NotNull", "项目名称不能空");
                 HasError = true;
                 return;
             }
 
             if (ProjectName.Length > 100)
             {
-                ErrorMessage = _localizationService.GetString("NewProj_NotThan100");
+                ErrorMessage = _localizationService.GetString("NewProj_NotThan100", "项目名称长度不能超过100个字符");
                 HasError = true;
                 return;
             }
@@ -89,7 +89,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             var invalidChars = Path.GetInvalidFileNameChars();
             if (ProjectName.Any(c => invalidChars.Contains(c)))
             {
-                ErrorMessage = _localizationService.GetString("NewProj_NameInvalid");
+                ErrorMessage = _localizationService.GetString("NewProj_NameInvalid", "项目名称包含无效字符，请使用有效的文件名字符");
                 HasError = true;
                 return;
             }
@@ -98,7 +98,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             var reservedNames = new[] { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
             if (reservedNames.Contains(ProjectName.ToUpper()))
             {
-                ErrorMessage = _localizationService.GetString("NewProj_NotReserve");
+                ErrorMessage = _localizationService.GetString("NewProj_NotReserve", "项目名称不能使用系统保留名称");
                 HasError = true;
                 return;
             }
@@ -133,12 +133,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void LacalizationLabel()
         {
-            NewProjTitle = _localizationService.GetString("NewProj_Title");
-            PleaseTipText = _localizationService.GetString("NewProj_Please");
-            ProjNameLabel = _localizationService.GetString("NewProj_NameLabel");
-            ProjNameDesc = _localizationService.GetString("NewProj_Desc");
-            OkText = _localizationService.GetString("NewProj_OK");
-            CancelText = _localizationService.GetString("NewProj_Cancel");
+            NewProjTitle = _localizationService.GetString("NewProj_Title", "新建项目");
+            PleaseTipText = _localizationService.GetString("NewProj_Please", "请输入新项目名称。");
+            ProjNameLabel = _localizationService.GetString("NewProj_NameLabel", "项目名称：");
+            ProjNameDesc = _localizationService.GetString("NewProj_Desc", "项目名称将用作文件名和实验记录的标识。");
+            OkText = _localizationService.GetString("NewProj_OK", "确定");
+            CancelText = _localizationService.GetString("NewProj_Cancel", "取消");
         }
 
         #endregion
