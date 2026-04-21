@@ -415,6 +415,12 @@
   "Statistic_Header_Name":"设备名称",
   "Statistic_Header_UseNumber":"使用次数",
   "Statistic_Header_AvgExecTime":"平均执行时间",
+  "Statistic_StatusMsg_Loading":"正在加载统计数据...",
+  "Statistic_StatusMsg_Completenumber":"统计完成-总实验数：",
+  "Statistic_StatusMsg_LoadFail":"加载统计数据失败",
+  "Statistic_StatusMsg_Exprot":"正在导出统计数据",
+  "Statistic_StatusMsg_ExpComplete":"导出完成",
+  "Statistic_StatusMsg_ExportFail":"导出失败",
 
   "Analysis_Title":"工艺条件",
   "Analysis_ParamLabel":"反应参数",

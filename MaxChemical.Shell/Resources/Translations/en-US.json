@@ -416,6 +416,12 @@
   "Statistic_Header_Name":"Device name",
   "Statistic_Header_UseNumber":"Number of uses",
   "Statistic_Header_AvgExecTime":"Average execution time",
+  "Statistic_StatusMsg_Loading":"Loading statistical data...",
+  "Statistic_StatusMsg_Completenumber":"Statistics completed - Total number of experiments：",
+  "Statistic_StatusMsg_LoadFail":"Failed to load statistical data",
+  "Statistic_StatusMsg_Exprot":"Data export is in progress",
+  "Statistic_StatusMsg_ExpComplete":"Export completed",
+  "Statistic_StatusMsg_ExportFail":"Export failed",
 
   "Analysis_Title":"Process conditions",
   "Analysis_ParamLabel":"Reaction parameters",

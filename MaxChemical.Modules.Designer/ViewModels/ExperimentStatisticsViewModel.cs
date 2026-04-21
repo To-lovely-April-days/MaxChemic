@@ -20,6 +20,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private readonly IExperimentDataRepository _repository;
         private readonly IExcelExportService _excelExportService;
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localizationService;
 
         private DateTime _startDate;
         private DateTime _endDate;
@@ -37,6 +38,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _excelExportService = excelExportService ?? throw new ArgumentNullException(nameof(excelExportService));
             _logger = logger?.ForContext<ExperimentStatisticsViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>() ?? throw new ArgumentNullException("localizationService");
 
             InitializeCommands();
             InitializeData();
@@ -136,7 +138,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在加载统计数据...";
+                StatusMessage = _localizationService.GetString("Statistic_StatusMsg_Loading", "正在加载统计数据...");
 
                 // 加载基础统计
                 var statistics = await _repository.GetStatisticsAsync(StartDate, EndDate);
@@ -158,14 +160,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     DeviceStats.Add(stats);
                 }
 
-                StatusMessage = $"统计完成 - 总实验数: {Statistics.TotalExperiments}";
+                StatusMessage = $"{_localizationService.GetString("Statistic_StatusMsg_Completenumber", "统计完成 - 总实验数: ")}{Statistics.TotalExperiments}";
 
                 _logger.LogInformation("加载统计数据成功");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "加载统计数据失败");
-                StatusMessage = "加载统计数据失败";
+                StatusMessage = _localizationService.GetString("Statistic_StatusMsg_LoadFail", "加载统计数据失败");
                 MessageBox.Show($"加载统计数据失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -179,14 +181,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在导出统计数据...";
+                StatusMessage = _localizationService.GetString("Statistic_StatusMsg_Exprot", "正在导出统计数据...");
 
                 var fileName = $"实验统计分析_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
                 var filePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
 
                 await _excelExportService.ExportStatisticsAsync(Statistics, TrendData.ToList(), DeviceStats.ToList(), filePath);
 
-                StatusMessage = $"导出完成: {filePath}";
+                StatusMessage = $"{_localizationService.GetString("Statistic_StatusMsg_ExpComplete", "导出完成: ")}{filePath}";
                 MessageBox.Show($"导出完成！\n文件位置: {filePath}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
@@ -194,7 +196,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "导出统计数据失败");
-                StatusMessage = "导出失败";
+                StatusMessage = _localizationService.GetString("Statistic_StatusMsg_ExportFail", "导出失败");
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -248,50 +250,45 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void UpdateLacalizationText()
         {
-            ILocalizationService service=ContainerLocator.Container.Resolve<ILocalizationService>();
-            if (service == null)
-            {
-                return;
-            }
-            ViewTitle = service.GetString("Statistic_Title");
-            RangeLabel = service.GetString("Statistic_TimeRange");
-            ToLabel = service.GetString("Statistic_To");
-            DurationLabel = service.GetString("Statistic_Interval");
-            RefreshLabel = service.GetString("Statistic_Refresh");
-            LastSevenLabel = service.GetString("Statistic_Last7Day");
-            LastThirtyLabel = service.GetString("Statistic_Last30Day");
-            LastNinetyLabel = service.GetString("Statistic_Last90Day");
-            ExportReportLabel = service.GetString("Statistic_ExportReport");
-            OverviewLabel = service.GetString("Statistic_Overview");
-            AnalysisLabel = service.GetString("Statistic_Analysis");
-            StatisticalLabel = service.GetString("Statistic_UseStatistic");
-            TotalLabel = service.GetString("Statistic_Total");
-            SuccessRateLabel = service.GetString("Statistic_SuccessRate");
-            AvgDurationLabel = service.GetString("Statistic_AvgDuration");
-            SimulationTotalLabel = service.GetString("Statistic_SimulationTotal");
-            DetailsGroupLabel = service.GetString("Statistic_DetailsLabel");
-            ExecStatistic = service.GetString("Statistic_Detail_Execute");
-            SuccessTotal = service.GetString("Statistic_Detail_Success");
-            FailTotal = service.GetString("Statistic_Detail_Failure");
-            ActualTotal = service.GetString("Statistic_Detail_Actual");
-            TimeStatistic = service.GetString("Statistic_Detail_Time");
-            LongDuration = service.GetString("Statistic_Detail_Long");
-            SortDuration = service.GetString("Statistic_Detail_Sort");
-            TimeRange = service.GetString("Statistic_Detail_Range");
-            TimeHeader = service.GetString("Statistic_Header_Time");
-            ExprimentTotalHeader = service.GetString("Statistic_Header_Total");
-            SuccessTotalHeader = service.GetString("Statistic_Header_Success");
-            FailureTotalHeader = service.GetString("Statistic_Header_Failure");
-            RateHeader = service.GetString("Statistic_Header_SuccessRate");
-            SimulationTotalHeader = service.GetString("Statistic_Header_SimulationNumber");
-            ActaulTotalHeader = service.GetString("Statistic_Header_ActualNumber");
-            AvgDurationHeader = service.GetString("Statistic_Header_AvgDuration");
-            IdentityHeader = service.GetString("Statistic_Header_Identity");
-            Nameheader = service.GetString("Statistic_Header_Name");
-            UseTotalHeader = service.GetString("Statistic_Header_UseNumber");
-            SuccessNumberHeader = service.GetString("Statistic_Header_Success");
-            FailureNumberHeader = service.GetString("Statistic_Header_Failure");
-            AvgExecTimeHeader = service.GetString("Statistic_Header_AvgExecTime");
+            ViewTitle = _localizationService.GetString("Statistic_Title", "实验统计分析");
+            RangeLabel = _localizationService.GetString("Statistic_TimeRange", "时间范围");
+            ToLabel = _localizationService.GetString("Statistic_To", "至");
+            DurationLabel = _localizationService.GetString("Statistic_Interval", "时间间隔");
+            RefreshLabel = _localizationService.GetString("Statistic_Refresh", "刷新");
+            LastSevenLabel = _localizationService.GetString("Statistic_Last7Day", "最近7天");
+            LastThirtyLabel = _localizationService.GetString("Statistic_Last30Day", "最近30天");
+            LastNinetyLabel = _localizationService.GetString("Statistic_Last90Day", "最近90天");
+            ExportReportLabel = _localizationService.GetString("Statistic_ExportReport", "导出统计报告");
+            OverviewLabel = _localizationService.GetString("Statistic_Overview", "统计概览");
+            AnalysisLabel = _localizationService.GetString("Statistic_Analysis", "趋势分析");
+            StatisticalLabel = _localizationService.GetString("Statistic_UseStatistic", "设备使用统计");
+            TotalLabel = _localizationService.GetString("Statistic_Total", "总实验数");
+            SuccessRateLabel = _localizationService.GetString("Statistic_SuccessRate", "成功率");
+            AvgDurationLabel = _localizationService.GetString("Statistic_AvgDuration", "平均持续时间");
+            SimulationTotalLabel = _localizationService.GetString("Statistic_SimulationTotal", "仿真实验数");
+            DetailsGroupLabel = _localizationService.GetString("Statistic_DetailsLabel", "详细统计");
+            ExecStatistic = _localizationService.GetString("Statistic_Detail_Execute", "执行统计");
+            SuccessTotal = _localizationService.GetString("Statistic_Detail_Success", "成功实验数：");
+            FailTotal = _localizationService.GetString("Statistic_Detail_Failure", "失败实验数：");
+            ActualTotal = _localizationService.GetString("Statistic_Detail_Actual", "实际实验数：");
+            TimeStatistic = _localizationService.GetString("Statistic_Detail_Time", "时间统计：");
+            LongDuration = _localizationService.GetString("Statistic_Detail_Long", "最长持续时间：");
+            SortDuration = _localizationService.GetString("Statistic_Detail_Sort", "最短持续时间：");
+            TimeRange = _localizationService.GetString("Statistic_Detail_Range", "统计时间范围：");
+            TimeHeader = _localizationService.GetString("Statistic_Header_Time", "时间");
+            ExprimentTotalHeader = _localizationService.GetString("Statistic_Header_Total", "总实验数");
+            SuccessTotalHeader = _localizationService.GetString("Statistic_Header_Success", "成功数");
+            FailureTotalHeader = _localizationService.GetString("Statistic_Header_Failure", "失败数");
+            RateHeader = _localizationService.GetString("Statistic_Header_SuccessRate", "成功率(%)");
+            SimulationTotalHeader = _localizationService.GetString("Statistic_Header_SimulationNumber", "仿真数");
+            ActaulTotalHeader = _localizationService.GetString("Statistic_Header_ActualNumber", "实际数");
+            AvgDurationHeader = _localizationService.GetString("Statistic_Header_AvgDuration", "平均持续时间");
+            IdentityHeader = _localizationService.GetString("Statistic_Header_Identity", "设备ID");
+            Nameheader = _localizationService.GetString("Statistic_Header_Name", "设备名称");
+            UseTotalHeader = _localizationService.GetString("Statistic_Header_UseNumber", "使用次数");
+            SuccessNumberHeader = _localizationService.GetString("Statistic_Header_Success", "成功数");
+            FailureNumberHeader = _localizationService.GetString("Statistic_Header_Failure", "失败数");
+            AvgExecTimeHeader = _localizationService.GetString("Statistic_Header_AvgExecTime", "平均执行时间");
         }
 
         #endregion
