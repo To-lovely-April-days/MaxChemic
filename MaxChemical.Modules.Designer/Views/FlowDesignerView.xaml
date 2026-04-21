@@ -395,11 +395,11 @@
       Data="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
                     </Border>
 
-                    <TextBlock Text="未选择节点"
+                    <TextBlock Text="{Binding DataContext.NodeLabel,RelativeSource={RelativeSource AncestorType=views:FlowDesignerView}}"
                                FontSize="14" FontWeight="Medium"
                                Foreground="#757575"
                                HorizontalAlignment="Center"/>
-                    <TextBlock Text="点击画布中的节点以编辑属性"
+                    <TextBlock Text="{Binding DataContext.NodeTip,RelativeSource={RelativeSource AncestorType=views:FlowDesignerView}}"
                                FontSize="12"
                                Foreground="#BDBDBD"
                                HorizontalAlignment="Center"
@@ -456,7 +456,7 @@
 
                     <!-- 左侧：标题 + 节点统计 -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="步骤流程编辑"
+                        <TextBlock Text="{Binding Title}"
                        FontSize="14" FontWeight="Medium"
                        Foreground="#374151" VerticalAlignment="Center"/>
                         <Border Background="#F3F4F6" CornerRadius="4"
@@ -479,7 +479,7 @@
                 Margin="0,0,12,0">
                         <StackPanel Orientation="Horizontal">
                             <!-- 标签 -->
-                            <TextBlock Text="流程控制"
+                            <TextBlock Text="{Binding FlowCtrlLabel}"
                            FontSize="11" Foreground="#9CA3AF"
                            VerticalAlignment="Center"
                            Margin="6,0,8,0"/>
@@ -508,7 +508,7 @@
                         <!-- 验证按钮 -->
                         <Border Width="32" Height="32" CornerRadius="6"
                     Cursor="Hand" Margin="0,0,4,0"
-                    ToolTip="验证所有节点配置">
+                    ToolTip="{Binding VerifyTip}">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -530,7 +530,7 @@
 
                         <!-- 刷新按钮 -->
                         <Border Width="32" Height="32" CornerRadius="6"
-                    Cursor="Hand" ToolTip="刷新插件">
+                    Cursor="Hand" ToolTip="{Binding RefreshTip}">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -624,12 +624,12 @@
                                     </Grid>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="流程启动"
+                                        <TextBlock Text="{Binding StartNodeTitle}"
                                                    FontSize="14"
                                                    FontWeight="Medium"
                                                    Foreground="#333"
                                                    Margin="0,0,0,2"/>
-                                        <TextBlock Text="初始化执行环境"
+                                        <TextBlock Text="{Binding StartNodeLabel}"
                                                    FontSize="11"
                                                    Foreground="#999"/>
                                     </StackPanel>
@@ -934,13 +934,13 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="执行记录" FontSize="13" FontWeight="Medium" 
+                                    <TextBlock Text="{Binding ExecuteTitle}" FontSize="13" FontWeight="Medium" 
                                    Foreground="#1a1a2e" VerticalAlignment="Center"/>
                                     <Border Background="#F3F4F6" CornerRadius="4" Padding="6,2" 
                                 Margin="8,0,0,0" VerticalAlignment="Center">
                                         <TextBlock FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center">
                                 <Run Text="{Binding SwimlaneRows.Count, Mode=OneWay}"/>
-                                <Run Text=" 步"/>
+                                <Run Text="{Binding ExecuteStep}"/>
                                         </TextBlock>
                                     </Border>
                                 </StackPanel>
@@ -1003,7 +1003,7 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- 左侧"步骤"标签 -->
-                            <TextBlock Grid.Column="0" Text="步骤" FontSize="11" Foreground="#a1a1aa" 
+                            <TextBlock Grid.Column="0" Text="{Binding ExecuteLabel}" FontSize="11" Foreground="#a1a1aa" 
                            Padding="14,0" VerticalAlignment="Center"/>
 
                             <!-- 分隔线 -->
@@ -1294,15 +1294,15 @@
                     <Border Grid.Row="3" Padding="14,6" BorderBrush="#EBEBEB" BorderThickness="0,1,0,0"
                 Background="#F8F9FB">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="开始" Margin="0,0,4,0"/>
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="{Binding ExecuteStart}" Margin="0,0,4,0"/>
                             <TextBlock FontSize="11" Foreground="#1a1a2e" FontFamily="Consolas" FontWeight="Medium"
                            VerticalAlignment="Center" Text="{Binding FlowStartTimeText}" Margin="0,0,16,0"/>
 
-                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="结束" Margin="0,0,4,0"/>
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="{Binding ExecuteEnd}" Margin="0,0,4,0"/>
                             <TextBlock FontSize="11" Foreground="#1a1a2e" FontFamily="Consolas" FontWeight="Medium"
                            VerticalAlignment="Center" Text="{Binding FlowEndTimeText}" Margin="0,0,16,0"/>
 
-                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="耗时" Margin="0,0,4,0"/>
+                            <TextBlock FontSize="11" Foreground="#a1a1aa" VerticalAlignment="Center" Text="{Binding ExecuteTotal}" Margin="0,0,4,0"/>
                             <TextBlock FontSize="11" Foreground="#1a1a2e" FontWeight="Medium" VerticalAlignment="Center"
                            Text="{Binding FlowElapsedText}" Margin="0,0,20,0"/>
 

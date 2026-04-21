@@ -33,6 +33,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private readonly DesignerDragDropService _dragDropService;
         private readonly NodeControlFactory _nodeControlFactory;
         private readonly INodeExecutionStatusService _statusService;
+
+        private readonly ILocalizationService _localizationService;
         // 画布属性
         private double _canvasWidth = 1200;
         private double _canvasHeight = 800;
@@ -171,9 +173,122 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private DispatcherTimer _timelineRefreshTimer;
 
         #endregion
+
+
+
+        #region 新增：本地化
+
+        private string _title = "流程编辑";
+        private string _flowCtrlLabel = "流程控制";
+        private string _verifyTip = "验证所有节点配置";
+        private string _refreshTip = "刷新插件";
+        private string _startNodeTitle = "流程启动";
+        private string _startNodeLabel = "初始化执行环境";
+        private string _executeTitle = "执行记录";
+        private string _executeLabel = "步";
+        private string _executeStep = "步骤";
+        private string _executeStart = "开始";
+        private string _executeEnd = "结束";
+        private string _executeTotal = "耗时";
+        private string _nodeLabel = "未选择节点";
+        private string _nodeTip = "点击画布中的节点以编辑属性";
+
+        public string Title
+        {
+            get => _title;
+            set => SetProperty(ref _title, value);
+        }
+        public string FlowCtrlLabel
+        {
+            get => _flowCtrlLabel;
+            set => SetProperty(ref _flowCtrlLabel, value);
+        }
+        public string VerifyTip
+        {
+            get => _verifyTip;
+            set => SetProperty(ref _verifyTip, value);
+        }
+        public string RefreshTip
+        {
+            get => _refreshTip;
+            set => SetProperty(ref _refreshTip, value);
+        }
+        public string StartNodeTitle
+        {
+            get => _startNodeTitle;
+            set => SetProperty(ref _startNodeTitle, value);
+        }
+        public string StartNodeLabel
+        {
+            get => _startNodeLabel;
+            set => SetProperty(ref _startNodeLabel, value);
+        }
+        public string ExecuteTitle
+        {
+            get => _executeTitle;
+            set => SetProperty(ref _executeTitle, value);
+        }
+        public string ExecuteStep
+        {
+            get => _executeStep;
+            set => SetProperty(ref _executeStep, value);
+        }
+        public string ExecuteLabel
+        {
+            get => _executeLabel;
+            set => SetProperty(ref _executeLabel, value);
+        }
+        public string ExecuteStart
+        {
+            get => _executeStart;
+            set => SetProperty(ref _executeStart, value);
+        }
+        public string ExecuteEnd
+        {
+            get => _executeEnd;
+            set => SetProperty(ref _executeEnd, value);
+        }
+        public string ExecuteTotal
+        {
+            get => _executeTotal;
+            set => SetProperty(ref _executeTotal, value);
+        }
+        public string NodeLabel
+        {
+            get => _nodeLabel;
+            set => SetProperty(ref _nodeLabel, value);
+        }
+        public string NodeTip
+        {
+            get => _nodeTip;
+            set => SetProperty(ref _nodeTip, value);
+        }
+
+        private void LanguageChangedHandler(string s)
+        {
+            Title = _localizationService.GetString("FlowDesignView_Title");
+            FlowCtrlLabel = _localizationService.GetString("FlowDesignView_FlowControl");
+            VerifyTip = _localizationService.GetString("FlowDesignView_Verify_Tip");
+            RefreshTip = _localizationService.GetString("FlowDesignView_Refresh_Tip");
+            StartNodeTitle = _localizationService.GetString("FlowDesignView_Start_Title");
+            StartNodeLabel = _localizationService.GetString("FlowDesignView_Start_Label");
+            ExecuteTitle = _localizationService.GetString("FlowDesignView_Execute_Title");
+            ExecuteStep = _localizationService.GetString("FlowDesignView_Execute_Step");
+            ExecuteLabel = _localizationService.GetString("FlowDesignView_Execute_Label");
+            ExecuteStart = _localizationService.GetString("FlowDesignView_Execute_Start");
+            ExecuteEnd = _localizationService.GetString("FlowDesignView_Execute_End");
+            ExecuteTotal = _localizationService.GetString("FlowDesignView_Execute_Total");
+            NodeLabel = _localizationService.GetString("FlowDesignView_Node_Label");
+            NodeTip = _localizationService.GetString("FlowDesignView_Node_Tip");
+        }
+
+        #endregion
+
+
         public FlowDesignerViewModel(
        IDeviceManager deviceManager,
        IEventAggregator eventAggregator,
+       ILocalizationService localizationService,
        ILogicCommandPluginManager pluginManager,
        INodeExecutionStatusService executionStatusService = null, // 添加这个参数
        ILogService logService = null)
@@ -182,6 +297,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _eventAggregator = eventAggregator;
             _pluginManager = pluginManager;
             _logger = logService?.ForContext<FlowDesignerViewModel>() ?? new LogService().ForContext<FlowDesignerViewModel>();
+            _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
 
             // 初始化服务
             _nodeManagementService = new NodeManagementService(_logger);
@@ -202,6 +318,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             if (_statusService != null)               // ← 加 null 检查
                 _statusService.NodeExecutionStatusChanged += OnNodeExecutionStatusChanged;
             InitializeTimelineTimer();
+
+            LanguageChangedHandler("");
             _logger.LogInformation("FlowDesignerViewModel 初始化完成");
         }
         private void InitializeTimelineTimer()
@@ -576,6 +694,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             if (_eventAggregator != null)
             {
+                _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(LanguageChangedHandler);
+
                 _eventAggregator.GetEvent<CommandDragFCompleteEvent>().Subscribe(OnCommandDragComplete);
                 _eventAggregator?.GetEvent<GetCurrentFlowDesignerRequestEvent>()?.Subscribe(OnGetCurrentFlowDesignerRequest);
                 // 订阅UI刷新事件

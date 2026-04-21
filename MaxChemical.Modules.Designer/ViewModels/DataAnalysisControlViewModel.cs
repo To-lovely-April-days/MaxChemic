@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+//using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -264,7 +265,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
             _logger = new LogService().ForContext<DataAnalysisControlViewModel>();
 
+            _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(LanguageChangedHandler);
+
+            _modelStatusCurrentKey = "Analysis_StatusMsg_Initial";
             _recommendations = new ObservableCollection<RecommendationItem>();
+
+            LanguageChangedHandler(""); //
             InitializeReactionScenarios();
             InitializeCommands();
             //InitializePython(); 暂时不用
@@ -277,9 +283,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "hydrogenation",
-                    Name = "硝化还原反应",
-                    Description = "芳香硝基化合物的催化加氢还原",
-                    Title = "硝化还原反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Hydrogenation_Name","硝化还原反应"),
+                    Description = _localizationService.GetString("Analysis_Hydrogenation_Desc","芳香硝基化合物的催化加氢还原"),
+                    Title = _localizationService.GetString("Analysis_Hydrogenation_Title","硝化还原反应工艺分析"),
                     Subtitle = "Hydrogenation Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -295,9 +301,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "oxidation",
-                    Name = "氧化反应",
-                    Description = "有机物选择性氧化过程",
-                    Title = "氧化反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Oxidation_Name","氧化反应"),
+                    Description = _localizationService.GetString("Analysis_Oxidation_Desc","有机物选择性氧化过程"),
+                    Title = _localizationService.GetString("Analysis_Oxidation_Title","氧化反应工艺分析"),
                     Subtitle = "Oxidation Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -313,9 +319,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "esterification",
-                    Name = "酯化反应",
-                    Description = "羧酸与醇的酯化缩合",
-                    Title = "酯化反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Esterification_Name","酯化反应"),
+                    Description = _localizationService.GetString("Analysis_Esterification_Desc","羧酸与醇的酯化缩合"),
+                    Title = _localizationService.GetString("Analysis_Esterification_Title","酯化反应工艺分析"),
                     Subtitle = "Esterification Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -331,9 +337,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "alkylation",
-                    Name = "烷基化反应",
-                    Description = "芳烃或烯烃的烷基化",
-                    Title = "烷基化反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Alkylation_Name","烷基化反应"),
+                    Description = _localizationService.GetString("Analysis_Alkylation_Desc","芳烃或烯烃的烷基化"),
+                    Title = _localizationService.GetString("Analysis_Alkylation_Title","烷基化反应工艺分析"),
                     Subtitle = "Alkylation Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -349,9 +355,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "hydroformylation",
-                    Name = "羰基化反应",
-                    Description = "烯烃与一氧化碳和氢气的反应",
-                    Title = "羰基化反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Hydroformylation_Name","羰基化反应"),
+                    Description = _localizationService.GetString("Analysis_Hydroformylation_Desc","烯烃与一氧化碳和氢气的反应"),
+                    Title = _localizationService.GetString("Analysis_Hydroformylation_Title","羰基化反应工艺分析"),
                     Subtitle = "Hydroformylation Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -367,9 +373,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "polymerization",
-                    Name = "聚合反应",
-                    Description = "单体的催化聚合过程",
-                    Title = "聚合反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Polymerization_Name","聚合反应"),
+                    Description = _localizationService.GetString("Analysis_Polymerization_Desc","单体的催化聚合过程"),
+                    Title = _localizationService.GetString("Analysis_Polymerization_Title","聚合反应工艺分析"),
                     Subtitle = "Polymerization Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -385,9 +391,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "dehydrogenation",
-                    Name = "脱氢反应",
-                    Description = "饱和烃的催化脱氢",
-                    Title = "脱氢反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Dehydrogenation_Name","脱氢反应"),
+                    Description = _localizationService.GetString("Analysis_Dehydrogenation_Desc","饱和烃的催化脱氢"),
+                    Title = _localizationService.GetString("Analysis_Dehydrogenation_Title","脱氢反应工艺分析"),
                     Subtitle = "Dehydrogenation Process Analysis",
                     DefaultParameters = new Dictionary<string, string>
                     {
@@ -403,9 +409,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 new ReactionScenario
                 {
                     Id = "custom",
-                    Name = "自定义场景",
-                    Description = "根据实际需求自定义参数",
-                    Title = "自定义反应工艺分析",
+                    Name = _localizationService.GetString("Analysis_Custom_Name","自定义场景"),
+                    Description = _localizationService.GetString("Analysis_Custom_Desc","根据实际需求自定义参数"),
+                    Title = _localizationService.GetString("Analysis_Custom_Title","自定义反应工艺分析"),
                     Subtitle = "Custom Process Analysis",
                     DefaultParameters = null
                 }
@@ -1730,12 +1736,106 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 _logger.LogInformation("释放DataAnalysisControlViewModel资源");
                 _pythonModel = null;
                 _isPythonInitialized = false;
+                _eventAggregator.GetEvent<LanguageChangedEvent>()?.Unsubscribe(LanguageChangedHandler);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "释放资源失败");
             }
         }
+
+        #region 本地化
+
+        private string _modelStatusCurrentKey;
+        private string _conditionTitle;
+        private string _paramTitle;
+        private string _pressureLabel;
+        private string _tempratureLabel;
+        private string _flowLabel;
+        private string _ingredientsLabel;
+        private string _catalystLabel;
+        private string _stayLabel;
+        private string _equivalentLabel;
+        private string _predictiveAnalysisLabel;
+        private string _predictiveResult;
+        private string _detailStatisticLabel;
+        private string _conversionRateLabel;
+        private string _confidenceIntervalLabel;
+        private string _predictionAccuracyLabel;
+        private string _processRiskLabel;
+        private string _processSuggestionsLabel;
+        private string _modelStatusLabel;
+        private string _reactionBgLabel;
+        private string _opratorViewPort;
+        private string _paramSensitivityAnalysis;
+        private string _refreshTip;
+        private string _exportTip;
+
+        public string ConditionTitle { get => _conditionTitle; set => SetProperty(ref _conditionTitle, value); }
+        public string ParamTitle { get => _paramTitle; set => SetProperty(ref _paramTitle, value); }
+        public string PressureLabel { get => _pressureLabel; set => SetProperty(ref _pressureLabel, value); }
+        public string TempratureLabel { get => _tempratureLabel; set => SetProperty(ref _tempratureLabel, value); }
+        public string FlowLabel{ get => _flowLabel; set => SetProperty(ref _flowLabel, value); }
+        public string IngredientsLabel { get => _ingredientsLabel; set => SetProperty(ref _ingredientsLabel, value); }
+        public string CatalystLabel { get => _catalystLabel; set => SetProperty(ref _catalystLabel, value); }
+        public string StayLabel { get => _stayLabel; set => SetProperty(ref _stayLabel, value); }
+        public string EquivalentLabel { get => _equivalentLabel; set => SetProperty(ref _equivalentLabel, value); }
+        public string PredictiveAnalysisLabel { get => _predictiveAnalysisLabel; set => SetProperty(ref _predictiveAnalysisLabel, value); }
+        public string PredictiveResult { get => _predictiveResult; set => SetProperty(ref _predictiveResult, value); }
+        public string DetailStatisticLabel { get => _detailStatisticLabel; set => SetProperty(ref _detailStatisticLabel, value); }
+        public string ConversionRateLabel { get => _conversionRateLabel; set => SetProperty(ref _conversionRateLabel, value); }
+        public string ConfidenceIntervalLabel { get => _confidenceIntervalLabel; set => SetProperty(ref _confidenceIntervalLabel, value); }
+        public string PredictionAccuracyLabel { get => _predictionAccuracyLabel; set => SetProperty(ref _predictionAccuracyLabel, value); }
+        public string ProcessRiskLabel { get => _processRiskLabel; set => SetProperty(ref _processRiskLabel, value); }
+        public string ProcessSuggestionsLabel { get => _processSuggestionsLabel; set => SetProperty(ref _processSuggestionsLabel, value); }
+        public string ModelStatusLabel { get => _modelStatusLabel; set => SetProperty(ref _modelStatusLabel, value); }
+        public string ReactionBgLabel { get => _reactionBgLabel; set => SetProperty(ref _reactionBgLabel, value); }
+        public string OpratorViewPort { get => _opratorViewPort; set => SetProperty(ref _opratorViewPort, value); }
+        public string ParamSensitivityAnalysis { get => _paramSensitivityAnalysis; set => SetProperty(ref _paramSensitivityAnalysis, value); }
+        public string RefreshTip { get => _refreshTip; set => SetProperty(ref _refreshTip, value); }
+        public string ExportTip { get => _exportTip; set => SetProperty(ref _exportTip, value); }
+
+
+        private void LanguageChangedHandler(string s)
+        {
+            ConditionTitle = _localizationService.GetString("Analysis_Title", "工艺条件");
+            ParamTitle = _localizationService.GetString("Analysis_ParamLabel", "反应参数");
+            PressureLabel = _localizationService.GetString("Analysis_PressureLabel", "压力");
+            TempratureLabel = _localizationService.GetString("Analysis_TempLabel", "温度");
+            FlowLabel = _localizationService.GetString("Analysis_FlowLabel", "H₂流量");
+            IngredientsLabel = _localizationService.GetString("Analysis_IngredientsLabel", "原料");
+            CatalystLabel = _localizationService.GetString("Analysis_CatalystLabel", "催化剂");
+            StayLabel = _localizationService.GetString("Analysis_StayLabel", "停留");
+            EquivalentLabel = _localizationService.GetString("Analysis_EquivalentLabel", "H₂当量");
+            PredictiveAnalysisLabel = _localizationService.GetString("Analysis_PredictiveAnalysisLabel", "预测分析");
+            PredictiveResult = _localizationService.GetString("Analysis_PredictiveResultLabel", "预测结果");
+            DetailStatisticLabel = _localizationService.GetString("Analysis_DetailStatisticLabel", "详细统计");
+            ConversionRateLabel = _localizationService.GetString("Analysis_ConversionRate", "转化率");
+            ConfidenceIntervalLabel = _localizationService.GetString("Analysis_ConfidenceInterval", "置信区间");
+            PredictionAccuracyLabel = _localizationService.GetString("Analysis_PredictionAccuracy", "预测精度");
+            ProcessRiskLabel = _localizationService.GetString("Analysis_ProcessRisk", "工艺风险");
+            ProcessSuggestionsLabel = _localizationService.GetString("Analysis_Suggesstion", "工艺建议");
+            ModelStatusLabel = _localizationService.GetString("Analysis_ModelStatus", "模型状态");
+            ReactionBgLabel = _localizationService.GetString("Analysis_ReactionBg", "反应场景");
+            OpratorViewPort = _localizationService.GetString("Analysis_OpratorView", "工艺操作窗口");
+            ParamSensitivityAnalysis = _localizationService.GetString("Analysis_ParamAnalysis", "参数敏感性分析");
+            RefreshTip = _localizationService.GetString("Analysis_RefreshTip", "刷新图标");
+            ExportTip = _localizationService.GetString("Analysis_ExportTip", "导出数据");
+            ModelStatus = _localizationService.GetString(_modelStatusCurrentKey);
+        }
+
+        /// <summary>
+        /// 设置模型初始化状态文本的本地化文本
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="defaulTxt"></param>
+        private void SetModelStatusLocalizationTxt(string key, string defaulTxt)
+        {
+            _modelStatusCurrentKey = key;
+            ModelStatus = _localizationService.GetString(_modelStatusCurrentKey, defaulTxt);
+        }
+
+        #endregion
     }
 
     #region 辅助类

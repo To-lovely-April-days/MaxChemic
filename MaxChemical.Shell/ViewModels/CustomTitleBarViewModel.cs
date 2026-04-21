@@ -6,6 +6,7 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using System;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 

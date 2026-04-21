@@ -1,5 +1,11 @@
 ﻿// Views/Controls/PipeToolboxPanel.xaml.cs
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using Prism.Events;
+using Prism.Ioc;
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,14 +13,143 @@ using System.Windows.Media;
 
 namespace MaxChemical.Modules.Designer.Views.Controls
 {
-    public partial class PipeToolboxPanel : UserControl
+    public partial class PipeToolboxPanel : UserControl, INotifyPropertyChanged
     {
+        private string _libraryTitle;
+        private string _straightPipe;
+        private string _elbowPipe;
+        private string _zShapePipe;
+        private string _tShapePipe;
+        private string _foldTooltip;
+        private string _expandLabel;
+
+        private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationService;
+
         public event EventHandler<PipeDragStartEventArgs> PipeDragStarted;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public PipeToolboxPanel()
         {
             InitializeComponent();
+            this.DataContext = this;
+
+            _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>();
+
+            _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(LanguageChangedHandler);
+
+            LanguageChangedHandler("");
         }
+
+        public string PipelineLibraryTitle
+        {
+            get { return _libraryTitle; }
+            set
+            {
+                if (_libraryTitle != value)
+                {
+                    _libraryTitle = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string StraightPipe
+        {
+            get { return _straightPipe; }
+            set
+            {
+                if (_straightPipe != value)
+                {
+                    _straightPipe = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string ElbowPipe
+        {
+            get { return _elbowPipe; }
+            set
+            {
+                if (_elbowPipe != value)
+                {
+                    _elbowPipe = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string ZShapePipe
+        {
+            get { return _zShapePipe; }
+            set
+            {
+                if (_zShapePipe != value)
+                {
+                    _zShapePipe = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string TShapePipe
+        {
+            get { return _tShapePipe; }
+            set
+            {
+                if (_tShapePipe != value)
+                {
+                    _tShapePipe = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string FoldTooltip
+        {
+            get { return _foldTooltip; }
+            set
+            {
+                if (_foldTooltip != value)
+                {
+                    _foldTooltip = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string ExpandLabel
+        {
+            get { return _expandLabel; }
+            set
+            {
+                if (_expandLabel != value)
+                {
+                    _expandLabel = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+
+        private void LanguageChangedHandler(string cultureName)
+        {
+            PipelineLibraryTitle = _localizationService.GetString("Pipeline_Library");
+            StraightPipe = _localizationService.GetString("Pipeline_StraightPipe");
+            ElbowPipe = _localizationService.GetString("Pipeline_ElbowPipe");
+            TShapePipe = _localizationService.GetString("Pipeline_TShapePipe");
+            ZShapePipe = _localizationService.GetString("Pipeline_ZShapePipe");
+            FoldTooltip = _localizationService.GetString("Pipeline_Fold_Tooltip");
+            ExpandLabel = _localizationService.GetString("Pipeline_Expand");
+        }
+
+        private void RaisePropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
 
         #region 收缩/展开功能
 

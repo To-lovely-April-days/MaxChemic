@@ -2,6 +2,7 @@
 using MaxChemical.Infrastructure.Services;
 using Prism.Events;
 using Prism.Mvvm;
+using System.IO;
 using System.Windows.Threading;
 
 namespace MaxChemical.Shell.ViewModels;

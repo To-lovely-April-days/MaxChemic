@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:views="clr-namespace:MaxChemical.Modules.Designer.Views"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="None"
@@ -127,7 +128,7 @@
                                 <ScrollViewer x:Name="PART_ContentHost"
                                               Margin="30,0,10,0" VerticalAlignment="Center"/>
                                 <TextBlock x:Name="Placeholder"
-                                           Text="搜索设备、命令或变量名..."
+                                           Text="{Binding RelativeSource={RelativeSource AncestorType=views:VariableManagerWindow},Path=SearchMark}"
                                            FontSize="12" Foreground="#BDBDBD"
                                            VerticalAlignment="Center" Margin="30,0,0,0"
                                            IsHitTestVisible="False" Visibility="Collapsed"/>
@@ -343,7 +344,7 @@
                               Stretch="Uniform" Margin="14,0,10,0"/>
                         <TextBlock x:Name="TitleTextBlock"
                                    Style="{StaticResource TitleTextStyle}"
-                                   Text="变量管理器"/>
+                                   Text="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=views:VariableManagerWindow},Path=LocalizationTitle}"/>
                     </StackPanel>
 
                     <Button Grid.Column="1"
@@ -373,13 +374,13 @@
                             <Path Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"
                                   Fill="White" Width="12" Height="12" Stretch="Uniform"
                                   Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="新建变量" Foreground="White" FontSize="12"
+                            <TextBlock Name="TbNewVariable" Text="新建变量" Foreground="White" FontSize="12"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
                     <!-- 删除选中 -->
-                    <Button Grid.Column="1" Content="删除选中"
+                    <Button Name="BtnDeleteSelect" Grid.Column="1" Content="删除选中"
                             Style="{StaticResource DeleteButtonStyle}"
                             Margin="0,0,12,0"
                             Click="DeleteSelected_Click"/>
@@ -418,7 +419,7 @@
 
                 <DataGrid.Columns>
                     <!-- 来源（设备名 / 自定义标记） -->
-                    <DataGridTextColumn Header="来源"
+                    <DataGridTextColumn x:Name="ColHeaderSource" Header="来源"
                                         Binding="{Binding DeviceName}"
                                         Width="130" IsReadOnly="True">
                         <DataGridTextColumn.ElementStyle>
@@ -437,7 +438,7 @@
                     </DataGridTextColumn>
 
                     <!-- 命令名称 -->
-                    <DataGridTextColumn Header="命令"
+                    <DataGridTextColumn x:Name="ColHeaderCommand" Header="命令"
                                         Binding="{Binding CommandName}"
                                         Width="120" IsReadOnly="True">
                         <DataGridTextColumn.ElementStyle>
@@ -455,7 +456,7 @@
                     </DataGridTextColumn>
 
                     <!-- 变量名称 -->
-                    <DataGridTextColumn Header="变量名称"
+                    <DataGridTextColumn x:Name="ColHeaderVarName" Header="变量名称"
                                         Binding="{Binding VariableName, UpdateSourceTrigger=PropertyChanged}"
                                         Width="140">
                         <DataGridTextColumn.ElementStyle>
@@ -479,7 +480,7 @@
                     </DataGridTextColumn>
 
                     <!-- 当前值（右对齐 + 等宽 + 绿色） -->
-                    <DataGridTextColumn Header="当前值"
+                    <DataGridTextColumn x:Name="ColHeaderValue" Header="当前值"
                                         Binding="{Binding VariableValue, UpdateSourceTrigger=PropertyChanged}"
                                         Width="100">
                         <DataGridTextColumn.ElementStyle>
@@ -501,7 +502,7 @@
                     </DataGridTextColumn>
 
                     <!-- 类型 -->
-                    <DataGridComboBoxColumn Header="类型"
+                    <DataGridComboBoxColumn x:Name="ColHeaderType" Header="类型"
                                             SelectedItemBinding="{Binding VariableType, UpdateSourceTrigger=PropertyChanged}"
                                             Width="90">
                         <DataGridComboBoxColumn.ElementStyle>
@@ -522,7 +523,7 @@
                     </DataGridComboBoxColumn>
 
                     <!-- 引用格式（等宽 + 主题色） -->
-                    <DataGridTextColumn Header="引用格式"
+                    <DataGridTextColumn x:Name="ColHeaderFormat" Header="引用格式"
                                         Binding="{Binding FullVariableName}"
                                         Width="*" IsReadOnly="True">
                         <DataGridTextColumn.ElementStyle>
@@ -595,17 +596,18 @@
                                VerticalAlignment="Center"
                                Foreground="#9E9E9E" FontSize="12">
                         <TextBlock.Text>
-                            <MultiBinding StringFormat="共 {0} 个变量">
+                            <MultiBinding StringFormat="{}{0}：{1}">
+                                <Binding Path="VariableCount" RelativeSource="{RelativeSource AncestorType=views:VariableManagerWindow}"/>
                                 <Binding Path="Items.Count" ElementName="VariablesDataGrid"/>
                             </MultiBinding>
                         </TextBlock.Text>
                     </TextBlock>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button Content="取消"
+                        <Button Name="BtnCancell" Content="取消"
                                 Style="{StaticResource CancelButtonStyle}"
                                 Click="CancelButton_Click"/>
-                        <Button Content="确定"
+                        <Button Name="BtnOk" Content="确定"
                                 Style="{StaticResource ConfirmButtonStyle}"
                                 Click="OkButton_Click"/>
                     </StackPanel>

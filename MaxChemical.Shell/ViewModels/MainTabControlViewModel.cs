@@ -20,6 +20,7 @@ namespace MaxChemical.Shell.ViewModels
 
         private string _processDesignerTabText = "工艺设计器";
         private string _flowDesignerTabText = "流程设计器";
+        private string _variableText = "查看变量管理";
 
         private bool _isProcessDesignerSelected = true;
         private bool _isFlowDesignerSelected = false;
@@ -67,6 +68,11 @@ namespace MaxChemical.Shell.ViewModels
             set => SetProperty(ref _flowDesignerTabText, value);
         }
 
+        public string VariableManagementTabText
+        {
+            get => _variableText;
+            set => SetProperty(ref _variableText, value);
+        }
 
         public bool IsProcessDesignerSelected
         {
@@ -157,7 +163,8 @@ namespace MaxChemical.Shell.ViewModels
             try
             {
                 ProcessDesignerTabText = _localizationService?.GetString("Tab_ProcessDesigner") ?? "工艺设计器";
-                FlowDesignerTabText = _localizationService?.GetString("Tab_FlowDesigner") ?? "流程设计器";
+                FlowDesignerTabText = _localizationService?.GetString("Tab_FlowDesigner") ?? "流程设计器"; 
+                VariableManagementTabText = _localizationService?.GetString("Tab_Veriable") ?? "查看变量管理";
                 Debug.WriteLine("Properties 初始化完成");
             }
             catch (Exception ex)
