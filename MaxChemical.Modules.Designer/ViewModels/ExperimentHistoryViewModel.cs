@@ -26,6 +26,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private readonly IExperimentDataRepository _repository;
         private readonly IExcelExportService _excelExportService;
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localizationService;
 
         // 筛选条件
         private DateTime? _startDate;
@@ -54,6 +55,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _excelExportService = excelExportService ?? throw new ArgumentNullException(nameof(excelExportService));
             _logger = logger?.ForContext<ExperimentHistoryViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>() ?? throw new ArgumentNullException("localizationService");
+            
 
             InitializeCommands();
             InitializeFilters();
@@ -190,7 +193,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在加载数据...";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_Loading", "正在加载数据...");
 
                 var (records, totalCount) = await _repository.GetExperimentsPagedAsync(
                     StartDate, EndDate, IsSuccessful, IsSimulation, SearchText,
@@ -205,7 +208,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 TotalRecords = totalCount;
                 TotalPages = (int)Math.Ceiling((double)totalCount / PageSize);
 
-                StatusMessage = $"共找到 {TotalRecords} 条记录";
+                StatusMessage = string.Format(_localizationService.GetString("ExperimentHistory_StatusMsg_FindTotal"), TotalRecords);
 
                 // 更新分页命令状态
                 UpdatePagingCommands();
@@ -215,7 +218,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "加载实验历史数据失败");
-                StatusMessage = "加载数据失败";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_LoadFail", "加载数据失败");
                 MessageBox.Show($"加载数据失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -263,7 +266,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在导出数据...";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_Export", "正在导出数据...");
 
                 var allRecords = await _repository.GetExperimentsForExportAsync(StartDate, EndDate);
 
@@ -272,7 +275,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 await _excelExportService.ExportExperimentsAsync(allRecords, filePath);
 
-                StatusMessage = $"导出完成: {filePath}";
+                StatusMessage = $"{_localizationService.GetString("ExperimentHistory_StatusMsg_ExportComplete", "导出完成: ")}{filePath}";
                 MessageBox.Show($"导出完成！\n文件位置: {filePath}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 // 打开文件所在目录
@@ -281,7 +284,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "导出数据失败");
-                StatusMessage = "导出失败";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_ExportFail", "导出失败");
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -297,14 +300,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在导出实验详情...";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_ExportDetails", "正在导出实验详情...");
 
                 var fileName = $"实验详情_{SelectedExperiment.ExperimentName}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
                 var filePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
 
                 await _excelExportService.ExportExperimentWithParameterChangesAsync(SelectedExperiment.ExperimentId, filePath);
 
-                StatusMessage = $"导出完成: {filePath}";
+                StatusMessage = $"{_localizationService.GetString("ExperimentHistory_StatusMsg_ExportComplete", "导出完成: ")}{filePath}";
                 MessageBox.Show($"导出完成！\n文件位置: {filePath}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
@@ -312,7 +315,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "导出实验详情失败");
-                StatusMessage = "导出失败";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_ExportFail", "导出失败");
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -326,7 +329,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在导出参数变化记录...";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_ExportParamChange", "正在导出参数变化记录...");
 
                 var parameterChanges = await _repository.GetParameterChangesForExportAsync(StartDate, EndDate);
 
@@ -341,7 +344,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 await _excelExportService.ExportParameterChangesAsync(parameterChanges, filePath);
 
-                StatusMessage = $"导出完成: {filePath}";
+                StatusMessage = $"{_localizationService.GetString("ExperimentHistory_StatusMsg_ExportComplete", "导出完成: ")}{filePath}";
                 MessageBox.Show($"导出完成！\n文件位置: {filePath}\n共导出 {parameterChanges.Count} 条参数变化记录", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
@@ -349,7 +352,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "导出参数变化记录失败");
-                StatusMessage = "导出失败";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_ExportFail", "导出失败");
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -389,7 +392,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在删除实验记录...";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_Delete", "正在删除实验记录...");
 
                 await _repository.DeleteExperimentAsync(SelectedExperiment.ExperimentId);
 
@@ -397,7 +400,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 TotalRecords--;
                 TotalPages = (int)Math.Ceiling((double)TotalRecords / PageSize);
 
-                StatusMessage = "删除成功";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_DelSuccess", "删除成功");
                 MessageBox.Show("实验记录已删除", "删除成功", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 UpdatePagingCommands();
@@ -405,7 +408,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "删除实验记录失败");
-                StatusMessage = "删除失败";
+                StatusMessage = _localizationService.GetString("ExperimentHistory_StatusMsg_DelFail", "删除失败");
                 MessageBox.Show($"删除失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -473,59 +476,53 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void UpdateLocalizationText()
         {
-            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
-            if (service == null)
-            {
-                return;
-            }
-
-            ViewTitle = service.GetString("ExperimentHistory_Title");
-            TimeRange = service.GetString("ExperimentHistory_Range");
-            StartTimeLabel = service.GetString("ExperimentHistory_Range_Start");
-            EndTimeLabel = service.GetString("ExperimentHistory_Range_End");
-            ExecuteStatus = service.GetString("ExperimentHistory_ES");
-            RunMode = service.GetString("ExperimentHistory_RM");
-            SearchLabel = service.GetString("ExperimentHistory_Search");
-            SearchWatermark = service.GetString("ExperimentHistory_Search_Watermark");
-            SearchBtnLabel = service.GetString("ExperimentHistory_Search_Search");
-            ResetBtnLabel = service.GetString("ExperimentHistory_Search_Reset");
-            RefreshBtnLabel = service.GetString("ExperimentHistory_Search_Refresh");
-            ExportAllLabel = service.GetString("ExperimentHistory_ExportAll");
-            ExportAllTip = service.GetString("ExperimentHistory_ExportAll_Tip");
-            ExportSelectLabel = service.GetString("ExperimentHistory_ExportSelect");
-            ExportSelectTip = service.GetString("ExperimentHistory_ExportSelect_Tip");
-            ParamChangeLabel = service.GetString("ExperimentHistory_ParamChange");
-            ParamChangeTip = service.GetString("ExperimentHistory_ParamChange_Tip");
-            ViewDetailsLabel = service.GetString("ExperimentHistory_Details");
+            ViewTitle = _localizationService.GetString("ExperimentHistory_Title", "实验历史记录");
+            TimeRange = _localizationService.GetString("ExperimentHistory_Range", "时间范围");
+            StartTimeLabel = _localizationService.GetString("ExperimentHistory_Range_Start", "开始时间");
+            EndTimeLabel = _localizationService.GetString("ExperimentHistory_Range_End", "结束时间");
+            ExecuteStatus = _localizationService.GetString("ExperimentHistory_ES", "执行状态");
+            RunMode = _localizationService.GetString("ExperimentHistory_RM", "运行模式");
+            SearchLabel = _localizationService.GetString("ExperimentHistory_Search", "搜索");
+            SearchWatermark = _localizationService.GetString("ExperimentHistory_Search_Watermark", "搜索实验名称、流程名称或操作员");
+            SearchBtnLabel = _localizationService.GetString("ExperimentHistory_Search_Search", "搜索");
+            ResetBtnLabel = _localizationService.GetString("ExperimentHistory_Search_Reset", "重置");
+            RefreshBtnLabel = _localizationService.GetString("ExperimentHistory_Search_Refresh", "刷新");
+            ExportAllLabel = _localizationService.GetString("ExperimentHistory_ExportAll", "导出全部");
+            ExportAllTip = _localizationService.GetString("ExperimentHistory_ExportAll_Tip", "导出所有实验记录（包含参数变化记录）");
+            ExportSelectLabel = _localizationService.GetString("ExperimentHistory_ExportSelect", "导出选中");
+            ExportSelectTip = _localizationService.GetString("ExperimentHistory_ExportSelect_Tip", "导出选中的实验详细信息");
+            ParamChangeLabel = _localizationService.GetString("ExperimentHistory_ParamChange", "参数变化");
+            ParamChangeTip = _localizationService.GetString("ExperimentHistory_ParamChange_Tip", "导出设备参数变化记录（去重后的数据）");
+            ViewDetailsLabel = _localizationService.GetString("ExperimentHistory_Details", "查看详情");
             //ViewDetailsTip = service.GetString("");
-            DeleteRecordLabel = service.GetString("ExperimentHistory_DeleteRecord");
+            DeleteRecordLabel = _localizationService.GetString("ExperimentHistory_DeleteRecord", "删除记录");
             //DeleteRecordTip = service.GetString("");
-            IndexLabel = service.GetString("ExperimentHistory_Index");
-            NextPageLabel = service.GetString("ExperimentHistory_Next");
-            PreviousPageLabel = service.GetString("ExperimentHistory_Previous");
-            BackoverLabel = service.GetString("ExperimentHistory_BackOver");
-            ExperimentnameHeader = service.GetString("ExperimentHistory_Header_ExpName");
-            FlownameHeader = service.GetString("ExperimentHistory_Header_FlowName");
-            StartHeader = service.GetString("ExperimentHistory_Header_Start");
-            EndHeader = service.GetString("ExperimentHistory_Header_End");
-            DurationHeader = service.GetString("ExperimentHistory_Header_Duration");
-            ExcuteStatusHeader = service.GetString("ExperimentHistory_Header_Sttatus");
-            RunModeHeader = service.GetString("ExperimentHistory_Header_Mode");
-            CompletionrateHeader = service.GetString("ExperimentHistory_Header_Completion");
-            OperatorHeader = service.GetString("ExperimentHistroy_Header_Operator");
-            LabelHeader = service.GetString("ExperimentHistory_Header_Label");
-            DescHeader = service.GetString("ExperimentHistory_Header_Desc");
-            StatusItemAll = service.GetString("ExperimentHistory_Sitem_All");
-            StatusItemSuccess = service.GetString("ExperimentHistory_Sitem_Success");
-            StatusItemFail = service.GetString("ExperimentHistory_Sitem_Fail");
-            RunItemAll = service.GetString("ExperimentHistory_Ritem_All");
-            RunItemActual = service.GetString("ExperimentHistory_Ritem_Actual");
-            RunItemSimulation = service.GetString("ExperimentHistory_Ritem_Simulation");
-            EachPageShow = service.GetString("ExperimentHistory_Each");
-            RecordsText = service.GetString("ExperimentHistory_Number");
-            ATotalText = service.GetString("ExperimentHistory_Atotal");
-            SecondText = service.GetString("ExperimentHistory_Second");
-            PageText = service.GetString("ExperimentHistory_Pages");
+            IndexLabel = _localizationService.GetString("ExperimentHistory_Index", "首页");
+            NextPageLabel = _localizationService.GetString("ExperimentHistory_Next", "下一页");
+            PreviousPageLabel = _localizationService.GetString("ExperimentHistory_Previous", "上一页");
+            BackoverLabel = _localizationService.GetString("ExperimentHistory_BackOver", "末页");
+            ExperimentnameHeader = _localizationService.GetString("ExperimentHistory_Header_ExpName", "实验名称");
+            FlownameHeader = _localizationService.GetString("ExperimentHistory_Header_FlowName", "流程名称");
+            StartHeader = _localizationService.GetString("ExperimentHistory_Header_Start", "开始时间");
+            EndHeader = _localizationService.GetString("ExperimentHistory_Header_End", "结束时间");
+            DurationHeader = _localizationService.GetString("ExperimentHistory_Header_Duration", "持续时间");
+            ExcuteStatusHeader = _localizationService.GetString("ExperimentHistory_Header_Status", "执行状态");
+            RunModeHeader = _localizationService.GetString("ExperimentHistory_Header_Mode", "运行模式");
+            CompletionrateHeader = _localizationService.GetString("ExperimentHistory_Header_Completion", "完成度");
+            OperatorHeader = _localizationService.GetString("ExperimentHistroy_Header_Operator", "操作员");
+            LabelHeader = _localizationService.GetString("ExperimentHistory_Header_Label", "标签");
+            DescHeader = _localizationService.GetString("ExperimentHistory_Header_Desc", "描述");
+            StatusItemAll = _localizationService.GetString("ExperimentHistory_Sitem_All", "全部");
+            StatusItemSuccess = _localizationService.GetString("ExperimentHistory_Sitem_Success", "成功");
+            StatusItemFail = _localizationService.GetString("ExperimentHistory_Sitem_Fail", "失败");
+            RunItemAll = _localizationService.GetString("ExperimentHistory_Ritem_All", "全部");
+            RunItemActual = _localizationService.GetString("ExperimentHistory_Ritem_Actual", "实际");
+            RunItemSimulation = _localizationService.GetString("ExperimentHistory_Ritem_Simulation", "仿真");
+            EachPageShow = _localizationService.GetString("ExperimentHistory_Each", "每页显示");
+            RecordsText = _localizationService.GetString("ExperimentHistory_Number", "条记录");
+            ATotalText = _localizationService.GetString("ExperimentHistory_Atotal", "共");
+            SecondText = _localizationService.GetString("ExperimentHistory_Second", "条记录，第 ");
+            PageText = _localizationService.GetString("ExperimentHistory_Pages", " 页");
         }
         #endregion
     }

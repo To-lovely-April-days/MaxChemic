@@ -459,13 +459,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             private void LanguageChangedHandler(string cultureName)
             {
-                RegionSettingTitle = _localizationService.GetString("RegionSetting_Title");
-                RowLabel = _localizationService.GetString("RegionSetting_Row");
-                ColLabel = _localizationService.GetString("RegionSetting_Col");
-                GenerateLayout = _localizationService.GetString("RegionSetting_Generate");
-                TipMessage = _localizationService.GetString("RegionSetting_Tip");
-                OkLabel = _localizationService.GetString("RegionSetting_OK");
-                CancelLabel = _localizationService.GetString("RegionSetting_Cancel");
+                RegionSettingTitle = _localizationService.GetString("RegionSetting_Title", "工艺区划分");
+                RowLabel = _localizationService.GetString("RegionSetting_Row", "行");
+                ColLabel = _localizationService.GetString("RegionSetting_Col", "列");
+                GenerateLayout = _localizationService.GetString("RegionSetting_Generate", "生成布局");
+                TipMessage = _localizationService.GetString("RegionSetting_Tip", "右键点击网格单元格选择区域类型");
+                OkLabel = _localizationService.GetString("RegionSetting_OK", "确定");
+                CancelLabel = _localizationService.GetString("RegionSetting_Cancel", "取消");
 
                 //
                 foreach (var cell in GridCells)
@@ -488,6 +488,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 }
             }
 
+
+            public string SetRegionTypeLocalizationText(RegionType type,string txt)
+            {
+                return _localizationService.GetString($"RegionSetting_RegionType_{type}", txt);
+            }
             #endregion
         }
 
@@ -598,33 +603,33 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     {
                         case RegionType.Feed:
                             RegionType = RegionType.Feed;
-                            DisplayName = CultureInfo.CurrentUICulture.Name == "en-US" ? "Feed" : "进料";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.Feed, "进料");
                             Background = new SolidColorBrush(Color.FromRgb(255, 182, 193)); // 浅粉色
                             break;
                         case RegionType.PreHeat:
                             RegionType = RegionType.PreHeat;
-                            DisplayName = CultureInfo.CurrentUICulture.Name == "en-US" ? "PreHeat" : "预热";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.PreHeat, "预热");
                             Background = new SolidColorBrush(Color.FromRgb(255, 218, 185)); // 桃色
                             break;
                         case RegionType.Reaction:
                             RegionType = RegionType.Reaction;
-                            DisplayName = CultureInfo.CurrentUICulture.Name == "en-US" ? "Reaction" : "反应";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.Reaction, "反应");
                             Background = new SolidColorBrush(Color.FromRgb(255, 228, 196)); // 浅橙色
                             break;
                         case RegionType.Quench:
                             RegionType = RegionType.Quench;
-                            DisplayName = CultureInfo.CurrentUICulture.Name == "en-US" ? "Quench" : "淬火";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.Quench, "淬火");
                             Background = new SolidColorBrush(Color.FromRgb(173, 216, 230)); // 浅蓝色
                             break;
                         case RegionType.PostProcess:
                             RegionType = RegionType.PostProcess;
-                            DisplayName = CultureInfo.CurrentUICulture.Name == "en-US" ? "PostProcess" : "后处理";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.PostProcess, "后处理");
                             Background = new SolidColorBrush(Color.FromRgb(240, 255, 240)); // 浅绿色
                             break;
                         case RegionType.None:
                         default:
                             RegionType = RegionType.None;
-                            DisplayName = CultureInfo.CurrentUICulture.Name == "en-US" ? "None" : "空";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.None, "空");
                             Background = Brushes.White;
                             break;
                     }
