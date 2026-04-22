@@ -478,5 +478,26 @@
   "DatePicker_30":"30 天",
   "DatePicker_90":"90 天",
   "DatePicker_Clear":"清除",
-  "DatePicker_Confirm":"确定"
+  "DatePicker_Confirm":"确定",
+  
+  "ParamMonitor_Title":"参数监控",
+  "ParamMonitor_ParamCountLabel":"参数",
+  "ParamMonitor_Clear":"清除",
+  "ParamMonitor_Export":"导出",
+  "ParamMonitor_NoneMonitor":"暂无监控数据",
+  "ParamMonitor_Tip":"从左侧面板选择参数开始监控",
+  "ParamMonitor_LastTime":"最后更新：",
+  "ParamMonitor_DataPoint":"数据点",
+  "ParamMonitor_Normalization":"归一化",
+
+  "DeviceCommandDialog_Label":"监控参数绑定",
+  "DeviceCommandDialog_CommandLabel":"命令：",
+  "DeviceCommandDialog_SelectAll":"全选",
+  "DeviceCommandDialog_Clear":"清除",
+  "DeviceCommandDialog_Execute":"执行",
+  "DeviceCommandDialog_Status_AlreadyConn":"已连接",
+  "DeviceCommandDialog_Status_Conn":"连接",
+  "DeviceCommandDialog_Status_Disconn":"断开",
+  "DeviceCommandDialog_status_NotConn":"未连接",
+  "DeviceCommandDialog_NotInputParam":"该命令没有输入参数"
 }

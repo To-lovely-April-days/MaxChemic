@@ -492,5 +492,26 @@
   "DatePicker_30":"30 days",
   "DatePicker_90":"90 days",
   "DatePicker_Clear":"Clear",
-  "DatePicker_Confirm":"Confirm"
+  "DatePicker_Confirm":"Confirm",
+
+  "ParamMonitor_Title":"Parameter monitoring",
+  "ParamMonitor_ParamCountLabel":"parameters",
+  "ParamMonitor_Clear":"Clear",
+  "ParamMonitor_Export":"Export",
+  "ParamMonitor_NoneMonitor":"No monitoring data available",
+  "ParamMonitor_Tip":"Start monitoring by selecting parameters from the left panel",
+  "ParamMonitor_LastTime":"Last updated：",
+  "ParamMonitor_DataPoint":"Data point",
+  "ParamMonitor_Normalization":"Normalization",
+
+  "DeviceCommandDialog_Label":"Monitoring parameter binding",
+  "DeviceCommandDialog_CommandLabel":"Command：",
+  "DeviceCommandDialog_SelectAll":"Select all",
+  "DeviceCommandDialog_Clear":"Clear",
+  "DeviceCommandDialog_Execute":"Execute",
+  "DeviceCommandDialog_Status_AlreadyConn":"Connected",
+  "DeviceCommandDialog_Status_Conn":"Connection",
+  "DeviceCommandDialog_Status_Disconn":"Disconnect",
+  "DeviceCommandDialog_status_NotConn":"Not connected",
+  "DeviceCommandDialog_NotInputParam":"This command has no input parameters"
 }
