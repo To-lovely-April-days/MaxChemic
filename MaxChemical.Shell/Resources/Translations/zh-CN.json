@@ -357,6 +357,7 @@
   "ExperimentHistory_StatusMsg_Delete":"正在删除实验记录...",
   "ExperimentHistory_StatusMsg_DelSuccess":"删除成功",
   "ExperimentHistory_StatusMsg_DelFail":"删除失败",
+  "ExperimentHistory_Win_Title":"实验历史记录",
 
   "Statistic_Title":"实验统计分析",
   "Statistic_TimeRange":"时间范围",
@@ -401,6 +402,7 @@
   "Statistic_StatusMsg_Exprot":"正在导出统计数据",
   "Statistic_StatusMsg_ExpComplete":"导出完成",
   "Statistic_StatusMsg_ExportFail":"导出失败",
+  "Statistic_Win_Title":"实验统计分析",
 
   "Analysis_Title":"工艺条件",
   "Analysis_ParamLabel":"反应参数",
@@ -489,6 +491,7 @@
   "ParamMonitor_LastTime":"最后更新：",
   "ParamMonitor_DataPoint":"数据点",
   "ParamMonitor_Normalization":"归一化",
+  "ParamMonitor_WinTitle":"参数监控图表 - MaxChemical",
 
   "DeviceCommandDialog_Label":"监控参数绑定",
   "DeviceCommandDialog_CommandLabel":"命令：",

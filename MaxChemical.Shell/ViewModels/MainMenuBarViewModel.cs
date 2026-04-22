@@ -476,7 +476,7 @@ public class MainMenuBarViewModel : BindableBase
             var historyViewModel = new ExperimentHistoryViewModel(_experimentRepository, _excelExportService, _logger);
             var historyWindow = new Window
             {
-                Title = "实验历史记录",
+                Title = _localizationService.GetString("ExperimentHistory_Win_Title", "实验历史记录"),
                 Content = new MaxChemical.Modules.Designer.Views.ExperimentHistoryView { DataContext = historyViewModel },
                 Width = 980,
                 Height = 800,
@@ -498,7 +498,7 @@ public class MainMenuBarViewModel : BindableBase
             var statsViewModel = new ExperimentStatisticsViewModel(_experimentRepository, _excelExportService, _logger);
             var statsWindow = new Window
             {
-                Title = "实验统计分析",
+                Title = _localizationService.GetString("Statistic_Win_Title", "实验统计分析"),
                 Content = new MaxChemical.Modules.Designer.Views.ExperimentStatisticsView { DataContext = statsViewModel },
                 Width = 1200,
                 Height = 800,

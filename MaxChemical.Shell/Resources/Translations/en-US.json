@@ -358,6 +358,7 @@
   "ExperimentHistory_StatusMsg_Delete":"The experimental records are being deleted",
   "ExperimentHistory_StatusMsg_DelSuccess":"Operation successful",
   "ExperimentHistory_StatusMsg_DelFail":"Deletion failed",
+  "ExperimentHistory_Win_Title":"Experimental history record",
 
   "Statistic_Title":"Experimental statistical analysis",
   "Statistic_TimeRange":"Time range",
@@ -402,6 +403,7 @@
   "Statistic_StatusMsg_Exprot":"Data export is in progress",
   "Statistic_StatusMsg_ExpComplete":"Export completed",
   "Statistic_StatusMsg_ExportFail":"Export failed",
+  "Statistic_Win_Title":"Experimental statistical analysis",
 
   "Analysis_Title":"Process conditions",
   "Analysis_ParamLabel":"Reaction parameters",
@@ -503,6 +505,7 @@
   "ParamMonitor_LastTime":"Last updated：",
   "ParamMonitor_DataPoint":"Data point",
   "ParamMonitor_Normalization":"Normalization",
+  "ParamMonitor_WinTitle":"Parameter Monitoring Chart - MaxChemical",
 
   "DeviceCommandDialog_Label":"Monitoring parameter binding",
   "DeviceCommandDialog_CommandLabel":"Command：",

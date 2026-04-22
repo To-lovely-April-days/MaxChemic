@@ -1662,7 +1662,7 @@ namespace MaxChemical.Shell.ViewModels
                 };
                 var window = new Window
                 {
-                    Title = "参数监控图表 - MaxChemical",
+                    Title = _localizationService.GetString("ParamMonitor_WinTitle", "参数监控图表 - MaxChemical"),
                     Content = view,
                     Width = 1400,
                     Height = 900,
