@@ -191,6 +191,7 @@
   "FlowDesignView_Execute_Total":"Elapse",
   "FlowDesignView_Node_Label":"Unselected node",
   "FlowDesignView_Node_Tip":"Click on the nodes on the canvas to edit their properties",
+  "FlowDesignView_PropExpander":"Property",
   
   "WaitNode_Title":"Wait",
   "WaitNode_Info_Title":"Basic Information",

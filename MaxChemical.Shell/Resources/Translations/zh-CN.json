@@ -190,6 +190,7 @@
   "FlowDesignView_Execute_Total":"耗时",
   "FlowDesignView_Node_Label":"未选择节点",
   "FlowDesignView_Node_Tip":"点击画布中的节点以编辑属性",
+  "FlowDesignView_PropExpander":"属性",
 
   "WaitNode_Title":"等待",
   "WaitNode_Info_Title":"基本信息",

@@ -192,6 +192,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private string _executeTotal = "耗时";
         private string _nodeLabel = "未选择节点";
         private string _nodeTip = "点击画布中的节点以编辑属性";
+        private string _propExpanderLabel;
 
         public string Title
         {
@@ -263,6 +264,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
             get => _nodeTip;
             set => SetProperty(ref _nodeTip, value);
         }
+        public string PropExpanderLabel
+        {
+            get => _propExpanderLabel;
+            set => SetProperty(ref _propExpanderLabel, value);
+        }
 
         private void LanguageChangedHandler(string s)
         {
@@ -280,6 +286,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             ExecuteTotal = _localizationService.GetString("FlowDesignView_Execute_Total");
             NodeLabel = _localizationService.GetString("FlowDesignView_Node_Label");
             NodeTip = _localizationService.GetString("FlowDesignView_Node_Tip");
+            PropExpanderLabel = _localizationService.GetString("FlowDesignView_PropExpander", "属性");
         }
 
         #endregion
