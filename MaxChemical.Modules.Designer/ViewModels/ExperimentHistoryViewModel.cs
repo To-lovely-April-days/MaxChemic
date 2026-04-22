@@ -464,41 +464,21 @@ namespace MaxChemical.Modules.Designer.ViewModels
         #region 视图本地化
         
         public string ViewTitle { get; set; }
-        public string TimeRange {  get; set; }
-        public string StartTimeLabel { get; set; }
-        public string EndTimeLabel { get; set; }
-        public string ExecuteStatus {  get; set; }
-        public string RunMode { get; set; }
-        public string SearchLabel {  get; set; }
         public string SearchWatermark { get; set; }
-        public string SearchBtnLabel { get; set; }
-        public string ResetBtnLabel { get; set; }
         public string RefreshBtnLabel { get; set; }
-        public string ExportAllLabel { get; set; }
-        public string ExportAllTip { get; set; }
-        public string ExportSelectLabel { get; set; }
-        public string ExportSelectTip { get; set; }
+        public string ExportLabel { get; set; }
         public string ParamChangeLabel { get; set; }
-        public string ParamChangeTip { get; set; }
-        public string ViewDetailsLabel { get; set; }
-        public string ViewDetailsTip { get; set; }
-        public string DeleteRecordLabel { get; set; }
-        public string DeleteRecordTip { get; set; }
         public string IndexLabel { get; set; }
         public string NextPageLabel { get; set; }
         public string PreviousPageLabel { get; set; }
         public string BackoverLabel { get; set; }
         public string ExperimentnameHeader { get; set; }
         public string FlownameHeader { get; set; }
-        public string StartHeader { get; set; }
-        public string EndHeader { get; set; }
-        public string DurationHeader { get; set; }
-        public string ExcuteStatusHeader { get; set; }
-        public string RunModeHeader { get; set; }
-        public string CompletionrateHeader { get; set; }
+        public string TimeHeader { get; set; }
+        public string StatusHeader { get; set; }
+        public string ModeHeader { get; set; }
+        public string ElapsedHeader { get; set; }
         public string OperatorHeader { get; set; }
-        public string LabelHeader { get; set; }
-        public string DescHeader { get; set; }
         public string StatusItemAll { get; set; }
         public string StatusItemSuccess { get; set; }
         public string StatusItemFail { get; set; }
@@ -507,59 +487,33 @@ namespace MaxChemical.Modules.Designer.ViewModels
         public string RunItemSimulation { get; set; }
         public string EachPageShow { get; set; }
         public string RecordsText { get; set; }
-        public string ATotalText { get; set; }
-        public string SecondText { get; set; }
-        public string PageText { get; set; }
 
         private void UpdateLocalizationText()
         {
             ViewTitle = _localizationService.GetString("ExperimentHistory_Title", "实验历史记录");
-            TimeRange = _localizationService.GetString("ExperimentHistory_Range", "时间范围");
-            StartTimeLabel = _localizationService.GetString("ExperimentHistory_Range_Start", "开始时间");
-            EndTimeLabel = _localizationService.GetString("ExperimentHistory_Range_End", "结束时间");
-            ExecuteStatus = _localizationService.GetString("ExperimentHistory_ES", "执行状态");
-            RunMode = _localizationService.GetString("ExperimentHistory_RM", "运行模式");
-            SearchLabel = _localizationService.GetString("ExperimentHistory_Search", "搜索");
             SearchWatermark = _localizationService.GetString("ExperimentHistory_Search_Watermark", "搜索实验名称、流程名称或操作员");
-            SearchBtnLabel = _localizationService.GetString("ExperimentHistory_Search_Search", "搜索");
-            ResetBtnLabel = _localizationService.GetString("ExperimentHistory_Search_Reset", "重置");
             RefreshBtnLabel = _localizationService.GetString("ExperimentHistory_Search_Refresh", "刷新");
-            ExportAllLabel = _localizationService.GetString("ExperimentHistory_ExportAll", "导出全部");
-            ExportAllTip = _localizationService.GetString("ExperimentHistory_ExportAll_Tip", "导出所有实验记录（包含参数变化记录）");
-            ExportSelectLabel = _localizationService.GetString("ExperimentHistory_ExportSelect", "导出选中");
-            ExportSelectTip = _localizationService.GetString("ExperimentHistory_ExportSelect_Tip", "导出选中的实验详细信息");
+            ExportLabel = _localizationService.GetString("ExperimentHistory_Export", "导出");
             ParamChangeLabel = _localizationService.GetString("ExperimentHistory_ParamChange", "参数变化");
-            ParamChangeTip = _localizationService.GetString("ExperimentHistory_ParamChange_Tip", "导出设备参数变化记录（去重后的数据）");
-            ViewDetailsLabel = _localizationService.GetString("ExperimentHistory_Details", "查看详情");
-            //ViewDetailsTip = service.GetString("");
-            DeleteRecordLabel = _localizationService.GetString("ExperimentHistory_DeleteRecord", "删除记录");
-            //DeleteRecordTip = service.GetString("");
             IndexLabel = _localizationService.GetString("ExperimentHistory_Index", "首页");
             NextPageLabel = _localizationService.GetString("ExperimentHistory_Next", "下一页");
             PreviousPageLabel = _localizationService.GetString("ExperimentHistory_Previous", "上一页");
             BackoverLabel = _localizationService.GetString("ExperimentHistory_BackOver", "末页");
             ExperimentnameHeader = _localizationService.GetString("ExperimentHistory_Header_ExpName", "实验名称");
-            FlownameHeader = _localizationService.GetString("ExperimentHistory_Header_FlowName", "流程名称");
-            StartHeader = _localizationService.GetString("ExperimentHistory_Header_Start", "开始时间");
-            EndHeader = _localizationService.GetString("ExperimentHistory_Header_End", "结束时间");
-            DurationHeader = _localizationService.GetString("ExperimentHistory_Header_Duration", "持续时间");
-            ExcuteStatusHeader = _localizationService.GetString("ExperimentHistory_Header_Status", "执行状态");
-            RunModeHeader = _localizationService.GetString("ExperimentHistory_Header_Mode", "运行模式");
-            CompletionrateHeader = _localizationService.GetString("ExperimentHistory_Header_Completion", "完成度");
+            FlownameHeader = _localizationService.GetString("ExperimentHistory_Header_FlowName", "流程");
+            TimeHeader = _localizationService.GetString("ExperimentHistory_Header_Time", "时间");
+            StatusHeader = _localizationService.GetString("ExperimentHistory_Header_Status", "状态");
+            ModeHeader = _localizationService.GetString("ExperimentHistory_Header_Mode", "模式");
+            ElapsedHeader = _localizationService.GetString("ExperimentHistory_Header_Elapsed", "耗时");
             OperatorHeader = _localizationService.GetString("ExperimentHistroy_Header_Operator", "操作员");
-            LabelHeader = _localizationService.GetString("ExperimentHistory_Header_Label", "标签");
-            DescHeader = _localizationService.GetString("ExperimentHistory_Header_Desc", "描述");
             StatusItemAll = _localizationService.GetString("ExperimentHistory_Sitem_All", "全部");
             StatusItemSuccess = _localizationService.GetString("ExperimentHistory_Sitem_Success", "成功");
             StatusItemFail = _localizationService.GetString("ExperimentHistory_Sitem_Fail", "失败");
-            RunItemAll = _localizationService.GetString("ExperimentHistory_Ritem_All", "全部");
+            RunItemAll = _localizationService.GetString("ExperimentHistory_Ritem_All", "全部模式");
             RunItemActual = _localizationService.GetString("ExperimentHistory_Ritem_Actual", "实际");
             RunItemSimulation = _localizationService.GetString("ExperimentHistory_Ritem_Simulation", "仿真");
             EachPageShow = _localizationService.GetString("ExperimentHistory_Each", "每页显示");
-            RecordsText = _localizationService.GetString("ExperimentHistory_Number", "条记录");
-            ATotalText = _localizationService.GetString("ExperimentHistory_Atotal", "共");
-            SecondText = _localizationService.GetString("ExperimentHistory_Second", "条记录，第 ");
-            PageText = _localizationService.GetString("ExperimentHistory_Pages", " 页");
+            RecordsText = _localizationService.GetString("ExperimentHistory_Number", "条");
         }
         #endregion
     }
