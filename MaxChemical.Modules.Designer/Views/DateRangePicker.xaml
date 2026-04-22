@@ -179,13 +179,13 @@
 
                     <!-- 星期头 -->
                     <UniformGrid Columns="7" Margin="0,0,0,4">
-                        <TextBlock Text="日" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
-                        <TextBlock Text="一" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
-                        <TextBlock Text="二" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
-                        <TextBlock Text="三" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
-                        <TextBlock Text="四" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
-                        <TextBlock Text="五" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
-                        <TextBlock Text="六" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="SundayLabel" Text="日" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="MonDayLabel" Text="一" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="TuesdayLabel" Text="二" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="WednesdayLabel" Text="三" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="ThursdayLabel" Text="四" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="FridayLabel" Text="五" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="SaturdayLabel" Text="六" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
                     </UniformGrid>
 
                     <!-- 日期网格 -->
@@ -208,7 +208,7 @@
                                         Click="Quick90_Click"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button Content="清除" Click="Clear_Click" Margin="0,0,6,0"
+                                <Button Name="BtnClear" Content="清除" Click="Clear_Click" Margin="0,0,6,0"
                                         FontSize="9" Foreground="#9CA3AF" Cursor="Hand"
                                         Background="Transparent" BorderThickness="0" Padding="6,4">
                                     <Button.Template>
@@ -219,7 +219,7 @@
                                         </ControlTemplate>
                                     </Button.Template>
                                 </Button>
-                                <Button Content="确定" Click="Confirm_Click"
+                                <Button Name="BtnConfirm" Content="确定" Click="Confirm_Click"
                                         FontSize="9" FontWeight="Medium" Foreground="#2D3A8C" Cursor="Hand"
                                         Background="Transparent" BorderThickness="0" Padding="6,4">
                                     <Button.Template>

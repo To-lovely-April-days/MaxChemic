@@ -1,4 +1,9 @@
-﻿using System;
+﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using Prism.Events;
+using Prism.Ioc;
+using System;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -56,12 +61,40 @@ namespace MaxChemical.Modules.Designer.Views
         private static readonly SolidColorBrush NormalText = new(Color.FromRgb(0x37, 0x41, 0x51));
         private static readonly SolidColorBrush TransparentBrush = Brushes.Transparent;
 
+        //private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationService;
+
+        //private readonly Dictionary<int, string> _monthMap;
+
         public DateRangePicker()
         {
             InitializeComponent();
+
+            //_eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>() ?? throw new NullReferenceException();
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>() ?? throw new NullReferenceException();
+
+            //_eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(UpdateLocalizationText);
+
+            //_monthMap = new Dictionary<int, string>()
+            //{
+            //    {1,"January"},
+            //    {2,"February" },
+            //    {3,"March" },
+            //    {4,"April"},
+            //    {5,"May" },
+            //    {6,"June" },
+            //    {7,"July"},
+            //    {8,"August" },
+            //    {9,"September" },
+            //    {10,"October"},
+            //    {11,"November" },
+            //    {12,"December" }
+            //};
+
             _displayMonth = DateTime.Now.Date;
             _displayMonth = new DateTime(_displayMonth.Year, _displayMonth.Month, 1);
             UpdateTriggerText();
+            UpdateLocalizationText("");
         }
 
         // ═══ 属性变更 ═══
@@ -188,7 +221,15 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (DayGrid == null || MonthYearText == null) return;
 
-            MonthYearText.Text = $"{_displayMonth.Year} 年 {_displayMonth.Month} 月";
+            if (CultureInfo.CurrentUICulture.Name == "en-US")
+            {
+                MonthYearText.Text = string.Format("{0}  {1}", _localizationService.GetString($"Month_{_displayMonth.Month}"), _displayMonth.Year);
+            }
+            else
+            {
+                MonthYearText.Text = $"{_displayMonth.Year} 年 {_displayMonth.Month} 月";
+            }
+
             DayGrid.Children.Clear();
 
             var firstDay = _displayMonth;
@@ -321,6 +362,24 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             RenderCalendar();
+        }
+
+
+        private void UpdateLocalizationText(string s)
+        {
+            SundayLabel.Text = _localizationService.GetString("Week_Sunday", "日");
+            MonDayLabel.Text= _localizationService.GetString("Week_Monday", "一");
+            TuesdayLabel.Text= _localizationService.GetString("Week_Tuesday", "二");
+            WednesdayLabel.Text= _localizationService.GetString("Week_Wednesday", "三");
+            ThursdayLabel.Text= _localizationService.GetString("Week_Thursday", "四");
+            FridayLabel.Text= _localizationService.GetString("Week_Friday", "五");
+            SaturdayLabel.Text= _localizationService.GetString("Week_Saturday", "六");
+
+            Btn7.Content = _localizationService.GetString("DatePicker_7", "7 天");
+            Btn30.Content= _localizationService.GetString("DatePicker_30", "30 天");
+            Btn90.Content= _localizationService.GetString("DatePicker_90", "90 天");
+            BtnClear.Content= _localizationService.GetString("DatePicker_Clear", "清除");
+            BtnConfirm.Content = _localizationService.GetString("DatePicker_Confirm", "确定");
         }
     }
 }
