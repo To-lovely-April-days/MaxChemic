@@ -338,7 +338,7 @@
                                                   Color="{StaticResource AccentColor}"/>
                             </Ellipse.Effect>
                         </Ellipse>
-                        <TextBlock Text="管道属性设置" FontSize="15" FontWeight="Bold"
+                        <TextBlock Name="TbTitleLabel" Text="管道属性设置" FontSize="15" FontWeight="Bold"
                                    Foreground="{StaticResource Gray900}"/>
                     </StackPanel>
 
@@ -367,7 +367,7 @@
                         <Border Width="12" Height="1.5" CornerRadius="1"
                                 Background="{StaticResource AccentBrush}" Margin="0,0,6,0"
                                 VerticalAlignment="Center"/>
-                        <TextBlock Text="实 时 预 览" FontSize="10" FontWeight="Bold"
+                        <TextBlock Name="TbPreviewLabel" Text="实 时 预 览" FontSize="10" FontWeight="Bold"
                                    Foreground="{StaticResource AccentBrush}"
                                    VerticalAlignment="Center"/>
                         <Border Width="12" Height="1.5" CornerRadius="1"
@@ -399,7 +399,7 @@
                                  GroupName="DialogTabs">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="◆" FontSize="10" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="管道外观" VerticalAlignment="Center"/>
+                            <TextBlock Name="TbAppearanceLabel" Text="管道外观" VerticalAlignment="Center"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="TabFluid"
@@ -408,7 +408,7 @@
                                  GroupName="DialogTabs">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="◉" FontSize="10" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="流体设置" VerticalAlignment="Center"/>
+                            <TextBlock Name="TbSettingLabel" Text="流体设置" VerticalAlignment="Center"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="TabFlow"
@@ -417,7 +417,7 @@
                                  GroupName="DialogTabs">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="▸" FontSize="10" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="流动控制" VerticalAlignment="Center"/>
+                            <TextBlock Name="TbControlLabel" Text="流动控制" VerticalAlignment="Center"/>
                         </StackPanel>
                     </RadioButton>
                 </UniformGrid>
@@ -435,11 +435,11 @@
                         <!-- ─── 管道外观 ─── -->
                         <StackPanel x:Name="PanelAppearance">
                             <!-- 管体颜色 -->
-                            <TextBlock Text="管体颜色" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBlock Name="TbBodyColorLabel" Text="管体颜色" Style="{StaticResource FieldLabelStyle}"/>
                             <WrapPanel x:Name="PipeColorPalette" Margin="0,0,0,16"/>
 
                             <!-- 法兰颜色 -->
-                            <TextBlock Text="法兰颜色" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBlock Name="TbFlangeColorLabel" Text="法兰颜色" Style="{StaticResource FieldLabelStyle}"/>
                             <WrapPanel x:Name="FlangeColorPalette"/>
                         </StackPanel>
 
@@ -447,7 +447,7 @@
                         <StackPanel x:Name="PanelFluid" Visibility="Collapsed">
                             <!-- 显示流体开关 -->
                             <DockPanel Margin="0,0,0,16">
-                                <TextBlock Text="显示流体" Style="{StaticResource ToggleLabelStyle}"/>
+                                <TextBlock Name="TbShowFlowLabel" Text="显示流体" Style="{StaticResource ToggleLabelStyle}"/>
                                 <ToggleButton x:Name="ToggleFluidVisible"
                                               Style="{StaticResource ToggleStyle}"
                                               HorizontalAlignment="Right"
@@ -457,13 +457,13 @@
 
                             <StackPanel x:Name="FluidSettingsPanel">
                                 <!-- 流体颜色 -->
-                                <TextBlock Text="流体颜色" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBlock Name="TbFlowColorLabel" Text="流体颜色" Style="{StaticResource FieldLabelStyle}"/>
                                 <WrapPanel x:Name="FluidColorPalette" Margin="0,0,0,16"/>
 
                                 <!-- 透明度 -->
                                 <DockPanel>
-                                    <TextBlock Text="透明度" Style="{StaticResource FieldLabelStyle}"
-                                               Width="50" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock Name="TbTransparencyLabel" Text="透明度" Style="{StaticResource FieldLabelStyle}"
+                                               Margin="0" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="TxtOpacity" Text="50%"
                                                FontSize="13" Foreground="{StaticResource AccentBrush}"
                                                FontWeight="Bold"
@@ -483,7 +483,7 @@
                         <StackPanel x:Name="PanelFlow" Visibility="Collapsed">
                             <!-- 流动状态 -->
                             <DockPanel Margin="0,0,0,16">
-                                <TextBlock Text="流动状态" Style="{StaticResource ToggleLabelStyle}"/>
+                                <TextBlock Name="TbFlowStatusLabel" Text="流动状态" Style="{StaticResource ToggleLabelStyle}"/>
                                 <ToggleButton x:Name="ToggleFlowing"
                                               Style="{StaticResource ToggleStyle}"
                                               HorizontalAlignment="Right"
@@ -493,7 +493,7 @@
 
                             <StackPanel x:Name="FlowControlPanel">
                                 <!-- 流动方向 -->
-                                <TextBlock Text="流动方向" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBlock Name="TbFlowDirectionLabel" Text="流动方向" Style="{StaticResource FieldLabelStyle}"/>
                                 <UniformGrid Columns="2" Margin="0,0,0,16">
                                     <RadioButton x:Name="RbLeftToRight"
                                                  Content="→  正向（左→右）"
@@ -509,8 +509,8 @@
 
                                 <!-- 流速 -->
                                 <DockPanel>
-                                    <TextBlock Text="流速" Style="{StaticResource FieldLabelStyle}"
-                                               Width="30" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock Name="TbFlowVelocityLabel" Text="流速" Style="{StaticResource FieldLabelStyle}"
+                                               Margin="0" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="TxtSpeed" Text="1.0x"
                                                FontSize="13" Foreground="{StaticResource AccentBrush}"
                                                FontWeight="Bold"

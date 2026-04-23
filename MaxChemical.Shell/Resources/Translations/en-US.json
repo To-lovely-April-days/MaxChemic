@@ -516,5 +516,23 @@
   "DeviceCommandDialog_Status_Conn":"Connection",
   "DeviceCommandDialog_Status_Disconn":"Disconnect",
   "DeviceCommandDialog_status_NotConn":"Not connected",
-  "DeviceCommandDialog_NotInputParam":"This command has no input parameters"
+  "DeviceCommandDialog_NotInputParam":"This command has no input parameters",
+  
+  "PipeProperty_Title":"Pipeline properties",
+  "PipeProperty_Preview":"Real-time preview",
+  "PipeProperty_Appearance":"Appearance",
+  "PipeProperty_Setting":"Fluid settings",
+  "PipeProperty_Control":"Fluid control",
+  "PipeProperty_BodyColor":"Tube color",
+  "PipeProperty_FlangeColor":"Flange color",
+  "PipeProperty_ShowFlow":"Display fluid",
+  "PipeProperty_FlowColor":"Fluid color",
+  "PipeProperty_Transparency":"Transparency",
+  "PipeProperty_Status":"Flowing state",
+  "PipeProperty_Direction":"Flow direction",
+  "PipeProperty_PositiveDir":"→  Forward（left→right）",
+  "PipeProperty_NagtiveDir":"←  Reverse（right→left）",
+  "PipeProperty_Velocity":"Flow velocity",
+  "PipeProperty_Cancel":"Cancel",
+  "PipeProperty_Confirm":"Confirm"
 }

@@ -502,5 +502,23 @@
   "DeviceCommandDialog_Status_Conn":"连接",
   "DeviceCommandDialog_Status_Disconn":"断开",
   "DeviceCommandDialog_status_NotConn":"未连接",
-  "DeviceCommandDialog_NotInputParam":"该命令没有输入参数"
+  "DeviceCommandDialog_NotInputParam":"该命令没有输入参数",
+
+  "PipeProperty_Title":"管道属性",
+  "PipeProperty_Preview":"实时预览",
+  "PipeProperty_Appearance":"管道外观",
+  "PipeProperty_Setting":"流体设置",
+  "PipeProperty_Control":"流体控制",
+  "PipeProperty_BodyColor":"管体颜色",
+  "PipeProperty_FlangeColor":"法兰颜色",
+  "PipeProperty_ShowFlow":"显示流体",
+  "PipeProperty_FlowColor":"流体颜色",
+  "PipeProperty_Transparency":"透明度",
+  "PipeProperty_Status":"流动状态",
+  "PipeProperty_Direction":"流动方向",
+  "PipeProperty_PositiveDir":"→  正向（左→右）",
+  "PipeProperty_NagtiveDir":"←  反向（右→左）",
+  "PipeProperty_Velocity":"流速",
+  "PipeProperty_Cancel":"取消",
+  "PipeProperty_Confirm":"确定"
 }

@@ -33,7 +33,7 @@ public static class LocalizationExtensions
 
         if (string.IsNullOrWhiteSpace(key))
         {
-            throw new ArgumentNullException(nameof(key));
+            return defaultTxt;
         }
 
         string txt = service.GetString(key);

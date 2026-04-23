@@ -1,4 +1,6 @@
-﻿using MaxChemical.Modules.Designer.Views.Controls.Service;
+﻿using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Views.Controls.Service;
+using Prism.Ioc;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -117,11 +119,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
+        private readonly ILocalizationService _localization;
+
         public PipePropertyDialog()
         {
             InitializeComponent();
+            _localization = ContainerLocator.Container.Resolve<ILocalizationService>() ?? throw new NullReferenceException();
+
             BuildColorPalettes();
             BuildPreviewPipe();
+            // 本地化标签文本
+            UpdateLocalizationText();
         }
 
         #region 公共方法
@@ -642,8 +650,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (showArrow)
             {
                 _previewFlowArrow.Text = _targetPipe.PipeFlowDir == PipeFlowDirection.LeftToRight
-                    ? "▸▸▸  流动方向  ▸▸▸"
-                    : "◂◂◂  流动方向  ◂◂◂";
+                    ? string.Format("▸▸▸  {0}  ▸▸▸", _localization.GetString("PipeProperty_Direction", "流动方向"))
+                    : string.Format("◂◂◂  {0}  ◂◂◂", _localization.GetString("PipeProperty_Direction", "流动方向"));
             }
 
             // ─── 流动动画 ───
@@ -741,6 +749,31 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 (byte)Math.Max(0, c.R - amount),
                 (byte)Math.Max(0, c.G - amount),
                 (byte)Math.Max(0, c.B - amount));
+        }
+
+        #endregion
+
+        #region 本地化
+
+        private void UpdateLocalizationText()
+        {
+            TbTitleLabel.Text = _localization.GetString("PipeProperty_Title", "管道属性设置");
+            TbPreviewLabel.Text = _localization.GetString("PipeProperty_Preview", "实时预览");
+            TbAppearanceLabel.Text = _localization.GetString("PipeProperty_Appearance", "管道外观");
+            TbSettingLabel.Text = _localization.GetString("PipeProperty_Setting", "流体设置");
+            TbControlLabel.Text = _localization.GetString("PipeProperty_Control", "流体控制");
+            TbBodyColorLabel.Text = _localization.GetString("PipeProperty_BodyColor", "管体颜色");
+            TbFlangeColorLabel.Text = _localization.GetString("PipeProperty_FlangeColor", "法兰颜色");
+            TbShowFlowLabel.Text = _localization.GetString("PipeProperty_ShowFlow", "显示流体");
+            TbFlowColorLabel.Text = _localization.GetString("PipeProperty_FlowColor", "流体颜色");
+            TbTransparencyLabel.Text = _localization.GetString("PipeProperty_Transparency", "透明度");
+            TbFlowStatusLabel.Text = _localization.GetString("PipeProperty_Status", "流动状态");
+            TbFlowDirectionLabel.Text = _localization.GetString("PipeProperty_Direction", "流动方向");
+            RbLeftToRight.Content = _localization.GetString("PipeProperty_PositiveDir", "→  正向（左→右）");
+            RbRightToLeft.Content = _localization.GetString("PipeProperty_NagtiveDir", "←  反向（右→左）");
+            TbFlowVelocityLabel.Text = _localization.GetString("PipeProperty_Velocity", "流速");
+            BtnCancel.Content = _localization.GetString("PipeProperty_Cancel", "取消");
+            BtnApply.Content = _localization.GetString("PipeProperty_Confirm", "确定");
         }
 
         #endregion
