@@ -520,5 +520,15 @@
   "PipeProperty_NagtiveDir":"←  反向（右→左）",
   "PipeProperty_Velocity":"流速",
   "PipeProperty_Cancel":"取消",
-  "PipeProperty_Confirm":"确定"
+  "PipeProperty_Confirm":"确定",
+
+  "Doe_Main_Title":"DOE 实验设计与优化",
+  "Doe_Main_Overview":"概览",
+  "Doe_Main_Exec":"执行",
+  "Doe_Main_History":"历史",
+  "Doe_Main_ProdName":"DOE 优化平台",
+  "Doe_Main_LoadMsg_0":"正在启动 Python 运行时",
+  "Doe_Main_LoadMsg_1":"正在加载统计分析引擎...",
+  "Doe_Main_LoadMsg_2":"正在加载数据...",
+  "Doe_Main_LoadMsg_Ready":"准备就绪"
 }

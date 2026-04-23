@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
 using MaxChemical.Modules.DOE.Events;
@@ -26,6 +28,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IDOERepository _repository;
         private readonly IProjectDecisionEngine _decisionEngine;
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localization;
 
         private int _selectedTabIndex;
         private string _currentBatchId = "";
@@ -37,13 +40,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
             IEventAggregator eventAggregator,
             IDOERepository repository,
             IProjectDecisionEngine decisionEngine,
-            ILogService logger)
+            ILogService logger,
+            ILocalizationService localization)
         {
             _container = container;
             _eventAggregator = eventAggregator;
             _repository = repository;
             _decisionEngine = decisionEngine;
             _logger = logger?.ForContext<DOEMainViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _localization = localization ?? throw new ArgumentNullException(nameof(localization));
 
             CreateProjectCommand = new DelegateCommand(async () => await CreateProjectAsync());
             ContinueProjectCommand = new DelegateCommand<string>(async id => await ContinueProjectAsync(id));
@@ -54,14 +59,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _roundCompletedToken = _eventAggregator.GetEvent<DOERoundCompletedEvent>().Subscribe(
                 async payload => await OnRoundCompletedAsync(payload),
                 ThreadOption.UIThread);
-        }
 
+           _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChangedEvent);
+
+            OnLanguageChangedEvent("");
+        }
+        
         private readonly SubscriptionToken _roundCompletedToken;
 
         /// <summary>★ 窗口关闭时调用，取消事件订阅</summary>
         public void Dispose()
         {
             _eventAggregator.GetEvent<DOERoundCompletedEvent>().Unsubscribe(_roundCompletedToken);
+            _eventAggregator.GetEvent<LanguageChangedEvent>().Unsubscribe(OnLanguageChangedEvent);
         }
 
         // ══════════════ Tab 导航 ══════════════
@@ -365,5 +375,31 @@ namespace MaxChemical.Modules.DOE.ViewModels
             NextStepRecommendation.Complete => DOEProjectPhase.Completed,
             _ => DOEProjectPhase.RSM
         };
+
+
+        #region 本地化
+
+        private string _titleTxt = "DOE 实验设计与优化";
+        private string _overviewTxt = "概览";
+        private string _executeTxt = "执行";
+        private string _historyTxt = "历史";
+        private string _productTxt = "DOE 优化平台";
+
+        public string TitleTxt { get {  return _titleTxt; } set { SetProperty(ref _titleTxt, value); } }
+        public string OverviewTxt { get { return _overviewTxt; } set { SetProperty(ref _overviewTxt, value); } }
+        public string ExecuteTxt { get { return _executeTxt; } set { SetProperty(ref _executeTxt, value); } }
+        public string HistoryTxt { get { return _historyTxt; } set { SetProperty(ref _historyTxt, value); } }
+        public string ProductTxt { get { return _productTxt; } set { SetProperty(ref _productTxt, value); } }
+
+        private void OnLanguageChangedEvent(string language)
+        {
+            TitleTxt = _localization.GetString("Doe_Main_Title", "DOE 实验设计与优化");
+            OverviewTxt = _localization.GetString("Doe_Main_Overview", "概览");
+            ExecuteTxt = _localization.GetString("Doe_Main_Exec", "执行");
+            HistoryTxt = _localization.GetString("Doe_Main_History", "历史");
+            ProductTxt = _localization.GetString("Doe_Main_ProdName", "DOE 优化平台");
+        }
+
+        #endregion
     }
 }

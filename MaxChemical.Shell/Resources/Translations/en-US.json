@@ -534,5 +534,15 @@
   "PipeProperty_NagtiveDir":"←  Reverse（right→left）",
   "PipeProperty_Velocity":"Flow velocity",
   "PipeProperty_Cancel":"Cancel",
-  "PipeProperty_Confirm":"Confirm"
+  "PipeProperty_Confirm":"Confirm",
+  
+  "Doe_Main_Title":"DOE Experimental Design and Optimization",
+  "Doe_Main_Overview":"Overview",
+  "Doe_Main_Exec":"Execute",
+  "Doe_Main_History":"History",
+  "Doe_Main_ProdName":"DOE Optimize the platform",
+  "Doe_Main_LoadMsg_0":"The Python runtime is starting up",
+  "Doe_Main_LoadMsg_1":"The statistical analysis engine is currently loading...",
+  "Doe_Main_LoadMsg_2":"Loading data...",
+  "Doe_Main_LoadMsg_Ready":"Ready"
 }
