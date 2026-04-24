@@ -1,11 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Data;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows;
+using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
@@ -13,10 +6,21 @@ using MaxChemical.Modules.DOE.Events;
 using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.Services;
 using MaxChemical.Modules.DOE.Views;
+using Microsoft.Xaml.Behaviors.Media;
 using Newtonsoft.Json;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Data;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
 
 namespace MaxChemical.Modules.DOE.ViewModels
 {
@@ -27,6 +31,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IEventAggregator _eventAggregator;
         private readonly IDialogService _dialogService;
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localizationService;
 
         // ── 批次基本信息 ──
         private string _batchId = "";
@@ -44,8 +49,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private bool _isPausing;
 
         // ── 指标卡片 ──
+        private string _statusMsgKey = "Doe_Exec_StateMsg_Already";
+        private string _statusMsgDefaul = "就绪";
+        private object[] _statusMsgObjs = Array.Empty<object>();
         private string _statusMessage = "就绪";
         private string _bestRunText = "—";
+        private string _bestValTxtKey = "Doe_Exec_NoYet";
+        private string _bestValTxtDefault = "暂无结果";
         private string _bestValueText = "暂无结果";
         private string _gprStatusText = "未创建";
         private string _gprDetailText = "";
@@ -83,7 +93,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             IEventAggregator eventAggregator,
             IDialogService dialogService,
             AutoPilotService autoPilotService,
-            ILogService logger)
+            ILogService logger,
+            ILocalizationService localizationService)
         {
             _executionService = executionService;
             _repository = repository;
@@ -92,9 +103,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _autoPilotService = autoPilotService;
             _logger = logger?.ForContext<DOEExecutionDashboardViewModel>()
                       ?? throw new ArgumentNullException(nameof(logger));
-
+            _localizationService = localizationService;
+            
             InitializeCommands();
             SubscribeEvents();
+
+            OnLanguageChangedEvent("");
         }
 
         // ══════════════ Properties ══════════════
@@ -130,6 +144,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public bool IsPaused { get => _isPaused; set { SetProperty(ref _isPaused, value); RaiseCommandCanExecute(); UpdateProgressSegments(); } }
         public bool IsPausing { get => _isPausing; set => SetProperty(ref _isPausing, value); }
 
+        
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         public string ProgressText => $"{CurrentRun} / {TotalRuns}";
 
@@ -148,7 +163,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public int PendingCount { get => _pendingCount; set { SetProperty(ref _pendingCount, value); RaiseCommandCanExecute(); } }
         public int FailedCount { get => _failedCount; set { SetProperty(ref _failedCount, value); RaiseCommandCanExecute(); } }
         public bool HasFailedRuns => FailedCount > 0;
-        public string StartButtonText => CurrentRun > 0 ? "继续执行" : "开始执行";
+        public string StartButtonText => CurrentRun > 0 ? _localizationService.GetString("Doe_Exec_ContinueExec", "继续执行") :_localizationService.GetString("Doe_Exec_StartExec", "开始执行");
 
         // ──  迷你模式属性 ──
 
@@ -188,7 +203,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (SetProperty(ref _isAutoPilotEnabled, value))
                 {
                     _autoPilotEnabledForThisRun = value;
-                    AutoPilotStatusText = value ? "已启用" : "未启用";
+                    AutoPilotStatusText = value ? _localizationService.GetString("Doe_Exec_Enabled", "已启用") : _localizationService.GetString("Doe_Exec_Enabled","未启用");
                     // 同步到数据库
                     if (!string.IsNullOrEmpty(_currentProjectId))
                         _ = _repository.SetAutoPilotEnabledAsync(_currentProjectId, value);
@@ -227,14 +242,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 _executionService.PauseBatch();
                 IsPausing = true;
-                StatusMessage = "正在等待当前组完成后暂停...";
+                //StatusMessage = "正在等待当前组完成后暂停...";
+
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_WaitComplete", "正在等待当前组完成后暂停...");
             }, () => IsRunning && !IsPaused && !IsPausing);
             ResumeCommand = new DelegateCommand(() =>
             {
                 _executionService.ResumeBatch();
                 IsPaused = false;
                 IsPausing = false;
-                StatusMessage = "已恢复执行...";
+                //StatusMessage = "已恢复执行...";
+
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_ResumeExec", "已恢复执行...");
                 IsMiniMode = true;
             }, () => IsPaused);
             AbortCommand = new DelegateCommand(async () => await AbortExecutionAsync(), () => IsRunning || IsPaused);
@@ -311,8 +330,24 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 UpdateETA();
                 UpdateProgressSegments();
 
-                StatusMessage = $"已加载: {batch.BatchName}, {PendingCount} 组待执行, {completedCount} 组已完成"
-                    + (FailedCount > 0 ? $", {FailedCount} 组失败" : "");
+                //StatusMessage = $"已加载: {batch.BatchName}, {PendingCount} 组待执行, {completedCount} 组已完成"
+                //    + (FailedCount > 0 ? $", {FailedCount} 组失败" : "");
+
+                if (FailedCount > 0)
+                {
+                    SetStatusMessageLocalizationTxt(
+                        "Doe_Exec_StateMsg_AlreadyLoadFail",
+                        "已加载: {0}, {1} 组待执行, {2} 组已完成, {3} 组失败",
+                        batch.BatchName, PendingCount, completedCount, FailedCount);
+                }
+                else
+                {
+                    SetStatusMessageLocalizationTxt(
+                        "Doe_Exec_StateMsg_AlreadyLoad",
+                        "已加载: {0}, {1} 组待执行, {2} 组已完成",
+                        batch.BatchName, PendingCount, completedCount);
+                }
+
                 ContinueCommand.RaiseCanExecuteChanged();
                 RetryFailedCommand.RaiseCanExecuteChanged();
                 // ★ 加载 AutoPilot 状态
@@ -322,7 +357,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     var apConfig = await _repository.GetAutoPilotConfigAsync(_currentProjectId);
                     _isAutoPilotEnabled = apConfig?.Enabled == true;
                     _autoPilotEnabledForThisRun = _isAutoPilotEnabled;
-                    AutoPilotStatusText = _isAutoPilotEnabled ? "已启用" : "未启用";
+                    AutoPilotStatusText = _isAutoPilotEnabled ? _localizationService.GetString("Doe_Exec_Enabled", "已启用") : _localizationService.GetString("Doe_Exec_Enabled", "未启用");
                     RaisePropertyChanged(nameof(IsAutoPilotEnabled));
                 }
                 else
@@ -408,7 +443,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             if (MatrixTable.Rows.Count == 0 || _responseNames.Count == 0)
             {
                 BestRunText = "—";
-                BestValueText = "暂无结果";
+                _bestValTxtKey = "Doe_Exec_NoYet";
+                BestValueText = _localizationService.GetString("Doe_Exec_NoYet", "暂无结果");
                 return;
             }
 
@@ -428,13 +464,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             if (bestIndex > 0)
             {
-                BestRunText = $"第 {bestIndex} 组";
+                BestRunText = string.Format(_localizationService.GetString("Doe_Exec_Whichgroup", "第 {0} 组"),bestIndex);
                 BestValueText = $"{primaryResp} = {bestVal:F2}";
+                _bestValTxtKey = "";
             }
             else
             {
                 BestRunText = "—";
-                BestValueText = "暂无结果";
+                _bestValTxtKey = "Doe_Exec_NoYet";
+                BestValueText = _localizationService.GetString("Doe_Exec_NoYet", "暂无结果");
             }
         }
 
@@ -473,7 +511,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             if (CurrentRun == 0 || !_firstRunStartTime.HasValue)
             {
                 ETAText = "—";
-                ETADetailText = $"{TotalRuns} 组实验";
+                ETADetailText = string.Format(_localizationService.GetString("Doe_Exec_ETAD_group", $"{0} 组实验"),TotalRuns);
                 return;
             }
 
@@ -482,11 +520,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
             var remaining = (TotalRuns - CurrentRun) * avgPerRun;
 
             if (remaining < 60)
-                ETAText = $"~{remaining:F0} 秒";
+                ETAText = $"~{remaining:F0} {_localizationService.GetString("Doe_Exec_ETA_S", "秒")}";
             else
-                ETAText = $"~{remaining / 60:F0} 分钟";
+                ETAText = $"~{remaining / 60:F0} {_localizationService.GetString("Doe_Exec_ETA_M", "分钟")}";
 
-            ETADetailText = $"均 {avgPerRun:F0}s/组 · 剩 {TotalRuns - CurrentRun} 组";
+            ETADetailText = string.Format(_localizationService.GetString("Doe_Exec_ETAD_Avg", "均 {0:F0}s/组 · 剩 {1} 组"), avgPerRun, TotalRuns - CurrentRun);
         }
 
         // ══════════════  迷你模式辅助方法 ══════════════
@@ -671,7 +709,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                             await _repository.SaveAutoPilotConfigAsync(config);
                             _isAutoPilotEnabled = true;
                             _autoPilotEnabledForThisRun = true;
-                            AutoPilotStatusText = "已启用";
+                            AutoPilotStatusText = _localizationService.GetString("Doe_Exec_Enabled", "已启用");
                             RaisePropertyChanged(nameof(IsAutoPilotEnabled));
                         }
                         else
@@ -705,9 +743,24 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 IsRunning = true;
                 IsPaused = false;
                 _firstRunStartTime = DateTime.Now;
-                StatusMessage = _autoPilotEnabledForThisRun
-                    ? $"正在执行... 剩余 {PendingCount} 组 [智能决策已启用]"
-                    : $"正在执行... 剩余 {PendingCount} 组";
+                //StatusMessage = _autoPilotEnabledForThisRun
+                //    ? $"正在执行... 剩余 {PendingCount} 组 [智能决策已启用]"
+                //    : $"正在执行... 剩余 {PendingCount} 组";
+
+                if (_autoPilotEnabledForThisRun)
+                {
+                    SetStatusMessageLocalizationTxt(
+                        "Doe_Exec_StateMsg_ExecReamindeci",
+                        "正在执行... 剩余 {0} 组 [智能决策已启用]",
+                        PendingCount);
+                }
+                else
+                {
+                    SetStatusMessageLocalizationTxt(
+                        "Doe_Exec_StateMsg_ExecRemain",
+                        "正在执行... 剩余 {0} 组",
+                        PendingCount);
+                }
 
                 IsMiniMode = true;
 
@@ -734,7 +787,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 IsPausing = false;
                 IsPaused = true;
-                StatusMessage = "已暂停。点击「恢复」继续执行。";
+                //StatusMessage = "已暂停。点击「恢复」继续执行。";
+
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_AlreadyPause", "已暂停。点击「恢复」继续执行。");
             });
         }
 
@@ -750,7 +805,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 IsRunning = true;
                 IsPaused = false;
                 _firstRunStartTime = DateTime.Now;
-                StatusMessage = $"正在重置失败组...";
+                //StatusMessage = $"";
+
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_ResetFailGroup", "正在重置失败组...");
 
                 var batch = await _repository.GetBatchWithDetailsAsync(BatchId);
                 if (batch == null) return;
@@ -767,7 +824,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 await LoadBatchAsync(BatchId);
 
-                StatusMessage = $"已重置 {failedRuns.Count} 组，正在执行...";
+                //StatusMessage = $"";
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_AlreadyReset", "已重置 {0} 组，正在执行...", failedRuns.Count);
 
                 //  切换到迷你模式
                 IsMiniMode = true;
@@ -795,7 +853,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 await _executionService.AbortBatchAsync();
-                StatusMessage = "批次已终止";
+                //StatusMessage = "";
+
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_Termination", "批次已终止");
             }
             catch (Exception ex)
             {
@@ -809,6 +869,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             _eventAggregator.GetEvent<DOERunCompletedEvent>().Subscribe(OnDOERunNeedsResponse, ThreadOption.UIThread);
             _eventAggregator.GetEvent<DOEProgressChangedEvent>().Subscribe(OnDOEProgressChanged, ThreadOption.UIThread);
+            _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChangedEvent);
         }
 
         private void OnDOERunNeedsResponse(DOERunCompletedPayload payload)
@@ -892,7 +953,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 IsPaused = false;
                 IsPausing = false;
                 BatchStatus = e.FinalStatus;
-                StatusMessage = $"执行完成 ({e.CompletedRuns}/{e.TotalRuns} 组)";
+                //StatusMessage = $"";
+
+                SetStatusMessageLocalizationTxt(
+                    "Doe_Exec_StateMsg_ExecComplete",
+                    "执行完成 ({0}/{1} 组)",
+                    e.CompletedRuns, e.TotalRuns);
 
                 IsMiniMode = false;
 
@@ -953,14 +1019,17 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var batch = await _repository.GetBatchWithDetailsAsync(BatchId);
                 if (batch == null || string.IsNullOrEmpty(batch.ProjectId)) return;
 
-                StatusMessage = "智能决策: 正在分析实验结果...";
+                //StatusMessage = "";
+
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_DecisionResult", "智能决策: 正在分析实验结果...");
 
                 var report = await _autoPilotService.OnRoundCompletedAsync(
                     batch.ProjectId, BatchId);
 
                 if (!report.Success)
                 {
-                    StatusMessage = $"智能决策分析失败: {report.Error}";
+                    //StatusMessage = $"";
+                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_DecisionFail", "智能决策分析失败: {0}", report.Error);
                     return;
                 }
 
@@ -970,7 +1039,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "智能决策触发失败");
-                StatusMessage = $"智能决策异常: {ex.Message}";
+                //StatusMessage = $"";
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_DecisionException", "智能决策异常: {0}",ex.Message);
             }
         }
 
@@ -1082,5 +1152,77 @@ namespace MaxChemical.Modules.DOE.ViewModels
             FailedCount = failed;
             ProgressPercent = TotalRuns > 0 ? (double)executed / TotalRuns * 100 : 0;
         }
+
+
+        #region 本地化
+
+        private string _maskMsgTxt;
+        private string _maskTipTxt;
+        private string _retryFailTxt;
+        private string _pauseTxt;
+        private string _resumeTxt;
+        private string _stopTxt;
+        private string _execProgressTxt;
+        private string _groupTxt;
+        private string _currOptimizTxt;
+        private string _remainTxt;
+        private string _failTxt;
+        private string _matrixTxt;
+        private string _groupPeriTxt;
+        private string _executingTxt;
+        private string _alreadyPauseTxt;
+        private string _decisionTxt;
+
+        public string MaskMsgTxt { get { return _maskMsgTxt; } set { SetProperty(ref _maskMsgTxt, value); } }
+        public string MaskTipTxt { get { return _maskTipTxt; } set { SetProperty(ref _maskTipTxt, value); }  }
+        public string RetryFailTxt { get { return _retryFailTxt; } set { SetProperty(ref _retryFailTxt, value); } }
+        public string PauseTxt { get { return _pauseTxt; } set { SetProperty(ref _pauseTxt, value); } }
+        public string ResumeTxt { get { return _resumeTxt; } set { SetProperty(ref _resumeTxt, value); } }
+        public string StopTxt { get { return _stopTxt; } set { SetProperty(ref _stopTxt, value); } }
+        public string ExecProgressTxt { get { return _execProgressTxt; } set { SetProperty(ref _execProgressTxt, value); } }
+        public string GroupTxt { get { return _groupTxt; } set { SetProperty(ref _groupTxt, value); } }
+        public string CurrOptimizTxt { get { return _currOptimizTxt; } set { SetProperty(ref _currOptimizTxt, value); } }
+        public string RemainTxt { get { return _remainTxt; } set { SetProperty(ref _remainTxt, value); } }
+        public string FailTxt { get { return _failTxt; } set { SetProperty(ref _failTxt, value); } }
+        public string MatrixTxt { get { return _matrixTxt; } set { SetProperty(ref _matrixTxt, value); } }
+        public string GroupPeriTxt { get { return _groupPeriTxt; } set { SetProperty(ref _groupPeriTxt, value); } }
+        public string ExectuingTxt { get { return _executingTxt; } set { SetProperty(ref _executingTxt, value); } }
+        public string AlreadyPauseTxt { get { return _alreadyPauseTxt; } set { SetProperty(ref _alreadyPauseTxt, value); } }
+        public string DecisionTxt { get { return _decisionTxt; } set { SetProperty(ref _decisionTxt, value); } }
+
+
+        private void OnLanguageChangedEvent(string language)
+        {
+            RaisePropertyChanged(nameof(StartButtonText));
+            StatusMessage = string.Format(_localizationService.GetString(_statusMsgKey, _statusMsgDefaul), _statusMsgObjs);
+            BestValueText = _localizationService.GetString(_bestValTxtKey, _bestValTxtDefault);
+
+            MaskMsgTxt = _localizationService.GetString("Deo_Exec_Mask_Msg", "正在等待当前实验组完成...");
+            MaskTipTxt = _localizationService.GetString("Doe_Exec_Mask_Tip", "当前组执行完毕后将自动暂停");
+            RetryFailTxt = _localizationService.GetString("Doe_Exec_RetryFail", "重试失败");
+            PauseTxt = _localizationService.GetString("Doe_Exec_Pause", "暂停");
+            ResumeTxt = _localizationService.GetString("Doe_Exec_Resume", "恢复");
+            StopTxt = _localizationService.GetString("Doe_Exec_Terminate", "终止");
+            ExecProgressTxt = _localizationService.GetString("Doe_Exec_ExecProgress", "执行进度");
+            GroupTxt = _localizationService.GetString("Doe_Exec_Group", "组");
+            CurrOptimizTxt = _localizationService.GetString("Doe_Exec_CurrentOptimiz", "当前最优");
+            RemainTxt = _localizationService.GetString("Doe_Exec_Remain", "预计剩余");
+            FailTxt = _localizationService.GetString("Doe_Exec_Fail", "失败");
+            MatrixTxt = _localizationService.GetString("Doe_Exec_MatrixTitle", "实验矩阵");
+            GroupPeriTxt = _localizationService.GetString("Doe_Exec_GroupExperiment", "组实验");
+            ExectuingTxt = _localizationService.GetString("Doe_Exec_Executing", "执行中");
+            AlreadyPauseTxt = _localizationService.GetString("Doe_Exec_AlredyPause", "已暂停");
+            DecisionTxt = _localizationService.GetString("Doe_Exec_Decision", "智能决策");
+        }
+
+        private void SetStatusMessageLocalizationTxt(string key, string defaultTxt, params object[] args)
+        {
+            _statusMsgKey = key;
+            _statusMsgDefaul = defaultTxt;
+            _statusMsgObjs = args;
+            StatusMessage = string.Format(_localizationService.GetString(key, defaultTxt), args);
+        }
+
+        #endregion
     }
 }

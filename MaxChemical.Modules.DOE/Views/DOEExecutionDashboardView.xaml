@@ -44,17 +44,17 @@
                                     <!-- 执行状态徽章 -->
                                     <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center"
                                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}">
-                                        <TextBlock Text="执行中" FontSize="10" FontWeight="Medium" Foreground="{StaticResource WzPrimary}"/>
+                                        <TextBlock Text="{Binding ExectuingTxt}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource WzPrimary}"/>
                                     </Border>
                                     <Border Background="#ECFDF5" CornerRadius="4" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center"
                                             Visibility="{Binding IsPaused, Converter={StaticResource BoolToVis}}">
-                                        <TextBlock Text="已暂停" FontSize="10" FontWeight="Medium" Foreground="#059669"/>
+                                        <TextBlock Text="{Binding AlreadyPauseTxt}" FontSize="10" FontWeight="Medium" Foreground="#059669"/>
                                     </Border>
                                     <!-- 智能决策标记 -->
                                     <Border Background="{StaticResource WzSurface}" CornerRadius="4" Padding="8,3" Margin="8,0,0,0" VerticalAlignment="Center"
                                             Visibility="{Binding IsProjectBatch, Converter={StaticResource BoolToVis}}">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="智能决策" FontSize="10" Foreground="{StaticResource WzTextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding DecisionTxt}" FontSize="10" Foreground="{StaticResource WzTextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                             <CheckBox IsChecked="{Binding IsAutoPilotEnabled, Mode=TwoWay}" Style="{StaticResource WzCheckBox}" Padding="0" FontSize="10" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding AutoPilotStatusText}" FontSize="10" Foreground="{StaticResource WzTextHint}"/>
                                             </CheckBox>
@@ -73,7 +73,7 @@
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="Bd" CornerRadius="6" Padding="14,7" Background="Transparent" BorderBrush="#D97706" BorderThickness="0.5">
-                                                <TextBlock Text="重试失败" FontSize="11" FontWeight="Medium" Foreground="#D97706" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding RetryFailTxt}" FontSize="11" FontWeight="Medium" Foreground="#D97706" HorizontalAlignment="Center"/>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -87,13 +87,13 @@
                                     </Button.Template>
                                 </Button>
                                 <!-- 暂停 -->
-                                <Button Command="{Binding PauseCommand}" Style="{StaticResource WzBtnGhost}" Content="暂停" FontSize="11" Padding="14,7" Margin="0,0,6,0"/>
+                                <Button Command="{Binding PauseCommand}" Style="{StaticResource WzBtnGhost}" Content="{Binding PauseTxt}" FontSize="11" Padding="14,7" Margin="0,0,6,0"/>
                                 <!-- 恢复 -->
                                 <Button Command="{Binding ResumeCommand}" Cursor="Hand" Margin="0,0,6,0">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="Bd" CornerRadius="6" Padding="14,7" Background="Transparent" BorderBrush="#059669" BorderThickness="0.5">
-                                                <TextBlock Text="恢复" FontSize="11" FontWeight="Medium" Foreground="#059669" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding ResumeTxt}" FontSize="11" FontWeight="Medium" Foreground="#059669" HorizontalAlignment="Center"/>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -111,7 +111,7 @@
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="Bd" CornerRadius="6" Padding="14,7" Background="Transparent" BorderBrush="{StaticResource WzBorder}" BorderThickness="0.5">
-                                                <TextBlock Text="终止" FontSize="11" FontWeight="Medium" Foreground="#DC2626" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding StopTxt}" FontSize="11" FontWeight="Medium" Foreground="#DC2626" HorizontalAlignment="Center"/>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -142,12 +142,12 @@
                         <StackPanel Orientation="Horizontal">
                             <!-- 进度数字 -->
                             <StackPanel Margin="0,0,24,0">
-                                <TextBlock Text="执行进度" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding ExecProgressTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                     <TextBlock Text="{Binding CurrentRun}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
                                     <TextBlock FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Bottom" Margin="2,0,0,1">
                                         <Run Text=" / "/><Run Text="{Binding TotalRuns, Mode=OneWay}"/>
-                                        <Run Text=" 组"/>
+                                        <Run Text="{Binding GroupTxt,StringFormat=' {0}'}"/>
                                     </TextBlock>
                                 </StackPanel>
                             </StackPanel>
@@ -157,7 +157,7 @@
 
                             <!-- 当前最优 -->
                             <StackPanel Margin="0,0,24,0">
-                                <TextBlock Text="当前最优" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding CurrOptimizTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                     <TextBlock Text="{Binding BestRunText}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
                                     <TextBlock Text="{Binding BestValueText}" FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Bottom" Margin="6,0,0,1"/>
@@ -169,7 +169,7 @@
 
                             <!-- 预计剩余 -->
                             <StackPanel Margin="0,0,24,0">
-                                <TextBlock Text="预计剩余" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding RemainTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                     <TextBlock Text="{Binding ETAText}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
                                     <TextBlock Text="{Binding ETADetailText}" FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Bottom" Margin="6,0,0,1"/>
@@ -180,10 +180,10 @@
                             <Border Width="0.5" Background="{StaticResource WzDivider}" Margin="0,2,24,2"
                                     Visibility="{Binding HasFailedRuns, Converter={StaticResource BoolToVis}}"/>
                             <StackPanel Visibility="{Binding HasFailedRuns, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="失败" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding FailTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" FontWeight="Medium" Margin="0,0,0,3"/>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                     <TextBlock FontSize="14" FontWeight="Medium" Foreground="#DC2626">
-                                        <Run Text="{Binding FailedCount, Mode=OneWay}"/><Run Text=" 组"/>
+                                        <Run Text="{Binding FailedCount, Mode=OneWay}"/><Run Text="{Binding GroupTxt,StringFormat=' {0}'}"/>
                                     </TextBlock>
                                 </StackPanel>
                             </StackPanel>
@@ -204,9 +204,9 @@
                         <!-- 表头 -->
                         <Border Grid.Row="0" Background="#FAFBFC" Padding="18,10" BorderBrush="{StaticResource WzDivider}" BorderThickness="0,0,0,0.5" CornerRadius="10,10,0,0">
                             <Grid>
-                                <TextBlock Text="实验矩阵" FontSize="13" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
+                                <TextBlock Text="{Binding MatrixTxt}" FontSize="13" FontWeight="Medium" Foreground="{StaticResource WzText}"/>
                                 <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource WzTextHint}">
-                                    <Run Text="{Binding MatrixTable.Rows.Count, Mode=OneWay}"/><Run Text=" 组实验"/>
+                                    <Run Text="{Binding MatrixTable.Rows.Count, Mode=OneWay}"/><Run Text="{Binding GroupPeriTxt,StringFormat=' {0}'}"/>
                                 </TextBlock>
                             </Grid>
                         </Border>
@@ -308,7 +308,7 @@
         </ScrollViewer>
 
         <!-- ═══ 暂停等待遮罩 ═══ -->
-        <Border Background="#80FFFFFF" Visibility="{Binding IsPausing, Converter={StaticResource BoolToVis}}"
+        <!--<Border Background="#80FFFFFF" Visibility="{Binding IsPausing, Converter={StaticResource BoolToVis}}"
                 VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
             <Border Background="White" CornerRadius="12" Padding="36,28"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -335,11 +335,11 @@
                             </EventTrigger>
                         </Ellipse.Triggers>
                     </Ellipse>
-                    <TextBlock Text="正在等待当前实验组完成..." FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                    <TextBlock Text="当前组执行完毕后将自动暂停" FontSize="11" Foreground="{StaticResource WzTextHint}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding MaskMsgTxt}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding MaskTipTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-        </Border>
+        </Border>-->
 
     </Grid>
 </UserControl>
