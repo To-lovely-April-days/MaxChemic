@@ -40,12 +40,12 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="实验优化" FontSize="16" FontWeight="Bold" Foreground="{StaticResource OvText}"/>
+                <TextBlock Text="{Binding TitleTxt}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource OvText}"/>
                 <TextBlock FontSize="10.5" Foreground="{StaticResource OvTextHint}" Margin="0,2,0,0">
                     <Run Text="{Binding ActiveProjectCount, Mode=OneWay}"/>
-                    <Run Text=" 个活跃项目 · "/>
+                    <Run Text="{Binding ProjCountTxt,StringFormat='{}{0} · '}"/>
                     <Run Text="{Binding TotalExperiments, Mode=OneWay}"/>
-                    <Run Text=" 组实验"/>
+                    <Run Text="{Binding ItemCountTxt}"/>
                 </TextBlock>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -54,7 +54,7 @@
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="White" CornerRadius="7" Padding="14,6"
                                     BorderBrush="{StaticResource OvBorder2}" BorderThickness="1">
-                                <TextBlock Text="历史" FontSize="10.5" FontWeight="SemiBold" Foreground="#6B7280"/>
+                                <TextBlock Text="{Binding HistoryTxt}" FontSize="10.5" FontWeight="SemiBold" Foreground="#6B7280"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
@@ -69,7 +69,7 @@
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{StaticResource IndPrimaryBrush}" CornerRadius="7" Padding="16,6">
-                                <TextBlock Text="＋ 新建项目" FontSize="10.5" FontWeight="SemiBold" Foreground="White"/>
+                                <TextBlock Text="{Binding NewProjTxt,StringFormat='+ {0}'}" FontSize="10.5" FontWeight="SemiBold" Foreground="White"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
@@ -92,20 +92,20 @@
 
             <Border.ContextMenu>
                 <ContextMenu Style="{StaticResource DOEContextMenu}">
-                    <MenuItem Header="查看详情" Style="{StaticResource DOEMenuItem}"
+                    <MenuItem Header="{Binding PlacementTarget.Tag.ViewDetails,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ViewProjectDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
-                    <MenuItem Header="查看分析" Style="{StaticResource DOEMenuItem}"
+                    <MenuItem Header="{Binding PlacementTarget.Tag.ViewAnalysis,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ViewProjectAnalysisCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
-                    <MenuItem Header="查看历史" Style="{StaticResource DOEMenuItem}"
+                    <MenuItem Header="{Binding PlacementTarget.Tag.ViewHistory,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ViewProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
                     <Separator/>
-                    <MenuItem Header="归档项目" Style="{StaticResource DOEMenuItem}"
+                    <MenuItem Header="{Binding PlacementTarget.Tag.ProjArchive,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ArchiveProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
-                    <MenuItem Header="删除项目" Style="{StaticResource DOEMenuItem}" Foreground="#D32F2F"
+                    <MenuItem Header="{Binding PlacementTarget.Tag.DeleteProj,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}" Foreground="#D32F2F"
                               Command="{Binding PlacementTarget.Tag.DeleteProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
                 </ContextMenu>
@@ -141,24 +141,24 @@
                         <StackPanel Margin="0,0,18,0">
                             <TextBlock Text="{Binding BestValueText}" FontSize="22" FontWeight="Bold"
                                        FontFamily="Consolas" Foreground="{StaticResource IndPrimaryBrush}"/>
-                            <TextBlock Text="最优产率" FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0"/>
+                            <TextBlock Text="{Binding DataContext.ProdRateTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0"/>
                         </StackPanel>
                         <Border Width="1" Background="{StaticResource OvBorder}" Margin="0,3,18,3"/>
                         <StackPanel Margin="0,0,18,0">
                             <TextBlock Text="{Binding TotalBatches}" FontSize="22" FontWeight="Bold"
                                        FontFamily="Consolas" Foreground="{StaticResource OvText}"/>
-                            <TextBlock Text="轮次" FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0"/>
+                            <TextBlock Text="{Binding DataContext.RoundTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0"/>
                         </StackPanel>
                         <Border Width="1" Background="{StaticResource OvBorder}" Margin="0,3,18,3"/>
                         <StackPanel>
                             <TextBlock Text="{Binding TotalExperiments}" FontSize="22" FontWeight="Bold"
                                        FontFamily="Consolas" Foreground="{StaticResource OvText}"/>
-                            <TextBlock Text="实验" FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0"/>
+                            <TextBlock Text="{Binding DataContext.ExperiTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0"/>
                         </StackPanel>
                     </StackPanel>
 
                     <!-- 最优因子组合 -->
-                    <TextBlock Text="最优因子组合" FontSize="9" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"
+                    <TextBlock Text="{Binding DataContext.FactorTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"
                                Margin="0,0,0,5"/>
                     <ItemsControl ItemsSource="{Binding OptimalFactorItems}" Margin="0,0,0,10">
                         <ItemsControl.ItemsPanel>
@@ -180,7 +180,7 @@
                     </ItemsControl>
 
                     <!-- 响应值 -->
-                    <TextBlock Text="响应值" FontSize="9" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"
+                    <TextBlock Text="{Binding ResponseTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"
                                Margin="0,0,0,5"/>
                     <ItemsControl ItemsSource="{Binding ResponseValueItems}" Margin="0,0,0,10">
                         <ItemsControl.ItemsPanel>
@@ -218,8 +218,8 @@
 
                     <!-- 创建/更新时间 -->
                     <TextBlock FontSize="8.5" Foreground="{StaticResource OvTextMuted}" Margin="0,0,0,10">
-                        <Run Text="创建于 "/><Run Text="{Binding CreatedTime, StringFormat=MM-dd, Mode=OneWay}"/>
-                        <Run Text=" · 最后更新 "/><Run Text="{Binding UpdatedTime, StringFormat=MM-dd HH:mm, Mode=OneWay}"/>
+                        <Run Text="{Binding DataContext.CreateInTxt,RelativeSource={RelativeSource AncestorType=UserControl}}"/><Run Text="{Binding CreatedTime, StringFormat=MM-dd, Mode=OneWay}"/>
+                        <Run Text="{Binding DataContext.UpdateOnTxt,RelativeSource={RelativeSource AncestorType=UserControl},StringFormat=' · {0}'}"/><Run Text="{Binding UpdatedTime, StringFormat=MM-dd HH:mm, Mode=OneWay}"/>
                     </TextBlock>
 
                     <!-- 操作按钮 -->
@@ -231,7 +231,7 @@
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" Background="{StaticResource IndPrimaryBrush}" CornerRadius="7" Padding="16,7">
-                                        <TextBlock Text="继续优化 →" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
+                                        <TextBlock Text="{Binding DataContext.ContinueTxt,RelativeSource={RelativeSource AncestorType=UserControl},StringFormat='{}{0} →'}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
@@ -248,7 +248,7 @@
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" Background="White" CornerRadius="7" Padding="14,7"
                                             BorderBrush="#D5D9E2" BorderThickness="1">
-                                        <TextBlock x:Name="Tx" Text="详情" FontSize="11" FontWeight="SemiBold" Foreground="#6B7280"/>
+                                        <TextBlock x:Name="Tx" Text="{Binding DataContext.DetailTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="11" FontWeight="SemiBold" Foreground="#6B7280"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
@@ -266,7 +266,7 @@
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" Background="White" CornerRadius="7" Padding="14,7"
                                             BorderBrush="#D5D9E2" BorderThickness="1">
-                                        <TextBlock x:Name="Tx" Text="分析" FontSize="11" FontWeight="SemiBold" Foreground="#6B7280"/>
+                                        <TextBlock x:Name="Tx" Text="{Binding DataContext.AnalysisTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="11" FontWeight="SemiBold" Foreground="#6B7280"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
@@ -288,7 +288,7 @@
                         <Border Padding="20,18"
         Visibility="{Binding DataContext.HasResumableBatch, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="等待恢复" FontSize="9" FontWeight="Bold"
+                                <TextBlock Text="{Binding WaitResumeTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="9" FontWeight="Bold"
                    Foreground="{StaticResource OvTextSec}" Margin="0,0,0,14"/>
                                 <TextBlock Text="{Binding DataContext.ResumableBatchSummary, RelativeSource={RelativeSource AncestorType=UserControl}}"
                    FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource OvText}"
@@ -301,7 +301,7 @@
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="Bd" Background="{StaticResource IndAccentBrush}" CornerRadius="7" Padding="0,9">
-                                                <TextBlock Text="恢复执行 →" FontSize="11.5" FontWeight="SemiBold"
+                                                <TextBlock Text="{Binding ResumeExecute,RelativeSource={RelativeSource AncestorType=UserControl},StringFormat='{}{0} →'}" FontSize="11.5" FontWeight="SemiBold"
                                    Foreground="White" HorizontalAlignment="Center"/>
                                             </Border>
                                             <ControlTemplate.Triggers>
@@ -329,14 +329,16 @@
                             </Border.Style>
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,10">
-                                    <TextBlock Text="优化历程" FontSize="11" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"/>
+                                    <TextBlock Text="{Binding DataContext.OptimizTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"/>
                                     <Button DockPanel.Dock="Right" HorizontalAlignment="Right" Cursor="Hand"
                                             Command="{Binding DataContext.ViewProjectDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding ProjectId}">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <TextBlock x:Name="Tx" FontSize="9" Foreground="{StaticResource IndAccentBrush}" FontWeight="Medium">
-                                                    <Run Text="全部 "/><Run Text="{Binding TotalBatches, Mode=OneWay}"/><Run Text=" 轮 →"/>
+                                                    <Run Text="{Binding DataContext.AllTxt,RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                    <Run Text="{Binding TotalBatches, Mode=OneWay}"/>
+                                                    <Run Text="{Binding DataContext.RoundsTxt,RelativeSource={RelativeSource AncestorType=UserControl},StringFormat='{} {0} →'}"/>
                                                 </TextBlock>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
@@ -565,12 +567,12 @@
                     <TextBlock Text="＋" FontSize="20" Foreground="{StaticResource IndAccentBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
-                <TextBlock Text="开始第一个优化项目" FontSize="14" FontWeight="SemiBold"
+                <TextBlock Text="{Binding StartOptimizTxt}" FontSize="14" FontWeight="SemiBold"
                            Foreground="{StaticResource OvText}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                 <TextBlock HorizontalAlignment="Center" FontSize="11" Foreground="{StaticResource OvTextSec}"
                            TextAlignment="Center" Margin="0,0,0,18" LineHeight="18">
-                    <Run Text="创建项目后，系统自动引导完成"/><LineBreak/>
-                    <Run Text="筛选 → 路径探索 → 响应面优化 → 验证 全流程"/>
+                    <Run Text="{Binding InstructionTxt}"/><LineBreak/>
+                    <Run Text="{Binding ProcessGuideTxt}"/>
                 </TextBlock>
                 <Button Cursor="Hand" HorizontalAlignment="Center"
                         Command="{Binding DataContext.CreateProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}">
