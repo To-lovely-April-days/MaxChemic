@@ -180,7 +180,7 @@
                     </ItemsControl>
 
                     <!-- 响应值 -->
-                    <TextBlock Text="{Binding ResponseTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"
+                    <TextBlock Text="{Binding DataContext.ResponseTxt,RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource OvTextSec}"
                                Margin="0,0,0,5"/>
                     <ItemsControl ItemsSource="{Binding ResponseValueItems}" Margin="0,0,0,10">
                         <ItemsControl.ItemsPanel>
@@ -579,7 +579,7 @@
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{StaticResource IndPrimaryBrush}" CornerRadius="8" Padding="20,8">
-                                <TextBlock Text="＋ 新建项目" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
+                                <TextBlock Text="{Binding NewProjTxt,StringFormat='＋ {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
