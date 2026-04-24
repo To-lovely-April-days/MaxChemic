@@ -108,6 +108,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             // 注册本地化语言变更的处理程序
             _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChangedEvent);
+            OnLanguageChangedEvent("");
         }
 
         #region 本地化

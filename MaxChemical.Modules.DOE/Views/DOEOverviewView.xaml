@@ -469,20 +469,20 @@
 
                                     <Border.ContextMenu>
                                         <ContextMenu Style="{StaticResource DOEContextMenu}">
-                                            <MenuItem Header="查看详情" Style="{StaticResource DOEMenuItem}"
+                                            <MenuItem Header="PlacementTarget.Tag.ViewDetails, RelativeSource={RelativeSource AncestorType=ContextMenu}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ViewProjectDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>
-                                            <MenuItem Header="查看分析" Style="{StaticResource DOEMenuItem}"
+                                            <MenuItem Header="PlacementTarget.Tag.ViewAnalysis, RelativeSource={RelativeSource AncestorType=ContextMenu}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ViewProjectAnalysisCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>
-                                            <MenuItem Header="查看历史" Style="{StaticResource DOEMenuItem}"
+                                            <MenuItem Header="PlacementTarget.Tag.ViewHistory, RelativeSource={RelativeSource AncestorType=ContextMenu}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ViewProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>
                                             <Separator/>
-                                            <MenuItem Header="归档项目" Style="{StaticResource DOEMenuItem}"
+                                            <MenuItem Header="PlacementTarget.Tag.ProjArchive, RelativeSource={RelativeSource AncestorType=ContextMenu}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ArchiveProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>
-                                            <MenuItem Header="删除项目" Style="{StaticResource DOEMenuItem}" Foreground="#D32F2F"
+                                            <MenuItem Header="PlacementTarget.Tag.DeleteProj, RelativeSource={RelativeSource AncestorType=ContextMenu}" Style="{StaticResource DOEMenuItem}" Foreground="#D32F2F"
                                                       Command="{Binding PlacementTarget.Tag.DeleteProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>
                                         </ContextMenu>
