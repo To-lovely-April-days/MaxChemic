@@ -137,7 +137,7 @@
                                 <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessIF.png"
                                        Width="24" Height="24" Stretch="Uniform"/>
                             </Border>
-                            <TextBlock Text="逻辑判断"
+                            <TextBlock Name="NodeTitle" Text="逻辑判断"
                                        FontSize="15" FontWeight="Medium"
                                        Foreground="#212121"
                                        VerticalAlignment="Center"/>
@@ -165,12 +165,12 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="操作数"
+                            <TextBlock Name="OperatorTitle" Text="操作数"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#757575"/>
                         </StackPanel>
 
-                        <TextBlock Text="左操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="LeftOpLabel" Text="左操作数" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -182,13 +182,13 @@
                                      Text="{Binding LogicCommand.Properties[LeftOperand], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"
                                      ToolTip="输入变量名或常量值"/>
-                            <Button Grid.Column="1" Content="+ 变量"
+                            <Button Name="LeftButton" Grid.Column="1" Content="+ 变量"
                                     Style="{StaticResource VarButtonStyle}"
                                     Margin="6,0,0,0"
                                     Click="SelectLeftVariable_Click"/>
                         </Grid>
 
-                        <TextBlock Text="右操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="RightOpLabel" Text="右操作数" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -200,7 +200,7 @@
                                      Text="{Binding LogicCommand.Properties[RightOperand], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"
                                      ToolTip="输入比较值、常量或变量名"/>
-                            <Button Grid.Column="1" Content="+ 变量"
+                            <Button Name="RightButton" Grid.Column="1" Content="+ 变量"
                                     Style="{StaticResource VarButtonStyle}"
                                     Margin="6,0,0,0"
                                     Click="SelectRightVariable_Click"/>
@@ -215,7 +215,7 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="比较符"
+                            <TextBlock Name="OperatorLabel" Text="比较符"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#757575"/>
                         </StackPanel>
@@ -258,7 +258,7 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="条件预览"
+                            <TextBlock Name="PreviewLabel" Text="条件预览"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#757575"/>
                         </StackPanel>
@@ -282,19 +282,19 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="变量引用说明"
+                            <TextBlock Name="UseDescLabel" Text="变量引用说明"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#1565C0"/>
                         </StackPanel>
                         <TextBlock FontSize="11" Foreground="#1976D2"
                                    LineHeight="20" TextWrapping="Wrap">
-                            <Run Text="• 点击「+ 变量」按钮从列表中选择已定义变量"/>
+                            <Run Name="Desc1" Text="• 点击「+ 变量」按钮从列表中选择已定义变量"/>
                             <LineBreak/>
-                            <Run Text="• 字符串常量请用引号包围：'文本'"/>
+                            <Run Name="Desc2" Text="• 字符串常量请用引号包围：'文本'"/>
                             <LineBreak/>
-                            <Run Text="• 数字常量直接输入：123 或 45.67"/>
+                            <Run Name="Desc3" Text="• 数字常量直接输入：123 或 45.67"/>
                             <LineBreak/>
-                            <Run Text="• 布尔值：true 或 false"/>
+                            <Run Name="Desc4" Text="• 布尔值：true 或 false"/>
                         </TextBlock>
                     </StackPanel>
                 </Border>

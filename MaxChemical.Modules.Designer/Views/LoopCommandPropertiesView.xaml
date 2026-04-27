@@ -315,7 +315,7 @@
                                 <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessLoop.png"
                                        Width="24" Height="24" Stretch="Uniform"/>
                             </Border>
-                            <TextBlock Text="循环" FontSize="15" FontWeight="Medium"
+                            <TextBlock Name="NodeTitle" Text="循环" FontSize="15" FontWeight="Medium"
                                        Foreground="#212121" VerticalAlignment="Center"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -337,7 +337,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="循环类型" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="LoopTypeTitle" Text="循环类型" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <!-- 隐藏的 ComboBox 保持数据绑定，不显示在界面上 -->
                         <ComboBox x:Name="LoopTypeCombo"
@@ -352,7 +352,7 @@
                         <!-- 分段选择器 -->
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
                             <UniformGrid Rows="1">
-                                <RadioButton Content="固定次数"
+                                <RadioButton Name="RbFixed" Content="固定次数"
                                              GroupName="LoopTypeGroup"
                                              Style="{StaticResource OpPillStyle}"
                                              IsChecked="{Binding ElementName=Root,
@@ -360,7 +360,7 @@
                                                  Converter={StaticResource LoopTypeEqConverter},
                                                  ConverterParameter=FixedCount,
                                                  Mode=TwoWay}"/>
-                                <RadioButton Content="条件循环"
+                                <RadioButton Name="RbConditionLoop" Content="条件循环"
                                              GroupName="LoopTypeGroup"
                                              Style="{StaticResource OpPillStyle}"
                                              IsChecked="{Binding ElementName=Root,
@@ -368,7 +368,7 @@
                                                  Converter={StaticResource LoopTypeEqConverter},
                                                  ConverterParameter=Conditional,
                                                  Mode=TwoWay}"/>
-                                <RadioButton Content="无限循环"
+                                <RadioButton Name="RbInfiniteLoop" Content="无限循环"
                                              GroupName="LoopTypeGroup"
                                              Style="{StaticResource OpPillStyle}"
                                              IsChecked="{Binding ElementName=Root,
@@ -391,7 +391,7 @@
                             <Setter Property="CornerRadius" Value="8"/>
                             <Setter Property="Padding" Value="12"/>
                             <Setter Property="Margin" Value="0,0,0,8"/>
-                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
                                              Value="{x:Static model:LoopType.FixedCount}">
@@ -404,9 +404,9 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="循环参数" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="LoopParamTitle" Text="循环参数" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
-                        <TextBlock Text="循环次数" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="LoopParamLabel" Text="循环次数" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -420,7 +420,7 @@
                                          Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PreviewTextInput="LoopCountBox_PreviewTextInput"
                                      DataObject.Pasting="LoopCountBox_Pasting"/>
-                            <TextBlock Grid.Column="1" Text="次"
+                            <TextBlock Name="LoopCountUnitLabel" Grid.Column="1" Text="次"
                                        VerticalAlignment="Center" FontSize="12" Foreground="#757575"/>
                         </Grid>
                     </StackPanel>
@@ -449,11 +449,11 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="循环条件" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="LoopConditionTitle" Text="循环条件" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
                         <!-- Do-While 开关 -->
-                        <TextBlock Text="循环模式" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="LoopModeLabel" Text="循环模式" Style="{StaticResource FieldLabelStyle}"/>
                         <CheckBox x:Name="IsDoWhileCheckBox"
                                   Style="{StaticResource FieldCheckBoxStyle}"
                                   Content="Do-While（先执行后判断），取消勾选为 While（先判断后执行）"
@@ -461,7 +461,7 @@
                                   IsChecked="{Binding ElementName=Root, Path=IsDoWhile,
                                       Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-                        <TextBlock Text="左操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="LeftOpLabel" Text="左操作数" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -474,12 +474,12 @@
                                      Text="{Binding ElementName=Root, Path=LeftOperand,
                                          Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="输入变量名或常量值"/>
-                            <Button Grid.Column="1" Content="+ 变量"
+                            <Button Name="LeftVarButton" Grid.Column="1" Content="+ 变量"
                                     Style="{StaticResource VarButtonStyle}"
                                     Click="SelectLeftVariable_Click"/>
                         </Grid>
 
-                        <TextBlock Text="比较操作符" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="OperatorLabel" Text="比较操作符" Style="{StaticResource FieldLabelStyle}"/>
                         <ComboBox x:Name="OperatorCombo"
           Visibility="Collapsed"
           SelectedValuePath="Tag"
@@ -537,7 +537,7 @@
                             </UniformGrid>
                         </Border>
 
-                        <TextBlock Text="右操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="RightOpLabel" Text="右操作数" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -550,7 +550,7 @@
                                      Text="{Binding ElementName=Root, Path=RightOperand,
                                          Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="输入比较值、常量或变量名"/>
-                            <Button Grid.Column="1" Content="+ 变量"
+                            <Button Name="RightVarButton" Grid.Column="1" Content="+ 变量"
                                     Style="{StaticResource VarButtonStyle}"
                                     Click="SelectRightVariable_Click"/>
                         </Grid>
@@ -580,9 +580,9 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#FFA000" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="注意" FontSize="11" FontWeight="Medium" Foreground="#E65100"/>
+                            <TextBlock Name="AttentionLabel" Text="注意" FontSize="11" FontWeight="Medium" Foreground="#E65100"/>
                         </StackPanel>
-                        <TextBlock Text="该循环将持续执行，请确保内部有合理的退出机制，否则流程将持续运行。"
+                        <TextBlock Name="AttentionText" Text="该循环将持续执行，请确保内部有合理的退出机制，否则流程将持续运行。"
                                    FontSize="12" Foreground="#E65100" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -593,7 +593,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="循环间隔" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="LoopIntervalLabel" Text="循环间隔" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -609,7 +609,7 @@
                                      PreviewTextInput="WaitTimeBox_PreviewTextInput"
                                      DataObject.Pasting="WaitTimeBox_Pasting"
                                      ToolTip="每次循环后的等待时间"/>
-                            <TextBlock Grid.Column="1" Text="毫秒"
+                            <TextBlock Name="TimeUnitLabel" Grid.Column="1" Text="毫秒"
                                        VerticalAlignment="Center" FontSize="12" Foreground="#757575"/>
                         </Grid>
                     </StackPanel>
@@ -621,7 +621,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="描述" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="DescriptionLabel" Text="描述" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <TextBox x:Name="DescriptionBox"
                                  Height="60" Padding="9,6" FontSize="13"
@@ -670,7 +670,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="条件预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="ConditionPreviewLabel" Text="条件预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Border Background="#FAFAFA" BorderBrush="#E0E0E0"
                                 BorderThickness="1" CornerRadius="6" Padding="10,8">
@@ -689,7 +689,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="摘要" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
+                            <TextBlock Name="AbstractLabel" Text="摘要" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
                         </StackPanel>
                         <TextBlock x:Name="LoopSummary"
                                    Text="{Binding ElementName=Root, Path=LoopSummaryText}"

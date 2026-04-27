@@ -1,3 +1,4 @@
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.DOE.Events;
 using MaxChemical.Modules.DOE.ViewModels;
 using Prism.Events;
@@ -35,11 +36,14 @@ namespace MaxChemical.Modules.DOE.Views
     // GPR 禁用: "正在初始化 GPR 模型服务...",
     "正在加载项目数据..."
 };
+
+        private readonly ILocalizationService _localization;
         public DOEMainView(DOEMainViewModel mainVm, IContainerProvider container)
         {
             InitializeComponent();
             DataContext = mainVm;
             _mainVm = mainVm;
+            _localization = container.Resolve<ILocalizationService>();
 
             mainVm.PropertyChanged += (s, e) =>
             {
@@ -280,15 +284,15 @@ namespace MaxChemical.Modules.DOE.Views
             // 更新状态文字
             if (overrideText != null)
             {
-                LoadingStatusText.Text = overrideText;
+                LoadingStatusText.Text =_localization.GetString("Doe_Main_LoadMsg_Ready", overrideText);
             }
             else if (completedSteps < LoadingMessages.Length)
             {
-                LoadingStatusText.Text = LoadingMessages[completedSteps];
+                LoadingStatusText.Text = _localization.GetString($"Doe_Main_LoadMsg_{completedSteps}", LoadingMessages[completedSteps]);
             }
             else
             {
-                LoadingStatusText.Text = "准备就绪";
+                LoadingStatusText.Text = _localization.GetString("Doe_Main_LoadMsg_Ready", "准备就绪");
             }
         }
         private void ProjectMenuBtn_Click(object sender, RoutedEventArgs e)

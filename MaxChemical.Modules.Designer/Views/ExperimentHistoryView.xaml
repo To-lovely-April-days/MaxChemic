@@ -12,6 +12,8 @@
 
     <UserControl.Resources>
 
+        <ctrl:BindingProxy x:Key="BindingProxyKey" Data="{Binding}"/>
+
         <!-- 状态标签页样式 -->
         <Style x:Key="FilterTabBtn" TargetType="RadioButton">
             <Setter Property="FontSize" Value="11"/>
@@ -206,7 +208,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- 标题 -->
-                    <TextBlock Grid.Column="0" Text="实验记录" FontSize="15" FontWeight="Medium"
+                    <TextBlock Grid.Column="0" Text="{Binding ViewTitle}" FontSize="15" FontWeight="Medium"
                                Foreground="#1A1F36" VerticalAlignment="Center" Margin="0,0,14,0"/>
 
                     <!-- 日期范围选择器 -->
@@ -240,8 +242,8 @@
                                                     <Setter.Value>
                                                         <VisualBrush AlignmentX="Left" AlignmentY="Center" Stretch="None">
                                                             <VisualBrush.Visual>
-                                                                <TextBlock Text="搜索名称、流程或操作员..."
-                                                                           Foreground="#C7CCD4" FontSize="11" Margin="0,0,0,0"/>
+                                                                <TextBlock Text="{Binding  Data.SearchWatermark,Source={StaticResource BindingProxyKey}}" 
+                                                                           Foreground="Gray" Margin="2,0,0,0"/>
                                                             </VisualBrush.Visual>
                                                         </VisualBrush>
                                                     </Setter.Value>
@@ -256,11 +258,11 @@
 
                     <!-- 操作按钮 -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="导出" Command="{Binding ExportAllCommand}"
+                        <Button Content="{Binding ExportLabel}" Command="{Binding ExportAllCommand}"
                                 Style="{StaticResource GhostBtn}" Margin="0,0,5,0"/>
-                        <Button Content="参数变化" Command="{Binding ExportParameterChangesCommand}"
+                        <Button Content="{Binding ParamChangeLabel}" Command="{Binding ExportParameterChangesCommand}"
                                 Style="{StaticResource GhostBtn}" Margin="0,0,5,0"/>
-                        <Button Content="刷新" Command="{Binding RefreshCommand}"
+                        <Button Content="{Binding RefreshBtnLabel}" Command="{Binding RefreshCommand}"
                                 Style="{StaticResource PrimaryBtn}"/>
                     </StackPanel>
                 </Grid>
@@ -272,7 +274,7 @@
                     <RadioButton GroupName="StatusFilter" IsChecked="True" Style="{StaticResource FilterTabBtn}"
                                  Checked="StatusAll_Checked">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="全部"/>
+                            <TextBlock Text="{Binding StatusItemAll}"/>
                             <Border CornerRadius="8" Padding="6,1" Margin="4,0,0,0" Background="#E8EAF6">
                                 <TextBlock Text="{Binding TotalRecords}" FontSize="9" Foreground="#2D3A8C"/>
                             </Border>
@@ -281,7 +283,7 @@
                     <RadioButton GroupName="StatusFilter" Style="{StaticResource FilterTabBtn}"
                                  Checked="StatusSuccess_Checked">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="成功"/>
+                            <TextBlock Text="{Binding StatusItemSuccess}"/>
                             <Border CornerRadius="8" Padding="6,1" Margin="4,0,0,0" Background="#ECFDF5">
                                 <TextBlock Text="—" FontSize="9" Foreground="#059669"/>
                             </Border>
@@ -290,7 +292,7 @@
                     <RadioButton GroupName="StatusFilter" Style="{StaticResource FilterTabBtn}"
                                  Checked="StatusFailed_Checked">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="失败"/>
+                            <TextBlock Text="{Binding StatusItemFail}"/>
                             <Border CornerRadius="8" Padding="6,1" Margin="4,0,0,0" Background="#FEF2F2">
                                 <TextBlock Text="—" FontSize="9" Foreground="#DC2626"/>
                             </Border>
@@ -303,15 +305,15 @@
 
                     <RadioButton GroupName="ModeFilter" IsChecked="True" Style="{StaticResource FilterTabBtn}"
                                  Checked="ModeAll_Checked">
-                        <TextBlock Text="全部模式"/>
+                        <TextBlock Text="{Binding RunItemAll}"/>
                     </RadioButton>
                     <RadioButton GroupName="ModeFilter" Style="{StaticResource FilterTabBtn}"
                                  Checked="ModeReal_Checked">
-                        <TextBlock Text="实际"/>
+                        <TextBlock Text="{Binding RunItemActual}"/>
                     </RadioButton>
                     <RadioButton GroupName="ModeFilter" Style="{StaticResource FilterTabBtn}"
                                  Checked="ModeSimulation_Checked">
-                        <TextBlock Text="仿真"/>
+                        <TextBlock Text="{Binding RunItemSimulation}"/>
                     </RadioButton>
                 </StackPanel>
             </Border>
@@ -420,7 +422,7 @@
 
                 <DataGrid.Columns>
                     <!-- 实验名称（含副文本） -->
-                    <DataGridTemplateColumn Header="实验名称" Width="220">
+                    <DataGridTemplateColumn Header="{Binding Data.ExperimentnameHeader, Source={StaticResource BindingProxyKey}}" Width="220">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="10,0,0,0">
@@ -437,7 +439,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTextColumn Header="流程" Binding="{Binding FlowName}" Width="140">
+                    <DataGridTextColumn Header="{Binding Data.FlownameHeader, Source={StaticResource BindingProxyKey}}" Binding="{Binding FlowName}" Width="140">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#6B7280"/>
@@ -446,7 +448,7 @@
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
 
-                    <DataGridTextColumn Header="时间" Binding="{Binding StartTime, StringFormat='MM-dd HH:mm'}" Width="100">
+                    <DataGridTextColumn Header="{Binding Data.TimeHeader, Source={StaticResource BindingProxyKey}}" Binding="{Binding StartTime, StringFormat='MM-dd HH:mm'}" Width="100">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#6B7280"/>
@@ -458,7 +460,7 @@
                     </DataGridTextColumn>
 
                     <!-- 状态药丸 -->
-                    <DataGridTemplateColumn Header="状态" Width="70">
+                    <DataGridTemplateColumn Header="{Binding Data.StatusHeader, Source={StaticResource BindingProxyKey}}" Width="70">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border CornerRadius="4" Padding="7,2" HorizontalAlignment="Center"
@@ -498,7 +500,7 @@
                     </DataGridTemplateColumn>
 
                     <!-- 模式药丸 -->
-                    <DataGridTemplateColumn Header="模式" Width="70">
+                    <DataGridTemplateColumn Header="{Binding Data.ModeHeader, Source={StaticResource BindingProxyKey}}" Width="70">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border CornerRadius="4" Padding="7,2" HorizontalAlignment="Center"
@@ -531,7 +533,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTextColumn Header="耗时" Binding="{Binding Duration, StringFormat=hh\\:mm\\:ss}" Width="80">
+                    <DataGridTextColumn Header="{Binding Data.ElapsedHeader, Source={StaticResource BindingProxyKey}}" Binding="{Binding Duration, StringFormat=hh\\:mm\\:ss}" Width="80">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#6B7280"/>
@@ -542,7 +544,7 @@
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
 
-                    <DataGridTextColumn Header="操作员" Binding="{Binding OperatorName}" Width="80">
+                    <DataGridTextColumn Header="{Binding Data.OperatorHeader, Source={StaticResource BindingProxyKey}}" Binding="{Binding OperatorName}" Width="80">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#374151"/>
@@ -596,11 +598,11 @@
 
                     <!-- 左侧: 每页条数 + 状态 -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="每页" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding EachPageShow}" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize}"
                                   Style="{StaticResource FieldComboStyle}"
                                   Width="58" FontSize="10" Margin="6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="条" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center"
+                        <TextBlock Text="{Binding RecordsText}" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center"
                                    Margin="0,0,8,0"/>
 
                         <!-- Loading 指示 -->
@@ -613,9 +615,9 @@
 
                     <!-- 右侧: 分页控制 -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="首页" Command="{Binding FirstPageCommand}"
+                        <Button Content="{Binding IndexLabel}" Command="{Binding FirstPageCommand}"
                                 Style="{StaticResource GhostBtn}" FontSize="9" Padding="10,5" Margin="0,0,4,0"/>
-                        <Button Content="上一页" Command="{Binding PreviousPageCommand}"
+                        <Button Content="{Binding PreviousPageLabel}" Command="{Binding PreviousPageCommand}"
                                 Style="{StaticResource GhostBtn}" FontSize="9" Padding="10,5" Margin="0,0,4,0"/>
 
                         <Border Width="28" Height="28" CornerRadius="6" Background="#2D3A8C" Margin="0,0,4,0">
@@ -628,9 +630,9 @@
                             <Run Text="{Binding TotalPages, Mode=OneWay}"/>
                         </TextBlock>
 
-                        <Button Content="下一页" Command="{Binding NextPageCommand}"
+                        <Button Content="{Binding NextPageLabel}" Command="{Binding NextPageCommand}"
                                 Style="{StaticResource GhostBtn}" FontSize="9" Padding="10,5" Margin="0,0,4,0"/>
-                        <Button Content="末页" Command="{Binding LastPageCommand}"
+                        <Button Content="{Binding BackoverLabel}" Command="{Binding LastPageCommand}"
                                 Style="{StaticResource GhostBtn}" FontSize="9" Padding="10,5"/>
                     </StackPanel>
                 </Grid>

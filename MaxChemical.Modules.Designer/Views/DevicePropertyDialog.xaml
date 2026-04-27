@@ -390,17 +390,17 @@
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <Border Margin="20,14" BorderBrush="#F0F0F0" BorderThickness="1" CornerRadius="8" Background="#FAFBFC" Padding="14">
                                 <StackPanel>
-                                    <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9E9E9E" Margin="0,0,0,8" Text="监控参数绑定"/>
+                                    <TextBlock Name="BindParamLabel" FontSize="10" FontWeight="SemiBold" Foreground="#9E9E9E" Margin="0,0,0,8" Text="监控参数绑定"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="命令：" FontSize="11" Foreground="#9E9E9E" VerticalAlignment="Center"/>
+                                        <TextBlock Name="CommandLabel" Text="命令：" FontSize="11" Foreground="#9E9E9E" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="CommandText" FontSize="11" Foreground="#333" FontWeight="Medium" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="55">
                                         <WrapPanel x:Name="MonitorParametersPanel"/>
                                     </ScrollViewer>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-                                        <Button Content="全选" Style="{StaticResource BlueButtonStyle}" Click="SelectAllButton_Click" Height="22" Padding="8,0" FontSize="10"/>
-                                        <Button Content="清除" Style="{StaticResource GrayButtonStyle}" Click="ClearAllButton_Click" Height="22" Padding="8,0" FontSize="10"/>
+                                        <Button Name="BtnSelectAll" Content="全选" Style="{StaticResource BlueButtonStyle}" Click="SelectAllButton_Click" Height="22" Padding="8,0" FontSize="10"/>
+                                        <Button Name="BtnClear" Content="清除" Style="{StaticResource GrayButtonStyle}" Click="ClearAllButton_Click" Height="22" Padding="8,0" FontSize="10"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

@@ -53,7 +53,7 @@
                                RadiusX="1.2" RadiusY="1.2" Fill="White" Opacity="0.18"/>
                                 </Canvas>
                             </Viewbox>
-                            <TextBlock Text="DOE 实验设计与优化" VerticalAlignment="Center"
+                            <TextBlock Text="{Binding TitleTxt}" VerticalAlignment="Center"
                        Foreground="#DDFFFFFF" FontSize="12" FontWeight="SemiBold"/>
                         </StackPanel>
 
@@ -66,15 +66,15 @@
                 <!-- ═══ Tab 栏 ═══ -->
                 <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1">
                     <StackPanel x:Name="TabBar" Orientation="Horizontal" Margin="14,0,0,0">
-                        <RadioButton Content="概览" Tag="0" IsChecked="True" GroupName="DOETabs"
+                        <RadioButton Content="{Binding OverviewTxt}" Tag="0" IsChecked="True" GroupName="DOETabs"
                  Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
-                        <RadioButton Content="执行" Tag="1" GroupName="DOETabs"
+                        <RadioButton Content="{Binding ExecuteTxt}" Tag="1" GroupName="DOETabs"
                  Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
                         <!-- GPR 禁用: 隐藏"模型分析" Tab
     <RadioButton Content="模型分析" Tag="2" GroupName="DOETabs"
                  Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
     -->
-                        <RadioButton Content="历史" Tag="3" GroupName="DOETabs"
+                        <RadioButton Content="{Binding HistoryTxt}" Tag="3" GroupName="DOETabs"
                  Style="{StaticResource DOETabRadio}" Checked="TabRadio_Checked"/>
                     </StackPanel>
                 </Border>
@@ -432,7 +432,7 @@
                             </UniformGrid>
 
                             <!-- ═══ 产品名 ═══ -->
-                            <TextBlock Text="DOE 优化平台" FontSize="15" FontWeight="Medium"
+                            <TextBlock Text="{Binding ProductTxt}" FontSize="15" FontWeight="Medium"
                                        Foreground="#1A1F36" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                             <TextBlock Text="MaxChemical" FontSize="11" Foreground="#9CA3AF"
                                        HorizontalAlignment="Center" Margin="0,0,0,20"/>

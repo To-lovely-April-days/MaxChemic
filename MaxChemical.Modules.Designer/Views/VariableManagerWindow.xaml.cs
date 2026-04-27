@@ -1,4 +1,14 @@
-﻿using System;
+﻿using DevicePlugins.Devices;
+using MaxChemical.Data.Models;
+using MaxChemical.Data.Services;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Event;
+using MaxChemical.Modules.Designer.Models;
+using Prism.Events;
+using Prism.Ioc;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -7,18 +17,10 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using DevicePlugins.Devices;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.Event;
-using Prism.Events;
-using System.Windows.Controls.Primitives;
-using MaxChemical.Logging;
-using MaxChemical.Data.Services;
-using Prism.Ioc;
-using MaxChemical.Data.Models;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -54,6 +56,16 @@ namespace MaxChemical.Modules.Designer.Views
         public VariableViewModel SelectedVariable { get; private set; }
         public bool IsClosed { get; private set; } = false;
 
+        /// <summary>
+        /// 新增：搜索框水印
+        /// </summary>
+        public string SearchMark { get; set; }
+
+        public string LocalizationTitle { get; set; }
+
+        public string VariableCount { get; set; }
+
+
         public VariableManagerWindow(IEventAggregator eventAggregator, IEnumerable<CommandNode> allNodes = null,
             bool customVariableOnlyMode = false, ICustomVariablePersistenceService persistenceService = null)
         {
@@ -79,7 +91,7 @@ namespace MaxChemical.Modules.Designer.Views
                 ShowCustomOnlyCheckBox.Visibility = Visibility.Collapsed;
 
                 this.Title = "选择自定义变量";
-                TitleTextBlock.Text = "选择自定义变量";
+                //TitleTextBlock.Text = "选择自定义变量";
             }
 
             LoadVariables(allNodes);
@@ -104,6 +116,8 @@ namespace MaxChemical.Modules.Designer.Views
                     variable.PropertyChanged += Variable_PropertyChanged;
                 }
             }
+            // 新增：本地化
+            OnLanguageChanged("");
         }
 
         // 编辑开始时设置标志
@@ -291,6 +305,34 @@ namespace MaxChemical.Modules.Designer.Views
             // 新添加：设为null防止后续调用
             _variablesView = null;
             _allVariables = null;
+        }
+
+        /// <summary>
+        /// 本地化
+        /// </summary>
+        /// <param name="s"></param>
+        private void OnLanguageChanged(string s)
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service is null)
+            {
+                return;
+            }
+
+            TbNewVariable.Text = service.GetString("VarManage_New");
+            BtnDeleteSelect.Content = service.GetString("VarManage_Delete");
+            ShowCustomOnlyCheckBox.Content = service.GetString("VarManage_OnlyCustonVar");
+            ColHeaderSource.Header = service.GetString("VarManage_Col_Source");
+            ColHeaderCommand.Header = service.GetString("VarManage_Col_Command");
+            ColHeaderFormat.Header = service.GetString("VarManage_Col_Format");
+            ColHeaderType.Header = service.GetString("VarManage_Col_Type");
+            ColHeaderValue.Header = service.GetString("VarManage_Col_Value");
+            ColHeaderVarName.Header = service.GetString("VarManage_Col_Name");
+            BtnOk.Content = service.GetString("VarManage_OK");
+            BtnCancell.Content = service.GetString("VarManage_Cancel");
+            SearchMark = service.GetString("VarManage_Watermark");
+            LocalizationTitle = service.GetString(Title);
+            VariableCount = service.GetString("VarManage_VarCount");
         }
 
         private void SubscribeToEvents()

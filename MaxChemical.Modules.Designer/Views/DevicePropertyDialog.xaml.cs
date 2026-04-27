@@ -9,7 +9,9 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DevicePlugins.Devices;
+using Prism.Ioc;
 using MaxChemical.Core;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views.Controls;
@@ -34,10 +36,16 @@ namespace MaxChemical.Modules.Designer.Views
 
         public event EventHandler<MonitoringParametersChangedEventArgs> MonitoringParametersChanged;
 
+        private readonly ILocalizationService _localizationService;
+
         public DevicePropertyDialog()
         {
             InitializeComponent();
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>() ?? throw new NullReferenceException();
+
+
             InitializeConnectionState();
+            UpdateLocalizationText();
         }
 
         #region *** 模拟模式管理方法 ***
@@ -370,14 +378,14 @@ namespace MaxChemical.Modules.Designer.Views
             if (_isDeviceConnected)
             {
                 // 连接状态
-                ConnectionStatusText.Text = "已连接";
+                ConnectionStatusText.Text = _localizationService.GetString("DeviceCommandDialog_Status_AlreadyConn", "已连接");
                 ConnectionStatusText.Foreground = Brushes.Green;
 
-                ConnectButton.Content = "已连接";
+                ConnectButton.Content = _localizationService.GetString("DeviceCommandDialog_Status_AlreadyConn", "已连接");
                 ConnectButton.Style = (Style)FindResource("GreenButtonStyle");
                 ConnectButton.IsEnabled = false;
 
-                DisconnectButton.Content = "断开";
+                DisconnectButton.Content = _localizationService.GetString("DeviceCommandDialog_Status_Disconn", "断开");
                 DisconnectButton.Style = (Style)FindResource("RedButtonStyle");
                 DisconnectButton.IsEnabled = true;
 
@@ -386,14 +394,14 @@ namespace MaxChemical.Modules.Designer.Views
             else
             {
                 // 断开状态
-                ConnectionStatusText.Text = "未连接";
+                ConnectionStatusText.Text = _localizationService.GetString("DeviceCommandDialog_status_NotConn", "未连接");
                 ConnectionStatusText.Foreground = Brushes.Red;
 
-                ConnectButton.Content = "连接";
+                ConnectButton.Content = _localizationService.GetString("DeviceCommandDialog_Status_Conn", "连接");
                 ConnectButton.Style = (Style)FindResource("BlueButtonStyle");
                 ConnectButton.IsEnabled = true;
 
-                DisconnectButton.Content = "断开";
+                DisconnectButton.Content = _localizationService.GetString("DeviceCommandDialog_Status_Disconn", "断开");
                 DisconnectButton.Style = (Style)FindResource("GrayButtonStyle");
                 DisconnectButton.IsEnabled = false;
 
@@ -1196,7 +1204,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var noParamsText = new TextBlock
                 {
-                    Text = "该命令没有输入参数",
+                    Text = _localizationService.GetString("DeviceCommandDialog_NotInputParam", "该命令没有输入参数"),
                     Foreground = Brushes.Gray,
                     FontStyle = FontStyles.Italic,
                     Margin = new Thickness(10),
@@ -2018,6 +2026,16 @@ namespace MaxChemical.Modules.Designer.Views
                 }
                 catch { }
             }
+        }
+
+
+        private void UpdateLocalizationText()
+        {
+            BindParamLabel.Text = _localizationService.GetString("DeviceCommandDialog_Label", "监控参数绑定");
+            CommandLabel.Text = _localizationService.GetString("DeviceCommandDialog_CommandLabel", "命令：");
+            ExecuteButton.Content = _localizationService.GetString("DeviceCommandDialog_Execute", "执行");
+            BtnClear.Content = _localizationService.GetString("DeviceCommandDialog_Clear", "清除");
+            BtnSelectAll.Content = _localizationService.GetString("DeviceCommandDialog_SelectAll", "全选");
         }
     }
 

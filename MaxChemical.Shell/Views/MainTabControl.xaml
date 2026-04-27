@@ -192,7 +192,7 @@
                 Visibility="{Binding IsVariableManagementVisible, 
                              Converter={StaticResource BoolToVisibilityConverter}}">
 
-                <Button Content="查看变量管理"
+                <Button Content="{Binding VariableManagementTabText}"
                 Command="{Binding ViewVariableManagementCommand}"
                 Background="Transparent"
                 BorderThickness="0"

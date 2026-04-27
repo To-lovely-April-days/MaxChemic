@@ -268,7 +268,7 @@
                                 <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessDelay.png"
                                        Width="24" Height="24" Stretch="Uniform"/>
                             </Border>
-                            <TextBlock Text="等待" FontSize="15" FontWeight="Medium"
+                            <TextBlock Name="NodeTitle" Text="等待" FontSize="15" FontWeight="Medium"
                                        Foreground="#212121" VerticalAlignment="Center"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -291,17 +291,17 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="基本信息" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="NodeInfoTitle" Text="基本信息" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
-                        <TextBlock Text="名称" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="NodeNameLabel" Text="名称" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox x:Name="NodeNameBox"
                                  Style="{StaticResource FieldInputStyle}"
                                  Margin="0,0,0,10"
                                  Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
                                  TextChanged="OnValueChanged"/>
 
-                        <TextBlock Text="描述" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="NodeDescLabel" Text="描述" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox x:Name="DescriptionBox"
                                  Height="60" Padding="9,6" FontSize="13"
                                  TextWrapping="Wrap" AcceptsReturn="True"
@@ -331,7 +331,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="等待模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="NodeModeTitle" Text="等待模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
                             <UniformGrid Rows="1">
@@ -359,7 +359,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="执行模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="ExecuteModeTitle" Text="执行模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
                             <UniformGrid Rows="1">
@@ -385,10 +385,10 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="时间配置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="NodeTimeTitle" Text="时间配置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
-                        <TextBlock Text="等待时长" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="NodeWaitLabel" Text="等待时长" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -418,16 +418,16 @@
                 <!-- ══ 条件等待配置卡片 ══ -->
                 <Border x:Name="ConditionGroup"
                         Style="{StaticResource CardStyle}"
-                        Visibility="Collapsed">
+                        Visibility="Visible">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="等待条件" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="WaitConditionTitle" Text="等待条件" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
                         <!-- 左侧变量 -->
-                        <TextBlock Text="左侧变量" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="LeftVariableLabel" Text="左侧变量" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -439,7 +439,7 @@
                                      Margin="0,0,6,0"
                                      Text="{Binding LogicCommand.Properties[ConditionLeftVariable], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <Button Grid.Column="1"
+                            <Button Name="SelectVarLabel" Grid.Column="1"
                                     Content="选择变量"
                                     Style="{StaticResource VarButtonStyle}"
                                     Width="72"
@@ -467,7 +467,7 @@
                         </ComboBox>
 
                         <!-- 比较符分段选择器 -->
-                        <TextBlock Text="比较符" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="OperatorLabel" Text="比较符" Style="{StaticResource FieldLabelStyle}"/>
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3" Margin="0,0,0,10">
                             <UniformGrid Rows="1">
                                 <RadioButton Content="="
@@ -510,7 +510,7 @@
                         </Border>
 
                         <!-- 右侧值 -->
-                        <TextBlock Text="右侧值" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="RightValueLabel" Text="右侧值" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox x:Name="ConditionRightValueTextBox"
                                  Style="{StaticResource FieldInputStyle}"
                                  Margin="0,0,0,10"
@@ -518,7 +518,7 @@
                                  TextChanged="OnValueChanged"/>
 
                         <!-- 检查间隔 -->
-                        <TextBlock Text="检查间隔" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="CheckedIntervalLabel" Text="检查间隔" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -528,12 +528,12 @@
                                      Style="{StaticResource FieldInputStyle}" Margin="0,0,8,0"
                                      Text="{Binding LogicCommand.Properties[CheckIntervalSeconds], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <TextBlock Grid.Column="1" Text="秒" VerticalAlignment="Center"
+                            <TextBlock Name="IntervalLabel" Grid.Column="1" Text="秒" VerticalAlignment="Center"
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
 
                         <!-- 超时设置 -->
-                        <TextBlock Text="超时设置" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="TimeoutSetLabel" Text="超时设置" Style="{StaticResource FieldLabelStyle}"/>
                         <CheckBox x:Name="IsInfiniteTimeoutCheckBox"
                                   Style="{StaticResource FieldCheckBoxStyle}"
                                   Content="无限超时（一直等待直到条件满足）"
@@ -549,7 +549,7 @@
                                      Style="{StaticResource FieldInputStyle}" Margin="0,0,8,0"
                                      Text="{Binding LogicCommand.Properties[TimeoutSeconds], UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnValueChanged"/>
-                            <TextBlock Grid.Column="1" Text="秒" VerticalAlignment="Center"
+                            <TextBlock Name="TimeoutLabel" Grid.Column="1" Text="秒" VerticalAlignment="Center"
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
 
@@ -561,7 +561,7 @@
                                           Style="{StaticResource FieldCheckBoxStyle}"
                                           Content="警告模式（橙色警告弹框）"
                                           Checked="IsWarning_Changed" Unchecked="IsWarning_Changed"/>
-                                <TextBlock Text="开启后条件满足时显示橙色警告弹框，需人工确认后继续"
+                                <TextBlock Name="IsWarningTblock" Text="开启后条件满足时显示橙色警告弹框，需人工确认后继续"
                                            FontSize="10" Foreground="#BF360C" Margin="24,4,0,0"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
@@ -575,7 +575,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="NodePreviewTitle" Text="预览" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Border Background="#FAFAFA" BorderBrush="#E0E0E0"
                                 BorderThickness="1" CornerRadius="6" Padding="10,8">
@@ -605,18 +605,18 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="使用说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
+                            <TextBlock Name="NodeUseDescTitle" Text="使用说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
                         </StackPanel>
                         <TextBlock FontSize="11" Foreground="#1976D2" LineHeight="20" TextWrapping="Wrap">
-                            <Run Text="• 固定时间：同步阻塞，适合确定等待时长的场景"/>
+                            <Run Name="Desc1" Text="• 固定时间：同步阻塞，适合确定等待时长的场景"/>
                             <LineBreak/>
-                            <Run Text="• 条件等待：循环检查直到条件满足，支持同步/异步"/>
+                            <Run Name="Desc2" Text="• 条件等待：循环检查直到条件满足，支持同步/异步"/>
                             <LineBreak/>
-                            <Run Text="• 警告模式：条件满足时弹出橙色警告弹框，需人工确认"/>
+                            <Run Name="Desc3" Text="• 警告模式：条件满足时弹出橙色警告弹框，需人工确认"/>
                             <LineBreak/>
-                            <Run Text="• 左侧变量示例：{temperatureValue}、{isCompleted}"/>
+                            <Run Name="Desc4" Text="• 左侧变量示例：{temperatureValue}、{isCompleted}"/>
                             <LineBreak/>
-                            <Run Text="• 右侧值示例：100、true、完成状态"/>
+                            <Run Name="Desc5" Text="• 右侧值示例：100、true、完成状态"/>
                         </TextBlock>
                     </StackPanel>
                 </Border>

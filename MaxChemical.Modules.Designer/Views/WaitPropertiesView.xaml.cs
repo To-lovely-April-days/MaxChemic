@@ -1,4 +1,6 @@
-﻿using MaxChemical.Modules.Designer.Models;
+﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using Prism.Events;
 using Prism.Ioc;
@@ -26,14 +28,66 @@ namespace MaxChemical.Modules.Designer.Views
         public WaitPropertiesView()
         {
             InitializeComponent();
+
+            _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
+
             DataContextChanged += OnDataContextChanged;
             Loaded += OnLoaded;
+        }
+
+        /// <summary>
+        /// 本地化
+        /// </summary>
+        /// <param name="s"></param>
+        private void OnLanguageChanged(string s)
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service is null)
+            {
+                return;
+            }
+
+            NodeTitle.Text = service.GetString("WaitNode_Title");
+            NodeInfoTitle.Text = service.GetString("WaitNode_Info_Title");
+            NodeNameLabel.Text = service.GetString("WaitNode_Info_Name");
+            NodeDescLabel.Text = service.GetString("WaitNode_info_Desc");
+            NodeModeTitle.Text = service.GetString("WaitNode_Mode_Title");
+            FixedTimeRadio.Content = service.GetString("WaitNode_Mode_Fixed");
+            ConditionRadio.Content = service.GetString("WaitNode_Mode_Condition");
+            NodeTimeTitle.Text = service.GetString("WaitNode_Set_Title");
+            NodeWaitLabel.Text = service.GetString("WaitNode_Set_Label");
+            NodePreviewTitle.Text = service.GetString("WaitNode_Preview");
+            NodeUseDescTitle.Text = service.GetString("WaitNode_Use_Title");
+            Desc1.Text = service.GetString("WaitNode_Use_Desc1");
+            Desc2.Text = service.GetString("WaitNode_Use_Desc2");
+            Desc3.Text = service.GetString("WaitNode_Use_Desc3");
+            Desc4.Text = service.GetString("WaitNode_Use_Desc4");
+            Desc5.Text = service.GetString("WaitNode_Use_Desc5");
+            ValidationText.Text = service.GetString("WaitNode_Valide");
+            WaitConditionTitle.Text = service.GetString("WaitNode_Condition_Title");
+            LeftVariableLabel.Text = service.GetString("WaitNode_Condition_Var");
+            SelectVarLabel.Content = service.GetString("WaitNode_Condition_SelectVar");
+            OperatorLabel.Text = service.GetString("WaitNode_Condition_Op");
+            RightValueLabel.Text = service.GetString("WaitNode_Condition_Value");
+            CheckedIntervalLabel.Text = service.GetString("WaitNode_Condition_Interval");
+            IntervalLabel.Text = service.GetString("WaitNode_SecLabel");
+            TimeoutSetLabel.Text = service.GetString("WaitNode_Condition_Timeout");
+            IsInfiniteTimeoutCheckBox.Content = service.GetString("WaitNode_Condition_Infinite");
+            TimeoutLabel.Text = service.GetString("WaitNode_SecLabel");
+            IsWarningCheckBox.Content = service.GetString("WaitNode_Condition_Warning");
+            IsWarningTblock.Text = service.GetString("WaitNode_Warning");
+            ExecuteModeTitle.Text = service.GetString("WaitNode_ExecuteMode_Title");
+            SynchronousRadio.Content = service.GetString("WaitNode_Sync");
+            AsynchronousRadio.Content = service.GetString("WaitNode_Async");
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             InitializeFromProperties();
             UpdateWaitPreview();
+
+            OnLanguageChanged("");
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

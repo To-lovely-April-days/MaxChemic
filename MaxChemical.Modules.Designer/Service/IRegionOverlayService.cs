@@ -44,7 +44,5 @@ namespace MaxChemical.Modules.Designer.Services
         /// 画布尺寸变更事件
         /// </summary>
         event Action<Size> CanvasSizeChanged;
-
-
     }
 }

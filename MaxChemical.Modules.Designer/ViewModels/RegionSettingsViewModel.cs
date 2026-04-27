@@ -1,5 +1,8 @@
 ﻿using MaxChemical.Core;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Designer.Models;
+using Prism.Events;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -13,6 +16,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
     {
         public class RegionSettingsViewModel : INotifyPropertyChanged
         {
+            private readonly IEventAggregator _eventAggregator;
+            private readonly ILocalizationService _localizationService;
+
             #region Properties
 
             private int _rows = 2;
@@ -78,8 +84,14 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             #region Constructor
 
-            public RegionSettingsViewModel(RegionLayout originalLayout = null)
+            public RegionSettingsViewModel(IEventAggregator eventAggregator, ILocalizationService localization, RegionLayout originalLayout = null)
             {
+                // 新增：本地化
+                _eventAggregator = eventAggregator;
+                _localizationService = localization;
+
+                _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(LanguageChangedHandler);
+
                 // 初始化命令
                 GenerateGridCommand = new RelayCommand(GenerateGrid);
                 ConfirmCommand = new RelayCommand(Confirm);
@@ -98,6 +110,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     // 新建时使用默认值
                     GenerateGrid();
                 }
+
+
+                LanguageChangedHandler("");
             }
             /// <summary>
             /// 恢复已存在的区域布局
@@ -388,6 +403,97 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
 
             #endregion
+
+            #region Localization
+
+            private string _regionSettingTitle;
+            private string _rowLabel;
+            private string _colLabel;
+            private string _generateLayout;
+            private string _tip;
+            private string _okLabel;
+            private string _cancelLabel;
+
+            public string RegionSettingTitle
+            {
+                get { return _regionSettingTitle; }
+                set { SetProperty(ref _regionSettingTitle, value); }
+            }
+
+            public string RowLabel
+            {
+                get { return _rowLabel; }
+                set { SetProperty(ref _rowLabel, value); }
+            }
+
+            public string ColLabel
+            {
+                get { return _colLabel; }
+                set { SetProperty(ref _colLabel, value); }
+            }
+
+            public string GenerateLayout
+            {
+                get { return _generateLayout; }
+                set { SetProperty(ref _generateLayout, value); }
+            }
+
+            public string TipMessage
+            {
+                get { return _tip; }
+                set { SetProperty(ref _tip, value); }
+            }
+
+            public string OkLabel
+            {
+                get { return _okLabel; }
+                set { SetProperty(ref _okLabel, value); }
+            }
+
+            public string CancelLabel
+            {
+                get { return _cancelLabel; }
+                set { SetProperty(ref _cancelLabel, value); }
+            }
+
+
+            private void LanguageChangedHandler(string cultureName)
+            {
+                RegionSettingTitle = _localizationService.GetString("RegionSetting_Title", "工艺区划分");
+                RowLabel = _localizationService.GetString("RegionSetting_Row", "行");
+                ColLabel = _localizationService.GetString("RegionSetting_Col", "列");
+                GenerateLayout = _localizationService.GetString("RegionSetting_Generate", "生成布局");
+                TipMessage = _localizationService.GetString("RegionSetting_Tip", "右键点击网格单元格选择区域类型");
+                OkLabel = _localizationService.GetString("RegionSetting_OK", "确定");
+                CancelLabel = _localizationService.GetString("RegionSetting_Cancel", "取消");
+
+                //
+                foreach (var cell in GridCells)
+                {
+                    if (cell == null) continue;
+
+                    cell.DisplayName = _localizationService.GetString($"RegionSetting_RegionType_{cell.RegionType}");
+
+                    // 右键菜单
+                    var items = cell.ContextMenuItems.ToList();
+                    if (items?.Any() ?? false)
+                    {
+                        foreach (var item in items)
+                        {
+                            item.Header = _localizationService.GetString($"RegionSetting_RegionType_{item.RegionTypeValue}");
+                        }
+                        cell.ContextMenuItems.Clear();
+                        cell.ContextMenuItems = new ObservableCollection<RegionTypeMenuItem>(items);
+                    }
+                }
+            }
+
+
+            public string SetRegionTypeLocalizationText(RegionType type,string txt)
+            {
+                return _localizationService.GetString($"RegionSetting_RegionType_{type}", txt);
+            }
+            #endregion
         }
 
         #region Helper Classes
@@ -439,8 +545,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             private void InitializeContextMenu()
             {
                 ContextMenuItems = new ObservableCollection<RegionTypeMenuItem>
-    {
-        new RegionTypeMenuItem
+                {
+                    new RegionTypeMenuItem
         {
             Header = "进料区域",
             RegionTypeValue = "Feed",
@@ -486,7 +592,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             ColorBrush = Brushes.White,
             Command = SetRegionTypeCommand
         }
-    };
+                };
             }
 
             private void OnSetRegionType(string regionTypeString)
@@ -497,33 +603,33 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     {
                         case RegionType.Feed:
                             RegionType = RegionType.Feed;
-                            DisplayName = "进料";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.Feed, "进料");
                             Background = new SolidColorBrush(Color.FromRgb(255, 182, 193)); // 浅粉色
                             break;
                         case RegionType.PreHeat:
                             RegionType = RegionType.PreHeat;
-                            DisplayName = "预热";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.PreHeat, "预热");
                             Background = new SolidColorBrush(Color.FromRgb(255, 218, 185)); // 桃色
                             break;
                         case RegionType.Reaction:
                             RegionType = RegionType.Reaction;
-                            DisplayName = "反应";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.Reaction, "反应");
                             Background = new SolidColorBrush(Color.FromRgb(255, 228, 196)); // 浅橙色
                             break;
                         case RegionType.Quench:
                             RegionType = RegionType.Quench;
-                            DisplayName = "淬火";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.Quench, "淬火");
                             Background = new SolidColorBrush(Color.FromRgb(173, 216, 230)); // 浅蓝色
                             break;
                         case RegionType.PostProcess:
                             RegionType = RegionType.PostProcess;
-                            DisplayName = "后处理";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.PostProcess, "后处理");
                             Background = new SolidColorBrush(Color.FromRgb(240, 255, 240)); // 浅绿色
                             break;
                         case RegionType.None:
                         default:
                             RegionType = RegionType.None;
-                            DisplayName = "空";
+                            DisplayName = _parentViewModel.SetRegionTypeLocalizationText(RegionType.None, "空");
                             Background = Brushes.White;
                             break;
                     }

@@ -1,9 +1,12 @@
 using MaxChemical.Infrastructure.DOE;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
 using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.Views;
 using Prism.Commands;
+using Prism.Events;
 using Prism.Mvvm;
 using System;
 using System.Collections.ObjectModel;
@@ -29,6 +32,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IDOERepository _repository;
         private readonly IFlowParameterProvider _paramProvider;
         private readonly ILogService _logger;
+        private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationService;
 
         // ── 统计数据 ──
         private int _totalProjectCount;
@@ -76,11 +81,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
         public DOEOverviewViewModel(
             IDOERepository repository,
             IFlowParameterProvider paramProvider,
-            ILogService logger)
+            ILogService logger,
+            IEventAggregator eventAggregator,
+            ILocalizationService localizationService)
         {
             _repository = repository;
             _paramProvider = paramProvider;
             _logger = logger?.ForContext<DOEOverviewViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
 
             ResumeLastBatchCommand = new DelegateCommand(
                 () => RequestResumeBatch?.Invoke(this, _resumableBatchId),
@@ -96,7 +105,106 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ArchiveProjectCommand = new DelegateCommand<string>(async id => await ArchiveProjectAsync(id));
             DeleteProjectCommand = new DelegateCommand<string>(async id => await DeleteProjectAsync(id));
             SelectProjectCommand = new DelegateCommand<string>(async id => await SelectProjectAsync(id));
+
+            // 注册本地化语言变更的处理程序
+            _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChangedEvent);
+            OnLanguageChangedEvent("");
         }
+
+        #region 本地化
+
+        private string _titleTxt;
+        private string _projCountTxt;
+        private string _itemCountTxt;
+        private string _historyTxt;
+        private string _newProjTxt;
+        private string _prodRateTxt;
+        private string _roundTxt;
+        private string _experiTxt;
+        private string _factorTxt;
+        private string _responseTxt;
+        private string _createInTxt;
+        private string _updateOnTxt;
+        private string _continueTxt;
+        private string _detailTxt;
+        private string _analysisTxt;
+        private string _waitResumeTxt;
+        private string _resumeExecTxt;
+        private string _optimizTxt;
+        private string _allTxt;
+        private string _roundsTxt;
+        private string _startOptimizTxt;
+        private string _instructionTxt;
+        private string _processGuideTxt;
+        private string _viewDetails;
+        private string _viewAnalysis;
+        private string _viewHistory;
+        private string _progArchive;
+        private string _delProj;
+
+        public string TitleTxt { get { return _titleTxt; } set { SetProperty(ref _titleTxt, value); } }
+        public string ProjCountTxt { get { return _projCountTxt; } set { SetProperty(ref _projCountTxt, value); }  }
+        public string ItemCountTxt { get { return _itemCountTxt; }set { SetProperty(ref _itemCountTxt, value); } }
+        public string HistoryTxt { get { return _historyTxt; } set { SetProperty(ref _historyTxt, value); }  }
+        public string NewProjTxt { get { return _newProjTxt; } set { SetProperty(ref _newProjTxt, value); }  }
+        public string ProdRateTxt { get { return _prodRateTxt; }set { SetProperty(ref _prodRateTxt, value); } }
+        public string RoundTxt { get { return _roundTxt; } set { SetProperty(ref _roundTxt, value); }  }
+        public string ExperiTxt { get { return _experiTxt; } set { SetProperty(ref _experiTxt, value); }  }
+        public string FactorTxt { get { return _factorTxt; } set { SetProperty (ref _factorTxt, value);  }  }
+        public string ResponseTxt { get { return _responseTxt; } set { SetProperty(ref _responseTxt, value); }  }
+        public string CreateInTxt { get { return _createInTxt; } set { SetProperty(ref _createInTxt, value); }  }
+        public string UpdateOnTxt { get { return _updateOnTxt; } set { SetProperty(ref _updateOnTxt, value); }  }
+        public string ContinueTxt { get { return _continueTxt; } set { SetProperty(ref _continueTxt, value); }  }
+        public string DetailTxt { get { return _detailTxt; } set { SetProperty(ref _detailTxt, value); }  }
+        public string AnalysisTxt { get { return _analysisTxt; } set { SetProperty(ref _analysisTxt, value); }  }
+        public string WaitResumeTxt { get { return _waitResumeTxt; } set { SetProperty(ref _waitResumeTxt, value); }  }
+        public string ResumeExecute { get { return _resumeExecTxt; } set { SetProperty(ref _resumeExecTxt, value); } }
+        public string OptimizTxt { get { return _optimizTxt; } set { SetProperty(ref _optimizTxt, value); } }
+        public string AllTxt { get { return _allTxt; } set { SetProperty(ref _allTxt, value); } }
+        public string RoundsTxt { get { return _roundsTxt; } set { SetProperty (ref _roundsTxt, value);  }  }
+        public string StartOptimizTxt { get { return _startOptimizTxt; } set { SetProperty(ref _startOptimizTxt, value); } }
+        public string InstructionTxt { get { return _instructionTxt; } set { SetProperty(ref _instructionTxt, value); }  }
+        public string ProcessGuideTxt { get { return _processGuideTxt; } set { SetProperty(ref _processGuideTxt, value); }  }
+        public string ViewDetails { get { return _viewDetails; } set { SetProperty(ref _viewDetails, value); }  }
+        public string ViewAnalysis { get { return _viewAnalysis; } set { SetProperty(ref _viewAnalysis, value); }  }
+        public string ViewHistory { get { return _viewHistory; } set { SetProperty(ref _viewHistory, value); }  }
+        public string ProjArchive { get { return _progArchive; } set { SetProperty(ref _progArchive, value); }  }
+        public string DeleteProj { get { return _delProj; } set { SetProperty(ref _delProj, value); }  }
+
+
+        private void OnLanguageChangedEvent(string language)
+        {
+            TitleTxt = _localizationService.GetString("Doe_Overview_Title", "实验优化");
+            ProjCountTxt = _localizationService.GetString("Doe_Overview_activeNum", "个活跃项目");
+            ItemCountTxt = _localizationService.GetString("Doe_Overview_groupNum", "组实验");
+            HistoryTxt = _localizationService.GetString("Doe_Overview_History", "历史");
+            NewProjTxt = _localizationService.GetString("Doe_Overview_NewProj", "新建项目");
+            ProdRateTxt = _localizationService.GetString("Doe_Overview_MaxRate", "最优产率");
+            RoundTxt = _localizationService.GetString("Doe_Overview_round", "轮次");
+            ExperiTxt = _localizationService.GetString("Doe_Overview_Experiment", "实验");
+            FactorTxt = _localizationService.GetString("Doe_Overview_MaxFactor", "最优因子组合");
+            ResponseTxt = _localizationService.GetString("Doe_Overview_ResponseValue", "响应值");
+            CreateInTxt = _localizationService.GetString("Doe_Overview_CreateIn", "创建于");
+            UpdateOnTxt = _localizationService.GetString("Doe_Overview_UpdateOn", "最后更新");
+            ContinueTxt = _localizationService.GetString("Doe_Overview_Continue", "继续优化");
+            DetailTxt = _localizationService.GetString("Doe_Overview_Detail", "详情");
+            AnalysisTxt = _localizationService.GetString("Doe_Overview_Analysis", "分析");
+            WaitResumeTxt = _localizationService.GetString("Doe_Overview_WaitResume", "等待恢复");
+            ResumeExecute = _localizationService.GetString("Doe_Overview_ResumeExec", "恢复执行");
+            OptimizTxt = _localizationService.GetString("Doe_Overview_OptimizeProcess", "优化历程");
+            AllTxt = _localizationService.GetString("Doe_Overview_All", "全部");
+            RoundsTxt = _localizationService.GetString("Doe_Overview_Rounds", "轮");
+            StartOptimizTxt = _localizationService.GetString("Doe_Overview_StartProjOptimize", "开始第一个项目优化");
+            InstructionTxt = _localizationService.GetString("Doe_Overview_Instruction", "创建项目后，系统自动引导完成");
+            ProcessGuideTxt = _localizationService.GetString("Doe_Overview_OptimizeGuide", "筛选 → 路径探索 → 响应面优化 → 验证 全流程");
+            ViewDetails = _localizationService.GetString("Doe_Overview_ViewDetails", "查看详情");
+            ViewAnalysis = _localizationService.GetString("Doe_Overview_ViewAnalysis", "查看分析");
+            ViewHistory = _localizationService.GetString("Doe_Overview_ViewHistory", "查看历史");
+            ProjArchive = _localizationService.GetString("Deo_Overview_ProjArchive", "项目归档");
+            DeleteProj = _localizationService.GetString("Deo_Overview_DeleteProj", "删除项目");
+        }
+
+        #endregion
 
         // ══════════════ Properties ══════════════
 

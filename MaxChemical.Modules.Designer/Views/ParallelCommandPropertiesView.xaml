@@ -104,7 +104,7 @@
                                 <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessParallel.png"
                                        Width="24" Height="24" Stretch="Uniform"/>
                             </Border>
-                            <TextBlock Text="并行" FontSize="15" FontWeight="Medium"
+                            <TextBlock Name="NodeTitle" Text="并行" FontSize="15" FontWeight="Medium"
                                        Foreground="#212121" VerticalAlignment="Center"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -126,7 +126,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="等待策略" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="StrategyTitle" Text="等待策略" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
                         <!-- 隐藏的 ComboBox 保持原有数据绑定 -->
@@ -143,7 +143,7 @@
                         <!-- 分段选择器 -->
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
                             <UniformGrid Rows="1">
-                                <RadioButton Content="不等待"
+                                <RadioButton Name="RbNoWait" Content="不等待"
                                              GroupName="WaitStrategyGroup"
                                              Style="{StaticResource OpPillStyle}"
                                              IsChecked="{Binding LogicCommand.Properties[WaitStrategy],
@@ -151,7 +151,7 @@
                                                  ConverterParameter=NoWait,
                                                  UpdateSourceTrigger=PropertyChanged}"
                                              Checked="OnAnyValueChanged"/>
-                                <RadioButton Content="等待全部"
+                                <RadioButton Name="RbAll" Content="等待全部"
                                              GroupName="WaitStrategyGroup"
                                              Style="{StaticResource OpPillStyle}"
                                              IsChecked="{Binding LogicCommand.Properties[WaitStrategy],
@@ -159,7 +159,7 @@
                                                  ConverterParameter=WaitAll,
                                                  UpdateSourceTrigger=PropertyChanged}"
                                              Checked="OnAnyValueChanged"/>
-                                <RadioButton Content="等待任一"
+                                <RadioButton Name="RbAny" Content="等待任一"
                                              GroupName="WaitStrategyGroup"
                                              Style="{StaticResource OpPillStyle}"
                                              IsChecked="{Binding LogicCommand.Properties[WaitStrategy],
@@ -178,10 +178,10 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="并行参数" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="ParallelParamTitle" Text="并行参数" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
 
-                        <TextBlock Text="最大并行数" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="ParallelParamLabel" Text="最大并行数" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -195,12 +195,12 @@
                                          Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnAnyValueChanged"
                                      PreviewTextInput="NumberOnly"/>
-                            <TextBlock Grid.Column="1" Text="个"
+                            <TextBlock Name="NumberUnitLabel" Grid.Column="1" Text="个"
                                        VerticalAlignment="Center"
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
 
-                        <TextBlock Text="超时时间" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Name="TimeoutLabel" Text="超时时间" Style="{StaticResource FieldLabelStyle}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -214,7 +214,7 @@
                                          Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      TextChanged="OnAnyValueChanged"
                                      PreviewTextInput="NumberDotOnly"/>
-                            <TextBlock Grid.Column="1" Text="秒"
+                            <TextBlock Name="TimeUnitLabel" Grid.Column="1" Text="秒"
                                        VerticalAlignment="Center"
                                        FontSize="12" Foreground="#757575"/>
                         </Grid>
@@ -227,7 +227,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="描述" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock Name="DescLabel" Text="描述" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <TextBox x:Name="DescriptionBox"
                                  Height="60" Padding="9,6" FontSize="13"
@@ -261,15 +261,15 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="策略说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
+                            <TextBlock Name="InstructionLabel" Text="策略说明" FontSize="11" FontWeight="Medium" Foreground="#1565C0"/>
                         </StackPanel>
                         <TextBlock FontSize="11" Foreground="#1976D2"
                                    LineHeight="20" TextWrapping="Wrap">
-                            <Run Text="• 不等待：启动所有分支后立即继续，分支在后台运行"/>
+                            <Run Name="Desc1" Text="• 不等待：启动所有分支后立即继续，分支在后台运行"/>
                             <LineBreak/>
-                            <Run Text="• 等待全部：等待所有分支都完成后才继续"/>
+                            <Run Name="Desc2" Text="• 等待全部：等待所有分支都完成后才继续"/>
                             <LineBreak/>
-                            <Run Text="• 等待任一：任意一个分支完成后即继续，其余后台运行"/>
+                            <Run Name="Desc3" Text="• 等待任一：任意一个分支完成后即继续，其余后台运行"/>
                         </TextBlock>
                     </StackPanel>
                 </Border>

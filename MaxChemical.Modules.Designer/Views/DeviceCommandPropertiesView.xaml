@@ -235,7 +235,7 @@
                                     </TextBlock>
                                 </Grid>
                             </Border>
-                            <TextBlock Text="设备命令"
+                            <TextBlock Text="{Binding Title}"
                                        FontSize="15" FontWeight="Medium"
                                        Foreground="#212121"
                                        VerticalAlignment="Center"/>
@@ -255,12 +255,12 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="绑定设备"
+                            <TextBlock Text="{Binding BindDeviceLabel}"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#757575"/>
                         </StackPanel>
 
-                        <TextBlock Text="选择设备" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock Text="{Binding SelectDeviceLabel}" Style="{StaticResource FieldLabelStyle}"/>
                         <ComboBox
                             Style="{StaticResource FieldComboStyle}"
                             ItemsSource="{Binding DataContext.DeviceOptionsForSelectedNode, RelativeSource={RelativeSource AncestorType=views:FlowDesignerView}}"
@@ -279,7 +279,7 @@
                                 CornerRadius="6" Padding="10,6"
                                 Margin="0,8,0,0">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="当前设备："
+                                <TextBlock Text="{Binding CurrentDeviceLabel,StringFormat='{}{0}: '}"
                                            FontSize="12" Foreground="#757575"
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding BoundDeviceName}"
@@ -299,7 +299,7 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="输入参数"
+                            <TextBlock Text="{Binding InputParamLabel}"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#757575"/>
                         </StackPanel>
@@ -327,7 +327,7 @@
                         </ItemsControl>
 
                         <!-- 无参数时的占位提示 -->
-                        <TextBlock Text="暂无参数"
+                        <TextBlock Text="{Binding NoneParamLabel}"
                                    FontSize="12" Foreground="#BDBDBD"
                                    FontStyle="Italic"
                                    HorizontalAlignment="Center"
@@ -355,7 +355,7 @@
                             <Border Width="3" Height="13" CornerRadius="2"
                                     Background="#2196F3"
                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="摘要"
+                            <TextBlock Text="{Binding AbstractLabel}"
                                        FontSize="11" FontWeight="Medium"
                                        Foreground="#1565C0"/>
                         </StackPanel>

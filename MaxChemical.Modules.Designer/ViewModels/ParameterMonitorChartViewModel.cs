@@ -1,4 +1,6 @@
 ﻿// ParameterMonitorChartViewModel.cs - 完整清理版
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Models;
@@ -7,6 +9,7 @@ using MaxChemical.Modules.Designer.Services;
 using OxyPlot;
 using Prism.Commands;
 using Prism.Events;
+using Prism.Ioc;
 using Prism.Mvvm;
 using System;
 using System.Collections.ObjectModel;
@@ -24,6 +27,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private readonly IParameterMonitoringService _monitoringService;
         private readonly IEventAggregator _eventAggregator;
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localizationService;
 
         private DispatcherTimer _refreshTimer;
         private DateTime _baseTime = DateTime.Now;
@@ -278,6 +282,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _monitoringService = monitoringService ?? throw new ArgumentNullException(nameof(monitoringService));
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _logger = new LogService().ForContext<ParameterMonitorChartViewModel>();
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>() ?? throw new NullReferenceException();
 
             AvailableParameters = new ObservableCollection<AvailableParameter>();
             MonitoredParameters = new ObservableCollection<MonitoredParameter>();
@@ -292,6 +297,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
             InitializeAsync();
             NormalizedChartModel = NormalizedChartBuilder.CreateModel();
             _logger.LogInformation("参数监控图表ViewModel已初始化，基准时间: {BaseTime}", _baseTime);
+
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(LanguageChangedHandler);
+            LanguageChangedHandler("");
         }
 
         #endregion
@@ -1280,6 +1288,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     _monitoringService.ParameterDataUpdated -= OnParameterDataUpdated;
                 }
 
+                _eventAggregator.GetEvent<LanguageChangedEvent>()?.Unsubscribe(LanguageChangedHandler);
+
                 try
                 {
                     _eventAggregator?.GetEvent<FlowExecutionStateChangedEvent>()
@@ -1296,6 +1306,44 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 _logger.LogError(ex, "释放资源失败");
             }
+        }
+
+        #endregion
+
+
+        #region 本地化
+
+        private string _viewTitle;
+        private string _paramCountLabel;
+        private string _clearLabeL;
+        private string _exportLabel;
+        private string _normalizationTxt;
+        private string _noneParamTxt;
+        private string _tipTxt;
+        private string _updateTimeTxt;
+        private string _dataCountTxt;
+
+        public string ViewTitle {  get { return _viewTitle; } set {SetProperty(ref  _viewTitle, value); } }
+        public string ParamCountLabel {  get { return _paramCountLabel; } set { SetProperty(ref _paramCountLabel, value);  }  }
+        public string ClearLabeL { get { return _clearLabeL; } set {SetProperty(ref _clearLabeL, value); } }
+        public string ExportLabel { get { return _exportLabel; } set { SetProperty(ref _exportLabel, value); } }
+        public string NormalizationTxt {  get { return _normalizationTxt; } set {SetProperty(ref _normalizationTxt, value); } }
+        public string NoneParamTxt { get { return _noneParamTxt; } set { SetProperty(ref _noneParamTxt, value); }  }
+        public string TipTxt {  get { return _tipTxt; } set {SetProperty(ref _tipTxt, value);} }
+        public string UpdateTimeTxt {  get { return _updateTimeTxt; } set { SetProperty(ref _alarmMessage, value); }  }
+        public string DataCountTxt { get { return _dataCountTxt; } set { SetProperty (ref _dataCountTxt, value); } }
+
+        public void LanguageChangedHandler(string s)
+        {
+            ViewTitle = _localizationService.GetString("ParamMonitor_Title", "参数监控");
+            ParamCountLabel = _localizationService.GetString("ParamMonitor_ParamCountLabel", "参数");
+            ClearLabeL = _localizationService.GetString("ParamMonitor_Clear", "清除");
+            ExportLabel = _localizationService.GetString("ParamMonitor_Export", "导出");
+            NormalizationTxt = _localizationService.GetString("ParamMonitor_Normalization", "归一化");
+            NoneParamTxt = _localizationService.GetString("ParamMonitor_NoneMonitor", "暂无监控数据");
+            TipTxt = _localizationService.GetString("ParamMonitor_Tip", "从左侧面板选择参数开始监控");
+            UpdateTimeTxt = _localizationService.GetString("ParamMonitor_LastTime", "最后更新：");
+            DataCountTxt = _localizationService.GetString("ParamMonitor_DataPoint", "数据点");
         }
 
         #endregion

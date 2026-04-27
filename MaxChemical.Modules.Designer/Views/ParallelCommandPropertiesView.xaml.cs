@@ -1,12 +1,16 @@
-﻿using System;
+﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.ViewModels;
+using Prism.Events;
+using Prism.Ioc;
+using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.ViewModels;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -17,6 +21,40 @@ namespace MaxChemical.Modules.Designer.Views
         public ParallelCommandPropertiesView()
         {
             InitializeComponent();
+
+            //本地化
+            IEventAggregator eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
+            eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
+            OnLanguageChanged("");
+        }
+
+        /// <summary>
+        /// 本地化
+        /// </summary>
+        /// <param name="s"></param>
+        private void OnLanguageChanged(string s)
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service is null)
+            {
+                return;
+            }
+
+            NodeTitle.Text = service.GetString("Parallel_Title");
+            StrategyTitle.Text = service.GetString("Parallel_Strategy_Title");
+            RbNoWait.Content = service.GetString("Parallel_Strategy_Nowait");
+            RbAll.Content = service.GetString("Parallel_Strategy_All");
+            RbAny.Content = service.GetString("Parallel_Strategy_Any");
+            ParallelParamTitle.Text = service.GetString("Parallel_Parameter_Title");
+            ParallelParamLabel.Text = service.GetString("Parallel_Parameter_Maxcount");
+            TimeoutLabel.Text = service.GetString("Parallel_Parameter_Timeout");
+            NumberUnitLabel.Text = service.GetString("Parallel_Parameter_Countunit");
+            TimeUnitLabel.Text = service.GetString("Parallel_Paremeter_Timeunit");
+            DescLabel.Text = service.GetString("Parallel_Desc_Title");
+            InstructionLabel.Text = service.GetString("Parallel_Instruction_Title");
+            Desc1.Text = service.GetString("Parallel_Instruction_Desc1");
+            Desc2.Text = service.GetString("Parallel_Instruction_Desc2");
+            Desc3.Text = service.GetString("Parallel_Instruction_Desc3");
         }
 
         private async void OnAnyValueChanged(object sender, RoutedEventArgs e)

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,12 +9,18 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using MaxChemical.Core;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.Designer.Services;
+using Prism.Events;
 
 namespace MaxChemical.Modules.Designer.Service
 {
     public class RegionOverlayService : IRegionOverlayService
     {
+        private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationService;
+
         private Canvas _regionOverlay;
         private readonly List<Rectangle> _invisibleDragAreas = new List<Rectangle>();
         private bool _isDraggingRegionBorder = false;
@@ -37,6 +44,16 @@ namespace MaxChemical.Modules.Designer.Service
         public event Action<RegionLayout> RegionLayoutChanged;
         public event Action<Size> CanvasSizeChanged;
         private  IConnectionService _connectionService; //添加连接服务字段
+
+
+        public RegionOverlayService(IEventAggregator eventAggregator, ILocalizationService localizationService)
+        {
+            _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(LanguageChangedHandler);
+        }
+
 
         // 设置当前上下文
         public void SetCurrentContext(object currentDocument, Canvas designCanvas, Dictionary<string, Border> variablePanels = null, List<object> connections = null, IConnectionService connectionService = null)
@@ -238,7 +255,8 @@ namespace MaxChemical.Modules.Designer.Service
                     Foreground = textBrush,
                     FontSize = 11 / currentScale,
                     FontWeight = FontWeights.Normal,
-                    Margin = new Thickness(4 / currentScale)
+                    Margin = new Thickness(4 / currentScale),
+                    Tag = region.Type // 新增：用于语言切换
                 };
 
                 _regionOverlay.Children.Add(textBlock);
@@ -834,15 +852,31 @@ namespace MaxChemical.Modules.Designer.Service
 
         private static string RegionTypeToCN(RegionType t) => t switch
         {
-            RegionType.Feed => "进料",
-            RegionType.PreHeat => "预热/预冷",
-            RegionType.Reaction => "反应",
-            RegionType.Quench => "淬灭",
-            RegionType.PostProcess => "后处理",
-            _ => "未定义"
+            RegionType.Feed => CultureInfo.CurrentUICulture.Name == "en-US" ? "Feed" : "进料",
+            RegionType.PreHeat => CultureInfo.CurrentUICulture.Name == "en-US" ? "PreHeat" : "预热/预冷",
+            RegionType.Reaction => CultureInfo.CurrentUICulture.Name == "en-US" ? "Reaction" : "反应",
+            RegionType.Quench => CultureInfo.CurrentUICulture.Name == "en-US" ? "Quench" : "淬灭",
+            RegionType.PostProcess => CultureInfo.CurrentUICulture.Name == "en-US" ? "PostProcess" : "后处理",
+            _ => CultureInfo.CurrentUICulture.Name == "en-US" ? "Undefined" : "未定义"
         };
 
         #endregion
+
+        /// <summary>
+        /// 新增：更新画布布局区域标题的语言
+        /// </summary>
+        private void LanguageChangedHandler(string s)
+        {
+            if (_regionOverlay == null || _regionOverlay.Children.Count < 1)
+            {
+                return;
+            }
+            var query = _regionOverlay.Children.OfType<TextBlock>();
+            foreach (var item in query)
+            {
+                item.Text = _localizationService.GetString($"RegionSetting_RegionType_{item.Tag}");
+            }
+        }
     }
 
     #region 辅助类

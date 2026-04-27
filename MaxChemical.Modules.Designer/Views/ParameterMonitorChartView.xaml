@@ -30,7 +30,7 @@
                 <!-- 标题 -->
                 <Border Grid.Row="0" Padding="14,12,14,8">
                     <StackPanel>
-                        <TextBlock Text="参数监控" FontSize="13" FontWeight="Medium"
+                        <TextBlock Text="{Binding ViewTitle}" FontSize="13" FontWeight="Medium"
                                    Foreground="#1A1F36"/>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                             <Ellipse Width="6" Height="6" Margin="0,0,5,0" VerticalAlignment="Center">
@@ -47,7 +47,7 @@
                             </Ellipse>
                             <TextBlock FontSize="9" Foreground="#9CA3AF">
                                 <Run Text="{Binding MonitoredParameters.Count, Mode=OneWay}"/>
-                                <Run Text=" 参数 · "/>
+                                <Run Text="{Binding ParamCountLabel,StringFormat='{}{0} · '}"/>
                                 <Run Text="{Binding DataPointsCount, Mode=OneWay}"/>
                                 <Run Text=" pts"/>
                             </TextBlock>
@@ -100,7 +100,7 @@
                                     <Border x:Name="Bd" Background="White" CornerRadius="5"
                                             Padding="0,5" BorderBrush="#FECACA" BorderThickness="0.5">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="清除" FontSize="10" Foreground="#DC2626"/>
+                                            <TextBlock Text="{Binding ClearLabeL}" FontSize="10" Foreground="#DC2626"/>
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -118,7 +118,7 @@
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" Background="#E8EAF6" CornerRadius="5"
                                             Padding="0,5" BorderBrush="#C7CBE9" BorderThickness="0.5">
-                                        <TextBlock Text="导出" FontSize="10" FontWeight="Medium"
+                                        <TextBlock Text="{Binding ExportLabel}" FontSize="10" FontWeight="Medium"
                                                    Foreground="#2D3A8C" HorizontalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -155,7 +155,7 @@
 
                     <!-- 图例（图标标签行） -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="归一化 %" FontSize="9" Foreground="#9CA3AF"
+                        <TextBlock Text="{Binding NormalizationTxt,StringFormat='{}{0} %'}" FontSize="9" Foreground="#9CA3AF"
                                    VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <ItemsControl ItemsSource="{Binding ChartLegendItems}">
                             <ItemsControl.ItemsPanel>
@@ -285,7 +285,7 @@
                     </Border>
 
                     <!-- 导出 -->
-                    <Button Grid.Column="3" Content="导出" Cursor="Hand"
+                    <Button Grid.Column="3" Content="{Binding ExportLabel}" Cursor="Hand"
                             Click="BtnExport_Click"
                             FontSize="9" FontWeight="Medium" Foreground="#2D3A8C">
                         <Button.Template>
@@ -317,9 +317,9 @@
                               Width="20" Height="20" Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <TextBlock Text="暂无监控数据" FontSize="13" FontWeight="Medium"
+                    <TextBlock Text="{Binding NoneParamTxt}" FontSize="13" FontWeight="Medium"
                                Foreground="#9CA3AF" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                    <TextBlock Text="从左侧面板选择参数开始监控" FontSize="11"
+                    <TextBlock Text="{Binding TipTxt}" FontSize="11"
                                Foreground="#C7CCD4" HorizontalAlignment="Center"/>
                 </StackPanel>
 
@@ -374,11 +374,11 @@
                     </Style>
                 </Border.Style>
                 <TextBlock FontSize="9" Foreground="#9CA3AF">
-                    <Run Text="最后更新: "/>
+                    <Run Text="{Binding UpdateTimeTxt}"/>
                     <Run Text="{Binding LastUpdateTime, StringFormat='HH:mm:ss', Mode=OneWay}"/>
                     <Run Text=" · "/>
                     <Run Text="{Binding DataPointsCount, Mode=OneWay}"/>
-                    <Run Text=" 数据点"/>
+                    <Run Text="{Binding DataCountTxt}"/>
                 </TextBlock>
             </Border>
         </Grid>
