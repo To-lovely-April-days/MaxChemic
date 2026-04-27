@@ -656,5 +656,8 @@
   "Doe_DesignMethod_AugmentedDesign":"AugmentedDesign",
   "Doe_DesignMethod_ConfirmationRuns":"ConfirmationRuns",
   "Doe_DesignMethod_PlackettBurman":"Plackett-Burman",
-  "Doe_DesignMethod_Custom":"Custom"
+  "Doe_DesignMethod_Custom":"Custom",
+  "Doe_Ols_Title":"OLS Analysis",
+  "Doe_Ols_StatusMsg_LoadData":"Loading experimental data...",
+  "Doe_Ols_StatusMsg_CreateWin":"The analysis window is being constructed"
 }

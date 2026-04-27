@@ -642,5 +642,8 @@
   "Doe_DesignMethod_AugmentedDesign":"增强设计",
   "Doe_DesignMethod_ConfirmationRuns":"验证实验",
   "Doe_DesignMethod_PlackettBurman":"Plackett-Burman",
-  "Doe_DesignMethod_Custom":"自定义"
+  "Doe_DesignMethod_Custom":"自定义",
+  "Doe_Ols_Title":"OLS 分析",
+  "Doe_Ols_StatusMsg_LoadData":"正在加载实验数据...",
+  "Doe_Ols_StatusMsg_CreateWin":"正在构建分析窗口..."
 }

@@ -33,7 +33,7 @@
                         </Ellipse.RenderTransform>
                     </Ellipse>
                 </Grid>
-                <TextBlock Text="OLS 分析" FontSize="14" FontWeight="SemiBold"
+                <TextBlock Name="TbOlsTitle" Text="OLS 分析" FontSize="14" FontWeight="SemiBold"
                            Foreground="#1F2937" VerticalAlignment="Center"/>
             </StackPanel>
 

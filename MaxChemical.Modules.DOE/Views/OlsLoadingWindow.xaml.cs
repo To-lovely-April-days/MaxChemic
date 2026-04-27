@@ -10,6 +10,11 @@ namespace MaxChemical.Modules.DOE.Views
             InitializeComponent();
         }
 
+        public void SetOlsTitle(string title)
+        {
+            Dispatcher.Invoke(new Action(() => { TbOlsTitle.Text = title; }));
+        }
+
         /// <summary>
         /// 更新状态文字 + 进度条
         /// </summary>
