@@ -35,9 +35,9 @@
                     <Border Grid.Row="0" Padding="18,14" Background="White"
                         BorderBrush="{StaticResource WzDivider}" BorderThickness="0,0,0,0.5">
                         <Grid>
-                            <TextBlock Text="项目 / 批次" FontSize="12" FontWeight="Medium"
+                            <TextBlock Text="{Binding ProjBatchTxt}" FontSize="12" FontWeight="Medium"
                                    Foreground="{StaticResource WzText}"/>
-                            <Button Content="刷新" HorizontalAlignment="Right" FontSize="10"
+                            <Button Content="{Binding RefreshTxt}" HorizontalAlignment="Right" FontSize="10"
                                 Foreground="{StaticResource WzAccent}" Cursor="Hand"
                                 Command="{Binding RefreshCommand}">
                                 <Button.Template>
@@ -97,9 +97,10 @@
                                                     <TextBlock FontSize="9" Foreground="{Binding SubtitleColor}" Margin="0,1,0,0">
                                                     <Run Text="{Binding PhaseText, Mode=OneWay}"/>
                                                     <Run Text=" · "/>
-                                                    <Run Text="{Binding TotalBatches, StringFormat='{}{0} 批', Mode=OneWay}"/>
-                                                    <Run Text=" · "/>
-                                                    <Run Text="{Binding TotalExperiments, StringFormat='{}{0} 组', Mode=OneWay}"/>
+                                                    <Run Text="{Binding TotalBatches, Mode=OneWay}"/>
+                                                    <Run Text="{Binding BatchTxt,StringFormat='{}{0} · '}"/>
+                                                    <Run Text="{Binding TotalExperiments, Mode=OneWay}"/>
+                                                        <Run Text="{Binding GroupTxt}"/>
                                                     </TextBlock>
                                                 </StackPanel>
                                             </Grid>
@@ -169,7 +170,7 @@
                                                                 <TextBlock FontSize="9" Margin="0,1,0,0"
                                                                        Foreground="{Binding SubtitleColor}">
                                                                 <Run Text="{Binding ProgressText, Mode=OneWay}"/>
-                                                                <Run Text=" 组"/>
+                                                                <Run Text="{Binding GroupTxt}"/>
                                                                 <Run Text="{Binding RSquaredDisplayText, Mode=OneWay}"/>
                                                                 </TextBlock>
                                                             </StackPanel>
@@ -259,7 +260,7 @@
                                 </StackPanel>
                                 <!-- 统计行 -->
                                 <TextBlock FontSize="10" Foreground="{StaticResource WzTextMuted}" Margin="0,4,0,0">
-                                <Run Text="{Binding SelectedRoundRunCount, StringFormat='{}{0} 组实验', Mode=OneWay}"/>
+                                <Run Text="{Binding SelectedRoundRunCount, Mode=OneWay}"/><Run Text="{Binding GroupsPeriTxt}"/>
                                 <Run Text=" · R² = "/>
                                 <Run Text="{Binding SelectedRoundR2Text, Mode=OneWay}"
                                      FontWeight="Medium" Foreground="{StaticResource WzSuccess}"/>
@@ -269,17 +270,17 @@
 
                             <!-- 操作按钮 -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="跳转执行" Padding="14,6" FontSize="10" FontWeight="Medium"
+                                <Button Content="{Binding JumpExecTxt}" Padding="14,6" FontSize="10" FontWeight="Medium"
                                     Cursor="Hand" Margin="0,0,5,0"
                                     Command="{Binding NavigateToExecutionCommand}"
                                     Style="{StaticResource WzBtnPrimary}"/>
-                                <Button Content="查看分析" Padding="14,6" FontSize="10" Cursor="Hand" Margin="0,0,5,0"
+                                <Button Content="{Binding ViewAnalysisTxt}" Padding="14,6" FontSize="10" Cursor="Hand" Margin="0,0,5,0"
                                     Command="{Binding NavigateToAnalysisCommand}"
                                     Style="{StaticResource WzBtnGhost}"/>
-                                <Button Content="导出" Padding="14,6" FontSize="10" Cursor="Hand" Margin="0,0,5,0"
+                                <Button Content="{Binding ExportTxt}" Padding="14,6" FontSize="10" Cursor="Hand" Margin="0,0,5,0"
                                     Command="{Binding ExportRoundCommand}" CommandParameter="{Binding SelectedRound}"
                                     Style="{StaticResource WzBtnGhost}"/>
-                                <Button Content="删除" Padding="14,6" FontSize="10" Cursor="Hand"
+                                <Button Content="{Binding DeleteTxt}" Padding="14,6" FontSize="10" Cursor="Hand"
                                     Command="{Binding DeleteRoundCommand}" CommandParameter="{Binding SelectedRound}"
                                     Foreground="{StaticResource WzTextMuted}"
                                     Style="{StaticResource WzBtnGhost}"/>
@@ -379,7 +380,7 @@
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
-                        <TextBlock Text="选择左侧批次查看实验数据" FontSize="13"
+                        <TextBlock Text="{Binding UnselectTxt}" FontSize="13"
                                Foreground="{StaticResource WzTextHint}" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
