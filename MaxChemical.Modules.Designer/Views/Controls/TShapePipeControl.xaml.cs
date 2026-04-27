@@ -762,11 +762,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (isSelected)
             {
                 SelectionBorder.Visibility = Visibility.Visible;
+                SelectionBorderBranch.Visibility = Visibility.Visible;
                 ShowAllAnchors();
             }
             else
             {
                 SelectionBorder.Visibility = Visibility.Collapsed;
+                SelectionBorderBranch.Visibility = Visibility.Collapsed;
                 if (!IsMouseOver && !_isResizing && !_isRotating) HideAllAnchors();
             }
         }
@@ -1232,8 +1234,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Width = Math.Max(totalWidth, 100);
                 Height = Math.Max(totalHeight, 100);
 
-                SelectionBorder.Width = Width;
-                SelectionBorder.Height = Height;
+                // 选中描边（T 形：主管 + 支管）
+                // 主管：整条横管
+                SelectionBorder.Width = _mainPipeLength;
+                SelectionBorder.Height = _pipeWidth;
+                Canvas.SetLeft(SelectionBorder, mainPipeLeft);
+                Canvas.SetTop(SelectionBorder, mainPipeTop);
+
+                // 支管：从顶端延伸到主管中线（底端与主管重叠形成 T 接头）
+                SelectionBorderBranch.Width = _pipeWidth;
+                SelectionBorderBranch.Height = _branchPipeLength + _pipeWidth / 2;
+                Canvas.SetLeft(SelectionBorderBranch, branchPipeLeft);
+                Canvas.SetTop(SelectionBorderBranch, branchPipeTop);
 
                 // ═══ 锚点 ═══
                 UpdateAnchorPositions(rightFlangeX, mainPipeTop, branchPipeLeft, branchPipeTop, branchCenterX, MAIN_PIPE_CENTER_Y);

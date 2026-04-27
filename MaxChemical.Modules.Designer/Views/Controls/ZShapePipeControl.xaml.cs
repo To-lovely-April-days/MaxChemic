@@ -837,11 +837,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (isSelected)
             {
                 SelectionBorder.Visibility = Visibility.Visible;
+                SelectionBorderM.Visibility = Visibility.Visible;
+                SelectionBorderB.Visibility = Visibility.Visible;
                 ShowAllAnchors();
             }
             else
             {
                 SelectionBorder.Visibility = Visibility.Collapsed;
+                SelectionBorderM.Visibility = Visibility.Collapsed;
+                SelectionBorderB.Visibility = Visibility.Collapsed;
                 if (!IsMouseOver && !_isResizing && !_isRotating) HideAllAnchors();
             }
         }
@@ -1330,8 +1334,24 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Width = totalWidth;
                 Height = totalHeight;
 
-                SelectionBorder.Width = totalWidth + 4;
-                SelectionBorder.Height = totalHeight + 4;
+                // 选中描边（Z 形：3 段）
+                // 上水平段：从左端延伸到弯头1中心
+                SelectionBorder.Width = (elbow1CenterX + _pipeWidth / 2) - topPipeLeft;
+                SelectionBorder.Height = _pipeWidth;
+                Canvas.SetLeft(SelectionBorder, topPipeLeft);
+                Canvas.SetTop(SelectionBorder, topPipeTop);
+
+                // 中间垂直段：从弯头1中心到弯头2中心
+                SelectionBorderM.Width = _pipeWidth;
+                SelectionBorderM.Height = (elbow2CenterY + _pipeWidth / 2) - (elbow1CenterY - _pipeWidth / 2);
+                Canvas.SetLeft(SelectionBorderM, diagPipeLeft);
+                Canvas.SetTop(SelectionBorderM, elbow1CenterY - _pipeWidth / 2);
+
+                // 下水平段：从弯头2中心到右端
+                SelectionBorderB.Width = (bottomPipeLeft + bottomPipeWidth) - (elbow2CenterX - _pipeWidth / 2);
+                SelectionBorderB.Height = _pipeWidth;
+                Canvas.SetLeft(SelectionBorderB, elbow2CenterX - _pipeWidth / 2);
+                Canvas.SetTop(SelectionBorderB, bottomPipeTop);
 
                 PipeCanvas.EndInit();
 

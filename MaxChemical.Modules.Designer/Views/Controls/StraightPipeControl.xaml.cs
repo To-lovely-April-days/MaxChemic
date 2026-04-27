@@ -633,11 +633,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             UpdateFlanges();
 
-            // 选择边框
-            SelectionBorder.Width = _pipeLength + 4;
-            SelectionBorder.Height = _pipeWidth + 4;
-            Canvas.SetLeft(SelectionBorder, PIPE_LEFT - 2);
-            Canvas.SetTop(SelectionBorder, pipeTopOffset - 2);
+            // 选中描边：完全贴合管道本体（不再外扩）
+            SelectionBorder.Width = _pipeLength;
+            SelectionBorder.Height = _pipeWidth;
+            Canvas.SetLeft(SelectionBorder, PIPE_LEFT);
+            Canvas.SetTop(SelectionBorder, pipeTopOffset);
 
             UpdateAnchorPositions();
             UpdateRotationLabelPosition();

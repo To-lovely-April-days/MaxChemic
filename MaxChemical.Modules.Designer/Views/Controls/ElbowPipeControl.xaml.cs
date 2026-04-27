@@ -791,11 +791,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (isSelected)
             {
                 SelectionBorder.Visibility = Visibility.Visible;
+                SelectionBorderV.Visibility = Visibility.Visible;
                 ShowAllAnchors();
             }
             else
             {
                 SelectionBorder.Visibility = Visibility.Collapsed;
+                SelectionBorderV.Visibility = Visibility.Collapsed;
                 if (!IsMouseOver && !_isResizing && !_isRotating) HideAllAnchors();
             }
         }
@@ -1045,9 +1047,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(TopConnection, verticalCenterX - _pipeWidth / 2);
             Canvas.SetTop(TopConnection, FlangeWidth + FlangeOffset);
 
-            // ═══ 杂项 ═══
-            SelectionBorder.Width = Width;
-            SelectionBorder.Height = Height;
+            // 选中描边（L 形：水平段 + 垂直段）
+            // 两段都延伸到弯头中心，视觉上在拐角处重叠形成完整 L
+            SelectionBorder.Width = (elbowCenterX + _pipeWidth / 2) - pipeLeft;
+            SelectionBorder.Height = _pipeWidth;
+            Canvas.SetLeft(SelectionBorder, pipeLeft);
+            Canvas.SetTop(SelectionBorder, pipeTop);
+
+            SelectionBorderV.Width = _pipeWidth;
+            SelectionBorderV.Height = (elbowCenterY + _pipeWidth / 2) - vPipeTop;
+            Canvas.SetLeft(SelectionBorderV, vPipeLeft);
+            Canvas.SetTop(SelectionBorderV, vPipeTop);
+
             UpdateAnchorPositions(horizontalCenterY, verticalCenterX);
             UpdateRotationLabelPosition();
 

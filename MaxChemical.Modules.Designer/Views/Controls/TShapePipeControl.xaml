@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.TShapePipeControl"
+<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.TShapePipeControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,7 +7,6 @@
              d:DesignHeight="140" 
              d:DesignWidth="160"
              Width="160" Height="140"
-             Background="Transparent"
              Cursor="SizeAll"
              ClipToBounds="False"
              SnapsToDevicePixels="True"
@@ -24,7 +23,9 @@
 
     <!-- ═══ 所有画刷由代码动态生成，不再使用 StaticResource ═══ -->
 
-    <Canvas x:Name="PipeCanvas" Background="Transparent" ClipToBounds="False">
+    <!-- 不设 Background（=null）：空白区域不捕获鼠标，点击穿透到下方
+         命中测试仅作用于实际有 Fill 的子元素（主管、支管、法兰） -->
+    <Canvas x:Name="PipeCanvas" ClipToBounds="False">
 
         <!-- ═══════════════ 左侧法兰组 ═══════════════ -->
         <Canvas x:Name="LeftFlangeGroup"
@@ -147,6 +148,17 @@
                  Opacity="0.3"/>
 
         <!-- ═══════════════ 锚点 ═══════════════ -->
+        <!-- 主管左端锚点：拖动时从左端延伸管道（MainPipeLength 增加 + 控件整体向左移） -->
+        <Ellipse x:Name="MainLeftAnchor"
+                 Canvas.Left="-6" Canvas.Top="64"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeWE">
+            <Ellipse.ToolTip>
+                <ToolTip Content="拖动从左端延伸主管"/>
+            </Ellipse.ToolTip>
+        </Ellipse>
+
         <Ellipse x:Name="MainLengthAnchor"
                  Canvas.Left="134" Canvas.Top="64"
                  Width="12" Height="12"
@@ -210,15 +222,14 @@
         </Border>
 
         <!-- ═══════════════ 选中高亮边框 ═══════════════ -->
-        <Rectangle x:Name="SelectionBorder"
-                   Canvas.Left="-2" Canvas.Top="-2"
-                   Width="164" Height="144"
-                   Stroke="#FF9500" StrokeThickness="2"
-                   Fill="Transparent" RadiusX="3" RadiusY="3"
-                   Visibility="Collapsed">
-            <Rectangle.Effect>
-                <DropShadowEffect Color="Orange" BlurRadius="10" ShadowDepth="0" Opacity="0.8" RenderingBias="Performance"/>
-            </Rectangle.Effect>
-        </Rectangle>
+        <!-- 选中描边：T 形，由主管（横）+ 支管（竖）两段贴合 -->
+        <Rectangle x:Name="SelectionBorder" Width="0" Height="0"
+                   Stroke="#378ADD" StrokeThickness="1.25" Fill="Transparent"
+                   RadiusX="2" RadiusY="2"
+                   IsHitTestVisible="False" Visibility="Collapsed"/>
+        <Rectangle x:Name="SelectionBorderBranch" Width="0" Height="0"
+                   Stroke="#378ADD" StrokeThickness="1.25" Fill="Transparent"
+                   RadiusX="2" RadiusY="2"
+                   IsHitTestVisible="False" Visibility="Collapsed"/>
     </Canvas>
 </UserControl>

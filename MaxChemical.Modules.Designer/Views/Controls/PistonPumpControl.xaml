@@ -431,15 +431,14 @@
                    IsHitTestVisible="False" Panel.ZIndex="2"/>
 
         <!-- 选择边框 -->
+        <!-- 选中描边：贴合主控制台（不锈钢边框），圆角细线无光晕 -->
         <Rectangle x:Name="SelectionBorder"
-                   Canvas.Left="0" Canvas.Top="0" Width="465" Height="496" 
-                   RadiusX="14" RadiusY="14"
-                   Stroke="#2196F3" StrokeThickness="2" StrokeDashArray="5,3"
-                   Visibility="Collapsed" Panel.ZIndex="200" IsHitTestVisible="False">
-            <Rectangle.Effect>
-                <DropShadowEffect Color="#2196F3" BlurRadius="5" ShadowDepth="0" Opacity="0.3"/>
-            </Rectangle.Effect>
-        </Rectangle>
+                   Canvas.Left="35" Canvas.Top="60"
+                   Width="399" Height="410"
+                   Stroke="#378ADD" StrokeThickness="1.25"
+                   Fill="Transparent"
+                   RadiusX="8" RadiusY="8"
+                   Visibility="Collapsed" Panel.ZIndex="200" IsHitTestVisible="False"/>
 
     </Canvas>
 </UserControl>
