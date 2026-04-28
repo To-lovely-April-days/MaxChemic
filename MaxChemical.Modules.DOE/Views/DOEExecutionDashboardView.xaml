@@ -308,7 +308,7 @@
         </ScrollViewer>
 
         <!-- ═══ 暂停等待遮罩 ═══ -->
-        <!--<Border Background="#80FFFFFF" Visibility="{Binding IsPausing, Converter={StaticResource BoolToVis}}"
+        <Border Background="#80FFFFFF" Visibility="{Binding IsPausing, Converter={StaticResource BoolToVis}}"
                 VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
             <Border Background="White" CornerRadius="12" Padding="36,28"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -339,7 +339,7 @@
                     <TextBlock Text="{Binding MaskTipTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-        </Border>-->
+        </Border>
 
     </Grid>
 </UserControl>

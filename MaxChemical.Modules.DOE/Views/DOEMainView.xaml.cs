@@ -190,6 +190,7 @@ namespace MaxChemical.Modules.DOE.Views
                             if (vm == null) return;
                             var loading = new OlsLoadingWindow();
                             loading.Owner = System.Windows.Application.Current.MainWindow;
+                            loading.SetOlsTitle(_localization.GetString("Doe_Ols_Title", "OLS 分析"));
                             loading.Show();
                             // ★ 关键: 断开主窗口 ModelAnalysisView 的 DataContext
                             // 这样其内部所有 PlotView 的绑定全部解除，PlotModel 被释放
@@ -200,10 +201,10 @@ namespace MaxChemical.Modules.DOE.Views
                             await vm.NavigateToOlsBatchAsync(batchId);
 
                             // 后台加载
-                            loading.UpdateStatus("正在加载实验数据...");
+                            loading.UpdateStatus(_localization.GetString("Doe_Ols_StatusMsg_LoadData", "正在加载实验数据..."));
                             await vm.NavigateToOlsBatchAsync(batchId);
 
-                            loading.UpdateStatus("正在构建分析窗口...");
+                            loading.UpdateStatus(_localization.GetString("Doe_Ols_StatusMsg_CreateWin", "正在构建分析窗口..."));
                             await Task.Delay(50);
 
                             // 弹出非模态窗口

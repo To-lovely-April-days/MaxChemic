@@ -1,4 +1,5 @@
-﻿using MaxChemical.Modules.DOE.Data;
+﻿using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.DOE.Data;
 using MaxChemical.Modules.DOE.Models;
 using Newtonsoft.Json;
 using Prism.Mvvm;
@@ -14,6 +15,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
     public partial class  DOEProjectDetailViewModel : BindableBase
     {
         private readonly IDOERepository _repository;
+        private readonly ILocalizationService _localizationService;
 
         // ── 基础信息 ──
         public string ProjectName { get; set; } = "";
@@ -43,10 +45,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
         // ── 批次列表 ──
         public ObservableCollection<BatchListItem> BatchItems { get; set; } = new();
 
-        public DOEProjectDetailViewModel(IDOERepository repository)
+        public DOEProjectDetailViewModel(IDOERepository repository,ILocalizationService localizationService)
         {
             _repository = repository;
+            _localizationService = localizationService;
 
+            UpdateLocalizationTxt();
         }
 
         public async Task LoadAsync(string projectId)
@@ -65,13 +69,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             PhaseText = project.CurrentPhase switch
             {
-                DOEProjectPhase.Screening => "筛选",
-                DOEProjectPhase.PathSearch => "爬坡",
-                DOEProjectPhase.RSM => "响应面优化",
-                DOEProjectPhase.Augmenting => "补点",
-                DOEProjectPhase.Confirmation => "验证",
-                DOEProjectPhase.Completed => "已完成",
-                _ => project.CurrentPhase.ToString()
+                DOEProjectPhase.Screening => _localizationService.GetString("Doe_ProjectPhase_Screening", "筛选"),
+                DOEProjectPhase.PathSearch => _localizationService.GetString("Doe_ProjectPhase_PathSearch", "爬坡"),
+                DOEProjectPhase.RSM => _localizationService.GetString("Doe_ProjectPhase_RSM", "RSM"),
+                DOEProjectPhase.Augmenting => _localizationService.GetString("Doe_ProjectPhase_Augmenting", "补点"),
+                DOEProjectPhase.Confirmation => _localizationService.GetString("Doe_ProjectPhase_Confirmation", "验证"),
+                DOEProjectPhase.Completed => _localizationService.GetString("Doe_ProjectPhase_Completed", "已完成"),
+                _ => project.CurrentPhase.ToString() ?? ""
             };
 
             PhaseColor = project.CurrentPhase switch
@@ -87,18 +91,18 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             StatusText = project.Status switch
             {
-                DOEProjectStatus.Active => "活跃",
-                DOEProjectStatus.Paused => "暂停",
-                DOEProjectStatus.Completed => "已完成",
-                DOEProjectStatus.Archived => "已归档",
+                DOEProjectStatus.Active => _localizationService.GetString("Doe_ProjectStatus_Active", "活跃"),
+                DOEProjectStatus.Paused => _localizationService.GetString("Doe_ProjectStatus_Paused", "暂停"),
+                DOEProjectStatus.Completed => _localizationService.GetString("Doe_ProjectStatus_Completed", "已完成"),
+                DOEProjectStatus.Archived => _localizationService.GetString("Doe_ProjectStatus_Archived", "已归档"),
                 _ => ""
             };
 
             // 进度条
             PhaseSegments = BuildPhaseSegments(project.CurrentPhase);
             PhaseProgressText = project.CurrentPhase == DOEProjectPhase.Completed
-                ? "已完成全部优化流程"
-                : "筛选 → 爬坡 → RSM → 验证 → 完成";
+                ? _localizationService.GetString("Doe_ProjDetail_AlreadyAll", "已完成全部优化流程")
+                : _localizationService.GetString("Doe_ProjDetail_PhaseProgress", "筛选 → 爬坡 → RSM → 验证 → 完成");
 
             // 最优因子组合
             BestFactorItems = ParseBestFactors(project.BestFactorsJson);
@@ -154,16 +158,16 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 switch (f.FactorStatus)
                 {
                     case ProjectFactorStatus.Active:
-                        status = "活跃";
+                        status = _localizationService.GetString("Doe_ProjDetail_FactorState_Active", "活跃");
                         isActive = true;
                         break;
                     case ProjectFactorStatus.ScreenedOut:
-                        status = f.StatusReason ?? "已淘汰";
+                        status = f.StatusReason ?? _localizationService.GetString("Doe_ProjDetail_FactorState_Out", "已淘汰");
                         isActive = false;
                         break;
                     case ProjectFactorStatus.Fixed:
                         var fixVal = f.FixedCategoryLevel ?? f.FixedValue?.ToString("F1") ?? "";
-                        status = $"固定={fixVal}";
+                        status = string.Format(_localizationService.GetString("Doe_ProjDetail_FacotState_Fixed", "固定={0}"),fixVal);
                         isActive = false;
                         break;
                     default:
@@ -197,7 +201,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     if (string.IsNullOrEmpty(name))
                     {
                         var sigParts = m.FactorSignature?.Split("::") ?? Array.Empty<string>();
-                        name = sigParts.Length > 1 ? sigParts[1] : "主响应模型";
+                        name = sigParts.Length > 1 ? sigParts[1] : _localizationService.GetString("Doe_ProjDetail_MainModel", "主响应模型");
                     }
 
                     var factorSig = m.FactorSignature ?? "";
@@ -207,7 +211,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     items.Add(new ModelListItem
                     {
                         Name = name,
-                        Description = $"{factorSig} · {m.DataCount} 组数据",
+                        Description = string.Format(_localizationService.GetString("Doe_ProjDetail_GroupData", "{0} · {1} 组数据"), factorSig, m.DataCount),
                         RSquaredText = m.RSquared.HasValue ? $"{m.RSquared:F3}" : "—"
                     });
                 }
@@ -225,7 +229,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         if (string.IsNullOrEmpty(name))
                         {
                             var sigParts = m.FactorSignature?.Split("::") ?? Array.Empty<string>();
-                            name = sigParts.Length > 1 ? sigParts[1] : "主响应模型";
+                            name = sigParts.Length > 1 ? sigParts[1] : _localizationService.GetString("Doe_ProjDetail_MainModel", "主响应模型");
                         }
 
                         var factorSig = m.FactorSignature ?? "";
@@ -235,7 +239,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         items.Add(new ModelListItem
                         {
                             Name = name,
-                            Description = $"{factorSig} · {m.DataCount} 组数据",
+                            Description = string.Format(_localizationService.GetString("Doe_ProjDetail_GroupData", "{0} · {1} 组数据"),factorSig,m.DataCount),
                             RSquaredText = m.RSquared.HasValue ? $"{m.RSquared:F3}" : "—"
                         });
                     }
@@ -250,8 +254,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 items.Add(new ModelListItem
                 {
-                    Name = "暂无模型",
-                    Description = "执行实验后将自动创建 GPR 模型",
+                    Name = _localizationService.GetString("Doe_ProjDetail_NoneModel", "暂无模型"),
+                    Description = _localizationService.GetString("Doe_ProjDetail_Desc", "执行实验后将自动创建 GPR 模型"),
                     RSquaredText = "—"
                 });
             }
@@ -282,12 +286,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var phase = b.ProjectPhase ?? DOEProjectPhase.Screening;
                 var phaseText = phase switch
                 {
-                    DOEProjectPhase.Screening => "筛选",
-                    DOEProjectPhase.PathSearch => "爬坡",
-                    DOEProjectPhase.RSM => "RSM",
-                    DOEProjectPhase.Augmenting => "补点",
-                    DOEProjectPhase.Confirmation => "验证",
-                    _ => phase.ToString()
+                    DOEProjectPhase.Screening => _localizationService.GetString("Doe_ProjectPhase_Screening", "筛选"),
+                    DOEProjectPhase.PathSearch => _localizationService.GetString("Doe_ProjectPhase_PathSearch", "爬坡"),
+                    DOEProjectPhase.RSM => _localizationService.GetString("Doe_ProjectPhase_RSM", "RSM"),
+                    DOEProjectPhase.Augmenting => _localizationService.GetString("Doe_ProjectPhase_Augmenting", "补点"),
+                    DOEProjectPhase.Confirmation => _localizationService.GetString("Doe_ProjectPhase_Confirmation", "验证"),
+                    DOEProjectPhase.Completed => _localizationService.GetString("Doe_ProjectPhase_Completed", "已完成"),
+                    _ => phase.ToString() ?? ""
                 };
                 var phaseColor = phase switch
                 {
@@ -301,15 +306,16 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 var methodText = b.DesignMethod switch
                 {
-                    DOEDesignMethod.FullFactorial => "全因子",
-                    DOEDesignMethod.FractionalFactorial => "部分因子",
-                    DOEDesignMethod.Taguchi => "Taguchi",
-                    DOEDesignMethod.CCD => "CCD",
-                    DOEDesignMethod.BoxBehnken => "BBD",
-                    DOEDesignMethod.DOptimal => "D-Optimal",
-                    DOEDesignMethod.SteepestAscent => "最速上升",
-                    DOEDesignMethod.AugmentedDesign => "增强设计",
-                    DOEDesignMethod.ConfirmationRuns => "验证实验",
+                    DOEDesignMethod.CCD => _localizationService.GetString("Doe_DesignMethod_CCD", "CCD 中心复合"),
+                    DOEDesignMethod.BoxBehnken => _localizationService.GetString("Doe_DesignMethod_BoxBehnken", "Box-Behnken"),
+                    DOEDesignMethod.DOptimal => _localizationService.GetString("Doe_DesignMethod_DOptimal", "D-Optimal"),
+                    DOEDesignMethod.FullFactorial => _localizationService.GetString("Doe_DesignMethod_FullFactorial", "全因子"),
+                    DOEDesignMethod.FractionalFactorial => _localizationService.GetString("Doe_DesignMethod_FractionalFactorial", "部分因子"),
+                    DOEDesignMethod.Taguchi => _localizationService.GetString("Doe_DesignMethod_Taguchi", "Taguchi"),
+                    DOEDesignMethod.SteepestAscent => _localizationService.GetString("Doe_DesignMethod_SteepestAscent", "最速上升"),
+                    DOEDesignMethod.AugmentedDesign => _localizationService.GetString("Doe_DesignMethod_AugmentedDesign", "增强设计"),
+                    DOEDesignMethod.ConfirmationRuns => _localizationService.GetString("Doe_DesignMethod_ConfirmationRuns", "验证实验"),
+                    DOEDesignMethod.PlackettBurman => _localizationService.GetString("Doe_DesignMethod_PlackettBurman", "Plackett-Burman"),
                     _ => b.DesignMethod.ToString()
                 };
 
@@ -318,7 +324,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     RoundLabel = $"R{b.RoundNumber ?? 0}",
                     PhaseText = phaseText,
                     PhaseColor = phaseColor,
-                    MethodAndRuns = $"{methodText} · {runCount} 组",
+                    MethodAndRuns = string.Format(_localizationService.GetString("Doe_ProjDetail_MethodRuns","{0} · {1} 组"),methodText,runCount),
                     RSquaredText = summary?.RSquared.HasValue == true ? $"R²={summary.RSquared:F3}" : "—",
                     DateText = b.CreatedTime.ToString("MM-dd")
                 });
@@ -350,6 +356,58 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
             return segments;
         }
+
+        #region 本地化标签文本
+
+        private string _titleTxt;
+        private string _optimalTxt;
+        private string _optimizeTargetTxt;
+        private string _totalExperimentTxt;
+        private string _groupTxt;
+        private string _roundTxt;
+        private string _createTimeTxt;
+        private string _lastUpdateTxt;
+        private string _factoriPoolTxt;
+        private string _factoriTxt;
+        private string _rangeTxt;
+        private string _statusTxt;
+        private string _grpModelTxt;
+        private string _batchHistoryTxt;
+
+        public string TitleTxt { get { return _titleTxt; } set { SetProperty(ref _titleTxt, value); } }
+        public string OptimalTxt { get { return _optimalTxt; } set { SetProperty(ref _optimalTxt, value); } }
+        public string OptimizeTargetTxt { get { return _optimizeTargetTxt; } set { SetProperty(ref _optimizeTargetTxt, value); } }
+        public string TotalExperimentTxt { get { return _totalExperimentTxt; } set { SetProperty(ref _totalExperimentTxt, value); } }
+        public string GroupTxt { get { return _groupTxt; } set { SetProperty(ref _groupTxt, value); } }
+        public string RoundTxt { get { return _roundTxt; } set { SetProperty(ref _roundTxt, value); } }
+        public string CreateTimeTxt { get { return _createTimeTxt; } set { SetProperty(ref _createTimeTxt, value); } }
+        public string LastUpdateTxt { get { return _lastUpdateTxt; } set { SetProperty(ref _lastUpdateTxt, value); } }
+        public string FactoriPoolTxt { get { return _factoriPoolTxt; } set { SetProperty(ref _factoriPoolTxt, value); } }
+        public string FactoriTxt { get { return _factoriTxt; } set { SetProperty(ref _factoriTxt, value); } }
+        public string RangeTxt { get { return _rangeTxt; } set { SetProperty(ref _rangeTxt, value); } }
+        public string StatusTxt { get { return _statusTxt; } set { SetProperty(ref _statusTxt, value); } }
+        public string GrpModeTxt { get { return _grpModelTxt; } set { SetProperty(ref _grpModelTxt, value); } }
+        public string BatchHistoryTxt { get { return _batchHistoryTxt; } set { SetProperty(ref _batchHistoryTxt, value); } }
+
+        private void UpdateLocalizationTxt()
+        {
+            TitleTxt = _localizationService.GetString("Doe_ProjDetail_Title", "项目详情");
+            OptimalTxt = _localizationService.GetString("Doe_ProjDetail_Optimal", "当前最优");
+            OptimizeTargetTxt = _localizationService.GetString("Doe_ProjDetail_OptimizeTarget", "优化目标");
+            TotalExperimentTxt = _localizationService.GetString("Doe_ProjDetail_TotalExperiment", "总实验");
+            GroupTxt = _localizationService.GetString("Doe_ProjDetail_Group", " 组 / ");
+            RoundTxt = _localizationService.GetString("Doe_ProjDetail_Round", " 轮");
+            CreateTimeTxt = _localizationService.GetString("Doe_ProjDetail_CreateTime", "创建时间");
+            LastUpdateTxt = _localizationService.GetString("Doe_ProjDetail_LastUpdate", "最后更新");
+            FactoriPoolTxt = _localizationService.GetString("Doe_ProjDetail_FactorPool", "因子池");
+            FactoriTxt = _localizationService.GetString("Doe_ProjDetail_Factor", "因子");
+            RangeTxt = _localizationService.GetString("Doe_ProjDetail_Range", "范围");
+            StatusTxt = _localizationService.GetString("Doe_ProjDetail_Status", "状态");
+            GrpModeTxt = _localizationService.GetString("Doe_ProjDetail_GPRMode", "GPR 模型");
+            BatchHistoryTxt = _localizationService.GetString("Doe_ProjDetail_BatchHistory", "批次历史");
+        }
+
+        #endregion
     }
 
     // ── 数据项类 ──

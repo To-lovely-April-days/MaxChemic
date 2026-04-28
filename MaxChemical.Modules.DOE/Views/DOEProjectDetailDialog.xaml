@@ -30,7 +30,7 @@
                         <!-- 标题行 -->
                         <Grid Margin="0,0,0,18" Background="Transparent" 
                               MouseLeftButtonDown="TitleBar_MouseDown">
-                            <TextBlock Text="项目详情" FontSize="16" FontWeight="Medium" Foreground="#1A1F36"/>
+                            <TextBlock Text="{Binding TitleTxt}" FontSize="16" FontWeight="Medium" Foreground="#1A1F36"/>
                             <Button HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="Hand"
                                     Click="CloseBtn_Click">
                                 <Button.Template>
@@ -68,7 +68,7 @@
                         <Border Height="1" Background="#E8EAED" Margin="0,16,0,16"/>
 
                         <!-- 最优值 -->
-                        <TextBlock Text="当前最优" FontSize="10" Foreground="#A0A4B0" Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding OptimalTxt}" FontSize="10" Foreground="#A0A4B0" Margin="0,0,0,2"/>
                         <TextBlock Text="{Binding BestValueText}" FontSize="34" FontWeight="Medium"
                                    Foreground="#0078D4" Margin="0,0,0,14"/>
 
@@ -119,7 +119,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="优化目标" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
+                            <TextBlock Text="{Binding OptimalTxt}" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
                             <TextBlock Grid.Column="1" Text="{Binding ObjectiveDescription}" FontSize="12"
                                        Foreground="#1A1F36" Padding="0,4"/>
                         </Grid>
@@ -128,12 +128,12 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="总实验" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
+                            <TextBlock Text="{Binding TotalExperimentTxt}" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
                             <TextBlock Grid.Column="1" FontSize="12" Foreground="#1A1F36" Padding="0,4">
                                 <Run Text="{Binding TotalExperiments, Mode=OneWay}"/>
-                                <Run Text=" 组 / "/>
+                                <Run Text="{Binding GroupTxt}"/>
                                 <Run Text="{Binding CompletedRounds, Mode=OneWay}"/>
-                                <Run Text=" 轮"/>
+                                <Run Text="{Binding RoundTxt}"/>
                             </TextBlock>
                         </Grid>
                         <Grid Margin="0,0,0,4">
@@ -141,7 +141,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="创建时间" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
+                            <TextBlock Text="{Binding CreateTimeTxt}" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
                             <TextBlock Grid.Column="1" Text="{Binding CreatedTime, StringFormat='{}{0:yyyy-MM-dd}'}"
                                        FontSize="12" Foreground="#1A1F36" Padding="0,4"/>
                         </Grid>
@@ -150,7 +150,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="最后更新" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
+                            <TextBlock Text="{Binding LastUpdateTxt}" FontSize="12" Foreground="#A0A4B0" Padding="0,4"/>
                             <TextBlock Grid.Column="1" Text="{Binding UpdatedTime, StringFormat='{}{0:yyyy-MM-dd}'}"
                                        FontSize="12" Foreground="#1A1F36" Padding="0,4"/>
                         </Grid>
@@ -163,7 +163,7 @@
                 <StackPanel Margin="22">
 
                     <!-- ── 因子池（三列表格） ── -->
-                    <TextBlock Text="因子池" FontSize="12" FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding FactoriPoolTxt}" FontSize="12" FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,0,10"/>
                     <Border BorderBrush="#E8EAED" BorderThickness="1" CornerRadius="8" Margin="0,0,0,22">
                         <!-- 表头 -->
                         <StackPanel>
@@ -173,9 +173,9 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="80"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="因子" FontSize="10" Foreground="#A0A4B0" Padding="14,7"/>
-                                <TextBlock Grid.Column="1" Text="范围" FontSize="10" Foreground="#A0A4B0" Padding="0,7"/>
-                                <TextBlock Grid.Column="2" Text="状态" FontSize="10" Foreground="#A0A4B0"
+                                <TextBlock Text="{Binding FactoriTxt}" FontSize="10" Foreground="#A0A4B0" Padding="14,7"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RangeTxt}" FontSize="10" Foreground="#A0A4B0" Padding="0,7"/>
+                                <TextBlock Grid.Column="2" Text="{Binding StatusTxt}" FontSize="10" Foreground="#A0A4B0"
                                            HorizontalAlignment="Right" Padding="0,7,14,7"/>
                             </Grid>
                             <!-- 表格行 -->
@@ -226,7 +226,7 @@
                     </Border>
 
                     <!-- ── GPR 模型 ── -->
-                    <TextBlock Text="GPR 模型" FontSize="12" FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding GrpModeTxt}" FontSize="12" FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,0,10"/>
                     <ItemsControl ItemsSource="{Binding ModelItems}" Margin="0,0,0,22">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -255,7 +255,7 @@
                     </ItemsControl>
 
                     <!-- ── 批次历史 ── -->
-                    <TextBlock Text="批次历史" FontSize="12" FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding BatchHistoryTxt}" FontSize="12" FontWeight="Medium" Foreground="#1A1F36" Margin="0,0,0,10"/>
                     <ItemsControl ItemsSource="{Binding BatchItems}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
