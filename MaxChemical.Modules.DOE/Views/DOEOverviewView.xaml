@@ -219,7 +219,7 @@
                     <!-- 创建/更新时间 -->
                     <TextBlock FontSize="8.5" Foreground="{StaticResource OvTextMuted}" Margin="0,0,0,10">
                         <Run Text="{Binding DataContext.CreateInTxt,RelativeSource={RelativeSource AncestorType=UserControl}}"/><Run Text="{Binding CreatedTime, StringFormat=MM-dd, Mode=OneWay}"/>
-                        <Run Text="{Binding DataContext.UpdateOnTxt,RelativeSource={RelativeSource AncestorType=UserControl},StringFormat=' · {0}'}"/><Run Text="{Binding UpdatedTime, StringFormat=MM-dd HH:mm, Mode=OneWay}"/>
+                        <Run Text="{Binding DataContext.UpdateOnTxt,RelativeSource={RelativeSource AncestorType=UserControl},StringFormat=' · {0} '}"/><Run Text="{Binding UpdatedTime, StringFormat=MM-dd HH:mm, Mode=OneWay}"/>
                     </TextBlock>
 
                     <!-- 操作按钮 -->
@@ -434,7 +434,7 @@
                                             <TextBlock Text="＋" FontSize="15" Foreground="{StaticResource IndAccentBrush}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="新建项目" FontSize="10" FontWeight="SemiBold"
+                                        <TextBlock Text="{Binding DataContext.NewProjTxt, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="10" FontWeight="SemiBold"
                                                    Foreground="#6B7280" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -531,10 +531,10 @@
                                                 <TextBlock FontSize="8" Foreground="{StaticResource OvTextMuted}" Margin="0,1,0,0">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Text" Value="当前最优"/>
+                                                            <Setter Property="Text" Value="{Binding DataContext.CurrentBestTxt, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding CanContinue}" Value="False">
-                                                                    <Setter Property="Text" Value="最终结果"/>
+                                                                    <Setter Property="Text" Value="{Binding DataContext.FinalResultTxt, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
