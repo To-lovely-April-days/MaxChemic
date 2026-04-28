@@ -1489,8 +1489,28 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             try
             {
                 // 在后台线程执行设备命令，避免阻塞
-                var resultParams = await Task.Run(() => targetCmd.Action?.Invoke(inputParameters), cancellationToken);
-              
+                // 在后台线程执行设备命令,避免阻塞
+                DeviceParameters resultParams;
+
+                if (targetCmd.AsyncAction != null)
+                {
+                    // 优先用异步 Action(直接 await,无需 Task.Run 包裹,避免嵌套 Task)
+                    resultParams = await targetCmd.AsyncAction.Invoke(inputParameters).ConfigureAwait(false);
+                }
+                else if (targetCmd.Action != null)
+                {
+                    // 兼容只设置了同步 Action 的命令,放到线程池执行
+                    resultParams = await Task.Run(() => targetCmd.Action.Invoke(inputParameters), cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"设备命令 {targetCmd.Name} 既未设置 Action 也未设置 AsyncAction");
+                }
+
+                // 检查取消(Task.Run 之外的取消检查)
+                cancellationToken.ThrowIfCancellationRequested();
+
                 sw.Stop();
 
              
@@ -1695,17 +1715,81 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 // 读取循环间隔时间（毫秒）
                 var waitTimeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("WaitTime", 10);
                 int waitTimeMs = SafeToInt(waitTimeObj, 10);
-                waitTimeMs = Math.Max(0, waitTimeMs); // 确保非负数
+                waitTimeMs = Math.Max(0, waitTimeMs);
 
                 // 循环变量名（可选），默认 i
                 var loopVariable = loopNode.LogicCommand.Properties?.GetValueOrDefault("LoopVariable", "i")?.ToString() ?? "i";
 
+                // ★ 新增：读取执行模式（兼容枚举/字符串）
+                var execModeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("ExecutionMode", ExecutionMode.Synchronous);
+                var executionMode = ReadExecutionModeForEngine(execModeObj);
+
                 // 子节点快照
                 var children = loopNode.Children?.ToList() ?? new List<CommandNode>();
 
-                _logger.LogDebug("循环参数: Type={Type}, WaitTime={WaitTime}ms, Variable={Variable}, Children={Count}",
-                    loopType, waitTimeMs, loopVariable, children.Count);
+                _logger.LogDebug("循环参数: Type={Type}, Mode={Mode}, WaitTime={WaitTime}ms, Variable={Variable}, Children={Count}",
+                    loopType, executionMode, waitTimeMs, loopVariable, children.Count);
 
+                // ★ 防呆：无限循环 + 异步 = 危险组合，强制回退为同步
+                if (executionMode == ExecutionMode.Asynchronous && loopType == LoopType.Infinite)
+                {
+                    _logger.LogWarning("循环节点 {NodeName} 配置为无限循环+异步，已强制回退为同步执行（避免流程无法收尾）",
+                        loopNode.DisplayName);
+                    executionMode = ExecutionMode.Synchronous;
+                }
+
+                // ★ 异步分支：丢到后台跑，登记到 _backgroundTasks，主流程立即返回
+                if (executionMode == ExecutionMode.Asynchronous)
+                {
+                    _logger.LogInformation("循环节点 {NodeName} 以异步模式启动，将在后台执行", loopNode.DisplayName);
+
+                    var bgTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            switch (loopType)
+                            {
+                                case LoopType.FixedCount:
+                                    await ExecuteFixedCountLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable).ConfigureAwait(false);
+                                    break;
+                                case LoopType.Conditional:
+                                    await ExecuteConditionalLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable).ConfigureAwait(false);
+                                    break;
+                                default:
+                                    await ExecuteFixedCountLoopAsync(loopNode, context, cancellationToken, children, waitTimeMs, loopVariable).ConfigureAwait(false);
+                                    break;
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            _logger.LogInformation("后台异步循环被取消: {NodeName}", loopNode.DisplayName);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "后台异步循环执行失败: {NodeName}", loopNode.DisplayName);
+                        }
+                    }, cancellationToken);
+
+                    // 登记到后台任务列表（流程结束时会被 Task.WhenAll 等待，停止时会被取消）
+                    lock (_backgroundTasksLock)
+                    {
+                        _backgroundTasks.Add(bgTask);
+                    }
+
+                    // 任务完成后从列表里移除
+                    _ = bgTask.ContinueWith(t =>
+                    {
+                        lock (_backgroundTasksLock)
+                        {
+                            _backgroundTasks.Remove(t);
+                        }
+                    }, TaskContinuationOptions.ExecuteSynchronously);
+
+                    // 主流程立即返回，继续执行后续节点
+                    return 0;
+                }
+
+                // 同步分支：原有逻辑保持不变
                 switch (loopType)
                 {
                     case LoopType.FixedCount:
@@ -1727,6 +1811,22 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _logger.LogError(ex, "循环命令执行失败: {NodeName}", loopNode.DisplayName);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// 引擎内部读取 ExecutionMode 的兼容方法（不污染已有的 ReadLoopType / SafeToInt 命名）
+        /// </summary>
+        private static ExecutionMode ReadExecutionModeForEngine(object val)
+        {
+            if (val is ExecutionMode em) return em;
+            if (val is string s && Enum.TryParse<ExecutionMode>(s, true, out var p)) return p;
+            try
+            {
+                var i = Convert.ToInt32(val);
+                if (i >= 0 && i <= 1) return (ExecutionMode)i;
+            }
+            catch { }
+            return ExecutionMode.Synchronous;
         }
 
         /// <summary>
@@ -1753,16 +1853,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             _logger.LogDebug("固定次数循环: 次数={LoopCount}, 间隔={WaitTime}ms, 变量={LoopVariable}",
                 loopCount, waitTimeMs, loopVariable);
 
-            // 预调整总节点数（避免进度超过100%）
-            if (loopCount > 1 && children.Count > 0)
-            {
-                var extraExecutions = (loopCount - 1) * CalculateTotalNodes(children);
-                lock (_currentProgress.Lock)
-                {
-                    _currentProgress.TotalNodes += extraExecutions;
-                }
-                _logger.LogDebug("进度总量调整: +{Extra} → Total={Total}", extraExecutions, _currentProgress.TotalNodes);
-            }
+           
             // 预调整总节点数（避免进度超过100%）
             if (loopCount > 1 && children.Count > 0)
             {
@@ -1822,7 +1913,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         }
 
         /// <summary>
-        /// 执行条件循环（支持 Do-While 和 While）
+        /// 执行条件循环（支持 Do-While 和 While，支持容差比较）
         /// </summary>
         private async Task<int> ExecuteConditionalLoopAsync(CommandNode loopNode, FlowExecutionContext context,
             CancellationToken cancellationToken, List<CommandNode> children, int waitTimeMs, string loopVariable)
@@ -1833,8 +1924,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             var rightOperand = loopNode.LogicCommand.Properties?.GetValueOrDefault("RightOperand", "B")?.ToString() ?? "B";
             var isDoWhile = SafeToBool(loopNode.LogicCommand.Properties?.GetValueOrDefault("IsDoWhile", false), false);
 
-            _logger.LogDebug("条件循环参数: Left={Left}, Op={Op}, Right={Right}, DoWhile={DoWhile}, 间隔={WaitTime}ms",
-                leftOperand, operatorValue, rightOperand, isDoWhile, waitTimeMs);
+            // ★ 新增：读取容差配置
+            var toleranceModeObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("ToleranceMode", ToleranceMode.None);
+            var toleranceMode = ReadToleranceModeForEngine(toleranceModeObj);
+            var toleranceValueObj = loopNode.LogicCommand.Properties?.GetValueOrDefault("ToleranceValue", 0.0);
+            TryToDouble(toleranceValueObj, out double toleranceValue);
+
+            _logger.LogDebug("条件循环参数: Left={Left}, Op={Op}, Right={Right}, DoWhile={DoWhile}, 容差模式={TolMode}, 容差值={TolVal}, 间隔={WaitTime}ms",
+                leftOperand, operatorValue, rightOperand, isDoWhile, toleranceMode, toleranceValue, waitTimeMs);
 
             // 安全阈值，防止死循环
             const int maxIterations = 100000;
@@ -1868,7 +1965,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         _pauseEvent.Wait(cancellationToken);
                         await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
 
-                        // *** 新增：立即更新实验进度 ***
+                        // 立即更新实验进度
                         var currentProgress = _currentProgress;
                         if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
                         {
@@ -1895,8 +1992,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         await Task.Delay(waitTimeMs, cancellationToken);
                     }
 
-                    // 检查是否继续循环
-                    bool shouldContinue = EvaluateLoopTriplet(leftOperand, operatorValue, rightOperand, context, loopNode);
+                    // 检查是否继续循环（带容差）
+                    bool shouldContinue = EvaluateLoopTripletWithTolerance(
+                        leftOperand, operatorValue, rightOperand,
+                        toleranceMode, toleranceValue,
+                        context, loopNode);
+
                     if (!shouldContinue)
                     {
                         _logger.LogDebug("Do-While循环第 {Current} 次后，条件为假，退出循环", iteration);
@@ -1913,8 +2014,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     cancellationToken.ThrowIfCancellationRequested();
                     _pauseEvent.Wait(cancellationToken);
 
-                    // 先判断条件
-                    bool shouldContinue = EvaluateLoopTriplet(leftOperand, operatorValue, rightOperand, context, loopNode);
+                    // 先判断条件（带容差）
+                    bool shouldContinue = EvaluateLoopTripletWithTolerance(
+                        leftOperand, operatorValue, rightOperand,
+                        toleranceMode, toleranceValue,
+                        context, loopNode);
+
                     if (!shouldContinue)
                     {
                         _logger.LogDebug("While循环第 {Current} 次，条件为假，退出循环", iteration + 1);
@@ -1940,7 +2045,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         cancellationToken.ThrowIfCancellationRequested();
                         _pauseEvent.Wait(cancellationToken);
                         await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
-                        // *** 新增：立即更新实验进度 ***
+
+                        // 立即更新实验进度
                         if (!string.IsNullOrEmpty(_currentExperimentId))
                         {
                             await _experimentDataAdapter.UpdateExperimentProgressAsync(
@@ -1968,6 +2074,49 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             return iteration;
         }
 
+        /// <summary>
+        /// 使用三元字段（LeftOperand/Operator/RightOperand）评估循环条件，支持容差。
+        /// 仅当操作符为 ==/!= 且容差模式不为 None 时启用容差比较，其它情况走原有逻辑。
+        /// </summary>
+        private bool EvaluateLoopTripletWithTolerance(
+            string leftOperand, object operatorValue, string rightOperand,
+            ToleranceMode toleranceMode, double toleranceValue,
+            FlowExecutionContext context, CommandNode loopNode)
+        {
+            try
+            {
+                var leftVal = ResolveOperandValue(leftOperand, context, loopNode);
+                var rightVal = ResolveOperandValue(rightOperand, context, loopNode);
+                var opStr = ReadOperatorString(operatorValue);
+
+                bool isEqualityOp = opStr == "Equal" || opStr == "NotEqual";
+
+                if (isEqualityOp && toleranceMode != ToleranceMode.None)
+                {
+                    // 走容差比较
+                    bool isEqual = opStr == "Equal";
+                    bool result = EvaluateEqualityWithTolerance(leftVal, rightVal, isEqual, toleranceMode, toleranceValue);
+
+                    _logger.LogDebug("循环条件评估（带容差）: {Left}({LeftVal}) {Op} {Right}({RightVal}), 容差={TolMode}/{TolVal} → {Result}",
+                        leftOperand, leftVal, opStr, rightOperand, rightVal, toleranceMode, toleranceValue, result);
+                    return result;
+                }
+                else
+                {
+                    // 走原有逻辑
+                    bool result = EvaluateCondition(leftVal, opStr, rightVal);
+
+                    _logger.LogDebug("循环条件评估: {Left}({LeftVal}) {Op} {Right}({RightVal}) → {Result}",
+                        leftOperand, leftVal, opStr, rightOperand, rightVal, result);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "循环条件评估失败: {Left} {Op} {Right}", leftOperand, operatorValue, rightOperand);
+                return false;
+            }
+        }
         /// <summary>
         /// 执行无限循环
         /// </summary>
@@ -3319,6 +3468,62 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
             // 4. 解析为常量值
             return ParseConstantValue(operand);
+        }
+        /// <summary>
+        /// 数值比较带容差（仅用于 == / !=）。
+        /// 左右都能解析为数值时按容差比较；任一方非数值则回退为字符串比较。
+        /// </summary>
+        private static bool EvaluateEqualityWithTolerance(
+            object left, object right, bool isEqual,
+            ToleranceMode toleranceMode, double toleranceValue)
+        {
+            // 尝试数值比较
+            if (TryToDouble(left, out var l) && TryToDouble(right, out var r))
+            {
+                double diff = Math.Abs(l - r);
+                double effectiveTol = toleranceMode switch
+                {
+                    ToleranceMode.Absolute => Math.Max(0, toleranceValue),
+                    ToleranceMode.Relative => Math.Max(0, toleranceValue) * Math.Abs(r),
+                    _ => 0.0
+                };
+
+                bool equal = diff <= effectiveTol;   // tol = 0 时退化为严格相等
+                return isEqual ? equal : !equal;
+            }
+
+            // 非数值：回退到字符串比较，忽略容差
+            var sl = left?.ToString() ?? "";
+            var sr = right?.ToString() ?? "";
+            bool strEqual = string.Equals(sl, sr);
+            return isEqual ? strEqual : !strEqual;
+        }
+
+        private static bool TryToDouble(object val, out double result)
+        {
+            result = 0;
+            if (val == null) return false;
+            if (val is double d) { result = d; return true; }
+            if (val is float f) { result = f; return true; }
+            if (val is int i) { result = i; return true; }
+            if (val is long lg) { result = lg; return true; }
+            if (val is decimal dec) { result = (double)dec; return true; }
+            if (val is bool b) { result = b ? 1 : 0; return true; }
+            var s = val.ToString();
+            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+        }
+
+        private static ToleranceMode ReadToleranceModeForEngine(object val)
+        {
+            if (val is ToleranceMode tm) return tm;
+            if (val is string s && Enum.TryParse<ToleranceMode>(s, true, out var p)) return p;
+            try
+            {
+                var i = Convert.ToInt32(val);
+                if (i >= 0 && i <= 2) return (ToleranceMode)i;
+            }
+            catch { }
+            return ToleranceMode.None;
         }
         /// <summary>
         /// <summary>

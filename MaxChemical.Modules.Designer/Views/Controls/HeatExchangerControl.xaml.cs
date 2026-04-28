@@ -667,21 +667,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private void UpdateSelectionVisual(bool isSelected)
         {
             if (SelectionBorder != null)
-            {
-                if (isSelected)
-                {
-                    SelectionBorder.Visibility = Visibility.Visible;
-                    ShowAllAnchors();
-                }
-                else
-                {
-                    SelectionBorder.Visibility = Visibility.Collapsed;
-                    if (!this.IsMouseOver && !_isRotating)
-                    {
-                        HideAllAnchors();
-                    }
-                }
-            }
+                SelectionBorder.Visibility = Visibility.Collapsed;
+
+            // 锚点显隐保持原有逻辑
+            if (isSelected) ShowAllAnchors();
+            else if (!this.IsMouseOver && !_isRotating) HideAllAnchors();
         }
 
         private static void OnTemperatureChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

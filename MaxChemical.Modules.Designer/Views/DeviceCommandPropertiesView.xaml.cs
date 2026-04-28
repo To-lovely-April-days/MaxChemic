@@ -17,7 +17,7 @@ using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
-    public partial class DeviceCommandPropertiesView : UserControl,INotifyPropertyChanged
+    public partial class DeviceCommandPropertiesView : UserControl, INotifyPropertyChanged
     {
         private readonly IEventAggregator _eventAggregator;
         private readonly ILocalizationService _localizationService;
@@ -44,7 +44,9 @@ namespace MaxChemical.Modules.Designer.Views
         public DeviceCommandPropertiesView()
         {
             InitializeComponent();
-            this.DataContext = this;
+            // ★ 不再设置 this.DataContext = this
+            // 之前这行会覆盖外部传入的 CommandNode,导致 ComboBox 的 BoundDeviceId 绑定失效
+            // 本地化标签现在通过 ElementName=Root 在 XAML 里访问
 
             _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
             _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>();
@@ -125,7 +127,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private void RaisePropertyChanged([CallerMemberName]string propertyName = "")
+        private void RaisePropertyChanged([CallerMemberName] string propertyName = "")
         {
             var handler = PropertyChanged;
             handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -151,7 +153,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (DataContext is CommandNode node)
             {
-                // 当 BoundDeviceId 变化时，更新 BoundDeviceName 与摘要
+                // 当 BoundDeviceId 变化时,更新 BoundDeviceName 与摘要
                 node.PropertyChanged -= Node_PropertyChanged;
                 node.PropertyChanged += Node_PropertyChanged;
             }
@@ -161,10 +163,10 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (sender is CommandNode node && e.PropertyName == nameof(CommandNode.BoundDeviceId))
             {
-                // 找到显示名字典（从父VM）
+                // 找到显示名字典(从父VM)
                 if (FindFlowVm(out var vm))
                 {
-                    // 简化：从 vm.DeviceOptionsForSelectedNode 找显示名
+                    // 简化:从 vm.DeviceOptionsForSelectedNode 找显示名
                     var disp = vm.DeviceOptionsForSelectedNode?.FirstOrDefault(o => o.Id == node.BoundDeviceId)?.Display;
                     node.BoundDeviceName = string.IsNullOrEmpty(disp) ? node.BoundDeviceId : disp;
                 }
@@ -192,13 +194,13 @@ namespace MaxChemical.Modules.Designer.Views
 
                 ParamsItems.ItemsSource = _paramItems;
 
-                // 即时提交：监听每个 ParamItem 的变化
+                // 即时提交:监听每个 ParamItem 的变化
                 foreach (var p in _paramItems)
                 {
-                    // 使用简单事件：TextBox TwoWay 已经绑定到 ParamItem.Value，此处统一提交一次
+                    // 使用简单事件:TextBox TwoWay 已经绑定到 ParamItem.Value,此处统一提交一次
                 }
 
-                // 订阅集合项变化，通过 TextBox 的 UpdateSourceTrigger=PropertyChanged，下面统一提交
+                // 订阅集合项变化,通过 TextBox 的 UpdateSourceTrigger=PropertyChanged,下面统一提交
                 this.ParamsItems.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler((s, e) =>
                 {
                     ApplyParamsToNode();
@@ -232,7 +234,7 @@ namespace MaxChemical.Modules.Designer.Views
         private bool FindFlowVm(out FlowDesignerViewModel vm)
         {
             vm = null;
-            System.Windows.DependencyObject parent = this; // 关键：用 DependencyObject
+            System.Windows.DependencyObject parent = this; // 关键:用 DependencyObject
             while (parent != null)
             {
                 if (parent is FlowDesignerView view && view.DataContext is FlowDesignerViewModel m)

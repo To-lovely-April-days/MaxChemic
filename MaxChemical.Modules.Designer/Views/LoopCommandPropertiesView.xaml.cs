@@ -41,7 +41,6 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 本地化
         /// </summary>
-        /// <param name="s"></param>
         private void OnLanguageChanged(string s)
         {
             ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
@@ -95,6 +94,14 @@ namespace MaxChemical.Modules.Designer.Views
         {
             var view = (LoopCommandPropertiesView)d;
             view.WriteBack("LoopType", e.NewValue);
+
+            // 防呆：切到无限循环时，自动把异步拉回同步
+            if (e.NewValue is LoopType lt && lt == LoopType.Infinite
+                && view.ExecutionModeNormalized == ExecutionMode.Asynchronous)
+            {
+                view.ExecutionModeNormalized = ExecutionMode.Synchronous;
+            }
+
             view.UpdateConditionPreviewText();
             view.UpdateLoopSummaryText();
             view.RefreshLoopNodeDisplay();
@@ -255,6 +262,95 @@ namespace MaxChemical.Modules.Designer.Views
             view.RefreshLoopNodeDisplay();
         }
 
+        // ★ 新增：执行模式依赖属性（同步/异步）
+        public static readonly DependencyProperty ExecutionModeNormalizedProperty =
+            DependencyProperty.Register(
+                nameof(ExecutionModeNormalized),
+                typeof(ExecutionMode),
+                typeof(LoopCommandPropertiesView),
+                new PropertyMetadata(ExecutionMode.Synchronous, OnExecutionModeChanged));
+
+        public ExecutionMode ExecutionModeNormalized
+        {
+            get => (ExecutionMode)GetValue(ExecutionModeNormalizedProperty);
+            set => SetValue(ExecutionModeNormalizedProperty, value);
+        }
+
+        private static void OnExecutionModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var view = (LoopCommandPropertiesView)d;
+            view.WriteBack("ExecutionMode", e.NewValue);
+            view.UpdateLoopSummaryText();
+            view.RefreshLoopNodeDisplay();
+        }
+        // ★ 新增：容差模式依赖属性
+        public static readonly DependencyProperty ToleranceModeNormalizedProperty =
+            DependencyProperty.Register(
+                nameof(ToleranceModeNormalized),
+                typeof(ToleranceMode),
+                typeof(LoopCommandPropertiesView),
+                new PropertyMetadata(ToleranceMode.None, OnToleranceModeChanged));
+
+        public ToleranceMode ToleranceModeNormalized
+        {
+            get => (ToleranceMode)GetValue(ToleranceModeNormalizedProperty);
+            set => SetValue(ToleranceModeNormalizedProperty, value);
+        }
+
+        private static void OnToleranceModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var view = (LoopCommandPropertiesView)d;
+            view.WriteBack("ToleranceMode", e.NewValue);
+            view.UpdateConditionPreviewText();
+            view.UpdateLoopSummaryText();
+        }
+
+        // ★ 新增：容差数值依赖属性（UI 显示用）
+        // 绝对模式：等于实际值
+        // 相对模式：以百分比展示（如显示 5 表示 5%，存储时存 0.05）
+        public static readonly DependencyProperty ToleranceValueDisplayProperty =
+            DependencyProperty.Register(
+                nameof(ToleranceValueDisplay),
+                typeof(double),
+                typeof(LoopCommandPropertiesView),
+                new PropertyMetadata(0.0, OnToleranceValueDisplayChanged, CoerceToleranceValue));
+
+        public double ToleranceValueDisplay
+        {
+            get => (double)GetValue(ToleranceValueDisplayProperty);
+            set => SetValue(ToleranceValueDisplayProperty, value);
+        }
+
+        private static object CoerceToleranceValue(DependencyObject d, object baseValue)
+        {
+            if (baseValue is double v && v >= 0) return v;
+            return 0.0;
+        }
+
+        private static void OnToleranceValueDisplayChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var view = (LoopCommandPropertiesView)d;
+            if (e.NewValue is double display)
+            {
+                // 相对模式：UI 输入 5 → 存储 0.05；绝对模式：原值
+                double stored = view.ToleranceModeNormalized == ToleranceMode.Relative
+                    ? display / 100.0
+                    : display;
+                view.WriteBack("ToleranceValue", stored);
+            }
+            view.UpdateConditionPreviewText();
+        }
+
+        // ★ 新增：容差预览文本（实时显示接受区间）
+        public static readonly DependencyProperty ToleranceHintTextProperty =
+            DependencyProperty.Register(nameof(ToleranceHintText), typeof(string), typeof(LoopCommandPropertiesView),
+                new PropertyMetadata(string.Empty));
+
+        public string ToleranceHintText
+        {
+            get => (string)GetValue(ToleranceHintTextProperty);
+            set => SetValue(ToleranceHintTextProperty, value);
+        }
         #endregion
 
         #region 生命周期
@@ -268,7 +364,6 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (e.NewValue != null)
             {
-                
                 Dispatcher.BeginInvoke(SyncFromNode, System.Windows.Threading.DispatcherPriority.DataBind);
             }
         }
@@ -289,20 +384,28 @@ namespace MaxChemical.Modules.Designer.Views
                 // 确保默认值
                 if (!p.ContainsKey("LoopType")) p["LoopType"] = LoopType.FixedCount;
                 if (!p.ContainsKey("Operator")) p["Operator"] = ComparisonOperator.Equal;
-
+                if (!p.ContainsKey("ExecutionMode")) p["ExecutionMode"] = ExecutionMode.Synchronous;
+                if (!p.ContainsKey("ToleranceMode")) p["ToleranceMode"] = ToleranceMode.None;
+                if (!p.ContainsKey("ToleranceValue")) p["ToleranceValue"] = 0.0;
                 // 🔥 关键：延迟设置UI值
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     LoopTypeNormalized = ReadLoopType(p["LoopType"]);
                     OperatorNormalized = ReadOperator(p["Operator"]);
-
+                    ExecutionModeNormalized = ReadExecutionMode(p["ExecutionMode"]);
+                    // ★ 新增：读取容差
+                    ToleranceModeNormalized = ReadToleranceMode(p.TryGetValue("ToleranceMode", out var tm) ? tm : null);
+                    double storedTolerance = SafeToDouble(p.TryGetValue("ToleranceValue", out var tv) ? tv : null, 0.0);
+                    ToleranceValueDisplay = ToleranceModeNormalized == ToleranceMode.Relative
+                        ? storedTolerance * 100.0   // 0.05 → 显示 5
+                        : storedTolerance;
                     // 其他属性...
-                    LoopCount = SafeToInt(p["LoopCount"], 3);
-                    LeftOperand = p["LeftOperand"]?.ToString() ?? "A";
-                    RightOperand = p["RightOperand"]?.ToString() ?? "B";
-                    Description = p["Description"]?.ToString() ?? "循环执行";
-                    WaitTime = SafeToInt(p["WaitTime"], 10);
-                    IsDoWhile = SafeToBool(p["IsDoWhile"], false);
+                    LoopCount = SafeToInt(p.TryGetValue("LoopCount", out var lc) ? lc : null, 3);
+                    LeftOperand = p.TryGetValue("LeftOperand", out var l) ? l?.ToString() ?? "A" : "A";
+                    RightOperand = p.TryGetValue("RightOperand", out var r) ? r?.ToString() ?? "B" : "B";
+                    Description = p.TryGetValue("Description", out var ds) ? ds?.ToString() ?? "循环执行" : "循环执行";
+                    WaitTime = SafeToInt(p.TryGetValue("WaitTime", out var wt) ? wt : null, 10);
+                    IsDoWhile = SafeToBool(p.TryGetValue("IsDoWhile", out var dw) ? dw : null, false);
 
                     UpdateConditionPreviewText();
                     UpdateLoopSummaryText();
@@ -338,6 +441,7 @@ namespace MaxChemical.Modules.Designer.Views
             if (LoopTypeNormalized != LoopType.Conditional)
             {
                 ConditionPreviewText = string.Empty;
+                ToleranceHintText = string.Empty;
                 return;
             }
 
@@ -354,27 +458,62 @@ namespace MaxChemical.Modules.Designer.Views
                 _ => "等于"
             };
 
+            // 容差描述（仅 ==/!= 生效）
+            string toleranceDesc = "";
+            bool isEqualityOp = OperatorNormalized == ComparisonOperator.Equal
+                                || OperatorNormalized == ComparisonOperator.NotEqual;
+            if (isEqualityOp && ToleranceModeNormalized != ToleranceMode.None && ToleranceValueDisplay > 0)
+            {
+                toleranceDesc = ToleranceModeNormalized == ToleranceMode.Absolute
+                    ? $"（容差 ±{ToleranceValueDisplay}）"
+                    : $"（容差 ±{ToleranceValueDisplay}%）";
+            }
+
             string loopMode = IsDoWhile ? "Do-While" : "While";
             string description = IsDoWhile
-                ? $"【{loopMode}】先执行子节点，然后判断：如果 {LeftOperand} {operatorText} {RightOperand}，则继续循环"
-                : $"【{loopMode}】先判断：如果 {LeftOperand} {operatorText} {RightOperand}，则执行子节点并继续循环";
+                ? $"【{loopMode}】先执行子节点，然后判断：如果 {LeftOperand} {operatorText} {RightOperand}{toleranceDesc}，则继续循环"
+                : $"【{loopMode}】先判断：如果 {LeftOperand} {operatorText} {RightOperand}{toleranceDesc}，则执行子节点并继续循环";
 
             ConditionPreviewText = description;
+
+            // 容差提示行（区间预览）
+            if (isEqualityOp && ToleranceModeNormalized != ToleranceMode.None && ToleranceValueDisplay > 0)
+            {
+                if (ToleranceModeNormalized == ToleranceMode.Absolute
+                    && double.TryParse(RightOperand, NumberStyles.Float, CultureInfo.InvariantCulture, out var rv))
+                {
+                    var lo = rv - ToleranceValueDisplay;
+                    var hi = rv + ToleranceValueDisplay;
+                    ToleranceHintText = $"接受区间：{lo} ~ {hi}";
+                }
+                else if (ToleranceModeNormalized == ToleranceMode.Relative)
+                {
+                    ToleranceHintText = $"接受偏差：±{ToleranceValueDisplay}% 相对值";
+                }
+                else
+                {
+                    ToleranceHintText = $"参考值为变量时，运行时按 {RightOperand} ± {ToleranceValueDisplay} 计算";
+                }
+            }
+            else
+            {
+                ToleranceHintText = string.Empty;
+            }
 
             var node = CurrentNode;
             if (node?.LogicCommand?.Properties != null)
             {
                 string condition = OperatorNormalized switch
                 {
-                    ComparisonOperator.Equal => $"{LeftOperand} == {RightOperand}",
-                    ComparisonOperator.NotEqual => $"{LeftOperand} != {RightOperand}",
+                    ComparisonOperator.Equal => $"{LeftOperand} == {RightOperand}{toleranceDesc}",
+                    ComparisonOperator.NotEqual => $"{LeftOperand} != {RightOperand}{toleranceDesc}",
                     ComparisonOperator.GreaterThan => $"{LeftOperand} > {RightOperand}",
                     ComparisonOperator.GreaterThanOrEqual => $"{LeftOperand} >= {RightOperand}",
                     ComparisonOperator.LessThan => $"{LeftOperand} < {RightOperand}",
                     ComparisonOperator.LessThanOrEqual => $"{LeftOperand} <= {RightOperand}",
                     ComparisonOperator.Contains => $"{LeftOperand}.Contains({RightOperand})",
                     ComparisonOperator.NotContains => $"!{LeftOperand}.Contains({RightOperand})",
-                    _ => $"{LeftOperand} == {RightOperand}"
+                    _ => $"{LeftOperand} == {RightOperand}{toleranceDesc}"
                 };
                 node.LogicCommand.Properties["Condition"] = condition;
             }
@@ -382,14 +521,16 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void UpdateLoopSummaryText()
         {
+            string modeTag = ExecutionModeNormalized == ExecutionMode.Asynchronous ? "[异步] " : "[同步] ";
+
             string summary = LoopTypeNormalized switch
             {
-                LoopType.FixedCount => $"固定循环 {LoopCount} 次，每次间隔 {WaitTime} 毫秒",
+                LoopType.FixedCount => $"{modeTag}固定循环 {LoopCount} 次，每次间隔 {WaitTime} 毫秒",
                 LoopType.Conditional => IsDoWhile
-                    ? $"Do-While 条件循环（先执行后判断），每次间隔 {WaitTime} 毫秒"
-                    : $"While 条件循环（先判断后执行），每次间隔 {WaitTime} 毫秒",
-                LoopType.Infinite => $"无限循环，每次间隔 {WaitTime} 毫秒",
-                _ => $"循环执行，每次间隔 {WaitTime} 毫秒"
+                    ? $"{modeTag}Do-While 条件循环（先执行后判断），每次间隔 {WaitTime} 毫秒"
+                    : $"{modeTag}While 条件循环（先判断后执行），每次间隔 {WaitTime} 毫秒",
+                LoopType.Infinite => $"{modeTag}无限循环，每次间隔 {WaitTime} 毫秒",
+                _ => $"{modeTag}循环执行，每次间隔 {WaitTime} 毫秒"
             };
 
             LoopSummaryText = summary;
@@ -612,7 +753,7 @@ namespace MaxChemical.Modules.Designer.Views
                     return (ComparisonOperator)i;
             }
 
-            //兼容其他数值类型
+            // 兼容其他数值类型
             try
             {
                 var intVal = Convert.ToInt32(val);
@@ -624,8 +765,53 @@ namespace MaxChemical.Modules.Designer.Views
             return ComparisonOperator.Equal;
         }
 
-        
+        private static ExecutionMode ReadExecutionMode(object val)
+        {
+            if (val is ExecutionMode em) return em;
+            if (val is string s && Enum.TryParse<ExecutionMode>(s, true, out var p)) return p;
 
+            if (val is int i)
+            {
+                if (i >= 0 && i <= 1) return (ExecutionMode)i;
+            }
+            try
+            {
+                var intVal = Convert.ToInt32(val);
+                if (intVal >= 0 && intVal <= 1) return (ExecutionMode)intVal;
+            }
+            catch { }
+
+            return ExecutionMode.Synchronous;
+        }
+        private static ToleranceMode ReadToleranceMode(object val)
+        {
+            if (val is ToleranceMode tm) return tm;
+            if (val is string s && Enum.TryParse<ToleranceMode>(s, true, out var p)) return p;
+            if (val is int i && i >= 0 && i <= 2) return (ToleranceMode)i;
+            try
+            {
+                var intVal = Convert.ToInt32(val);
+                if (intVal >= 0 && intVal <= 2) return (ToleranceMode)intVal;
+            }
+            catch { }
+            return ToleranceMode.None;
+        }
+
+        private static double SafeToDouble(object val, double @default)
+        {
+            try
+            {
+                if (val is double d) return d;
+                if (val is float f) return f;
+                if (val is int i) return i;
+                if (val is string s && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
+                    return p;
+                if (val != null)
+                    return Convert.ToDouble(val, CultureInfo.InvariantCulture);
+            }
+            catch { }
+            return @default;
+        }
         private static System.Collections.Generic.IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
         {
             if (depObj == null) yield break;
@@ -638,7 +824,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         private static readonly Regex NumericRegex = new Regex("^[0-9]+$", RegexOptions.Compiled);
-
+        private static readonly Regex DecimalRegex = new Regex("^[0-9]*\\.?[0-9]*$", RegexOptions.Compiled);
         private void LoopCountBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
             e.Handled = !NumericRegex.IsMatch(e.Text);
@@ -670,11 +856,30 @@ namespace MaxChemical.Modules.Designer.Views
             var text = (string)e.DataObject.GetData(typeof(string));
             if (!NumericRegex.IsMatch(text)) e.CancelCommand();
         }
+        private void ToleranceValueBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                var future = tb.Text.Insert(tb.SelectionStart, e.Text);
+                e.Handled = !DecimalRegex.IsMatch(future);
+            }
+        }
 
+        private void ToleranceValueBox_Pasting(object sender, DataObjectPastingEventArgs e)
+        {
+            if (!e.DataObject.GetDataPresent(typeof(string)))
+            {
+                e.CancelCommand();
+                return;
+            }
+            var text = (string)e.DataObject.GetData(typeof(string));
+            if (!DecimalRegex.IsMatch(text)) e.CancelCommand();
+        }
         #endregion
     }
 
-    // 放在 namespace MaxChemical.Modules.Designer.Views 里
+    // ===== 转换器 =====
+
     public class LoopTypeEqualityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -707,5 +912,54 @@ namespace MaxChemical.Modules.Designer.Views
                 return target;
             return Binding.DoNothing;
         }
+    }
+
+    public class ExecutionModeEqualityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ExecutionMode em && parameter is string p)
+                return Enum.TryParse<ExecutionMode>(p, out var target) && em == target;
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is true && parameter is string p && Enum.TryParse<ExecutionMode>(p, out var target))
+                return target;
+            return Binding.DoNothing;
+        }
+    }
+
+    public class ToleranceModeEqualityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ToleranceMode tm && parameter is string p)
+                return Enum.TryParse<ToleranceMode>(p, out var target) && tm == target;
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is true && parameter is string p && Enum.TryParse<ToleranceMode>(p, out var target))
+                return target;
+            return Binding.DoNothing;
+        }
+    }
+
+    /// <summary>
+    /// 当 ToleranceMode != None 时返回 Visible，否则 Collapsed
+    /// </summary>
+    public class ToleranceModeToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ToleranceMode tm && tm != ToleranceMode.None)
+                return Visibility.Visible;
+            return Visibility.Collapsed;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => Binding.DoNothing;
     }
 }

@@ -92,9 +92,8 @@
 
             <!-- 分割线 -->
             <Border Grid.Row="1" Grid.ColumnSpan="2" 
-                    Background="#E7E7E7" 
-                    Height="1"/>
-
+        Background="{StaticResource Border.DefaultBrush}" 
+        Height="1"/>
             <!-- 菜单栏 -->
             <controls:MainMenuBar Grid.Row="2" Grid.ColumnSpan="2"  />
 
@@ -103,7 +102,7 @@
 
             <!-- 间隔区域 -->
             <Border Grid.Row="4" Grid.ColumnSpan="2" 
-                    Background="#F4F3EF"/>
+        Background="{StaticResource Bg.HoverBrush}"/>
 
             <!-- 主内容区 -->
             <Grid Grid.Row="5" Grid.ColumnSpan="2">

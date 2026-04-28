@@ -802,27 +802,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateSelectionVisual(bool isSelected)
         {
-            try
-            {
-                var selectionBorder = this.FindName("SelectionBorder") as Rectangle;
-                if (selectionBorder != null)
-                {
-                    selectionBorder.Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed;
-                }
-
-                if (isSelected)
-                {
-                    Debug.WriteLine($"电子秤已选中 | ScaleId:{ScaleId}");
-                }
-                else
-                {
-                    Debug.WriteLine($"电子秤取消选中 | ScaleId:{ScaleId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"更新选中视觉效果失败 | ScaleId:{ScaleId} | 错误:{ex.Message}");
-            }
+            // ★ 旧的 SelectionBorder 由统一系统接管,这里不再处理视觉
+            var selectionBorder = this.FindName("SelectionBorder") as Rectangle;
+            if (selectionBorder != null)
+                selectionBorder.Visibility = Visibility.Collapsed;
         }
 
         #endregion

@@ -840,11 +840,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var selectionBorder = this.FindName("SelectionBorder") as Border;
                 if (selectionBorder != null)
-                    selectionBorder.Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed;
+                    selectionBorder.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"更新选中视觉失败 | {ex.Message}");
+                Debug.WriteLine($"更新选中视觉效果失败 | {ex.Message}");
             }
         }
 

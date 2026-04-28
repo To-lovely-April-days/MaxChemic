@@ -15,7 +15,7 @@
                             <ScaleTransform ScaleX="0.015625" ScaleY="0.015625"/>
                         </TransformGroup>
                     </DrawingGroup.Transform>
-                    <GeometryDrawing Brush="#488EFF">
+                    <GeometryDrawing Brush="#FFFFFF">
                         <GeometryDrawing.Geometry>
                             <PathGeometry Figures="M910.620444 408.632889c-1.322667 75.904-25.884444 166.741333-96.711111 268.202667 0 0 38.556444 288.156444 38.727111 288.782222H449.678222s-23.324444-126.961778-23.466666-126.933334c-32.241778 0-83.086222 1.664-125.710223 1.664-16.341333 0-31.473778-0.241778-43.889777-0.924444-2.901333 0.526222-5.831111 0.796444-8.789334 0.810667-4.266667 0.085333-8.533333-0.711111-12.487111-2.360889-31.573333-15.203556-10.282667-81.834667-10.282667-81.834667-17.265778-7.196444-28.8-19.185778-28.8-28.273778 0-13.056 17.351111-22.528 41.443556-25.884444v-0.085333h-10.808889c-18.488889 0-33.408-9.713778-33.408-21.589334a16.739556 16.739556 0 0 1 3.271111-10.752c-3.271111-14.222222-16.398222-76.16-19.328-76.302222-103.822222-4.920889-49.379556-41.088-49.379555-41.088 19.427556-21.048889 49.635556-43.406222 61.255111-69.802667 16.711111-37.745778-2.261333-75.719111-1.664-114.488889a317.582222 317.582222 0 0 1 20.821333-98.631111 269.653333 269.653333 0 0 1 91.235556-118.613333A382.208 382.208 0 0 1 554.069333 56.888889c198.129778 0 358.727111 141.966222 358.727111 317.127111 0 11.576889-0.725333 23.125333-2.176 34.602667zM554.069333 113.692444a340.266667 340.266667 0 0 0-120.120889 21.504 306.645333 306.645333 0 0 0-96.469333 57.742223l-1.635555 1.422222-1.706667 1.308444a212.508444 212.508444 0 0 0-72.533333 93.539556 263.552 263.552 0 0 0-17.166223 79.288889v0.113778c0.327111 10.410667 1.521778 20.778667 3.555556 31.004444a177.009778 177.009778 0 0 1-6.727111 105.557333 164.437333 164.437333 0 0 1-28.728889 42.752 99.441778 99.441778 0 0 1 27.548444 55.864889c3.427556 14.008889 7.04 30.307556 9.671111 42.211556 1.009778 4.551111 1.877333 8.533333 2.389334 10.695111l5.831111 25.244444-13.795556 18.944-0.256 0.440889 1.422223 1.507556c0.512 0.284444 1.024 0.554667 1.564444 0.782222l48.128 20.053333-15.857778 49.635556a90.936889 90.936889 0 0 0-2.460444 10.026667c6.968889 0.142222 14.862222 0.227556 23.779555 0.227555 21.816889 0 45.710222-0.455111 68.892445-0.896v-0.568889l50.304-0.184889H426.168889a56.732444 56.732444 0 0 1 56.888889 51.783111l2.702222 14.506667c2.204444 11.904 5.148444 27.804444 8.064 43.690667l3.128889 16.967111h290.702222l-10.766222-80.312889-19.299556-144.156444-2.929777-21.902223 12.657777-18.147555c56.078222-80.256 85.191111-159.886222 86.542223-236.657778v-3.029333l0.369777-2.986667c1.166222-9.159111 1.749333-18.375111 1.749334-27.591111 0-143.587556-135.438222-260.380444-301.909334-260.380445z m145.294223 276.352a72.533333 72.533333 0 0 1-78.691556-40.817777l-54.385778 31.488a108.088889 108.088889 0 0 1-7.523555 107.804444l102.058666 59.093333a36.437333 36.437333 0 1 1-10.88 25.941334c0.184889-3.399111 0.867556-6.741333 2.019556-9.955556l-104.874667-60.714666a109.368889 109.368889 0 1 1-4.266666-154.552889 108.088889 108.088889 0 0 1 14.421333 16.64l57.671111-33.393778a72.632889 72.632889 0 1 1 84.437333 58.467555h0.014223z" 
                                           FillRule="NonZero"/>
@@ -25,12 +25,12 @@
             </DrawingImage.Drawing>
         </DrawingImage>
 
-        <!-- 标题栏按钮样式 -->
+        <!-- 标题栏按钮样式(深红底,白色图标) -->
         <Style x:Key="TitleBarButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="45"/>
             <Setter Property="Height" Value="28"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontFamily" Value="Marlett"/>
@@ -43,10 +43,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E5E5E5"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#CCCCCC"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -54,15 +54,15 @@
             </Setter>
         </Style>
 
-        <!-- 关闭按钮样式 -->
+        <!-- 关闭按钮样式(更亮红 hover,区分品牌红) -->
         <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E81123"/>
+                    <Setter Property="Background" Value="#FF1F1F"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#C50E1F"/>
+                    <Setter Property="Background" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -71,7 +71,7 @@
         <!-- 登录按钮样式 -->
         <Style x:Key="LoginButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#606060"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="8,0,15,0"/>
             <Setter Property="Height" Value="28"/>
@@ -93,10 +93,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#F0F0F0"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E0E0E0"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -122,10 +122,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E5E5E5"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#D0D0D0"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -134,7 +134,10 @@
         </Style>
     </UserControl.Resources>
 
-    <Border Background="#F4F3EF" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+    <!-- ★ 根 Border:深红主题色 -->
+    <Border Background="{StaticResource Brand.PrimaryBrush}" 
+            BorderBrush="{StaticResource Brand.PrimaryDarkBrush}" 
+            BorderThickness="0,0,0,1">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -151,7 +154,7 @@
                     <Image Source="pack://siteoforigin:,,,/Resources/Icon/logo.png"/>
                 </Border>
                 <TextBlock Text="{Binding ApplicationTitle}"
-                           Foreground="#646464" 
+                           Foreground="{StaticResource Text.OnPrimaryBrush}" 
                            FontSize="14" 
                            VerticalAlignment="Center"
                            Margin="0,6,0,6"/>
@@ -202,10 +205,12 @@
                                      VerticalAlignment="Center">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#CCCCCC"/>
+                                        <Setter Property="Fill" Value="#FFFFFF"/>
+                                        <Setter Property="Opacity" Value="0.5"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsVoiceAssistantActive}" Value="True">
-                                                <Setter Property="Fill" Value="#488EFF"/>
+                                                <Setter Property="Fill" Value="#FFFFFF"/>
+                                                <Setter Property="Opacity" Value="1.0"/>
                                                 <DataTrigger.EnterActions>
                                                     <BeginStoryboard>
                                                         <Storyboard RepeatBehavior="Forever">
@@ -219,7 +224,7 @@
                                                     <BeginStoryboard>
                                                         <Storyboard>
                                                             <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                             To="1.0" Duration="0:0:0.2"/>
+                                                                             To="0.5" Duration="0:0:0.2"/>
                                                         </Storyboard>
                                                     </BeginStoryboard>
                                                 </DataTrigger.ExitActions>
@@ -233,18 +238,8 @@
                             <TextBlock Text="{Binding VoiceAssistantStatus}" 
                                        FontSize="11"
                                        VerticalAlignment="Center"
-                                       Margin="0,0,8,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#666666"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsVoiceAssistantActive}" Value="True">
-                                                <Setter Property="Foreground" Value="#488EFF"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                                       Margin="0,0,8,0"
+                                       Foreground="{StaticResource Text.OnPrimaryBrush}"/>
                         </StackPanel>
                     </Button>
 
@@ -258,7 +253,7 @@
                            StaysOpen="False"
                            IsOpen="{Binding IsVoiceInteractionVisible, Mode=TwoWay}">
                         <Border Background="White"
-                                BorderBrush="#DDDDDD"
+                                BorderBrush="{StaticResource Border.DefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 Padding="20"
@@ -282,7 +277,7 @@
                                         <TextBlock Text="语音助手" 
                                                    FontSize="16" 
                                                    FontWeight="SemiBold"
-                                                   Foreground="#333333"
+                                                   Foreground="{StaticResource Text.PrimaryBrush}"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <Button Content="✕" 
@@ -291,7 +286,7 @@
                                             Width="24" Height="24"
                                             Background="Transparent"
                                             BorderThickness="0"
-                                            Foreground="#999999"
+                                            Foreground="{StaticResource Text.TertiaryBrush}"
                                             FontSize="14"
                                             Cursor="Hand">
                                         <Button.Style>
@@ -307,7 +302,7 @@
                                                             </Border>
                                                             <ControlTemplate.Triggers>
                                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                                    <Setter TargetName="CloseBorder" Property="Background" Value="#F0F0F0"/>
+                                                                    <Setter TargetName="CloseBorder" Property="Background" Value="{StaticResource Bg.HoverBrush}"/>
                                                                 </Trigger>
                                                             </ControlTemplate.Triggers>
                                                         </ControlTemplate>
@@ -319,8 +314,8 @@
                                 </Grid>
 
                                 <!-- 语音状态指示 -->
-                                <Border Background="#F8F9FA"
-                                        BorderBrush="#E0E0E0"
+                                <Border Background="{StaticResource Bg.SecondaryBrush}"
+                                        BorderBrush="{StaticResource Border.DefaultBrush}"
                                         BorderThickness="1"
                                         CornerRadius="6"
                                         Padding="15"
@@ -332,10 +327,10 @@
                                                     Margin="0,0,0,10">
                                             <Ellipse Width="12" Height="12"
                                                      Margin="0,0,8,0"
-                                                     VerticalAlignment="Center">
+                                                     VerticalAlignment="Center"
+                                                     Fill="{StaticResource Status.SuccessBrush}">
                                                 <Ellipse.Style>
                                                     <Style TargetType="Ellipse">
-                                                        <Setter Property="Fill" Value="#00C853"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsListening}" Value="True">
                                                                 <DataTrigger.EnterActions>
@@ -355,7 +350,7 @@
                                             </Ellipse>
                                             <TextBlock Text="{Binding ListeningStatus}" 
                                                        FontSize="13"
-                                                       Foreground="#00C853"
+                                                       Foreground="{StaticResource Status.SuccessBrush}"
                                                        FontWeight="Medium"/>
                                         </StackPanel>
 
@@ -363,7 +358,7 @@
                                         <TextBlock Text="{Binding RecognizedText}" 
                                                    TextWrapping="Wrap"
                                                    FontSize="14"
-                                                   Foreground="#333333"
+                                                   Foreground="{StaticResource Text.PrimaryBrush}"
                                                    MinHeight="40"
                                                    TextAlignment="Center">
                                             <TextBlock.Style>
@@ -380,8 +375,8 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- 助手回复 -->
-                                <Border Background="#488EFF"
+                                <!-- 助手回复(改成深红主题色) -->
+                                <Border Background="{StaticResource Brand.PrimaryBrush}"
                                         CornerRadius="6"
                                         Padding="15"
                                         Margin="0,0,0,15">
@@ -398,18 +393,18 @@
                                     <TextBlock Text="{Binding AssistantReply}" 
                                                TextWrapping="Wrap"
                                                FontSize="13"
-                                               Foreground="White"
+                                               Foreground="{StaticResource Text.OnPrimaryBrush}"
                                                LineHeight="20"/>
                                 </Border>
 
                                 <!-- 提示信息 -->
                                 <TextBlock TextWrapping="Wrap"
                                            FontSize="12"
-                                           Foreground="#999999"
+                                           Foreground="{StaticResource Text.TertiaryBrush}"
                                            TextAlignment="Center"
                                            Margin="0,5,0,0">
                                     <Run Text="说 "/>
-                                    <Run Text="'你好小桐'" FontWeight="SemiBold" Foreground="#488EFF"/>
+                                    <Run Text="'你好小桐'" FontWeight="SemiBold" Foreground="{StaticResource Brand.PrimaryBrush}"/>
                                     <Run Text=" 即可唤醒语音助手"/>
                                 </TextBlock>
                             </StackPanel>
@@ -436,7 +431,7 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="MuteBorder" Property="Background" Value="#E5E5E5"/>
+                                                    <Setter TargetName="MuteBorder" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -462,11 +457,11 @@
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Text" Value="&#xE767;"/>
-                                    <Setter Property="Foreground" Value="#666666"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsMuted}" Value="True">
                                             <Setter Property="Text" Value="&#xE74F;"/>
-                                            <Setter Property="Foreground" Value="#FF5252"/>
+                                            <Setter Property="Foreground" Value="#FFAA80"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -475,9 +470,10 @@
                     </Button>
                 </StackPanel>
 
-                <!-- 分隔线 -->
+                <!-- 分隔线(深红底上用半透明白) -->
                 <Border Width="1" Height="18" 
-                        Background="#DDDDDD" 
+                        Background="{StaticResource Text.OnPrimaryBrush}" 
+                        Opacity="0.3"
                         Margin="4,0,8,0"/>
 
                 <!-- 登录按钮 -->
@@ -485,26 +481,39 @@
                         Command="{Binding LoginCommand}"
                         Style="{StaticResource LoginButtonStyle}"/>
 
-                <!-- 窗口控制按钮 -->
+                <!-- ═══════════════════════════════════════════════
+                     窗口控制按钮 — 用 XAML Path 替代 PNG (白色)
+                     ═══════════════════════════════════════════════ -->
+
+                <!-- 最小化:一条横线 -->
                 <Button Command="{Binding MinimizeCommand}" 
                         Style="{StaticResource TitleBarButtonStyle}"
                         ToolTip="{Binding MinimizeTooltip}">
-                    <Image Width="16" Height="2" 
-                           Source="pack://siteoforigin:,,,/Resources/Icon/minimize.png"/>
+                    <Path Data="M0,5 L10,5" 
+                          Stroke="{StaticResource Text.OnPrimaryBrush}" 
+                          StrokeThickness="1.2"
+                          Width="10" Height="10"/>
                 </Button>
 
+                <!-- 最大化:空心方框 -->
                 <Button Command="{Binding MaximizeCommand}" 
                         Style="{StaticResource TitleBarButtonStyle}"
                         ToolTip="{Binding MaximizeTooltip}">
-                    <Image Width="18" Height="18" 
-                           Source="pack://siteoforigin:,,,/Resources/Icon/maximize.png"/>
+                    <Path Data="M0.5,0.5 L9.5,0.5 L9.5,9.5 L0.5,9.5 Z" 
+                          Stroke="{StaticResource Text.OnPrimaryBrush}" 
+                          StrokeThickness="1.2"
+                          Fill="Transparent"
+                          Width="10" Height="10"/>
                 </Button>
 
+                <!-- 关闭:叉号 -->
                 <Button Command="{Binding CloseCommand}" 
                         Style="{StaticResource CloseButtonStyle}"
                         ToolTip="{Binding CloseTooltip}">
-                    <Image Width="14" Height="14" 
-                           Source="pack://siteoforigin:,,,/Resources/Icon/close.png"/>
+                    <Path Data="M0,0 L10,10 M10,0 L0,10" 
+                          Stroke="{StaticResource Text.OnPrimaryBrush}" 
+                          StrokeThickness="1.2"
+                          Width="10" Height="10"/>
                 </Button>
             </StackPanel>
         </Grid>

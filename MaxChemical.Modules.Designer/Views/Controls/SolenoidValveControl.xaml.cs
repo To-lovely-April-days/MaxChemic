@@ -245,19 +245,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void UpdateSelectionVisual(bool isSelected)
         {
-            if (isSelected)
-            {
-                SelectionBorder.Visibility = Visibility.Visible;
-                ShowAllAnchors();
-            }
-            else
-            {
-                SelectionBorder.Visibility = Visibility.Collapsed;
-                if (!this.IsMouseOver && !_isRotating)
-                {
-                    HideAllAnchors();
-                }
-            }
+            var selBorder = this.FindName("SelectionBorder") as System.Windows.Shapes.Rectangle;
+            if (selBorder != null)
+                selBorder.Visibility = Visibility.Collapsed;
+
+            if (isSelected) ShowAllAnchors();
+            else if (!this.IsMouseOver && !_isRotating) HideAllAnchors();
         }
 
         private static void OnIsOpenChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

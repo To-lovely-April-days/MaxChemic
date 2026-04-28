@@ -70,6 +70,18 @@ namespace MaxChemical.Modules.Designer.Models
         Asynchronous
     }
     /// <summary>
+    /// 容差模式（数值比较时使用，仅对 == / != 生效）
+    /// </summary>
+    public enum ToleranceMode
+    {
+        [Description("不启用")]
+        None = 0,
+        [Description("绝对容差")]
+        Absolute = 1,
+        [Description("相对容差")]
+        Relative = 2
+    }
+    /// <summary>
     /// 循环类型
     /// </summary>
     public enum LoopType
@@ -214,6 +226,26 @@ namespace MaxChemical.Modules.Designer.Models
         /// 仅在条件循环时有效
         /// </summary>
         public bool IsDoWhile { get; set; } = false;
+        /// <summary>
+        /// 执行模式：
+        /// Synchronous = 同步阻塞（默认，主流程等循环执行完）
+        /// Asynchronous = 异步后台（主流程不等，循环在后台执行，流程结束时统一收尾）
+        /// </summary>
+        public ExecutionMode ExecutionMode { get; set; } = ExecutionMode.Synchronous;
+
+        // ★ 新增：容差相关
+        /// <summary>
+        /// 容差模式：None=不启用（严格相等）；Absolute=绝对容差；Relative=相对容差。
+        /// 仅对 == / != 操作符且左右操作数都能解析为数值时生效。
+        /// </summary>
+        public ToleranceMode ToleranceMode { get; set; } = ToleranceMode.None;
+
+        /// <summary>
+        /// 容差数值。
+        /// 绝对模式：直接当作 ±值（如 0.5 表示 ±0.5）。
+        /// 相对模式：小数形式的百分比（如 0.05 表示 ±5%）。
+        /// </summary>
+        public double ToleranceValue { get; set; } = 0.0;
     }
     /// <summary>
     /// 并行命令属性

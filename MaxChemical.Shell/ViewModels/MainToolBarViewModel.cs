@@ -297,8 +297,8 @@ namespace MaxChemical.Shell.ViewModels
             set => SetProperty(ref _switchPosition, value);
         }
 
-        // 新增：开关背景色
-        private string _switchBackgroundColor = "#E5E5E5";
+        // 开关背景色(默认实际模式 = 灰)
+        private string _switchBackgroundColor = "#D3D1C7";
 
         public string SwitchBackgroundColor
         {
@@ -306,8 +306,8 @@ namespace MaxChemical.Shell.ViewModels
             set => SetProperty(ref _switchBackgroundColor, value);
         }
 
-        // 新增：开关边框色
-        private string _switchBorderColor = "#E5E5E5";
+        // 开关边框色(默认实际模式 = 灰)
+        private string _switchBorderColor = "#D3D1C7";
 
         public string SwitchBorderColor
         {
@@ -1535,17 +1535,17 @@ namespace MaxChemical.Shell.ViewModels
         {
             if (IsSimulationMode)
             {
-                // 模拟模式：开关到右侧
+                // 模拟模式:开关到右侧,品牌深红
                 SwitchPosition = 26;
-                SwitchBackgroundColor = "#66A1FF";
-                SwitchBorderColor = "#66A1FF";
+                SwitchBackgroundColor = "#A41626";
+                SwitchBorderColor = "#A41626";
             }
             else
             {
-                // 实际模式：开关到左侧，灰色
+                // 实际模式:开关到左侧,中性灰
                 SwitchPosition = 2;
-                SwitchBackgroundColor = "#E5E5E5";
-                SwitchBorderColor = "#E5E5E5";
+                SwitchBackgroundColor = "#D3D1C7";
+                SwitchBorderColor = "#D3D1C7";
             }
         }
 

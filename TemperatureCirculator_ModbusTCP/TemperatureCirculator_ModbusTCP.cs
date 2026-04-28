@@ -36,7 +36,34 @@ namespace TemperatureCirculator_ModbusTCP
         private CancellationTokenSource _statusPollingCts;
         private Task _statusPollingTask;
         private const int StatusPollingIntervalMs = 1000;
+        // ═══ 命令节流(防止短时间连续发送命令导致设备拒绝/回滚)═══
+        private DateTime _lastCommandTime = DateTime.MinValue;
+        private readonly TimeSpan _minCommandInterval = TimeSpan.FromMilliseconds(800); // 命令最小间隔
+        private readonly SemaphoreSlim _commandThrottleSemaphore = new SemaphoreSlim(1, 1);
 
+        /// <summary>
+        /// 命令节流:确保两次命令之间至少间隔 _minCommandInterval
+        /// 用于防止高低温循环器在短时间内收到多条命令时静默回滚寄存器
+        /// </summary>
+        private async Task EnsureCommandIntervalAsync(string commandName)
+        {
+            await _commandThrottleSemaphore.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var elapsed = DateTime.Now - _lastCommandTime;
+                if (elapsed < _minCommandInterval)
+                {
+                    var waitTime = _minCommandInterval - elapsed;
+                    InfoLog($"[命令节流] {commandName} 等待 {waitTime.TotalMilliseconds:F0}ms 以保证最小命令间隔");
+                    await Task.Delay(waitTime).ConfigureAwait(false);
+                }
+                _lastCommandTime = DateTime.Now;
+            }
+            finally
+            {
+                _commandThrottleSemaphore.Release();
+            }
+        }
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -282,7 +309,7 @@ namespace TemperatureCirculator_ModbusTCP
                 InfoLog($"高低温循环器流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
 
                 await StopStatusPollingAsync();
-                await StopAllActiveStatesAsync();
+                //await StopAllActiveStatesAsync();
 
                 InfoLog("高低温循环器流程完成处理结束");
                 return true;
@@ -955,7 +982,8 @@ namespace TemperatureCirculator_ModbusTCP
 
         private void RaiseControlStateChanged(string stateName, object stateValue,
             Dictionary<string, object> additionalData = null)
-        {
+        {// ★ 加这一行诊断日志
+            InfoLog($"[诊断] this.DeviceId='{this.DeviceId}' | this.ComId='{this.ComId}' | this.HashCode={this.GetHashCode()} | stateName={stateName} | stateValue={stateValue}");
             ControlStateChanged?.Invoke(this, new DeviceControlStateChangedEventArgs
             {
                 DeviceId = this.DeviceId,
@@ -1759,11 +1787,14 @@ namespace TemperatureCirculator_ModbusTCP
         #endregion
 
         private Func<DeviceParameters, Task<DeviceParameters>> WrapAction(
-            string commandName,
-            Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
+     string commandName,
+     Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
             return async (DeviceParameters parameters) =>
             {
+                // ★ 节流:确保命令之间有最小间隔
+                await EnsureCommandIntervalAsync(commandName).ConfigureAwait(false);
+
                 _logger.LogInformation("[命令-开始] Device={Name} Command={CommandName}", Name, commandName);
                 var sw = Stopwatch.StartNew();
                 try

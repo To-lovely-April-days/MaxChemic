@@ -214,12 +214,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private double _originalRotation;
 
         // 尺寸常量
-        private const double MinHorizontalLength = 30;
-        private const double MaxHorizontalLength = 200;
-        private const double MinVerticalOffset = 40;
-        private const double MaxVerticalOffset = 150;
-        private const double MinPipeWidth = 8;
-        private const double MaxPipeWidth = 40;
+        private const double MinHorizontalLength = 10;
+        private const double MaxHorizontalLength = 10000;
+        private const double MinVerticalOffset = 15;
+        private const double MaxVerticalOffset = 10000;
+        private const double MinPipeWidth = 4;
+        private const double MaxPipeWidth = 10000;
         private const double FlangeWidth = 2.54;
         private const double FlangeOffset = 0.35;
         private const double FlangeSpacing = 2.0;
@@ -344,7 +344,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
-
+        // ★ 新增:开始拖拽前,固定端在画布上的世界坐标
+        private Point _fixedWorldPoint;
         #region 构造函数
 
         public ZShapePipeControl()
@@ -1018,7 +1019,119 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
 
         #region 调整大小
+        /// <summary>
+        /// 计算指定锚点对应的"固定端"在画布世界坐标系里的位置。
+        /// 这是控件旋转后,改尺寸时需要保持不动的那个点。
+        /// </summary>
+        private Point ComputeFixedWorldPoint(ZAnchorPosition anchor)
+        {
+            double pipeLeft = Canvas.GetLeft(this);
+            double pipeTop = Canvas.GetTop(this);
+            if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+            if (double.IsNaN(pipeTop)) pipeTop = 0;
+            Point center = new Point(pipeLeft + Width / 2, pipeTop + Height / 2);
 
+            Point localFixed = ComputeLocalFixedPoint(anchor, _originalSize);
+
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+            Point worldOffset = new Point(localFixed.X * cos - localFixed.Y * sin,
+                                          localFixed.X * sin + localFixed.Y * cos);
+
+            return new Point(center.X + worldOffset.X, center.Y + worldOffset.Y);
+        }
+
+        /// <summary>
+        /// 计算指定锚点对应的"固定端"在控件本地坐标系(中心为原点)的位置。
+        /// Z 管的几何参考 UpdatePipeGeometry 里的计算。
+        /// </summary>
+        private Point ComputeLocalFixedPoint(ZAnchorPosition anchor, ZPipeSize size)
+        {
+            // 重建控件本地几何 — 与 UpdatePipeGeometry 里的算法一一对应
+            double flangeHeight = size.PipeWidth + FLANGE_EXTENSION;
+            double topFlangeY = 16;
+            double leftFlangeTop = topFlangeY + (size.PipeWidth - flangeHeight) / 2;
+
+            double topPipeLeft = FlangeOffset + FlangeWidth + FlangeSpacing;
+            double topPipeTop = topFlangeY;
+
+            double elbow1Radius = size.PipeWidth;
+            double elbow1CenterX = topPipeLeft + size.TopHorizontalLength + elbow1Radius;
+            double elbow1CenterY = topPipeTop + size.PipeWidth / 2;
+
+            double diagPipeLeft = elbow1CenterX - size.PipeWidth / 2;
+            double diagPipeTop = elbow1CenterY + elbow1Radius;
+            double diagPipeHeight = size.VerticalOffset;
+
+            double elbow2Radius = size.PipeWidth;
+            double elbow2CenterX = diagPipeLeft + size.PipeWidth / 2;
+            double elbow2CenterY = diagPipeTop + diagPipeHeight + elbow2Radius;
+
+            double bottomPipeLeft = elbow2CenterX + elbow2Radius;
+            double bottomPipeTop = elbow2CenterY - size.PipeWidth / 2;
+            double bottomPipeWidth = size.BottomHorizontalLength;
+
+            double rightFlangeX = bottomPipeLeft + bottomPipeWidth;
+            double rightFlangeY = bottomPipeTop + (size.PipeWidth - flangeHeight) / 2;
+
+            double totalW = rightFlangeX + FlangeWidth + 4;
+            double totalH = Math.Max(rightFlangeY + flangeHeight, leftFlangeTop + flangeHeight) + 4;
+
+            double cx = totalW / 2;
+            double cy = totalH / 2;
+
+            switch (anchor)
+            {
+                case ZAnchorPosition.TopLength:
+                    // 拖上段左端 → 固定下段右端(右法兰中心)
+                    return new Point(rightFlangeX - cx, elbow2CenterY - cy);
+
+                case ZAnchorPosition.BottomLength:
+                    // 拖下段右端 → 固定上段左端(左法兰中心)
+                    return new Point(FlangeOffset - cx, elbow1CenterY - cy);
+
+                case ZAnchorPosition.VerticalOffset:
+                    // 改垂直距离 → 固定上段左端(让上段不动,下段往下移)
+                    return new Point(FlangeOffset - cx, elbow1CenterY - cy);
+
+                case ZAnchorPosition.PipeWidth:
+                    // 改管宽 → 固定上段左端中线
+                    return new Point(FlangeOffset - cx, elbow1CenterY - cy);
+
+                default:
+                    return new Point(0, 0);
+            }
+        }
+
+        /// <summary>
+        /// 改完尺寸后,根据"原始固定点"反推 Canvas.Left/Top,让固定端保持不动
+        /// </summary>
+        private void RepositionByFixedPoint()
+        {
+            if (!_resizingAnchor.HasValue) return;
+
+            var currentSize = new ZPipeSize
+            {
+                TopHorizontalLength = TopHorizontalLength,
+                BottomHorizontalLength = BottomHorizontalLength,
+                VerticalOffset = VerticalOffset,
+                PipeWidth = PipeWidth
+            };
+            Point newLocalFixed = ComputeLocalFixedPoint(_resizingAnchor.Value, currentSize);
+
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+            Point newWorldOffset = new Point(newLocalFixed.X * cos - newLocalFixed.Y * sin,
+                                             newLocalFixed.X * sin + newLocalFixed.Y * cos);
+
+            Point newCenter = new Point(_fixedWorldPoint.X - newWorldOffset.X,
+                                        _fixedWorldPoint.Y - newWorldOffset.Y);
+
+            Canvas.SetLeft(this, newCenter.X - Width / 2);
+            Canvas.SetTop(this, newCenter.Y - Height / 2);
+        }
         private void StartResize(ZAnchorPosition anchor, MouseButtonEventArgs e)
         {
             _isResizing = true;
@@ -1031,6 +1144,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 VerticalOffset = VerticalOffset,
                 PipeWidth = PipeWidth
             };
+
+            // ★ 新增:记下"开始拖之前的固定点世界坐标"
+            _originalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
+            if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
+            if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
+            _fixedWorldPoint = ComputeFixedWorldPoint(anchor);
 
             CacheMode = null;
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
@@ -1049,43 +1168,60 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnAnchorMouseMove(object sender, MouseEventArgs e)
         {
-            if (_isResizing && e.LeftButton == MouseButtonState.Pressed && _resizingAnchor.HasValue)
+            if (!_isResizing || e.LeftButton != MouseButtonState.Pressed || !_resizingAnchor.HasValue)
+                return;
+
+            Point currentPoint = e.GetPosition(Parent as UIElement);
+            double rawDx = currentPoint.X - _dragStartPoint.X;
+            double rawDy = currentPoint.Y - _dragStartPoint.Y;
+
+            // ★ 关键:把鼠标位移投影到管子本地坐标系
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+            double localDx = rawDx * cos + rawDy * sin;   // 沿水平段方向
+            double localDy = -rawDx * sin + rawDy * cos;   // 垂直方向
+
+            switch (_resizingAnchor.Value)
             {
-                Point currentPoint = e.GetPosition(Parent as UIElement);
-                double deltaX = currentPoint.X - _dragStartPoint.X;
-                double deltaY = currentPoint.Y - _dragStartPoint.Y;
+                case ZAnchorPosition.TopLength:
+                    // 上段锚点在最左端,向左拖(localDx 变负)→ 上段变长
+                    TopHorizontalLength = _originalSize.TopHorizontalLength - localDx;
+                    break;
 
-                switch (_resizingAnchor.Value)
-                {
-                    case ZAnchorPosition.TopLength:
-                        TopHorizontalLength = _originalSize.TopHorizontalLength - deltaX;
-                        break;
-                    case ZAnchorPosition.BottomLength:
-                        BottomHorizontalLength = _originalSize.BottomHorizontalLength + deltaX;
-                        break;
-                    case ZAnchorPosition.VerticalOffset:
-                        VerticalOffset = _originalSize.VerticalOffset + deltaY;
-                        break;
-                    case ZAnchorPosition.PipeWidth:
-                        PipeWidth = _originalSize.PipeWidth + deltaY;
-                        break;
-                }
+                case ZAnchorPosition.BottomLength:
+                    // 下段锚点在最右端,向右拖(localDx 变正)→ 下段变长
+                    BottomHorizontalLength = _originalSize.BottomHorizontalLength + localDx;
+                    break;
 
-                PipeResizing?.Invoke(this, new ZPipeResizeEventArgs
-                {
-                    PipeId = PipeId,
-                    AnchorPosition = _resizingAnchor.Value,
-                    OriginalSize = _originalSize,
-                    CurrentSize = new ZPipeSize
-                    {
-                        TopHorizontalLength = TopHorizontalLength,
-                        BottomHorizontalLength = BottomHorizontalLength,
-                        VerticalOffset = VerticalOffset,
-                        PipeWidth = PipeWidth
-                    }
-                });
-                e.Handled = true;
+                case ZAnchorPosition.VerticalOffset:
+                    // 中间垂直段,向下拖(localDy 变正)→ 垂直距离变大
+                    VerticalOffset = _originalSize.VerticalOffset + localDy;
+                    break;
+
+                case ZAnchorPosition.PipeWidth:
+                    // 管宽锚点,向下拖 → 管子变粗
+                    PipeWidth = _originalSize.PipeWidth + localDy;
+                    break;
             }
+
+            // ★ 改完尺寸后反推位置,让固定端保持不动
+            RepositionByFixedPoint();
+
+            PipeResizing?.Invoke(this, new ZPipeResizeEventArgs
+            {
+                PipeId = PipeId,
+                AnchorPosition = _resizingAnchor.Value,
+                OriginalSize = _originalSize,
+                CurrentSize = new ZPipeSize
+                {
+                    TopHorizontalLength = TopHorizontalLength,
+                    BottomHorizontalLength = BottomHorizontalLength,
+                    VerticalOffset = VerticalOffset,
+                    PipeWidth = PipeWidth
+                }
+            });
+            e.Handled = true;
         }
 
         private void OnAnchorMouseUp(object sender, MouseButtonEventArgs e)

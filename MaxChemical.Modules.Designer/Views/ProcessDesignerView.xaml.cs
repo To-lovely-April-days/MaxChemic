@@ -85,7 +85,8 @@ namespace MaxChemical.Modules.Designer.Views
         private bool _isCtrlPressed = false;               // Ctrl键是否按下
         private string _selectedDeviceId;                  // 选中的设备ID
         private FrameworkElement _selectedDeviceElement;   // 选中的设备元素
-
+                                                           // ★ 新增:统一选中视觉
+        private SelectionOverlay _selectionOverlay;
         #endregion
 
         #region 私有字段 缩放相关
@@ -213,6 +214,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"删除管道失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"删除管道失败: {ex.Message}");
             }
+
         }
 
         #endregion
@@ -1028,6 +1030,8 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 新增：订阅布局相关事件（面板切换、窗口变化）
             SubscribeToLayoutFitEvents();
+            // ★ 新增:创建统一选中视觉(整个画布只一个实例)
+            _selectionOverlay = new SelectionOverlay(DesignCanvas);
         }
         /*
         private void SubscribeToExecutionEvents()
@@ -2041,20 +2045,10 @@ namespace MaxChemical.Modules.Designer.Views
             _selectedDeviceId = deviceId;
             _selectedDeviceElement = FindDeviceElementInCanvas(deviceId);
 
-            // 添加选中的视觉反馈
-            if (_selectedDeviceElement is Border border)
+            // ★ 新方案:统一选中标记,不再改 BorderBrush/Effect
+            if (_selectedDeviceElement != null)
             {
-                border.BorderBrush = Brushes.Orange;
-                border.BorderThickness = new Thickness(2);
-
-                // 添加发光效果
-                border.Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = Colors.Orange,
-                    BlurRadius = 8,
-                    ShadowDepth = 0,
-                    Opacity = 0.6
-                };
+                _selectionOverlay?.Attach(_selectedDeviceElement);
             }
 
             Debug.WriteLine($"设备已选中: {deviceId}");
@@ -2074,9 +2068,13 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void ClearDeviceSelection()
         {
+            // ★ 隐藏统一选中标记
+            _selectionOverlay?.Detach();
+
+            // 清掉之前可能残留的旧视觉(给老代码兜底)
             if (_selectedDeviceElement is Border border)
             {
-                border.BorderBrush = Brushes.DarkBlue;
+                border.BorderBrush = Brushes.Transparent;
                 border.BorderThickness = new Thickness(0);
                 border.Effect = null;
             }
@@ -2094,33 +2092,17 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void CleanupDragState()
         {
-            try
-            {
-                Debug.WriteLine("开始清理拖拽状态");
+            _isInternalDragging = false;
+            _isMouseDown = false;
+            _hasStartedDrag = false;
+            _mouseDownElement = null;
+            _currentDraggingDeviceId = null;
+            _originalDevicePosition = new Point();
+            _dragStartPoint = new Point();
 
-                // 释放鼠标捕获
-                ReleaseMouseCaptures();
-
-                // 移除视觉反馈
-                if (_mouseDownElement != null)
-                {
-                    RemoveDragVisualFeedback(_mouseDownElement);
-                }
-
-                // 重置所有状态变量
-                ResetDragStateVariables();
-
-                // 恢复画布状态
-                DesignCanvas.AllowDrop = true;
-
-                Debug.WriteLine("拖拽状态清理完成");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"清理拖拽状态失败: {ex.Message}");
-            }
+            // ★ 恢复选中标记跟随
+            _selectionOverlay?.ResumeUpdates();
         }
-
         /// <summary>
         /// 释放所有鼠标捕获
         /// </summary>
@@ -2657,8 +2639,9 @@ namespace MaxChemical.Modules.Designer.Views
                     DeviceId = canvasDeviceId,
                     Device = independentDevice, //  使用深拷贝的独立设备实例
                     Position = position,
+                    // 改为
                     Width = 80,
-                    Height = 60
+                    Height = 80   // φ:1 中型,适合大多数普通设备
                 };
                 //  关键修复：将画布ID传递给设备实例
                 if (independentDevice is IDeviceUIInteraction uiInteraction)
@@ -2933,48 +2916,55 @@ namespace MaxChemical.Modules.Designer.Views
             DesignCanvas.CaptureMouse();
             AddDragVisualFeedback(_mouseDownElement);
 
-            //  拖拽时降低渲染质量
-            RenderOptions.SetBitmapScalingMode(DesignCanvas, BitmapScalingMode.LowQuality);
-            DesignCanvas.CacheMode = null; // 禁用缓存
-
-            Debug.WriteLine($"开始拖拽设备: {_currentDraggingDeviceId}");
+            // ★ 挂起选中标记自动跟随,避免拖拽卡顿
+            _selectionOverlay?.SuspendUpdates();
         }
 
+    
+        private bool _continueDraggingScheduled;
         /// <summary>
         /// 继续拖拽
         /// </summary>
         private void ContinueDragging(Point currentPoint)
         {
-            // 计算新位置
-            double dx = currentPoint.X - _dragStartPoint.X;
-            double dy = currentPoint.Y - _dragStartPoint.Y;
+            // ★ 节流:同一帧内多次触发只处理一次
+            if (_continueDraggingScheduled) return;
+            _continueDraggingScheduled = true;
 
-            double origLeft = Canvas.GetLeft(_mouseDownElement);
-            double origTop = Canvas.GetTop(_mouseDownElement);
-
-            double newLeft = origLeft + dx;
-            double newTop = origTop + dy;
-
-            // 应用边界限制
-            var (boundedLeft, boundedTop) = ApplyBoundaryConstraints(newLeft, newTop);
-
-            // 检查区域有效性
-            if (!IsValidDragPosition(boundedLeft, boundedTop))
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                UpdateDragVisualFeedback(_mouseDownElement, false);
-                return;
-            }
+                _continueDraggingScheduled = false;
 
-            // 移动设备
-            Canvas.SetLeft(_mouseDownElement, boundedLeft);
-            Canvas.SetTop(_mouseDownElement, boundedTop);
-            _mouseDownElement.Opacity = 0.8;
+                if (_mouseDownElement == null) return;
 
-            //  新增：调度延迟布局更新
-            ScheduleLayoutUpdate();
+                double dx = currentPoint.X - _dragStartPoint.X;
+                double dy = currentPoint.Y - _dragStartPoint.Y;
 
-            UpdateDragVisualFeedback(_mouseDownElement, true);
-            _dragStartPoint = currentPoint;
+                double origLeft = Canvas.GetLeft(_mouseDownElement);
+                double origTop = Canvas.GetTop(_mouseDownElement);
+
+                double newLeft = origLeft + dx;
+                double newTop = origTop + dy;
+
+                var (boundedLeft, boundedTop) = ApplyBoundaryConstraints(newLeft, newTop);
+
+                if (!IsValidDragPosition(boundedLeft, boundedTop))
+                {
+                    UpdateDragVisualFeedback(_mouseDownElement, false);
+                    return;
+                }
+
+                Canvas.SetLeft(_mouseDownElement, boundedLeft);
+                Canvas.SetTop(_mouseDownElement, boundedTop);
+                _mouseDownElement.Opacity = 0.8;
+
+                UpdateDragVisualFeedback(_mouseDownElement, true);
+
+                // ★ Overlay 跟随
+                _selectionOverlay?.Refresh();
+
+                _dragStartPoint = currentPoint;
+            }), System.Windows.Threading.DispatcherPriority.Render);
         }
 
         /// <summary>
@@ -3151,22 +3141,16 @@ namespace MaxChemical.Modules.Designer.Views
         /// <summary>
         /// 添加拖拽视觉反馈
         /// </summary>
-        private void AddDragVisualFeedback(FrameworkElement element)
+        private void AddDragVisualFeedback(FrameworkElement element, bool isValid = true)
         {
             if (element is Border border)
             {
-                border.Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = Colors.Blue,
-                    BlurRadius = 10,
-                    ShadowDepth = 3,
-                    Opacity = 0.7
-                };
+                var color = isValid ? Colors.Green : Colors.Red;
+                border.BorderBrush = new SolidColorBrush(color);
+                border.BorderThickness = new Thickness(0);
 
-                Panel.SetZIndex(border, 1000);
-                border.Opacity = 0.8;
-
-                Debug.WriteLine("添加拖拽视觉反馈");
+                // ★ 拖拽时临时置顶,让用户清楚"我抓的就是这个"
+                Panel.SetZIndex(border, 9999);
             }
         }
 
@@ -3191,10 +3175,28 @@ namespace MaxChemical.Modules.Designer.Views
             if (element is Border border)
             {
                 border.Effect = null;
-                Panel.SetZIndex(border, 0);
                 border.Opacity = 1.0;
-                border.BorderBrush = Brushes.DarkBlue;
+                border.BorderBrush = Brushes.Transparent;
                 border.BorderThickness = new Thickness(0);
+
+                // ★ 改:按设备类型恢复正确层级,而不是无脑设 0
+                if (border.Tag is string deviceId)
+                {
+                    var canvasDevice = _viewModel?.CanvasDevices?.FirstOrDefault(d => d.DeviceId == deviceId);
+                    if (canvasDevice?.Device != null)
+                    {
+                        int zIndex = GetDeviceZIndex(canvasDevice.Device);
+                        Panel.SetZIndex(border, zIndex);
+                    }
+                    else
+                    {
+                        Panel.SetZIndex(border, 100);  // 兜底
+                    }
+                }
+                else
+                {
+                    Panel.SetZIndex(border, 100);
+                }
 
                 Debug.WriteLine("移除拖拽视觉反馈");
             }
@@ -3454,7 +3456,8 @@ namespace MaxChemical.Modules.Designer.Views
         /// 设备状态变化处理（设备 → UI）
         /// </summary>
         private void OnDeviceStateChanged(object sender, DeviceControlStateChangedEventArgs e)
-        {
+        {  // ★ 加这一行
+            Debug.WriteLine($"[诊断] OnDeviceStateChanged 收到: e.DeviceId='{e.DeviceId}' | e.ComId='{e.ComId}' | sender.HashCode={sender?.GetHashCode()} | {e.StateName}");
             try
             {
                 Debug.WriteLine($" 设备状态变化: {e.DeviceId} - {e.StateName} = {e.StateValue}");
@@ -4293,8 +4296,11 @@ namespace MaxChemical.Modules.Designer.Views
 
             Canvas.SetLeft(deviceControl, left);
             Canvas.SetTop(deviceControl, top);
-            // 【修改】强制设置设备的 ZIndex 为 100，确保在管道(10)之上
-            Panel.SetZIndex(deviceControl, 100);
+
+            // ★ 改:按设备类型分级,瓶子(130) > 秤(110) > 普通(100) > 管道(10)
+            int zIndex = GetDeviceZIndex(canvasDevice.Device);
+            Panel.SetZIndex(deviceControl, zIndex);
+
             DesignCanvas.Children.Add(deviceControl);
 
             // 恢复选择状态
@@ -5169,6 +5175,8 @@ namespace MaxChemical.Modules.Designer.Views
             deviceElement.Opacity = 0.8;
 
             UpdateDragVisualFeedback(deviceElement, true);
+            // ★ 让选中标记跟着设备走
+            _selectionOverlay?.Refresh();
         }
 
         /// <summary>
@@ -5185,21 +5193,7 @@ namespace MaxChemical.Modules.Designer.Views
             return (left, top);
         }
 
-        /// <summary>
-        /// 检查设备拖拽位置是否有效
-        /// </summary>
-        private bool IsValidDeviceDragPosition(double left, double top, FrameworkElement deviceElement)
-        {
-            var canvasDevice = _viewModel?.CanvasDevices.FirstOrDefault(d => d.DeviceId == _currentDraggingDeviceId);
-            if (canvasDevice == null) return true;
-
-            var deviceWidth = deviceElement.ActualWidth > 0 ? deviceElement.ActualWidth : 80;
-            var deviceHeight = deviceElement.ActualHeight > 0 ? deviceElement.ActualHeight : 60;
-
-            var targetPosition = new Point(left + deviceWidth / 2, top + deviceHeight / 2);
-            return IsValidRegionForDevice(canvasDevice.Device, targetPosition);
-        }
-
+      
         /// <summary>
         /// 设备鼠标进入事件
         /// </summary>
@@ -5219,10 +5213,10 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void AddDeviceHoverEffect(FrameworkElement deviceElement, string deviceId)
         {
-            if (deviceElement is Border border && deviceId != _selectedDeviceId)
+            // 不再修改 BorderBrush,鼠标悬停只改光标即可
+            if (deviceElement != null && deviceId != _selectedDeviceId)
             {
-                border.BorderBrush = Brushes.LightBlue;
-                border.BorderThickness = new Thickness(1);
+                deviceElement.Cursor = System.Windows.Input.Cursors.Hand;
             }
         }
 
@@ -5247,7 +5241,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             if (deviceElement is Border border && deviceId != _selectedDeviceId)
             {
-                border.BorderBrush = Brushes.DarkBlue;
+                border.BorderBrush = Brushes.Transparent;
                 border.BorderThickness = new Thickness(0);
             }
         }
@@ -5336,7 +5330,7 @@ namespace MaxChemical.Modules.Designer.Views
                 var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
                 string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
-                //  自定义控件尺寸处理
+                // 自定义控件:统一用绝对像素值,避免"原尺寸 × 系数"的混乱
                 if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
                 {
                     string controlType = imageLocation.Replace("CUSTOM_CONTROL:", "");
@@ -5344,80 +5338,41 @@ namespace MaxChemical.Modules.Designer.Views
                     switch (controlType)
                     {
                         case "ConicalFlaskControl":
-                            // 锥形瓶尺寸
-                            double flaskWidth = 80;
-                            double flaskHeight = 120;
-                            Debug.WriteLine($"锥形瓶尺寸: {flaskWidth:F0}x{flaskHeight:F0}");
-                            return new Size(flaskWidth, flaskHeight);
+                            return new Size(66, 105);         // 瓶子瘦高
 
-                        //  新增：柱塞泵尺寸
+                        case "DigitalScaleControl":
+                            return new Size(140, 105);        // 秤,能放下瓶子
+
                         case "PistonPumpControl":
-                            // 根据你的 XAML：Width="880" Height="600"
-                            // 但画布上需要缩小显示
-                            double baseWidth = 880 * 0.25;   // 176
-                            double baseHeight = 600 * 0.25;  // 120
-                            double pumpWidth = baseWidth;
-                            double pumpHeight = baseHeight;
-                            Debug.WriteLine($"柱塞泵尺寸: {pumpWidth:F0}x{pumpHeight:F0}");
-                            return new Size(pumpWidth, pumpHeight);
+                            return new Size(105, 105);        // 矮方块
 
-                        //  新增：阀门尺寸
                         case "ValveControl":
-                            double valveWidth = 200 * 0.5;   // 100（阀门原尺寸200x200，缩小到一半）
-                            double valveHeight = 200 * 0.5;  // 100
-                            Debug.WriteLine($"阀门尺寸: {valveWidth:F0}x{valveHeight:F0}");
-                            return new Size(valveWidth, valveHeight);
-                        //新增电磁阀
                         case "SolenoidValveControl":
-                            double solenoidValveWidth = 200 * 0.5;   // 100（电磁阀原尺寸200x200，缩小到一半）
-                            double solenoidValveHeight = 200 * 0.5;  // 100
-                            Debug.WriteLine($"电磁阀尺寸: {solenoidValveWidth:F0}x{solenoidValveHeight:F0}");
-                            return new Size(solenoidValveWidth, solenoidValveHeight);
+                            return new Size(66, 66);          // 小方块
 
                         case "MassFlowMeterControl":
-                            // 流量计原尺寸 400x500，缩小到画布显示
-                            double meterWidth = 400 * 0.35;   // 120
-                            double meterHeight = 500 * 0.35;  // 150
-                            Debug.WriteLine($"流量计尺寸: {meterWidth:F0}x{meterHeight:F0}");
-                            return new Size(meterWidth, meterHeight);
+                            return new Size(66, 105);         // 瘦高
 
-                        // 在 switch (controlType) 中添加
                         case "MicroreactorControl":
-                            // 微反应器原尺寸 880x600，缩小到画布显示
-                            double reactorWidth = 880 * 0.3;   
-                            double reactorHeight = 600 * 0.3; 
-                            Debug.WriteLine($"微反应器尺寸: {reactorWidth:F0}x{reactorHeight:F0}");
-                            return new Size(reactorWidth, reactorHeight);
+                            return new Size(340, 210);        // 横长台式
 
                         case "HeatExchangerControl":
-                            // 换热器原尺寸 400x600，缩小到画布显示
-                            double exchangerWidth = 400 * 0.3;   // 120
-                            double exchangerHeight = 600 * 0.3;  // 180
-                            Debug.WriteLine($"换热器尺寸: {exchangerWidth:F0}x{exchangerHeight:F0}");
-                            return new Size(exchangerWidth, exchangerHeight);
-                        case "DigitalScaleControl":
-                            // 电子秤原尺寸 400x400，缩小到画布显示
-                            double scaleWidth = 450 * 0.4;   
-                            double scaleHeight = 230 * 0.4;  
-                            Debug.WriteLine($"电子秤尺寸: {scaleWidth:F0}x{scaleHeight:F0}");
-                            return new Size(scaleWidth, scaleHeight);
-                        case "TemperatureControlSystemControl":
-                            // 高低温循环器原尺寸 260x310，缩小到画布显示
-                            double circulatorWidth = 260 * 0.65;   
-                            double circulatorHeight = 310 * 0.65;  
-                            Debug.WriteLine($"高低温循环器尺寸: {circulatorWidth:F0}x{circulatorHeight:F0}");
-                            return new Size(circulatorWidth, circulatorHeight);
-                        case "TubularReactorControl":
-                            // 管式反应器原尺寸 210x800，缩小到画布显示
-                            double tubularReactorWidth = 210 * 0.3;
-                            double tubularReactorHeight = 800 * 0.3;
-                            Debug.WriteLine($"高低温循环器尺寸: {tubularReactorWidth:F0}x{tubularReactorHeight:F0}");
-                            return new Size(tubularReactorWidth, tubularReactorHeight);
+                            return new Size(66, 105);         // 瘦高
 
+                        case "TemperatureControlSystemControl":
+                            return new Size(105, 170);        // 高瘦塔式
+
+                        case "TubularReactorControl":
+                            return new Size(170, 105);        // 横长管式
+
+                        default:
+                            Debug.WriteLine($"未识别的自定义控件: {controlType}");
+                            return new Size(defaultWidth, defaultHeight);
                     }
                 }
-                // 普通图片尺寸处理
-                else if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
+
+                // 普通图片
+                if (!string.IsNullOrEmpty(imageLocation) && IsValidImageUri(imageLocation))
                 {
                     return CalculateImageBasedSize(imageLocation, defaultWidth, defaultHeight);
                 }
@@ -5430,7 +5385,43 @@ namespace MaxChemical.Modules.Designer.Views
                 return new Size(defaultWidth, defaultHeight);
             }
         }
+        /// <summary>
+        /// 获取设备的渲染层级 ZIndex。
+        /// 层级越高画在越上面。瓶子永远在秤上面,符合"放置"的物理直觉。
+        /// </summary>
+        private int GetDeviceZIndex(IDevice device)
+        {
+            try
+            {
+                var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
+                string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
+                if (!string.IsNullOrEmpty(imageLocation) && imageLocation.StartsWith("CUSTOM_CONTROL:"))
+                {
+                    string controlType = imageLocation.Replace("CUSTOM_CONTROL:", "");
+                    switch (controlType)
+                    {
+                        // 顶层 — 放在别的设备上面的容器/样品
+                        case "ConicalFlaskControl":
+                            return 130;
+
+                        // 承载层 — 平台型,被别的东西放在上面
+                        case "DigitalScaleControl":
+                            return 110;
+
+                        // 默认层 — 大多数设备
+                        default:
+                            return 100;
+                    }
+                }
+
+                return 100;  // 普通图片设备走默认
+            }
+            catch
+            {
+                return 100;
+            }
+        }
         /// <summary>
         /// 基于图片计算尺寸
         /// </summary>
@@ -8823,7 +8814,8 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly Dictionary<string, Point> _monitoringCardPositions = new();
         // 监控卡片连接虚线字典 - DeviceId -> Line
         private readonly Dictionary<string, Polyline> _monitoringCardLines = new();
-
+        // ★ 新增:箭头字典
+        private readonly Dictionary<string, Polygon> _monitoringCardArrows = new();
         // 监控卡片位置变更处理器（用于取消订阅，避免内存泄漏）
         private readonly Dictionary<string, EventHandler> _monitoringCardLeftHandlers = new();
         private readonly Dictionary<string, EventHandler> _monitoringCardTopHandlers = new();
@@ -8920,19 +8912,20 @@ namespace MaxChemical.Modules.Designer.Views
                 if (double.IsNaN(cardTop)) cardTop = 0;
 
                 var cw = card.ActualWidth > 0 ? card.ActualWidth : 200;
-                var ch = card.ActualHeight > 0 ? card.ActualHeight : 120;
+                var ch = card.ActualHeight > 0 ? card.ActualHeight : 60;
 
-                // ── 根据相对位置选择锚点 + 计算直角折点 ─────────────────
+                // ── 决定走线模式 + 端点 + 箭头方向 ─────────────────────
                 PointCollection points;
+                Point arrowTip;        // 箭头尖端坐标
+                double arrowAngle;     // 箭头朝向(度)0=右,90=下,180=左,270=上
 
                 bool cardIsRight = cardLeft >= deviceLeft + dw - 5;
                 bool cardIsLeft = cardLeft + cw <= deviceLeft + 5;
                 bool cardIsBottom = !cardIsRight && !cardIsLeft && cardTop >= deviceTop + dh - 5;
-                // 其余情况视为"上方或重叠"
 
                 if (cardIsRight)
                 {
-                    // 设备右边缘 → 水平走半程 → 垂直对齐 → 卡片左边缘
+                    // 设备 → 右 → 卡片
                     double x1 = deviceLeft + dw;
                     double y1 = deviceTop + dh / 2;
                     double x2 = cardLeft;
@@ -8941,15 +8934,17 @@ namespace MaxChemical.Modules.Designer.Views
 
                     points = new PointCollection
             {
-                new Point(x1,   y1),
+                new Point(x1, y1),
                 new Point(midX, y1),
                 new Point(midX, y2),
-                new Point(x2,   y2)
+                new Point(x2, y2)
             };
+                    arrowTip = new Point(x2, y2);
+                    arrowAngle = 0;       // 朝右
                 }
                 else if (cardIsLeft)
                 {
-                    // 设备左边缘 → 水平走半程 → 垂直对齐 → 卡片右边缘
+                    // 设备 → 左 → 卡片
                     double x1 = deviceLeft;
                     double y1 = deviceTop + dh / 2;
                     double x2 = cardLeft + cw;
@@ -8958,15 +8953,17 @@ namespace MaxChemical.Modules.Designer.Views
 
                     points = new PointCollection
             {
-                new Point(x1,   y1),
+                new Point(x1, y1),
                 new Point(midX, y1),
                 new Point(midX, y2),
-                new Point(x2,   y2)
+                new Point(x2, y2)
             };
+                    arrowTip = new Point(x2, y2);
+                    arrowAngle = 180;     // 朝左
                 }
                 else if (cardIsBottom)
                 {
-                    // 设备下边缘 → 垂直走半程 → 水平对齐 → 卡片上边缘
+                    // 设备 → 下 → 卡片
                     double x1 = deviceLeft + dw / 2;
                     double y1 = deviceTop + dh;
                     double x2 = cardLeft + cw / 2;
@@ -8980,10 +8977,12 @@ namespace MaxChemical.Modules.Designer.Views
                 new Point(x2, midY),
                 new Point(x2, y2)
             };
+                    arrowTip = new Point(x2, y2);
+                    arrowAngle = 90;      // 朝下
                 }
                 else
                 {
-                    // 卡片在设备上方
+                    // 设备 → 上 → 卡片
                     double x1 = deviceLeft + dw / 2;
                     double y1 = deviceTop;
                     double x2 = cardLeft + cw / 2;
@@ -8997,9 +8996,14 @@ namespace MaxChemical.Modules.Designer.Views
                 new Point(x2, midY),
                 new Point(x2, y2)
             };
+                    arrowTip = new Point(x2, y2);
+                    arrowAngle = 270;     // 朝上
                 }
 
-                // ── 创建或更新 Polyline ─────────────────────────────────
+                // ★ 主题深红 #A41626
+                var themeColor = Color.FromRgb(0xA4, 0x16, 0x26);
+
+                // ── 创建或更新连接线 ─────────────────────────────────
                 if (_monitoringCardLines.TryGetValue(deviceId, out var existingPolyline))
                 {
                     existingPolyline.Points = points;
@@ -9009,28 +9013,60 @@ namespace MaxChemical.Modules.Designer.Views
                     var polyline = new Polyline
                     {
                         Points = points,
-                        Stroke = new SolidColorBrush(Color.FromArgb(180, 90, 140, 220)),
-                        StrokeThickness = 1.5,
-                        StrokeDashArray = new DoubleCollection { 6, 4 },
+                        Stroke = new SolidColorBrush(themeColor),    // 深红实线
+                        StrokeThickness = 1.2,
                         StrokeLineJoin = PenLineJoin.Round,
                         StrokeEndLineCap = PenLineCap.Round,
                         Fill = Brushes.Transparent,
                         IsHitTestVisible = false,
-                        Opacity = 0.85
+                        Opacity = 0.9
                     };
                     Panel.SetZIndex(polyline, 50);
                     DesignCanvas.Children.Add(polyline);
                     _monitoringCardLines[deviceId] = polyline;
+                }
 
-                    Debug.WriteLine($"创建监控连接直角折线: {deviceId}");
+                // ── 创建或更新箭头 ───────────────────────────────────
+                // 箭头形状(默认朝右,尖端在原点):
+                //   尖端 (0,0)
+                //   左上 (-7, -4)
+                //   左下 (-7, 4)
+                var arrowFill = new SolidColorBrush(themeColor);
+
+                if (_monitoringCardArrows.TryGetValue(deviceId, out var existingArrow))
+                {
+                    // 更新位置和旋转
+                    Canvas.SetLeft(existingArrow, arrowTip.X);
+                    Canvas.SetTop(existingArrow, arrowTip.Y);
+                    ((RotateTransform)existingArrow.RenderTransform).Angle = arrowAngle;
+                }
+                else
+                {
+                    var arrow = new Polygon
+                    {
+                        Points = new PointCollection
+                {
+                    new Point(0, 0),
+                    new Point(-7, -4),
+                    new Point(-7, 4)
+                },
+                        Fill = arrowFill,
+                        IsHitTestVisible = false,
+                        Opacity = 0.9,
+                        RenderTransform = new RotateTransform(arrowAngle)
+                    };
+                    Canvas.SetLeft(arrow, arrowTip.X);
+                    Canvas.SetTop(arrow, arrowTip.Y);
+                    Panel.SetZIndex(arrow, 51);
+                    DesignCanvas.Children.Add(arrow);
+                    _monitoringCardArrows[deviceId] = arrow;
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"更新监控连接直角折线失败: {ex.Message}");
+                Debug.WriteLine($"更新监控连接线失败: {ex.Message}");
             }
         }
-
         /// <summary>
         /// 移除设备与监控卡片之间的虚线连接
         /// </summary>
@@ -9040,8 +9076,16 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 DesignCanvas.Children.Remove(line);
                 _monitoringCardLines.Remove(deviceId);
-                Debug.WriteLine($"移除监控连接虚线: {deviceId}");
             }
+
+            // ★ 同时移除箭头
+            if (_monitoringCardArrows.TryGetValue(deviceId, out var arrow))
+            {
+                DesignCanvas.Children.Remove(arrow);
+                _monitoringCardArrows.Remove(deviceId);
+            }
+
+            Debug.WriteLine($"移除监控连接线和箭头: {deviceId}");
         }
         #endregion
 

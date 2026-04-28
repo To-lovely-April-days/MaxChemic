@@ -119,7 +119,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         // ═══ 流体不透明度 (0.0 ~ 1.0) ═══
         public static readonly DependencyProperty FluidOpacityProperty =
             DependencyProperty.Register(nameof(FluidOpacity), typeof(double), typeof(StraightPipeControl),
-                new PropertyMetadata(0.5, OnFluidOpacityChanged));
+                new PropertyMetadata(0.85, OnFluidOpacityChanged));
 
         public double FluidOpacity
         {
@@ -230,12 +230,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private TranslateTransform _flowTransform;
         private DrawingBrush _fluidPatternBrush;
 
-        // 常量
-        private const double MinPipeLength = 50;
-        private const double MaxPipeLength = 500;
-        private const double MinPipeWidth = 8;
-        private const double MaxPipeWidth = 100;
-
+        // 尺寸下限(防止渲染崩溃) — 上限保留 10000 仅作为防御性兜底
+        private const double MinPipeLength = 20;
+        private const double MaxPipeLength = 10000;
+        private const double MinPipeWidth = 4;
+        private const double MaxPipeWidth = 10000;
         private const double SCALE_FACTOR = 0.230833;
         private const double LEFT_FLANGE_LEFT = 0.35;
         private const double LEFT_FLANGE_WIDTH = 2.54;
@@ -341,7 +340,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 UpdatePipeGeometry();
                 ApplyFlowAnimation();
             };
-
+            UpdatePipeGeometry();
             // 渲染优化
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             RenderOptions.SetCachingHint(this, CachingHint.Cache);
@@ -445,6 +444,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (FluidBackground == null) return;
             FluidBackground.Fill = new SolidColorBrush(FluidColor);
             FluidBackground.Opacity = FluidOpacity;
+
+            // ★ 流体颜色变了,气泡纹理颜色也要跟着变
+            RebuildFluidPatternBrush();
         }
 
         private void ApplyFluidVisibility()
@@ -473,10 +475,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (FluidPattern == null) return;
 
-            var pipeC = PipeColor;
+            var fluidC = FluidColor;
             var group = new DrawingGroup();
 
-            // ── 气泡：径向渐变（白色高光 → 半透暗影） ──
+            // ★ 气泡:用流体颜色对比,不再依赖管道颜色
+            Color bubbleLight = Color.FromArgb(220, 255, 255, 255);  // 强白色高光
+            Color bubbleDark = Color.FromArgb(140,
+                (byte)(fluidC.R * 0.4),
+                (byte)(fluidC.G * 0.4),
+                (byte)(fluidC.B * 0.4));                              // 流体颜色的深色版
+
             foreach (var (x, y, r) in BubbleData)
             {
                 var radial = new RadialGradientBrush
@@ -484,8 +492,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     GradientOrigin = new Point(0.3, 0.3),
                     Center = new Point(0.5, 0.5)
                 };
-                radial.GradientStops.Add(new GradientStop(Color.FromArgb(102, 255, 255, 255), 0));
-                radial.GradientStops.Add(new GradientStop(Color.FromArgb(38, 0, 0, 0), 1));
+                radial.GradientStops.Add(new GradientStop(bubbleLight, 0));
+                radial.GradientStops.Add(new GradientStop(bubbleDark, 1));
                 radial.Freeze();
 
                 group.Children.Add(new GeometryDrawing(
@@ -493,23 +501,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     new EllipseGeometry(new Point(x, y), r, r)));
             }
 
-            // ── 顶底边带（匹配SVG的paint84渐变 → 让流体也有圆柱感） ──
+            // ★ 边带:用流体颜色的"加深版",不再用管道颜色(避免和管道融合)
+            Color edgeColor = Color.FromArgb(255,
+                (byte)(fluidC.R * 0.6),
+                (byte)(fluidC.G * 0.6),
+                (byte)(fluidC.B * 0.6));
+
             var edgeBrush = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.109));
+            edgeBrush.GradientStops.Add(new GradientStop(edgeColor, 0));
+            edgeBrush.GradientStops.Add(new GradientStop(edgeColor, 0.109));
             edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.113));
             edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.887));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.891));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 1));
+            edgeBrush.GradientStops.Add(new GradientStop(edgeColor, 0.891));
+            edgeBrush.GradientStops.Add(new GradientStop(edgeColor, 1));
             edgeBrush.Freeze();
 
             group.Children.Add(new GeometryDrawing(
                 edgeBrush, null,
                 new RectangleGeometry(new Rect(0, 0, PATTERN_W, PATTERN_H))));
 
-            // ── 创建平铺画刷 ──
+            // 创建平铺画刷
             _flowTransform = new TranslateTransform(0, 0);
-
             _fluidPatternBrush = new DrawingBrush(group)
             {
                 TileMode = TileMode.Tile,
@@ -522,7 +534,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateFluidPatternViewport();
             FluidPattern.Fill = _fluidPatternBrush;
 
-            // 如果正在流动，重新启动动画
             if (IsFlowing && IsFluidVisible)
                 StartFlowAnimation();
         }
@@ -961,26 +972,52 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var parent = Parent as Canvas;
             if (parent == null) return new Point();
 
+            EnsureGeometryUpdated();   // ★ 关键:确保 Width/Height/ActualWidth 已就绪
+
             var pipeLeft = Canvas.GetLeft(this);
             var pipeTop = Canvas.GetTop(this);
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            Point center = new Point(pipeLeft + ActualWidth / 2, pipeTop + ActualHeight / 2);
+            // 使用 RenderSize 而不是 ActualWidth — RenderSize 在布局完成前也是有效的
+            double w = RenderSize.Width > 0 ? RenderSize.Width : Width;
+            double h = RenderSize.Height > 0 ? RenderSize.Height : Height;
+
+            Point center = new Point(pipeLeft + w / 2, pipeTop + h / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
+
+            // 从控件中心到"对侧锚点"的本地向量
+            // 直管的几何:左法兰中心位于 LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH/2,右法兰中心位于 w - RIGHT_FLANGE_WIDTH/2
+            // 转换到以中心为原点的坐标系:
+            double leftLocalX = (LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH / 2) - w / 2;
+            double rightLocalX = (w - RIGHT_FLANGE_WIDTH / 2) - w / 2;
+            double topLocalY = -_pipeWidth / 2;
+            double bottomLocalY = _pipeWidth / 2;
 
             Point localFixed;
             switch (draggedAnchor)
             {
-                case PipeAnchorPosition.Left: localFixed = new Point(_pipeLength / 2, 0); break;
-                case PipeAnchorPosition.Right: localFixed = new Point(-_pipeLength / 2, 0); break;
-                case PipeAnchorPosition.Top: localFixed = new Point(0, _pipeWidth / 2); break;
-                case PipeAnchorPosition.Bottom: localFixed = new Point(0, -_pipeWidth / 2); break;
+                case PipeAnchorPosition.Left: localFixed = new Point(rightLocalX, 0); break;  // 拖左 → 固定右
+                case PipeAnchorPosition.Right: localFixed = new Point(leftLocalX, 0); break;  // 拖右 → 固定左
+                case PipeAnchorPosition.Top: localFixed = new Point(0, bottomLocalY); break; // 拖上 → 固定下
+                case PipeAnchorPosition.Bottom: localFixed = new Point(0, topLocalY); break; // 拖下 → 固定上
                 default: localFixed = new Point(); break;
             }
 
             Point worldFixed = RotatePoint(localFixed, radians);
             return new Point(center.X + worldFixed.X, center.Y + worldFixed.Y);
+        }
+
+        /// <summary>
+        /// 确保几何已经被计算过一次,防止控件刚 new 出来就立即旋转/缩放时
+        /// Width/Height/ActualWidth 还是 0 或者 NaN,导致锚点和固定点跑飞。
+        /// </summary>
+        private void EnsureGeometryUpdated()
+        {
+            if (Width <= 0 || double.IsNaN(Width))
+            {
+                UpdatePipeGeometry();
+            }
         }
 
         private void HandleResize(MouseEventArgs e)

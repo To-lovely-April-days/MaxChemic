@@ -465,16 +465,19 @@ namespace MaxChemical.Modules.Designer.Services
         {
             try
             {
-                // 从设备显示名映射中查找
                 if (deviceDisplayNames.TryGetValue(deviceId, out var displayName) && !string.IsNullOrEmpty(displayName))
-                {
-                    _logger.LogDebug("找到设备 {DeviceId} 的显示名: {DisplayName}", deviceId, displayName);
                     return displayName;
+
+                // ★ 兜底：fallbackName 不为空时，附加 deviceId 后 6 位以保证唯一
+                if (!string.IsNullOrEmpty(fallbackName))
+                {
+                    var suffix = !string.IsNullOrEmpty(deviceId) && deviceId.Length > 6
+                        ? deviceId.Substring(deviceId.Length - 6)
+                        : deviceId;
+                    return $"{fallbackName} ({suffix})";
                 }
 
-                // 如果没找到，使用fallback逻辑
-                _logger.LogDebug("设备 {DeviceId} 没有找到显示名映射，使用原始名称: {FallbackName}", deviceId, fallbackName);
-                return !string.IsNullOrEmpty(fallbackName) ? fallbackName : deviceId ?? "未知设备";
+                return deviceId ?? "未知设备";
             }
             catch (Exception ex)
             {

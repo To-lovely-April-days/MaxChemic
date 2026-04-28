@@ -5,11 +5,11 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- 这里只能引用外部资源字典文件 -->
-                <!-- <ResourceDictionary Source="Themes/Generic.xaml"/> -->
+                <!-- ★ 品牌色板必须最先加载,后面所有样式都引用它 -->
+                <ResourceDictionary Source="Resources/ThemeColors.xaml"/>
                 <ResourceDictionary Source="Resources/SharedStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-            
+
             <!-- 自定义细滚动条样式 -->
             <Style x:Key="ThinScrollBarStyle" TargetType="ScrollBar">
                 <Setter Property="Background" Value="Transparent"/>
@@ -166,40 +166,39 @@
                      From="0.3" To="1.0" Duration="0:0:0.8"
                      AutoReverse="True"/>
                 <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                    From="#4CAF50" To="#2196F3" Duration="0:0:1.2"
-                    AutoReverse="True"/>
+                From="#1D9E75" To="#A41626" Duration="0:0:1.2"
+                AutoReverse="True"/>
             </Storyboard>
 
             <Storyboard x:Key="CompletedAnimation">
                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
                      From="1.0" To="0.8" Duration="0:0:0.3"/>
                 <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                    To="#4CAF50" Duration="0:0:0.3"/>
+                To="#1D9E75" Duration="0:0:0.3"/>
             </Storyboard>
 
             <Storyboard x:Key="FailedAnimation">
                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
                      From="1.0" To="0.9" Duration="0:0:0.3"/>
                 <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                    To="#F44336" Duration="0:0:0.3"/>
+                To="#C42626" Duration="0:0:0.3"/>
             </Storyboard>
 
             <!-- 设备节点执行状态样式 -->
             <Style x:Key="ExecutingDeviceNodeStyle" TargetType="Border">
                 <Setter Property="BorderThickness" Value="2"/>
-                <!-- 确保BorderBrush是SolidColorBrush -->
                 <Setter Property="BorderBrush">
                     <Setter.Value>
-                        <SolidColorBrush Color="#E0E0E0"/>
+                        <SolidColorBrush Color="{StaticResource Border.Default}"/>
                     </Setter.Value>
                 </Setter>
-                <Setter Property="Background" Value="White"/>
+                <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
                 <Style.Triggers>
                     <!-- 选中状态 -->
                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
                         <Setter Property="BorderBrush">
                             <Setter.Value>
-                                <SolidColorBrush Color="#0078D4"/>
+                                <SolidColorBrush Color="{StaticResource Brand.Primary}"/>
                             </Setter.Value>
                         </Setter>
                         <Setter Property="BorderThickness" Value="2"/>
@@ -213,65 +212,42 @@
                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                        From="0.3" To="1.0" Duration="0:0:0.8"
                                        AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                         From="1.0" To="1.05" Duration="0:0:0.2"
+                                         AutoReverse="True"/>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                          From="1.0" To="1.05" Duration="0:0:0.2"
+                                          AutoReverse="True"/>
                                 </Storyboard>
                             </BeginStoryboard>
                         </DataTrigger.EnterActions>
-                        <DataTrigger.ExitActions>
-                            <StopStoryboard BeginStoryboardName="ExecutingStoryboard"/>
-                        </DataTrigger.ExitActions>
-                        <Setter Property="BorderBrush">
-                            <Setter.Value>
-                                <SolidColorBrush Color="#2196F3"/>
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Background" Value="#E3F2FD"/>
-                    </DataTrigger>
-
-                    <!-- 完成状态 -->
-                    <DataTrigger Binding="{Binding ExecutionStatus}" Value="Completed">
-                        <Setter Property="BorderBrush">
-                            <Setter.Value>
-                                <SolidColorBrush Color="#4CAF50"/>
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Background" Value="#E8F5E8"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource Status.SuccessBrush}"/>
+                        <Setter Property="Background" Value="{StaticResource Status.SuccessLightBrush}"/>
                     </DataTrigger>
 
                     <!-- 失败状态 -->
                     <DataTrigger Binding="{Binding ExecutionStatus}" Value="Failed">
-                        <Setter Property="BorderBrush">
-                            <Setter.Value>
-                                <SolidColorBrush Color="#F44336"/>
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Background" Value="#FFEBEE"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource Status.DangerBrush}"/>
+                        <Setter Property="Background" Value="{StaticResource Status.DangerLightBrush}"/>
                     </DataTrigger>
 
                     <!-- 等待状态 -->
                     <DataTrigger Binding="{Binding ExecutionStatus}" Value="Waiting">
-                        <Setter Property="BorderBrush">
-                            <Setter.Value>
-                                <SolidColorBrush Color="#FF9800"/>
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Background" Value="#FFF3E0"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource Status.InfoBrush}"/>
+                        <Setter Property="Background" Value="{StaticResource Status.InfoLightBrush}"/>
                     </DataTrigger>
 
                     <!-- 插入高亮状态 -->
                     <DataTrigger Binding="{Binding IsInsertHighlight}" Value="True">
-                        <Setter Property="BorderBrush">
-                            <Setter.Value>
-                                <SolidColorBrush Color="#186DF5"/>
-                            </Setter.Value>
-                        </Setter>
+                        <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
                         <Setter Property="BorderThickness" Value="2"/>
                         <Setter Property="Effect">
                             <Setter.Value>
                                 <DropShadowEffect ShadowDepth="0"
-                                    Direction="0"
-                                    BlurRadius="20"
-                                    Color="#186DF5"
-                                    Opacity="0.5"/>
+                                  Direction="0"
+                                  BlurRadius="20"
+                                  Color="{StaticResource Brand.Primary}"
+                                  Opacity="0.5"/>
                             </Setter.Value>
                         </Setter>
                     </DataTrigger>
@@ -539,7 +515,7 @@
 
             <!-- 标题栏样式 -->
             <Style x:Key="TitleBarStyle" TargetType="Border">
-                <Setter Property="Background" Value="#003A96"/>
+                <Setter Property="Background" Value="{StaticResource Brand.PrimaryBrush}"/>
                 <Setter Property="Height" Value="30"/>
                 <Setter Property="Width" Value="1140"/>
                 <Setter Property="CornerRadius" Value="8,8,0,0"/>

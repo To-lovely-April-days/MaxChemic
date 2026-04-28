@@ -4,7 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="310" 
+             d:DesignHeight="340" 
              d:DesignWidth="260"
              Background="Transparent"
              Cursor="SizeAll"
@@ -14,125 +14,108 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
-        <LinearGradientBrush x:Key="PrecisionMetalGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#E8EAED" Offset="0"/>
-            <GradientStop Color="#D8DADD" Offset="0.5"/>
-            <GradientStop Color="#C8CACD" Offset="1"/>
+        <!-- ========== 主体面板渐变(实验室白) ========== -->
+        <!-- 主体面板渐变(替换为纯白) -->
+        <LinearGradientBrush x:Key="BodyFrontGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#F5F5F5" Offset="0"/>
+            <GradientStop Color="#FFFFFF" Offset="0.5"/>
+            <GradientStop Color="#F5F5F5" Offset="1"/>
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="AccentRedGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#A84545" Offset="0"/>
-            <GradientStop Color="#8B3333" Offset="0.5"/>
-            <GradientStop Color="#6E2222" Offset="1"/>
+        <LinearGradientBrush x:Key="BodyTopGradient" StartPoint="0,1" EndPoint="0,0">
+            <GradientStop Color="#EEEEEE" Offset="0"/>
+            <GradientStop Color="#FFFFFF" Offset="1"/>
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="WhitePanelGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#FEFEFE" Offset="0"/>
-            <GradientStop Color="#F8F9FA" Offset="0.5"/>
-            <GradientStop Color="#F2F3F5" Offset="1"/>
+        <LinearGradientBrush x:Key="BodySideGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#E8E8E8" Offset="0"/>
+            <GradientStop Color="#C8C8C8" Offset="1"/>
+        </LinearGradientBrush>
+        <!-- ========== LCD 屏渐变(深黑) ========== -->
+        <LinearGradientBrush x:Key="LCDScreenGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#1A1A1A" Offset="0"/>
+            <GradientStop Color="#0A0A0A" Offset="1"/>
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="ScreenBgGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#D8DCE3" Offset="0"/>
-            <GradientStop Color="#CDD2DA" Offset="0.5"/>
-            <GradientStop Color="#C2C8D1" Offset="1"/>
+        <!-- ========== 通风格栅金属条渐变 ========== -->
+        <LinearGradientBrush x:Key="VentBarGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#888780" Offset="0"/>
+            <GradientStop Color="#5F5E5A" Offset="0.5"/>
+            <GradientStop Color="#444441" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- ========== 状态帧渐变 ========== -->
-
-        <!-- 空闲: 深色仪器边框 -->
+        <!-- ========== 状态帧渐变(LCD 边框) ========== -->
+        <!-- 空闲: 深灰 -->
         <LinearGradientBrush x:Key="IdleFrameGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#4A5058" Offset="0"/>
-            <GradientStop Color="#3A4048" Offset="0.5"/>
-            <GradientStop Color="#2D3238" Offset="1"/>
+            <GradientStop Color="#1A1A1A" Offset="0"/>
+            <GradientStop Color="#0A0A0A" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 运行: 明亮青色边框 -->
+        <!-- 运行: 深森绿 -->
         <LinearGradientBrush x:Key="RunningFrameGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#00A08A" Offset="0"/>
-            <GradientStop Color="#00897B" Offset="0.5"/>
-            <GradientStop Color="#00695C" Offset="1"/>
+            <GradientStop Color="#1D9E75" Offset="0"/>
+            <GradientStop Color="#0F6E56" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 加载: 明亮琥珀色边框 -->
+        <!-- 加载: 琥珀 -->
         <LinearGradientBrush x:Key="LoadingFrameGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#E6A817" Offset="0"/>
-            <GradientStop Color="#D49A10" Offset="0.5"/>
-            <GradientStop Color="#B8860B" Offset="1"/>
+            <GradientStop Color="#BA7517" Offset="0"/>
+            <GradientStop Color="#854F0B" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 异常: 明亮红色边框 -->
+        <!-- 异常: 暖红 -->
         <LinearGradientBrush x:Key="ErrorFrameGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#E53935" Offset="0"/>
-            <GradientStop Color="#D32F2F" Offset="0.5"/>
-            <GradientStop Color="#C62828" Offset="1"/>
+            <GradientStop Color="#C42626" Offset="0"/>
+            <GradientStop Color="#791F1F" Offset="1"/>
         </LinearGradientBrush>
 
-        <!-- 现代按钮样式 -->
+        <!-- ========== 品牌色装饰条渐变 ========== -->
+        <LinearGradientBrush x:Key="AccentRedGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#A41626" Offset="0"/>
+            <GradientStop Color="#6B0E1A" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- ========== 控制按钮样式 ========== -->
         <Style x:Key="ModernButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid>
+                            <!-- 默认态:白底 + 灰边 -->
                             <Border x:Name="BtnBorder" 
-                                    CornerRadius="4" 
-                                    BorderThickness="1.5" 
-                                    BorderBrush="#D0D2D5">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#F8F9FA" Offset="0"/>
-                                        <GradientStop Color="#EFF1F3" Offset="0.5"/>
-                                        <GradientStop Color="#E6E8EB" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Border.Background>
+                                    CornerRadius="3" 
+                                    BorderThickness="1" 
+                                    BorderBrush="#D3D1C7"
+                                    Background="#FFFFFF">
                                 <Border.Effect>
-                                    <DropShadowEffect Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.1"
+                                    <DropShadowEffect Color="#000000" BlurRadius="2" ShadowDepth="0.5" Opacity="0.06"
                                                       RenderingBias="Performance"/>
                                 </Border.Effect>
 
                                 <Grid>
-                                    <Border CornerRadius="3" 
-                                            BorderThickness="1" 
-                                            BorderBrush="#FFFFFF" 
-                                            Margin="1.5" 
-                                            Opacity="0.8"/>
-
-                                    <Border x:Name="StatusIndicator" 
-                                            Width="5" Height="5" 
-                                            CornerRadius="2.5"
-                                            Background="#BCC0C5"
-                                            HorizontalAlignment="Right" 
+                                    <!-- 顶部高光 -->
+                                    <Border CornerRadius="2,2,0,0" 
+                                            Height="2" 
+                                            Background="#FFFFFF"
                                             VerticalAlignment="Top"
-                                            Margin="0,7,7,0"/>
+                                            Margin="1,1,1,0"
+                                            Opacity="0.6"/>
 
                                     <ContentPresenter HorizontalAlignment="Center" 
                                                       VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
-
-                            <Border x:Name="ActiveGlow" 
-                                    CornerRadius="5" 
-                                    BorderBrush="#00897B" 
-                                    BorderThickness="2"
-                                    Opacity="0"
-                                    Margin="-2"/>
                         </Grid>
 
                         <ControlTemplate.Triggers>
+                            <!-- Hover -->
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#A0A2A5"/>
+                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#888780"/>
                             </Trigger>
 
+                            <!-- Pressed -->
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#DFE1E4" Offset="0"/>
-                                            <GradientStop Color="#E6E8EB" Offset="0.5"/>
-                                            <GradientStop Color="#EEF0F2" Offset="1"/>
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#F4F3EF"/>
                                 <Setter TargetName="BtnBorder" Property="RenderTransform">
                                     <Setter.Value>
                                         <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
@@ -141,13 +124,11 @@
                                 <Setter TargetName="BtnBorder" Property="RenderTransformOrigin" Value="0.5,0.5"/>
                             </Trigger>
 
+                            <!-- 激活态(Tag = "Active"):浅粉底 + 深红边 -->
                             <Trigger Property="Tag" Value="Active">
-                                <Setter TargetName="ActiveGlow" Property="Opacity" Value="1"/>
-                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#00897B"/>
-                                <Setter TargetName="BtnBorder" Property="BorderThickness" Value="2"/>
-                                <Setter TargetName="StatusIndicator" Property="Background" Value="#4CAF50"/>
-                                <Setter TargetName="StatusIndicator" Property="Width" Value="6"/>
-                                <Setter TargetName="StatusIndicator" Property="Height" Value="6"/>
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#FCEAEC"/>
+                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#A41626"/>
+                                <Setter TargetName="BtnBorder" Property="BorderThickness" Value="1.5"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -155,56 +136,23 @@
             </Setter>
         </Style>
 
+        <!-- ========== 温度调节小按钮样式(LCD 屏右上角) ========== -->
         <Style x:Key="AdjustButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="BtnBorder" CornerRadius="3" 
-                                BorderThickness="1.5" BorderBrush="#B0B2B5">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#E8EAED" Offset="0"/>
-                                    <GradientStop Color="#D8DADD" Offset="0.5"/>
-                                    <GradientStop Color="#C8CACD" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <Border.Effect>
-                                <DropShadowEffect Color="#000000" BlurRadius="2" 
-                                                  ShadowDepth="1" Opacity="0.12"
-                                                  RenderingBias="Performance"/>
-                            </Border.Effect>
-                            <Grid>
-                                <Border CornerRadius="2" 
-                                        BorderThickness="1,1,1,0" 
-                                        BorderBrush="#FFFFFF" 
-                                        Margin="1.5,1.5,1.5,0" Opacity="0.6"/>
-                                <ContentPresenter HorizontalAlignment="Center" 
-                                                  VerticalAlignment="Center"/>
-                            </Grid>
+                        <Border x:Name="BtnBorder" CornerRadius="2" 
+                                BorderThickness="1" BorderBrush="#0A0A0A"
+                                Background="#1A1A1A">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#F0F2F5" Offset="0"/>
-                                            <GradientStop Color="#E0E2E5" Offset="0.5"/>
-                                            <GradientStop Color="#D0D2D5" Offset="1"/>
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
-                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#7A8A99"/>
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#2A2A2A"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#C8CACD" Offset="0"/>
-                                            <GradientStop Color="#D0D2D5" Offset="0.5"/>
-                                            <GradientStop Color="#D8DADD" Offset="1"/>
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#0A0A0A"/>
                                 <Setter TargetName="BtnBorder" Property="RenderTransform">
                                     <Setter.Value>
                                         <ScaleTransform ScaleX="0.94" ScaleY="0.94"/>
@@ -221,242 +169,98 @@
     </UserControl.Resources>
 
     <Viewbox Stretch="Fill">
-        <Canvas Width="260" Height="310">
+        <Canvas Width="260" Height="340">
 
-            <!-- 3D深阴影基础 -->
-            <Border Canvas.Left="26" Canvas.Top="-12" Width="224" Height="314" 
-                    CornerRadius="10" Background="#30000000"
-                    Panel.ZIndex="0">
-                <Border.Effect>
-                    <BlurEffect Radius="7"/>
-                </Border.Effect>
-            </Border>
+            <!-- ========== 阴影 ========== -->
+            <Ellipse Canvas.Left="35" Canvas.Top="320" Width="200" Height="10" Fill="#2A2A30" Opacity="0.12"
+                     Panel.ZIndex="0"/>
 
-            <!-- 3D顶部面 -->
-            <Canvas Panel.ZIndex="1">
-                <Path>
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="12,0" IsClosed="True">
-                                <LineSegment Point="35,-15"/>
-                                <LineSegment Point="241,-15"/>
-                                <LineSegment Point="218,0"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                    <Path.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                            <GradientStop Color="#FFFFFF" Offset="0"/>
-                            <GradientStop Color="#F8F9FA" Offset="0.4"/>
-                            <GradientStop Color="#EBEDEF" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Path.Fill>
-                    <Path.Effect>
-                        <DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="1" Opacity="0.08"
-                                          RenderingBias="Performance"/>
-                    </Path.Effect>
-                </Path>
+            <!-- ========== 3D 顶面 ========== -->
+            <Path Panel.ZIndex="1" Fill="{StaticResource BodyTopGradient}" Stroke="#D3D1C7" StrokeThickness="0.3">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathFigure StartPoint="30,57" IsClosed="True">
+                            <LineSegment Point="48,39"/>
+                            <LineSegment Point="258,39"/>
+                            <LineSegment Point="240,57"/>
+                        </PathFigure>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
 
-                <Path Fill="#35FFFFFF" IsHitTestVisible="False">
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="20,0" IsClosed="True">
-                                <LineSegment Point="37,-12"/>
-                                <LineSegment Point="140,-12"/>
-                                <LineSegment Point="123,0"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                </Path>
-            </Canvas>
+            <!-- 顶面高光 -->
+            <Path Panel.ZIndex="1" Fill="White" Opacity="0.4" IsHitTestVisible="False">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathFigure StartPoint="32,57" IsClosed="True">
+                            <LineSegment Point="50,39"/>
+                            <LineSegment Point="145,39"/>
+                            <LineSegment Point="127,57"/>
+                        </PathFigure>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
 
-            <!-- 3D右侧面 -->
-            <Canvas Panel.ZIndex="1">
-                <Path>
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="230,12" IsClosed="True">
-                                <LineSegment Point="253,-3"/>
-                                <LineSegment Point="253,293"/>
-                                <LineSegment Point="230,308"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                    <Path.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#D0D2D5" Offset="0"/>
-                            <GradientStop Color="#E0E2E5" Offset="0.15"/>
-                            <GradientStop Color="#EBEDEF" Offset="0.35"/>
-                            <GradientStop Color="#E0E2E5" Offset="0.65"/>
-                            <GradientStop Color="#CACCD0" Offset="0.85"/>
-                            <GradientStop Color="#B8BEC4" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Path.Fill>
-                    <Path.Effect>
-                        <DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="1.5" Opacity="0.1" Direction="0"
-                                          RenderingBias="Performance"/>
-                    </Path.Effect>
-                </Path>
+            <!-- ========== 3D 右侧面 ========== -->
+            <Path Panel.ZIndex="1" Fill="{StaticResource BodySideGradient}" Stroke="#A8A49B" StrokeThickness="0.4">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathFigure StartPoint="240,57" IsClosed="True">
+                            <LineSegment Point="258,39"/>
+                            <LineSegment Point="258,315"/>
+                            <LineSegment Point="240,333"/>
+                        </PathFigure>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
 
-                <Path Fill="#30FFFFFF" IsHitTestVisible="False">
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="231,15" IsClosed="True">
-                                <LineSegment Point="252,-1"/>
-                                <LineSegment Point="252,100"/>
-                                <LineSegment Point="231,115"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                </Path>
-
-                <Path Fill="#12000000" IsHitTestVisible="False">
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="230,200" IsClosed="True">
-                                <LineSegment Point="253,185"/>
-                                <LineSegment Point="253,293"/>
-                                <LineSegment Point="230,308"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                </Path>
-            </Canvas>
-
-            <!-- 3D角落过渡 -->
-            <Canvas Panel.ZIndex="1">
-                <Path>
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="0,12" IsClosed="True">
-                                <ArcSegment Point="12,0" Size="12,12" SweepDirection="Clockwise"/>
-                                <LineSegment Point="35,-15"/>
-                                <ArcSegment Point="23,-3" Size="12,12" SweepDirection="Counterclockwise"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                    <Path.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#F6F7F8" Offset="0"/>
-                            <GradientStop Color="#EBEDEF" Offset="0.5"/>
-                            <GradientStop Color="#E0E2E5" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Path.Fill>
-                </Path>
-
-                <Path>
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="218,0" IsClosed="True">
-                                <ArcSegment Point="230,12" Size="12,12" SweepDirection="Clockwise"/>
-                                <LineSegment Point="253,-3"/>
-                                <LineSegment Point="241,-15"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                    <Path.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#E8EAED" Offset="0"/>
-                            <GradientStop Color="#DCDEE1" Offset="0.5"/>
-                            <GradientStop Color="#D0D2D5" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Path.Fill>
-                </Path>
-
-                <Path>
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="0,308" IsClosed="True">
-                                <ArcSegment Point="12,320" Size="12,12" SweepDirection="Clockwise"/>
-                                <LineSegment Point="23,307"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                    <Path.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#D8DADD" Offset="0"/>
-                            <GradientStop Color="#C8CACD" Offset="0.5"/>
-                            <GradientStop Color="#B8BEC4" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Path.Fill>
-                </Path>
-
-                <Path>
-                    <Path.Data>
-                        <PathGeometry>
-                            <PathFigure StartPoint="230,308" IsClosed="True">
-                                <ArcSegment Point="218,320" Size="12,12" SweepDirection="Clockwise"/>
-                                <LineSegment Point="241,305"/>
-                                <LineSegment Point="253,293"/>
-                            </PathFigure>
-                        </PathGeometry>
-                    </Path.Data>
-                    <Path.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#C8CACD" Offset="0"/>
-                            <GradientStop Color="#BFC3C7" Offset="0.5"/>
-                            <GradientStop Color="#B0B4B8" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Path.Fill>
-                </Path>
-            </Canvas>
-
-            <!-- 主面板 -->
-            <Border Canvas.Left="0" Canvas.Top="0" Width="230" Height="320" 
-                    CornerRadius="10"
-                    Background="{StaticResource WhitePanelGradient}" 
-                    BorderBrush="#C0C2C5" BorderThickness="0,0,1,1"
+            <!-- ========== 主面板(白底) ========== -->
+            <Border Canvas.Left="30" Canvas.Top="57" Width="210" Height="276" 
+                    CornerRadius="3"
+                    Background="{StaticResource BodyFrontGradient}" 
+                    BorderBrush="#B4B2A9" BorderThickness="0.6"
                     Panel.ZIndex="2">
                 <Border.Effect>
-                    <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.06"
+                    <DropShadowEffect Color="#000000" BlurRadius="6" ShadowDepth="2" Opacity="0.16"
                                       RenderingBias="Performance"/>
                 </Border.Effect>
             </Border>
 
-            <Border Canvas.Left="0" Canvas.Top="0" Width="230" Height="320" 
-                    CornerRadius="10"
-                    BorderBrush="#B0B2B5" BorderThickness="1"
-                    Background="Transparent"
-                    Panel.ZIndex="2" IsHitTestVisible="False"/>
+            <!-- 左侧高光 -->
+            <Border Canvas.Left="32" Canvas.Top="59" Width="7" Height="272" 
+                    Background="White" Opacity="0.4"
+                    Panel.ZIndex="3" IsHitTestVisible="False"/>
 
-            <Border Canvas.Left="2" Canvas.Top="2" Width="226" Height="316" 
-                    CornerRadius="9"
-                    BorderBrush="#FFFFFF" BorderThickness="1.5" 
-                    Background="Transparent" Opacity="0.6"
-                    Panel.ZIndex="2" IsHitTestVisible="False"/>
+            <!-- 右侧暗影 -->
+            <Border Canvas.Left="231" Canvas.Top="59" Width="7" Height="272" 
+                    Background="#888780" Opacity="0.06"
+                    Panel.ZIndex="3" IsHitTestVisible="False"/>
 
-            <!-- ========== 内容区域 ========== -->
+            <!-- ========== 顶部品牌深红标签条 ========== -->
+            <Border x:Name="AccentBar"
+                    Canvas.Left="37" Canvas.Top="63" Width="198" Height="14" 
+                    CornerRadius="2"
+                    Background="{StaticResource AccentRedGradient}"
+                    Panel.ZIndex="10"/>
 
-            <!-- 标题区域 -->
-            <Canvas Canvas.Left="12" Canvas.Top="10" Panel.ZIndex="10">
-                <Border x:Name="AccentBar" Width="3" Height="24" CornerRadius="1.5" 
-                        Background="{StaticResource AccentRedGradient}"/>
+            <!-- 标签条文字 -->
+            <TextBlock Canvas.Left="49" Canvas.Top="64" Panel.ZIndex="11"
+                       Text="HTLAB  TempControl" 
+                       FontFamily="Arial" FontSize="9" FontWeight="Bold"
+                       Foreground="#FFFFFF"/>
 
-                <TextBlock Canvas.Left="10" FontFamily="Helvetica Neue, Microsoft YaHei" 
-                           FontSize="12" FontWeight="Medium" Foreground="#3D4349">
-                    <Run>高</Run><Run Text=" "/><Run>低</Run><Run Text=" "/><Run>温</Run><Run Text=" "/><Run>循</Run><Run Text=" "/><Run>环</Run><Run Text=" "/><Run>装</Run><Run Text=" "/><Run>置</Run>
-                </TextBlock>
-                <TextBlock Canvas.Left="10" Margin="0 5 0 0" Canvas.Top="14" FontFamily="Helvetica Neue" FontSize="6.5" Foreground="#8B9199">
-                    <Run>P</Run><Run Text=" "/><Run>R</Run><Run Text=" "/><Run>E</Run><Run Text=" "/><Run>C</Run><Run Text=" "/><Run>I</Run><Run Text=" "/><Run>S</Run><Run Text=" "/><Run>I</Run><Run Text=" "/><Run>O</Run><Run Text=" "/><Run>N</Run><Run Text="  "/><Run>T</Run><Run Text=" "/><Run>E</Run><Run Text=" "/><Run>M</Run><Run Text=" "/><Run>P</Run><Run Text="  "/><Run>C</Run><Run Text=" "/><Run>O</Run><Run Text=" "/><Run>N</Run><Run Text=" "/><Run>T</Run><Run Text=" "/><Run>R</Run><Run Text=" "/><Run>O</Run><Run Text=" "/><Run>L</Run>
-                </TextBlock>
+            <TextBlock Canvas.Left="195" Canvas.Top="64" Panel.ZIndex="11"
+                       Text="TC-2000" 
+                       FontFamily="Arial" FontSize="8.5" FontWeight="Bold"
+                       Foreground="#F4B4C0" Opacity="0.95"/>
 
-                <!-- 运行指示灯 -->
-                <Canvas Canvas.Left="158" Canvas.Top="-1">
-                    <Ellipse x:Name="RunningIndicator" Width="9" Height="9" Fill="#9E9E9E"/>
-                    <Ellipse x:Name="RunningIndicatorHighlight" Canvas.Left="2" Canvas.Top="2" Width="5" Height="5" Fill="#FFFFFF" Opacity="0.7"/>
-                    <TextBlock x:Name="StatusText" Canvas.Left="12" Canvas.Top="2" Text="就绪" 
-                               FontFamily="Microsoft YaHei" FontSize="7" 
-                               Foreground="#5D6369" FontWeight="Medium"/>
-                </Canvas>
-            </Canvas>
-
-            <!-- 显示屏区域 -->
-            <Canvas Canvas.Left="12" Canvas.Top="42" Panel.ZIndex="10">
-                <!-- LCD外框 - 代码动态控制颜色 -->
-                <Border x:Name="LCDFrame" Width="206" Height="148" 
-                        CornerRadius="6" 
+            <!-- ========== LCD 屏区域 ========== -->
+            <Canvas Canvas.Left="41" Canvas.Top="83" Panel.ZIndex="10">
+                <!-- LCD 外框(状态色,代码动态切换) -->
+                <Border x:Name="LCDFrame" Width="190" Height="100" 
+                        CornerRadius="3"
                         Background="{StaticResource IdleFrameGradient}"
-                        BorderThickness="1" BorderBrush="#2D3238">
+                        BorderThickness="1" BorderBrush="#1A1A1A">
                     <Border.Effect>
                         <DropShadowEffect x:Name="LCDFrameGlow"
                                           Color="Transparent" 
@@ -465,313 +269,237 @@
                                           Opacity="0"
                                           RenderingBias="Performance"/>
                     </Border.Effect>
-
-                    <Border CornerRadius="5" 
-                            BorderBrush="#FFFFFF" 
-                            BorderThickness="0.5,0.5,0,0" 
-                            Margin="1" 
-                            Opacity="0.1"/>
                 </Border>
 
-                <!-- 屏幕凹槽 -->
-                <Border Canvas.Left="4" Canvas.Top="4" Width="198" Height="140" 
-                        CornerRadius="4" 
-                        Background="#B8BCC4"
-                        BorderThickness="1.5" BorderBrush="#A8ADB6">
-                    <Border.Effect>
-                        <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1.5" Opacity="0.25" Direction="135"
+                <!-- LCD 屏主体(深黑) -->
+                <Border Canvas.Left="4" Canvas.Top="4" Width="182" Height="92" 
+                        CornerRadius="2.5" Background="{StaticResource LCDScreenGradient}"/>
+
+                <!-- LCD 顶部高光 -->
+                <Border Canvas.Left="6" Canvas.Top="6" Width="178" Height="3" 
+                        CornerRadius="1" Background="White" Opacity="0.06"/>
+
+                <!-- 设定温度行 -->
+                <TextBlock Canvas.Left="12" Canvas.Top="22" Text="SET" 
+                           FontFamily="Arial" FontSize="9" Foreground="#888780" FontWeight="SemiBold"/>
+                <TextBlock Canvas.Left="12" Canvas.Top="32" Text="设定温度" 
+                           FontFamily="Microsoft YaHei" FontSize="8" Foreground="#5F5E5A"/>
+
+                <TextBlock Canvas.Left="0" Canvas.Top="22" Width="160" Height="32"
+                           x:Name="SetTempValue"
+                           Text="{Binding SetTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                           FontFamily="Consolas" FontSize="30" 
+                           Foreground="#FF6680" FontWeight="Bold"
+                           TextAlignment="Right"
+                           Padding="0,0,30,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#FF6680" BlurRadius="3" ShadowDepth="0" Opacity="0.25"
                                           RenderingBias="Performance"/>
-                    </Border.Effect>
-                </Border>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock Canvas.Left="160" Canvas.Top="30" Text="°C" 
+                           FontFamily="Times New Roman" FontSize="14" FontWeight="Bold"
+                           Foreground="#F4B4C0"/>
 
-                <!-- 屏幕主体 -->
-                <Border Canvas.Left="6" Canvas.Top="6" Width="194" Height="136" 
-                        CornerRadius="3" Background="{StaticResource ScreenBgGradient}"
-                        BorderThickness="1" BorderBrush="#BFC4CC">
+                <!-- 红色光晕标识 -->
+                <Border Canvas.Left="12" Canvas.Top="52" Width="10" Height="2" CornerRadius="0.8"
+                        Background="#A41626" Opacity="0.7"/>
 
-                    <Canvas>
-                        <Border Width="190" Height="132" Canvas.Left="2" Canvas.Top="2" 
-                                CornerRadius="2"
-                                BorderBrush="#C8CDD5" BorderThickness="1" 
-                                Background="Transparent" Opacity="0.5"/>
+                <!-- 分隔线 -->
+                <Line X1="12" Y1="58" X2="178" Y2="58" Stroke="#3A3A3A" StrokeThickness="0.4"/>
 
-                        <!-- 主设置温度显示 -->
-                        <Border Canvas.Left="7" Canvas.Top="8" Width="180" Height="56" 
-                                CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#EEF2F7" Offset="0"/>
-                                    <GradientStop Color="#E3E8EF" Offset="0.5"/>
-                                    <GradientStop Color="#D8DEE7" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
+                <!-- 当前温度行 -->
+                <TextBlock Canvas.Left="12" Canvas.Top="62" Text="PV" 
+                           FontFamily="Arial" FontSize="9" Foreground="#888780" FontWeight="SemiBold"/>
+                <TextBlock Canvas.Left="12" Canvas.Top="72" Text="当前温度" 
+                           FontFamily="Microsoft YaHei" FontSize="8" Foreground="#5F5E5A"/>
 
-                            <Grid>
-                                <TextBlock Text="设定温度" FontFamily="Microsoft YaHei" FontSize="9" 
-                                           Foreground="#5D6B7A" FontWeight="Medium"
-                                           Margin="10,7,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <TextBlock Canvas.Left="0" Canvas.Top="62" Width="160" Height="32"
+                           Text="{Binding CurrentTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                           FontFamily="Consolas" FontSize="30" 
+                           Foreground="#85B7EB" FontWeight="Bold"
+                           TextAlignment="Right"
+                           Padding="0,0,30,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#85B7EB" BlurRadius="3" ShadowDepth="0" Opacity="0.2"
+                                          RenderingBias="Performance"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock Canvas.Left="160" Canvas.Top="70" Text="°C" 
+                           FontFamily="Times New Roman" FontSize="14" FontWeight="Bold"
+                           Foreground="#B5D4F4"/>
 
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                                            VerticalAlignment="Center" Margin="14,8,0,0">
-                                    <TextBlock x:Name="SetTempValue" 
-                                               Text="{Binding SetTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                               FontFamily="Consolas" FontSize="32" 
-                                               Foreground="#8B3535" FontWeight="Bold">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect Color="#8B3535" BlurRadius="2" ShadowDepth="0" Opacity="0.12"
-                                                              RenderingBias="Performance"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                    <TextBlock Text="°C" FontFamily="Consolas" FontSize="16" 
-                                               Foreground="#A05050" FontWeight="Bold" Margin="4,6,0,0"/>
-                                </StackPanel>
+                <!-- 蓝色光晕标识 -->
+                <Border Canvas.Left="12" Canvas.Top="92" Width="10" Height="2" CornerRadius="0.8"
+                        Background="#378ADD" Opacity="0.6"/>
 
-                                <StackPanel Orientation="Vertical" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,9,0">
-                                    <Button Width="28" Height="13" Style="{StaticResource AdjustButtonStyle}"
-                                            Click="OnTempUpClick">
-                                        <Viewbox Width="8" Height="5">
-                                            <Path Data="M 4,0 L 0,5 L 8,5 Z" Fill="#5D6369" Stroke="#5D6369" StrokeThickness="0.5"/>
-                                        </Viewbox>
-                                    </Button>
-                                    <Button Width="28" Height="13" Margin="0,3,0,0" 
-                                            Style="{StaticResource AdjustButtonStyle}"
-                                            Click="OnTempDownClick">
-                                        <Viewbox Width="8" Height="5">
-                                            <Path Data="M 4,5 L 0,0 L 8,0 Z" Fill="#5D6369" Stroke="#5D6369" StrokeThickness="0.5"/>
-                                        </Viewbox>
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <!-- 当前温度显示 - 扩展至全宽 -->
-                        <Border Canvas.Left="7" Canvas.Top="72" Width="180" Height="56" 
-                                CornerRadius="3" BorderThickness="1" BorderBrush="#B8BEC8">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#EEF2F7" Offset="0"/>
-                                    <GradientStop Color="#E3E8EF" Offset="0.5"/>
-                                    <GradientStop Color="#D8DEE7" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <Grid>
-                                <TextBlock Text="当前温度" FontFamily="Microsoft YaHei" FontSize="9" 
-                                           Foreground="#5D6B7A" FontWeight="Medium"
-                                           Margin="10,7,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" 
-                                            VerticalAlignment="Center" Margin="14,8,0,0">
-                                    <TextBlock Text="{Binding CurrentTemperature, StringFormat={}{0:F1}, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                               FontFamily="Consolas" FontSize="32" 
-                                               Foreground="#3A5F7A" FontWeight="Bold">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect Color="#3A5F7A" BlurRadius="2" ShadowDepth="0" Opacity="0.10"
-                                                              RenderingBias="Performance"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                    <TextBlock Text="°C" FontFamily="Consolas" FontSize="16" 
-                                               Foreground="#5A7F9A" FontWeight="Bold" Margin="4,6,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                    </Canvas>
-                </Border>
-
-                <!-- 屏幕状态覆盖层 - 代码动态控制 -->
+                <!-- 屏幕状态覆盖层 -->
                 <Border x:Name="ScreenOverlay" 
-                        Canvas.Left="6" Canvas.Top="6" 
-                        Width="194" Height="136" 
-                        CornerRadius="3"
+                        Canvas.Left="4" Canvas.Top="4" 
+                        Width="182" Height="92" 
+                        CornerRadius="2.5"
                         Background="Transparent" 
                         IsHitTestVisible="False"
                         Opacity="0"/>
             </Canvas>
 
-            <!-- 控制按钮区 -->
-            <Canvas Canvas.Left="12" Canvas.Top="198" Panel.ZIndex="10">
-                <Button x:Name="CirculationButton" Width="64" Height="28" 
+            <!-- ========== ▲ ▼ 温度调节按钮 ========== -->
+            <Canvas Canvas.Left="207" Canvas.Top="93" Panel.ZIndex="11">
+                <Button Width="20" Height="14" Style="{StaticResource AdjustButtonStyle}"
+                        Click="OnTempUpClick">
+                    <Path Width="8" Height="5" Fill="#888780" Stretch="Uniform"
+                          Data="M 4,0 L 0,5 L 8,5 Z"/>
+                </Button>
+                <Button Canvas.Top="16" Width="20" Height="14" Style="{StaticResource AdjustButtonStyle}"
+                        Click="OnTempDownClick">
+                    <Path Width="8" Height="5" Fill="#888780" Stretch="Uniform"
+                          Data="M 4,5 L 0,0 L 8,0 Z"/>
+                </Button>
+            </Canvas>
+
+            <!-- ========== 状态指示灯组(LCD 右侧) ========== -->
+            <Canvas Canvas.Left="217" Canvas.Top="138" Panel.ZIndex="11">
+                <!-- 运行指示灯 -->
+                <Ellipse x:Name="RunningIndicator" Width="8" Height="8" Fill="#9E9E9E"/>
+                <Ellipse x:Name="RunningIndicatorHighlight" 
+                         Canvas.Left="2" Canvas.Top="2" Width="3" Height="3" 
+                         Fill="#FFFFFF" Opacity="0.6"/>
+                <TextBlock x:Name="StatusText" 
+                           Canvas.Left="-2" Canvas.Top="11" 
+                           Text="就绪" 
+                           FontFamily="Microsoft YaHei" FontSize="7" 
+                           Foreground="#5D6369" FontWeight="Medium"/>
+            </Canvas>
+
+            <!-- ========== 三个控制按钮 ========== -->
+            <Canvas Canvas.Left="37" Canvas.Top="195" Panel.ZIndex="10">
+                <Button x:Name="CirculationButton" Width="60" Height="36" 
                         Style="{StaticResource ModernButtonStyle}"
                         Click="OnCirculationClick">
-                    <TextBlock Text="循环" FontFamily="Microsoft YaHei" FontSize="11" 
-                               Foreground="#3D4349" FontWeight="Bold"/>
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                        <!-- 循环图标(箭头圆环) -->
+                        <Path Width="14" Height="14" Stretch="Uniform"
+                              Stroke="#5F5E5A" StrokeThickness="1.4" Fill="Transparent"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 12,6 A 6,6 0 1 1 6,0 M 12,6 L 9,3 M 12,6 L 9,9"
+                              Margin="0,0,0,2"/>
+                        <TextBlock Text="循环" 
+                                   FontFamily="Microsoft YaHei" FontSize="11" 
+                                   Foreground="#1A1A1A" FontWeight="Medium"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
 
-                <Button x:Name="HeatingButton" Canvas.Left="71" Width="64" Height="28" 
+                <Button x:Name="HeatingButton" Canvas.Left="65" Width="60" Height="36" 
                         Style="{StaticResource ModernButtonStyle}"
                         Click="OnHeatingClick">
-                    <TextBlock Text="加热" FontFamily="Microsoft YaHei" FontSize="11" 
-                               Foreground="#3D4349" FontWeight="Bold"/>
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                        <!-- 加热图标(温度计/火焰) -->
+                        <Grid Width="14" Height="14" Margin="0,0,0,2">
+                            <Path Width="10" Height="14" Stretch="Uniform"
+                                  Fill="#A41626"
+                                  Data="M 5,0 Q 2,4 2,7 Q 2,11 5,12 Q 8,11 8,7 Q 8,4 5,0 Z"/>
+                            <Ellipse Width="4" Height="4" Fill="#FF6680"
+                                     HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                     Margin="0,0,0,2"/>
+                        </Grid>
+                        <TextBlock Text="加热" 
+                                   FontFamily="Microsoft YaHei" FontSize="11" 
+                                   Foreground="#1A1A1A" FontWeight="Medium"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
 
-                <Button x:Name="CoolingButton" Canvas.Left="142" Width="64" Height="28" 
+                <Button x:Name="CoolingButton" Canvas.Left="130" Width="60" Height="36" 
                         Style="{StaticResource ModernButtonStyle}"
                         Click="OnCoolingClick">
-                    <TextBlock Text="制冷" FontFamily="Microsoft YaHei" FontSize="11" 
-                               Foreground="#3D4349" FontWeight="Bold"/>
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                        <!-- 雪花图标 -->
+                        <Grid Width="14" Height="14" Margin="0,0,0,2">
+                            <Line X1="7" Y1="0" X2="7" Y2="14" Stroke="#5F5E5A" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            <Line X1="0" Y1="7" X2="14" Y2="7" Stroke="#5F5E5A" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            <Line X1="2" Y1="2" X2="12" Y2="12" Stroke="#5F5E5A" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            <Line X1="2" Y1="12" X2="12" Y2="2" Stroke="#5F5E5A" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Grid>
+                        <TextBlock Text="制冷" 
+                                   FontFamily="Microsoft YaHei" FontSize="11" 
+                                   Foreground="#1A1A1A" FontWeight="Medium"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
             </Canvas>
 
-            <!-- 通风窗 -->
-            <Canvas Canvas.Left="12" Canvas.Top="234" Panel.ZIndex="10">
-                <Border Width="206" Height="46" 
-                        CornerRadius="3" 
-                        Background="#E8EAED"
-                        BorderThickness="1" BorderBrush="#C0C2C5">
-                    <Border.Effect>
-                        <DropShadowEffect Color="#000000" BlurRadius="2" ShadowDepth="0.5" Opacity="0.08"
-                                          RenderingBias="Performance"/>
-                    </Border.Effect>
-                </Border>
+            <!-- ========== 通风格栅(精致版) ========== -->
+            <Canvas Canvas.Left="37" Canvas.Top="241" Panel.ZIndex="10">
+                <Border Width="198" Height="50" CornerRadius="3"
+                        Background="#E8E5DD" BorderBrush="#B4B2A9" BorderThickness="0.5"/>
+                <Border Canvas.Left="3" Canvas.Top="3" Width="192" Height="44" CornerRadius="2"
+                        Background="#D3D1C7" BorderBrush="#B4B2A9" BorderThickness="0.3"/>
 
-                <Border Canvas.Left="2" Canvas.Top="2" Width="202" Height="42" 
-                        CornerRadius="2" 
-                        Background="#E8EAED"
-                        BorderThickness="0.5" BorderBrush="#D5D7DA">
-                    <Border.Effect>
-                        <DropShadowEffect Color="Black" BlurRadius="1.5" ShadowDepth="1" Opacity="0.1" Direction="135"
-                                          RenderingBias="Performance"/>
-                    </Border.Effect>
-
-                    <Canvas>
-                        <Border Canvas.Left="3" Canvas.Top="3" Width="196" Height="36" 
-                                CornerRadius="1.5" Background="#D8DADD">
-                            <Canvas>
-                                <ItemsControl Canvas.Left="3" Canvas.Top="3">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel/>
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.Items>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5" Margin="0,0,0,0.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                        <Canvas Height="3.5">
-                                            <Border Width="190" Height="2" CornerRadius="1">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="#6A6E73" Offset="0"/>
-                                                        <GradientStop Color="#4A4E53" Offset="0.5"/>
-                                                        <GradientStop Color="#3A3E43" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border Canvas.Top="1.8" Width="190" Height="0.5" CornerRadius="0.25" Background="#787C81" Opacity="0.3"/>
-                                        </Canvas>
-                                    </ItemsControl.Items>
-                                </ItemsControl>
-                            </Canvas>
-                        </Border>
-                    </Canvas>
-                </Border>
+                <!-- 8 条金属横条 -->
+                <Border Canvas.Left="6" Canvas.Top="6" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="11" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="16" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="21" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="26" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="31" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="36" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
+                <Border Canvas.Left="6" Canvas.Top="41" Width="186" Height="2.5" CornerRadius="0.8" Background="{StaticResource VentBarGradient}"/>
             </Canvas>
 
-            <!-- 底部信息 -->
-            <Canvas Canvas.Left="12" Canvas.Top="288" Panel.ZIndex="10">
-                <TextBlock Canvas.Left="0" FontFamily="Arial" FontSize="8" 
-                           Foreground="#7A8088" FontWeight="Bold">
-                    <Run Text="H"/><Run Text=" "/><Run Text="U"/><Run Text=" "/><Run Text="O"/><Run Text=" "/><Run Text="T"/><Run Text=" "/><Run Text="O"/><Run Text=" "/><Run Text="N"/><Run Text=" "/><Run Text="G"/>
-                </TextBlock>
-
-                <TextBlock Canvas.Left="164" FontFamily="Consolas" FontSize="7" 
-                           Foreground="#8B9199" FontWeight="Medium">
-                    TC-2000
-                </TextBlock>
+            <!-- ========== 4 个角落十字螺丝 ========== -->
+            <!-- 左上 -->
+            <Canvas Canvas.Left="36" Canvas.Top="80" Panel.ZIndex="11">
+                <Ellipse Width="6" Height="6" Fill="#888780" Stroke="#5F5E5A" StrokeThickness="0.4"/>
+                <Line X1="1" Y1="3" X2="5" Y2="3" Stroke="#444441" StrokeThickness="0.5"/>
+                <Line X1="3" Y1="1" X2="3" Y2="5" Stroke="#444441" StrokeThickness="0.5"/>
+            </Canvas>
+            <!-- 右上 -->
+            <Canvas Canvas.Left="222" Canvas.Top="80" Panel.ZIndex="11">
+                <Ellipse Width="6" Height="6" Fill="#888780" Stroke="#5F5E5A" StrokeThickness="0.4"/>
+                <Line X1="1" Y1="3" X2="5" Y2="3" Stroke="#444441" StrokeThickness="0.5"/>
+                <Line X1="3" Y1="1" X2="3" Y2="5" Stroke="#444441" StrokeThickness="0.5"/>
+            </Canvas>
+            <!-- 左下 -->
+            <Canvas Canvas.Left="36" Canvas.Top="320" Panel.ZIndex="11">
+                <Ellipse Width="6" Height="6" Fill="#888780" Stroke="#5F5E5A" StrokeThickness="0.4"/>
+                <Line X1="1" Y1="3" X2="5" Y2="3" Stroke="#444441" StrokeThickness="0.5"/>
+                <Line X1="3" Y1="1" X2="3" Y2="5" Stroke="#444441" StrokeThickness="0.5"/>
+            </Canvas>
+            <!-- 右下 -->
+            <Canvas Canvas.Left="222" Canvas.Top="320" Panel.ZIndex="11">
+                <Ellipse Width="6" Height="6" Fill="#888780" Stroke="#5F5E5A" StrokeThickness="0.4"/>
+                <Line X1="1" Y1="3" X2="5" Y2="3" Stroke="#444441" StrokeThickness="0.5"/>
+                <Line X1="3" Y1="1" X2="3" Y2="5" Stroke="#444441" StrokeThickness="0.5"/>
             </Canvas>
 
-            <!-- 选择边框 -->
+            <!-- ========== 底部品牌信息 ========== -->
+            <TextBlock Canvas.Left="80" Canvas.Top="298" Panel.ZIndex="10"
+                       Text="霍桐仪器 · PRECISION TEMP CONTROL" 
+                       FontFamily="Times New Roman" FontSize="7" FontStyle="Italic"
+                       Foreground="#888780" Opacity="0.55"/>
+
+            <TextBlock Canvas.Left="106" Canvas.Top="310" Panel.ZIndex="10"
+                       Text="Range -80~100°C · Δ0.1°C" 
+                       FontFamily="Arial" FontSize="6"
+                       Foreground="#888780" Opacity="0.45"/>
+
+            <TextBlock Canvas.Left="225" Canvas.Top="320" Panel.ZIndex="10"
+                       Text="CE" 
+                       FontFamily="Arial" FontSize="6"
+                       Foreground="#888780" Opacity="0.4"/>
+
+            <!-- ========== 选择边框(由代码控制显示) ========== -->
             <Border x:Name="SelectionBorder"
-                    Canvas.Left="-2" Canvas.Top="-2" 
-                    Width="234" Height="324" 
-                    CornerRadius="11"
-                    BorderBrush="#5D6B7A" BorderThickness="2.5"
+                    Canvas.Left="28" Canvas.Top="55" 
+                    Width="214" Height="280" 
+                    CornerRadius="4"
+                    BorderBrush="#A41626" BorderThickness="2"
                     Visibility="Collapsed"
                     Panel.ZIndex="200"
                     IsHitTestVisible="False">
                 <Border.Effect>
-                    <DropShadowEffect Color="#3D4D5C" BlurRadius="6" ShadowDepth="0" Opacity="0.3"
+                    <DropShadowEffect Color="#A41626" BlurRadius="6" ShadowDepth="0" Opacity="0.3"
                                       RenderingBias="Performance"/>
                 </Border.Effect>
             </Border>

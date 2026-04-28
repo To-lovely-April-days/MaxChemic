@@ -83,39 +83,93 @@ namespace MaxChemical.Modules.Designer.Views
             try
             {
                 ParameterListPanel.Children.Clear();
+
+                // ========== 第1步:建立 DeviceId -> 最新 DeviceName 映射 ==========
+                // AvailableParameters 是每次实时从画布拉取的,DeviceName 最新最准
+                var deviceNameMap = new Dictionary<string, string>();
+                foreach (var ap in _viewModel.AvailableParameters)
+                {
+                    if (!string.IsNullOrEmpty(ap.DeviceId) && !deviceNameMap.ContainsKey(ap.DeviceId))
+                    {
+                        deviceNameMap[ap.DeviceId] = ap.DeviceName ?? "未知设备";
+                    }
+                }
+                // 监控参数中如有 AvailableParameters 没有的设备,补充进映射
+                foreach (var mp in _viewModel.MonitoredParameters)
+                {
+                    if (!string.IsNullOrEmpty(mp.DeviceId) && !deviceNameMap.ContainsKey(mp.DeviceId))
+                    {
+                        deviceNameMap[mp.DeviceId] = mp.DeviceName ?? "未知设备";
+                    }
+                }
+
+                // ========== 第2步:构建参数项列表 ==========
                 var allItems = new List<ParamItem>();
 
                 int ci = 0;
                 foreach (var mp in _viewModel.MonitoredParameters)
+                {
+                    // 跳过 DeviceId 为空的脏数据,避免错乱分组
+                    if (string.IsNullOrEmpty(mp.DeviceId))
+                    {
+                        _logger.LogWarning("监控参数 DeviceId 为空,已跳过: {Key}", mp.Key);
+                        continue;
+                    }
+
+                    // 用映射里的最新 DeviceName,而不是 mp.DeviceName(可能过时)
+                    var displayDeviceName = deviceNameMap.TryGetValue(mp.DeviceId, out var dn1)
+                        ? dn1
+                        : (mp.DeviceName ?? "未知设备");
+
                     allItems.Add(new ParamItem
                     {
                         Key = mp.Key,
-                        DeviceName = mp.DeviceName ?? "Unknown",
+                        DeviceId = mp.DeviceId,
+                        DeviceName = displayDeviceName,
                         ShortName = GetShortName(mp.CommandName, mp.ParameterName),
                         IsMonitored = true,
                         Monitored = mp,
                         ColorIdx = ci++,
                         Color = mp.Color
                     });
+                }
 
                 var mKeys = new HashSet<string>(_viewModel.MonitoredParameters.Select(p => p.Key));
                 foreach (var ap in _viewModel.AvailableParameters)
-                    if (!mKeys.Contains(ap.Key))
-                        allItems.Add(new ParamItem
-                        {
-                            Key = ap.Key,
-                            DeviceName = ap.DeviceName ?? "Unknown",
-                            ShortName = GetShortName(ap.CommandName, ap.ParameterName),
-                            IsMonitored = false,
-                            Available = ap
-                        });
-
-                foreach (var grp in allItems.GroupBy(p => p.DeviceName))
                 {
-                    // 设备分组标题
+                    if (mKeys.Contains(ap.Key)) continue;
+                    if (string.IsNullOrEmpty(ap.DeviceId)) continue;
+
+                    var displayDeviceName = deviceNameMap.TryGetValue(ap.DeviceId, out var dn2)
+                        ? dn2
+                        : (ap.DeviceName ?? "未知设备");
+
+                    allItems.Add(new ParamItem
+                    {
+                        Key = ap.Key,
+                        DeviceId = ap.DeviceId,
+                        DeviceName = displayDeviceName,
+                        ShortName = GetShortName(ap.CommandName, ap.ParameterName),
+                        IsMonitored = false,
+                        Available = ap
+                    });
+                }
+
+                // ========== 第3步:严格按 DeviceId 分组 ==========
+                var deviceGroups = allItems
+                    .GroupBy(p => p.DeviceId)            // ← DeviceId 已保证非空,直接分组
+                    .OrderBy(g => g.First().DeviceName); // 按设备名排序展示
+
+                foreach (var grp in deviceGroups)
+                {
+                    // 分组标题:用映射中的最新设备名
+                    var displayName = deviceNameMap.TryGetValue(grp.Key, out var dn)
+                        ? dn
+                        : (grp.First().DeviceName ?? "未知设备");
+
                     ParameterListPanel.Children.Add(new TextBlock
                     {
-                        Text = grp.Key,
+                        Text = displayName,
                         FontSize = 9,
                         Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF)),
                         Margin = new Thickness(12, 8, 12, 2)
@@ -127,11 +181,17 @@ namespace MaxChemical.Modules.Designer.Views
                         Margin = new Thickness(12, 0, 12, 4)
                     });
 
-                    foreach (var item in grp)
+                    // 组内参数按 命令.参数 名排序,可读性更好
+                    foreach (var item in grp.OrderBy(x => x.ShortName))
+                    {
                         ParameterListPanel.Children.Add(CreateRow(item));
+                    }
                 }
             }
-            catch (Exception ex) { _logger.LogError(ex, "构建参数列表失败"); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "构建参数列表失败");
+            }
         }
 
         private string GetShortName(string cmd, string param)
@@ -270,7 +330,11 @@ namespace MaxChemical.Modules.Designer.Views
 
         private class ParamItem
         {
-            public string Key, DeviceName, ShortName, Color;
+            public string Key { get; set; }
+            public string DeviceName { get; set; }
+            public string ShortName { get; set; }
+            public string Color { get; set; }
+            public string DeviceId { get; set; }       // ★ 新增
             public bool IsMonitored;
             public MonitoredParameter Monitored;
             public AvailableParameter Available;

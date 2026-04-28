@@ -207,15 +207,25 @@ namespace MaxChemical.Modules.DOE.Services
             string? stopReason = null;
             int completedCount = 0;
 
+            // ★ 修改: 仅"已绑定流程参数"的因子放入注入字典,
+            //   未绑定的因子(类别因子 + 手动操作的连续因子)由操作员按矩阵值手动调节
             var factorNameToParamId = new Dictionary<string, string>();
+            var manualFactorNames = new HashSet<string>();
             if (_currentBatch?.Factors != null)
             {
                 foreach (var factor in _currentBatch.Factors)
                 {
-                    string paramId = !string.IsNullOrEmpty(factor.SourceNodeId) && !string.IsNullOrEmpty(factor.SourceParamName)
-                        ? $"{factor.SourceNodeId}.{factor.SourceParamName}"
-                        : factor.FactorName;
-                    factorNameToParamId[factor.FactorName] = paramId;
+                    bool isBound = !string.IsNullOrEmpty(factor.SourceNodeId)
+                                && !string.IsNullOrEmpty(factor.SourceParamName);
+                    if (isBound)
+                    {
+                        factorNameToParamId[factor.FactorName] =
+                            $"{factor.SourceNodeId}.{factor.SourceParamName}";
+                    }
+                    else
+                    {
+                        manualFactorNames.Add(factor.FactorName);
+                    }
                 }
             }
 
@@ -257,13 +267,21 @@ namespace MaxChemical.Modules.DOE.Services
                             else if (kv.Value is long l) factorValues[kv.Key] = l;
                             else if (double.TryParse(kv.Value?.ToString(), out var parsed)) factorValues[kv.Key] = parsed;
                         }
-
                         var injectParams = new Dictionary<string, object>();
-
                         foreach (var kv in factorValues)
                         {
-                            var paramId = factorNameToParamId.TryGetValue(kv.Key, out var pid) ? pid : kv.Key;
-                            injectParams[paramId] = kv.Value;
+                            // ★ 修改: 跳过未绑定因子(手动操作),由操作员按矩阵值手动调节
+                            if (manualFactorNames.Contains(kv.Key))
+                            {
+                                _logger.LogDebug("第 {Index} 组: 连续因子 {Name}={Value}(手动操作,不注入)",
+                                    executedOffset + i + 1, kv.Key, kv.Value);
+                                continue;
+                            }
+                            if (factorNameToParamId.TryGetValue(kv.Key, out var pid))
+                            {
+                                injectParams[pid] = kv.Value;
+                            }
+                            // 既不在 manual 也不在已绑定字典 → 因子定义异常,跳过
                         }
 
                         foreach (var catName in categoricalFactorNames)

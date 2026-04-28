@@ -5,21 +5,21 @@
              xmlns:infrastructure="clr-namespace:MaxChemical.Infrastructure.Constants;assembly=MaxChemical.Infrastructure"
              xmlns:converters="clr-namespace:MaxChemical.Shell.Converters"
              prism:ViewModelLocator.AutoWireViewModel="True"
-             Background="White">
+             Background="{StaticResource Bg.PrimaryBrush}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:DebugBooleanToVisibilityConverter x:Key="DebugBoolToVisibilityConverter"/>
 
-        <!-- 左侧按钮样式 (左圆角) -->
+        <!-- 左侧标签按钮(左圆角)— 品牌深红边框 + 白底 -->
         <Style x:Key="LeftTabButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="36"/>
             <Setter Property="Width" Value="183"/>
             <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#186DF5"/>
+            <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#186DF5"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -39,7 +39,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#E5F3FF"/>
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Brand.PrimaryLightBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -47,15 +47,15 @@
             </Setter>
         </Style>
 
-        <!-- 右侧按钮样式 (右圆角) -->
+        <!-- 右侧标签按钮(右圆角)— 品牌深红边框 + 白底 -->
         <Style x:Key="RightTabButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="36"/>
             <Setter Property="Width" Value="183"/>
             <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#186DF5"/>
+            <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#186DF5"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -75,7 +75,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#E5F3FF"/>
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource Brand.PrimaryLightBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -83,9 +83,10 @@
             </Setter>
         </Style>
 
+        <!-- 动作按钮(目前未在用,但保留并改用品牌色) -->
         <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#007ACC"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{StaticResource Brand.PrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Margin" Value="2,0"/>
@@ -102,10 +103,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#106EBE"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#005A9E"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -121,30 +122,27 @@
         </Grid.RowDefinitions>
 
         <!-- 标签页头部 -->
-        <Grid Grid.Row="0" Background="White">
+        <Grid Grid.Row="0" Background="{StaticResource Bg.PrimaryBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
-                <!-- 标签按钮 -->
                 <ColumnDefinition Width="*"/>
-                <!-- 项目名称（居中）-->
                 <ColumnDefinition Width="Auto"/>
-                <!-- 查看变量管理 -->
             </Grid.ColumnDefinitions>
 
-            <!-- 左侧：标签页按钮（Column 0）-->
+            <!-- 左侧:标签页按钮 -->
             <StackPanel Grid.Column="0" 
-                Orientation="Horizontal" 
-                HorizontalAlignment="Left">
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Left">
 
                 <Button Content="{Binding ProcessDesignerTabText}"
-                Command="{Binding SelectProcessDesignerCommand}">
+                        Command="{Binding SelectProcessDesignerCommand}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource LeftTabButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsProcessDesignerSelected}" Value="True">
-                                    <Setter Property="Background" Value="#186DF5"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                    <Setter Property="BorderBrush" Value="#186DF5"/>
+                                    <Setter Property="Background" Value="{StaticResource Brand.PrimaryBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
                                     <Setter Property="Panel.ZIndex" Value="100"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -153,14 +151,14 @@
                 </Button>
 
                 <Button Content="{Binding FlowDesignerTabText}"
-                Command="{Binding SelectFlowDesignerCommand}">
+                        Command="{Binding SelectFlowDesignerCommand}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource RightTabButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsFlowDesignerSelected}" Value="True">
-                                    <Setter Property="Background" Value="#186DF5"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                    <Setter Property="BorderBrush" Value="#186DF5"/>
+                                    <Setter Property="Background" Value="{StaticResource Brand.PrimaryBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
                                     <Setter Property="Panel.ZIndex" Value="100"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -170,45 +168,45 @@
 
             </StackPanel>
 
-            <!-- 中间：项目名称 -->
+            <!-- 中间:项目名称 -->
             <TextBlock Grid.Column="1"
-           Text="{Binding ProjectName}"
-           HorizontalAlignment="Center"
-           VerticalAlignment="Center"
-           FontSize="14"
-           FontWeight="Medium"
-           Foreground="#333333"
-           TextTrimming="CharacterEllipsis"
-           MaxWidth="400"
-           ToolTip="{Binding ProjectName}"
-           Visibility="{Binding IsProjectNameVisible, 
-                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+                       Text="{Binding ProjectName}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       FontWeight="Medium"
+                       Foreground="{StaticResource Text.PrimaryBrush}"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="400"
+                       ToolTip="{Binding ProjectName}"
+                       Visibility="{Binding IsProjectNameVisible, 
+                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-            <!-- 右侧：查看变量管理（Column 2）-->
+            <!-- 右侧:查看变量管理 -->
             <StackPanel Grid.Column="2"
-                Orientation="Horizontal" 
-                Margin="0,0,25,0"
-                VerticalAlignment="Center"
-                Visibility="{Binding IsVariableManagementVisible, 
-                             Converter={StaticResource BoolToVisibilityConverter}}">
+                        Orientation="Horizontal" 
+                        Margin="0,0,25,0"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding IsVariableManagementVisible, 
+                                     Converter={StaticResource BoolToVisibilityConverter}}">
 
                 <Button Content="{Binding VariableManagementTabText}"
-                Command="{Binding ViewVariableManagementCommand}"
-                Background="Transparent"
-                BorderThickness="0"
-                Foreground="#488EFF"
-                FontSize="16"
-                Padding="0"
-                Cursor="Hand"
-                VerticalAlignment="Center">
+                        Command="{Binding ViewVariableManagementCommand}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="{StaticResource Brand.PrimaryBrush}"
+                        FontSize="16"
+                        Padding="0"
+                        Cursor="Hand"
+                        VerticalAlignment="Center">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <ContentPresenter HorizontalAlignment="Center" 
-                                      VerticalAlignment="Center"
-                                      Content="{TemplateBinding Content}"/>
+                                              VerticalAlignment="Center"
+                                              Content="{TemplateBinding Content}"/>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Opacity" Value="0.8"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -217,13 +215,13 @@
 
                 <!-- 展开折叠箭头 -->
                 <Path Data="M0,0 L5.38,4.46 L0,8.92"
-              Stroke="#488EFF"
-              StrokeThickness="1"
-              Fill="Transparent"
-              Width="5.38"
-              Height="8.92"
-              VerticalAlignment="Center"
-              Margin="10,0,0,0">
+                      Stroke="{StaticResource Brand.PrimaryBrush}"
+                      StrokeThickness="1"
+                      Fill="Transparent"
+                      Width="5.38"
+                      Height="8.92"
+                      VerticalAlignment="Center"
+                      Margin="10,0,0,0">
                     <Path.Style>
                         <Style TargetType="Path">
                             <Setter Property="RenderTransform">
@@ -247,16 +245,16 @@
             </StackPanel>
 
         </Grid>
+
         <!-- 标签页内容区域 -->
         <Border Grid.Row="1" 
-                Background="White"
-                BorderBrush="#CCCCCC" 
-                >
+                Background="{StaticResource Bg.PrimaryBrush}"
+                BorderBrush="{StaticResource Border.DefaultBrush}">
 
             <Grid Margin="-2 6 14 16">
                 <!-- 工艺设计器内容 -->
                 <Border x:Name="ProcessDesignerBorder" 
-                        Background="White">
+                        Background="{StaticResource Bg.PrimaryBrush}">
                     <ContentControl prism:RegionManager.RegionName="{x:Static infrastructure:RegionNames.ProcessDesignerRegion}"/>
                     <Border.Visibility>
                         <Binding Path="IsProcessDesignerSelected" 
@@ -267,7 +265,7 @@
 
                 <!-- 流程设计器内容 -->
                 <Border x:Name="FlowDesignerBorder" 
-                        Background="White">
+                        Background="{StaticResource Bg.PrimaryBrush}">
                     <ContentControl prism:RegionManager.RegionName="{x:Static infrastructure:RegionNames.FlowDesignerRegion}"/>
                     <Border.Visibility>
                         <Binding Path="IsFlowDesignerSelected" 

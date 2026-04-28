@@ -197,34 +197,62 @@
                    Opacity="0.6"/>
 
         <!-- ═══════════════ 锚点 ═══════════════ -->
-        <Ellipse x:Name="TopLengthAnchor" Canvas.Left="-6" Canvas.Top="24" Width="12" Height="12" Fill="Orange" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="SizeWE">
+        <!-- 注:Canvas.Left/Top 由 UpdateAnchorPositions() 在运行时设置,这里不写死 -->
+
+        <Ellipse x:Name="TopLengthAnchor"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeWE">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整上段水平长度"/>
             </Ellipse.ToolTip>
         </Ellipse>
-        <Ellipse x:Name="BottomLengthAnchor" Canvas.Left="164" Canvas.Top="114" Width="12" Height="12" Fill="Orange" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="SizeWE">
+
+        <Ellipse x:Name="BottomLengthAnchor"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeWE">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整下段水平长度"/>
             </Ellipse.ToolTip>
         </Ellipse>
-        <Ellipse x:Name="VerticalOffsetAnchor" Canvas.Left="82" Canvas.Top="64" Width="12" Height="12" Fill="Orange" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="SizeNS">
+
+        <Ellipse x:Name="VerticalOffsetAnchor"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeNS">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整垂直高度差"/>
             </Ellipse.ToolTip>
         </Ellipse>
-        <Ellipse x:Name="PipeWidthAnchor" Canvas.Left="33" Canvas.Top="44" Width="12" Height="12" Fill="Orange" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="SizeNS">
+
+        <Ellipse x:Name="PipeWidthAnchor"
+                 Width="12" Height="12"
+                 Fill="Orange" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="SizeNS">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整管道宽度"/>
             </Ellipse.ToolTip>
         </Ellipse>
-        <Ellipse x:Name="RotateAnchor" Canvas.Left="84" Canvas.Top="-30" Width="12" Height="12" Fill="#4CAF50" Stroke="White" StrokeThickness="2" Opacity="0" Cursor="Hand">
+
+        <Ellipse x:Name="RotateAnchor"
+                 Width="12" Height="12"
+                 Fill="#4CAF50" Stroke="White" StrokeThickness="2"
+                 Opacity="0" Cursor="Hand">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动旋转 (按住Shift=15°步进)"/>
             </Ellipse.ToolTip>
         </Ellipse>
-        <Line x:Name="RotateAnchorLine" X1="90" Y1="0" X2="90" Y2="-24" Stroke="Orange" StrokeThickness="1" StrokeDashArray="2,2" Opacity="0"/>
-        <Border x:Name="RotationLabel" Canvas.Left="70" Canvas.Top="-50" Background="#CC000000" CornerRadius="3" Padding="5,2" Visibility="Collapsed">
-            <TextBlock x:Name="RotationText" Foreground="White" FontSize="11" Text="0°"/>
+
+        <Line x:Name="RotateAnchorLine"
+              Stroke="Orange" StrokeThickness="1"
+              StrokeDashArray="2,2" Opacity="0"/>
+
+        <Border x:Name="RotationLabel"
+                Background="#CC000000" CornerRadius="3" Padding="5,2"
+                Visibility="Collapsed">
+            <TextBlock x:Name="RotationText"
+                       Foreground="White" FontSize="11" Text="0°"/>
         </Border>
 
         <!-- ═══════════════ 选中高亮边框 ═══════════════ -->

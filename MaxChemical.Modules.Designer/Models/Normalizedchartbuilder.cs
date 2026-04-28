@@ -208,75 +208,92 @@ namespace MaxChemical.Modules.Designer.Models
         /// 向模型添加一条归一化曲线（显示真实值 + 归一化%）
         /// </summary>
         public static LineSeries AddNormalizedSeries(
-            PlotModel model,
-            NormalizedParameterInfo info,
-            IEnumerable<(DateTime timestamp, double value)> dataPoints)
+     PlotModel model,
+     NormalizedParameterInfo info,
+     IEnumerable<(DateTime timestamp, double value)> dataPoints)
         {
-            var markerFill = OxyColor.FromArgb(200, info.LineColor.R, info.LineColor.G, info.LineColor.B);
             var pointsList = dataPoints.ToList();
+            if (pointsList.Count == 0) return null;
 
+            // ═══ 自动量程(带"最小有效跨度"保护)═══
+            double minR = info.MinRange;
+            double maxR = info.MaxRange;
+            bool useAutoRange = Math.Abs(maxR - minR) < 1e-6 || maxR <= minR;
+
+            if (useAutoRange)
+            {
+                var values = pointsList.Select(p => p.value).ToList();
+                double dataMin = values.Min();
+                double dataMax = values.Max();
+                double dataRange = dataMax - dataMin;
+                double absMax = Math.Max(Math.Abs(dataMin), Math.Abs(dataMax));
+
+                // 最小有效跨度:绝对值的 5%,至少 0.1
+                double minMeaningfulRange = Math.Max(absMax * 0.05, 0.1);
+
+                if (dataRange < minMeaningfulRange)
+                {
+                    // 数据稳定,人为撑开一个有意义的窗口
+                    double center = (dataMin + dataMax) / 2.0;
+                    minR = center - minMeaningfulRange;
+                    maxR = center + minMeaningfulRange;
+                }
+                else
+                {
+                    // 数据有变化,留 20% 边距
+                    minR = dataMin - dataRange * 0.2;
+                    maxR = dataMax + dataRange * 0.2;
+                }
+
+                info.MinRange = minR;
+                info.MaxRange = maxR;
+            }
+
+            var markerFill = OxyColor.FromArgb(200, info.LineColor.R, info.LineColor.G, info.LineColor.B);
             var series = new LineSeries
             {
                 Title = info.DisplayName,
                 Color = info.LineColor,
                 StrokeThickness = 1.5,
-                LineStyle = info.LineStyle,
-                CanTrackerInterpolatePoints = false, // Tracker 只吸附到真实数据点
-                // 数据点标记
-                MarkerType = MarkerType.Circle,
+                LineStyle = LineStyle.Solid,                                       // ★ 数据线一律实线
+                CanTrackerInterpolatePoints = false,
+                MarkerType = pointsList.Count > 80 ? MarkerType.None : MarkerType.Circle,
                 MarkerSize = 2.5,
                 MarkerFill = markerFill,
                 MarkerStroke = OxyColors.White,
                 MarkerStrokeThickness = 0.8,
             };
 
-            // 存储真实值用于 Tracker 显示
             var realValues = new List<double>();
-
             foreach (var (timestamp, value) in pointsList)
             {
-                double normalized = Normalize(value, info.MinRange, info.MaxRange);
-                series.Points.Add(new DataPoint(
-                    DateTimeAxis.ToDouble(timestamp),
-                    normalized));
+                double normalized = Normalize(value, minR, maxR);
+                // ★ 截断兜底,防止离群值画出垂直暴跳
+                normalized = Math.Max(-20, Math.Min(120, normalized));
+
+                series.Points.Add(new DataPoint(DateTimeAxis.ToDouble(timestamp), normalized));
                 realValues.Add(value);
             }
 
-            // 自定义 Tracker 显示内容
-            series.TrackerFormatString = "{Tag}";
-            series.Tag = realValues.ToArray();
-
-            // 用 TrackerHitResult 自定义显示
-            series.TrackerFormatString = "placeholder"; // 会被下面的事件覆盖
-
-            // 通过覆盖 GetNearestPoint 后的 tracker 文本
-            // OxyPlot 最可靠的方式：自定义 TrackerHitResult
+            // ... Tracker 逻辑保持不变
             var displayName = info.DisplayName;
             var unit = info.Unit ?? "";
-            var minR = info.MinRange;
-            var maxR = info.MaxRange;
             var realValuesArray = realValues.ToArray();
-
-            series.MouseDown += (s, e) => { }; // 保持交互
-
-            // 设置自定义格式：通过索引查找真实值
             series.TrackerFormatString = $"{displayName}\n时间: {{2:HH:mm:ss}}\n归一化: {{4:F1}}%";
 
             model.Series.Add(series);
 
-            // 注册 TrackerChanged 事件来动态修改 tracker 文本
             model.TrackerChanged += (s, e) =>
             {
                 if (e.HitResult?.Series != series) return;
                 if (e.HitResult == null) return;
 
-                // 找到最近的数据点索引
-                var hitIndex = e.HitResult.Index;
-                int idx = (int)Math.Round(hitIndex);
+                int idx = (int)Math.Round(e.HitResult.Index);
                 if (idx >= 0 && idx < realValuesArray.Length)
                 {
                     double realVal = realValuesArray[idx];
                     double normVal = Normalize(realVal, minR, maxR);
+                    normVal = Math.Max(-20, Math.Min(120, normVal));
                     var time = DateTimeAxis.ToDateTime(e.HitResult.DataPoint.X);
 
                     e.HitResult.Text = $"{displayName}\n" +
@@ -288,7 +305,6 @@ namespace MaxChemical.Modules.Designer.Models
 
             return series;
         }
-
         /// <summary>
         /// 预定义的曲线颜色（靛蓝主题色系）
         /// </summary>

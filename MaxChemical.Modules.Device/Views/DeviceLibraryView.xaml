@@ -9,12 +9,8 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:BoolToAngleConverter x:Key="BoolToAngleConverter"/>
-        <!--  添加新的转换器 -->
         <converters:DeviceToControlConverter x:Key="DeviceToControlConverter"/>
         <converters:IsCustomControlConverter x:Key="IsCustomControlConverter"/>
-        <!-- 定义颜色资源 -->
-        <Color x:Key="PrimaryColor">#E60012</Color>
-        <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
 
         <!-- 搜索框样式 -->
         <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
@@ -24,7 +20,7 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background" Value="#EBEBEB"/>
+            <Setter Property="Background" Value="{StaticResource Bg.TertiaryBrush}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -35,7 +31,6 @@
                                 CornerRadius="3"
                                 x:Name="SearchBorder">
                             <Grid>
-                                <!-- 搜索图标 -->
                                 <Image Source="pack://siteoforigin:,,,/Resources/Icon/Search.png"
                                        Width="12"
                                        Height="12"
@@ -47,9 +42,8 @@
                                               Margin="{TemplateBinding Padding}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
 
-                                <!-- 使用绑定的搜索提示文本 -->
                                 <TextBlock Text="{Binding SearchPlaceholder}"
-                                           Foreground="#999999"
+                                           Foreground="{StaticResource Text.TertiaryBrush}"
                                            FontSize="{TemplateBinding FontSize}"
                                            Margin="{TemplateBinding Padding}"
                                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -59,11 +53,9 @@
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <!-- 当有焦点时隐藏提示文字 -->
                             <Trigger Property="IsFocused" Value="True">
                                 <Setter TargetName="WatermarkText" Property="Visibility" Value="Collapsed"/>
                             </Trigger>
-                            <!-- 当有文字内容时隐藏提示文字 -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsFocused" Value="False"/>
@@ -72,7 +64,6 @@
                                     <Setter TargetName="WatermarkText" Property="Visibility" Value="Collapsed"/>
                                 </MultiTrigger.Setters>
                             </MultiTrigger>
-                            <!-- 当没有焦点且文字为空时显示提示文字 -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsFocused" Value="False"/>
@@ -93,7 +84,7 @@
             </Setter>
         </Style>
 
-        <!-- 添加透明按钮样式 -->
+        <!-- 透明按钮样式 -->
         <Style x:Key="TransparentButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -111,7 +102,7 @@
             </Setter>
         </Style>
 
-        <!-- 添加悬停放大图片样式 -->
+        <!-- 悬停放大图片样式 -->
         <Style x:Key="HoverScaleImageStyle" TargetType="Image">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
@@ -140,7 +131,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="White">
+    <Grid Background="{StaticResource Bg.PrimaryBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -158,6 +149,7 @@
                         Command="{Binding ClearSearchCommand}"
                         Background="Transparent"
                         BorderThickness="0"
+                        Foreground="{StaticResource Text.TertiaryBrush}"
                         Margin="5,0"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Right"
@@ -174,26 +166,22 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- 左侧图标和标题 -->
                     <StackPanel Grid.Column="0" 
                                 Orientation="Horizontal" 
                                 VerticalAlignment="Center">
-                        <!-- 设备库图标 -->
                         <Image Source="pack://siteoforigin:,,,/Resources/Icon/DeviceLibrary.png" 
                                Width="20" 
                                Height="16" 
                                Margin="0,0,16,0"
                                VerticalAlignment="Center"/>
 
-                        <!-- 标题文字 - 使用绑定 -->
                         <TextBlock Text="{Binding DeviceLibraryTitle}" 
                                    FontSize="16" 
                                    FontWeight="Medium"
-                                   Foreground="#525252"
+                                   Foreground="{StaticResource Text.PrimaryBrush}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- 右侧菜单图标 -->
                     <Button Grid.Column="2"
                             Style="{StaticResource TransparentButtonStyle}"
                             Width="24"
@@ -215,7 +203,7 @@
             </Border>
 
             <!-- 分割线 -->
-            <Rectangle Fill="#E0E0E0" 
+            <Rectangle Fill="{StaticResource Border.DefaultBrush}" 
                        Height="1" 
                        Margin="0,14,20,0" 
                        HorizontalAlignment="Stretch"/>
@@ -232,7 +220,7 @@
                     <DataTemplate>
                         <StackPanel>
                             <!-- 分组标题区域 -->
-                            <Border Background="White" Padding="16,12,38,12">
+                            <Border Background="{StaticResource Bg.PrimaryBrush}" Padding="16,12,38,12">
                                 <ToggleButton Background="Transparent"
                                               BorderThickness="0"
                                               IsChecked="{Binding IsExpanded}"
@@ -270,7 +258,7 @@
                                         </Style>
                                     </ToggleButton.Style>
 
-                                    <!-- ToggleButton内容 -->
+                                    <!-- ToggleButton 内容 -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -278,28 +266,25 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- 左侧图标和标题 -->
                                         <StackPanel Grid.Column="0" 
                                                     Orientation="Horizontal" 
                                                     VerticalAlignment="Center">
-                                            <!-- 分组图标 -->
                                             <Image Source="{Binding IconPath}"
                                                    Width="20"
                                                    Height="20"
                                                    Margin="4,0,18,0"
                                                    VerticalAlignment="Center"/>
 
-                                            <!-- 分组名称 -->
                                             <TextBlock Text="{Binding DisplayName}" 
                                                        FontSize="16" 
-                                                       Foreground="#333333"
+                                                       Foreground="{StaticResource Text.PrimaryBrush}"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
 
-                                        <!-- 右侧展开/收起图标 -->
+                                        <!-- 展开/收起箭头 -->
                                         <Path Grid.Column="2"
                                               Data="M0,0 L5.38,4.46 L0,8.92"
-                                              Stroke="#000000"
+                                              Stroke="{StaticResource Text.SecondaryBrush}"
                                               StrokeThickness="1"
                                               Fill="Transparent"
                                               Width="5.38"
@@ -316,7 +301,7 @@
                             </Border>
 
                             <!-- 设备内容区域 -->
-                            <Border Background="White"
+                            <Border Background="{StaticResource Bg.PrimaryBrush}"
                                     Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"
                                     Padding="40,5,40,5">
                                 <ItemsControl ItemsSource="{Binding Devices}">
@@ -380,7 +365,6 @@
                                                         <Border.Style>
                                                             <Style TargetType="Border">
                                                                 <Style.Triggers>
-                                                                    <!-- 当父级Button鼠标悬停时放大图标 -->
                                                                     <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
                                                                         <DataTrigger.EnterActions>
                                                                             <BeginStoryboard>
@@ -408,12 +392,11 @@
                                                         </Border.Style>
                                                         <!-- 设备图片/控件容器 -->
                                                         <Grid>
-                                                            <!-- 自定义控件（锥形瓶等） -->
                                                             <ContentControl Content="{Binding Converter={StaticResource DeviceToControlConverter}}"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center">
+                                                                            HorizontalAlignment="Center"
+                                                                            VerticalAlignment="Center"
+                                                                            HorizontalContentAlignment="Center"
+                                                                            VerticalContentAlignment="Center">
                                                                 <ContentControl.Style>
                                                                     <Style TargetType="ContentControl">
                                                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -426,11 +409,10 @@
                                                                 </ContentControl.Style>
                                                             </ContentControl>
 
-                                                            <!-- 普通图片 -->
                                                             <Image Stretch="Uniform"
-           Margin="2"
-           HorizontalAlignment="Center"
-           VerticalAlignment="Center">
+                                                                   Margin="2"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center">
                                                                 <Image.Source>
                                                                     <BitmapImage UriSource="{Binding ImageLocation}"/>
                                                                 </Image.Source>
@@ -438,11 +420,9 @@
                                                                     <Style TargetType="Image">
                                                                         <Setter Property="Visibility" Value="Visible"/>
                                                                         <Style.Triggers>
-                                                                            <!-- 如果是自定义控件，隐藏图片 -->
                                                                             <DataTrigger Binding="{Binding Converter={StaticResource IsCustomControlConverter}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                                             </DataTrigger>
-                                                                            <!-- 如果 ImageLocation 为空，隐藏图片 -->
                                                                             <DataTrigger Binding="{Binding ImageLocation}" Value="{x:Null}">
                                                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                                             </DataTrigger>
@@ -459,7 +439,7 @@
                                                     <!-- 设备名称 -->
                                                     <TextBlock Text="{Binding Name}"
                                                                FontSize="12"
-                                                               Foreground="#666666"
+                                                               Foreground="{StaticResource Text.SecondaryBrush}"
                                                                TextAlignment="Center"
                                                                TextWrapping="Wrap"
                                                                MaxWidth="80"
@@ -472,8 +452,8 @@
                                 </ItemsControl>
                             </Border>
 
-                            <!-- 添加分组分割线 -->
-                            <Rectangle Fill="#E0E0E0" 
+                            <!-- 分组分割线 -->
+                            <Rectangle Fill="{StaticResource Border.DefaultBrush}" 
                                        Height="1" 
                                        Margin="20,0,25,0" 
                                        HorizontalAlignment="Stretch"/>

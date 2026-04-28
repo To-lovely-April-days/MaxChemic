@@ -160,30 +160,26 @@ namespace ConicalFlask_ModbusTCP
                 }),
                 HelpText = "锥形瓶材质"
             });
-            Parameters.Variables.Add(new StringParameter("LiquidName", "")
+            Parameters.Variables.Add(new StringParameter("LiquidName", "HNO₃")
             {
                 Options = new ObservableCollection<string>(new List<string>()
     {
-        "", "HCl", "NaOH", "H₂SO₄", "CuSO₄", "NaCl", "C₂H₅OH", "H₂O"
+        "HNO₃",        // 1 路 - 硝化剂
+        "H₂SO₄",       // 2 路 - 脱水剂
+        "Fe+HCl"       // 3 路 - 还原剂
     }),
-                HelpText = "液体名称标注（显示在瓶体旁，留空则不显示）"
+                HelpText = "液体名称标注(硝化还原反应三路:硝酸/硫酸/还原剂)"
             });
-            Parameters.Variables.Add(new StringParameter("LiquidColor", "蓝色")
+
+            Parameters.Variables.Add(new StringParameter("LiquidColor", "黄色")
             {
                 Options = new ObservableCollection<string>(new List<string>()
     {
-        "蓝色",      // 默认 - CuSO₄溶液色
-        "淡蓝色",    // 稀酸/碱
-        "绿色",      // FeSO₄/CuCl₂
-        "紫色",      // KMnO₄
-        "橙色",      // K₂Cr₂O₇
-        "红色",      // 品红/酚酞碱性
-        "黄色",      // FeCl₃
-        "青色",      // Cu(NH₃)₄
-        "粉色",      // 稀高锰酸钾
-        "无色"       // 透明液体（水、乙醇等）
+        "黄色",        // HNO₃ - 浓硝酸放置后微黄
+        "淡蓝色",      // H₂SO₄ - 工业惯用色,标识脱水剂
+        "绿色"         // Fe+HCl - Fe²⁺ 真实颜色
     }),
-                HelpText = "液体颜色（用于画布上的锥形瓶显示）"
+                HelpText = "液体颜色(对应液体名称:硝酸黄、硫酸淡蓝、还原液绿)"
             });
             // 锥形瓶是被动设备，不需要初始化命令
             InfoLog("锥形瓶设备初始化完成 - 被动容器设备");

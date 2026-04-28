@@ -77,85 +77,68 @@
         </Canvas>
 
         <!-- ═══════════════ 选中高亮边框 ═══════════════ -->
-        <!-- 选中描边：贴合管道本体，尺寸由 UpdatePipeGeometry 动态同步 -->
         <Rectangle x:Name="SelectionBorder"
-                   Canvas.Left="3.2" Canvas.Top="14.8"
-                   Width="85.9" Height="16.6"
-                   Stroke="#378ADD" StrokeThickness="1.25"
-                   Fill="Transparent"
-                   RadiusX="2" RadiusY="2"
-                   IsHitTestVisible="False"
-                   Visibility="Collapsed"/>
+           Width="85.9" Height="16.6"
+           Stroke="#378ADD" StrokeThickness="1.25"
+           Fill="Transparent"
+           RadiusX="2" RadiusY="2"
+           IsHitTestVisible="False"
+           Visibility="Collapsed"/>
 
-        <!-- ═══════════════ 左侧锚点 ═══════════════ -->
         <Ellipse x:Name="LeftAnchor"
-                 Canvas.Left="-6" Canvas.Top="16.5"
-                 Width="12" Height="12"
-                 Fill="Orange" Stroke="White" StrokeThickness="2"
-                 Opacity="0" Cursor="SizeWE">
+         Width="12" Height="12"
+         Fill="Orange" Stroke="White" StrokeThickness="2"
+         Opacity="0" Cursor="SizeWE">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整长度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- ═══════════════ 右侧锚点 ═══════════════ -->
         <Ellipse x:Name="RightAnchor"
-                 Canvas.Left="94" Canvas.Top="16.5"
-                 Width="12" Height="12"
-                 Fill="Orange" Stroke="White" StrokeThickness="2"
-                 Opacity="0" Cursor="SizeWE">
+         Width="12" Height="12"
+         Fill="Orange" Stroke="White" StrokeThickness="2"
+         Opacity="0" Cursor="SizeWE">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整长度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- ═══════════════ 上侧锚点 ═══════════════ -->
         <Ellipse x:Name="TopAnchor"
-                 Canvas.Left="44" Canvas.Top="4"
-                 Width="12" Height="12"
-                 Fill="Orange" Stroke="White" StrokeThickness="2"
-                 Opacity="0" Cursor="SizeNS">
+         Width="12" Height="12"
+         Fill="Orange" Stroke="White" StrokeThickness="2"
+         Opacity="0" Cursor="SizeNS">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整宽度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- ═══════════════ 下侧锚点 ═══════════════ -->
         <Ellipse x:Name="BottomAnchor"
-                 Canvas.Left="44" Canvas.Top="30"
-                 Width="12" Height="12"
-                 Fill="Orange" Stroke="White" StrokeThickness="2"
-                 Opacity="0" Cursor="SizeNS">
+         Width="12" Height="12"
+         Fill="Orange" Stroke="White" StrokeThickness="2"
+         Opacity="0" Cursor="SizeNS">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动调整宽度"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- ═══════════════ 旋转锚点 ═══════════════ -->
         <Ellipse x:Name="RotateAnchor"
-                 Canvas.Left="44" Canvas.Top="-30"
-                 Width="12" Height="12"
-                 Fill="#4CAF50" Stroke="White" StrokeThickness="2"
-                 Opacity="0" Cursor="Hand">
+         Width="12" Height="12"
+         Fill="#4CAF50" Stroke="White" StrokeThickness="2"
+         Opacity="0" Cursor="Hand">
             <Ellipse.ToolTip>
                 <ToolTip Content="拖动旋转 (按住Shift=15°步进)"/>
             </Ellipse.ToolTip>
         </Ellipse>
 
-        <!-- ═══════════════ 旋转辅助线 ═══════════════ -->
         <Line x:Name="RotateAnchorLine"
-              X1="50" Y1="0" X2="50" Y2="-24"
-              Stroke="Orange" StrokeThickness="1"
-              StrokeDashArray="2,2" Opacity="0"/>
+      Stroke="Orange" StrokeThickness="1"
+      StrokeDashArray="2,2" Opacity="0"/>
 
-        <!-- ═══════════════ 旋转角度标签 ═══════════════ -->
         <Border x:Name="RotationLabel"
-                Canvas.Left="34" Canvas.Top="-50"
-                Background="#CC000000" CornerRadius="3" Padding="5,2"
-                Visibility="Collapsed">
+        Background="#CC000000" CornerRadius="3" Padding="5,2"
+        Visibility="Collapsed">
             <TextBlock x:Name="RotationText"
-                       Foreground="White" FontSize="11" Text="0°"/>
+               Foreground="White" FontSize="11" Text="0°"/>
         </Border>
-
     </Canvas>
 </UserControl>

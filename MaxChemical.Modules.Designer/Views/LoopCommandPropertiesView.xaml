@@ -11,6 +11,9 @@
     <UserControl.Resources>
         <local:LoopTypeEqualityConverter x:Key="LoopTypeEqConverter"/>
         <local:ComparisonOperatorEqualityConverter x:Key="OpEqConverter"/>
+        <local:ExecutionModeEqualityConverter x:Key="ExecModeEqConverter"/>
+        <local:ToleranceModeEqualityConverter x:Key="TolModeEqConverter"/>
+        <local:ToleranceModeToVisibilityConverter x:Key="TolModeToVisConverter"/>
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#E0E0E0"/>
@@ -380,7 +383,66 @@
                         </Border>
                     </StackPanel>
                 </Border>
-
+                <!-- ══ 执行模式卡片（无限循环时禁用异步选项）══ -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                    Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="执行模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                        </StackPanel>
+                        <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
+                            <UniformGrid Rows="1">
+                                <RadioButton Name="RbExecSync"
+                             Content="同步（阻塞）"
+                             GroupName="LoopExecutionModeGroup"
+                             Style="{StaticResource OpPillStyle}"
+                             IsChecked="{Binding ElementName=Root,
+                                 Path=ExecutionModeNormalized,
+                                 Converter={StaticResource ExecModeEqConverter},
+                                 ConverterParameter=Synchronous,
+                                 Mode=TwoWay}"/>
+                                <RadioButton Name="RbExecAsync"
+             Content="异步（后台）"
+             GroupName="LoopExecutionModeGroup"
+             IsChecked="{Binding ElementName=Root,
+                 Path=ExecutionModeNormalized,
+                 Converter={StaticResource ExecModeEqConverter},
+                 ConverterParameter=Asynchronous,
+                 Mode=TwoWay}">
+                                    <RadioButton.Style>
+                                        <Style TargetType="RadioButton" BasedOn="{StaticResource OpPillStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ElementName=Root, Path=LoopTypeNormalized}"
+                             Value="{x:Static model:LoopType.Infinite}">
+                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                    <Setter Property="ToolTip" Value="无限循环不允许使用异步模式（无退出条件会导致流程无法收尾）"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </RadioButton.Style>
+                                </RadioButton>
+                            </UniformGrid>
+                        </Border>
+                        <!-- 异步模式提示 -->
+                        <TextBlock Margin="0,8,0,0"
+           FontSize="11"
+           Foreground="#9E9E9E"
+           TextWrapping="Wrap"
+           Text="异步模式：循环将在后台执行，主流程不会等待。流程结束/停止时会统一回收后台任务。">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ElementName=RbExecAsync, Path=IsChecked}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
                 <!-- 固定次数卡片 -->
                 <Border>
                     <Border.Style>
@@ -554,6 +616,110 @@
                                     Style="{StaticResource VarButtonStyle}"
                                     Click="SelectRightVariable_Click"/>
                         </Grid>
+                        <!-- ══ 容差设置（仅 == / ≠ 时显示）══ -->
+                        <Border Margin="0,12,0,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#FAFAFA"/>
+                                    <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Setter Property="CornerRadius" Value="6"/>
+                                    <Setter Property="Padding" Value="10"/>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ElementName=Root, Path=OperatorNormalized}"
+                                                     Value="{x:Static model:ComparisonOperator.Equal}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ElementName=Root, Path=OperatorNormalized}"
+                                                     Value="{x:Static model:ComparisonOperator.NotEqual}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Border Width="3" Height="13" CornerRadius="2"
+                                            Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="容差设置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                                </StackPanel>
+
+                                <!-- 三段药丸：不启用 / 绝对 / 相对 -->
+                                <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
+                                    <UniformGrid Rows="1">
+                                        <RadioButton Content="不启用"
+                                                     GroupName="ToleranceModeGroup"
+                                                     Style="{StaticResource OpPillStyle}"
+                                                     IsChecked="{Binding ElementName=Root,
+                                                         Path=ToleranceModeNormalized,
+                                                         Converter={StaticResource TolModeEqConverter},
+                                                         ConverterParameter=None,
+                                                         Mode=TwoWay}"/>
+                                        <RadioButton Content="绝对容差"
+                                                     GroupName="ToleranceModeGroup"
+                                                     Style="{StaticResource OpPillStyle}"
+                                                     IsChecked="{Binding ElementName=Root,
+                                                         Path=ToleranceModeNormalized,
+                                                         Converter={StaticResource TolModeEqConverter},
+                                                         ConverterParameter=Absolute,
+                                                         Mode=TwoWay}"/>
+                                        <RadioButton Content="相对容差"
+                                                     GroupName="ToleranceModeGroup"
+                                                     Style="{StaticResource OpPillStyle}"
+                                                     IsChecked="{Binding ElementName=Root,
+                                                         Path=ToleranceModeNormalized,
+                                                         Converter={StaticResource TolModeEqConverter},
+                                                         ConverterParameter=Relative,
+                                                         Mode=TwoWay}"/>
+                                    </UniformGrid>
+                                </Border>
+
+                                <!-- 容差数值输入：仅在启用时显示 -->
+                                <Grid Margin="0,10,0,0"
+                                      Visibility="{Binding ElementName=Root, Path=ToleranceModeNormalized,
+                                                   Converter={StaticResource TolModeToVisConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="±" FontSize="14" Foreground="#616161"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1"
+                                             x:Name="ToleranceValueBox"
+                                             Style="{StaticResource FieldInputStyle}"
+                                             Text="{Binding ElementName=Root, Path=ToleranceValueDisplay,
+                                                 Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PreviewTextInput="ToleranceValueBox_PreviewTextInput"
+                                             DataObject.Pasting="ToleranceValueBox_Pasting"/>
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                               FontSize="12" Foreground="#757575" Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value=""/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ElementName=Root, Path=ToleranceModeNormalized}"
+                                                                 Value="{x:Static model:ToleranceMode.Relative}">
+                                                        <Setter Property="Text" Value="%"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- 区间预览 -->
+                                <TextBlock Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Foreground="#1565C0"
+                                           TextWrapping="Wrap"
+                                           Text="{Binding ElementName=Root, Path=ToleranceHintText}"
+                                           Visibility="{Binding ElementName=Root, Path=ToleranceModeNormalized,
+                                                        Converter={StaticResource TolModeToVisConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </Border>
 

@@ -218,10 +218,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private double _rotationAngle;
 
         // 常量
-        private const double MinArmLength = 30;
-        private const double MaxArmLength = 300;
-        private const double MinPipeWidth = 8;
-        private const double MaxPipeWidth = 60;
+        private const double MinArmLength = 15;
+        private const double MaxArmLength = 10000;
+        private const double MinPipeWidth = 4;
+        private const double MaxPipeWidth = 10000;
         private const double FlangeWidth = 2.54;
         private const double FlangeOffset = 0.35;
         private const double FLANGE_EXTENSION = 5.8;
@@ -340,6 +340,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 MouseUp += OnControlMouseUp;
                 MouseLeave += OnControlMouseLeave;
                 SetupAnchorEvents();
+                UpdatePipeGeometry();
             }
 
             Loaded += (s, e) =>
@@ -1390,28 +1391,63 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void ResizeHorizontalArmFromLeft(Point currentMousePosition)
         {
+            EnsureGeometryUpdated();
+
             double deltaX = currentMousePosition.X - _fixedPoint.X;
             double deltaY = currentMousePosition.Y - _fixedPoint.Y;
             double radians = _rotationAngle * Math.PI / 180.0;
-            double projectedLength = deltaX * Math.Cos(radians) + deltaY * Math.Sin(radians);
-            double newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, Math.Abs(projectedLength)));
+            // 弯头在右,拖左锚点 → projected 应为负;取负值的绝对值得到长度
+            double projectedLength = -(deltaX * Math.Cos(radians) + deltaY * Math.Sin(radians));
+            double newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, projectedLength));
             _horizontalLength = newLength;
-            RecalculatePositionForElbow();
-            UpdatePipeGeometry();
+
+            UpdatePipeGeometry();         // 先更新几何,Width/Height 才是新值
+            RepositionByFixedPoint();     // ★ 用统一的"按固定点反推位置"代替原来的 RecalculatePositionForElbow
         }
+
 
         private void ResizeVerticalArmFromTop(Point currentMousePosition)
         {
+            EnsureGeometryUpdated();
+
             double deltaX = currentMousePosition.X - _fixedPoint.X;
             double deltaY = currentMousePosition.Y - _fixedPoint.Y;
             double radians = _rotationAngle * Math.PI / 180.0;
-            double projectedLength = -deltaX * Math.Sin(radians) + deltaY * Math.Cos(radians);
-            double newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, Math.Abs(projectedLength)));
+            // 弯头在下,拖上锚点 → projected (Y方向) 应为负
+            double projectedLength = -(-deltaX * Math.Sin(radians) + deltaY * Math.Cos(radians));
+            double newLength = Math.Max(MinArmLength, Math.Min(MaxArmLength, projectedLength));
             _verticalLength = newLength;
-            RecalculatePositionForElbow();
+
             UpdatePipeGeometry();
+            RepositionByFixedPoint();
+        }
+        /// <summary>
+        /// 调整大小后,根据"固定点"反推控件应该贴在画布的哪个 Left/Top
+        /// 公式:fixed 点 = center + R(localFixed) → center = fixed - R(localFixed) → Left = center - W/2
+        /// 这是直管/弯管/Z管/T管通用的"按固定点回贴"逻辑
+        /// </summary>
+        private void RepositionByFixedPoint()
+        {
+            double w = RenderSize.Width > 0 ? RenderSize.Width : Width;
+            double h = RenderSize.Height > 0 ? RenderSize.Height : Height;
+
+            // 弯管的固定点:水平管右端 + 垂直管下端 = 弯头交汇点
+            // 弯头交汇点的本地坐标(以控件中心为原点):
+            double localFixedX = (w - 10 - _pipeWidth / 2) - w / 2;
+            double localFixedY = (h - 10 - _pipeWidth / 2) - h / 2;
+
+            double radians = _rotationAngle * Math.PI / 180.0;
+            Point worldOffset = RotatePoint(new Point(localFixedX, localFixedY), radians);
+
+            Point newCenter = new Point(_fixedPoint.X - worldOffset.X, _fixedPoint.Y - worldOffset.Y);
+            Canvas.SetLeft(this, newCenter.X - w / 2);
+            Canvas.SetTop(this, newCenter.Y - h / 2);
         }
 
+        private void EnsureGeometryUpdated()
+        {
+            if (Width <= 0 || double.IsNaN(Width)) UpdatePipeGeometry();
+        }
         private void ResizePipeWidthFromAnchor(Point currentMousePosition)
         {
             double deltaX = currentMousePosition.X - _dragStartPoint.X;
@@ -1432,23 +1468,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdatePipeGeometry();
         }
 
-        private void RecalculatePositionForElbow()
-        {
-            double radians = _rotationAngle * Math.PI / 180.0;
-            Point elbowLocalOffset = new Point(
-                Width / 2 - 10 - _pipeWidth / 2,
-                Height / 2 - 10 - _pipeWidth / 2);
-            Point elbowWorldOffset = RotatePoint(elbowLocalOffset, radians);
-            Point newCenter = new Point(
-                _fixedPoint.X - elbowWorldOffset.X,
-                _fixedPoint.Y - elbowWorldOffset.Y);
-
-            Width = _horizontalLength + 20;
-            Height = _verticalLength + 20;
-            Canvas.SetLeft(this, newCenter.X - Width / 2);
-            Canvas.SetTop(this, newCenter.Y - Height / 2);
-        }
-
+     
         private void CompleteResize()
         {
             if (!_isResizing) return;

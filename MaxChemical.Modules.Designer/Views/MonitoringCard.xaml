@@ -6,275 +6,219 @@
              Height="Auto">
 
     <UserControl.Resources>
-        <!-- 参数项样式 - 更明显的浅色背景 -->
+        <!-- 参数项 hover 效果 -->
         <Style x:Key="ParameterItemStyle" TargetType="Border">
-            <Setter Property="Background" Value="#E3F2FD"/>
-            <Setter Property="BorderBrush" Value="#90CAF9"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#BBDEFB"/>
-                    <Setter Property="BorderBrush" Value="#64B5F6"/>
+                    <Setter Property="Background" Value="#FAFAF6"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- 拖动手柄样式 -->
+        <!-- 设备名称(深红)兼拖动手柄 -->
         <Style x:Key="DragHandleStyle" TargetType="Border">
-            <Setter Property="Background" Value="#CFE8FC"/>
-            <Setter Property="BorderBrush" Value="#90CAF9"/>
-            <Setter Property="BorderThickness" Value="1,1,1,0"/>
+            <Setter Property="Background" Value="#A41626"/>
             <Setter Property="Cursor" Value="SizeAll"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#B3E0FC"/>
+                    <Setter Property="Background" Value="#8E121F"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- 弹窗内的子标题 -->
+        <Style x:Key="PopupSubtitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#888"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style x:Key="PopupValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#1A1A1A"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
     </UserControl.Resources>
 
-    <Grid x:Name="MainGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <Grid>
+        <!-- ═══════════════════════════════════════
+             主卡片:横向数字带 (U 设计)
+             ═══════════════════════════════════════ -->
+        <Border x:Name="CardContainer"
+        Background="#FFFFFF"
+        BorderBrush="#EAEAEA"
+        BorderThickness="0.8"
+        CornerRadius="4"
+        SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.05" BlurRadius="2" 
+                          ShadowDepth="0.8" Direction="270"
+                          RenderingBias="Performance"/>
+            </Border.Effect>
 
-        <!-- 拖动手柄 -->
-        <Border Grid.Row="0"
-                x:Name="DragHandle"
+            <StackPanel Orientation="Horizontal">
+
+                <!-- 左侧:深红设备名 = 拖动手柄 -->
+                <Border x:Name="DragHandle"
                 Style="{StaticResource DragHandleStyle}"
-                CornerRadius="3,3,0,0"
-                Height="14"
+                CornerRadius="3,0,0,3"
+                Padding="6,3"
                 MouseLeftButtonDown="DragHandle_MouseLeftButtonDown"
                 MouseMove="DragHandle_MouseMove"
                 MouseLeftButtonUp="DragHandle_MouseLeftButtonUp"
                 MouseLeave="DragHandle_MouseLeave">
+                    <TextBlock x:Name="DeviceNameText"
+                      Text=""
+                      FontSize="9"
+                      FontWeight="Medium"
+                      Foreground="#FFFFFF"
+                      VerticalAlignment="Center"/>
+                </Border>
 
-            <Grid>
-                <!-- 拖动图标 -->
-                <StackPanel Orientation="Horizontal" 
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center">
-                    <Ellipse Width="2.5" Height="2.5" Fill="#607D8B" Margin="1"/>
-                    <Ellipse Width="2.5" Height="2.5" Fill="#607D8B" Margin="1"/>
-                    <Ellipse Width="2.5" Height="2.5" Fill="#607D8B" Margin="1"/>
-                    <Ellipse Width="2.5" Height="2.5" Fill="#607D8B" Margin="1"/>
-                    <Ellipse Width="2.5" Height="2.5" Fill="#607D8B" Margin="1"/>
-                    <Ellipse Width="2.5" Height="2.5" Fill="#607D8B" Margin="1"/>
-                </StackPanel>
-
-                <!-- 设备名称 -->
-                <TextBlock x:Name="DeviceNameText"
-                          Text=""
-                          FontSize="7"
-                          Foreground="#37474F"
-                          FontWeight="Medium"
-                          HorizontalAlignment="Left"
-                          VerticalAlignment="Center"
-                          Margin="5,0,0,0"/>
-            </Grid>
-        </Border>
-
-        <!-- 参数列表 -->
-        <ItemsControl Grid.Row="1"
-                     x:Name="ParametersItemsControl">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border Style="{StaticResource ParameterItemStyle}"
-                            CornerRadius="2"
-                            Margin="0,0,0,2"
-                            Padding="6,4"
+                <!-- 右侧:参数列表(横向) -->
+                <ItemsControl x:Name="ParametersItemsControl">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource ParameterItemStyle}"
+                            BorderBrush="#EAEAEA"
+                            BorderThickness="0.8,0,0,0"
+                            Padding="6,3"
                             MouseLeftButtonDown="ParameterItem_MouseLeftButtonDown"
                             Tag="{Binding}">
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- 参数名 - 深色，更清晰 -->
-                            <TextBlock Grid.Column="0"
-                                       Text="{Binding Name}"
-                                       FontSize="8.5"
-                                       Foreground="#263238"
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}"
+                                       FontSize="8"
+                                       Foreground="#888"
+                                       FontWeight="Medium"/>
+                                    <TextBlock Text="{Binding Value}"
+                                       FontSize="11"
                                        FontWeight="Medium"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       MaxWidth="60"/>
+                                       Foreground="#1A1A1A"
+                                       Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-                            <!-- 参数值 - 深蓝色加粗 -->
-                            <TextBlock Grid.Column="2"
-                                       Text="{Binding Value}"
-                                       FontSize="9"
-                                       FontWeight="Bold"
-                                       Foreground="#0D47A1"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+            </StackPanel>
+        </Border>
 
-        <!-- Popup 专业图表弹窗 -->
+        <!-- ═══════════════════════════════════════
+             参数详情弹窗 (保留原有功能)
+             ═══════════════════════════════════════ -->
         <Popup x:Name="DetailPopup"
-               Placement="Mouse"
-               AllowsTransparency="True"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=CardContainer}"
                StaysOpen="True"
-               PopupAnimation="Fade">
+               AllowsTransparency="True"
+               PopupAnimation="Fade"
+               HorizontalOffset="0"
+               VerticalOffset="6">
 
-            <Border Background="White"
-                    BorderBrush="#D0D0D0"
+            <Border Background="#FFFFFF"
+                    BorderBrush="#EAEAEA"
                     BorderThickness="1"
-                    CornerRadius="4"
-                    Width="450"
-                    Height="300"
+                    CornerRadius="8"
+                    Width="380"
+                    Height="280"
                     MouseLeftButtonDown="Popup_MouseLeftButtonDown">
-
                 <Border.Effect>
-                    <DropShadowEffect Color="#000000" 
-                                    ShadowDepth="0" 
-                                    BlurRadius="20" 
-                                    Opacity="0.15"/>
+                    <DropShadowEffect Color="#000000" Opacity="0.15" BlurRadius="12" 
+                                      ShadowDepth="3" Direction="270"/>
                 </Border.Effect>
 
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- 标题栏 -->
-                    <Grid Grid.Row="0"
-                          Background="White"
-                          Margin="15,0"
-                          MouseLeftButtonDown="PopupTitle_MouseLeftButtonDown">
+                    <!-- 弹窗标题栏 -->
+                    <Border Grid.Row="0"
+                            Background="#A41626"
+                            CornerRadius="7,7,0,0"
+                            Padding="14,8"
+                            MouseLeftButtonDown="PopupTitle_MouseLeftButtonDown">
+                        <Grid>
+                            <TextBlock x:Name="PopupTitleText"
+                                       Text="参数详情"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       Foreground="#FFFFFF"
+                                       VerticalAlignment="Center"/>
+                            <Button x:Name="PopupCloseButton"
+                                    Content="✕"
+                                    HorizontalAlignment="Right"
+                                    Width="20" Height="20"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="#FFFFFF"
+                                    FontSize="12"
+                                    Cursor="Hand"
+                                    Click="PopupCloseButton_Click"/>
+                        </Grid>
+                    </Border>
 
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                    <!-- 统计区:当前/最大/最小/平均 -->
+                    <Border Grid.Row="1"
+                            Background="#FAFAF6"
+                            BorderBrush="#EAEAEA"
+                            BorderThickness="0,0,0,1"
+                            Padding="14,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0"
-                                   x:Name="PopupTitleText"
-                                   Text="Outdoor temperature"
-                                   Foreground="#2C2C2C"
-                                   FontSize="14"
-                                   FontWeight="Normal"
-                                   VerticalAlignment="Center"/>
-
-                        <Button Grid.Column="1"
-                                Content="✕"
-                                FontSize="18"
-                                Width="28"
-                                Height="28"
-                                Background="Transparent"
-                                Foreground="#999999"
-                                BorderThickness="0"
-                                Cursor="Hand"
-                                Click="PopupCloseButton_Click">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border"
-                                            Background="{TemplateBinding Background}" 
-                                            CornerRadius="2">
-                                        <ContentPresenter HorizontalAlignment="Center" 
-                                                        VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#F5F5F5"/>
-                                            <Setter Property="Foreground" Value="#666666"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </Grid>
-
-                    <!-- 内容区域 -->
-                    <Grid Grid.Row="1" Background="White" Margin="15,0,15,15">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="30"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- 统计信息栏 -->
-                        <StackPanel Grid.Row="0" 
-                                   Orientation="Horizontal"
-                                   VerticalAlignment="Center"
-                                   Margin="5,0,0,5">
-
-                            <!-- 当前值 -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,25,0">
-                                <TextBlock Text="当前: " 
-                                           FontSize="10" 
-                                           Foreground="#888888"
-                                           VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="当前" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupCurrentValue"
-                                           Text="35.2"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#333333"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text=" °C" 
-                                           FontSize="10" 
-                                           Foreground="#888888"
-                                           VerticalAlignment="Center"/>
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
                             </StackPanel>
-
-                            <!-- 最大值 -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <TextBlock Text="最大: " 
-                                           FontSize="9" 
-                                           Foreground="#999999"
-                                           VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="最大" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupMaxValue"
-                                           Text="--" 
-                                           FontSize="10" 
-                                           FontWeight="SemiBold" 
-                                           Foreground="#4CAF50"
-                                           VerticalAlignment="Center"/>
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
                             </StackPanel>
-
-                            <!-- 最小值 -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <TextBlock Text="最小: " 
-                                           FontSize="9" 
-                                           Foreground="#999999"
-                                           VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="最小" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupMinValue"
-                                           Text="--" 
-                                           FontSize="10" 
-                                           FontWeight="SemiBold" 
-                                           Foreground="#F44336"
-                                           VerticalAlignment="Center"/>
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
                             </StackPanel>
-
-                            <!-- 平均值 -->
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="平均: " 
-                                           FontSize="9" 
-                                           Foreground="#999999"
-                                           VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="平均" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupAvgValue"
-                                           Text="--" 
-                                           FontSize="10" 
-                                           FontWeight="SemiBold" 
-                                           Foreground="#2196F3"
-                                           VerticalAlignment="Center"/>
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
                             </StackPanel>
-                        </StackPanel>
+                        </Grid>
+                    </Border>
 
-                        <!-- 图表区域 -->
-                        <Canvas Grid.Row="1"
-                                x:Name="ChartCanvas"
-                                Background="White"
-                                SizeChanged="ChartCanvas_SizeChanged"/>
-                    </Grid>
+                    <!-- 历史曲线图 -->
+                    <Canvas Grid.Row="2"
+                            x:Name="ChartCanvas"
+                            Background="#FFFFFF"
+                            Margin="6"
+                            SizeChanged="ChartCanvas_SizeChanged"/>
                 </Grid>
             </Border>
         </Popup>

@@ -413,7 +413,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
         private void SelVis(bool s)
         {
-            SelectionBorder.Visibility = s ? Visibility.Visible : Visibility.Collapsed;
+            // ★ 旧的 SelectionBorder 由统一系统接管
+            SelectionBorder.Visibility = Visibility.Collapsed;
             if (s) ShowA(); else if (!IsMouseOver && !_isResizing) HideA();
         }
         private void ShowA() { TopAnchor.Opacity = BottomAnchor.Opacity = LeftAnchor.Opacity = RightAnchor.Opacity = 0.6; }
@@ -504,12 +505,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             var pts = new List<PipeSnapPoint>();
             if (!(Parent is Canvas)) return pts;
+
             double fl = double.IsNaN(Canvas.GetLeft(this)) ? 0 : Canvas.GetLeft(this);
             double ft = double.IsNaN(Canvas.GetTop(this)) ? 0 : Canvas.GetTop(this);
-            pts.Add(new PipeSnapPoint { WorldPosition = new Point(fl + _g.Cx, ft), Direction = SnapDirection.Up, Description = "锥形瓶顶部" });
-            pts.Add(new PipeSnapPoint { WorldPosition = new Point(fl + _g.NL - 5, ft + _g.BT), Direction = SnapDirection.Left, Description = "锥形瓶左侧" });
-            pts.Add(new PipeSnapPoint { WorldPosition = new Point(fl + _g.NR + 5, ft + _g.BT), Direction = SnapDirection.Right, Description = "锥形瓶右侧" });
-            pts.Add(new PipeSnapPoint { WorldPosition = new Point(fl + _g.Cx, ft + _g.H + 5), Direction = SnapDirection.Down, Description = "锥形瓶底部" });
+
+            // ★ 唯一吸附点:液体高度的中间(液面到瓶底的中点)
+            // 液面 y:_g.BT + _g.BH * (1 - _liquidLevel/100)
+            // 瓶底 y:_g.BB (= _g.BT + _g.BH)
+            // 中点 y = (液面 + 瓶底) / 2 = _g.BT + _g.BH * (1 - _liquidLevel/200)
+            //   等价于:从瓶身顶起,占瓶身高度 (1 - _liquidLevel/200) 处
+
+            // 液体为 0 时,默认放在瓶身腰部(50% 处),避免吸附点消失
+            double pct = (_liquidLevel <= 0) ? 0.5 : (1.0 - _liquidLevel / 200.0);
+            double midY = _g.BT + _g.BH * pct;
+
+            pts.Add(new PipeSnapPoint
+            {
+                WorldPosition = new Point(fl + _g.Cx, ft + midY),
+                Direction = SnapDirection.Up,
+                Description = $"锥形瓶 (液位 {_liquidLevel:F0}%)"
+            });
+
             return pts;
         }
         #endregion

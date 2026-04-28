@@ -8,10 +8,10 @@
     <UserControl.Resources>
         <!-- ToolTip 样式 -->
         <Style TargetType="ToolTip">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="HasDropShadow" Value="True"/>
@@ -96,12 +96,10 @@
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         <ControlTemplate.Triggers>
-                            <!-- 禁用状态 -->
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4"/>
                                 <Setter Property="Cursor" Value="Arrow"/>
                             </Trigger>
-                            <!-- 鼠标悬停状态（仅在启用时生效） -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsMouseOver" Value="True"/>
@@ -109,7 +107,6 @@
                                 </MultiTrigger.Conditions>
                                 <Setter Property="Opacity" Value="0.8"/>
                             </MultiTrigger>
-                            <!-- 按下状态（仅在启用时生效） -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsPressed" Value="True"/>
@@ -127,14 +124,14 @@
         <Style x:Key="ToolBarSeparatorStyle" TargetType="Rectangle">
             <Setter Property="Width" Value="1"/>
             <Setter Property="Height" Value="20"/>
-            <Setter Property="Fill" Value="#D4D4D4"/>
+            <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
             <Setter Property="Margin" Value="9,5"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
     </UserControl.Resources>
 
     <!-- 工具栏背景 -->
-    <Border Background="#FFFFFF" Cursor="Hand">
+    <Border Background="{StaticResource Bg.PrimaryBrush}" Cursor="Hand">
         <Grid Height="43">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -147,7 +144,6 @@
                         Margin="14,0,0,0" 
                         VerticalAlignment="Center">
 
-                <!-- 文件夹图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding OpenFolderCommand}"
                         ToolTip="{Binding TooltipOpenFolder}">
@@ -157,7 +153,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 新建文档图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding NewDocumentCommand}"
                         ToolTip="{Binding TooltipNewDocument}">
@@ -166,7 +161,7 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Stretch="Uniform"/>
                 </Button>
-                <!-- 保存图标 -->
+
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding SaveCommand}"
                         ToolTip="{Binding TooltipSave}">
@@ -175,7 +170,7 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Stretch="Uniform"/>
                 </Button>
-                <!-- 导出图标 -->
+
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding SaveAsCommand}"
                         ToolTip="{Binding TooltipSaveAs}">
@@ -185,12 +180,8 @@
                            Stretch="Uniform"/>
                 </Button>
 
-              
-
-                <!-- 分隔线 -->
                 <Rectangle Style="{StaticResource ToolBarSeparatorStyle}"/>
 
-                <!-- 撤销图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding GoBackCommand}"
                         ToolTip="{Binding TooltipUndo}">
@@ -200,7 +191,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 重做图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding GoForwardCommand}"
                         ToolTip="{Binding TooltipRedo}">
@@ -210,7 +200,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 删除图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding DeleteCommand}"
                         ToolTip="{Binding TooltipDelete}">
@@ -220,7 +209,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 放大图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding RedoCommand}"
                         ToolTip="{Binding TooltipZoomIn}">
@@ -230,7 +218,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 缩小图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding UndoCommand}"
                         ToolTip="{Binding TooltipZoomOut}">
@@ -240,7 +227,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 画布缩放图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding FitToViewCommand}"
                         ToolTip="{Binding TooltipFitCanvas}">
@@ -250,7 +236,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 设置齿轮图标 -->
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
                         Command="{Binding SettingsCommand}"
                         ToolTip="{Binding TooltipCanvasSettings}">
@@ -260,7 +245,6 @@
                            Stretch="Uniform"/>
                 </Button>
 
-                <!-- 分隔线 -->
                 <Rectangle Style="{StaticResource ToolBarSeparatorStyle}"/>
 
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
@@ -280,18 +264,17 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Stretch="Uniform"/>
                 </Button>
-                <!--<Button Style="{StaticResource ToolBarButtonStyle}" 
-                        Command="{Binding PredictiveAssessmentCommand}"
-                        ToolTip="{Binding TooltipPredictiveAssessment}">
-                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/PredictiveAssessment.png" 
-                           Width="30" Height="30"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Stretch="Uniform"/>
-                </Button>-->
-                <Button Style="{StaticResource ToolBarButtonStyle}"  Command="{Binding DOECommand}" ToolTip="DOE 实验设计与优化">
+
+                <!-- DOE 按钮(用品牌色) -->
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding DOECommand}" 
+                        ToolTip="DOE 实验设计与优化">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="DOE" FontWeight="SemiBold" FontSize="12"
-                           Foreground="#2E75B6" VerticalAlignment="Center"/>
+                        <TextBlock Text="DOE" 
+                                   FontWeight="SemiBold" 
+                                   FontSize="12"
+                                   Foreground="{StaticResource Brand.PrimaryBrush}" 
+                                   VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
@@ -302,7 +285,7 @@
                         Margin="0,0,12,0" 
                         VerticalAlignment="Top">
 
-                <!-- 开启按钮 -->
+                <!-- ═══ 开启按钮(深森绿,功能 = 运行)═══ -->
                 <Button Style="{StaticResource PlayControlButtonStyle}" 
                         Command="{Binding StartCommand}"
                         ToolTip="{Binding TooltipStart}">
@@ -313,10 +296,10 @@
                             Height="32">
                         <Border.Style>
                             <Style TargetType="Border">
-                                <Setter Property="BorderBrush" Value="#6CB6FF"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource Status.SuccessBrush}"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -328,10 +311,10 @@
                                 <Ellipse Width="24" Height="23">
                                     <Ellipse.Style>
                                         <Style TargetType="Ellipse">
-                                            <Setter Property="Fill" Value="#6CB6FF"/>
+                                            <Setter Property="Fill" Value="{StaticResource Status.SuccessBrush}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                                    <Setter Property="Fill" Value="#CCCCCC"/>
+                                                    <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -351,10 +334,10 @@
                                        Margin="7,0,12,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#4D4D4D"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                                <Setter Property="Foreground" Value="#999999"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -364,7 +347,7 @@
                     </Border>
                 </Button>
 
-                <!-- 暂停按钮 -->
+                <!-- ═══ 暂停按钮(琥珀色,功能 = 暂停)═══ -->
                 <Button Style="{StaticResource PlayControlButtonStyle}" 
                         Command="{Binding PauseCommand}"
                         ToolTip="{Binding TooltipPause}">
@@ -375,10 +358,10 @@
                             Height="32">
                         <Border.Style>
                             <Style TargetType="Border">
-                                <Setter Property="BorderBrush" Value="#FFB366"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource Status.WarningBrush}"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -390,10 +373,10 @@
                                 <Ellipse Width="24" Height="23">
                                     <Ellipse.Style>
                                         <Style TargetType="Ellipse">
-                                            <Setter Property="Fill" Value="#FFB366"/>
+                                            <Setter Property="Fill" Value="{StaticResource Status.WarningBrush}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                                    <Setter Property="Fill" Value="#CCCCCC"/>
+                                                    <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -411,10 +394,10 @@
                                        Margin="7,0,12,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#4D4D4D"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                                <Setter Property="Foreground" Value="#999999"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -424,7 +407,7 @@
                     </Border>
                 </Button>
 
-                <!-- 停止按钮 -->
+                <!-- ═══ 停止按钮(品牌深红,功能 = 危险动作)═══ -->
                 <Button Style="{StaticResource PlayControlButtonStyle}" 
                         Command="{Binding StopCommand}"
                         ToolTip="{Binding TooltipStop}">
@@ -435,10 +418,10 @@
                             Height="32">
                         <Border.Style>
                             <Style TargetType="Border">
-                                <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -450,10 +433,10 @@
                                 <Ellipse Width="24" Height="23">
                                     <Ellipse.Style>
                                         <Style TargetType="Ellipse">
-                                            <Setter Property="Fill" Value="#FF6B6B"/>
+                                            <Setter Property="Fill" Value="{StaticResource Brand.PrimaryBrush}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                                    <Setter Property="Fill" Value="#CCCCCC"/>
+                                                    <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -470,10 +453,10 @@
                                        Margin="7,0,12,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#4D4D4D"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
-                                                <Setter Property="Foreground" Value="#999999"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -483,22 +466,22 @@
                     </Border>
                 </Button>
 
-                <!-- 状态按钮组 -->
+                <!-- 状态按钮组(模拟模式开关)-->
                 <StackPanel Orientation="Horizontal" 
-            VerticalAlignment="Center" 
-            Margin="10,7,2,0">
+                            VerticalAlignment="Center" 
+                            Margin="10,7,2,0">
                     <Button Style="{StaticResource PlayControlButtonStyle}" 
-            Command="{Binding StatusCommand}"
-            ToolTip="{Binding TooltipSimulationMode}"
-            Width="47" Height="23" Margin="0">
+                            Command="{Binding StatusCommand}"
+                            ToolTip="{Binding TooltipSimulationMode}"
+                            Width="47" Height="23" Margin="0">
                         <Border Background="{Binding SwitchBackgroundColor}" 
-                BorderBrush="{Binding SwitchBorderColor}" 
-                BorderThickness="1"
-                CornerRadius="12" 
-                Width="47" Height="23">
+                                BorderBrush="{Binding SwitchBorderColor}" 
+                                BorderThickness="1"
+                                CornerRadius="12" 
+                                Width="47" Height="23">
                             <Ellipse Width="19" Height="19" 
-                     Fill="White" 
-                     VerticalAlignment="Center"
+                                     Fill="White" 
+                                     VerticalAlignment="Center"
                                      HorizontalAlignment="Left">
                                 <Ellipse.RenderTransform>
                                     <TranslateTransform X="2"/>
@@ -511,8 +494,8 @@
                                                     <BeginStoryboard>
                                                         <Storyboard>
                                                             <DoubleAnimation 
-                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
-                                                To="26" Duration="0:0:0.2"/>
+                                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
+                                                                To="26" Duration="0:0:0.2"/>
                                                         </Storyboard>
                                                     </BeginStoryboard>
                                                 </DataTrigger.EnterActions>
@@ -520,8 +503,8 @@
                                                     <BeginStoryboard>
                                                         <Storyboard>
                                                             <DoubleAnimation 
-                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
-                                                To="2" Duration="0:0:0.2"/>
+                                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
+                                                                To="2" Duration="0:0:0.2"/>
                                                         </Storyboard>
                                                     </BeginStoryboard>
                                                 </DataTrigger.ExitActions>
@@ -533,11 +516,11 @@
                         </Border>
                     </Button>
                     <TextBlock Text="{Binding TextSimulationMode}" 
-               Foreground="#4D4D4D" 
-               FontSize="13" 
-               FontWeight="Normal"
-               VerticalAlignment="Center" 
-               Margin="8,0,0,0"/>
+                               Foreground="{StaticResource Text.PrimaryBrush}" 
+                               FontSize="13" 
+                               FontWeight="Normal"
+                               VerticalAlignment="Center" 
+                               Margin="8,0,0,0"/>
                 </StackPanel>
 
             </StackPanel>

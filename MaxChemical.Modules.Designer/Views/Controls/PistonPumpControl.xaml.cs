@@ -931,18 +931,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var selectionBorder = this.FindName("SelectionBorder") as Rectangle;
                 if (selectionBorder != null)
-                {
-                    selectionBorder.Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed;
-                }
-
-                if (isSelected)
-                {
-                    Debug.WriteLine($"蠕动泵已选中 | PumpId:{PumpId}");
-                }
-                else
-                {
-                    Debug.WriteLine($"蠕动泵取消选中 | PumpId:{PumpId}");
-                }
+                    selectionBorder.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {

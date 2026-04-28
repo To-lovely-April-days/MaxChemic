@@ -69,6 +69,52 @@ namespace MaxChemical.Modules.Designer.Views
         {
             InitializeComponent();
             Parameters = new ObservableCollection<MonitorParameter>();
+
+            // ★ 新增:Popup 打开时,监听窗口全局点击,点外面就关闭
+            DetailPopup.Opened += (s, e) =>
+            {
+                var window = Window.GetWindow(this);
+                if (window != null)
+                {
+                    window.PreviewMouseDown += OnWindowMouseDownForPopup;
+                }
+            };
+
+            DetailPopup.Closed += (s, e) =>
+            {
+                var window = Window.GetWindow(this);
+                if (window != null)
+                {
+                    window.PreviewMouseDown -= OnWindowMouseDownForPopup;
+                }
+            };
+        }
+
+        // ★ 新增方法
+        private void OnWindowMouseDownForPopup(object sender, MouseButtonEventArgs e)
+        {
+            // 检查点击是否在 Popup 内部
+            if (DetailPopup.IsOpen)
+            {
+                var popupChild = DetailPopup.Child as FrameworkElement;
+                if (popupChild != null)
+                {
+                    // 鼠标点击位置相对于 popupChild 的坐标
+                    Point pt = e.GetPosition(popupChild);
+                    bool insidePopup = pt.X >= 0 && pt.X <= popupChild.ActualWidth
+                                    && pt.Y >= 0 && pt.Y <= popupChild.ActualHeight;
+
+                    // 检查是否点击在卡片自身上(避免点参数又关闭)
+                    Point ptCard = e.GetPosition(this);
+                    bool insideCard = ptCard.X >= 0 && ptCard.X <= this.ActualWidth
+                                    && ptCard.Y >= 0 && ptCard.Y <= this.ActualHeight;
+
+                    if (!insidePopup && !insideCard)
+                    {
+                        DetailPopup.IsOpen = false;
+                    }
+                }
+            }
         }
 
         #region 核心功能方法
@@ -83,11 +129,10 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var monitorParam = new MonitorParameter
                 {
-                    Name = param.Name,
+                    Name = param.Name,              // 保留原名(弹窗里用)
                     Value = param.Value?.ToString() ?? "--",
                     OriginalParameter = param
                 };
-
                 monitorParam.AddHistoryValue(DateTime.Now, ParseValue(param.Value));
                 Parameters.Add(monitorParam);
             }
@@ -216,6 +261,9 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 _currentParameter = parameter;
                 ShowParameterPopup(parameter);
+
+                // ★ 关键:必须立即标记 Handled,阻止事件继续冒泡
+                // 否则 WPF 会把这次点击当成 Popup 外的点击,触发 StaysOpen=False 的关闭
                 e.Handled = true;
             }
         }
@@ -225,11 +273,13 @@ namespace MaxChemical.Modules.Designer.Views
             PopupTitleText.Text = $"{DeviceName} - {parameter.Name}";
             UpdatePopupForParameter(parameter);
 
-            // 使用Dispatcher延迟打开，避免立即关闭
+            // ★ 用 Background 优先级而不是 Input
+            // Input 优先级比 MouseDown 还高,会和"鼠标点击触发的 Popup 关闭"竞争
+            // Background 优先级会等当前所有输入事件处理完才执行,稳定打开
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 DetailPopup.IsOpen = true;
-            }), System.Windows.Threading.DispatcherPriority.Input);
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private void UpdatePopupForParameter(MonitorParameter parameter)

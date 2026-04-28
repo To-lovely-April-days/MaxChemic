@@ -84,23 +84,15 @@
                           RenderOptions.BitmapScalingMode="HighQuality"
                           RenderOptions.EdgeMode="Unspecified">
 
-                <!--  设计画布（核心优化） -->
+             
+                <!--  设计画布(核心优化,不使用 BitmapCache,避免拖拽抖动) -->
                 <Canvas x:Name="DesignCanvas"
-                        Background="White"
-                        ClipToBounds="True"
-                        SnapsToDevicePixels="True"
-                        UseLayoutRounding="True"
-                        RenderOptions.BitmapScalingMode="HighQuality"
-                        RenderOptions.EdgeMode="Unspecified"
-                        RenderOptions.CachingHint="Cache">
-
-                    <!--  画布级别缓存配置（仅在静止时生效） -->
-                    <Canvas.CacheMode>
-                        <BitmapCache EnableClearType="False" 
-                                     RenderAtScale="1" 
-                                     SnapsToDevicePixels="True"/>
-                    </Canvas.CacheMode>
-                </Canvas>
+        Background="White"
+        ClipToBounds="True"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        RenderOptions.BitmapScalingMode="HighQuality"
+        RenderOptions.EdgeMode="Unspecified"/>
 
             </ScrollViewer>
 

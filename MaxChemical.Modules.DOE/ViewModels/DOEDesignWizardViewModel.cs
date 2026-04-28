@@ -450,10 +450,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
                     foreach (var f in Factors)
                     {
-                        // ★ 修改: 类别因子不需要绑定流程参数（手动操作）
-                        if (f.IsContinuous && f.SelectedCandidate == null)
+                        // ★ 修改: 仅"非手动的连续因子"必须绑定流程参数
+                        //   手动操作因子(包括类别因子和勾选了"手动"的连续因子)跳过此校验,
+                        //   运行时由操作员手动调节,不参与流程参数注入。
+                        if (f.NeedsBinding && f.SelectedCandidate == null)
                         {
-                            _dialogService.ShowError($"连续因子 '{f.FactorName}' 未绑定流程参数，请在下拉框中选择", "验证");
+                            _dialogService.ShowError(
+                                $"连续因子 '{f.FactorName}' 未绑定流程参数。如需手动调节,请勾选「手动操作」",
+                                "验证");
                             return;
                         }
                         // ★ 修改: 仅连续因子检查上下界
@@ -661,13 +665,32 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         private int InferFractionalRunCount(int k, int desiredResolution)
         {
-            // 选最小满足分辨度的 runs
-            // 通用规则: Res III = k+1 取整 2 的幂; Res IV 翻倍; Res V 再翻倍
-            int baseRuns = 1;
-            while (baseRuns <= k) baseRuns <<= 1;
-            if (desiredResolution == 3) return Math.Max(4, baseRuns);
-            if (desiredResolution == 4) return Math.Max(8, baseRuns * 2);
-            return Math.Max(16, baseRuns * 4); // Res V+
+            // 查 Minitab 标准表:选最小且满足分辨度要求的 runs
+            var entries = MaxChemical.Modules.DOE.Services.Designs.FractionalFactorialTables
+                .GetFeasibleRuns(k);
+
+            // resolution == 99 表示全因子(Minitab 在表里把全因子标为"全分辨度"),
+            // 应作为兜底:只有当不存在任何部分因子方案满足分辨度时,才退回全因子。
+            var fractionalOnly = entries
+                .Where(e => e.resolution >= desiredResolution && e.resolution < 99)
+                .OrderBy(e => e.runs)
+                .ToList();
+
+            if (fractionalOnly.Count > 0)
+                return fractionalOnly.First().runs;
+
+            // 表里没有满足该分辨度的部分因子方案 → 退回全因子并提示
+            var full = entries.FirstOrDefault(e => e.resolution == 99);
+            if (full.runs > 0)
+            {
+                _logger.LogWarning(
+                    "k={K} 没有 Res ≥ {Res} 的部分因子方案,自动退回全因子 ({Runs} 组)。" +
+                    "建议提示用户调低分辨度或减少因子数。",
+                    k, desiredResolution, full.runs);
+                return full.runs;
+            }
+
+            throw new ArgumentException($"k={k} 无可用部分因子设计");
         }
 
         private int InferDOptimalRunCount(int k, string modelType)
@@ -1154,7 +1177,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private int _levelCount = 3;
         private DOEFactorType _factorType = DOEFactorType.Continuous;
         private string _categoryLevels = "";
-
+        private bool _isManual;   // ★ 新增: 手动操作开关
         /// <summary>
         /// 用户自定义的因子名称（如 "反应温度"）
         /// </summary>
@@ -1182,7 +1205,37 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         /// <summary>★ 新增: 是否类别因子（UI 绑定用）</summary>
         public bool IsCategorical => FactorType == DOEFactorType.Categorical;
+        /// <summary>
+        /// ★ 新增: 是否为"手动操作"因子(不绑定流程参数,运行时由操作员手动调节)
+        /// 类别因子默认就是手动操作,无法切换;连续因子可由用户勾选。
+        /// </summary>
+        public bool IsManual
+        {
+            get => IsCategorical || _isManual;   // 类别因子始终视为手动
+            set
+            {
+                // 类别因子不允许切换
+                if (IsCategorical) return;
+                if (SetProperty(ref _isManual, value))
+                {
+                    RaisePropertyChanged(nameof(NeedsBinding));
+                    RaisePropertyChanged(nameof(IsBound));
+                    // 切到手动时清空已选的候选项,避免下一步把脏数据写进 ToModel
+                    if (value && _selectedCandidate != null)
+                    {
+                        _selectedCandidate = null;
+                        RaisePropertyChanged(nameof(SelectedCandidate));
+                        RaisePropertyChanged(nameof(BindingDisplayText));
+                    }
+                }
+            }
+        }
 
+        /// <summary>
+        /// ★ 新增: 是否需要绑定流程参数(连续 + 非手动)
+        /// UI 用此属性控制 ComboBox 可见性,Step1 校验也用此属性。
+        /// </summary>
+        public bool NeedsBinding => IsContinuous && !_isManual;
         /// <summary>
         /// ★ 新增: 类别因子的水平标签（逗号分隔，如 "催化剂A,催化剂B,催化剂C"）
         /// </summary>
@@ -1247,10 +1300,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
             ? SelectedCandidate.DisplayName
             : "请选择绑定参数...";
 
+  
         /// <summary>
-        /// 是否已绑定
+        /// 是否已绑定(手动操作的因子永远不绑定)
         /// </summary>
-        public bool IsBound => SelectedCandidate != null;
+        public bool IsBound => !IsManual && SelectedCandidate != null;
 
         public double LowerBound { get => _lowerBound; set { SetProperty(ref _lowerBound, value); RaisePropertyChanged(nameof(StepSize)); } }
         public double UpperBound { get => _upperBound; set { SetProperty(ref _upperBound, value); RaisePropertyChanged(nameof(StepSize)); } }

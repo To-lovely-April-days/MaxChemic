@@ -161,7 +161,7 @@ namespace MaxChemical.Modules.Designer.Models
         public string FluidColorHex { get; set; }
 
         /// <summary>流体不透明度 (0.0~1.0)</summary>
-        public double FluidOpacity { get; set; } = 0.5;
+        public double FluidOpacity { get; set; } = 0.85;
 
         /// <summary>是否显示流体</summary>
         public bool IsFluidVisible { get; set; }

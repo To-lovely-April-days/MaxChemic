@@ -381,13 +381,28 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                 // 声明输出参数变量
                 DeviceParameters outputParams = null;
 
-                await Task.Run(() =>
+                // 优先使用异步 Action,兼容同步 Action,两者都为 null 时报错
+                if (cmd.AsyncAction != null)
                 {
-                    if (cts.IsCancellationRequested) return;
-
-                    // 执行命令并获取输出参数
-                    outputParams = cmd.Action?.Invoke(inputParameters);
-                }, cts.Token);
+                    // 异步 Action:直接 await,无需 Task.Run 包裹(避免嵌套 Task)
+                    // 仍要响应取消信号
+                    cts.Token.ThrowIfCancellationRequested();
+                    outputParams = await cmd.AsyncAction.Invoke(inputParameters).ConfigureAwait(false);
+                }
+                else if (cmd.Action != null)
+                {
+                    // 同步 Action:放到线程池执行,避免阻塞调用线程
+                    await Task.Run(() =>
+                    {
+                        if (cts.IsCancellationRequested) return;
+                        outputParams = cmd.Action.Invoke(inputParameters);
+                    }, cts.Token).ConfigureAwait(false);
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"设备命令 {cmd.Name} 既未设置 Action 也未设置 AsyncAction");
+                }
 
                 sw.Stop();
 

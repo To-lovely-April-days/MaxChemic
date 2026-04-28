@@ -206,12 +206,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private double _originalRotation;
 
         // 尺寸常量
-        private const double MinMainLength = 30;
-        private const double MaxMainLength = 300;
-        private const double MinBranchLength = 15;
-        private const double MaxBranchLength = 150;
+        private const double MinMainLength = 20;
+        private const double MaxMainLength = 10000;
+        private const double MinBranchLength = 10;
+        private const double MaxBranchLength = 10000;
         private const double MinPipeWidth = 4;
-        private const double MaxPipeWidth = 40;
+        private const double MaxPipeWidth = 10000;
         private const double FlangeWidthConst = 2.54;
         private const double FlangeOffset = 0.35;
         private const double FlangeSpacing = 2.0;
@@ -271,8 +271,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (Math.Abs(_mainPipeLength - nv) > 0.01)
                 {
                     _mainPipeLength = nv;
-                    if (_branchPosition > _mainPipeLength - _pipeWidth)
-                        _branchPosition = _mainPipeLength / 2;
+                    // 主管变短时,如果支管位置超界,夹回到合法范围内
+                    double minBranchPos = _pipeWidth;
+                    double maxBranchPos = Math.Max(minBranchPos, _mainPipeLength - _pipeWidth);
+                    if (_branchPosition > maxBranchPos)
+                        _branchPosition = (minBranchPos + maxBranchPos) / 2;
                     UpdatePipeGeometry();
                     OnPropertyChanged(nameof(MainPipeLength));
                 }
@@ -300,7 +303,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             set
             {
                 var minPos = _pipeWidth;
-                var maxPos = _mainPipeLength - _pipeWidth;
+                var maxPos = Math.Max(minPos, _mainPipeLength - _pipeWidth);  // ★ 防止负数
                 var nv = Math.Max(minPos, Math.Min(maxPos, value));
                 if (Math.Abs(_branchPosition - nv) > 0.01)
                 {
@@ -339,7 +342,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
-
+        // ★ 新增:开始拖拽前,固定端在画布上的世界坐标
+        private Point _fixedWorldPoint;
         #region 构造函数
 
         public TShapePipeControl()
@@ -373,6 +377,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 MouseUp += OnControlMouseUp;
                 MouseLeave += OnControlMouseLeave;
                 SetupAnchorEvents();
+                UpdatePipeGeometry();
             }
 
             Loaded += (s, e) =>
@@ -937,7 +942,107 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
 
         #region 调整大小
+        /// <summary>
+        /// 计算指定锚点对应的"固定端"在画布世界坐标系里的位置。
+        /// 这是控件旋转后,改尺寸时需要保持不动的那个点。
+        /// </summary>
+        private Point ComputeFixedWorldPoint(TAnchorPosition anchor)
+        {
+            // 控件中心在画布上的世界坐标(因为 RenderTransformOrigin = 0.5, 0.5,旋转绕的就是这个点)
+            double pipeLeft = Canvas.GetLeft(this);
+            double pipeTop = Canvas.GetTop(this);
+            if (double.IsNaN(pipeLeft)) pipeLeft = 0;
+            if (double.IsNaN(pipeTop)) pipeTop = 0;
+            Point center = new Point(pipeLeft + Width / 2, pipeTop + Height / 2);
 
+            // 固定端在控件本地坐标系(以中心为原点)的位置
+            Point localFixed = ComputeLocalFixedPoint(anchor, _originalSize);
+
+            // 旋转到世界坐标
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+            Point worldOffset = new Point(localFixed.X * cos - localFixed.Y * sin,
+                                          localFixed.X * sin + localFixed.Y * cos);
+
+            return new Point(center.X + worldOffset.X, center.Y + worldOffset.Y);
+        }
+
+        /// <summary>
+        /// 计算指定锚点对应的"固定端"在控件本地坐标系(中心为原点)的位置。
+        /// </summary>
+        private Point ComputeLocalFixedPoint(TAnchorPosition anchor, TPipeSize size)
+        {
+            // 主管在本地的几何:
+            //   主管左端 X = FlangeOffset (≈0)
+            //   主管中线 Y = MAIN_PIPE_CENTER_Y (=70)
+            //   主管右端 X = FlangeOffset + FlangeWidthConst + MainPipeLength
+            //   控件总宽 = 主管右端 + FlangeWidthConst + 4
+            //   控件总高 = MAIN_PIPE_CENTER_Y + PipeWidth/2 + FLANGE_EXTENSION/2 + 20
+
+            double mainPipeRight = FlangeOffset + FlangeWidthConst + size.MainPipeLength;
+            double totalW = mainPipeRight + FlangeWidthConst + 4;
+            double totalH = MAIN_PIPE_CENTER_Y + size.PipeWidth / 2 + FLANGE_EXTENSION / 2 + 20;
+
+            double cx = totalW / 2;
+            double cy = totalH / 2;
+
+            switch (anchor)
+            {
+                case TAnchorPosition.MainLength:
+                    // 拖右端 → 固定主管左端中点
+                    return new Point(FlangeOffset - cx, MAIN_PIPE_CENTER_Y - cy);
+
+                case TAnchorPosition.BranchLength:
+                    // 拖支管顶 → 固定支管根部(主管上沿,支管中心 X)
+                    double branchCenterX = FlangeOffset + FlangeWidthConst + size.BranchPosition;
+                    double mainTop = MAIN_PIPE_CENTER_Y - size.PipeWidth / 2;
+                    return new Point(branchCenterX - cx, mainTop - cy);
+
+                case TAnchorPosition.PipeWidth:
+                    // 拖管宽 → 固定主管中线在支管中心 X 的那一点
+                    double bcx = FlangeOffset + FlangeWidthConst + size.BranchPosition;
+                    return new Point(bcx - cx, MAIN_PIPE_CENTER_Y - cy);
+
+                case TAnchorPosition.BranchPosition:
+                default:
+                    // 滑动支管位置时不需要补偿,返回中心(补偿量=0)
+                    return new Point(0, 0);
+            }
+        }
+
+        /// <summary>
+        /// 改完尺寸后,根据"原始固定点"反推 Canvas.Left/Top,让固定端保持不动
+        /// </summary>
+        private void RepositionByFixedPoint()
+        {
+            if (_resizingAnchor == TAnchorPosition.BranchPosition) return;  // 这种锚点不需要补偿
+
+            // 改尺寸后的新固定端本地坐标(用当前的 size,不是 original)
+            var currentSize = new TPipeSize
+            {
+                MainPipeLength = MainPipeLength,
+                BranchPipeLength = BranchPipeLength,
+                BranchPosition = BranchPosition,
+                PipeWidth = PipeWidth
+            };
+            Point newLocalFixed = ComputeLocalFixedPoint(_resizingAnchor.Value, currentSize);
+
+            // 旋转到世界
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+            Point newWorldOffset = new Point(newLocalFixed.X * cos - newLocalFixed.Y * sin,
+                                             newLocalFixed.X * sin + newLocalFixed.Y * cos);
+
+            // 让"新固定端在世界中的位置" = "原固定端在世界中的位置"
+            // → newCenter = _fixedWorldPoint - newWorldOffset
+            Point newCenter = new Point(_fixedWorldPoint.X - newWorldOffset.X,
+                                        _fixedWorldPoint.Y - newWorldOffset.Y);
+
+            Canvas.SetLeft(this, newCenter.X - Width / 2);
+            Canvas.SetTop(this, newCenter.Y - Height / 2);
+        }
         private void StartResize(TAnchorPosition anchor, MouseButtonEventArgs e)
         {
             _isResizing = true;
@@ -950,6 +1055,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 BranchPosition = BranchPosition,
                 PipeWidth = PipeWidth
             };
+            _originalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
+            if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
+            if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
+
+            // ★ 关键:记下"开始拖之前的固定点世界坐标"
+            _fixedWorldPoint = ComputeFixedWorldPoint(anchor);
 
             CacheMode = null;
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
@@ -968,43 +1079,60 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnAnchorMouseMove(object sender, MouseEventArgs e)
         {
-            if (_isResizing && e.LeftButton == MouseButtonState.Pressed && _resizingAnchor.HasValue)
+            if (!_isResizing || e.LeftButton != MouseButtonState.Pressed || !_resizingAnchor.HasValue)
+                return;
+
+            Point currentPoint = e.GetPosition(Parent as UIElement);
+            double rawDx = currentPoint.X - _dragStartPoint.X;
+            double rawDy = currentPoint.Y - _dragStartPoint.Y;
+
+            // ★ 关键:把鼠标位移投影到管子的"本地坐标系"
+            // 旋转 0° 时:本地 X = 屏幕 X,本地 Y = 屏幕 Y
+            // 旋转 90° 时:本地 X = 屏幕 Y(管子横了竖,延长方向变成上下)
+            double radians = _rotationAngle * Math.PI / 180.0;
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+            double localDx = rawDx * cos + rawDy * sin;   // 沿主管方向
+            double localDy = -rawDx * sin + rawDy * cos;   // 垂直主管方向
+
+            switch (_resizingAnchor.Value)
             {
-                Point currentPoint = e.GetPosition(Parent as UIElement);
-                double deltaX = currentPoint.X - _dragStartPoint.X;
-                double deltaY = currentPoint.Y - _dragStartPoint.Y;
+                case TAnchorPosition.MainLength:
+                    // 拖右锚点 → 沿主管方向延伸 → 用 localDx
+                    MainPipeLength = _originalSize.MainPipeLength + localDx;
+                    break;
 
-                switch (_resizingAnchor.Value)
-                {
-                    case TAnchorPosition.MainLength:
-                        MainPipeLength = _originalSize.MainPipeLength + deltaX;
-                        break;
-                    case TAnchorPosition.BranchLength:
-                        BranchPipeLength = _originalSize.BranchPipeLength - deltaY;
-                        break;
-                    case TAnchorPosition.BranchPosition:
-                        BranchPosition = _originalSize.BranchPosition + deltaX;
-                        break;
-                    case TAnchorPosition.PipeWidth:
-                        PipeWidth = _originalSize.PipeWidth + deltaY;
-                        break;
-                }
+                case TAnchorPosition.BranchLength:
+                    // 支管在主管"上方"(本地 -Y),拖锚点向上(localDy 变负)→ 支管变长
+                    BranchPipeLength = _originalSize.BranchPipeLength - localDy;
+                    break;
 
-                PipeResizing?.Invoke(this, new TPipeResizeEventArgs
-                {
-                    PipeId = PipeId,
-                    AnchorPosition = _resizingAnchor.Value,
-                    OriginalSize = _originalSize,
-                    CurrentSize = new TPipeSize
-                    {
-                        MainPipeLength = MainPipeLength,
-                        BranchPipeLength = BranchPipeLength,
-                        BranchPosition = BranchPosition,
-                        PipeWidth = PipeWidth
-                    }
-                });
-                e.Handled = true;
+                case TAnchorPosition.BranchPosition:
+                    // 支管沿主管滑动 → 用 localDx
+                    BranchPosition = _originalSize.BranchPosition + localDx;
+                    break;
+
+                case TAnchorPosition.PipeWidth:
+                    // 拖底部宽度锚点向下(localDy 变正)→ 管子变粗
+                    PipeWidth = _originalSize.PipeWidth + localDy;
+                    break;
             }
+            // ★ 改完尺寸后反推位置,让固定端在世界坐标里保持不动
+            RepositionByFixedPoint();
+            PipeResizing?.Invoke(this, new TPipeResizeEventArgs
+            {
+                PipeId = PipeId,
+                AnchorPosition = _resizingAnchor.Value,
+                OriginalSize = _originalSize,
+                CurrentSize = new TPipeSize
+                {
+                    MainPipeLength = MainPipeLength,
+                    BranchPipeLength = BranchPipeLength,
+                    BranchPosition = BranchPosition,
+                    PipeWidth = PipeWidth
+                }
+            });
+            e.Handled = true;
         }
 
         private void OnAnchorMouseUp(object sender, MouseButtonEventArgs e)
@@ -1231,8 +1359,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 // ═══ 控件尺寸 & 选中框 ═══
                 double totalWidth = rightFlangeX + FlangeWidthConst + 4;
                 double totalHeight = (mainPipeTop + _pipeWidth) + (FLANGE_EXTENSION / 2) + 20;
-                Width = Math.Max(totalWidth, 100);
-                Height = Math.Max(totalHeight, 100);
+                Width = totalWidth;
+                Height = totalHeight;
 
                 // 选中描边（T 形：主管 + 支管）
                 // 主管：整条横管
@@ -1271,32 +1399,41 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         private void UpdateAnchorPositions(
-            double rightFlangeX, double mainPipeTop,
-            double branchPipeLeft, double branchPipeTop,
-            double branchCenterX, double mainPipeCenterY)
+      double rightFlangeX, double mainPipeTop,
+      double branchPipeLeft, double branchPipeTop,
+      double branchCenterX, double mainPipeCenterY)
         {
-            Canvas.SetLeft(MainLengthAnchor, rightFlangeX + 8);
+            // 主管长度调整锚点 — 紧贴右法兰外侧,在主管中线上
+            Canvas.SetLeft(MainLengthAnchor, rightFlangeX + FlangeWidthConst + 2);
             Canvas.SetTop(MainLengthAnchor, mainPipeCenterY - 6);
 
+            // 支管长度调整锚点 — 紧贴支管顶端法兰外侧
             Canvas.SetLeft(BranchLengthAnchor, branchCenterX - 6);
-            Canvas.SetTop(BranchLengthAnchor, branchPipeTop - 12);
+            Canvas.SetTop(BranchLengthAnchor, branchPipeTop - FlangeWidthConst - 14);
 
-            Canvas.SetLeft(BranchPositionAnchor, branchCenterX - 26);
+            // 支管位置调整锚点 — 在主管上,支管中心位置(左侧让开一点避免和支管重叠)
+            Canvas.SetLeft(BranchPositionAnchor, branchCenterX - _pipeWidth / 2 - 14);
             Canvas.SetTop(BranchPositionAnchor, mainPipeCenterY - 6);
 
+            // 管宽调整锚点 — 主管下方,支管中心 X 位置
             Canvas.SetLeft(PipeWidthAnchor, branchCenterX - 6);
-            Canvas.SetTop(PipeWidthAnchor, mainPipeTop + _pipeWidth + 8);
+            Canvas.SetTop(PipeWidthAnchor, mainPipeTop + _pipeWidth + 4);
 
-            Canvas.SetLeft(RotateAnchor, Width / 2 - 6);
-            Canvas.SetTop(RotateAnchor, -40);
+            // ★ 旋转锚点 — 紧贴支管顶部法兰上方,而不是控件顶部
+            // 支管顶法兰在 branchPipeTop - FlangeWidthConst,锚点再往上 14px
+            double rotateAnchorY = branchPipeTop - FlangeWidthConst - 28;
+            Canvas.SetLeft(RotateAnchor, branchCenterX - 6);
+            Canvas.SetTop(RotateAnchor, rotateAnchorY);
 
-            RotateAnchorLine.X1 = Width / 2;
-            RotateAnchorLine.Y1 = 0;
-            RotateAnchorLine.X2 = Width / 2;
-            RotateAnchorLine.Y2 = -34;
+            // 旋转辅助线 — 从支管顶法兰连到旋转锚点
+            RotateAnchorLine.X1 = branchCenterX;
+            RotateAnchorLine.Y1 = branchPipeTop - FlangeWidthConst;
+            RotateAnchorLine.X2 = branchCenterX;
+            RotateAnchorLine.Y2 = rotateAnchorY + 6;
 
-            Canvas.SetLeft(RotationLabel, Width / 2 - 20);
-            Canvas.SetTop(RotationLabel, -60);
+            // 旋转角度标签 — 旋转锚点上方
+            Canvas.SetLeft(RotationLabel, branchCenterX - 20);
+            Canvas.SetTop(RotationLabel, rotateAnchorY - 22);
         }
 
         #endregion

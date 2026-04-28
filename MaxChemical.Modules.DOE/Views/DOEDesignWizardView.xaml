@@ -239,14 +239,41 @@
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Grid>
-                                                            <ComboBox ItemsSource="{Binding AvailableCandidates}" SelectedItem="{Binding SelectedCandidate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzComboCompact}" Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- ① 连续因子且未勾选手动: ComboBox 选流程参数 -->
+                                                            <ComboBox Grid.Column="0"
+                          ItemsSource="{Binding AvailableCandidates}"
+                          SelectedItem="{Binding SelectedCandidate, UpdateSourceTrigger=PropertyChanged}"
+                          Style="{StaticResource WzComboCompact}"
+                          Visibility="{Binding NeedsBinding, Converter={StaticResource BoolToVis}}">
                                                                 <ComboBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <TextBlock Text="{Binding DisplayName}"/>
                                                                     </DataTemplate>
                                                                 </ComboBox.ItemTemplate>
                                                             </ComboBox>
-                                                            <TextBlock Text="手动操作" FontSize="11" FontStyle="Italic" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Center" Margin="8,0" Visibility="{Binding IsCategorical, Converter={StaticResource BoolToVis}}"/>
+
+                                                            <!-- ② 类别因子 或 连续因子勾选了手动: 显示「手动操作」灰字 -->
+                                                            <TextBlock Grid.Column="0"
+                           Text="手动操作 — 由操作员调节"
+                           FontSize="11" FontStyle="Italic"
+                           Foreground="{StaticResource WzTextHint}"
+                           VerticalAlignment="Center" Margin="8,0"
+                           Visibility="{Binding IsManual, Converter={StaticResource BoolToVis}}"/>
+
+                                                            <!-- ③ 仅连续因子显示「手动」CheckBox(类别因子永远手动,不需要切换) -->
+                                                            <CheckBox Grid.Column="1"
+                          Content="手动"
+                          IsChecked="{Binding IsManual, UpdateSourceTrigger=PropertyChanged}"
+                          VerticalAlignment="Center"
+                          Margin="8,0,4,0"
+                          FontSize="11"
+                          ToolTip="勾选后该因子不绑定流程参数,运行时由操作员手动按矩阵值调节"
+                          Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"/>
                                                         </Grid>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
@@ -262,7 +289,8 @@
                                     </DataGrid>
                                 </Border>
                                 <Button Content="+ 添加因子" Command="{Binding AddFactorCommand}" Style="{StaticResource WzBtnAdd}"/>
-                                <TextBlock Text="每个因子需绑定流程参数。类别因子在水平栏填写逗号分隔的水平值。" Style="{StaticResource WzHint}" Margin="0,8,0,0"/>
+                                <TextBlock Style="{StaticResource WzHint}" Margin="0,8,0,0"
+           Text="连续因子默认绑定流程参数;勾选「手动」则不绑定,由操作员按矩阵值手动调节。类别因子始终为手动操作。"/>
                             </StackPanel>
 
                             <!-- ══════════════════════════════

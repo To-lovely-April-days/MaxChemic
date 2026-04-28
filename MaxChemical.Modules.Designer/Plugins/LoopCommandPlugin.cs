@@ -40,7 +40,9 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
             logicCommand.SetProperty("Description", properties.Description);
             logicCommand.SetProperty("WaitTime", properties.WaitTime);
             logicCommand.SetProperty("IsDoWhile", properties.IsDoWhile);
-
+            logicCommand.SetProperty("ExecutionMode", properties.ExecutionMode);
+            logicCommand.SetProperty("ToleranceMode", properties.ToleranceMode);
+            logicCommand.SetProperty("ToleranceValue", properties.ToleranceValue);
             // 初始化条件字符串
             logicCommand.SetProperty("Condition", $"{properties.LeftOperand} == {properties.RightOperand}");
 

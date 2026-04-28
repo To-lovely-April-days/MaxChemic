@@ -11,9 +11,6 @@
         <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <converters:DeviceToControlConverter x:Key="DeviceToControlConverter"/>
         <converters:IsCustomControlConverter x:Key="IsCustomControlConverter"/>
-        <!-- 定义颜色资源 -->
-        <Color x:Key="PrimaryColor">#E60012</Color>
-        <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
 
         <!-- 搜索框样式 -->
         <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
@@ -23,46 +20,42 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background" Value="#EBEBEB"/>
+            <Setter Property="Background" Value="{StaticResource Bg.TertiaryBrush}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Border Background="{TemplateBinding Background}"
-                             BorderBrush="{TemplateBinding BorderBrush}"
-                             BorderThickness="{TemplateBinding BorderThickness}"
-                             CornerRadius="3"
-                             x:Name="SearchBorder">
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                x:Name="SearchBorder">
                             <Grid>
-                                <!-- 搜索图标 -->
                                 <Image Source="pack://siteoforigin:,,,/Resources/Icon/Search.png"
-                                    Width="12"
-                                    Height="12"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Center"
-                                    Margin="6,0,0,0"/>
+                                       Width="12"
+                                       Height="12"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       Margin="6,0,0,0"/>
 
                                 <ScrollViewer x:Name="PART_ContentHost"
-                                           Margin="{TemplateBinding Padding}"
-                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
 
-                                <!-- 使用绑定的搜索提示文本 -->
                                 <TextBlock Text="{Binding SearchPlaceholder}"
-                                        Foreground="#999999"
-                                        FontSize="{TemplateBinding FontSize}"
-                                        Margin="{TemplateBinding Padding}"
-                                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                        IsHitTestVisible="False"
-                                        x:Name="WatermarkText"
-                                        Visibility="Visible"/>
+                                           Foreground="{StaticResource Text.TertiaryBrush}"
+                                           FontSize="{TemplateBinding FontSize}"
+                                           Margin="{TemplateBinding Padding}"
+                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                           IsHitTestVisible="False"
+                                           x:Name="WatermarkText"
+                                           Visibility="Visible"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <!-- 当有焦点时隐藏提示文字 -->
                             <Trigger Property="IsFocused" Value="True">
                                 <Setter TargetName="WatermarkText" Property="Visibility" Value="Collapsed"/>
                             </Trigger>
-                            <!-- 当有文字内容时隐藏提示文字 -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsFocused" Value="False"/>
@@ -71,7 +64,6 @@
                                     <Setter TargetName="WatermarkText" Property="Visibility" Value="Collapsed"/>
                                 </MultiTrigger.Setters>
                             </MultiTrigger>
-                            <!-- 当没有焦点且文字为空时显示提示文字 -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsFocused" Value="False"/>
@@ -100,10 +92,10 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="Transparent" 
-                             BorderBrush="Transparent" 
-                             BorderThickness="0">
+                                BorderBrush="Transparent" 
+                                BorderThickness="0">
                             <ContentPresenter HorizontalAlignment="Center" 
-                                           VerticalAlignment="Center"/>
+                                              VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -118,9 +110,9 @@
                         <BeginStoryboard>
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                              To="1.2" Duration="0:0:0.15"/>
+                                                 To="1.2" Duration="0:0:0.15"/>
                                 <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                              To="1.2" Duration="0:0:0.15"/>
+                                                 To="1.2" Duration="0:0:0.15"/>
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.EnterActions>
@@ -128,9 +120,9 @@
                         <BeginStoryboard>
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                              To="1.0" Duration="0:0:0.15"/>
+                                                 To="1.0" Duration="0:0:0.15"/>
                                 <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                              To="1.0" Duration="0:0:0.15"/>
+                                                 To="1.0" Duration="0:0:0.15"/>
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.ExitActions>
@@ -138,7 +130,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- 命令按钮悬停放大样式 - 无边框版本 -->
+        <!-- 命令按钮悬停放大样式(已移除浅粉底色) -->
         <Style x:Key="CommandButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -146,14 +138,14 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                             BorderBrush="Transparent"
-                             BorderThickness="0"
-                             Padding="{TemplateBinding Padding}"
-                             x:Name="ButtonBorder">
+                        <Border Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0"
+                                Padding="{TemplateBinding Padding}"
+                                x:Name="ButtonBorder">
                             <ContentPresenter HorizontalAlignment="Center"
-                                           VerticalAlignment="Top"
-                                           x:Name="ContentPresenter">
+                                              VerticalAlignment="Top"
+                                              x:Name="ContentPresenter">
                                 <ContentPresenter.RenderTransform>
                                     <ScaleTransform ScaleX="1" ScaleY="1"/>
                                 </ContentPresenter.RenderTransform>
@@ -166,11 +158,11 @@
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="ContentPresenter"
-                                                          Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                                          To="1.08" Duration="0:0:0.15"/>
+                                                             Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                             To="1.08" Duration="0:0:0.15"/>
                                             <DoubleAnimation Storyboard.TargetName="ContentPresenter"
-                                                          Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                                          To="1.08" Duration="0:0:0.15"/>
+                                                             Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                             To="1.08" Duration="0:0:0.15"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
@@ -178,11 +170,11 @@
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="ContentPresenter"
-                                                          Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                                          To="1.0" Duration="0:0:0.15"/>
+                                                             Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                             To="1.0" Duration="0:0:0.15"/>
                                             <DoubleAnimation Storyboard.TargetName="ContentPresenter"
-                                                          Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                                          To="1.0" Duration="0:0:0.15"/>
+                                                             Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                             To="1.0" Duration="0:0:0.15"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
@@ -197,7 +189,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="White">
+    <Grid Background="{StaticResource Bg.PrimaryBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -208,18 +200,19 @@
             <!-- 搜索框 -->
             <Grid HorizontalAlignment="Left">
                 <TextBox Style="{StaticResource SearchTextBoxStyle}"
-                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                      VerticalAlignment="Center"/>
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalAlignment="Center"/>
 
                 <Button Content="✕"
-                     Command="{Binding ClearSearchCommand}"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     Margin="5,0"
-                     VerticalAlignment="Center"
-                     HorizontalAlignment="Right"
-                     ToolTip="{Binding ClearSearchTooltip}"
-                     Visibility="{Binding HasSearchText, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        Command="{Binding ClearSearchCommand}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="{StaticResource Text.TertiaryBrush}"
+                        Margin="5,0"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right"
+                        ToolTip="{Binding ClearSearchTooltip}"
+                        Visibility="{Binding HasSearchText, Converter={StaticResource BoolToVisibilityConverter}}"/>
             </Grid>
 
             <!-- 标题区域 -->
@@ -231,38 +224,34 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- 左侧图标和标题 -->
                     <StackPanel Grid.Column="0" 
-                             Orientation="Horizontal" 
-                             VerticalAlignment="Center">
-                        <!-- 设备库图标 -->
+                                Orientation="Horizontal" 
+                                VerticalAlignment="Center">
                         <Image Source="pack://siteoforigin:,,,/Resources/Icon/DeviceLibrary.png" 
-                            Width="20" 
-                            Height="16" 
-                            Margin="0,0,16,0"
-                            VerticalAlignment="Center"/>
+                               Width="20" 
+                               Height="16" 
+                               Margin="0,0,16,0"
+                               VerticalAlignment="Center"/>
 
-                        <!-- 标题文字 -->
                         <TextBlock Text="{Binding LibraryTitle}" 
-                                FontSize="16" 
-                                FontWeight="Medium"
-                                Foreground="#525252"
-                                VerticalAlignment="Center"/>
+                                   FontSize="16" 
+                                   FontWeight="Medium"
+                                   Foreground="{StaticResource Text.PrimaryBrush}"
+                                   VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- 右侧菜单图标 -->
                     <Button Grid.Column="2"
-                         Style="{StaticResource TransparentButtonStyle}"
-                         Width="24"
-                         Height="24"
-                         VerticalAlignment="Center"
-                         HorizontalAlignment="Right"
-                         Margin="0,0,15,0"
-                         Command="{Binding MenuCommand}">
+                            Style="{StaticResource TransparentButtonStyle}"
+                            Width="24"
+                            Height="24"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            Margin="0,0,15,0"
+                            Command="{Binding MenuCommand}">
                         <Image Source="pack://siteoforigin:,,,/Resources/Icon/Menu.png" 
-                            Width="16" 
-                            Height="16"
-                            Style="{StaticResource HoverScaleImageStyle}">
+                               Width="16" 
+                               Height="16"
+                               Style="{StaticResource HoverScaleImageStyle}">
                             <Image.RenderTransform>
                                 <ScaleTransform ScaleX="1" ScaleY="1"/>
                             </Image.RenderTransform>
@@ -272,28 +261,27 @@
             </Border>
 
             <!-- 分割线 -->
-            <Rectangle Fill="#E0E0E0" 
-                    Height="1" 
-                    Margin="0,14,20,0" 
-                    HorizontalAlignment="Stretch" />
+            <Rectangle Fill="{StaticResource Border.DefaultBrush}" 
+                       Height="1" 
+                       Margin="0,14,20,0" 
+                       HorizontalAlignment="Stretch" />
         </StackPanel>
 
         <!-- 设备列表 -->
         <ScrollViewer Grid.Row="1" 
-                   VerticalScrollBarVisibility="Auto" 
-                   HorizontalScrollBarVisibility="Disabled"
-                   Margin="0,0,0,0">
+                      VerticalScrollBarVisibility="Auto" 
+                      HorizontalScrollBarVisibility="Disabled"
+                      Margin="0,0,0,0">
             <Border Margin="20,1,5,0">
                 <StackPanel>
                     <!-- 设备命令标题行 -->
-                    <Border Background="Transparent" 
-                         Margin="0,10,0,0">
+                    <Border Background="Transparent" Margin="0,10,0,0">
                         <ToggleButton Background="Transparent"
-                                   BorderThickness="0"
-                                   IsChecked="True"
-                                   HorizontalAlignment="Stretch"
-                                   HorizontalContentAlignment="Stretch"
-                                   x:Name="DeviceCommandToggle">
+                                      BorderThickness="0"
+                                      IsChecked="True"
+                                      HorizontalAlignment="Stretch"
+                                      HorizontalContentAlignment="Stretch"
+                                      x:Name="DeviceCommandToggle">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -321,62 +309,57 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- 左侧图标和标题 -->
                                 <StackPanel Grid.Column="0" 
-                                         Orientation="Horizontal" 
-                                         VerticalAlignment="Center">
-                                    <!-- 设备命令图标 -->
+                                            Orientation="Horizontal" 
+                                            VerticalAlignment="Center">
                                     <Image Source="pack://siteoforigin:,,,/Resources/Icon/device.png" 
-                                        Width="22" 
-                                        Height="22" 
-                                        Margin="0,0,16,0"
-                                        VerticalAlignment="Center"/>
+                                           Width="22" 
+                                           Height="22" 
+                                           Margin="0,0,16,0"
+                                           VerticalAlignment="Center"/>
 
-                                    <!-- 设备命令标题 -->
                                     <TextBlock Text="{Binding DeviceCommandLabel}"
-                                            FontSize="16"
-                                            FontWeight="Medium"
-                                            Foreground="#525252"
-                                            VerticalAlignment="Center"/>
+                                               FontSize="16"
+                                               FontWeight="Medium"
+                                               Foreground="{StaticResource Text.PrimaryBrush}"
+                                               VerticalAlignment="Center"/>
                                 </StackPanel>
 
                                 <!-- 展开箭头 -->
                                 <Path Grid.Column="2"
-                                   Data="M0,0 L5.38,4.46 L0,8.92"
-                                   Stroke="#000000"
-                                   StrokeThickness="1"
-                                   Fill="Transparent"
-                                   Width="5.38"
-                                   Height="8.92"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,28,0">
+                                      Data="M0,0 L5.38,4.46 L0,8.92"
+                                      Stroke="{StaticResource Text.SecondaryBrush}"
+                                      StrokeThickness="1"
+                                      Fill="Transparent"
+                                      Width="5.38"
+                                      Height="8.92"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,28,0">
                                     <Path.RenderTransform>
                                         <RotateTransform Angle="{Binding IsChecked, ElementName=DeviceCommandToggle, Converter={StaticResource BoolToAngleConverter}}" 
-                                                      CenterX="2.69" CenterY="4.46"/>
+                                                         CenterX="2.69" CenterY="4.46"/>
                                     </Path.RenderTransform>
                                 </Path>
                             </Grid>
                         </ToggleButton>
                     </Border>
 
-                   
                     <!-- 设备列表内容 -->
                     <Border Visibility="{Binding IsChecked, ElementName=DeviceCommandToggle, Converter={StaticResource BoolToVisibilityConverter}}"
-                         Margin="0,5,0,5">
+                            Margin="0,5,0,5">
                         <ItemsControl ItemsSource="{Binding Devices}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-                                         Margin="0,5,0,5">
+                                            Margin="0,5,0,5">
                                         <StackPanel>
                                             <!-- 设备标题行 -->
-                                            <Border Background="Transparent" 
-                                                 Padding="0,8,20,8">
+                                            <Border Background="Transparent" Padding="0,8,20,8">
                                                 <ToggleButton Background="Transparent"
-                                                           BorderThickness="0"
-                                                           IsChecked="{Binding IsExpanded}"
-                                                           HorizontalAlignment="Stretch"
-                                                           HorizontalContentAlignment="Stretch">
+                                                              BorderThickness="0"
+                                                              IsChecked="{Binding IsExpanded}"
+                                                              HorizontalAlignment="Stretch"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ToggleButton.Style>
                                                         <Style TargetType="ToggleButton">
                                                             <Setter Property="Background" Value="Transparent"/>
@@ -405,28 +388,27 @@
                                                             <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
 
-                                                        <!-- 橙色圆点 -->
+                                                        <!-- 品牌深红圆点 -->
                                                         <Ellipse Grid.Column="0"
-                                                               Width="9"
-                                                               Height="9"
-                                                               Fill="#FF805C"
-                                                               Margin="5,0,12,0"
-                                                               VerticalAlignment="Center"/>
+                                                                 Width="9"
+                                                                 Height="9"
+                                                                 Fill="{StaticResource Brand.PrimaryBrush}"
+                                                                 Margin="5,0,12,0"
+                                                                 VerticalAlignment="Center"/>
 
-                                                        <!-- 设备图标容器 - 增大尺寸 -->
+                                                        <!-- 设备图标容器 -->
                                                         <Border Grid.Column="1"
-     Width="50" Height="50"
-     CornerRadius="6"
-     Background="White"
-     Margin="0,0,5,0">
+                                                                Width="50" Height="50"
+                                                                CornerRadius="6"
+                                                                Background="{StaticResource Bg.PrimaryBrush}"
+                                                                Margin="0,0,5,0">
                                                             <Grid>
-                                                                <!-- ① 自定义控件（CUSTOM_CONTROL:xxx） -->
                                                                 <ContentControl Content="{Binding CanvasDevice.Device, Converter={StaticResource DeviceToControlConverter}}"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        IsHitTestVisible="False">
+                                                                                HorizontalAlignment="Center"
+                                                                                VerticalAlignment="Center"
+                                                                                HorizontalContentAlignment="Center"
+                                                                                VerticalContentAlignment="Center"
+                                                                                IsHitTestVisible="False">
                                                                     <ContentControl.Style>
                                                                         <Style TargetType="ContentControl">
                                                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -439,10 +421,9 @@
                                                                     </ContentControl.Style>
                                                                 </ContentControl>
 
-                                                                <!-- ② 普通图片 -->
                                                                 <Image Source="{Binding CanvasDevice.Device.ImageLocation}"
-               Stretch="Uniform"
-               Margin="6">
+                                                                       Stretch="Uniform"
+                                                                       Margin="6">
                                                                     <Image.Style>
                                                                         <Style TargetType="Image">
                                                                             <Setter Property="Visibility" Value="Visible"/>
@@ -455,100 +436,101 @@
                                                                     </Image.Style>
                                                                 </Image>
 
-                                                                <!-- ③ 默认图标（无图时） -->
-                                                                <Border Background="#E3F2FD"
-                CornerRadius="4"
-                Visibility="{Binding CanvasDevice.Device.ImageLocation, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=invert}">
-                                                                    <TextBlock Text="📟"
-                       FontSize="20"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+                                                                <!-- 默认图标(无图时) -->
+                                                                <Border Background="{StaticResource Brand.PrimaryLightBrush}"
+                                                                        CornerRadius="4"
+                                                                        Visibility="{Binding CanvasDevice.Device.ImageLocation, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=invert}">
+                                                                    <Path Width="22" Height="22" Stretch="Uniform"
+                                                                          Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                                                                          Data="M5,3H19A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3M7,5V7H17V5H7M7,9V11H17V9H7M7,13V15H17V13H7M7,17V19H13V17H7Z"
+                                                                          HorizontalAlignment="Center"
+                                                                          VerticalAlignment="Center"/>
                                                                 </Border>
                                                             </Grid>
                                                         </Border>
+
                                                         <!-- 设备名称 -->
                                                         <TextBlock Grid.Column="2"
-                                                                Text="{Binding CanvasDevice.Device.Name}"
-                                                                FontSize="14"
-                                                                FontWeight="Medium"
-                                                                Foreground="#333333"
-                                                                VerticalAlignment="Center"/>
+                                                                   Text="{Binding CanvasDevice.Device.Name}"
+                                                                   FontSize="14"
+                                                                   FontWeight="Medium"
+                                                                   Foreground="{StaticResource Text.PrimaryBrush}"
+                                                                   VerticalAlignment="Center"/>
 
                                                         <!-- 展开箭头 -->
                                                         <Path Grid.Column="3"
-                                                           Data="M0,0 L5,4 L0,8"
-                                                           Stroke="#666666"
-                                                           StrokeThickness="1.5"
-                                                           Fill="Transparent"
-                                                           Width="5"
-                                                           Height="8"
-                                                           VerticalAlignment="Center"
-                                                           Margin="0,0,10,0">
+                                                              Data="M0,0 L5,4 L0,8"
+                                                              Stroke="{StaticResource Text.SecondaryBrush}"
+                                                              StrokeThickness="1.5"
+                                                              Fill="Transparent"
+                                                              Width="5"
+                                                              Height="8"
+                                                              VerticalAlignment="Center"
+                                                              Margin="0,0,10,0">
                                                             <Path.RenderTransform>
                                                                 <RotateTransform Angle="{Binding IsExpanded, Converter={StaticResource BoolToAngleConverter}}" 
-                                                                              CenterX="2.5" CenterY="4"/>
+                                                                                 CenterX="2.5" CenterY="4"/>
                                                             </Path.RenderTransform>
                                                         </Path>
                                                     </Grid>
                                                 </ToggleButton>
                                             </Border>
 
-                                            <!-- 设备命令列表 - 占满整个控件宽度 -->
-                                            <Border 
-                                                 Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                 Margin="0,5,0,5">
+                                            <!-- 设备命令列表 -->
+                                            <Border Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Margin="0,5,0,5">
                                                 <ItemsControl ItemsSource="{Binding Commands}" Margin="18,0,0,0">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
                                                             <WrapPanel Orientation="Horizontal" 
-                           VerticalAlignment="Top"/>
+                                                                       VerticalAlignment="Top"/>
                                                         </ItemsPanelTemplate>
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Button Style="{StaticResource CommandButtonStyle}"
-                                                                 Margin="5,2,0,8"
-                                                                 Width="75"
-                                                                 Height="48"
-                                                                 Command="{Binding DataContext.CommandSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                 CommandParameter="{Binding}"
-                                                                 ToolTip="{Binding HelpText}"
-                                                                 IsEnabled="{Binding IsEnabled}"
-                                                                 PreviewMouseDown="CommandButton_PreviewMouseDown"
-                                                                 PreviewMouseMove="CommandButton_PreviewMouseMove"
-                                                                 PreviewMouseUp="CommandButton_PreviewMouseUp">
+                                                                    Margin="5,2,0,8"
+                                                                    Width="75"
+                                                                    Height="48"
+                                                                    Command="{Binding DataContext.CommandSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    ToolTip="{Binding HelpText}"
+                                                                    IsEnabled="{Binding IsEnabled}"
+                                                                    PreviewMouseDown="CommandButton_PreviewMouseDown"
+                                                                    PreviewMouseMove="CommandButton_PreviewMouseMove"
+                                                                    PreviewMouseUp="CommandButton_PreviewMouseUp">
 
                                                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top">
-                                                                    <!-- 命令图标容器 - 高度自适应 -->
+                                                                    <!-- 命令图标容器 -->
                                                                     <Grid Width="18" Height="18" Margin="0,0,0,8" 
                                                                           HorizontalAlignment="Center" 
                                                                           VerticalAlignment="Top">
-                                                                        <!-- 命令图标 -->
                                                                         <Image Source="{Binding ImageLocation}" 
                                                                                Stretch="Uniform"
                                                                                VerticalAlignment="Top"
                                                                                Visibility="{Binding ImageLocation, Converter={StaticResource StringToVisibilityConverter}}"/>
 
-                                                                        <!-- 默认命令图标 -->
-                                                                        <Border Background="#F0F0F0" 
-                                                                             CornerRadius="3"
-                                                                             VerticalAlignment="Top"
-                                                                             Visibility="{Binding ImageLocation, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=invert}">
-                                                                            <TextBlock Text="⚙" 
-                                                                                    FontSize="10" 
-                                                                                    HorizontalAlignment="Center" 
-                                                                                    VerticalAlignment="Top"/>
+                                                                        <!-- 默认命令图标(齿轮 SVG) -->
+                                                                        <Border Background="{StaticResource Bg.TertiaryBrush}" 
+                                                                                CornerRadius="3"
+                                                                                VerticalAlignment="Top"
+                                                                                Visibility="{Binding ImageLocation, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=invert}">
+                                                                            <Path Width="11" Height="11" Stretch="Uniform"
+                                                                                  Fill="{StaticResource Text.SecondaryBrush}"
+                                                                                  Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+                                                                                  HorizontalAlignment="Center"
+                                                                                  VerticalAlignment="Center"/>
                                                                         </Border>
                                                                     </Grid>
 
                                                                     <!-- 命令名称 -->
                                                                     <TextBlock Text="{Binding Name}"
-                                                                            FontSize="12"
-                                                                            Foreground="#555555"
-                                                                            TextAlignment="Center"
-                                                                            TextWrapping="Wrap"
-                                                                            MaxWidth="80"
-                                                                            HorizontalAlignment="Center"/>
+                                                                               FontSize="12"
+                                                                               Foreground="{StaticResource Text.SecondaryBrush}"
+                                                                               TextAlignment="Center"
+                                                                               TextWrapping="Wrap"
+                                                                               MaxWidth="80"
+                                                                               HorizontalAlignment="Center"/>
                                                                 </StackPanel>
                                                             </Button>
                                                         </DataTemplate>
@@ -556,10 +538,10 @@
                                                 </ItemsControl>
                                             </Border>
 
-                                            <!-- 分割线 - 减小距离 -->
-                                            <Rectangle Fill="#E0E0E0" 
-                                                    Height="1" 
-                                                    HorizontalAlignment="Stretch"/>
+                                            <!-- 分割线 -->
+                                            <Rectangle Fill="{StaticResource Border.DefaultBrush}" 
+                                                       Height="1" 
+                                                       HorizontalAlignment="Stretch"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
