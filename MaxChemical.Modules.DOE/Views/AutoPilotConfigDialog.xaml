@@ -41,8 +41,8 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="智能决策参数" FontSize="15" FontWeight="Medium" Foreground="White"/>
-                        <TextBlock Text="AutoPilot 决策引擎 · 调整判断阈值与防护规则"
+                        <TextBlock Name="TbTitleTxt" Text="智能决策参数" FontSize="15" FontWeight="Medium" Foreground="White"/>
+                        <TextBlock Name="TbSubTitleTxt" Text="AutoPilot 决策引擎 · 调整判断阈值与防护规则"
                                    FontSize="11" Foreground="#88FFFFFF" Margin="0,4,0,0"/>
                     </StackPanel>
                     <Button Grid.Column="1" Click="CloseBtn_Click" Cursor="Hand"
@@ -73,13 +73,13 @@
                     <ColumnDefinition Width="60"/>
                     <ColumnDefinition Width="86"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="参数" FontSize="10" FontWeight="Medium"
+                <TextBlock Grid.Column="0" Name="TbParamHeader" Text="参数" FontSize="10" FontWeight="Medium"
                            Foreground="#9CA3AF" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                <TextBlock Grid.Column="1" Text="说明" FontSize="10" FontWeight="Medium"
+                <TextBlock Grid.Column="1" Name="TbInstructHeader" Text="说明" FontSize="10" FontWeight="Medium"
                            Foreground="#9CA3AF" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="2" Text="分组" FontSize="10" FontWeight="Medium"
+                <TextBlock Grid.Column="2" Name="TbGroupHeader" Text="分组" FontSize="10" FontWeight="Medium"
                            Foreground="#9CA3AF" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="3" Text="值" FontSize="10" FontWeight="Medium"
+                <TextBlock Grid.Column="3" Name="TbValueHeader" Text="值" FontSize="10" FontWeight="Medium"
                            Foreground="#9CA3AF" VerticalAlignment="Center" HorizontalAlignment="Center"/>
             </Grid>
 
@@ -99,13 +99,13 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="显著性 α" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow1" Text="显著性 α" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="p > α 则淘汰" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow1" Text="p > α 则淘汰" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#FEF3C7">
-                            <TextBlock Text="筛选" FontSize="9" FontWeight="Medium" Foreground="#D97706"/>
+                            <TextBlock Name="TbScreening" Text="筛选" FontSize="9" FontWeight="Medium" Foreground="#D97706"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding AlphaScreen, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -123,14 +123,14 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="合格 R²" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow2" Text="合格 R²" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
                         <TextBlock Grid.Column="1" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center">
-                            <Run Text="R² &lt; 此值触发补点"/>
+                            <Run Name="TbInstrucRow2" Text="R² &lt; 此值触发补点"/>
                         </TextBlock>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#E8EAF6">
-                            <TextBlock Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
+                            <TextBlock Name="TbGroupRow2" Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding R2Min, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -147,14 +147,14 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="优秀 R²" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow3" Text="优秀 R²" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
                         <TextBlock Grid.Column="1" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center">
-                            <Run Text="R² ≥ 此值触发验证"/>
+                            <Run Name="TbInstrucRow3" Text="R² ≥ 此值触发验证"/>
                         </TextBlock>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#E8EAF6">
-                            <TextBlock Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
+                            <TextBlock Name="TbGroupRow3" Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding R2Good, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -171,14 +171,14 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="LOF 阈值" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow4" Text="LOF 阈值" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
                         <TextBlock Grid.Column="1" FontSize="10" Foreground="#9CA3AF" VerticalAlignment="Center">
-                            <Run Text="p &lt; 此值表示失拟"/>
+                            <Run Name="TbInstrucRow4" Text="p &lt; 此值表示失拟"/>
                         </TextBlock>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#E8EAF6">
-                            <TextBlock Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
+                            <TextBlock Name="TbGroupRow4" Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding AlphaLOF, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -195,13 +195,13 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="R² 改善增量" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow5" Text="R² 改善增量" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="连续不改善则暂停" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow5" Text="连续不改善则暂停" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#E8EAF6">
-                            <TextBlock Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
+                            <TextBlock Name="TbGroupRow5" Text="模型" FontSize="9" FontWeight="Medium" Foreground="#2D3A8C"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding R2ImprovementMin, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -221,11 +221,11 @@
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
                         <TextBlock Grid.Column="0" Text="Desirability" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="D ≥ 此值视为达成" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow6" Text="D ≥ 此值视为达成" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#ECFDF5">
-                            <TextBlock Text="目标" FontSize="9" FontWeight="Medium" Foreground="#059669"/>
+                            <TextBlock Name="TbGroupRow6" Text="目标" FontSize="9" FontWeight="Medium" Foreground="#059669"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding DTarget, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -242,13 +242,13 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="验证重复次数" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow7" Text="验证重复次数" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="最优点重复实验数" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow7" Text="最优点重复实验数" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#ECFDF5">
-                            <TextBlock Text="目标" FontSize="9" FontWeight="Medium" Foreground="#059669"/>
+                            <TextBlock Name="TbGroupRow7" Text="目标" FontSize="9" FontWeight="Medium" Foreground="#059669"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding ConfirmationReps}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -266,13 +266,13 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="最大迭代轮次" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow8" Text="最大迭代轮次" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="超过后强制暂停" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow8" Text="超过后强制暂停" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#FEF2F2">
-                            <TextBlock Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
+                            <TextBlock Name="TbGroupRow8" Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding MaxRounds}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -289,13 +289,13 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="最大总实验组数" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow9" Text="最大总实验组数" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="成本控制上限" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow9" Text="成本控制上限" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#FEF2F2">
-                            <TextBlock Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
+                            <TextBlock Name="TbGroupRow9" Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding MaxTotalRuns}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -312,13 +312,13 @@
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
                         <Border Grid.ColumnSpan="4" BorderBrush="#F2F3F5" BorderThickness="0,0,0,0.5"/>
-                        <TextBlock Grid.Column="0" Text="范围扩展比例" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow10" Text="范围扩展比例" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="边界最优时扩展 %" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow10" Text="边界最优时扩展 %" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#FEF2F2">
-                            <TextBlock Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
+                            <TextBlock Name="TbGroupRow10" Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding RangeExpansionRatio, StringFormat=F2}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -334,13 +334,13 @@
                             <ColumnDefinition Width="60"/>
                             <ColumnDefinition Width="86"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="连续相同上限" FontSize="11" FontWeight="Medium"
+                        <TextBlock Grid.Column="0" Name="TbParamRow11" Text="连续相同上限" FontSize="11" FontWeight="Medium"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="22,0,0,0"/>
-                        <TextBlock Grid.Column="1" Text="N 轮相同推荐则暂停" FontSize="10"
+                        <TextBlock Grid.Column="1" Name="TbInstrucRow11" Text="N 轮相同推荐则暂停" FontSize="10"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                         <Border Grid.Column="2" CornerRadius="3" Padding="6,2" HorizontalAlignment="Left"
                                 VerticalAlignment="Center" Background="#FEF2F2">
-                            <TextBlock Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
+                            <TextBlock Name="TbGroupRow11" Text="防护" FontSize="9" FontWeight="Medium" Foreground="#DC2626"/>
                         </Border>
                         <TextBox Grid.Column="3" Text="{Binding MaxConsecutiveSameAction}"
                                  Style="{StaticResource WzCellNum}" Width="64" Height="26"
@@ -361,15 +361,15 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="0" Content="恢复默认值" Click="ResetBtn_Click"
+                    <Button Grid.Column="0" Name="BtnRestore" Content="恢复默认值" Click="ResetBtn_Click"
                             Style="{StaticResource WzBtnGhost}"
                             FontSize="11" Padding="14,7" Cursor="Hand"/>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal">
-                        <Button Content="取消" Click="CloseBtn_Click"
+                        <Button Name="BtnCancel" Content="取消" Click="CloseBtn_Click"
                                 Style="{StaticResource WzBtnGhost}"
                                 FontSize="11" Padding="16,7" Margin="0,0,8,0" Cursor="Hand"/>
-                        <Button Content="保存" Click="SaveBtn_Click"
+                        <Button Name="BtnSave" Content="保存" Click="SaveBtn_Click"
                                 Style="{StaticResource WzBtnPrimary}"
                                 FontSize="11" Padding="22,7" Cursor="Hand"/>
                     </StackPanel>
