@@ -351,7 +351,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 RoundSummary = await _repository.GetRoundSummaryByBatchAsync(_selectedRound.BatchId);
                 RaisePropertyChanged(nameof(HasRoundSummary));
 
-                SelectedRoundTitle = $"批次 {_selectedRound.RoundNumber} · {_selectedRound.DesignMethodText}";
+                SelectedRoundTitle = string.Format(_localizationService.GetString("Doe_History_Batch_Number", "批次 {0} · {1}"),_selectedRound.RoundNumber,_selectedRound.DesignMethodText);
                 SelectedRoundR2Text = _selectedRound.RSquaredText.Contains("R²=")
                     ? _selectedRound.RSquaredText.Replace("R²=", "")
                     : "—";

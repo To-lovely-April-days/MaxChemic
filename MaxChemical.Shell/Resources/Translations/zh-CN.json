@@ -649,6 +649,7 @@
   "Doe_History_BatchStatus_Paused":"已暂停",
   "Doe_History_BatchStatus_Completed":"已完成",
   "Doe_History_BatchStatus_Aborted":"已中止",
+  "Doe_History_Batch_Number":"批次 {0} · {1}",
   "Doe_ProjectPhase_Screening":"筛选",
   "Doe_ProjectPhase_PathSearch":"爬坡",
   "Doe_ProjectPhase_RSM":"RSM",

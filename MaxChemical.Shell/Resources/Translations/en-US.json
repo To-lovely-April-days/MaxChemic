@@ -663,6 +663,7 @@
   "Doe_History_BatchStatus_Paused":"Paused",
   "Doe_History_BatchStatus_Completed":"Completed",
   "Doe_History_BatchStatus_Aborted":"Aborted",
+  "Doe_History_Batch_Number":"Batch {0} · {1}",
   "Doe_ProjectPhase_Screening":"Screening",
   "Doe_ProjectPhase_PathSearch":"PathSearch",
   "Doe_ProjectPhase_RSM":"RSM",
