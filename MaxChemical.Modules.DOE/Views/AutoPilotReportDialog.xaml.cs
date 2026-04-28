@@ -1,5 +1,8 @@
-﻿using MaxChemical.Modules.DOE.Models;
+﻿using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.Services;
+using OxyPlot;
+using Prism.Ioc;
 using System.Windows;
 using System.Windows.Input;
 
@@ -17,6 +20,8 @@ namespace MaxChemical.Modules.DOE.Views
     /// </summary>
     public partial class AutoPilotReportDialog : Window
     {
+        private readonly ILocalizationService _localization;
+
         public AutoPilotReport Report { get; }
         public UserAction SelectedAction { get; private set; } = UserAction.None;
         public NextStepRecommendation? OverrideDecision { get; private set; }
@@ -27,11 +32,15 @@ namespace MaxChemical.Modules.DOE.Views
             Report = report;
             DataContext = this;
             InitializeComponent();
+
+            _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
+
+            UpdateLocalizationText();
         }
 
         // ── 绑定属性 ──
 
-        public string RoundText => $"第 {Report.RoundSummary?.RoundNumber ?? 0} 轮分析报告";
+        public string RoundText => string.Format(_localization.GetString("Doe_PilotReport_Roundreport", "第 {0} 轮分析报告"),Report.RoundSummary?.RoundNumber ?? 0);
 
         public string R2Text => Report.RoundSummary?.RSquared.HasValue == true
             ? $"{Report.RoundSummary.RSquared:F4}" : "—";
@@ -47,31 +56,32 @@ namespace MaxChemical.Modules.DOE.Views
 
         public string PhaseText => Report.RoundSummary?.Phase switch
         {
-            DOEProjectPhase.Screening => "筛选阶段",
-            DOEProjectPhase.PathSearch => "路径探索",
-            DOEProjectPhase.RSM => "响应面优化",
-            DOEProjectPhase.Confirmation => "验证确认",
-            DOEProjectPhase.Completed => "已完成",
+            DOEProjectPhase.Screening => _localization.GetString("Doe_ProjectPhase_Screening", "筛选"),
+            DOEProjectPhase.PathSearch => _localization.GetString("Doe_ProjectPhase_PathSearch", "爬坡"),
+            DOEProjectPhase.RSM => _localization.GetString("Doe_ProjectPhase_RSM", "RSM"),
+            DOEProjectPhase.Augmenting => _localization.GetString("Doe_ProjectPhase_Augmenting", "补点"),
+            DOEProjectPhase.Confirmation => _localization.GetString("Doe_ProjectPhase_Confirmation", "验证"),
+            DOEProjectPhase.Completed => _localization.GetString("Doe_ProjectPhase_Completed", "已完成"),
             _ => "—"
         };
 
         public string RecommendationText => Report.Recommendation switch
         {
-            NextStepRecommendation.ContinueScreening => "继续筛选",
-            NextStepRecommendation.SteepestAscent => "最速上升",
-            NextStepRecommendation.StartRSM => "进入 RSM",
-            NextStepRecommendation.AugmentDesign => "补充实验",
-            NextStepRecommendation.ExpandRange => "扩展范围",
-            NextStepRecommendation.ConfirmationRuns => "验证实验",
-            NextStepRecommendation.Complete => "优化完成",
-            _ => "需要用户决策"
+            NextStepRecommendation.ContinueScreening => _localization.GetString("Doe_Overview_Recommend_Screening", "继续筛选不显著因子"),
+            NextStepRecommendation.SteepestAscent => _localization.GetString("Doe_Overview_Recommend_Steepest", "沿梯度方向爬坡"),
+            NextStepRecommendation.StartRSM => _localization.GetString("Doe_Overview_Recommend_StartRSM", "进入响应面优化"),
+            NextStepRecommendation.ExpandRange => _localization.GetString("Doe_Overview_Recommend_Expand", "扩展因子范围"),
+            NextStepRecommendation.ConfirmationRuns => _localization.GetString("Doe_Overview_Recommend_Confirmation", "推荐验证实验"),
+            NextStepRecommendation.AugmentDesign => _localization.GetString("Doe_Overview_Recommend_Augment", "补充实验点"),
+            NextStepRecommendation.Complete => _localization.GetString("Doe_Overview_Recommend_Complete", "优化完成"),
+            _ => _localization.GetString("Doe_PilotReport_UseDecision", "需要用户决策")
         };
 
         public string ReasonText => Report.RecommendationReason;
         public string NextMethodText => Report.NextDesignMethodDisplay;
         public string NextPhaseText => Report.NextPhaseDisplay;
-        public string NextFactorText => $"{Report.NextFactorCount} 个因子";
-        public string NextRunsText => $"约 {Report.EstimatedRuns} 组实验";
+        public string NextFactorText => string.Format(_localization.GetString("Doe_PilotReport_CountFactor", "{0} 个因子"),Report.NextFactorCount);
+        public string NextRunsText => string.Format(_localization.GetString("Doe_PilotTrport_GroupExperi", "约 {0} 组实验"),Report.EstimatedRuns);
 
         public bool IsAutoExecuted => Report.AutoExecuted;
         public bool IsCompleted => Report.ProjectCompleted;
@@ -79,7 +89,8 @@ namespace MaxChemical.Modules.DOE.Views
         public bool IsSafeguard => Report.IsSafeguardTriggered;
 
         public string AutoExecutedText => Report.AutoExecuted
-            ? $"系统已自动创建下一轮批次 ({Report.NextBatchId})" : "";
+            ? string.Format(_localization.GetString("Doe_pilotReport_SysCreateNext", "系统已自动创建下一轮批次 ({0})"),Report.NextBatchId)
+            : "";
 
         // ── 按钮事件 ──
 
@@ -117,6 +128,27 @@ namespace MaxChemical.Modules.DOE.Views
             Accept,
             Manual,
             Skip
+        }
+
+        /// <summary>
+        /// 本地化标签文本
+        /// </summary>
+        private void UpdateLocalizationText()
+        {
+            TbTitle.Text = _localization.GetString("Doe_PilotReport_Title", "分析报告");
+            TbSysDecision.Text = _localization.GetString("Doe_PilotReport_SysDeci", "系统决策");
+            TbNextPlan.Text = _localization.GetString("Doe_PilotReport_NextPlan", "下一轮方案");
+            TbDesignMethod.Text = _localization.GetString("Doe_PilotReport_DesignMethod", "设计方法");
+            TbTargetPhase.Text = _localization.GetString("Doe_PilotReport_Phase", "目标阶段");
+            TbFactor.Text = _localization.GetString("Doe_PilotReport_Factor", "因子数");
+            TbPredict.Text = _localization.GetString("Doe_PilotReprot_Predict", "预计实验量");
+            TbAutoExec.Text = _localization.GetString("Doe_PilotReprot_AutoExec", "已自动执行");
+            TbOptimizeComplete.Text = _localization.GetString("Doe_PilotReport_Optimize", "优化目标达成");
+            TbSuggestParam.Text = _localization.GetString("Doe_PilotReport_Suggest", "建议固化当前参数");
+            BtnSkip.Content = _localization.GetString("Doe_PilotReport_Skip", "跳过");
+            BtnManual.Content = _localization.GetString("Doe_PilotReport_Manual", "手动决策");
+            BtnAccept.Content = _localization.GetString("Doe_PilotReport_Accept", "采纳推荐");
+            BtnClose.Content = _localization.GetString("Doe_PilotReport_Close", "关闭");
         }
     }
 }

@@ -42,7 +42,7 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="分析报告" FontSize="10" Foreground="#73FFFFFF"/>
+                            <TextBlock Name="TbTitle" Text="分析报告" FontSize="10" Foreground="#73FFFFFF"/>
                             <TextBlock Text="{Binding RoundText}" FontSize="15" FontWeight="Medium"
                                        Foreground="White" Margin="0,3,0,0"/>
                         </StackPanel>
@@ -80,7 +80,7 @@
                         <Border CornerRadius="6" Padding="12,10" Margin="0,0,4,0"
                                 Background="#12FFFFFF">
                             <StackPanel>
-                                <TextBlock Text="R²" FontSize="9" Foreground="#66FFFFFF"/>
+                                <TextBlock Name="TbR" Text="R²" FontSize="9" Foreground="#66FFFFFF"/>
                                 <TextBlock Text="{Binding R2Text}" FontSize="18" FontWeight="Medium"
                                            Foreground="White" FontFamily="Consolas" Margin="0,3,0,0"/>
                             </StackPanel>
@@ -89,7 +89,7 @@
                         <Border CornerRadius="6" Padding="12,10" Margin="2,0"
                                 Background="#12FFFFFF">
                             <StackPanel>
-                                <TextBlock Text="R² adj" FontSize="9" Foreground="#66FFFFFF"/>
+                                <TextBlock Name="TbRAdj" Text="R² adj" FontSize="9" Foreground="#66FFFFFF"/>
                                 <TextBlock Text="{Binding R2AdjText}" FontSize="18" FontWeight="Medium"
                                            Foreground="#B3FFFFFF" FontFamily="Consolas" Margin="0,3,0,0"/>
                             </StackPanel>
@@ -98,7 +98,7 @@
                         <Border CornerRadius="6" Padding="12,10" Margin="2,0"
                                 Background="#12FFFFFF">
                             <StackPanel>
-                                <TextBlock Text="R² pred" FontSize="9" Foreground="#66FFFFFF"/>
+                                <TextBlock Name="TbRPred" Text="R² pred" FontSize="9" Foreground="#66FFFFFF"/>
                                 <TextBlock Text="{Binding R2PredText}" FontSize="18" FontWeight="Medium"
                                            Foreground="#B3FFFFFF" FontFamily="Consolas" Margin="0,3,0,0"/>
                             </StackPanel>
@@ -107,7 +107,7 @@
                         <Border CornerRadius="6" Padding="12,10" Margin="4,0,0,0"
                                 Background="#12FFFFFF">
                             <StackPanel>
-                                <TextBlock Text="LOF p" FontSize="9" Foreground="#66FFFFFF"/>
+                                <TextBlock Name="TbLof" Text="LOF p" FontSize="9" Foreground="#66FFFFFF"/>
                                 <TextBlock Text="{Binding LofText}" FontSize="18" FontWeight="Medium"
                                            Foreground="#B3FFFFFF" FontFamily="Consolas" Margin="0,3,0,0"/>
                             </StackPanel>
@@ -147,7 +147,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="系统决策" FontSize="11"
+                                <TextBlock Name="TbSysDecision" Grid.Column="0" Text="系统决策" FontSize="11"
                                            FontWeight="Medium" Foreground="#374151"
                                            VerticalAlignment="Center"/>
                                 <Border Grid.Column="1" CornerRadius="5" Padding="10,4"
@@ -166,13 +166,13 @@
                             Background="White" BorderBrush="#E8EAED" BorderThickness="0.5"
                             Visibility="{Binding NeedsUserAction, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
-                            <TextBlock Text="下一轮方案" FontSize="11" FontWeight="Medium"
+                            <TextBlock Name="TbNextPlan" Text="下一轮方案" FontSize="11" FontWeight="Medium"
                                        Foreground="#374151" Margin="0,0,0,10"/>
                             <UniformGrid Columns="2" Rows="2">
                                 <Border CornerRadius="6" Padding="10,8" Margin="0,0,4,4"
                                         Background="#FAFBFC">
                                     <StackPanel>
-                                        <TextBlock Text="设计方法" FontSize="9" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TbDesignMethod" Text="设计方法" FontSize="9" Foreground="#9CA3AF"/>
                                         <TextBlock Text="{Binding NextMethodText}" FontSize="12"
                                                    FontWeight="Medium" Foreground="#1A1F36" Margin="0,3,0,0"/>
                                     </StackPanel>
@@ -180,7 +180,7 @@
                                 <Border CornerRadius="6" Padding="10,8" Margin="4,0,0,4"
                                         Background="#FAFBFC">
                                     <StackPanel>
-                                        <TextBlock Text="目标阶段" FontSize="9" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TbTargetPhase" Text="目标阶段" FontSize="9" Foreground="#9CA3AF"/>
                                         <TextBlock Text="{Binding NextPhaseText}" FontSize="12"
                                                    FontWeight="Medium" Foreground="#1A1F36" Margin="0,3,0,0"/>
                                     </StackPanel>
@@ -188,7 +188,7 @@
                                 <Border CornerRadius="6" Padding="10,8" Margin="0,4,4,0"
                                         Background="#FAFBFC">
                                     <StackPanel>
-                                        <TextBlock Text="因子数" FontSize="9" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TbFactor" Text="因子数" FontSize="9" Foreground="#9CA3AF"/>
                                         <TextBlock Text="{Binding NextFactorText}" FontSize="12"
                                                    FontWeight="Medium" Foreground="#1A1F36" Margin="0,3,0,0"/>
                                     </StackPanel>
@@ -196,7 +196,7 @@
                                 <Border CornerRadius="6" Padding="10,8" Margin="4,4,0,0"
                                         Background="#FAFBFC">
                                     <StackPanel>
-                                        <TextBlock Text="预计实验量" FontSize="9" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TbPredict" Text="预计实验量" FontSize="9" Foreground="#9CA3AF"/>
                                         <TextBlock Text="{Binding NextRunsText}" FontSize="12"
                                                    FontWeight="Medium" Foreground="#1A1F36" Margin="0,3,0,0"/>
                                     </StackPanel>
@@ -210,7 +210,7 @@
                             Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="0.5"
                             Visibility="{Binding IsAutoExecuted, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
-                            <TextBlock Text="已自动执行" FontSize="12" FontWeight="Medium"
+                            <TextBlock Name="TbAutoExec" Text="已自动执行" FontSize="12" FontWeight="Medium"
                                        Foreground="#166534" Margin="0,0,0,4"/>
                             <TextBlock Text="{Binding AutoExecutedText}" FontSize="11"
                                        Foreground="#374151" TextWrapping="Wrap"/>
@@ -230,9 +230,9 @@
                                       Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Width="44" Height="44" Stretch="None"/>
                             </Border>
-                            <TextBlock Text="优化目标达成" FontSize="16" FontWeight="Medium"
+                            <TextBlock Name="TbOptimizeComplete" Text="优化目标达成" FontSize="16" FontWeight="Medium"
                                        Foreground="#166534" HorizontalAlignment="Center"/>
-                            <TextBlock Text="建议固化当前工艺参数" FontSize="11" Foreground="#4ADE80"
+                            <TextBlock Name="TbSuggestParam" Text="建议固化当前工艺参数" FontSize="11" Foreground="#4ADE80"
                                        HorizontalAlignment="Center" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
@@ -247,21 +247,21 @@
                     <!-- 需要用户操作时: 跳过 / 手动决策 / 采纳推荐 -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                 Visibility="{Binding NeedsUserAction, Converter={StaticResource BoolToVis}}">
-                        <Button Content="跳过" Click="SkipBtn_Click" Cursor="Hand"
+                        <Button Name="BtnSkip" Content="跳过" Click="SkipBtn_Click" Cursor="Hand"
                                 Foreground="#9CA3AF" Margin="0,0,8,0"
                                 Style="{StaticResource WzBtnGhost}"
                                 FontSize="11" Padding="14,7"/>
-                        <Button Content="手动决策" Click="ManualBtn_Click" Cursor="Hand"
+                        <Button Name="BtnManual" Content="手动决策" Click="ManualBtn_Click" Cursor="Hand"
                                 Margin="0,0,8,0"
                                 Style="{StaticResource WzBtnGhost}"
                                 FontSize="11" Padding="14,7"/>
-                        <Button Content="采纳推荐" Click="AcceptBtn_Click" Cursor="Hand"
+                        <Button Name="BtnAccept" Content="采纳推荐" Click="AcceptBtn_Click" Cursor="Hand"
                                 Style="{StaticResource WzBtnPrimary}"
                                 FontSize="11" Padding="20,7"/>
                     </StackPanel>
 
                     <!-- 自动执行或已完成时: 仅关闭 -->
-                    <Button Content="关闭" Click="CloseBtn_Click" Cursor="Hand"
+                    <Button Name="BtnClose" Content="关闭" Click="CloseBtn_Click" Cursor="Hand"
                             HorizontalAlignment="Right"
                             FontSize="11" Padding="22,7">
                         <Button.Style>
