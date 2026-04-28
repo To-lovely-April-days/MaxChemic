@@ -786,7 +786,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             if (string.IsNullOrEmpty(projectId)) return;
             try
             {
-                var vm = new DOEProjectDetailViewModel(_repository);
+                var vm = new DOEProjectDetailViewModel(_repository, _localizationService);
                 await vm.LoadAsync(projectId);
                 var dialog = new DOEProjectDetailDialog
                 {
