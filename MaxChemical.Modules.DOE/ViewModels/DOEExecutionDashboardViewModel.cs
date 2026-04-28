@@ -299,14 +299,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 FlowName = batch.FlowName;
                 DesignMethodText = batch.DesignMethod switch
                 {
-                    DOEDesignMethod.CCD => "CCD 中心复合",
-                    DOEDesignMethod.BoxBehnken => "Box-Behnken",
-                    DOEDesignMethod.FullFactorial => "全因子",
-                    DOEDesignMethod.FractionalFactorial => "部分因子",
-                    DOEDesignMethod.PlackettBurman => "Plackett-Burman",
-                    DOEDesignMethod.DOptimal => "D-Optimal",
-                    DOEDesignMethod.Taguchi => "Taguchi",
-                    DOEDesignMethod.Custom => "自定义",
+                    DOEDesignMethod.Custom => _localizationService.GetString("Doe_DesignMethod_Custom", "自定义"),
+                    DOEDesignMethod.CCD => _localizationService.GetString("Doe_DesignMethod_CCD", "CCD 中心复合"),
+                    DOEDesignMethod.BoxBehnken => _localizationService.GetString("Doe_DesignMethod_BoxBehnken", "Box-Behnken"),
+                    DOEDesignMethod.DOptimal => _localizationService.GetString("Doe_DesignMethod_DOptimal", "D-Optimal"),
+                    DOEDesignMethod.FullFactorial => _localizationService.GetString("Doe_DesignMethod_FullFactorial", "全因子"),
+                    DOEDesignMethod.FractionalFactorial => _localizationService.GetString("Doe_DesignMethod_FractionalFactorial", "部分因子"),
+                    DOEDesignMethod.Taguchi => _localizationService.GetString("Doe_DesignMethod_Taguchi", "Taguchi"),
+                    DOEDesignMethod.PlackettBurman => _localizationService.GetString("Doe_DesignMethod_PlackettBurman", "Plackett-Burman"),
                     _ => batch.DesignMethod.ToString()
                 };
                 _responses = batch.Responses;
@@ -1029,7 +1029,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (!report.Success)
                 {
                     //StatusMessage = $"";
-                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_DecisionFail", "智能决策分析失败: {0}", report.Error);
+                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_DecisionFail", "智能决策分析失败: {0}", report.Error ?? "");
                     return;
                 }
 
@@ -1063,12 +1063,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     break;
 
                 case AutoPilotReportDialog.UserAction.Manual:
-                    StatusMessage = "手动决策模式，请在设计向导中创建下一轮。";
+                    //StatusMessage = "";
+                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_HandDecision", "手动决策模式，请在设计向导中创建下一轮。");
                     break;
 
                 case AutoPilotReportDialog.UserAction.Skip:
                 case AutoPilotReportDialog.UserAction.None:
-                    StatusMessage = "已跳过本轮智能决策。";
+                    //StatusMessage = "";
+                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_JumpCunrrent", "已跳过本轮智能决策。");
                     break;
             }
         }
@@ -1080,7 +1082,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             try
             {
-                StatusMessage = "正在创建下一轮实验...";
+                //StatusMessage = "";
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_CreateRound", "正在创建下一轮实验...");
 
                 var nextBatchId = await _autoPilotService.AcceptRecommendationAsync(
                     report.ProjectId, report.BatchId);
@@ -1088,17 +1091,20 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (!string.IsNullOrEmpty(nextBatchId))
                 {
                     await LoadBatchAsync(nextBatchId);
-                    StatusMessage = $"下一轮已就绪: {report.NextDesignMethodDisplay}, {report.EstimatedRuns} 组实验";
+                    //StatusMessage = $"";
+                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_NextReady", "下一轮已就绪: {0}, {1} 组实验", report.NextDesignMethodDisplay, report.EstimatedRuns);
                 }
                 else
                 {
-                    StatusMessage = "创建下一轮失败，请手动操作。";
+                    //StatusMessage = "";
+                    SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_CreateFailHand", "创建下一轮失败，请手动操作。");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "创建下一轮失败");
-                StatusMessage = $"创建下一轮失败: {ex.Message}";
+                //StatusMessage = $"";
+                SetStatusMessageLocalizationTxt("Doe_Exec_StateMsg_CreateFail", "创建下一轮失败: {0}",ex.Message);
             }
         }
         // ══════════════ 表格行更新 ══════════════

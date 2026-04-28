@@ -1,4 +1,5 @@
 using MaxChemical.Infrastructure.DOE;
+using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
@@ -6,6 +7,8 @@ using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.Services;
 using Newtonsoft.Json;
 using Prism.Commands;
+using Prism.Events;
+using Prism.Ioc;
 using Prism.Mvvm;
 using System;
 using System.Collections.Generic;
@@ -33,6 +36,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IFlowParameterProvider _paramProvider;
         private readonly IDialogService _dialogService;
         private readonly ILogService _logger;
+        private readonly IEventAggregator _eventAggregator;
+        private readonly ILocalizationService _localizationService;
 
         // ── 项目列表（左侧树）──
         private ObservableCollection<DOEProjectTreeNode> _projects = new();
@@ -66,7 +71,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             DOEExportService exportService,
             IFlowParameterProvider paramProvider,
             IDialogService dialogService,
-            ILogService logger)
+            ILogService logger,
+            ILocalizationService localizationService,
+            IEventAggregator eventAggregator)
         {
             _repository = repository;
             _gprService = gprService;
@@ -74,6 +81,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _paramProvider = paramProvider;
             _dialogService = dialogService;
             _logger = logger?.ForContext<DOEHistoryViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+            _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            // 注册本地化语言变更事件
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChangedEvent);
 
             RefreshCommand = new DelegateCommand(async () => await LoadProjectsAsync());
             SelectProjectCommand = new DelegateCommand<DOEProjectTreeNode>(OnSelectProject);
@@ -90,6 +101,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             // 初始加载
             _ = LoadProjectsAsync();
+
+            OnLanguageChangedEvent("");
         }
 
         // ══════════════ Properties ══════════════
@@ -177,7 +190,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
 
                 Projects = new ObservableCollection<DOEProjectTreeNode>(treeNodes);
-                StatusMessage = $"{projects.Count} 个项目 · {totalBatches} 批";
+                StatusMessage = string.Format(_localizationService.GetString("Doe_History_StateMsg_ProjsBatches", "{0} 个项目 · {1} 批"), projects.Count, totalBatches);
 
                 // GPR 状态
                 var flowId = _paramProvider.GetCurrentFlowId();
@@ -197,7 +210,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "加载项目列表失败");
-                StatusMessage = $"加载失败: {ex.Message}";
+                StatusMessage = string.Format(_localizationService.GetString("Doe_Histroy_StateMsg_LoadFail", "加载失败: {0}"),ex.Message);
             }
             finally
             {
@@ -266,26 +279,26 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         Phase = b.ProjectPhase ?? DOEProjectPhase.Screening,
                         PhaseText = (b.ProjectPhase ?? DOEProjectPhase.Screening) switch
                         {
-                            DOEProjectPhase.Screening => "筛选",
-                            DOEProjectPhase.PathSearch => "爬坡",
-                            DOEProjectPhase.RSM => "RSM",
-                            DOEProjectPhase.Augmenting => "补点",
-                            DOEProjectPhase.Confirmation => "验证",
+                            DOEProjectPhase.Screening => _localizationService.GetString("Doe_ProjectPhase_Screening", "筛选"),
+                            DOEProjectPhase.PathSearch => _localizationService.GetString("Doe_ProjectPhase_PathSearch", "爬坡"),
+                            DOEProjectPhase.RSM => _localizationService.GetString("Doe_ProjectPhase_RSM", "RSM"),
+                            DOEProjectPhase.Augmenting => _localizationService.GetString("Doe_ProjectPhase_Augmenting", "补点"),
+                            DOEProjectPhase.Confirmation => _localizationService.GetString("Doe_ProjectPhase_Confirmation", "验证"),
                             _ => b.ProjectPhase?.ToString() ?? ""
                         },
                         DesignMethod = b.DesignMethod,
                         DesignMethodText = b.DesignMethod switch
                         {
-                            DOEDesignMethod.CCD => "CCD 中心复合",
-                            DOEDesignMethod.BoxBehnken => "Box-Behnken",
-                            DOEDesignMethod.DOptimal => "D-Optimal",
-                            DOEDesignMethod.FullFactorial => "全因子",
-                            DOEDesignMethod.FractionalFactorial => "部分因子",
-                            DOEDesignMethod.Taguchi => "Taguchi",
-                            DOEDesignMethod.SteepestAscent => "最速上升",
-                            DOEDesignMethod.AugmentedDesign => "增强设计",
-                            DOEDesignMethod.ConfirmationRuns => "验证实验",
-                            DOEDesignMethod.PlackettBurman => "Plackett-Burman",
+                            DOEDesignMethod.CCD => _localizationService.GetString("Doe_DesignMethod_CCD", "CCD 中心复合"),
+                            DOEDesignMethod.BoxBehnken => _localizationService.GetString("Doe_DesignMethod_BoxBehnken", "Box-Behnken"),
+                            DOEDesignMethod.DOptimal => _localizationService.GetString("Doe_DesignMethod_DOptimal", "D-Optimal"),
+                            DOEDesignMethod.FullFactorial => _localizationService.GetString("Doe_DesignMethod_FullFactorial", "全因子"),
+                            DOEDesignMethod.FractionalFactorial => _localizationService.GetString("Doe_DesignMethod_FractionalFactorial", "部分因子"),
+                            DOEDesignMethod.Taguchi => _localizationService.GetString("Doe_DesignMethod_Taguchi", "Taguchi"),
+                            DOEDesignMethod.SteepestAscent => _localizationService.GetString("Doe_DesignMethod_SteepestAscent", "最速上升"),
+                            DOEDesignMethod.AugmentedDesign => _localizationService.GetString("Doe_DesignMethod_AugmentedDesign", "增强设计"),
+                            DOEDesignMethod.ConfirmationRuns => _localizationService.GetString("Doe_DesignMethod_ConfirmationRuns", "验证实验"),
+                            DOEDesignMethod.PlackettBurman => _localizationService.GetString("Doe_DesignMethod_PlackettBurman", "Plackett-Burman"),
                             _ => b.DesignMethod.ToString()
                         },
                         Status = b.Status,
@@ -442,7 +455,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 await _repository.DeleteProjectWithChildrenAsync(project.ProjectId);
                 Projects.Remove(project);
-                StatusMessage = $"已删除项目: {project.ProjectName}";
+                StatusMessage = string.Format(_localizationService.GetString("Doe_History_StateMsg_AlreadyDel", "已删除项目: {0}"),project.ProjectName);
 
                 if (SelectedProject?.ProjectId == project.ProjectId)
                 {
@@ -468,7 +481,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 await _repository.DeleteBatchWithChildrenAsync(round.BatchId);
                 SelectedProject.Batches.Remove(round);
-                StatusMessage = $"已删除批次: {round.BatchName}";
+                StatusMessage = string.Format(_localizationService.GetString("Doe_History_StateMsg_DelBatch", "已删除批次: {0}"),round.BatchName);
 
                 if (SelectedRound?.BatchId == round.BatchId)
                 {
@@ -494,9 +507,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在导出报告...";
+                StatusMessage = _localizationService.GetString("Doe_History_StateMsg_Exporting", "正在导出报告...");
                 await _exportService.ExportBatchReportAsync(round.BatchId, path);
-                StatusMessage = $"报告已导出: {path}";
+                StatusMessage = string.Format(_localizationService.GetString("Doe_History_StateMsg_AlreadyExport", "报告已导出: {0}"), path);
                 _dialogService.ShowInfo($"DOE 报告已导出至:\n{path}", "导出成功");
             }
             catch (Exception ex)
@@ -509,6 +522,47 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 IsLoading = false;
             }
         }
+
+
+        #region 本地化
+
+        private string _projBatchTxt;
+        private string _refreshTxt;
+        private string _groupTxt;
+        private string _batchTxt;
+        private string _groupsPeriTxt;
+        private string _jumpExecTxt;
+        private string _viewAnalysisTxt;
+        private string _exportTxt;
+        private string _deleteTxt;
+        private string _unselectTxt;
+
+        public string ProjBatchTxt { get { return _projBatchTxt; } set { SetProperty(ref _projBatchTxt, value); } }
+        public string RefreshTxt { get { return _refreshTxt; } set { SetProperty(ref _refreshTxt, value); }  }
+        public string GroupTxt { get { return _groupTxt; } set { SetProperty(ref _groupTxt, value); } }
+        public string BatchTxt { get { return _batchTxt; } set { SetProperty(ref _batchTxt, value); } }
+        public string GroupsPeriTxt { get { return _groupsPeriTxt; } set { SetProperty(ref _groupsPeriTxt, value); } }
+        public string JumpExecTxt { get { return _jumpExecTxt; } set { SetProperty(ref _jumpExecTxt, value); } }
+        public string ViewAnalysisTxt { get { return _viewAnalysisTxt; } set { SetProperty(ref _viewAnalysisTxt, value); } }
+        public string ExportTxt { get { return _exportTxt; } set { SetProperty(ref _exportTxt, value); } }
+        public string DeleteTxt { get { return _deleteTxt; } set { SetProperty(ref _deleteTxt, value); } }
+        public string UnselectTxt { get { return _unselectTxt; } set { SetProperty(ref _unselectTxt, value); } }
+
+        private void OnLanguageChangedEvent(string language)
+        {
+            ProjBatchTxt = _localizationService.GetString("Doe_History_ProjBatch", "项目 / 批次");
+            GroupTxt = _localizationService.GetString("Doe_History_Group", " 组");
+            RefreshTxt = _localizationService.GetString("Doe_History_Refresh", "刷新");
+            BatchTxt = _localizationService.GetString("Doe_History_Batch", "批 ");
+            GroupsPeriTxt = _localizationService.GetString("Doe_History_GroupsExpri", "组实验");
+            JumpExecTxt = _localizationService.GetString("Doe_History_JumpExec", "跳转执行");
+            ViewAnalysisTxt = _localizationService.GetString("Doe_History_ViewAnalysis", "查看分析");
+            ExportTxt = _localizationService.GetString("Doe_History_Export", "导出");
+            DeleteTxt = _localizationService.GetString("Doe_History_Delete", "删除");
+            UnselectTxt = _localizationService.GetString("Doe_History_UnselectTip", "选择左侧批次查看实验数据");
+        }
+
+        #endregion
     }
 
     // ══════════════════════════════════════════════════════
@@ -562,6 +616,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
     // ══════════════════════════════════════════════════════
     public class RoundListItem : BindableBase
     {
+        private readonly ILocalizationService _localization;
+
+        public RoundListItem()
+        {
+            _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
+        }
+
         public string BatchId { get; set; } = "";
         public string BatchName { get; set; } = "";
         public int RoundNumber { get; set; }
@@ -593,11 +654,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         public string StatusText => Status switch
         {
-            DOEBatchStatus.Ready => "就绪",
-            DOEBatchStatus.Running => "执行中",
-            DOEBatchStatus.Paused => "已暂停",
-            DOEBatchStatus.Completed => "已完成",
-            DOEBatchStatus.Aborted => "已中止",
+            DOEBatchStatus.Ready => _localization?.GetString("Doe_History_BatchStatus_Ready", "就绪")?? "就绪",
+            DOEBatchStatus.Running => _localization?.GetString("Doe_History_BatchStatus_Running", "执行中")?? "执行中",
+            DOEBatchStatus.Paused => _localization?.GetString("Doe_History_BatchStatus_Paused", "已暂停") ?? "已暂停",
+            DOEBatchStatus.Completed => _localization?.GetString("Doe_History_BatchStatus_Completed", "已完成") ?? "已完成",
+            DOEBatchStatus.Aborted => _localization?.GetString("Doe_History_BatchStatus_Aborted", "已中止") ?? "已中止",
             _ => Status.ToString()
         };
 
