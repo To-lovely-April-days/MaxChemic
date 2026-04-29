@@ -759,5 +759,11 @@
   "Doe_Mini_Pause":"暂停",
   "Doe_Mini_Resume":"恢复",
   "Doe_Mini_Suspend":"中止",
-  "Doe_Mini_ExpandTip":"展开为大窗口"
+  "Doe_Mini_ExpandTip":"展开为大窗口",
+  "Doe_Response_Title":"实验结果录入",
+  "Doe_Response_CurrentParam":"本组实验参数",
+  "Doe_Response_InputResult":"请输入实验结果",
+  "Doe_Response_Skip":"跳过本组",
+  "Doe_Response_Commit":"提交结果",
+  "Doe_Response_SubTitle":"第 {0} 组实验已完成，请录入表征结果"
 }

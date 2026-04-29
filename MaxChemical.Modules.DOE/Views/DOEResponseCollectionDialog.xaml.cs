@@ -1,3 +1,5 @@
+using MaxChemical.Infrastructure.Services;
+using Prism.Ioc;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -32,11 +34,20 @@ namespace MaxChemical.Modules.DOE.Views
         {
             InitializeComponent();
 
+            //
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            TbTitle.Text = service.GetString("Doe_Response_Title", "实验结果录入");
+            TbParam.Text = service.GetString("Doe_Response_CurrentParam", "本组实验参数");
+            TbInputResult.Text = service.GetString("Doe_Response_InputResult", "请输入实验结果");
+            BtnSkip.Content = service.GetString("Doe_Response_Skip", "跳过本组");
+            BtnSubmit.Content = service.GetString("Doe_Response_Commit", "提交结果");
+
+
             // 进度徽章
             ProgressBadge.Text = $"{runIndex + 1} / {totalRuns}";
 
             // 副标题
-            SubtitleText.Text = $"第 {runIndex + 1} 组实验已完成，请录入表征结果";
+            SubtitleText.Text = string.Format(service.GetString("Doe_Response_SubTitle", "第 {0} 组实验已完成，请录入表征结果"), runIndex + 1);
 
             // ★ 因子值显示：类别因子显示标签，连续因子显示数值
             FactorDisplay.ItemsSource = factorValues.Select(kv =>

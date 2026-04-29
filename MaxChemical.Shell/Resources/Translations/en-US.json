@@ -773,5 +773,11 @@
   "Doe_Mini_Pause":"Pause",
   "Doe_Mini_Resume":"Resume",
   "Doe_Mini_Suspend":"Suspend",
-  "Doe_Mini_ExpandTip":"Expand to a large window"
+  "Doe_Mini_ExpandTip":"Expand to a large window",
+  "Doe_Response_Title":"Experimental results are entered",
+  "Doe_Response_CurrentParam":"The parameters of this group of experiments",
+  "Doe_Response_InputResult":"Please provide the experimental results",
+  "Doe_Response_Skip":"Skip this group",
+  "Doe_Response_Commit":"Submit the result",
+  "Doe_Response_SubTitle":"The {0} group experiment has been completed. Please enter the characterization results"
 }
