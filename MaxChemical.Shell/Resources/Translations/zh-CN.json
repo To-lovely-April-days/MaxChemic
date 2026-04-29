@@ -750,5 +750,14 @@
   "Doe_PilotTrport_GroupExperi":"约 {0} 组实验",
   "Doe_PilotReport_CountFactor":"{0} 个因子",
   "Doe_PilotReport_UseDecision":"需要用户决策",
-  "Doe_PilotReport_Roundreport":"第 {0} 轮分析报告"
+  "Doe_PilotReport_Roundreport":"第 {0} 轮分析报告",
+  "Doe_Mini_Execution":"执行中",
+  "Doe_Mini_Paused":"已暂停",
+  "Doe_Mini_Group":" 组 · ",
+  "Doe_Mini_WaitData":"等待因子数据",
+  "Doe_Mini_Best":"最优",
+  "Doe_Mini_Pause":"暂停",
+  "Doe_Mini_Resume":"恢复",
+  "Doe_Mini_Suspend":"中止",
+  "Doe_Mini_ExpandTip":"展开为大窗口"
 }

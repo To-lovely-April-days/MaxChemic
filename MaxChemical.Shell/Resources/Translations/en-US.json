@@ -764,5 +764,14 @@
   "Doe_PilotTrport_GroupExperi":"Approximately  {0} groups of experiments",
   "Doe_PilotReport_CountFactor":"{0} factors",
   "Doe_PilotReport_UseDecision":"Requires user decision-making",
-  "Doe_PilotReport_Roundreport":"Round {0} analysis report"
+  "Doe_PilotReport_Roundreport":"Round {0} analysis report",
+  "Doe_Mini_Execution":"In execution",
+  "Doe_Mini_Paused":"Already paused",
+  "Doe_Mini_Group":" group · ",
+  "Doe_Mini_WaitData":"Waiting for factor data",
+  "Doe_Mini_Best":"Optimal",
+  "Doe_Mini_Pause":"Pause",
+  "Doe_Mini_Resume":"Resume",
+  "Doe_Mini_Suspend":"Suspend",
+  "Doe_Mini_ExpandTip":"Expand to a large window"
 }
