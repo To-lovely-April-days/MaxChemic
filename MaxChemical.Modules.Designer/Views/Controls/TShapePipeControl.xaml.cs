@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -33,169 +34,86 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<TPipeRotateEventArgs> PipeRotateCompleted;
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
-        /// <summary>双击事件（打开属性对话框）</summary>
         public event EventHandler<string> PipeDoubleClicked;
 
         #endregion
 
-        #region 依赖属性 — 选择状态
+        #region 依赖属性
 
         public static readonly DependencyProperty IsSelectedProperty =
             DependencyProperty.Register(nameof(IsSelected), typeof(bool), typeof(TShapePipeControl),
                 new PropertyMetadata(false, OnIsSelectedChanged));
-
-        public bool IsSelected
-        {
-            get => (bool)GetValue(IsSelectedProperty);
-            set => SetValue(IsSelectedProperty, value);
-        }
-
+        public bool IsSelected { get => (bool)GetValue(IsSelectedProperty); set => SetValue(IsSelectedProperty, value); }
         private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c)
-            {
-                c.UpdateSelectionVisual((bool)e.NewValue);
-                c.OnPropertyChanged(nameof(IsSelected));
-            }
-        }
-
-        #endregion
-
-        #region 依赖属性 — 管道外观
+        { if (d is TShapePipeControl c) { c.UpdateSelectionVisual((bool)e.NewValue); c.OnPropertyChanged(nameof(IsSelected)); } }
 
         public static readonly DependencyProperty PipeColorProperty =
             DependencyProperty.Register(nameof(PipeColor), typeof(Color), typeof(TShapePipeControl),
                 new PropertyMetadata(Color.FromRgb(0x72, 0x71, 0x71), OnPipeColorChanged));
-
-        public Color PipeColor
-        {
-            get => (Color)GetValue(PipeColorProperty);
-            set => SetValue(PipeColorProperty, value);
-        }
-
+        public Color PipeColor { get => (Color)GetValue(PipeColorProperty); set => SetValue(PipeColorProperty, value); }
         private static void OnPipeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyPipeColor();
-        }
+        { if (d is TShapePipeControl c) c.ApplyPipeColor(); }
 
         public static readonly DependencyProperty FlangeColorProperty =
             DependencyProperty.Register(nameof(FlangeColor), typeof(Color), typeof(TShapePipeControl),
                 new PropertyMetadata(Color.FromRgb(0xD9, 0xD9, 0xD9), OnFlangeColorChanged));
-
-        public Color FlangeColor
-        {
-            get => (Color)GetValue(FlangeColorProperty);
-            set => SetValue(FlangeColorProperty, value);
-        }
-
+        public Color FlangeColor { get => (Color)GetValue(FlangeColorProperty); set => SetValue(FlangeColorProperty, value); }
         private static void OnFlangeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFlangeColor();
-        }
-
-        #endregion
-
-        #region 依赖属性 — 流体
+        { if (d is TShapePipeControl c) c.ApplyFlangeColor(); }
 
         public static readonly DependencyProperty FluidColorProperty =
             DependencyProperty.Register(nameof(FluidColor), typeof(Color), typeof(TShapePipeControl),
                 new PropertyMetadata(Color.FromRgb(0x1E, 0xC1, 0xF4), OnFluidColorChanged));
-
-        public Color FluidColor
-        {
-            get => (Color)GetValue(FluidColorProperty);
-            set => SetValue(FluidColorProperty, value);
-        }
-
+        public Color FluidColor { get => (Color)GetValue(FluidColorProperty); set => SetValue(FluidColorProperty, value); }
         private static void OnFluidColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFluidColor();
-        }
+        { if (d is TShapePipeControl c) c.ApplyFluidColor(); }
 
         public static readonly DependencyProperty FluidOpacityProperty =
             DependencyProperty.Register(nameof(FluidOpacity), typeof(double), typeof(TShapePipeControl),
                 new PropertyMetadata(0.5, OnFluidOpacityChanged));
-
-        public double FluidOpacity
-        {
-            get => (double)GetValue(FluidOpacityProperty);
-            set => SetValue(FluidOpacityProperty, value);
-        }
-
+        public double FluidOpacity { get => (double)GetValue(FluidOpacityProperty); set => SetValue(FluidOpacityProperty, value); }
         private static void OnFluidOpacityChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFluidOpacity();
-        }
+        { if (d is TShapePipeControl c) c.ApplyFluidOpacity(); }
 
         public static readonly DependencyProperty IsFluidVisibleProperty =
             DependencyProperty.Register(nameof(IsFluidVisible), typeof(bool), typeof(TShapePipeControl),
                 new PropertyMetadata(false, OnIsFluidVisibleChanged));
-
-        public bool IsFluidVisible
-        {
-            get => (bool)GetValue(IsFluidVisibleProperty);
-            set => SetValue(IsFluidVisibleProperty, value);
-        }
-
+        public bool IsFluidVisible { get => (bool)GetValue(IsFluidVisibleProperty); set => SetValue(IsFluidVisibleProperty, value); }
         private static void OnIsFluidVisibleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFluidVisibility();
-        }
+        { if (d is TShapePipeControl c) c.ApplyFluidVisibility(); }
 
-        #endregion
-
-        #region 依赖属性 — 流动控制
+        public static readonly DependencyProperty UseDefaultStyleProperty =
+            DependencyProperty.Register(nameof(UseDefaultStyle), typeof(bool), typeof(TShapePipeControl),
+                new PropertyMetadata(false, OnUseDefaultStyleChanged));
+        public bool UseDefaultStyle { get => (bool)GetValue(UseDefaultStyleProperty); set => SetValue(UseDefaultStyleProperty, value); }
+        private static void OnUseDefaultStyleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        { if (d is TShapePipeControl c) c.ApplyDefaultStyleSwitch(); }
 
         public static readonly DependencyProperty IsFlowingProperty =
             DependencyProperty.Register(nameof(IsFlowing), typeof(bool), typeof(TShapePipeControl),
                 new PropertyMetadata(false, OnIsFlowingChanged));
-
-        public bool IsFlowing
-        {
-            get => (bool)GetValue(IsFlowingProperty);
-            set => SetValue(IsFlowingProperty, value);
-        }
-
+        public bool IsFlowing { get => (bool)GetValue(IsFlowingProperty); set => SetValue(IsFlowingProperty, value); }
         private static void OnIsFlowingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFlowAnimation();
-        }
+        { if (d is TShapePipeControl c) c.ApplyFlowAnimation(); }
 
         public static readonly DependencyProperty PipeFlowDirProperty =
             DependencyProperty.Register(nameof(PipeFlowDir), typeof(PipeFlowDirection), typeof(TShapePipeControl),
                 new PropertyMetadata(PipeFlowDirection.LeftToRight, OnPipeFlowDirChanged));
-
-        public PipeFlowDirection PipeFlowDir
-        {
-            get => (PipeFlowDirection)GetValue(PipeFlowDirProperty);
-            set => SetValue(PipeFlowDirProperty, value);
-        }
-
+        public PipeFlowDirection PipeFlowDir { get => (PipeFlowDirection)GetValue(PipeFlowDirProperty); set => SetValue(PipeFlowDirProperty, value); }
         private static void OnPipeFlowDirChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFlowAnimation();
-        }
+        { if (d is TShapePipeControl c) c.ApplyFlowAnimation(); }
 
         public static readonly DependencyProperty FlowSpeedProperty =
             DependencyProperty.Register(nameof(FlowSpeed), typeof(double), typeof(TShapePipeControl),
                 new PropertyMetadata(1.0, OnFlowSpeedChanged));
-
-        public double FlowSpeed
-        {
-            get => (double)GetValue(FlowSpeedProperty);
-            set => SetValue(FlowSpeedProperty, value);
-        }
-
+        public double FlowSpeed { get => (double)GetValue(FlowSpeedProperty); set => SetValue(FlowSpeedProperty, value); }
         private static void OnFlowSpeedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is TShapePipeControl c) c.ApplyFlowAnimation();
-        }
+        { if (d is TShapePipeControl c) c.ApplyFlowAnimation(); }
 
         #endregion
 
         #region 私有字段
 
-        // 交互状态
         private bool _isDraggingPipe;
         private bool _isResizing;
         private bool _isRotating;
@@ -204,8 +122,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private Point _originalPosition;
         private TPipeSize _originalSize;
         private double _originalRotation;
+        private Point _fixedWorldPoint;
 
-        // 尺寸常量
         private const double MinMainLength = 20;
         private const double MaxMainLength = 10000;
         private const double MinBranchLength = 10;
@@ -218,25 +136,32 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double FLANGE_EXTENSION = 5.8;
         private const double MAIN_PIPE_CENTER_Y = 70;
 
-        // 尺寸字段
         private double _mainPipeLength = 120;
         private double _branchPipeLength = 54;
         private double _branchPosition = 60;
         private double _pipeWidth = 20;
         private double _rotationAngle;
 
-        // 变换
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
 
-        // ═══ 流体动画字段 ═══
         private TranslateTransform _mainHorizFlowTransform;
         private TranslateTransform _branchFlowTransform;
         private DrawingBrush _mainHorizPatternBrush;
         private DrawingBrush _branchPatternBrush;
 
-        // 气泡图案常量（与其它管道控件一致）
+        // 赛博流光
+        private DoubleAnimation _cyberMainMainAnim;
+        private DoubleAnimation _cyberMainParticleAnim;
+        private DoubleAnimation _cyberMainSparkAnim;
+        private DoubleAnimation _cyberBranchMainAnim;
+        private DoubleAnimation _cyberBranchParticleAnim;
+        private DoubleAnimation _cyberBranchSparkAnim;
+        private double _cyberMainPeriod = 120;
+        private double _cyberParticlePeriod = 58;
+        private double _cyberSparkPeriod = 84;
+
         private const double PATTERN_W = 172.0;
         private const double PATTERN_H = 72.0;
 
@@ -258,7 +183,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region CLR 属性（尺寸）
+        #region CLR 属性
 
         public string PipeId { get; set; }
 
@@ -271,7 +196,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (Math.Abs(_mainPipeLength - nv) > 0.01)
                 {
                     _mainPipeLength = nv;
-                    // 主管变短时,如果支管位置超界,夹回到合法范围内
                     double minBranchPos = _pipeWidth;
                     double maxBranchPos = Math.Max(minBranchPos, _mainPipeLength - _pipeWidth);
                     if (_branchPosition > maxBranchPos)
@@ -289,11 +213,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var nv = Math.Max(MinBranchLength, Math.Min(MaxBranchLength, value));
                 if (Math.Abs(_branchPipeLength - nv) > 0.01)
-                {
-                    _branchPipeLength = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(BranchPipeLength));
-                }
+                { _branchPipeLength = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(BranchPipeLength)); }
             }
         }
 
@@ -303,14 +223,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             set
             {
                 var minPos = _pipeWidth;
-                var maxPos = Math.Max(minPos, _mainPipeLength - _pipeWidth);  // ★ 防止负数
+                var maxPos = Math.Max(minPos, _mainPipeLength - _pipeWidth);
                 var nv = Math.Max(minPos, Math.Min(maxPos, value));
                 if (Math.Abs(_branchPosition - nv) > 0.01)
-                {
-                    _branchPosition = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(BranchPosition));
-                }
+                { _branchPosition = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(BranchPosition)); }
             }
         }
 
@@ -321,11 +237,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var nv = Math.Max(MinPipeWidth, Math.Min(MaxPipeWidth, value));
                 if (Math.Abs(_pipeWidth - nv) > 0.01)
-                {
-                    _pipeWidth = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(PipeWidth));
-                }
+                { _pipeWidth = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(PipeWidth)); }
             }
         }
 
@@ -342,9 +254,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
-        // ★ 新增:开始拖拽前,固定端在画布上的世界坐标
-        private Point _fixedWorldPoint;
-        #region 构造函数
+
+        #region 构造
 
         public TShapePipeControl()
         {
@@ -358,17 +269,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RenderTransform = _transformGroup;
             RenderTransformOrigin = new Point(0.5, 0.5);
 
-            // ★ 初始化外观
             InitializeAppearance();
 
             if (!DesignerProperties.GetIsInDesignMode(this))
             {
                 _rotationLabelTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-                _rotationLabelTimer.Tick += (s, e) =>
-                {
-                    RotationLabel.Visibility = Visibility.Collapsed;
-                    _rotationLabelTimer.Stop();
-                };
+                _rotationLabelTimer.Tick += (s, e) => { RotationLabel.Visibility = Visibility.Collapsed; _rotationLabelTimer.Stop(); };
 
                 MouseEnter += OnPipeMouseEnter;
                 MouseLeave += OnPipeMouseLeave;
@@ -380,26 +286,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 UpdatePipeGeometry();
             }
 
-            Loaded += (s, e) =>
-            {
-                UpdatePipeGeometry();
-                ApplyFlowAnimation();
-            };
+            Loaded += (s, e) => { UpdatePipeGeometry(); ApplyFlowAnimation(); };
 
-            // 硬件加速
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
             RenderOptions.SetCachingHint(this, CachingHint.Cache);
             RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
             RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
 
-            CacheMode = new BitmapCache
-            {
-                RenderAtScale = 1.0,
-                SnapsToDevicePixels = true,
-                EnableClearType = false
-            };
-
+            CacheMode = new BitmapCache { RenderAtScale = 1.0, SnapsToDevicePixels = true, EnableClearType = false };
             SnapsToDevicePixels = true;
             UseLayoutRounding = true;
         }
@@ -411,32 +306,28 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             ApplyFluidColor();
             RebuildFluidPatternBrushes();
             ApplyFluidVisibility();
+            ApplyDefaultStyleSwitch();
         }
 
         #endregion
 
-        #region 管道外观 — 管体渐变
+        #region 管体外观
 
         private void ApplyPipeColor()
         {
             if (MainHorizontalPipe == null) return;
-
             var c = PipeColor;
 
-            // ─── 主水平管道渐变（上→下）───
             var hGrad = MakeCylinderGradient(c, new Point(0, 0), new Point(0, 1));
             MainHorizontalPipe.Fill = hGrad;
 
-            // ─── 支管垂直渐变（左→右）───
             var vGrad = MakeCylinderGradient(c, new Point(0, 0), new Point(1, 0));
             BranchVerticalPipe.Fill = vGrad;
 
-            // ─── T型连接处 ───
             var junctionBrush = new SolidColorBrush(DarkenColor(c, 15));
             junctionBrush.Freeze();
             TJunction.Fill = junctionBrush;
 
-            // ─── 描边 / 边框 / 连接处 ───
             var strokeBrush = new SolidColorBrush(c);
             strokeBrush.Freeze();
             LeftFlangeBorder.Stroke = strokeBrush;
@@ -460,25 +351,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             return g;
         }
 
-        #endregion
-
-        #region 管道外观 — 法兰颜色
-
         private void ApplyFlangeColor()
         {
             if (LeftFlangeBase == null) return;
-
             var c = FlangeColor;
             var baseBrush = new SolidColorBrush(c);
             baseBrush.Freeze();
-
             LeftFlangeBase.Fill = baseBrush;
             RightFlangeBase.Fill = baseBrush;
             TopFlangeBase.Fill = baseBrush;
 
             var midColor = BlendColors(c, Colors.Gray, 0.4);
 
-            // 左法兰渐变（水平）
             var leftGrad = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
             leftGrad.GradientStops.Add(new GradientStop(c, 0));
             leftGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
@@ -486,7 +370,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             leftGrad.Freeze();
             LeftFlangeGradient.Fill = leftGrad;
 
-            // 右法兰渐变（水平，反方向）
             var rightGrad = new LinearGradientBrush { StartPoint = new Point(1, 0.5), EndPoint = new Point(0, 0.5) };
             rightGrad.GradientStops.Add(new GradientStop(c, 0));
             rightGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
@@ -494,7 +377,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             rightGrad.Freeze();
             RightFlangeGradient.Fill = rightGrad;
 
-            // 顶法兰渐变（垂直）
             var topGrad = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
             topGrad.GradientStops.Add(new GradientStop(c, 0));
             topGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
@@ -505,23 +387,23 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 流体 — 颜色、透明度与可见性
+        #region 流体 — 颜色与可见性
 
         private void ApplyFluidColor()
         {
             if (MainHorizontalFluidBackground == null) return;
-
             var brush = new SolidColorBrush(FluidColor);
             MainHorizontalFluidBackground.Fill = brush;
             BranchFluidBackground.Fill = brush;
-
             ApplyFluidOpacity();
+
+            if (UseDefaultStyle && CyberMainMainStream != null)
+                ApplyCyberStreamColors();
         }
 
         private void ApplyFluidOpacity()
         {
             if (MainHorizontalFluidBackground == null) return;
-
             MainHorizontalFluidBackground.Opacity = FluidOpacity;
             BranchFluidBackground.Opacity = FluidOpacity;
         }
@@ -530,179 +412,321 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (MainHorizontalFluidBackground == null) return;
 
-            var vis = IsFluidVisible ? Visibility.Visible : Visibility.Collapsed;
+            if (UseDefaultStyle)
+            {
+                MainHorizontalFluidBackground.Visibility = Visibility.Collapsed;
+                MainHorizontalFluidPattern.Visibility = Visibility.Collapsed;
+                BranchFluidBackground.Visibility = Visibility.Collapsed;
+                BranchFluidPattern.Visibility = Visibility.Collapsed;
+                return;
+            }
 
+            var vis = IsFluidVisible ? Visibility.Visible : Visibility.Collapsed;
             MainHorizontalFluidBackground.Visibility = vis;
             MainHorizontalFluidPattern.Visibility = vis;
             BranchFluidBackground.Visibility = vis;
             BranchFluidPattern.Visibility = vis;
 
-            if (IsFluidVisible && IsFlowing)
-                StartFlowAnimation();
-            else
-                StopFlowAnimation();
+            if (IsFluidVisible && IsFlowing) StartFlowAnimation(); else StopFlowAnimation();
         }
-
-        #endregion
-
-        #region 流体 — 气泡纹理画刷
 
         private void RebuildFluidPatternBrushes()
         {
             if (MainHorizontalFluidPattern == null) return;
-
             var pipeC = PipeColor;
 
-            // ── 主水平段画刷（边带上/下）──
             var hDrawing = CreateBubbleDrawing(pipeC, false);
             _mainHorizFlowTransform = new TranslateTransform(0, 0);
-            _mainHorizPatternBrush = new DrawingBrush(hDrawing)
-            {
-                TileMode = TileMode.Tile,
-                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
-                ViewboxUnits = BrushMappingMode.Absolute,
-                ViewportUnits = BrushMappingMode.Absolute,
-                Transform = _mainHorizFlowTransform
-            };
+            _mainHorizPatternBrush = new DrawingBrush(hDrawing) { TileMode = TileMode.Tile, Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H), ViewboxUnits = BrushMappingMode.Absolute, ViewportUnits = BrushMappingMode.Absolute, Transform = _mainHorizFlowTransform };
             MainHorizontalFluidPattern.Fill = _mainHorizPatternBrush;
 
-            // ── 支管垂直段画刷（边带左/右）──
             var vDrawing = CreateBubbleDrawing(pipeC, true);
             _branchFlowTransform = new TranslateTransform(0, 0);
-            _branchPatternBrush = new DrawingBrush(vDrawing)
-            {
-                TileMode = TileMode.Tile,
-                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
-                ViewboxUnits = BrushMappingMode.Absolute,
-                ViewportUnits = BrushMappingMode.Absolute,
-                Transform = _branchFlowTransform
-            };
+            _branchPatternBrush = new DrawingBrush(vDrawing) { TileMode = TileMode.Tile, Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H), ViewboxUnits = BrushMappingMode.Absolute, ViewportUnits = BrushMappingMode.Absolute, Transform = _branchFlowTransform };
             BranchFluidPattern.Fill = _branchPatternBrush;
 
             UpdateFluidPatternViewports();
-
-            if (IsFlowing && IsFluidVisible) StartFlowAnimation();
+            if (IsFlowing && IsFluidVisible && !UseDefaultStyle) StartFlowAnimation();
         }
 
         private DrawingGroup CreateBubbleDrawing(Color pipeC, bool isVertical)
         {
             var group = new DrawingGroup();
-
             foreach (var (x, y, r) in BubbleData)
             {
-                var radial = new RadialGradientBrush
-                {
-                    GradientOrigin = new Point(0.3, 0.3),
-                    Center = new Point(0.5, 0.5)
-                };
+                var radial = new RadialGradientBrush { GradientOrigin = new Point(0.3, 0.3), Center = new Point(0.5, 0.5) };
                 radial.GradientStops.Add(new GradientStop(Color.FromArgb(102, 255, 255, 255), 0));
                 radial.GradientStops.Add(new GradientStop(Color.FromArgb(38, 0, 0, 0), 1));
                 radial.Freeze();
-
-                group.Children.Add(new GeometryDrawing(
-                    radial, null,
-                    new EllipseGeometry(new Point(x, y), r, r)));
+                group.Children.Add(new GeometryDrawing(radial, null, new EllipseGeometry(new Point(x, y), r, r)));
             }
 
-            LinearGradientBrush edgeBrush;
-            if (!isVertical)
-                edgeBrush = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
-            else
-                edgeBrush = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
-
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.109));
-            edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.113));
-            edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.887));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.891));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 1));
-            edgeBrush.Freeze();
-
-            group.Children.Add(new GeometryDrawing(
-                edgeBrush, null,
-                new RectangleGeometry(new Rect(0, 0, PATTERN_W, PATTERN_H))));
-
+            // ★ 去掉边带 — 之前边带占 11% 上 + 11% 下,管子细的时候把气泡挤到中间一条,
+            //   导致设了管道颜色后视觉上气泡跟管壁融成一片看不出动静
             return group;
         }
 
         private void UpdateFluidPatternViewports()
         {
-            double tileH = _pipeWidth;
+            // ★ 气泡尺寸放大 1.5 倍 — 全局视图下也能清晰看见气泡流动
+            const double BUBBLE_SCALE = 1.5;
+            double tileH = _pipeWidth * BUBBLE_SCALE;
             double tileW = tileH * (PATTERN_W / PATTERN_H);
-
-            if (_mainHorizPatternBrush != null)
-                _mainHorizPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
-            if (_branchPatternBrush != null)
-                _branchPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+            if (_mainHorizPatternBrush != null) _mainHorizPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+            if (_branchPatternBrush != null) _branchPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
         }
 
         #endregion
 
-        #region 流体 — 流动动画
+        #region 流体动画（气泡）
 
         private void ApplyFlowAnimation()
         {
-            if (IsFlowing && IsFluidVisible)
-                StartFlowAnimation();
-            else
-                StopFlowAnimation();
+            if (UseDefaultStyle)
+            {
+                if (IsFlowing) StartCyberAnimation(); else StopCyberAnimation();
+                return;
+            }
+            if (IsFlowing && IsFluidVisible) StartFlowAnimation(); else StopFlowAnimation();
         }
 
         private void StartFlowAnimation()
         {
             if (_mainHorizFlowTransform == null) return;
-
             StopFlowAnimation();
-
-            double tileW = _pipeWidth * (PATTERN_W / PATTERN_H);
-            double baseDurationMs = 1000.0 / Math.Max(0.1, FlowSpeed);
-
-            // T型管道：主管道水平流动 + 支管向上流动
+            // ★ 关键修复:滚动距离用 PATTERN_W (=172) 而不是 tileW (≈48)
+            //   跟原版 ThingsBoard 一致 — 流动感大幅增强
+            // ★ 速度调慢:基础时长 2000ms 而不是 1000ms
+            double baseDurationMs = 2000.0 / Math.Max(0.1, FlowSpeed);
             bool leftToRight = PipeFlowDir == PipeFlowDirection.LeftToRight;
 
-            // ── 主水平段 ──
-            double mainTo = leftToRight ? tileW : -tileW;
+            double mainTo = leftToRight ? PATTERN_W : -PATTERN_W;
             _mainHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty,
-                new DoubleAnimation
-                {
-                    From = 0,
-                    To = mainTo,
-                    Duration = TimeSpan.FromMilliseconds(baseDurationMs),
-                    RepeatBehavior = RepeatBehavior.Forever
-                });
+                new DoubleAnimation { From = 0, To = mainTo, Duration = TimeSpan.FromMilliseconds(baseDurationMs), RepeatBehavior = RepeatBehavior.Forever });
 
-            // ── 支管垂直段（流体从主管道往上流出）──
-            double branchPeriod = _pipeWidth;
-            double branchDurationMs = baseDurationMs * (branchPeriod / tileW);
-            // 支管默认向上流动（负值）
-            double branchTo = -branchPeriod;
+            // 支管永远向上流出
+            double branchTo = -PATTERN_W;
             _branchFlowTransform.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation
-                {
-                    From = 0,
-                    To = branchTo,
-                    Duration = TimeSpan.FromMilliseconds(branchDurationMs),
-                    RepeatBehavior = RepeatBehavior.Forever
-                });
+                new DoubleAnimation { From = 0, To = branchTo, Duration = TimeSpan.FromMilliseconds(baseDurationMs), RepeatBehavior = RepeatBehavior.Forever });
         }
 
         private void StopFlowAnimation()
         {
-            if (_mainHorizFlowTransform != null)
-            {
-                _mainHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty, null);
-                _mainHorizFlowTransform.X = 0;
-            }
-            if (_branchFlowTransform != null)
-            {
-                _branchFlowTransform.BeginAnimation(TranslateTransform.YProperty, null);
-                _branchFlowTransform.Y = 0;
-            }
+            if (_mainHorizFlowTransform != null) { _mainHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty, null); _mainHorizFlowTransform.X = 0; }
+            if (_branchFlowTransform != null) { _branchFlowTransform.BeginAnimation(TranslateTransform.YProperty, null); _branchFlowTransform.Y = 0; }
         }
 
         #endregion
 
-        #region 辅助方法（颜色计算）
+        #region 赛博流光
+
+        private void ApplyDefaultStyleSwitch()
+        {
+            if (CyberMainMainStream == null) return;
+
+            if (UseDefaultStyle)
+            {
+                if (MainHorizontalPipe != null) MainHorizontalPipe.Visibility = Visibility.Collapsed;
+                if (BranchVerticalPipe != null) BranchVerticalPipe.Visibility = Visibility.Collapsed;
+                if (TJunction != null) TJunction.Visibility = Visibility.Collapsed;
+                // ★ Background 层不隐藏,改成透明 fill —— 保留命中(双击/拖拽)
+                if (MainHorizontalPipeBackground != null) { MainHorizontalPipeBackground.Fill = Brushes.Transparent; MainHorizontalPipeBackground.Visibility = Visibility.Visible; }
+                if (BranchPipeBackground != null) { BranchPipeBackground.Fill = Brushes.Transparent; BranchPipeBackground.Visibility = Visibility.Visible; }
+
+                BuildCyberLayers();
+
+                CyberMainMetal.Visibility = Visibility.Visible;
+                CyberBranchMetal.Visibility = Visibility.Visible;
+                CyberMainDark.Visibility = Visibility.Visible;
+                CyberBranchDark.Visibility = Visibility.Visible;
+                CyberMainMainStream.Visibility = Visibility.Visible;
+                CyberMainParticleStream.Visibility = Visibility.Visible;
+                CyberMainSparkStream.Visibility = Visibility.Visible;
+                CyberBranchMainStream.Visibility = Visibility.Visible;
+                CyberBranchParticleStream.Visibility = Visibility.Visible;
+                CyberBranchSparkStream.Visibility = Visibility.Visible;
+
+                if (IsFlowing) StartCyberAnimation(); else StopCyberAnimation();
+                StopFlowAnimation();
+                ApplyFluidVisibility();
+            }
+            else
+            {
+                CyberMainMetal.Visibility = Visibility.Collapsed;
+                CyberBranchMetal.Visibility = Visibility.Collapsed;
+                CyberMainDark.Visibility = Visibility.Collapsed;
+                CyberBranchDark.Visibility = Visibility.Collapsed;
+                CyberMainMainStream.Visibility = Visibility.Collapsed;
+                CyberMainParticleStream.Visibility = Visibility.Collapsed;
+                CyberMainSparkStream.Visibility = Visibility.Collapsed;
+                CyberBranchMainStream.Visibility = Visibility.Collapsed;
+                CyberBranchParticleStream.Visibility = Visibility.Collapsed;
+                CyberBranchSparkStream.Visibility = Visibility.Collapsed;
+                StopCyberAnimation();
+
+                if (MainHorizontalPipe != null) MainHorizontalPipe.Visibility = Visibility.Visible;
+                if (BranchVerticalPipe != null) BranchVerticalPipe.Visibility = Visibility.Visible;
+                if (TJunction != null) TJunction.Visibility = Visibility.Visible;
+                // ★ 还原 Background 白底
+                if (MainHorizontalPipeBackground != null) { MainHorizontalPipeBackground.Fill = Brushes.White; MainHorizontalPipeBackground.Visibility = Visibility.Visible; }
+                if (BranchPipeBackground != null) { BranchPipeBackground.Fill = Brushes.White; BranchPipeBackground.Visibility = Visibility.Visible; }
+                ApplyFluidVisibility();
+            }
+        }
+
+        private void BuildCyberLayers()
+        {
+            if (CyberMainMetal == null) return;
+
+            CyberMainMetal.Fill = MakeMetalGradient(false);
+            CyberBranchMetal.Fill = MakeMetalGradient(true);
+
+            ApplyCyberStreamColors();
+
+            CyberMainMainStream.StrokeDashArray = new DoubleCollection { 30, 90 };
+            CyberMainParticleStream.StrokeDashArray = new DoubleCollection { 8, 50 };
+            CyberMainSparkStream.StrokeDashArray = new DoubleCollection { 4, 80 };
+            CyberBranchMainStream.StrokeDashArray = new DoubleCollection { 30, 90 };
+            CyberBranchParticleStream.StrokeDashArray = new DoubleCollection { 8, 50 };
+            CyberBranchSparkStream.StrokeDashArray = new DoubleCollection { 4, 80 };
+
+            UpdateCyberGeometry();
+        }
+
+        private LinearGradientBrush MakeMetalGradient(bool vertical)
+        {
+            var g = vertical
+                ? new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) }
+                : new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 0));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.2));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x8A, 0xA0, 0xC0), 0.5));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.8));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 1));
+            g.Freeze();
+            return g;
+        }
+
+        private void ApplyCyberStreamColors()
+        {
+            if (CyberMainMainStream == null) return;
+            var c = FluidColor;
+            var brightC = LightenColor(c, 30);
+            var sparkC = LightenColor(c, 60);
+
+            var mainBrush = new SolidColorBrush(brightC);
+            mainBrush.Freeze();
+            CyberMainMainStream.Stroke = mainBrush;
+            CyberBranchMainStream.Stroke = mainBrush;
+
+            var particleBrush = new SolidColorBrush(sparkC);
+            particleBrush.Freeze();
+            CyberMainParticleStream.Stroke = particleBrush;
+            CyberBranchParticleStream.Stroke = particleBrush;
+        }
+
+        /// <summary>
+        /// T 型几何 + 两条 path：
+        ///   - 主管 path：横穿主管中线（左→右）
+        ///   - 支管 path：从主管中线垂直向上到支管顶
+        /// </summary>
+        private void UpdateCyberGeometry()
+        {
+            if (CyberMainMetal == null) return;
+
+            double mainPipeLeft = FlangeOffset + FlangeWidthConst;
+            double mainPipeTop = MAIN_PIPE_CENTER_Y - _pipeWidth / 2;
+            double branchCenterX = mainPipeLeft + _branchPosition;
+            double branchPipeLeft = branchCenterX - _pipeWidth / 2;
+            double branchPipeTop = mainPipeTop - _branchPipeLength;
+
+            // 主管金属/暗腔
+            CyberMainMetal.Width = _mainPipeLength; CyberMainMetal.Height = _pipeWidth;
+            Canvas.SetLeft(CyberMainMetal, mainPipeLeft); Canvas.SetTop(CyberMainMetal, mainPipeTop);
+            CyberMainDark.Width = _mainPipeLength; CyberMainDark.Height = _pipeWidth;
+            Canvas.SetLeft(CyberMainDark, mainPipeLeft); Canvas.SetTop(CyberMainDark, mainPipeTop);
+
+            // 支管金属/暗腔
+            CyberBranchMetal.Width = _pipeWidth; CyberBranchMetal.Height = _branchPipeLength;
+            Canvas.SetLeft(CyberBranchMetal, branchPipeLeft); Canvas.SetTop(CyberBranchMetal, branchPipeTop);
+            CyberBranchDark.Width = _pipeWidth; CyberBranchDark.Height = _branchPipeLength;
+            Canvas.SetLeft(CyberBranchDark, branchPipeLeft); Canvas.SetTop(CyberBranchDark, branchPipeTop);
+
+            // ★ 主管中心线 path（横穿主管中线）
+            var mainFig = new PathFigure { StartPoint = new Point(mainPipeLeft, MAIN_PIPE_CENTER_Y) };
+            mainFig.Segments.Add(new LineSegment(new Point(mainPipeLeft + _mainPipeLength, MAIN_PIPE_CENTER_Y), true));
+            var mainGeo = new PathGeometry();
+            mainGeo.Figures.Add(mainFig);
+            mainGeo.Freeze();
+            CyberMainMainStream.Data = mainGeo;
+            CyberMainParticleStream.Data = mainGeo;
+            CyberMainSparkStream.Data = mainGeo;
+
+            // ★ 支管中心线 path（从主管中线垂直向上到支管顶）
+            var branchFig = new PathFigure { StartPoint = new Point(branchCenterX, MAIN_PIPE_CENTER_Y) };
+            branchFig.Segments.Add(new LineSegment(new Point(branchCenterX, branchPipeTop), true));
+            var branchGeo = new PathGeometry();
+            branchGeo.Figures.Add(branchFig);
+            branchGeo.Freeze();
+            CyberBranchMainStream.Data = branchGeo;
+            CyberBranchParticleStream.Data = branchGeo;
+            CyberBranchSparkStream.Data = branchGeo;
+
+            double mainThick = Math.Max(2, _pipeWidth * 0.6);
+            double partThick = Math.Max(1.5, _pipeWidth * 0.3);
+            double sparkThick = Math.Max(1, _pipeWidth * 0.15);
+
+            CyberMainMainStream.StrokeThickness = mainThick;
+            CyberMainParticleStream.StrokeThickness = partThick;
+            CyberMainSparkStream.StrokeThickness = sparkThick;
+            CyberBranchMainStream.StrokeThickness = mainThick;
+            CyberBranchParticleStream.StrokeThickness = partThick;
+            CyberBranchSparkStream.StrokeThickness = sparkThick;
+        }
+
+        private void StartCyberAnimation()
+        {
+            if (CyberMainMainStream == null) return;
+            StopCyberAnimation();
+            int sign = PipeFlowDir == PipeFlowDirection.LeftToRight ? -1 : 1;
+            double speed = Math.Max(0.1, FlowSpeed);
+
+            // 主管：跟流向
+            _cyberMainMainAnim = new DoubleAnimation { From = 0, To = sign * _cyberMainPeriod, Duration = TimeSpan.FromMilliseconds(2000.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberMainMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberMainMainAnim);
+
+            _cyberMainParticleAnim = new DoubleAnimation { From = 0, To = sign * _cyberParticlePeriod, Duration = TimeSpan.FromMilliseconds(1500.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberMainParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberMainParticleAnim);
+
+            _cyberMainSparkAnim = new DoubleAnimation { From = sign * -30, To = sign * (_cyberSparkPeriod - 30), Duration = TimeSpan.FromMilliseconds(1200.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberMainSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberMainSparkAnim);
+
+            // 支管：永远向上流出（path 起点在主管中线，终点在支管顶）
+            // path 方向是 main→top 即从下往上，所以 dashOffset 减小 = 流光向起点(下)滚动 = 视觉向上
+            _cyberBranchMainAnim = new DoubleAnimation { From = 0, To = -_cyberMainPeriod, Duration = TimeSpan.FromMilliseconds(2000.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberBranchMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberBranchMainAnim);
+
+            _cyberBranchParticleAnim = new DoubleAnimation { From = 0, To = -_cyberParticlePeriod, Duration = TimeSpan.FromMilliseconds(1500.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberBranchParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberBranchParticleAnim);
+
+            _cyberBranchSparkAnim = new DoubleAnimation { From = -30, To = -(_cyberSparkPeriod - 30), Duration = TimeSpan.FromMilliseconds(1200.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberBranchSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberBranchSparkAnim);
+        }
+
+        private void StopCyberAnimation()
+        {
+            if (CyberMainMainStream == null) return;
+            CyberMainMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberMainParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberMainSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberBranchMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberBranchParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberBranchSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+        }
+
+        #endregion
+
+        #region 颜色辅助
 
         private static Color LightenColor(Color c, byte amount)
         {
@@ -730,18 +754,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 锚点显示控制
+        #region 锚点显示
 
         private void OnPipeMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (!_isResizing && !_isDraggingPipe && !_isRotating) ShowAllAnchors();
-        }
-
+        { if (!_isResizing && !_isDraggingPipe && !_isRotating) ShowAllAnchors(); }
         private void OnPipeMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (!_isResizing && !_isDraggingPipe && !_isRotating && !IsSelected) HideAllAnchors();
-        }
-
+        { if (!_isResizing && !_isDraggingPipe && !_isRotating && !IsSelected) HideAllAnchors(); }
         private void ShowAllAnchors()
         {
             MainLengthAnchor.Opacity = 0.6;
@@ -751,7 +769,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchor.Opacity = 0.6;
             RotateAnchorLine.Opacity = 0.6;
         }
-
         private void HideAllAnchors()
         {
             MainLengthAnchor.Opacity = 0;
@@ -761,7 +778,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchor.Opacity = 0;
             RotateAnchorLine.Opacity = 0;
         }
-
         private void UpdateSelectionVisual(bool isSelected)
         {
             if (isSelected)
@@ -780,7 +796,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 锚点事件设置
+        #region 锚点事件
 
         private void SetupAnchorEvents()
         {
@@ -816,24 +832,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         private void OnAnchorMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (sender is Ellipse anchor && !_isRotating) anchor.Opacity = 1.0;
-        }
-
+        { if (sender is Ellipse anchor && !_isRotating) anchor.Opacity = 1.0; }
         private void OnAnchorMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (sender is Ellipse anchor && !_isResizing && !_isRotating) anchor.Opacity = 0.6;
-        }
-
+        { if (sender is Ellipse anchor && !_isResizing && !_isRotating) anchor.Opacity = 0.6; }
         private void OnRotateAnchorMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (!_isRotating) { RotateAnchor.Opacity = 1.0; RotateAnchorLine.Opacity = 1.0; }
-        }
-
+        { if (!_isRotating) { RotateAnchor.Opacity = 1.0; RotateAnchorLine.Opacity = 1.0; } }
         private void OnRotateAnchorMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (!_isRotating) { RotateAnchor.Opacity = 0.6; RotateAnchorLine.Opacity = 0.6; }
-        }
+        { if (!_isRotating) { RotateAnchor.Opacity = 0.6; RotateAnchorLine.Opacity = 0.6; } }
 
         #endregion
 
@@ -850,7 +855,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                      clicked.Name == "RotateAnchor"))
                     return;
 
-                // ★ 双击 → 打开属性对话框
                 if (e.ClickCount == 2)
                 {
                     _isDraggingPipe = false;
@@ -942,23 +946,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
 
         #region 调整大小
-        /// <summary>
-        /// 计算指定锚点对应的"固定端"在画布世界坐标系里的位置。
-        /// 这是控件旋转后,改尺寸时需要保持不动的那个点。
-        /// </summary>
+
         private Point ComputeFixedWorldPoint(TAnchorPosition anchor)
         {
-            // 控件中心在画布上的世界坐标(因为 RenderTransformOrigin = 0.5, 0.5,旋转绕的就是这个点)
             double pipeLeft = Canvas.GetLeft(this);
             double pipeTop = Canvas.GetTop(this);
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
             Point center = new Point(pipeLeft + Width / 2, pipeTop + Height / 2);
 
-            // 固定端在控件本地坐标系(以中心为原点)的位置
             Point localFixed = ComputeLocalFixedPoint(anchor, _originalSize);
 
-            // 旋转到世界坐标
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
@@ -968,18 +966,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             return new Point(center.X + worldOffset.X, center.Y + worldOffset.Y);
         }
 
-        /// <summary>
-        /// 计算指定锚点对应的"固定端"在控件本地坐标系(中心为原点)的位置。
-        /// </summary>
         private Point ComputeLocalFixedPoint(TAnchorPosition anchor, TPipeSize size)
         {
-            // 主管在本地的几何:
-            //   主管左端 X = FlangeOffset (≈0)
-            //   主管中线 Y = MAIN_PIPE_CENTER_Y (=70)
-            //   主管右端 X = FlangeOffset + FlangeWidthConst + MainPipeLength
-            //   控件总宽 = 主管右端 + FlangeWidthConst + 4
-            //   控件总高 = MAIN_PIPE_CENTER_Y + PipeWidth/2 + FLANGE_EXTENSION/2 + 20
-
             double mainPipeRight = FlangeOffset + FlangeWidthConst + size.MainPipeLength;
             double totalW = mainPipeRight + FlangeWidthConst + 4;
             double totalH = MAIN_PIPE_CENTER_Y + size.PipeWidth / 2 + FLANGE_EXTENSION / 2 + 20;
@@ -990,35 +978,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             switch (anchor)
             {
                 case TAnchorPosition.MainLength:
-                    // 拖右端 → 固定主管左端中点
                     return new Point(FlangeOffset - cx, MAIN_PIPE_CENTER_Y - cy);
 
                 case TAnchorPosition.BranchLength:
-                    // 拖支管顶 → 固定支管根部(主管上沿,支管中心 X)
                     double branchCenterX = FlangeOffset + FlangeWidthConst + size.BranchPosition;
                     double mainTop = MAIN_PIPE_CENTER_Y - size.PipeWidth / 2;
                     return new Point(branchCenterX - cx, mainTop - cy);
 
                 case TAnchorPosition.PipeWidth:
-                    // 拖管宽 → 固定主管中线在支管中心 X 的那一点
                     double bcx = FlangeOffset + FlangeWidthConst + size.BranchPosition;
                     return new Point(bcx - cx, MAIN_PIPE_CENTER_Y - cy);
 
                 case TAnchorPosition.BranchPosition:
                 default:
-                    // 滑动支管位置时不需要补偿,返回中心(补偿量=0)
                     return new Point(0, 0);
             }
         }
 
-        /// <summary>
-        /// 改完尺寸后,根据"原始固定点"反推 Canvas.Left/Top,让固定端保持不动
-        /// </summary>
         private void RepositionByFixedPoint()
         {
-            if (_resizingAnchor == TAnchorPosition.BranchPosition) return;  // 这种锚点不需要补偿
+            if (_resizingAnchor == TAnchorPosition.BranchPosition) return;
 
-            // 改尺寸后的新固定端本地坐标(用当前的 size,不是 original)
             var currentSize = new TPipeSize
             {
                 MainPipeLength = MainPipeLength,
@@ -1028,21 +1008,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             };
             Point newLocalFixed = ComputeLocalFixedPoint(_resizingAnchor.Value, currentSize);
 
-            // 旋转到世界
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
             Point newWorldOffset = new Point(newLocalFixed.X * cos - newLocalFixed.Y * sin,
                                              newLocalFixed.X * sin + newLocalFixed.Y * cos);
 
-            // 让"新固定端在世界中的位置" = "原固定端在世界中的位置"
-            // → newCenter = _fixedWorldPoint - newWorldOffset
             Point newCenter = new Point(_fixedWorldPoint.X - newWorldOffset.X,
                                         _fixedWorldPoint.Y - newWorldOffset.Y);
 
             Canvas.SetLeft(this, newCenter.X - Width / 2);
             Canvas.SetTop(this, newCenter.Y - Height / 2);
         }
+
         private void StartResize(TAnchorPosition anchor, MouseButtonEventArgs e)
         {
             _isResizing = true;
@@ -1059,7 +1037,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
             if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
 
-            // ★ 关键:记下"开始拖之前的固定点世界坐标"
             _fixedWorldPoint = ComputeFixedWorldPoint(anchor);
 
             CacheMode = null;
@@ -1086,39 +1063,30 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double rawDx = currentPoint.X - _dragStartPoint.X;
             double rawDy = currentPoint.Y - _dragStartPoint.Y;
 
-            // ★ 关键:把鼠标位移投影到管子的"本地坐标系"
-            // 旋转 0° 时:本地 X = 屏幕 X,本地 Y = 屏幕 Y
-            // 旋转 90° 时:本地 X = 屏幕 Y(管子横了竖,延长方向变成上下)
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
-            double localDx = rawDx * cos + rawDy * sin;   // 沿主管方向
-            double localDy = -rawDx * sin + rawDy * cos;   // 垂直主管方向
+            double localDx = rawDx * cos + rawDy * sin;
+            double localDy = -rawDx * sin + rawDy * cos;
 
             switch (_resizingAnchor.Value)
             {
                 case TAnchorPosition.MainLength:
-                    // 拖右锚点 → 沿主管方向延伸 → 用 localDx
                     MainPipeLength = _originalSize.MainPipeLength + localDx;
                     break;
-
                 case TAnchorPosition.BranchLength:
-                    // 支管在主管"上方"(本地 -Y),拖锚点向上(localDy 变负)→ 支管变长
                     BranchPipeLength = _originalSize.BranchPipeLength - localDy;
                     break;
-
                 case TAnchorPosition.BranchPosition:
-                    // 支管沿主管滑动 → 用 localDx
                     BranchPosition = _originalSize.BranchPosition + localDx;
                     break;
-
                 case TAnchorPosition.PipeWidth:
-                    // 拖底部宽度锚点向下(localDy 变正)→ 管子变粗
                     PipeWidth = _originalSize.PipeWidth + localDy;
                     break;
             }
-            // ★ 改完尺寸后反推位置,让固定端在世界坐标里保持不动
+
             RepositionByFixedPoint();
+
             PipeResizing?.Invoke(this, new TPipeResizeEventArgs
             {
                 PipeId = PipeId,
@@ -1262,10 +1230,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 PipeCanvas.BeginInit();
 
-                // ═══ 计算法兰尺寸 ═══
                 double flangeHeight = _pipeWidth + FLANGE_EXTENSION;
 
-                // ═══ 主水平管道 ═══
+                // 主水平管道
                 double mainPipeLeft = FlangeOffset + FlangeWidthConst;
                 double mainPipeTop = MAIN_PIPE_CENTER_Y - _pipeWidth / 2;
 
@@ -1284,9 +1251,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 MainHorizontalBottomEdge.X2 = mainPipeLeft + _mainPipeLength;
                 MainHorizontalBottomEdge.Y2 = mainPipeTop + _pipeWidth - 0.32;
 
-                // ═══ 左侧法兰 ═══
+                // 左法兰
                 double sideFlangeTop = MAIN_PIPE_CENTER_Y - flangeHeight / 2;
-
                 Canvas.SetLeft(LeftFlangeGroup, FlangeOffset);
                 Canvas.SetTop(LeftFlangeGroup, sideFlangeTop);
                 LeftFlangeGroup.Width = FlangeWidthConst;
@@ -1298,9 +1264,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 LeftFlangeBorder.Width = FlangeWidthConst;
                 LeftFlangeBorder.Height = flangeHeight;
 
-                // ═══ 右侧法兰 ═══
+                // 右法兰
                 double rightFlangeX = mainPipeLeft + _mainPipeLength;
-
                 Canvas.SetLeft(RightFlangeGroup, rightFlangeX);
                 Canvas.SetTop(RightFlangeGroup, sideFlangeTop);
                 RightFlangeGroup.Width = FlangeWidthConst;
@@ -1312,7 +1277,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 RightFlangeBorder.Width = FlangeWidthConst;
                 RightFlangeBorder.Height = flangeHeight;
 
-                // ═══ 支管垂直管道 ═══
+                // 支管
                 double branchCenterX = mainPipeLeft + _branchPosition;
                 double branchPipeLeft = branchCenterX - _pipeWidth / 2;
                 double branchPipeBottom = mainPipeTop;
@@ -1333,7 +1298,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 BranchRightEdge.X2 = branchPipeLeft + _pipeWidth - 0.32;
                 BranchRightEdge.Y2 = branchPipeBottom;
 
-                // ═══ 顶部法兰 ═══
+                // 顶部法兰
                 double topFlangeWidth = _pipeWidth + FLANGE_EXTENSION;
                 double topFlangeLeft = branchCenterX - topFlangeWidth / 2;
                 double topFlangeTop = branchPipeTop - FlangeWidthConst;
@@ -1349,40 +1314,41 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 TopFlangeBorder.Width = topFlangeWidth;
                 TopFlangeBorder.Height = FlangeWidthConst;
 
-                // ═══ T型连接处 ═══
+                // T 型连接处
                 double junctionSize = _pipeWidth - 2;
                 Canvas.SetLeft(TJunction, branchCenterX - junctionSize / 2);
                 Canvas.SetTop(TJunction, MAIN_PIPE_CENTER_Y - junctionSize / 2);
                 TJunction.Width = junctionSize;
                 TJunction.Height = junctionSize;
 
-                // ═══ 控件尺寸 & 选中框 ═══
+                // 控件尺寸
                 double totalWidth = rightFlangeX + FlangeWidthConst + 4;
                 double totalHeight = (mainPipeTop + _pipeWidth) + (FLANGE_EXTENSION / 2) + 20;
                 Width = totalWidth;
                 Height = totalHeight;
 
-                // 选中描边（T 形：主管 + 支管）
-                // 主管：整条横管
+                // 选中描边
                 SelectionBorder.Width = _mainPipeLength;
                 SelectionBorder.Height = _pipeWidth;
                 Canvas.SetLeft(SelectionBorder, mainPipeLeft);
                 Canvas.SetTop(SelectionBorder, mainPipeTop);
 
-                // 支管：从顶端延伸到主管中线（底端与主管重叠形成 T 接头）
                 SelectionBorderBranch.Width = _pipeWidth;
                 SelectionBorderBranch.Height = _branchPipeLength + _pipeWidth / 2;
                 Canvas.SetLeft(SelectionBorderBranch, branchPipeLeft);
                 Canvas.SetTop(SelectionBorderBranch, branchPipeTop);
 
-                // ═══ 锚点 ═══
+                // 锚点
                 UpdateAnchorPositions(rightFlangeX, mainPipeTop, branchPipeLeft, branchPipeTop, branchCenterX, MAIN_PIPE_CENTER_Y);
 
                 PipeCanvas.EndInit();
 
-                // ═══ 更新纹理 + 动画 ═══
                 UpdateFluidPatternViewports();
-                if (IsFlowing && IsFluidVisible) StartFlowAnimation();
+                if (IsFlowing && IsFluidVisible && !UseDefaultStyle) StartFlowAnimation();
+
+                // ★ 同步赛博层
+                UpdateCyberGeometry();
+                if (UseDefaultStyle && IsFlowing) StartCyberAnimation();
             }
             catch (Exception ex)
             {
@@ -1399,39 +1365,31 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         private void UpdateAnchorPositions(
-      double rightFlangeX, double mainPipeTop,
-      double branchPipeLeft, double branchPipeTop,
-      double branchCenterX, double mainPipeCenterY)
+            double rightFlangeX, double mainPipeTop,
+            double branchPipeLeft, double branchPipeTop,
+            double branchCenterX, double mainPipeCenterY)
         {
-            // 主管长度调整锚点 — 紧贴右法兰外侧,在主管中线上
             Canvas.SetLeft(MainLengthAnchor, rightFlangeX + FlangeWidthConst + 2);
             Canvas.SetTop(MainLengthAnchor, mainPipeCenterY - 6);
 
-            // 支管长度调整锚点 — 紧贴支管顶端法兰外侧
             Canvas.SetLeft(BranchLengthAnchor, branchCenterX - 6);
             Canvas.SetTop(BranchLengthAnchor, branchPipeTop - FlangeWidthConst - 14);
 
-            // 支管位置调整锚点 — 在主管上,支管中心位置(左侧让开一点避免和支管重叠)
             Canvas.SetLeft(BranchPositionAnchor, branchCenterX - _pipeWidth / 2 - 14);
             Canvas.SetTop(BranchPositionAnchor, mainPipeCenterY - 6);
 
-            // 管宽调整锚点 — 主管下方,支管中心 X 位置
             Canvas.SetLeft(PipeWidthAnchor, branchCenterX - 6);
             Canvas.SetTop(PipeWidthAnchor, mainPipeTop + _pipeWidth + 4);
 
-            // ★ 旋转锚点 — 紧贴支管顶部法兰上方,而不是控件顶部
-            // 支管顶法兰在 branchPipeTop - FlangeWidthConst,锚点再往上 14px
             double rotateAnchorY = branchPipeTop - FlangeWidthConst - 28;
             Canvas.SetLeft(RotateAnchor, branchCenterX - 6);
             Canvas.SetTop(RotateAnchor, rotateAnchorY);
 
-            // 旋转辅助线 — 从支管顶法兰连到旋转锚点
             RotateAnchorLine.X1 = branchCenterX;
             RotateAnchorLine.Y1 = branchPipeTop - FlangeWidthConst;
             RotateAnchorLine.X2 = branchCenterX;
             RotateAnchorLine.Y2 = rotateAnchorY + 6;
 
-            // 旋转角度标签 — 旋转锚点上方
             Canvas.SetLeft(RotationLabel, branchCenterX - 20);
             Canvas.SetTop(RotationLabel, rotateAnchorY - 22);
         }
@@ -1500,7 +1458,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Point center = new Point(pipeLeft + Width / 2, pipeTop + Height / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // ═══ 左侧吸附点 ═══
             double leftSnapLocalX = FlangeOffset;
             double leftSnapLocalY = MAIN_PIPE_CENTER_Y;
             Point leftRel = new Point(leftSnapLocalX - Width / 2, leftSnapLocalY - Height / 2);
@@ -1512,7 +1469,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = "T型左端口"
             });
 
-            // ═══ 右侧吸附点 ═══
             double rightSnapLocalX = FlangeOffset + FlangeWidthConst + _mainPipeLength + FlangeWidthConst;
             double rightSnapLocalY = MAIN_PIPE_CENTER_Y;
             Point rightRel = new Point(rightSnapLocalX - Width / 2, rightSnapLocalY - Height / 2);
@@ -1524,7 +1480,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = "T型右端口"
             });
 
-            // ═══ 顶部吸附点（支管）═══
             double branchCenterX = FlangeOffset + FlangeWidthConst + _branchPosition;
             double mainPipeTopY = MAIN_PIPE_CENTER_Y - _pipeWidth / 2;
             double branchTopY = mainPipeTopY - _branchPipeLength;
@@ -1560,7 +1515,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
     }
 
-    #region 辅助类和枚举（保持不变）
+    #region 辅助类和枚举
 
     public enum TAnchorPosition
     {

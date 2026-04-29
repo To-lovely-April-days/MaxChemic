@@ -32,6 +32,14 @@ namespace PeristalticPumps_ModbusTCP
         private CancellationTokenSource _statusPollingCts;
         private Task _statusPollingTask;
         private const int StatusPollingIntervalMs = 1000; // 每1秒轮询一次
+        // ═══════════════════════════════════════════════════════
+        //  单位常量(全项目统一标准)
+        // ═══════════════════════════════════════════════════════
+        private const string UnitTemperature = "℃";
+        private const string UnitPressure = "MPa";
+        private const string UnitFlow = "mL/min";
+        private const string UnitPumpSpeed = "RPM";
+
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -880,7 +888,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("PumpSpeed", 0, 5000, 0, "泵速(RPM)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("PumpSpeed", 0, 5000, 0, "泵速", true, UnitPumpSpeed)
                     }
                 },
                 Action = WrapAction("获取泵速", async delegate (DeviceParameters parameters)
@@ -918,7 +926,7 @@ namespace PeristalticPumps_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new NumberParameter("PumpSpeed", 0, 5000, Math.Round(pumpSpeed, 1), "泵速(RPM)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("PumpSpeed", 0, 5000, Math.Round(pumpSpeed, 1), "泵速", true, UnitPumpSpeed)
                         }
                     };
                 })
@@ -942,7 +950,7 @@ namespace PeristalticPumps_ModbusTCP
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetSpeed", 0, 5000, 0, "设置的泵速(RPM)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("SetSpeed", 0, 5000, 0, "设置的泵速", true, UnitPumpSpeed)
                     }
                 },
                 Action = WrapAction("设置泵速", async delegate (DeviceParameters parameters)
@@ -1011,7 +1019,7 @@ namespace PeristalticPumps_ModbusTCP
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetSpeed", 0, 5000, targetSpeed, "设置的泵速(RPM)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("SetSpeed", 0, 5000, targetSpeed, "设置的泵速", true, UnitPumpSpeed)
                         }
                     };
                 })
@@ -1100,7 +1108,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("Pressure", 0, 10, 0, "出口压力(MPa)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("Pressure", 0, 10, 0, "出口压力", true, UnitPressure)
                     }
                 },
                 Action = WrapAction("获取出口压力", async delegate (DeviceParameters parameters)
@@ -1135,7 +1143,7 @@ namespace PeristalticPumps_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new NumberParameter("Pressure", 0, 10, Math.Round(pressure, 3), "出口压力(MPa)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("Pressure", 0, 10, Math.Round(pressure, 3), "出口压力", true, UnitPressure)
                         }
                     };
                 })
@@ -1152,7 +1160,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("Temperature", -50, 200, 0, "出口温度(℃)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("Temperature", -50, 200, 0, "出口温度", true, UnitTemperature)
                     }
                 },
                 Action = WrapAction("获取出口温度", async delegate (DeviceParameters parameters)
@@ -1187,7 +1195,7 @@ namespace PeristalticPumps_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new NumberParameter("Temperature", -50, 200, Math.Round(temperature, 1), "出口温度(℃)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("Temperature", -50, 200, Math.Round(temperature, 1), "出口温度", true, UnitTemperature)
                         }
                     };
                 })
@@ -1204,7 +1212,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("FlowRate", 0, 1000, 0, "出口流量(mL/min)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("FlowRate", 0, 1000, 0, "出口流量", true, UnitFlow)
                     }
                 },
                 Action = WrapAction("获取出口流量", async delegate (DeviceParameters parameters)
@@ -1242,7 +1250,7 @@ namespace PeristalticPumps_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new NumberParameter("FlowRate", 0, 1000, Math.Round(flowRate, 2), "出口流量(mL/min)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("FlowRate", 0, 1000, Math.Round(flowRate, 2), "出口流量", true, UnitFlow)
                         }
                     };
                 })

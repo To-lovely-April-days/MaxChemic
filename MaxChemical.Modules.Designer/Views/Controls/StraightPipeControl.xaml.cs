@@ -1,11 +1,14 @@
 ﻿using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.Views.Controls.Service;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -64,7 +67,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region 依赖属性 — 管道外观
 
-        // ═══ 管道颜色（渐变主色 + 法兰边框色） ═══
         public static readonly DependencyProperty PipeColorProperty =
             DependencyProperty.Register(nameof(PipeColor), typeof(Color), typeof(StraightPipeControl),
                 new PropertyMetadata(Color.FromRgb(0x72, 0x71, 0x71), OnPipeColorChanged));
@@ -80,7 +82,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (d is StraightPipeControl c) c.ApplyPipeColor();
         }
 
-        // ═══ 法兰填充色 ═══
         public static readonly DependencyProperty FlangeColorProperty =
             DependencyProperty.Register(nameof(FlangeColor), typeof(Color), typeof(StraightPipeControl),
                 new PropertyMetadata(Color.FromRgb(0xD9, 0xD9, 0xD9), OnFlangeColorChanged));
@@ -100,7 +101,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region 依赖属性 — 流体
 
-        // ═══ 流体颜色 ═══
         public static readonly DependencyProperty FluidColorProperty =
             DependencyProperty.Register(nameof(FluidColor), typeof(Color), typeof(StraightPipeControl),
                 new PropertyMetadata(Color.FromRgb(0x1E, 0xC1, 0xF4), OnFluidColorChanged));
@@ -116,7 +116,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (d is StraightPipeControl c) c.ApplyFluidColor();
         }
 
-        // ═══ 流体不透明度 (0.0 ~ 1.0) ═══
         public static readonly DependencyProperty FluidOpacityProperty =
             DependencyProperty.Register(nameof(FluidOpacity), typeof(double), typeof(StraightPipeControl),
                 new PropertyMetadata(0.85, OnFluidOpacityChanged));
@@ -133,7 +132,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 c.FluidBackground.Opacity = (double)e.NewValue;
         }
 
-        // ═══ 流体是否可见 ═══
         public static readonly DependencyProperty IsFluidVisibleProperty =
             DependencyProperty.Register(nameof(IsFluidVisible), typeof(bool), typeof(StraightPipeControl),
                 new PropertyMetadata(false, OnIsFluidVisibleChanged));
@@ -149,11 +147,26 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (d is StraightPipeControl c) c.ApplyFluidVisibility();
         }
 
+        // ═══ 是否使用默认流动样式（赛博流光） ═══
+        public static readonly DependencyProperty UseDefaultStyleProperty =
+            DependencyProperty.Register(nameof(UseDefaultStyle), typeof(bool), typeof(StraightPipeControl),
+                new PropertyMetadata(false, OnUseDefaultStyleChanged));
+
+        public bool UseDefaultStyle
+        {
+            get => (bool)GetValue(UseDefaultStyleProperty);
+            set => SetValue(UseDefaultStyleProperty, value);
+        }
+
+        private static void OnUseDefaultStyleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is StraightPipeControl c) c.ApplyDefaultStyleSwitch();
+        }
+
         #endregion
 
         #region 依赖属性 — 流动控制
 
-        // ═══ 是否流动 ═══
         public static readonly DependencyProperty IsFlowingProperty =
             DependencyProperty.Register(nameof(IsFlowing), typeof(bool), typeof(StraightPipeControl),
                 new PropertyMetadata(false, OnIsFlowingChanged));
@@ -169,7 +182,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (d is StraightPipeControl c) c.ApplyFlowAnimation();
         }
 
-        // ═══ 流动方向 ═══
         public static readonly DependencyProperty FlowDirectionProperty =
             DependencyProperty.Register("FlowDirection", typeof(PipeFlowDirection), typeof(StraightPipeControl),
                 new PropertyMetadata(PipeFlowDirection.LeftToRight, OnFlowDirectionChanged));
@@ -185,7 +197,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (d is StraightPipeControl c) c.ApplyFlowAnimation();
         }
 
-        // ═══ 流动速度（倍率，1.0=正常） ═══
         public static readonly DependencyProperty FlowSpeedProperty =
             DependencyProperty.Register(nameof(FlowSpeed), typeof(double), typeof(StraightPipeControl),
                 new PropertyMetadata(1.0, OnFlowSpeedChanged));
@@ -205,7 +216,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region 私有字段
 
-        // 交互状态
         private bool _isDraggingPipe;
         private bool _isResizing;
         private bool _isRotating;
@@ -216,21 +226,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private double _originalRotation;
         private Point _fixedPoint;
 
-        // 管道尺寸
         private double _pipeLength = 85.9;
         private double _pipeWidth = 16.6;
         private double _rotationAngle;
 
-        // 变换
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
 
-        // 流体动画
+        // 原气泡流体动画
         private TranslateTransform _flowTransform;
         private DrawingBrush _fluidPatternBrush;
 
-        // 尺寸下限(防止渲染崩溃) — 上限保留 10000 仅作为防御性兜底
+        // ═══ 赛博流光动画 ═══
+        private DoubleAnimation _cyberMainAnim;
+        private DoubleAnimation _cyberParticleAnim;
+        private DoubleAnimation _cyberSparkAnim;
+        // 赛博流光的 dash 周期总长（必须等于 dasharray 的两段之和）
+        private const double CYBER_MAIN_PERIOD = 120;     // dasharray = 30 + 90
+        private const double CYBER_PARTICLE_PERIOD = 58;  // dasharray = 8 + 50
+        private const double CYBER_SPARK_PERIOD = 84;     // dasharray = 4 + 80
+
         private const double MinPipeLength = 20;
         private const double MaxPipeLength = 10000;
         private const double MinPipeWidth = 4;
@@ -241,7 +257,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double PIPE_LEFT = 3.2;
         private const double RIGHT_FLANGE_WIDTH = 2.54;
 
-        // SVG气泡图案数据（从ThingsBoard SVG中精确提取）
         private static readonly (double X, double Y, double R)[] BubbleData = new[]
         {
             (21.0, 15.0, 8.0),   (150.0, 15.0, 8.0),  (113.0, 16.0, 8.0),
@@ -258,7 +273,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             (95.5, 58.5, 9.5)
         };
 
-        // SVG图案坐标空间
         private const double PATTERN_W = 172.0;
         private const double PATTERN_H = 72.0;
 
@@ -307,14 +321,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             PipeId = Guid.NewGuid().ToString();
             DataContext = this;
 
-            // 旋转变换
             _rotateTransform = new RotateTransform(0);
             _transformGroup = new TransformGroup();
             _transformGroup.Children.Add(_rotateTransform);
             RenderTransform = _transformGroup;
             RenderTransformOrigin = new Point(0.5, 0.5);
 
-            // 初始化外观（使用依赖属性的默认值）
             InitializeAppearance();
 
             if (!DesignerProperties.GetIsInDesignMode(this))
@@ -341,16 +353,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 ApplyFlowAnimation();
             };
             UpdatePipeGeometry();
-            // 渲染优化
+
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             RenderOptions.SetCachingHint(this, CachingHint.Cache);
             RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
             RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
         }
 
-        /// <summary>
-        /// 初始化外观：根据默认属性值生成所有画刷
-        /// </summary>
         private void InitializeAppearance()
         {
             ApplyPipeColor();
@@ -358,15 +367,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             ApplyFluidColor();
             RebuildFluidPatternBrush();
             ApplyFluidVisibility();
+
+            // ★ 应用默认样式开关
+            ApplyDefaultStyleSwitch();
         }
 
         #endregion
 
         #region 管道外观 — 管体渐变
 
-        /// <summary>
-        /// 根据 PipeColor 生成圆柱渐变画刷（SVG 7-stop 对称渐变）
-        /// </summary>
         private void ApplyPipeColor()
         {
             if (MainPipe == null) return;
@@ -384,13 +393,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             MainPipe.Fill = gradient;
 
-            // 法兰边框跟随管道颜色
             var strokeBrush = new SolidColorBrush(c);
             strokeBrush.Freeze();
             LeftFlangeBorder.Stroke = strokeBrush;
             RightFlangeBorder.Stroke = strokeBrush;
 
-            // 流体纹理的边带也要用管道色，需要重建
             RebuildFluidPatternBrush();
         }
 
@@ -409,7 +416,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             LeftFlangeBase.Fill = baseBrush;
             RightFlangeBase.Fill = baseBrush;
 
-            // 法兰渐变（中间暗，两端亮 → 圆柱感）
             var midColor = BlendColors(c, Colors.Gray, 0.4);
 
             var leftGrad = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
@@ -445,13 +451,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             FluidBackground.Fill = new SolidColorBrush(FluidColor);
             FluidBackground.Opacity = FluidOpacity;
 
-            // ★ 流体颜色变了,气泡纹理颜色也要跟着变
+            // 流体颜色变了,气泡纹理颜色也要跟着变
             RebuildFluidPatternBrush();
+
+            // ★ 赛博样式下,主流光、粒子流颜色也要跟着变
+            if (UseDefaultStyle && CyberMainStream != null)
+            {
+                ApplyCyberStreamColors();
+            }
         }
 
         private void ApplyFluidVisibility()
         {
             if (FluidBackground == null || FluidPattern == null) return;
+
+            // ★ 赛博样式下,原气泡层永远隐藏
+            if (UseDefaultStyle)
+            {
+                FluidBackground.Visibility = Visibility.Collapsed;
+                FluidPattern.Visibility = Visibility.Collapsed;
+                return;
+            }
 
             var vis = IsFluidVisible ? Visibility.Visible : Visibility.Collapsed;
             FluidBackground.Visibility = vis;
@@ -465,12 +485,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 流体 — 气泡纹理画刷（1:1还原SVG pattern）
+        #region 流体 — 气泡纹理画刷
 
-        /// <summary>
-        /// 重建 SVG 风格气泡纹理画刷
-        /// 结构：多个径向渐变气泡 + 顶底边带（管道色）
-        /// </summary>
         private void RebuildFluidPatternBrush()
         {
             if (FluidPattern == null) return;
@@ -478,12 +494,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var fluidC = FluidColor;
             var group = new DrawingGroup();
 
-            // ★ 气泡:用流体颜色对比,不再依赖管道颜色
-            Color bubbleLight = Color.FromArgb(220, 255, 255, 255);  // 强白色高光
+            Color bubbleLight = Color.FromArgb(220, 255, 255, 255);
             Color bubbleDark = Color.FromArgb(140,
                 (byte)(fluidC.R * 0.4),
                 (byte)(fluidC.G * 0.4),
-                (byte)(fluidC.B * 0.4));                              // 流体颜色的深色版
+                (byte)(fluidC.B * 0.4));
 
             foreach (var (x, y, r) in BubbleData)
             {
@@ -501,7 +516,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     new EllipseGeometry(new Point(x, y), r, r)));
             }
 
-            // ★ 边带:用流体颜色的"加深版",不再用管道颜色(避免和管道融合)
             Color edgeColor = Color.FromArgb(255,
                 (byte)(fluidC.R * 0.6),
                 (byte)(fluidC.G * 0.6),
@@ -520,7 +534,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 edgeBrush, null,
                 new RectangleGeometry(new Rect(0, 0, PATTERN_W, PATTERN_H))));
 
-            // 创建平铺画刷
             _flowTransform = new TranslateTransform(0, 0);
             _fluidPatternBrush = new DrawingBrush(group)
             {
@@ -534,13 +547,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateFluidPatternViewport();
             FluidPattern.Fill = _fluidPatternBrush;
 
-            if (IsFlowing && IsFluidVisible)
+            if (IsFlowing && IsFluidVisible && !UseDefaultStyle)
                 StartFlowAnimation();
         }
 
-        /// <summary>
-        /// 根据管道当前宽度，计算纹理平铺尺寸（保持纵横比）
-        /// </summary>
         private void UpdateFluidPatternViewport()
         {
             if (_fluidPatternBrush == null) return;
@@ -552,13 +562,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 流体 — 流动动画
+        #region 流体 — 流动动画（原气泡）
 
-        /// <summary>
-        /// 根据 IsFlowing / FlowDirection / FlowSpeed 决定动画状态
-        /// </summary>
         private void ApplyFlowAnimation()
         {
+            // ★ 赛博样式走自己的动画
+            if (UseDefaultStyle)
+            {
+                if (IsFlowing)
+                    StartCyberAnimation();
+                else
+                    StopCyberAnimation();
+                return;
+            }
+
             if (IsFlowing && IsFluidVisible)
                 StartFlowAnimation();
             else
@@ -569,7 +586,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (_flowTransform == null) return;
 
-            // 先停止旧动画
             _flowTransform.BeginAnimation(TranslateTransform.XProperty, null);
 
             double tileW = _pipeWidth * (PATTERN_W / PATTERN_H);
@@ -596,6 +612,243 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
+        #region 赛博流光（默认流动样式）
+
+        /// <summary>
+        /// 切换原层 / 赛博层显示
+        /// </summary>
+        private void ApplyDefaultStyleSwitch()
+        {
+            if (CyberMetalPipe == null) return;
+
+            if (UseDefaultStyle)
+            {
+                // 隐藏原管壁渐变 + 流体气泡
+                if (MainPipe != null) MainPipe.Visibility = Visibility.Collapsed;
+                if (FluidBackground != null) FluidBackground.Visibility = Visibility.Collapsed;
+                if (FluidPattern != null) FluidPattern.Visibility = Visibility.Collapsed;
+                if (PipeBackground != null) PipeBackground.Visibility = Visibility.Collapsed;
+
+                // 构建并显示赛博层
+                BuildCyberLayers();
+                CyberMetalPipe.Visibility = Visibility.Visible;
+                CyberDarkCore.Visibility = Visibility.Visible;
+                CyberMainStream.Visibility = Visibility.Visible;
+                CyberParticleStream.Visibility = Visibility.Visible;
+                CyberSparkStream.Visibility = Visibility.Visible;
+                CyberTopShine.Visibility = Visibility.Visible;
+
+                if (IsFlowing) StartCyberAnimation();
+                else StopCyberAnimation();
+
+                // 停止原气泡动画
+                StopFlowAnimation();
+            }
+            else
+            {
+                // 隐藏赛博层
+                CyberMetalPipe.Visibility = Visibility.Collapsed;
+                CyberDarkCore.Visibility = Visibility.Collapsed;
+                CyberMainStream.Visibility = Visibility.Collapsed;
+                CyberParticleStream.Visibility = Visibility.Collapsed;
+                CyberSparkStream.Visibility = Visibility.Collapsed;
+                CyberTopShine.Visibility = Visibility.Collapsed;
+                StopCyberAnimation();
+
+                // 恢复原层
+                if (PipeBackground != null) PipeBackground.Visibility = Visibility.Visible;
+                if (MainPipe != null) MainPipe.Visibility = Visibility.Visible;
+                ApplyFluidVisibility();
+            }
+        }
+
+        /// <summary>
+        /// 构建赛博 6 层的画刷与几何
+        /// </summary>
+        private void BuildCyberLayers()
+        {
+            if (CyberMetalPipe == null) return;
+
+            // ── 1. 金属管壁渐变（5-stop：暗-中-亮-中-暗） ──
+            var metal = new LinearGradientBrush
+            {
+                StartPoint = new Point(0.5, 0),
+                EndPoint = new Point(0.5, 1)
+            };
+            metal.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 0.0));
+            metal.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.2));
+            metal.GradientStops.Add(new GradientStop(Color.FromRgb(0x8A, 0xA0, 0xC0), 0.5));
+            metal.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.8));
+            metal.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 1.0));
+            metal.Freeze();
+            CyberMetalPipe.Fill = metal;
+
+            // ── 2. 内部暗腔 — 已在 XAML 设置 Fill="#000814" Opacity="0.85" ──
+
+            // ── 3-5. 流光颜色（跟随 FluidColor） ──
+            ApplyCyberStreamColors();
+            CyberMainStream.StrokeDashArray = new DoubleCollection { 30, 90 };
+            CyberParticleStream.StrokeDashArray = new DoubleCollection { 8, 50 };
+            CyberSparkStream.StrokeDashArray = new DoubleCollection { 4, 80 };
+
+            // ── 6. 顶部高光带 ──
+            var topShine = new LinearGradientBrush
+            {
+                StartPoint = new Point(0.5, 0),
+                EndPoint = new Point(0.5, 1)
+            };
+            topShine.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.0));
+            topShine.GradientStops.Add(new GradientStop(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF), 0.4));
+            topShine.GradientStops.Add(new GradientStop(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF), 0.5));
+            topShine.GradientStops.Add(new GradientStop(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF), 0.6));
+            topShine.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 1.0));
+            topShine.Freeze();
+            CyberTopShine.Fill = topShine;
+
+            UpdateCyberGeometry();
+        }
+
+        /// <summary>
+        /// 让主流光 + 粒子流的颜色跟随 FluidColor（白热闪点保持纯白）
+        /// </summary>
+        private void ApplyCyberStreamColors()
+        {
+            if (CyberMainStream == null) return;
+
+            var c = FluidColor;
+            var darkC = DarkenColorSafe(c, 60);
+            var brightC = LightenColorSafe(c, 30);
+            var sparkC = LightenColorSafe(c, 60);
+
+            // 主流光：渐变（暗→亮→暗）模拟流体光泽
+            var mainBrush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0.5, 0),
+                EndPoint = new Point(0.5, 1)
+            };
+            mainBrush.GradientStops.Add(new GradientStop(darkC, 0));
+            mainBrush.GradientStops.Add(new GradientStop(brightC, 0.5));
+            mainBrush.GradientStops.Add(new GradientStop(darkC, 1));
+            mainBrush.Freeze();
+            CyberMainStream.Stroke = mainBrush;
+
+            // 粒子流：纯色亮色
+            var particleBrush = new SolidColorBrush(sparkC);
+            particleBrush.Freeze();
+            CyberParticleStream.Stroke = particleBrush;
+
+            // 闪点保持白色（XAML 中已设 Stroke="#FFFFFF"，这里不改）
+        }
+
+        /// <summary>
+        /// 同步赛博层尺寸 + 流光路径
+        /// </summary>
+        private void UpdateCyberGeometry()
+        {
+            if (CyberMetalPipe == null) return;
+
+            double pipeTopOffset = (Height - _pipeWidth) / 2;
+
+            // 矩形层（金属壁/暗腔/顶光）
+            CyberMetalPipe.Width = _pipeLength;
+            CyberMetalPipe.Height = _pipeWidth;
+            Canvas.SetLeft(CyberMetalPipe, PIPE_LEFT);
+            Canvas.SetTop(CyberMetalPipe, pipeTopOffset);
+
+            CyberDarkCore.Width = _pipeLength;
+            CyberDarkCore.Height = _pipeWidth;
+            Canvas.SetLeft(CyberDarkCore, PIPE_LEFT);
+            Canvas.SetTop(CyberDarkCore, pipeTopOffset);
+
+            CyberTopShine.Width = _pipeLength;
+            CyberTopShine.Height = _pipeWidth;
+            Canvas.SetLeft(CyberTopShine, PIPE_LEFT);
+            Canvas.SetTop(CyberTopShine, pipeTopOffset);
+
+            // 流光路径：管道中线
+            double centerY = pipeTopOffset + _pipeWidth / 2;
+            double startX = PIPE_LEFT;
+            double endX = PIPE_LEFT + _pipeLength;
+
+            var fig = new PathFigure { StartPoint = new Point(startX, centerY) };
+            fig.Segments.Add(new LineSegment(new Point(endX, centerY), true));
+            var geo = new PathGeometry();
+            geo.Figures.Add(fig);
+            geo.Freeze();
+
+            CyberMainStream.Data = geo;
+            CyberParticleStream.Data = geo;
+            CyberSparkStream.Data = geo;
+
+            // stroke 粗细按管宽比例
+            CyberMainStream.StrokeThickness = Math.Max(2, _pipeWidth * 0.6);
+            CyberParticleStream.StrokeThickness = Math.Max(1.5, _pipeWidth * 0.3);
+            CyberSparkStream.StrokeThickness = Math.Max(1, _pipeWidth * 0.15);
+        }
+
+        private void StartCyberAnimation()
+        {
+            if (CyberMainStream == null) return;
+
+            StopCyberAnimation();
+
+            int sign = PipeFlowDir == PipeFlowDirection.LeftToRight ? -1 : 1;
+            double speed = Math.Max(0.1, FlowSpeed);
+
+            _cyberMainAnim = new DoubleAnimation
+            {
+                From = 0,
+                To = sign * CYBER_MAIN_PERIOD,
+                Duration = TimeSpan.FromMilliseconds(2000.0 / speed),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            CyberMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberMainAnim);
+
+            _cyberParticleAnim = new DoubleAnimation
+            {
+                From = 0,
+                To = sign * CYBER_PARTICLE_PERIOD,
+                Duration = TimeSpan.FromMilliseconds(1500.0 / speed),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            CyberParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberParticleAnim);
+
+            _cyberSparkAnim = new DoubleAnimation
+            {
+                From = sign * -30,
+                To = sign * (CYBER_SPARK_PERIOD - 30),
+                Duration = TimeSpan.FromMilliseconds(1200.0 / speed),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            CyberSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberSparkAnim);
+        }
+
+        private void StopCyberAnimation()
+        {
+            if (CyberMainStream == null) return;
+            CyberMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+        }
+
+        private static Color LightenColorSafe(Color c, byte amount)
+        {
+            return Color.FromRgb(
+                (byte)Math.Min(255, c.R + amount),
+                (byte)Math.Min(255, c.G + amount),
+                (byte)Math.Min(255, c.B + amount));
+        }
+
+        private static Color DarkenColorSafe(Color c, byte amount)
+        {
+            return Color.FromRgb(
+                (byte)Math.Max(0, c.R - amount),
+                (byte)Math.Max(0, c.G - amount),
+                (byte)Math.Max(0, c.B - amount));
+        }
+
+        #endregion
+
         #region 管道几何更新
 
         private void UpdatePipeGeometry()
@@ -607,31 +860,26 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             double pipeTopOffset = flangeExtension / 2;
 
-            // 管道背景
             PipeBackground.Width = _pipeLength;
             PipeBackground.Height = _pipeWidth;
             Canvas.SetLeft(PipeBackground, PIPE_LEFT);
             Canvas.SetTop(PipeBackground, pipeTopOffset);
 
-            // 流体背景
             FluidBackground.Width = _pipeLength;
             FluidBackground.Height = _pipeWidth;
             Canvas.SetLeft(FluidBackground, PIPE_LEFT);
             Canvas.SetTop(FluidBackground, pipeTopOffset);
 
-            // 流体纹理
             FluidPattern.Width = _pipeLength;
             FluidPattern.Height = _pipeWidth;
             Canvas.SetLeft(FluidPattern, PIPE_LEFT);
             Canvas.SetTop(FluidPattern, pipeTopOffset);
 
-            // 管道渐变主体
             MainPipe.Width = _pipeLength;
             MainPipe.Height = _pipeWidth;
             Canvas.SetLeft(MainPipe, PIPE_LEFT);
             Canvas.SetTop(MainPipe, pipeTopOffset);
 
-            // 边缘线
             double edgeLeft = PIPE_LEFT + 0.38;
             double edgeRight = PIPE_LEFT + _pipeLength - 0.38;
             double topEdgeY = pipeTopOffset + 0.32;
@@ -644,7 +892,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             UpdateFlanges();
 
-            // 选中描边：完全贴合管道本体（不再外扩）
             SelectionBorder.Width = _pipeLength;
             SelectionBorder.Height = _pipeWidth;
             Canvas.SetLeft(SelectionBorder, PIPE_LEFT);
@@ -653,10 +900,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             UpdateAnchorPositions();
             UpdateRotationLabelPosition();
 
-            // 更新纹理平铺尺寸 + 重启动画
             UpdateFluidPatternViewport();
-            if (IsFlowing && IsFluidVisible)
+            if (IsFlowing && IsFluidVisible && !UseDefaultStyle)
                 StartFlowAnimation();
+
+            // ★ 同步赛博层
+            UpdateCyberGeometry();
+            if (UseDefaultStyle && IsFlowing)
+                StartCyberAnimation();
         }
 
         private void UpdateFlanges()
@@ -720,7 +971,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (isSelected)
             {
                 var orangeBrush = new SolidColorBrush(Colors.Orange);
-                var glowEffect = new System.Windows.Media.Effects.DropShadowEffect
+                var glowEffect = new DropShadowEffect
                 {
                     Color = Colors.Orange,
                     BlurRadius = 10,
@@ -825,10 +1076,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             if (e.LeftButton == MouseButtonState.Pressed && !_isResizing && !_isRotating)
             {
-                // ★ 新增：检测双击 → 打开属性对话框
                 if (e.ClickCount == 2)
                 {
-                    // 取消任何正在进行的拖拽
                     _isDraggingPipe = false;
                     this.ReleaseMouseCapture();
                     this.Opacity = 1.0;
@@ -838,7 +1087,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     return;
                 }
 
-                // 原有逻辑：单击选中 + 拖拽准备
                 PipeSelected?.Invoke(this, this.PipeId);
                 this.IsSelected = true;
 
@@ -972,23 +1220,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var parent = Parent as Canvas;
             if (parent == null) return new Point();
 
-            EnsureGeometryUpdated();   // ★ 关键:确保 Width/Height/ActualWidth 已就绪
+            EnsureGeometryUpdated();
 
             var pipeLeft = Canvas.GetLeft(this);
             var pipeTop = Canvas.GetTop(this);
             if (double.IsNaN(pipeLeft)) pipeLeft = 0;
             if (double.IsNaN(pipeTop)) pipeTop = 0;
 
-            // 使用 RenderSize 而不是 ActualWidth — RenderSize 在布局完成前也是有效的
             double w = RenderSize.Width > 0 ? RenderSize.Width : Width;
             double h = RenderSize.Height > 0 ? RenderSize.Height : Height;
 
             Point center = new Point(pipeLeft + w / 2, pipeTop + h / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // 从控件中心到"对侧锚点"的本地向量
-            // 直管的几何:左法兰中心位于 LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH/2,右法兰中心位于 w - RIGHT_FLANGE_WIDTH/2
-            // 转换到以中心为原点的坐标系:
             double leftLocalX = (LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH / 2) - w / 2;
             double rightLocalX = (w - RIGHT_FLANGE_WIDTH / 2) - w / 2;
             double topLocalY = -_pipeWidth / 2;
@@ -997,10 +1241,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Point localFixed;
             switch (draggedAnchor)
             {
-                case PipeAnchorPosition.Left: localFixed = new Point(rightLocalX, 0); break;  // 拖左 → 固定右
-                case PipeAnchorPosition.Right: localFixed = new Point(leftLocalX, 0); break;  // 拖右 → 固定左
-                case PipeAnchorPosition.Top: localFixed = new Point(0, bottomLocalY); break; // 拖上 → 固定下
-                case PipeAnchorPosition.Bottom: localFixed = new Point(0, topLocalY); break; // 拖下 → 固定上
+                case PipeAnchorPosition.Left: localFixed = new Point(rightLocalX, 0); break;
+                case PipeAnchorPosition.Right: localFixed = new Point(leftLocalX, 0); break;
+                case PipeAnchorPosition.Top: localFixed = new Point(0, bottomLocalY); break;
+                case PipeAnchorPosition.Bottom: localFixed = new Point(0, topLocalY); break;
                 default: localFixed = new Point(); break;
             }
 
@@ -1008,10 +1252,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             return new Point(center.X + worldFixed.X, center.Y + worldFixed.Y);
         }
 
-        /// <summary>
-        /// 确保几何已经被计算过一次,防止控件刚 new 出来就立即旋转/缩放时
-        /// Width/Height/ActualWidth 还是 0 或者 NaN,导致锚点和固定点跑飞。
-        /// </summary>
         private void EnsureGeometryUpdated()
         {
             if (Width <= 0 || double.IsNaN(Width))
@@ -1242,7 +1482,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Point center = new Point(pipeLeft + ActualWidth / 2, pipeTop + ActualHeight / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // 左法兰
             double leftFlangeX = (LEFT_FLANGE_LEFT + LEFT_FLANGE_WIDTH / 2) - ActualWidth / 2;
             Point leftWorld = RotatePoint(new Point(leftFlangeX, 0), radians);
             snapPoints.Add(new PipeSnapPoint
@@ -1252,7 +1491,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"直管左法兰 (长度:{_pipeLength:F0})"
             });
 
-            // 右法兰
             double rightFlangeX = ActualWidth - RIGHT_FLANGE_WIDTH / 2 - ActualWidth / 2;
             Point rightWorld = RotatePoint(new Point(rightFlangeX, 0), radians);
             snapPoints.Add(new PipeSnapPoint

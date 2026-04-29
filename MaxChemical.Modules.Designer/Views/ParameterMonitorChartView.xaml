@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:oxy="http://oxyplot.org/wpf"
              xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters"
-             Background="#F8F9FB">
+             Background="{DynamicResource Bg.SecondaryBrush}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -12,13 +12,17 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="240"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- ═══ 左侧参数面板 ═══ -->
-        <Border Grid.Column="0" Background="White"
-                BorderBrush="#E8EAED" BorderThickness="0,0,0.5,0">
+        <!-- ═══════════════════════════════════════════════
+             左侧参数面板
+             ═══════════════════════════════════════════════ -->
+        <Border Grid.Column="0"
+                Background="{DynamicResource Bg.PrimaryBrush}"
+                BorderBrush="{DynamicResource Border.DefaultBrush}"
+                BorderThickness="0,0,0.5,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -27,25 +31,36 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- 标题 -->
-                <Border Grid.Row="0" Padding="14,12,14,8">
+                <!-- 标题区:品牌方块 + 标题 + 状态 -->
+                <Border Grid.Row="0" Padding="16,14,16,12"
+                        BorderBrush="{DynamicResource Border.SubtleBrush}"
+                        BorderThickness="0,0,0,0.5">
                     <StackPanel>
-                        <TextBlock Text="{Binding ViewTitle}" FontSize="13" FontWeight="Medium"
-                                   Foreground="#1A1F36"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <Ellipse Width="6" Height="6" Margin="0,0,5,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="16" Height="16" CornerRadius="4"
+                                    Background="{DynamicResource Brand.PrimaryBrush}"
+                                    Margin="0,0,8,0" VerticalAlignment="Center">
+                                <Ellipse Width="6" Height="6" Fill="White"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{Binding ViewTitle}" FontSize="13" FontWeight="Medium"
+                                       Foreground="{DynamicResource Text.PrimaryBrush}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="#C7CCD4"/>
+                                        <Setter Property="Fill" Value="{DynamicResource Border.StrongBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsProcessRunning}" Value="True">
-                                                <Setter Property="Fill" Value="#059669"/>
+                                                <Setter Property="Fill" Value="{DynamicResource Status.SuccessBrush}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Ellipse.Style>
                             </Ellipse>
-                            <TextBlock FontSize="9" Foreground="#9CA3AF">
+                            <TextBlock FontSize="11" Foreground="{DynamicResource Text.TertiaryBrush}">
                                 <Run Text="{Binding MonitoredParameters.Count, Mode=OneWay}"/>
                                 <Run Text="{Binding ParamCountLabel,StringFormat='{}{0} · '}"/>
                                 <Run Text="{Binding DataPointsCount, Mode=OneWay}"/>
@@ -56,74 +71,94 @@
                 </Border>
 
                 <!-- 搜索框 -->
-                <Border Grid.Row="1" Padding="10,0,10,8">
-                    <Border CornerRadius="6" BorderBrush="#E2E5EB" BorderThickness="0.5"
-                            Background="White" Height="28">
+                <Border Grid.Row="1" Padding="12,10,12,6">
+                    <Border CornerRadius="6"
+                            BorderBrush="{DynamicResource Border.DefaultBrush}"
+                            BorderThickness="0.5"
+                            Background="{DynamicResource Bg.SecondaryBrush}"
+                            Height="30">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Path Grid.Column="0" Margin="8,0,5,0"
+                            <Path Grid.Column="0" Margin="10,0,6,0"
                                   Data="M7,12.5 A5.5,5.5 0 1 1 12.5,7 A5.5,5.5 0 0 1 7,12.5 M11,11 L14.5,14.5"
-                                  Stroke="#C7CCD4" StrokeThickness="1" Fill="Transparent"
+                                  Stroke="{DynamicResource Text.TertiaryBrush}" StrokeThickness="1.2"
+                                  Fill="Transparent"
                                   VerticalAlignment="Center" Width="12" Height="12" Stretch="Uniform"/>
                             <TextBox Grid.Column="1"
                                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     FontSize="10" Foreground="#1A1F36" BorderThickness="0"
-                                     Background="Transparent" VerticalContentAlignment="Center"
-                                     Padding="0,0,8,0"/>
+                                     FontSize="11"
+                                     Foreground="{DynamicResource Text.PrimaryBrush}"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     VerticalContentAlignment="Center"
+                                     Padding="0,0,10,0"/>
                         </Grid>
                     </Border>
                 </Border>
 
-                <!-- 参数列表（code-behind 按设备分组动态生成） -->
+                <!-- 参数列表(由 code-behind 动态生成) -->
                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                               Style="{StaticResource SharedScrollViewer}">
                     <StackPanel x:Name="ParameterListPanel" Margin="0,0,0,4"/>
                 </ScrollViewer>
 
-                <!-- 底部按钮 -->
-                <Border Grid.Row="3" Padding="10,8"
-                        BorderBrush="#E8EAED" BorderThickness="0,0.5,0,0">
+                <!-- 底部按钮区 -->
+                <Border Grid.Row="3" Padding="12,10"
+                        BorderBrush="{DynamicResource Border.SubtleBrush}"
+                        BorderThickness="0,0.5,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="8"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
+                        <!-- 清除数据(次要按钮:白底灰字) -->
                         <Button Grid.Column="0" x:Name="BtnClearData" Cursor="Hand"
-                                Click="BtnClearData_Click">
+                                Click="BtnClearData_Click" Height="30">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" Background="White" CornerRadius="5"
-                                            Padding="0,5" BorderBrush="#FECACA" BorderThickness="0.5">
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="{Binding ClearLabeL}" FontSize="10" Foreground="#DC2626"/>
-                                        </StackPanel>
+                                    <Border x:Name="Bd"
+                                            Background="{DynamicResource Bg.PrimaryBrush}"
+                                            CornerRadius="6"
+                                            BorderBrush="{DynamicResource Border.DefaultBrush}"
+                                            BorderThickness="0.5">
+                                        <TextBlock Text="{Binding ClearLabeL}" FontSize="11"
+                                                   Foreground="{DynamicResource Text.SecondaryBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#FEF2F2"/>
+                                            <Setter TargetName="Bd" Property="Background"
+                                                    Value="{DynamicResource Bg.HoverBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
 
+                        <!-- 导出 Excel(主操作:品牌色) -->
                         <Button Grid.Column="2" x:Name="BtnExport" Cursor="Hand"
-                                Click="BtnExport_Click">
+                                Click="BtnExport_Click" Height="30">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" Background="#E8EAF6" CornerRadius="5"
-                                            Padding="0,5" BorderBrush="#C7CBE9" BorderThickness="0.5">
-                                        <TextBlock Text="{Binding ExportLabel}" FontSize="10" FontWeight="Medium"
-                                                   Foreground="#2D3A8C" HorizontalAlignment="Center"/>
+                                    <Border x:Name="Bd"
+                                            Background="{DynamicResource Brand.PrimaryBrush}"
+                                            CornerRadius="6"
+                                            BorderThickness="0">
+                                        <TextBlock Text="{Binding ExportLabel}" FontSize="11" FontWeight="Medium"
+                                                   Foreground="{DynamicResource Text.OnPrimaryBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#D5D9F0"/>
+                                            <Setter TargetName="Bd" Property="Background"
+                                                    Value="{DynamicResource Brand.PrimaryHoverBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -134,169 +169,105 @@
             </Grid>
         </Border>
 
-        <!-- ═══ 右侧图表区 ═══ -->
-        <Grid Grid.Column="1">
+        <!-- ═══════════════════════════════════════════════
+             右侧图表区
+             ═══════════════════════════════════════════════ -->
+        <Grid Grid.Column="1" Background="{DynamicResource Bg.SecondaryBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 工具栏 -->
-            <Border Grid.Row="0" Background="White" Padding="12,6"
-                    BorderBrush="#E8EAED" BorderThickness="0,0,0,0.5">
+            <!-- 工具栏:图例 + 时间范围 + 重置量程 -->
+            <Border Grid.Row="0" Background="{DynamicResource Bg.PrimaryBrush}"
+                    Padding="18,0"
+                    BorderBrush="{DynamicResource Border.DefaultBrush}"
+                    BorderThickness="0,0,0,0.5"
+                    Height="48">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- 图例（图标标签行） -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding NormalizationTxt,StringFormat='{}{0} %'}" FontSize="9" Foreground="#9CA3AF"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ItemsControl ItemsSource="{Binding ChartLegendItems}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
-                                        <Border Width="10" Height="2" CornerRadius="1"
-                                                Background="{Binding ColorBrush}" Margin="0,0,3,0"
-                                                VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Name}" FontSize="8" Foreground="#6B7280"
+                    <!-- 顶部图例(横排居中,实心圆 + 名称) -->
+                    <ItemsControl Grid.Column="0" ItemsSource="{Binding ChartLegendItems}"
+                                  VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,22,0" VerticalAlignment="Center">
+                                    <!-- 一根短线 + 实心圆点 marker(模拟图表 Series 样式) -->
+                                    <Grid Width="22" Height="10" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Rectangle Height="1.5" Width="22" Fill="{Binding ColorBrush}"
                                                    VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                                        <Ellipse Width="5" Height="5" Fill="{Binding ColorBrush}"
+                                                 Stroke="White" StrokeThickness="0.8"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 Opacity="0.85"/>
+                                    </Grid>
+                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                               Foreground="{DynamicResource Text.PrimaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                    <!-- 时间范围 -->
-                    <Border Grid.Column="2" Background="#F3F4F6" CornerRadius="5"
-                            Padding="2" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <!-- 时间范围切换组 -->
+                    <Border Grid.Column="1"
+                            Background="{DynamicResource Bg.TertiaryBrush}"
+                            CornerRadius="6"
+                            Padding="2"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <RadioButton x:Name="Rb5m" Content="5m" Tag="5" GroupName="TimeRange"
-                                         Checked="TimeRange_Checked">
-                                <RadioButton.Template>
-                                    <ControlTemplate TargetType="RadioButton">
-                                        <Border x:Name="Bd" CornerRadius="4" Padding="6,2" Cursor="Hand">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="White"/>
-                                                <Setter Property="Foreground" Value="#374151"/>
-                                                <Setter Property="FontWeight" Value="Medium"/>
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="False">
-                                                <Setter Property="Foreground" Value="#9CA3AF"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
+                                         Checked="TimeRange_Checked"
+                                         Style="{StaticResource TimeRangeRadioStyle}"/>
                             <RadioButton x:Name="Rb15m" Content="15m" Tag="15" GroupName="TimeRange"
-                                         Checked="TimeRange_Checked" Style="{x:Null}">
-                                <RadioButton.Template>
-                                    <ControlTemplate TargetType="RadioButton">
-                                        <Border x:Name="Bd" CornerRadius="4" Padding="6,2" Cursor="Hand">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="White"/>
-                                                <Setter Property="Foreground" Value="#374151"/>
-                                                <Setter Property="FontWeight" Value="Medium"/>
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="False">
-                                                <Setter Property="Foreground" Value="#9CA3AF"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
+                                         Checked="TimeRange_Checked"
+                                         Style="{StaticResource TimeRangeRadioStyle}"/>
                             <RadioButton x:Name="Rb30m" Content="30m" Tag="30" GroupName="TimeRange"
-                                         IsChecked="True" Checked="TimeRange_Checked" Style="{x:Null}">
-                                <RadioButton.Template>
-                                    <ControlTemplate TargetType="RadioButton">
-                                        <Border x:Name="Bd" CornerRadius="4" Padding="6,2" Cursor="Hand">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="White"/>
-                                                <Setter Property="Foreground" Value="#374151"/>
-                                                <Setter Property="FontWeight" Value="Medium"/>
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="False">
-                                                <Setter Property="Foreground" Value="#9CA3AF"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
+                                         IsChecked="True" Checked="TimeRange_Checked"
+                                         Style="{StaticResource TimeRangeRadioStyle}"/>
                             <RadioButton x:Name="Rb1h" Content="1h" Tag="60" GroupName="TimeRange"
-                                         Checked="TimeRange_Checked" Style="{x:Null}">
-                                <RadioButton.Template>
-                                    <ControlTemplate TargetType="RadioButton">
-                                        <Border x:Name="Bd" CornerRadius="4" Padding="6,2" Cursor="Hand">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="White"/>
-                                                <Setter Property="Foreground" Value="#374151"/>
-                                                <Setter Property="FontWeight" Value="Medium"/>
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="False">
-                                                <Setter Property="Foreground" Value="#9CA3AF"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
+                                         Checked="TimeRange_Checked"
+                                         Style="{StaticResource TimeRangeRadioStyle}"/>
                             <RadioButton x:Name="RbAll" Content="ALL" Tag="0" GroupName="TimeRange"
-                                         Checked="TimeRange_Checked" Style="{x:Null}">
-                                <RadioButton.Template>
-                                    <ControlTemplate TargetType="RadioButton">
-                                        <Border x:Name="Bd" CornerRadius="4" Padding="6,2" Cursor="Hand">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="White"/>
-                                                <Setter Property="Foreground" Value="#374151"/>
-                                                <Setter Property="FontWeight" Value="Medium"/>
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="False">
-                                                <Setter Property="Foreground" Value="#9CA3AF"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
+                                         Checked="TimeRange_Checked"
+                                         Style="{StaticResource TimeRangeRadioStyle}"/>
                         </StackPanel>
                     </Border>
 
-                    <!-- 导出 -->
-                    <Button Grid.Column="3" Content="{Binding ExportLabel}" Cursor="Hand"
-                            Click="BtnExport_Click"
-                            FontSize="9" FontWeight="Medium" Foreground="#2D3A8C">
+                    <!-- 重置量程 -->
+                    <Button Grid.Column="2" x:Name="BtnResetAxis" Cursor="Hand"
+                            Click="BtnResetAxis_Click" Height="28" Padding="10,0"
+                            VerticalAlignment="Center">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" Background="#E8EAF6" CornerRadius="5"
-                                        Padding="10,4" BorderBrush="#C7CBE9" BorderThickness="0.5">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border x:Name="Bd"
+                                        Background="{DynamicResource Bg.PrimaryBrush}"
+                                        BorderBrush="{DynamicResource Border.DefaultBrush}"
+                                        BorderThickness="0.5"
+                                        CornerRadius="6"
+                                        Padding="10,0">
+                                    <TextBlock Text="重置量程" FontSize="11"
+                                               Foreground="{DynamicResource Text.SecondaryBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#D5D9F0"/>
+                                        <Setter TargetName="Bd" Property="Background"
+                                                Value="{DynamicResource Bg.HoverBrush}"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -305,81 +276,115 @@
                 </Grid>
             </Border>
 
-            <!-- OxyPlot 图表 -->
-            <Grid Grid.Row="1" Background="#FAFBFC">
-                <!-- 无数据占位 -->
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Visibility="{Binding HasData, Converter={StaticResource InverseBoolToVis}}">
-                    <Border Width="56" Height="56" CornerRadius="28" Background="#F3F4F6"
-                            HorizontalAlignment="Center" Margin="0,0,0,12">
-                        <Path Data="M3,4 L3,2 M9,4 L9,2 M1,6 L11,6 M1,4 C1,3 1.5,2.5 2.5,2.5 L9.5,2.5 C10.5,2.5 11,3 11,4 L11,11 C11,12 10.5,12.5 9.5,12.5 L2.5,12.5 C1.5,12.5 1,12 1,11 Z"
-                              Stroke="#C7CCD4" StrokeThickness="1" Fill="Transparent"
-                              Width="20" Height="20" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="{Binding NoneParamTxt}" FontSize="13" FontWeight="Medium"
-                               Foreground="#9CA3AF" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                    <TextBlock Text="{Binding TipTxt}" FontSize="11"
-                               Foreground="#C7CCD4" HorizontalAlignment="Center"/>
-                </StackPanel>
+            <!-- 图表卡片(白底 + 米灰边框 + 8px 圆角) -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource Bg.PrimaryBrush}"
+                    BorderBrush="{DynamicResource Border.DefaultBrush}"
+                    BorderThickness="0.5"
+                    CornerRadius="8"
+                    Margin="12">
+                <Grid>
+                    <!-- 无数据占位 -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{Binding HasData, Converter={StaticResource InverseBoolToVis}}">
+                        <Border Width="56" Height="56" CornerRadius="28"
+                                Background="{DynamicResource Bg.TertiaryBrush}"
+                                HorizontalAlignment="Center" Margin="0,0,0,12">
+                            <Path Data="M3,4 L3,2 M9,4 L9,2 M1,6 L11,6 M1,4 C1,3 1.5,2.5 2.5,2.5 L9.5,2.5 C10.5,2.5 11,3 11,4 L11,11 C11,12 10.5,12.5 9.5,12.5 L2.5,12.5 C1.5,12.5 1,12 1,11 Z"
+                                  Stroke="{DynamicResource Border.StrongBrush}" StrokeThickness="1"
+                                  Fill="Transparent"
+                                  Width="20" Height="20" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="{Binding NoneParamTxt}" FontSize="13" FontWeight="Medium"
+                                   Foreground="{DynamicResource Text.TertiaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding TipTxt}" FontSize="11"
+                                   Foreground="{DynamicResource Border.StrongBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
 
-                <!-- 图表 -->
-                <oxy:PlotView Model="{Binding NormalizedChartModel}"
-                              Background="Transparent" Padding="0"
-                              Visibility="{Binding HasData, Converter={StaticResource BoolToVis}}">
-                    <oxy:PlotView.DefaultTrackerTemplate>
-                        <ControlTemplate>
-                            <oxy:TrackerControl Position="{Binding Position}"
-                                                LineStroke="#C7CBE9" LineExtents="{Binding PlotModel.PlotArea}"
-                                                LineDashArray="4 4" ShowPointer="True"
-                                                BorderBrush="#E2E5EB" BorderThickness="0.5"
-                                                Background="White" CornerRadius="8"
-                                                BorderEdgeMode="Unspecified">
-                                <oxy:TrackerControl.Content>
-                                    <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas"
-                                               Foreground="#374151" Margin="10,7" LineHeight="18"/>
-                                </oxy:TrackerControl.Content>
-                            </oxy:TrackerControl>
-                        </ControlTemplate>
-                    </oxy:PlotView.DefaultTrackerTemplate>
-                </oxy:PlotView>
-            </Grid>
+                    <!-- OxyPlot -->
+                    <oxy:PlotView Model="{Binding NormalizedChartModel}"
+                                  Background="Transparent" Padding="0"
+                                  Visibility="{Binding HasData, Converter={StaticResource BoolToVis}}">
+                        <oxy:PlotView.DefaultTrackerTemplate>
+                            <ControlTemplate>
+                                <oxy:TrackerControl Position="{Binding Position}"
+                                                    LineStroke="{DynamicResource Border.StrongBrush}"
+                                                    LineExtents="{Binding PlotModel.PlotArea}"
+                                                    LineDashArray="3 3" ShowPointer="True"
+                                                    BorderBrush="{DynamicResource Border.StrongBrush}"
+                                                    BorderThickness="0.5"
+                                                    Background="{DynamicResource Bg.PrimaryBrush}"
+                                                    CornerRadius="6"
+                                                    BorderEdgeMode="Unspecified">
+                                    <oxy:TrackerControl.Content>
+                                        <TextBlock Text="{Binding}" FontSize="11"
+                                                   FontFamily="Consolas"
+                                                   Foreground="{DynamicResource Text.PrimaryBrush}"
+                                                   Margin="10,8" LineHeight="18"/>
+                                    </oxy:TrackerControl.Content>
+                                </oxy:TrackerControl>
+                            </ControlTemplate>
+                        </oxy:PlotView.DefaultTrackerTemplate>
+                    </oxy:PlotView>
+                </Grid>
+            </Border>
 
-            <!-- 底部报警条 -->
-            <Border Grid.Row="2" Padding="12,6" Background="White"
-                    BorderBrush="#E8EAED" BorderThickness="0,0.5,0,0"
-                    Visibility="{Binding HasAlarm, Converter={StaticResource BoolToVis}}">
+            <!-- 单位未分类提示条(仅在 HasUnclassifiedParameters=True 时显示) -->
+            <Border Grid.Row="2" Padding="14,8"
+                    Background="{DynamicResource Status.WarningLightBrush}"
+                    BorderBrush="{DynamicResource Status.WarningBrush}"
+                    BorderThickness="0,0.5,0,0.5"
+                    Visibility="{Binding HasUnclassifiedParameters, Converter={StaticResource BoolToVis}}">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse x:Name="AlarmDot" Width="8" Height="8" Fill="#DC2626"
-                             Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding AlarmMessage}" FontSize="10" FontWeight="Medium"
-                               Foreground="#DC2626" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding AlarmTime, StringFormat=' · {0:HH:mm:ss}'}"
-                               FontSize="9" Foreground="#9CA3AF" VerticalAlignment="Center"
-                               Margin="4,0,0,0"/>
+                    <Path Data="M6,1 L11,11 L1,11 Z M6,4 L6,8 M6,9.5 L6,10"
+                          Stroke="{DynamicResource Status.WarningBrush}" StrokeThickness="1.2"
+                          Width="12" Height="12" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding UnclassifiedTip}" FontSize="11"
+                               Foreground="{DynamicResource Status.WarningBrush}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
-            <!-- 无报警时的状态栏 -->
-            <Border Grid.Row="2" Padding="12,6" Background="White"
-                    BorderBrush="#E8EAED" BorderThickness="0,0.5,0,0">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Visibility" Value="Visible"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <TextBlock FontSize="9" Foreground="#9CA3AF">
-                    <Run Text="{Binding UpdateTimeTxt}"/>
-                    <Run Text="{Binding LastUpdateTime, StringFormat='HH:mm:ss', Mode=OneWay}"/>
-                    <Run Text=" · "/>
-                    <Run Text="{Binding DataPointsCount, Mode=OneWay}"/>
-                    <Run Text="{Binding DataCountTxt}"/>
-                </TextBlock>
+            <!-- 底部状态栏 -->
+            <Border Grid.Row="3" Padding="18,8"
+                    Background="{DynamicResource Bg.SecondaryBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Ellipse Width="6" Height="6"
+                                 Fill="{DynamicResource Status.SuccessBrush}"
+                                 VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock FontSize="10"
+                                   Foreground="{DynamicResource Text.TertiaryBrush}"
+                                   VerticalAlignment="Center">
+                            <Run Text="{Binding UpdateTimeTxt}"/>
+                            <Run Text="{Binding LastUpdateTime, StringFormat='HH:mm:ss', Mode=OneWay}"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Text="采样间隔 1s" FontSize="10"
+                                   Foreground="{DynamicResource Text.TertiaryBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Border Background="{DynamicResource Border.StrongBrush}"
+                                Width="0.5" Margin="0,2,12,2"/>
+                        <TextBlock FontSize="10"
+                                   Foreground="{DynamicResource Text.TertiaryBrush}"
+                                   VerticalAlignment="Center">
+                            <Run Text="{Binding DataPointsCount, Mode=OneWay}"/>
+                            <Run Text="{Binding DataCountTxt}"/>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
     </Grid>

@@ -1740,42 +1740,100 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             try
             {
-                // 从设备管理器中查找设备命令
-                var allDevices = _deviceManager.GetAllDevices();
+                IDevice matchedDevice = null;
 
-                foreach (var device in allDevices)
+                // ★ 第一优先级:按 BoundDeviceId 从画布设备列表中精准匹配
+                // 这能解决:不同类型设备同名命令、同类型多台设备的所有问题
+                if (!string.IsNullOrEmpty(nodeData.BoundDeviceId))
                 {
-                    var command = device.Commands?.FirstOrDefault(c => c.Name == nodeData.DeviceCommandName);
-                    if (command != null)
+                    List<CanvasDeviceViewModel> canvasDevices = null;
+                    _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()
+                        ?.Publish(list => canvasDevices = list);
+
+                    matchedDevice = canvasDevices?
+                        .FirstOrDefault(d => d.DeviceId == nodeData.BoundDeviceId)
+                        ?.Device;
+
+                    if (matchedDevice != null)
                     {
-                        // 创建命令副本
-                        var restoredCommand = new DeviceCommand
-                        {
-                            Name = command.Name,
-                            HelpText = command.HelpText,
-                            ImageLocation = command.ImageLocation,
-                            InputParameters = CloneDeviceParameters(command.InputParameters),
-                            OutputParameters = CloneDeviceParameters(command.OutputParameters)
-                        };
-
-                        // 恢复设备命令的属性
-                        if (nodeData.DeviceCommandProperties != null && restoredCommand.InputParameters?.Variables != null)
-                        {
-                            foreach (var prop in nodeData.DeviceCommandProperties)
-                            {
-                                var parameter = restoredCommand.InputParameters.Variables.FirstOrDefault(v => v.Name == prop.Key);
-                                if (parameter != null)
-                                {
-                                    parameter.Value = prop.Value;
-                                }
-                            }
-                        }
-
-                        return restoredCommand;
+                        _logger.LogDebug("按 BoundDeviceId 精准匹配到设备: {DeviceId} ({Type})",
+                            nodeData.BoundDeviceId, matchedDevice.GetType().Name);
                     }
                 }
 
-                return null;
+                // ★ 第二优先级:按 DeviceCommandType (设备类名) 匹配模板
+                // 兜底场景:画布设备还没创建好(加载顺序问题),或没有 BoundDeviceId
+                if (matchedDevice == null && !string.IsNullOrEmpty(nodeData.DeviceCommandType))
+                {
+                    var allDevices = _deviceManager.GetAllDevices();
+                    matchedDevice = allDevices.FirstOrDefault(d =>
+                        d.GetType().Name == nodeData.DeviceCommandType);
+
+                    if (matchedDevice != null)
+                    {
+                        _logger.LogDebug("按 DeviceCommandType 匹配到设备模板: {Type}",
+                            nodeData.DeviceCommandType);
+                    }
+                }
+
+                // ★ 第三优先级:实在不行才按命令名(老逻辑,可能错配)
+                if (matchedDevice == null)
+                {
+                    var allDevices = _deviceManager.GetAllDevices();
+                    matchedDevice = allDevices.FirstOrDefault(d =>
+                        d.Commands?.Any(c => c.Name == nodeData.DeviceCommandName) == true);
+
+                    if (matchedDevice != null)
+                    {
+                        _logger.LogWarning(
+                            "[兼容模式] 仅按命令名匹配,可能选错设备! " +
+                            "节点: BoundDeviceId={Id}, ExpectedType={Type}, 实际匹配类型={Actual}, Cmd={Cmd}",
+                            nodeData.BoundDeviceId, nodeData.DeviceCommandType,
+                            matchedDevice.GetType().Name, nodeData.DeviceCommandName);
+                    }
+                }
+
+                if (matchedDevice == null)
+                {
+                    _logger.LogError("未找到任何匹配设备: BoundDeviceId={Id}, Type={Type}, Cmd={Cmd}",
+                        nodeData.BoundDeviceId, nodeData.DeviceCommandType, nodeData.DeviceCommandName);
+                    return null;
+                }
+
+                // 找到对应的命令
+                var command = matchedDevice.Commands?.FirstOrDefault(c => c.Name == nodeData.DeviceCommandName);
+                if (command == null)
+                {
+                    _logger.LogError("设备 {Type} 上没有命令: {Cmd}",
+                        matchedDevice.GetType().Name, nodeData.DeviceCommandName);
+                    return null;
+                }
+
+                // 创建命令副本(注意:CloneDeviceParameters 也要改成深拷贝,见下面)
+                var restoredCommand = new DeviceCommand
+                {
+                    Name = command.Name,
+                    HelpText = command.HelpText,
+                    ImageLocation = command.ImageLocation,
+                    InputParameters = CloneDeviceParameters(command.InputParameters),
+                    OutputParameters = CloneDeviceParameters(command.OutputParameters)
+                };
+
+                // 恢复参数值
+                if (nodeData.DeviceCommandProperties != null && restoredCommand.InputParameters?.Variables != null)
+                {
+                    foreach (var prop in nodeData.DeviceCommandProperties)
+                    {
+                        var parameter = restoredCommand.InputParameters.Variables
+                            .FirstOrDefault(v => v.Name == prop.Key);
+                        if (parameter != null)
+                        {
+                            parameter.Value = prop.Value;
+                        }
+                    }
+                }
+
+                return restoredCommand;
             }
             catch (Exception ex)
             {
@@ -1818,11 +1876,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private DeviceParameters CloneDeviceParameters(DeviceParameters original)
         {
             if (original?.Variables == null) return null;
-
             var cloned = new DeviceParameters();
             foreach (var variable in original.Variables)
             {
-                cloned.Variables.Add(variable);
+                cloned.Variables.Add((ParameterBase)variable.Clone());  // ← 真克隆,断开引用
             }
             return cloned;
         }

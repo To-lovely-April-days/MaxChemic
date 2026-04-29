@@ -24,7 +24,13 @@ namespace HeatExchanger_ModbusTCP
 
         // 换热器设备数据缓存
         private readonly Dictionary<string, double> _deviceData = new Dictionary<string, double>();
-
+        // ═══════════════════════════════════════════════════════
+        //  单位常量集中定义,与监控图表的轴分类对齐
+        //   - MPa → "压力轴" (P)
+        //   - ℃   → "温度轴" (T)
+        // ═══════════════════════════════════════════════════════
+        private const string UnitPressure = "MPa";
+        private const string UnitTemperature = "℃";
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -217,12 +223,12 @@ namespace HeatExchanger_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new StringParameter("DeviceId", "", "设备ID") { IsVisibleInVariableManager = true },
-                        new NumberParameter("PT0113_Pressure", 0, 100, 0, "出口压力(MPa)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT0113_Temperature", -100, 500, 0, "出口温度(℃)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("Success", false, "读取成功") { IsVisibleInVariableManager = true }
-                    }
+        {
+            new StringParameter("DeviceId", "", "设备ID") { IsVisibleInVariableManager = true },
+            new NumberParameter("PT0113_Pressure",    0, 100,  0, "出口压力", true, UnitPressure),
+            new NumberParameter("TT0113_Temperature", -100, 500, 0, "出口温度", true, UnitTemperature),
+            new BooleanParameter("Success", false, "读取成功") { IsVisibleInVariableManager = true }
+        }
                 },
                 Action = WrapAction("换热器数据", async delegate (DeviceParameters parameters)
                 {
@@ -293,13 +299,14 @@ namespace HeatExchanger_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new StringParameter("DeviceId", deviceId, "设备ID") { IsVisibleInVariableManager = true },
-                            new NumberParameter("PT0113_Pressure", 0, 100, Math.Round(pt0113, 3), "出口压力(MPa)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT0113_Temperature", -100, 500, Math.Round(tt0113, 2), "出口温度(℃)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("Success", success, "读取成功") { IsVisibleInVariableManager = true }
-                        }
+        {
+            new StringParameter("DeviceId", deviceId, "设备ID") { IsVisibleInVariableManager = true },
+            new NumberParameter("PT0113_Pressure",    0, 100,  Math.Round(pt0113, 3), "出口压力", true, UnitPressure),
+            new NumberParameter("TT0113_Temperature", -100, 500, Math.Round(tt0113, 2), "出口温度", true, UnitTemperature),
+            new BooleanParameter("Success", success, "读取成功") { IsVisibleInVariableManager = true }
+        }
                     };
+
                 })
             });
         }

@@ -38,6 +38,10 @@ namespace TemperatureCirculator_ModbusTCP
         private const int StatusPollingIntervalMs = 1000;
         // ═══ 命令节流(防止短时间连续发送命令导致设备拒绝/回滚)═══
         private DateTime _lastCommandTime = DateTime.MinValue;
+        // ═══════════════════════════════════════════════════════
+        //  单位常量(全项目统一标准)
+        // ═══════════════════════════════════════════════════════
+        private const string UnitTemperature = "℃";
         private readonly TimeSpan _minCommandInterval = TimeSpan.FromMilliseconds(800); // 命令最小间隔
         private readonly SemaphoreSlim _commandThrottleSemaphore = new SemaphoreSlim(1, 1);
 
@@ -1048,7 +1052,7 @@ namespace TemperatureCirculator_ModbusTCP
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetTemperature", -80, 200, 0, "设置的温度(℃)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("SetTemperature", -80, 200, 0, "设置的温度", true, UnitTemperature)
                     }
                 },
                 AsyncAction = WrapAction("设置温度", async delegate (DeviceParameters parameters)
@@ -1097,7 +1101,7 @@ namespace TemperatureCirculator_ModbusTCP
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetTemperature", -80, 200, targetTemp, "设置的温度(℃)") { IsVisibleInVariableManager = true }
+                            new NumberParameter("SetTemperature", -80, 200, targetTemp, "设置的温度", true, UnitTemperature)
                         }
                     };
                 })
@@ -1114,7 +1118,7 @@ namespace TemperatureCirculator_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("ActualTemperature", -80, 200, 0, "实际温度(℃)") { IsVisibleInVariableManager = true }
+                        new NumberParameter("ActualTemperature", -80, 200, 0, "实际温度", true, UnitTemperature)
                     }
                 },
                 AsyncAction = WrapAction("获取实际温度", async delegate (DeviceParameters parameters)
@@ -1153,7 +1157,7 @@ namespace TemperatureCirculator_ModbusTCP
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new NumberParameter("ActualTemperature", -80, 200,
-                                Math.Round(actualTemp, 1), "实际温度(℃)") { IsVisibleInVariableManager = true }
+                                Math.Round(actualTemp, 1), "实际温度", true, UnitTemperature)
                         }
                     };
                 })

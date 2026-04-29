@@ -17,6 +17,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
     /// <summary>
     /// 管道属性对话框 — 清爽极简风 + #C41E3A 主题色
     /// 实时预览置顶 + 选项卡切换（管道外观 / 流体设置 / 流动控制）
+    /// 流体设置选项卡支持「使用默认流动样式（赛博风）」勾选
     /// </summary>
     public partial class PipePropertyDialog : UserControl
     {
@@ -30,17 +31,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region 事件
 
-        /// <summary>关闭请求</summary>
         public event EventHandler CloseRequested;
-
-        /// <summary>确认/取消结果: true=确认, false=取消</summary>
         public event EventHandler<bool> DialogResult;
 
         #endregion
 
         #region 字段
 
-        private IPipeProperties _targetPipe;     // 原来是 StraightPipeControl
+        private IPipeProperties _targetPipe;
 
         // 原始值（取消时恢复）
         private Color _originalPipeColor;
@@ -51,6 +49,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private bool _originalIsFlowing;
         private PipeFlowDirection _originalFlowDir;
         private double _originalFlowSpeed;
+        private bool _originalUseDefaultStyle;   // ★ 新增
 
         // 当前选中色块
         private Border _selectedPipeColorSwatch;
@@ -128,16 +127,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
             BuildColorPalettes();
             BuildPreviewPipe();
-            // 本地化标签文本
             UpdateLocalizationText();
         }
 
         #region 公共方法
 
-        /// <summary>
-        /// 绑定目标管道，读取当前属性
-        /// </summary>
-        public void SetTargetPipe(IPipeProperties pipe)   // 参数改为接口
+        public void SetTargetPipe(IPipeProperties pipe)
         {
             _isInitializing = true;
             _targetPipe = pipe;
@@ -150,12 +145,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _originalIsFlowing = pipe.IsFlowing;
             _originalFlowDir = pipe.PipeFlowDir;
             _originalFlowSpeed = pipe.FlowSpeed;
+            _originalUseDefaultStyle = pipe.UseDefaultStyle;   // ★
 
             SyncUIFromPipe();
             _isInitializing = false;
             UpdatePreview();
         }
-
 
         #endregion
 
@@ -163,7 +158,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         private void OnTabChanged(object sender, RoutedEventArgs e)
         {
-            if (PanelAppearance == null) return; // 初始化期间
+            if (PanelAppearance == null) return;
 
             PanelAppearance.Visibility = TabAppearance.IsChecked == true
                 ? Visibility.Visible : Visibility.Collapsed;
@@ -251,19 +246,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// 高亮选中色块（#C41E3A 边框 + 放大 1.12x）
-        /// </summary>
         private void HighlightSwatch(WrapPanel panel, ref Border selectedRef, Border newSwatch)
         {
-            // 取消旧选中
             if (selectedRef != null)
             {
                 selectedRef.BorderBrush = TransparentBrush;
                 AnimateScale(selectedRef, 1.0);
             }
 
-            // 高亮新选中
             newSwatch.BorderBrush = AccentBrush;
             AnimateScale(newSwatch, 1.12);
             selectedRef = newSwatch;
@@ -282,9 +272,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// 根据当前颜色自动高亮对应色块
-        /// </summary>
         private void AutoHighlightSwatch(WrapPanel panel, ref Border selectedRef, Color currentColor)
         {
             foreach (Border child in panel.Children)
@@ -333,6 +320,52 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #region UI 事件处理
 
+        /// <summary>
+        /// ★ 默认流动样式勾选切换
+        /// </summary>
+        private void OnUseDefaultStyleChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing || _targetPipe == null) return;
+
+            bool useDefault = ChkUseDefaultStyle.IsChecked == true;
+            _targetPipe.UseDefaultStyle = useDefault;
+
+            UpdateLockedFieldsUI(useDefault);
+            UpdatePreview();
+        }
+
+        /// <summary>
+        /// 根据是否使用默认样式，灰显/隐藏部分控件
+        /// </summary>
+        private void UpdateLockedFieldsUI(bool useDefault)
+        {
+            // 1. 管道外观面板：勾选默认样式时灰显（颜色被赛博样式接管）
+            if (PipeColorPalette != null)
+            {
+                PipeColorPalette.IsEnabled = !useDefault;
+                PipeColorPalette.Opacity = useDefault ? 0.4 : 1.0;
+            }
+            if (FlangeColorPalette != null)
+            {
+                FlangeColorPalette.IsEnabled = !useDefault;
+                FlangeColorPalette.Opacity = useDefault ? 0.4 : 1.0;
+            }
+            if (AppearanceLockedHint != null)
+            {
+                AppearanceLockedHint.Visibility = useDefault ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // 2. 透明度滑块：勾选默认样式时灰显（不透明度由赛博样式自带辉光层次接管）
+            if (OpacityRow != null)
+            {
+                OpacityRow.IsEnabled = !useDefault;
+                OpacityRow.Opacity = useDefault ? 0.4 : 1.0;
+            }
+
+            // 3. 流体颜色：保持可用（用户可改赛博流光颜色）
+            // 4. 流动控制（方向/流速）：保持可用
+        }
+
         private void OnFluidVisibleChanged(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
@@ -343,7 +376,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             FluidSettingsPanel.IsEnabled = visible;
             FluidSettingsPanel.Opacity = visible ? 1.0 : 0.35;
 
-            // 同时控制流动面板
             UpdateFlowPanelEnabled();
             UpdatePreview();
         }
@@ -411,9 +443,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             DialogResult?.Invoke(this, true);
         }
 
-        /// <summary>
-        /// 更新流动控制面板的可交互状态
-        /// </summary>
         private void UpdateFlowPanelEnabled()
         {
             if (FlowControlPanel == null) return;
@@ -434,30 +463,29 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (_targetPipe == null) return;
 
-            // 颜色高亮
             AutoHighlightSwatch(PipeColorPalette, ref _selectedPipeColorSwatch, _targetPipe.PipeColor);
             AutoHighlightSwatch(FlangeColorPalette, ref _selectedFlangeColorSwatch, _targetPipe.FlangeColor);
             AutoHighlightSwatch(FluidColorPalette, ref _selectedFluidColorSwatch, _targetPipe.FluidColor);
 
-            // 开关
             ToggleFluidVisible.IsChecked = _targetPipe.IsFluidVisible;
             ToggleFlowing.IsChecked = _targetPipe.IsFlowing;
 
-            // 流体面板
+            // ★ 同步默认样式开关 + 灰显
+            ChkUseDefaultStyle.IsChecked = _targetPipe.UseDefaultStyle;
+            UpdateLockedFieldsUI(_targetPipe.UseDefaultStyle);
+
             bool fluidVisible = _targetPipe.IsFluidVisible;
             FluidSettingsPanel.IsEnabled = fluidVisible;
             FluidSettingsPanel.Opacity = fluidVisible ? 1.0 : 0.35;
 
             UpdateFlowPanelEnabled();
 
-            // 滑块
             SliderOpacity.Value = _targetPipe.FluidOpacity;
             TxtOpacity.Text = $"{(int)(_targetPipe.FluidOpacity * 100)}%";
 
             SliderSpeed.Value = _targetPipe.FlowSpeed;
             TxtSpeed.Text = $"{_targetPipe.FlowSpeed:F1}x";
 
-            // 方向
             RbLeftToRight.IsChecked = _targetPipe.PipeFlowDir == PipeFlowDirection.LeftToRight;
             RbRightToLeft.IsChecked = _targetPipe.PipeFlowDir == PipeFlowDirection.RightToLeft;
         }
@@ -474,6 +502,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _targetPipe.IsFlowing = _originalIsFlowing;
             _targetPipe.PipeFlowDir = _originalFlowDir;
             _targetPipe.FlowSpeed = _originalFlowSpeed;
+            _targetPipe.UseDefaultStyle = _originalUseDefaultStyle;   // ★
 
             Debug.WriteLine("管道属性已恢复为原始值");
         }
@@ -494,7 +523,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double pipeY = (canvasH - pipeH) / 2;
             double flangeY = (canvasH - flangeH) / 2;
 
-            // 管道白色底
             _previewPipeBackground = new Rectangle
             {
                 Width = pipeW,
@@ -507,7 +535,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewPipeBackground, pipeY);
             PreviewCanvas.Children.Add(_previewPipeBackground);
 
-            // 流体背景层
             _previewFluidBg = new Rectangle
             {
                 Width = pipeW,
@@ -519,7 +546,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewFluidBg, pipeY);
             PreviewCanvas.Children.Add(_previewFluidBg);
 
-            // 流体气泡纹理层
             _previewFluidPattern = new Rectangle
             {
                 Width = pipeW,
@@ -530,7 +556,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewFluidPattern, pipeY);
             PreviewCanvas.Children.Add(_previewFluidPattern);
 
-            // 管道渐变覆盖层
             _previewPipeGradient = new Rectangle
             {
                 Width = pipeW,
@@ -542,7 +567,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewPipeGradient, pipeY);
             PreviewCanvas.Children.Add(_previewPipeGradient);
 
-            // 高光层
             _previewHighlight = new Rectangle
             {
                 Width = pipeW - 20,
@@ -557,7 +581,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewHighlight, pipeY);
             PreviewCanvas.Children.Add(_previewHighlight);
 
-            // 左法兰
             _previewLeftFlange = new Rectangle
             {
                 Width = flangeW,
@@ -569,7 +592,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewLeftFlange, flangeY);
             PreviewCanvas.Children.Add(_previewLeftFlange);
 
-            // 右法兰
             _previewRightFlange = new Rectangle
             {
                 Width = flangeW,
@@ -581,7 +603,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewRightFlange, flangeY);
             PreviewCanvas.Children.Add(_previewRightFlange);
 
-            // 流向箭头文字
             _previewFlowArrow = new TextBlock
             {
                 FontSize = 10,
@@ -595,7 +616,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetTop(_previewFlowArrow, canvasH - 14);
             PreviewCanvas.Children.Add(_previewFlowArrow);
 
-            // 初始化动画 transform
             _previewFlowTransform = new TranslateTransform(0, 0);
         }
 
@@ -607,18 +627,31 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             var flangeC = _targetPipe.FlangeColor;
             var fluidC = _targetPipe.FluidColor;
 
-            // ─── 管道渐变 ───
-            var grad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
-            grad.GradientStops.Add(new GradientStop(pipeC, 0));
-            grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, pipeC.R, pipeC.G, pipeC.B), 0.26));
-            grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, pipeC.R, pipeC.G, pipeC.B), 0.42));
-            grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.50));
-            grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, pipeC.R, pipeC.G, pipeC.B), 0.58));
-            grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, pipeC.R, pipeC.G, pipeC.B), 0.72));
-            grad.GradientStops.Add(new GradientStop(pipeC, 1));
-            _previewPipeGradient.Fill = grad;
+            // ★ 默认样式时,管壁用赛博金属色覆盖 PipeColor
+            if (_targetPipe.UseDefaultStyle)
+            {
+                var metalGrad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+                metalGrad.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 0));
+                metalGrad.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.2));
+                metalGrad.GradientStops.Add(new GradientStop(Color.FromRgb(0x8A, 0xA0, 0xC0), 0.5));
+                metalGrad.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.8));
+                metalGrad.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 1));
+                _previewPipeGradient.Fill = metalGrad;
+            }
+            else
+            {
+                var grad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+                grad.GradientStops.Add(new GradientStop(pipeC, 0));
+                grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, pipeC.R, pipeC.G, pipeC.B), 0.26));
+                grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, pipeC.R, pipeC.G, pipeC.B), 0.42));
+                grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.50));
+                grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x1A, pipeC.R, pipeC.G, pipeC.B), 0.58));
+                grad.GradientStops.Add(new GradientStop(Color.FromArgb(0x59, pipeC.R, pipeC.G, pipeC.B), 0.72));
+                grad.GradientStops.Add(new GradientStop(pipeC, 1));
+                _previewPipeGradient.Fill = grad;
+            }
 
-            // ─── 法兰渐变 ───
+            // 法兰渐变
             var flangeGrad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
             flangeGrad.GradientStops.Add(new GradientStop(LightenColor(flangeC, 30), 0));
             flangeGrad.GradientStops.Add(new GradientStop(flangeC, 0.5));
@@ -632,7 +665,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             _previewRightFlange.Stroke = new SolidColorBrush(Color.FromArgb(128, pipeC.R, pipeC.G, pipeC.B));
             _previewRightFlange.StrokeThickness = 0.8;
 
-            // ─── 流体 ───
+            // 流体（不论默认样式与否，预览都用气泡纹理简化展示）
             bool fluidVis = _targetPipe.IsFluidVisible;
             _previewFluidBg.Visibility = fluidVis ? Visibility.Visible : Visibility.Collapsed;
             _previewFluidPattern.Visibility = fluidVis ? Visibility.Visible : Visibility.Collapsed;
@@ -640,11 +673,10 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             if (fluidVis)
             {
                 _previewFluidBg.Fill = new SolidColorBrush(fluidC);
-                _previewFluidBg.Opacity = _targetPipe.FluidOpacity;
+                _previewFluidBg.Opacity = _targetPipe.UseDefaultStyle ? 0.85 : _targetPipe.FluidOpacity;
                 BuildPreviewBubblePattern(fluidC, pipeC);
             }
 
-            // ─── 流向箭头 ───
             bool showArrow = _targetPipe.IsFlowing && _targetPipe.IsFluidVisible;
             _previewFlowArrow.Visibility = showArrow ? Visibility.Visible : Visibility.Collapsed;
             if (showArrow)
@@ -654,13 +686,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                     : string.Format("◂◂◂  {0}  ◂◂◂", _localization.GetString("PipeProperty_Direction", "流动方向"));
             }
 
-            // ─── 流动动画 ───
             UpdatePreviewFlowAnimation();
         }
 
-        /// <summary>
-        /// 气泡纹理
-        /// </summary>
         private void BuildPreviewBubblePattern(Color fluidC, Color pipeC)
         {
             var group = new DrawingGroup();
@@ -705,7 +733,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (_previewFlowTransform == null) return;
 
-            // 停旧动画
             _previewFlowTransform.BeginAnimation(TranslateTransform.XProperty, null);
 
             if (_targetPipe == null) return;

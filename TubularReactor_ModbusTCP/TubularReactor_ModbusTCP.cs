@@ -25,7 +25,10 @@ namespace TubularReactor_ModbusTCP
 
         // 管式反应器设备数据缓存
         private readonly ConcurrentDictionary<string, double> _deviceData = new ConcurrentDictionary<string, double>();
-
+        //  单位常量(全项目统一标准)
+        // ═══════════════════════════════════════════════════════
+        private const string UnitTemperature = "℃";
+        private const string UnitPressure = "MPa";
         // ============ IDeviceUIInteraction 所需字段 ============
 
         /// <summary>
@@ -457,9 +460,9 @@ namespace TubularReactor_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter ("DeviceId",       "",    "设备ID")          { IsVisibleInVariableManager = true },
-                        new NumberParameter ("PT0113_Pressure", 0, 100, 0, "出口压力(MPa)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("Success",        false, "读取成功")         { IsVisibleInVariableManager = true }
+                        new StringParameter ("DeviceId",        "",    "设备ID")  { IsVisibleInVariableManager = true },
+                        new NumberParameter ("PT0113_Pressure", 0, 100, 0, "出口压力", true, UnitPressure),
+                        new BooleanParameter("Success",         false, "读取成功") { IsVisibleInVariableManager = true }
                     }
                 },
                 Action = WrapAction("获取出口压力", async delegate (DeviceParameters parameters)
@@ -509,9 +512,9 @@ namespace TubularReactor_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new StringParameter ("DeviceId",       deviceId,               "设备ID")          { IsVisibleInVariableManager = true },
-                            new NumberParameter ("PT0113_Pressure", 0, 100, Math.Round(pt0113, 3), "出口压力(MPa)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("Success",        success,                "读取成功")         { IsVisibleInVariableManager = true }
+                            new StringParameter ("DeviceId",        deviceId, "设备ID") { IsVisibleInVariableManager = true },
+                            new NumberParameter ("PT0113_Pressure", 0, 100, Math.Round(pt0113, 3), "出口压力", true, UnitPressure),
+                            new BooleanParameter("Success",         success,  "读取成功") { IsVisibleInVariableManager = true }
                         }
                     };
                 })
@@ -530,9 +533,9 @@ namespace TubularReactor_ModbusTCP
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new StringParameter ("DeviceId",         "",      "设备ID")            { IsVisibleInVariableManager = true },
-                        new NumberParameter ("TT0113_Temperature", -100, 500, 0, "出口温度(℃)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("Success",          false,   "读取成功")           { IsVisibleInVariableManager = true }
+                        new StringParameter ("DeviceId",           "",     "设备ID")  { IsVisibleInVariableManager = true },
+                        new NumberParameter ("TT0113_Temperature", -100, 500, 0, "出口温度", true, UnitTemperature),
+                        new BooleanParameter("Success",            false,  "读取成功") { IsVisibleInVariableManager = true }
                     }
                 },
                 Action = WrapAction("获取出口温度", async delegate (DeviceParameters parameters)
@@ -582,9 +585,9 @@ namespace TubularReactor_ModbusTCP
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
-                            new StringParameter ("DeviceId",         deviceId,                          "设备ID")            { IsVisibleInVariableManager = true },
-                            new NumberParameter ("TT0113_Temperature", -100, 500, Math.Round(tt0113, 2), "出口温度(℃)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("Success",          success,                           "读取成功")           { IsVisibleInVariableManager = true }
+                            new StringParameter ("DeviceId",           deviceId, "设备ID") { IsVisibleInVariableManager = true },
+                            new NumberParameter ("TT0113_Temperature", -100, 500, Math.Round(tt0113, 2), "出口温度", true, UnitTemperature),
+                            new BooleanParameter("Success",            success,  "读取成功") { IsVisibleInVariableManager = true }
                         }
                     };
                 })

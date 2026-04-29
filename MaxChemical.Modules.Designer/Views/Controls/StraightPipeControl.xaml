@@ -47,7 +47,67 @@
         <Rectangle x:Name="MainPipe"
                    Canvas.Left="3.2" Canvas.Top="14.8"
                    Width="85.9" Height="16.6"/>
+        <!-- ═══════════════ 赛博层：金属管壁 ═══════════════ -->
+        <!-- 多层渐变模拟金属质感（参考图：暗-中-亮-中-暗 5stop） -->
+        <Rectangle x:Name="CyberMetalPipe"
+           Canvas.Left="3.2" Canvas.Top="14.8"
+           Width="85.9" Height="16.6"
+           Visibility="Collapsed"
+           IsHitTestVisible="False"/>
 
+        <!-- ═══════════════ 赛博层：内部暗腔 ═══════════════ -->
+        <!-- 黑色实心，模拟管道内部空腔 -->
+        <Rectangle x:Name="CyberDarkCore"
+           Canvas.Left="3.2" Canvas.Top="14.8"
+           Width="85.9" Height="16.6"
+           Fill="#000814"
+           Opacity="0.85"
+           Visibility="Collapsed"
+           IsHitTestVisible="False"/>
+
+        <!-- ═══════════════ 赛博层：主流光带（dasharray 30 570） ═══════════════ -->
+        <!-- 用 Path 包装一条线，让 StrokeDashArray 流光效果可用 -->
+        <Path x:Name="CyberMainStream"
+      Visibility="Collapsed"
+      IsHitTestVisible="False"
+      StrokeStartLineCap="Flat"
+      StrokeEndLineCap="Flat">
+            <Path.Effect>
+                <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Performance"/>
+            </Path.Effect>
+        </Path>
+
+        <!-- ═══════════════ 赛博层：粒子流（dasharray 8 50，更细更亮） ═══════════════ -->
+        <Path x:Name="CyberParticleStream"
+      Visibility="Collapsed"
+      IsHitTestVisible="False"
+      StrokeStartLineCap="Round"
+      StrokeEndLineCap="Round">
+            <Path.Effect>
+                <BlurEffect Radius="2" KernelType="Gaussian" RenderingBias="Performance"/>
+            </Path.Effect>
+        </Path>
+
+        <!-- ═══════════════ 赛博层：白热闪点（dasharray 4 80，最快） ═══════════════ -->
+        <Path x:Name="CyberSparkStream"
+      Visibility="Collapsed"
+      IsHitTestVisible="False"
+      StrokeStartLineCap="Round"
+      StrokeEndLineCap="Round"
+      Stroke="#FFFFFF">
+            <Path.Effect>
+                <BlurEffect Radius="1.5" KernelType="Gaussian" RenderingBias="Performance"/>
+            </Path.Effect>
+        </Path>
+
+        <!-- ═══════════════ 赛博层：顶部高光带（静态，不动） ═══════════════ -->
+        <!-- 模拟金属圆柱顶部反光，stroke linecap = round 端口圆 -->
+        <Rectangle x:Name="CyberTopShine"
+           Canvas.Left="3.2" Canvas.Top="14.8"
+           Width="85.9" Height="16.6"
+           Opacity="0.4"
+           Visibility="Collapsed"
+           IsHitTestVisible="False"/>
         <!-- ═══════════════ 管道顶部边缘线 ═══════════════ -->
         <Line x:Name="TopEdgeLine"
               X1="3.58" Y1="15.12" X2="89.18" Y2="15.12"

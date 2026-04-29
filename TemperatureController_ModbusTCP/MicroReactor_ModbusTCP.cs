@@ -30,7 +30,14 @@ namespace MicroReactor_ModbusTCP
 
         // 微反应器设备数据缓存 - 使用线程安全集合
         private readonly ConcurrentDictionary<string, double> _deviceData = new ConcurrentDictionary<string, double>();
-
+        // ═══════════════════════════════════════════════════════
+        //  单位常量集中定义,与监控图表的轴分类对齐
+        //   - ℃    → "温度轴" (T)
+        //   - MPa  → "压力轴" (P)
+        //  注:本设备的全部数值参数都是温度或压力,完美适配多轴图表
+        // ═══════════════════════════════════════════════════════
+        private const string UnitTemperature = "℃";
+        private const string UnitPressure = "MPa";
         // *** 智能温度控制相关字段 ***
         private readonly ConcurrentDictionary<string, IntelligentTemperatureController> _temperatureControllers = new ConcurrentDictionary<string, IntelligentTemperatureController>();
 
@@ -546,12 +553,13 @@ namespace MicroReactor_ModbusTCP
                         new BooleanParameter("TT1001_ControlStarted", false, "TT1001智能控制启动") { IsVisibleInVariableManager = true },
                         new BooleanParameter("TT1002_ControlStarted", false, "TT1002智能控制启动") { IsVisibleInVariableManager = true },
                         new BooleanParameter("TT1003_ControlStarted", false, "TT1003智能控制启动") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT1001_TargetTemp", -100, 500, 0, "TT1001目标温度(℃)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT1002_TargetTemp", -100, 500, 0, "TT1002目标温度(℃)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT1003_TargetTemp", -100, 500, 0, "TT1003目标温度(℃)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TT1001_TargetTemp", -100, 500, 0, "TT1001目标温度", true, UnitTemperature),
+                        new NumberParameter("TT1002_TargetTemp", -100, 500, 0, "TT1002目标温度", true, UnitTemperature),
+                        new NumberParameter("TT1003_TargetTemp", -100, 500, 0, "TT1003目标温度", true, UnitTemperature),
                         new BooleanParameter("Success", false, "智能温度控制启动成功") { IsVisibleInVariableManager = true }
                     }
                 },
+
                 Action = WrapAction("智能设置温度", async delegate (DeviceParameters parameters)
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -775,9 +783,9 @@ namespace MicroReactor_ModbusTCP
                             new BooleanParameter("TT1001_ControlStarted", tt1001Started, "TT1001智能控制启动") { IsVisibleInVariableManager = true },
                             new BooleanParameter("TT1002_ControlStarted", tt1002Started, "TT1002智能控制启动") { IsVisibleInVariableManager = true },
                             new BooleanParameter("TT1003_ControlStarted", tt1003Started, "TT1003智能控制启动") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT1001_TargetTemp", -100, 500, Math.Round(tt1001Target, 2), "TT1001目标温度(℃)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT1002_TargetTemp", -100, 500, Math.Round(tt1002Target, 2), "TT1002目标温度(℃)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT1003_TargetTemp", -100, 500, Math.Round(tt1003Target, 2), "TT1003目标温度(℃)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TT1001_TargetTemp", -100, 500, Math.Round(tt1001Target, 2), "TT1001目标温度", true, UnitTemperature),
+                            new NumberParameter("TT1002_TargetTemp", -100, 500, Math.Round(tt1002Target, 2), "TT1002目标温度", true, UnitTemperature),
+                            new NumberParameter("TT1003_TargetTemp", -100, 500, Math.Round(tt1003Target, 2), "TT1003目标温度", true, UnitTemperature),
                             new BooleanParameter("Success", overallSuccess, "智能温度控制启动成功") { IsVisibleInVariableManager = true }
                         }
                     };
@@ -796,11 +804,11 @@ namespace MicroReactor_ModbusTCP
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new StringParameter("DeviceId", "", "设备ID") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT1001_ActualTemp", -100, 500, 0, "TT1001实际温度(℃)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT1002_ActualTemp", -100, 500, 0, "TT1002实际温度(℃)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT1003_ActualTemp", -100, 500, 0, "TT1003实际温度(℃)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("PT0112_Pressure", 0, 100, 0, "出口压力(MPa)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TT0112_Temperature", -100, 500, 0, "出口温度(℃)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TT1001_ActualTemp",   -100, 500, 0, "TT1001实际温度", true, UnitTemperature),
+                        new NumberParameter("TT1002_ActualTemp",   -100, 500, 0, "TT1002实际温度", true, UnitTemperature),
+                        new NumberParameter("TT1003_ActualTemp",   -100, 500, 0, "TT1003实际温度", true, UnitTemperature),
+                        new NumberParameter("PT0112_Pressure",     0, 100,    0, "出口压力",       true, UnitPressure),
+                        new NumberParameter("TT0112_Temperature",  -100, 500, 0, "出口温度",       true, UnitTemperature),
                         new BooleanParameter("TT1001_Stable", false, "TT1001温度稳定") { IsVisibleInVariableManager = true },
                         new BooleanParameter("TT1002_Stable", false, "TT1002温度稳定") { IsVisibleInVariableManager = true },
                         new BooleanParameter("TT1003_Stable", false, "TT1003温度稳定") { IsVisibleInVariableManager = true },
@@ -888,11 +896,11 @@ namespace MicroReactor_ModbusTCP
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("DeviceId", deviceId, "设备ID") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT1001_ActualTemp", -100, 500, Math.Round(tt1001Actual, 2), "TT1001实际温度(℃)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT1002_ActualTemp", -100, 500, Math.Round(tt1002Actual, 2), "TT1002实际温度(℃)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT1003_ActualTemp", -100, 500, Math.Round(tt1003Actual, 2), "TT1003实际温度(℃)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("PT0112_Pressure", 0, 100, Math.Round(pt0112, 3), "出口压力(MPa)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TT0112_Temperature", -100, 500, Math.Round(tt0112, 2), "出口温度(℃)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TT1001_ActualTemp",  -100, 500, Math.Round(tt1001Actual, 2), "TT1001实际温度", true, UnitTemperature),
+                            new NumberParameter("TT1002_ActualTemp",  -100, 500, Math.Round(tt1002Actual, 2), "TT1002实际温度", true, UnitTemperature),
+                            new NumberParameter("TT1003_ActualTemp",  -100, 500, Math.Round(tt1003Actual, 2), "TT1003实际温度", true, UnitTemperature),
+                            new NumberParameter("PT0112_Pressure",    0, 100,    Math.Round(pt0112, 3),       "出口压力",       true, UnitPressure),
+                            new NumberParameter("TT0112_Temperature", -100, 500, Math.Round(tt0112, 2),       "出口温度",       true, UnitTemperature),
                             new BooleanParameter("TT1001_Stable", _stabilityStatus.TT1001_Stable, "TT1001温度稳定") { IsVisibleInVariableManager = true },
                             new BooleanParameter("TT1002_Stable", _stabilityStatus.TT1002_Stable, "TT1002温度稳定") { IsVisibleInVariableManager = true },
                             new BooleanParameter("TT1003_Stable", _stabilityStatus.TT1003_Stable, "TT1003温度稳定") { IsVisibleInVariableManager = true },

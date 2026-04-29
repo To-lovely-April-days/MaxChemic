@@ -17,7 +17,9 @@ namespace MaxChemical.Modules.Designer.Services
         /// <summary>
         /// 添加监控参数
         /// </summary>
-        void AddMonitoredParameter(string deviceId, string deviceName, string commandName, string parameterName, string displayName = null);
+        /// <param name="unit">★ 新增:参数单位(如 "bar"/"℃"/"mL/min"),用于图表自动识别 Y 轴归属。可选,留空时图表会显示"未分类"</param>
+        void AddMonitoredParameter(string deviceId, string deviceName, string commandName,
+            string parameterName, string displayName = null, string unit = "");
 
         /// <summary>
         /// 移除监控参数
@@ -63,6 +65,7 @@ namespace MaxChemical.Modules.Designer.Services
         /// 获取指定时间范围内的参数数据
         /// </summary>
         List<ParameterDataPoint> GetParameterDataInRange(string deviceId, string commandName, string parameterName);
+
         bool IsFlowCurrentlyRunning();
     }
 }

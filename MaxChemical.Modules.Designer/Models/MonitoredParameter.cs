@@ -15,7 +15,7 @@ namespace MaxChemical.Modules.Designer.Models
         private double _maxValue = double.MinValue; // 修正：初始化为最小值，便于比较
         private double? _currentValue;
         private DateTime? _lastUpdateTime;
-
+        public string Unit { get; set; } = "";
         public string Key { get; set; }
         public string DeviceId { get; set; }
         public string DeviceName { get; set; }
@@ -235,6 +235,28 @@ namespace MaxChemical.Modules.Designer.Models
         public string ParameterType { get; set; }
         public string DisplayName { get; set; }
         public bool IsNumeric { get; set; }
+        public string Unit { get; set; } = "";
+
+        // ════════════════════════════════════════════════════════════
+        //  ★ 监控可用性元数据(由 Service 层填充)
+        // ════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// 参数所属图表轴类型(温度/压力/流量/未分类)
+        /// </summary>
+        public AxisType AxisType { get; set; } = AxisType.Unclassified;
+
+        /// <summary>
+        /// 是否可选(轴类型为温度/压力/流量时为 true)。
+        /// false 时面板上变灰,不能选。
+        /// </summary>
+        public bool IsSelectable { get; set; } = true;
+
+        /// <summary>
+        /// 不可选时的原因提示(用于 Tooltip)。
+        /// 可选时为 null。
+        /// </summary>
+        public string DisableReason { get; set; }
 
         /// <summary>
         /// 参数的唯一键

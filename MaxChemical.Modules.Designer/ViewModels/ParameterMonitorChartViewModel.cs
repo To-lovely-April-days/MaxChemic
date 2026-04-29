@@ -1,4 +1,4 @@
-﻿// ParameterMonitorChartViewModel.cs - 完整清理版
+﻿// ParameterMonitorChartViewModel.cs - 多Y轴版(取代归一化)
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
@@ -7,13 +7,17 @@ using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.Services;
 using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.Series;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Ioc;
 using Prism.Mvvm;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -49,12 +53,20 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private string _alarmMessage = "";
         private DateTime _alarmTime;
 
+        // ★ 新增:缓存最近一次构建的 SeriesInput,供"重置量程"使用
+        private List<MultiAxisChartBuilder.SeriesInput> _lastSeriesInputs
+            = new List<MultiAxisChartBuilder.SeriesInput>();
+
+        // ★ 新增:未分类参数提示
+        private string _unclassifiedTip = "";
+        private bool _hasUnclassifiedParameters;
+
         #endregion
 
         #region 公共属性
 
         /// <summary>
-        /// 图表数据点集合（供Canvas渲染器使用）
+        /// 图表数据点集合(供Canvas渲染器使用)
         /// </summary>
         public ObservableCollection<ChartDataPoint> ChartData { get; }
 
@@ -137,7 +149,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
 
         /// <summary>
-        /// 时间格式化器（用于X轴显示）
+        /// 时间格式化器(用于X轴显示)
         /// </summary>
         public Func<double, string> DateTimeFormatter
         {
@@ -218,8 +230,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
         /// 状态文本
         /// </summary>
         public string StatusText => $"数据点: {DataPointsCount} | 最后更新: {LastUpdateTime:HH:mm:ss}";
+
         /// <summary>
-        /// 归一化图表模型（OxyPlot）
+        /// 图表模型(OxyPlot, 多 Y 轴)
+        /// 注:属性名保留 NormalizedChartModel 以减少 XAML 改动,内部已改为多轴构建
         /// </summary>
         public PlotModel NormalizedChartModel
         {
@@ -260,6 +274,24 @@ namespace MaxChemical.Modules.Designer.ViewModels
             set => SetProperty(ref _alarmTime, value);
         }
 
+        /// <summary>
+        /// 单位未分类提示文本
+        /// </summary>
+        public string UnclassifiedTip
+        {
+            get => _unclassifiedTip;
+            set => SetProperty(ref _unclassifiedTip, value);
+        }
+
+        /// <summary>
+        /// 是否存在单位未分类的参数(控制顶部黄色提示条显示)
+        /// </summary>
+        public bool HasUnclassifiedParameters
+        {
+            get => _hasUnclassifiedParameters;
+            set => SetProperty(ref _hasUnclassifiedParameters, value);
+        }
+
         #endregion
 
         #region 命令
@@ -270,6 +302,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
         public DelegateCommand ToggleConfigurationCommand { get; private set; }
         public DelegateCommand<MonitoredParameter> ToggleParameterCommand { get; private set; }
         public DelegateCommand RefreshAvailableParametersCommand { get; private set; }
+
+        // ★ 新增:重置量程命令
+        public DelegateCommand ResetAxisRangesCommand { get; private set; }
 
         #endregion
 
@@ -295,8 +330,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
             InitializeDateTimeFormatter();
             SubscribeToFlowEvents();
             InitializeAsync();
-            NormalizedChartModel = NormalizedChartBuilder.CreateModel();
-            _logger.LogInformation("参数监控图表ViewModel已初始化，基准时间: {BaseTime}", _baseTime);
+
+            // ★ 改用多轴 Builder 创建空白模型
+            NormalizedChartModel = MultiAxisChartBuilder.CreateEmptyModel();
+
+            _logger.LogInformation("参数监控图表ViewModel已初始化,基准时间: {BaseTime}", _baseTime);
 
             _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(LanguageChangedHandler);
             LanguageChangedHandler("");
@@ -314,6 +352,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
             ToggleConfigurationCommand = new DelegateCommand(ToggleConfiguration);
             ToggleParameterCommand = new DelegateCommand<MonitoredParameter>(ToggleParameter);
             RefreshAvailableParametersCommand = new DelegateCommand(RefreshAvailableParameters);
+
+            // ★ 新增:重置量程
+            ResetAxisRangesCommand = new DelegateCommand(ResetAxisRanges);
         }
 
         private void InitializeTimer()
@@ -430,7 +471,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void OnFlowStarted()
         {
-            _logger.LogInformation("流程开始，启动图表监控");
+            _logger.LogInformation("流程开始,启动图表监控");
 
             _isProcessRunning = true;
             _shouldUpdateChart = true;
@@ -446,7 +487,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             else
             {
                 ResetIncrementalUpdateTimestamp();
-                _logger.LogInformation("保留现有数据，重置增量更新时间戳");
+                _logger.LogInformation("保留现有数据,重置增量更新时间戳");
             }
 
             StartChartAutoUpdate();
@@ -455,7 +496,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void OnFlowStopped()
         {
-            _logger.LogInformation("流程停止，停止图表监控");
+            _logger.LogInformation("流程停止,停止图表监控");
 
             try
             {
@@ -479,13 +520,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         private void OnFlowPaused()
         {
-            _logger.LogInformation("流程暂停，暂停图表更新");
+            _logger.LogInformation("流程暂停,暂停图表更新");
             ShouldUpdateChart = false;
         }
 
         private void OnFlowResumed()
         {
-            _logger.LogInformation("流程恢复，恢复图表更新");
+            _logger.LogInformation("流程恢复,恢复图表更新");
             ShouldUpdateChart = true;
         }
 
@@ -547,8 +588,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 LimitChartDataPoints();
 
                 RaisePropertyChanged(nameof(StatusText));
-                RebuildNormalizedChart();
-                _logger.LogDebug("增量更新完成，当前数据点: {Count}", DataPointsCount);
+                RebuildChartModel();
+                _logger.LogDebug("增量更新完成,当前数据点: {Count}", DataPointsCount);
             }
             catch (Exception ex)
             {
@@ -658,7 +699,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     parameter.DeviceName,
                     parameter.CommandName,
                     parameter.ParameterName,
-                    parameter.DisplayName);
+                    parameter.DisplayName,
+                    parameter.Unit);                  // ★ 这是新增的一行,把单位也传过去
 
                 LoadMonitoredParameters();
                 CheckAndUpdateProcessStatus();
@@ -669,7 +711,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 }
 
                 AddParameterCommand.RaiseCanExecuteChanged();
-                _logger.LogInformation("添加监控参数: {DisplayName}", parameter.DisplayName);
+                _logger.LogInformation("添加监控参数: {DisplayName}, 单位: {Unit}",
+                    parameter.DisplayName, parameter.Unit);
             }
             catch (Exception ex)
             {
@@ -725,7 +768,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         DeviceName = parameter.DeviceName,
                         CommandName = parameter.CommandName,
                         ParameterName = parameter.ParameterName,
-                        DisplayName = parameter.DisplayName
+                        DisplayName = parameter.DisplayName,
+                        Unit = parameter.Unit                       // ★ 这一行是新增的
                     };
                     BackfillDataForNewParameter(availableParam);
                 }
@@ -922,9 +966,15 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 LastUpdateTime = DateTime.Now;
                 _baseTime = DateTime.Now;
                 InitializeDateTimeFormatter();
-                NormalizedChartModel = NormalizedChartBuilder.CreateModel();
+
+                // ★ 改用多轴 Builder
+                NormalizedChartModel = MultiAxisChartBuilder.CreateEmptyModel();
                 ChartLegendItems.Clear();
+                _lastSeriesInputs.Clear();
                 HasAlarm = false;
+                UnclassifiedTip = "";
+                HasUnclassifiedParameters = false;
+
                 _logger.LogInformation("清空所有图表数据");
             }
             catch (Exception ex)
@@ -932,26 +982,24 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 _logger.LogError(ex, "清空数据失败");
             }
         }
+
         /// <summary>
-        /// 重建归一化图表
+        /// ★ 重建图表模型(多 Y 轴版,取代原 RebuildNormalizedChart)
         /// </summary>
-        private void RebuildNormalizedChart()
+        private void RebuildChartModel()
         {
             try
             {
-                var model = NormalizedChartBuilder.CreateModel();
                 var enabledParameters = MonitoredParameters.Where(p => p.IsEnabled).ToList();
 
                 ChartLegendItems.Clear();
-                HasAlarm = false;
+                var unclassified = new List<string>();
+                var seriesInputs = new List<MultiAxisChartBuilder.SeriesInput>();
 
                 int colorIndex = 0;
                 foreach (var param in enabledParameters)
                 {
-                    var color = NormalizedChartBuilder.LineColors[colorIndex % NormalizedChartBuilder.LineColors.Length];
-                    var lineStyle = NormalizedChartBuilder.LineStyleCycle[colorIndex % NormalizedChartBuilder.LineStyleCycle.Length];
-
-                    // 从 ChartData 中提取该参数的数据点
+                    // 1. 提取该参数的所有数据点
                     var dataPoints = ChartData
                         .Where(cd => cd.ParameterValues.ContainsKey(param.DisplayName))
                         .Select(cd => (cd.Timestamp, cd.ParameterValues[param.DisplayName]))
@@ -960,53 +1008,169 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                     if (!dataPoints.Any()) continue;
 
-                    // 获取参数量程（如果 MonitoredParameter 没有量程属性，用数据的 min/max 自动推算）
-                    double minRange = param.MinRange != 0 || param.MaxRange != 0
-                        ? param.MinRange
-                        : dataPoints.Min(d => d.Item2) * 0.8;
-                    double maxRange = param.MinRange != 0 || param.MaxRange != 0
-                        ? param.MaxRange
-                        : dataPoints.Max(d => d.Item2) * 1.2;
+                    // 2. 识别参数轴类型(温度/压力/流量)
+                    var unit = SafeGetUnit(param);
+                    var axisType = ParameterAxisClassifier.Classify(unit);
 
-                    var info = new NormalizedParameterInfo
+                    if (axisType == AxisType.Unclassified)
+                    {
+                        // 未分类的参数:不画,记录用于稍后提示
+                        unclassified.Add($"{param.DisplayName}({(string.IsNullOrEmpty(unit) ? "无单位" : unit)})");
+                        continue;
+                    }
+
+                    // 3. 决定线条颜色(优先用 param.Color,否则按调色板顺序)
+                    OxyColor lineColor = TryParseOxyColor(param.Color, out var parsed)
+                        ? parsed
+                        : MultiAxisChartBuilder.LineColors[colorIndex % MultiAxisChartBuilder.LineColors.Length];
+
+                    seriesInputs.Add(new MultiAxisChartBuilder.SeriesInput
                     {
                         DisplayName = param.DisplayName,
-                        DeviceName = param.DeviceName,
-                        MinRange = minRange,
-                        MaxRange = maxRange,
-                        LineColor = color,
-                        LineStyle = lineStyle,
-                    };
+                        Unit = unit,
+                        AxisType = axisType,
+                        LineColor = lineColor,
+                        Points = dataPoints,
+                    });
 
-                    NormalizedChartBuilder.AddNormalizedSeries(model, info, dataPoints);
-
-                    // 添加图例
-                    var wpfColor = System.Windows.Media.Color.FromRgb(color.R, color.G, color.B);
+                    // 4. 添加到图例
+                    var wpfColor = System.Windows.Media.Color.FromRgb(lineColor.R, lineColor.G, lineColor.B);
                     ChartLegendItems.Add(new ChartLegendItem
                     {
                         Name = param.DisplayName,
                         ColorBrush = new SolidColorBrush(wpfColor),
                     });
 
-                    // 检查最新值是否超限
-                    var lastValue = dataPoints.Last().Item2;
-                    double normalizedLast = NormalizedChartBuilder.Normalize(lastValue, minRange, maxRange);
-                    if (normalizedLast > 90 || normalizedLast < 10)
-                    {
-                        HasAlarm = true;
-                        AlarmMessage = $"{param.DeviceName} {param.DisplayName} 归一化 {normalizedLast:F1}% 超出安全阈值";
-                        AlarmTime = dataPoints.Last().Timestamp;
-                    }
-
                     colorIndex++;
                 }
 
-                model.InvalidatePlot(true);
+                // 5. 构建 PlotModel
+                var model = MultiAxisChartBuilder.BuildModel(seriesInputs);
+
+                // 6. 注册同步 Tracker(鼠标悬停显示所有参数当前值)
+                AttachSyncTracker(model);
+
                 NormalizedChartModel = model;
+
+                // 7. 缓存,供"重置量程"使用
+                _lastSeriesInputs = seriesInputs;
+
+                // 8. 处理未分类提示
+                if (unclassified.Count > 0)
+                {
+                    UnclassifiedTip = $"以下参数单位未分类,无法绘制: {string.Join(", ", unclassified)}";
+                    HasUnclassifiedParameters = true;
+                }
+                else
+                {
+                    UnclassifiedTip = "";
+                    HasUnclassifiedParameters = false;
+                }
+
+                model.InvalidatePlot(true);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "重建归一化图表失败");
+                _logger.LogError(ex, "重建多轴图表失败");
+            }
+        }
+
+        /// <summary>
+        /// ★ 安全获取参数单位(MonitoredParameter 的 Unit 属性可能不存在,容错处理)
+        /// </summary>
+        private static string SafeGetUnit(MonitoredParameter param)
+        {
+            try
+            {
+                var prop = param.GetType().GetProperty("Unit");
+                if (prop != null)
+                {
+                    var val = prop.GetValue(param) as string;
+                    return val ?? "";
+                }
+            }
+            catch { }
+            return "";
+        }
+
+        /// <summary>
+        /// ★ 安全解析 OxyColor(支持 #RRGGBB 或 #AARRGGBB 格式)
+        /// </summary>
+        private static bool TryParseOxyColor(string hex, out OxyColor color)
+        {
+            color = OxyColors.Black;
+            if (string.IsNullOrWhiteSpace(hex)) return false;
+            try
+            {
+                color = OxyColor.Parse(hex);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// ★ 注册同步 Tracker:鼠标悬停时显示当前时刻所有参数的值
+        /// </summary>
+        private void AttachSyncTracker(PlotModel model)
+        {
+            if (model == null) return;
+
+            model.TrackerChanged += (s, e) =>
+            {
+                if (e.HitResult == null) return;
+                if (!(e.HitResult.Series is LineSeries hitSeries)) return;
+
+                // 命中点的 X(时间)
+                double hitX = e.HitResult.DataPoint.X;
+                DateTime hitTime;
+                try
+                {
+                    hitTime = DateTimeAxis.ToDateTime(hitX);
+                }
+                catch
+                {
+                    return;
+                }
+
+                var sb = new StringBuilder();
+                sb.AppendLine(hitTime.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                foreach (var series in model.Series.OfType<LineSeries>())
+                {
+                    if (series.Points.Count == 0) continue;
+
+                    // 找最接近 hitX 的点
+                    var nearest = series.Points
+                        .OrderBy(p => Math.Abs(p.X - hitX))
+                        .First();
+
+                    string unit = "";
+                    if (series.Tag is MultiAxisChartBuilder.SeriesMeta meta)
+                    {
+                        unit = meta.Unit;
+                    }
+
+                    sb.AppendLine($"{series.Title}: {nearest.Y:F2} {unit}".TrimEnd());
+                }
+
+                e.HitResult.Text = sb.ToString().TrimEnd();
+            };
+        }
+
+        /// <summary>
+        /// ★ 重置所有 Y 轴量程为自适应值
+        /// </summary>
+        private void ResetAxisRanges()
+        {
+            try
+            {
+                if (NormalizedChartModel == null) return;
+                MultiAxisChartBuilder.ResetAllAxisRanges(NormalizedChartModel, _lastSeriesInputs);
+                _logger.LogInformation("已重置所有 Y 轴量程为自适应值");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "重置量程失败");
             }
         }
 
@@ -1209,6 +1373,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 RaisePropertyChanged(nameof(HasData));
                 RaisePropertyChanged(nameof(StatusText));
 
+                // 加载完历史数据后,重建一次图表
+                if (HasData)
+                {
+                    RebuildChartModel();
+                }
+
                 _logger.LogInformation("历史数据加载完成: {Count} 个数据点", ChartData.Count);
             }
             catch (Exception ex)
@@ -1323,15 +1493,18 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private string _updateTimeTxt;
         private string _dataCountTxt;
 
-        public string ViewTitle {  get { return _viewTitle; } set {SetProperty(ref  _viewTitle, value); } }
-        public string ParamCountLabel {  get { return _paramCountLabel; } set { SetProperty(ref _paramCountLabel, value);  }  }
-        public string ClearLabeL { get { return _clearLabeL; } set {SetProperty(ref _clearLabeL, value); } }
+        public string ViewTitle { get { return _viewTitle; } set { SetProperty(ref _viewTitle, value); } }
+        public string ParamCountLabel { get { return _paramCountLabel; } set { SetProperty(ref _paramCountLabel, value); } }
+        public string ClearLabeL { get { return _clearLabeL; } set { SetProperty(ref _clearLabeL, value); } }
         public string ExportLabel { get { return _exportLabel; } set { SetProperty(ref _exportLabel, value); } }
-        public string NormalizationTxt {  get { return _normalizationTxt; } set {SetProperty(ref _normalizationTxt, value); } }
-        public string NoneParamTxt { get { return _noneParamTxt; } set { SetProperty(ref _noneParamTxt, value); }  }
-        public string TipTxt {  get { return _tipTxt; } set {SetProperty(ref _tipTxt, value);} }
-        public string UpdateTimeTxt {  get { return _updateTimeTxt; } set { SetProperty(ref _alarmMessage, value); }  }
-        public string DataCountTxt { get { return _dataCountTxt; } set { SetProperty (ref _dataCountTxt, value); } }
+        public string NormalizationTxt { get { return _normalizationTxt; } set { SetProperty(ref _normalizationTxt, value); } }
+        public string NoneParamTxt { get { return _noneParamTxt; } set { SetProperty(ref _noneParamTxt, value); } }
+        public string TipTxt { get { return _tipTxt; } set { SetProperty(ref _tipTxt, value); } }
+
+        // ★ 修复原 bug:之前误写成 SetProperty(ref _alarmMessage, value)
+        public string UpdateTimeTxt { get { return _updateTimeTxt; } set { SetProperty(ref _updateTimeTxt, value); } }
+
+        public string DataCountTxt { get { return _dataCountTxt; } set { SetProperty(ref _dataCountTxt, value); } }
 
         public void LanguageChangedHandler(string s)
         {
@@ -1342,7 +1515,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             NormalizationTxt = _localizationService.GetString("ParamMonitor_Normalization", "归一化");
             NoneParamTxt = _localizationService.GetString("ParamMonitor_NoneMonitor", "暂无监控数据");
             TipTxt = _localizationService.GetString("ParamMonitor_Tip", "从左侧面板选择参数开始监控");
-            UpdateTimeTxt = _localizationService.GetString("ParamMonitor_LastTime", "最后更新：");
+            UpdateTimeTxt = _localizationService.GetString("ParamMonitor_LastTime", "最后更新:");
             DataCountTxt = _localizationService.GetString("ParamMonitor_DataPoint", "数据点");
         }
 

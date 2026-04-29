@@ -43,7 +43,17 @@ namespace FlowMeter_ModbusTCP
         private const double FLOW_TO_SPEED_RATIO = 1.0;
         private const int MAX_PUMP_SPEED = 100;
         private const int MAX_FLOW_RATE = 100;
-
+        // ═══════════════════════════════════════════════════════
+        //  单位常量集中定义,与监控图表的轴分类对齐
+        //   - g/min(质量流量)→ "流量轴" (F)
+        //   - cm³/min(体积流量)→ 与质量流量物理量不同,归未分类
+        //   - g/cm³ / RPM / % → 未分类
+        // ═══════════════════════════════════════════════════════
+        private const string UnitMassFlow = "g/min";
+        private const string UnitVolumeFlow = "cm³/min";
+        private const string UnitDensity = "g/cm³";
+        private const string UnitPumpSpeed = "RPM";
+        private const string UnitPercent = "%";
         // *** 优化后的PID参数 ***
         private double _previousError = 0;
         private double _integralError = 0;
@@ -919,17 +929,17 @@ namespace FlowMeter_ModbusTCP
 
                 LogControlStateChange("密度修正防超调智能流量控制启动", startDetails);
 
-                WriteDetailedLog("");
-                WriteDetailedLog("".PadRight(100, ''));
-                WriteDetailedLog($"密度修正防超调智能控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                WriteDetailedLog($"目标流量: {_targetFlow} g/min");
-                WriteDetailedLog($"液体密度: {currentDensity} g/cm³");
-                WriteDetailedLog($"控制参数: 间隔={CONTROL_INTERVAL_MS}ms, 容差=±{FLOW_TOLERANCE_PERCENT}%, 死区=±{DEAD_ZONE_PERCENT}%");
-                WriteDetailedLog($"超调保护: ±{UPPER_PROTECTION_PERCENT}% 阈值");
-                WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (密度修正版本)");
-                WriteDetailedLog($"智能检测: 三档动态等待 (低速{LOW_SPEED_WAIT_MS / 1000}s, 中速{MID_SPEED_WAIT_MS / 1000}s, 高速{HIGH_SPEED_WAIT_MS / 1000}s)");
-                WriteDetailedLog("".PadRight(100, ''));
-                WriteDetailedLog("");
+                //WriteDetailedLog("");
+                //WriteDetailedLog("".PadRight(100, ''));
+                //WriteDetailedLog($"密度修正防超调智能控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                //WriteDetailedLog($"目标流量: {_targetFlow} g/min");
+                //WriteDetailedLog($"液体密度: {currentDensity} g/cm³");
+                //WriteDetailedLog($"控制参数: 间隔={CONTROL_INTERVAL_MS}ms, 容差=±{FLOW_TOLERANCE_PERCENT}%, 死区=±{DEAD_ZONE_PERCENT}%");
+                //WriteDetailedLog($"超调保护: ±{UPPER_PROTECTION_PERCENT}% 阈值");
+                //WriteDetailedLog($"PID参数: Kp={KP}, Ki={KI}, Kd={KD} (密度修正版本)");
+                //WriteDetailedLog($"智能检测: 三档动态等待 (低速{LOW_SPEED_WAIT_MS / 1000}s, 中速{MID_SPEED_WAIT_MS / 1000}s, 高速{HIGH_SPEED_WAIT_MS / 1000}s)");
+                //WriteDetailedLog("".PadRight(100, ''));
+                //WriteDetailedLog("");
             }
         }
 
@@ -1576,10 +1586,10 @@ namespace FlowMeter_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, 0, "基准质量流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, 0, "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true }
-                    }
+        {
+            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, 0, "基准质量流量",        true, UnitMassFlow),
+            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, 0, "当前液体密度", true, UnitDensity)
+        }
                 },
                 Action = WrapAction("获取基准流量", async delegate (DeviceParameters parameters)
                 {
@@ -1658,10 +1668,10 @@ namespace FlowMeter_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, Math.Round(baseFlow, 2), "基准质量流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, Math.Round(currentDensity, 2), "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true }
-                        }
+        {
+            new NumberParameter("BaseFlow", 0, MAX_FLOW_RATE, Math.Round(baseFlow, 2), "基准质量流量",            true, UnitMassFlow),
+            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, Math.Round(currentDensity, 2), "当前液体密度", true, UnitDensity)
+        }
                     };
                 })
             });
@@ -1687,14 +1697,14 @@ namespace FlowMeter_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-        {
-            new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-            new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
-            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
-            new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-            new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-            new BooleanParameter("AutoControlStarted", false, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
-        }
+{
+    new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
+    new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, 0, "设置的质量流量",          true, UnitMassFlow),
+    new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的液体密度", true, UnitDensity),
+    new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "所需体积流量", true, UnitVolumeFlow),
+    new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, 0, "计算的泵速",       true, UnitPumpSpeed),
+    new BooleanParameter("AutoControlStarted", false, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
+}
                 },
                 Action = WrapAction("设置基准流量", async delegate (DeviceParameters parameters)
                 {
@@ -1806,14 +1816,14 @@ namespace FlowMeter_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-            {
-                new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的质量流量(g/min)") { IsVisibleInVariableManager = true },
-                new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, density, "设置的液体密度(g/cm³)") { IsVisibleInVariableManager = true },
-                new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(requiredVolumeFlow, 2), "所需体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速(RPM)") { IsVisibleInVariableManager = true },
-                new BooleanParameter("AutoControlStarted", autoControlStarted, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
-            }
+{
+    new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
+    new NumberParameter("SetFlow", 0, MAX_FLOW_RATE, targetFlow, "设置的质量流量",            true, UnitMassFlow),
+    new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, density, "设置的液体密度",     true, UnitDensity),
+    new NumberParameter("RequiredVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(requiredVolumeFlow, 2), "所需体积流量", true, UnitVolumeFlow),
+    new NumberParameter("CalculatedSpeed", 0, MAX_PUMP_SPEED, Math.Round(calculatedSpeed, 1), "计算的泵速", true, UnitPumpSpeed),
+    new BooleanParameter("AutoControlStarted", autoControlStarted, "密度修正防超调控制已启动") { IsVisibleInVariableManager = true }
+}
                     };
                 })
             });
@@ -1904,20 +1914,21 @@ namespace FlowMeter_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("AutoControlEnabled", false, "密度修正防超调控制启用") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 0, "目标质量流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, 0, "当前质量流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, 0, "质量流量偏差(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("DeviationPercent", -100, 100, 0, "偏差百分比(%)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, 0, "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TargetVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "目标体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "当前体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, 0, "当前泵速(RPM)") { IsVisibleInVariableManager = true },
-                        new BooleanParameter("OvershootMode", false, "超调保护模式") { IsVisibleInVariableManager = true },
-                        new StringParameter("ControlStatus", "", "控制状态") { IsVisibleInVariableManager = true }
-                    }
+        {
+            new BooleanParameter("AutoControlEnabled", false, "密度修正防超调控制启用") { IsVisibleInVariableManager = true },
+            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, 0, "目标质量流量",       true, UnitMassFlow),
+            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, 0, "当前质量流量",      true, UnitMassFlow),
+            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, 0, "质量流量偏差", true, UnitMassFlow),
+            new NumberParameter("DeviationPercent", -100, 100, 0, "偏差百分比",          true, UnitPercent),
+            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, 0, "当前液体密度", true, UnitDensity),
+            new NumberParameter("TargetVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "目标体积流量",  true, UnitVolumeFlow),
+            new NumberParameter("CurrentVolumeFlow", 0, MAX_FLOW_RATE * 2, 0, "当前体积流量", true, UnitVolumeFlow),
+            new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, 0, "当前泵速",     true, UnitPumpSpeed),
+            new BooleanParameter("OvershootMode", false, "超调保护模式") { IsVisibleInVariableManager = true },
+            new StringParameter("ControlStatus", "", "控制状态") { IsVisibleInVariableManager = true }
+        }
                 },
+
                 Action = WrapAction("获取控制状态", async delegate (DeviceParameters parameters)
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
@@ -2018,20 +2029,21 @@ namespace FlowMeter_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("AutoControlEnabled", autoControlEnabled, "密度修正防超调控制启用") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, Math.Round(targetFlow, 3), "目标质量流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, Math.Round(currentFlow, 3), "当前质量流量(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, Math.Round(flowDeviation, 3), "质量流量偏差(g/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("DeviationPercent", -100, 100, Math.Round(deviationPercent, 3), "偏差百分比(%)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, Math.Round(currentDensity, 2), "当前液体密度(g/cm³)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TargetVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(targetVolumeFlow, 2), "目标体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(currentVolumeFlow, 2), "当前体积流量(cm³/min)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, Math.Round(currentPumpSpeed, 1), "当前泵速(RPM)") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("OvershootMode", overshootMode, "超调保护模式") { IsVisibleInVariableManager = true },
-                            new StringParameter("ControlStatus", controlStatus, "控制状态") { IsVisibleInVariableManager = true }
-                        }
+        {
+            new BooleanParameter("AutoControlEnabled", autoControlEnabled, "密度修正防超调控制启用") { IsVisibleInVariableManager = true },
+            new NumberParameter("TargetFlow", 0, MAX_FLOW_RATE, Math.Round(targetFlow, 3), "目标质量流量",          true, UnitMassFlow),
+            new NumberParameter("CurrentFlow", 0, MAX_FLOW_RATE, Math.Round(currentFlow, 3), "当前质量流量",         true, UnitMassFlow),
+            new NumberParameter("FlowDeviation", -MAX_FLOW_RATE, MAX_FLOW_RATE, Math.Round(flowDeviation, 3), "质量流量偏差", true, UnitMassFlow),
+            new NumberParameter("DeviationPercent", -100, 100, Math.Round(deviationPercent, 3), "偏差百分比",          true, UnitPercent),
+            new NumberParameter("CurrentDensity", MIN_DENSITY, MAX_DENSITY, Math.Round(currentDensity, 2), "当前液体密度", true, UnitDensity),
+            new NumberParameter("TargetVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(targetVolumeFlow, 2), "目标体积流量",  true, UnitVolumeFlow),
+            new NumberParameter("CurrentVolumeFlow", 0, MAX_FLOW_RATE * 2, Math.Round(currentVolumeFlow, 2), "当前体积流量", true, UnitVolumeFlow),
+            new NumberParameter("CurrentPumpSpeed", 0, MAX_PUMP_SPEED, Math.Round(currentPumpSpeed, 1), "当前泵速",     true, UnitPumpSpeed),
+            new BooleanParameter("OvershootMode", overshootMode, "超调保护模式") { IsVisibleInVariableManager = true },
+            new StringParameter("ControlStatus", controlStatus, "控制状态") { IsVisibleInVariableManager = true }
+        }
                     };
+
                 })
             });
 
@@ -2054,11 +2066,11 @@ namespace FlowMeter_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-        {
-            new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
-            new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
-            new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, 0, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
-        }
+{
+    new BooleanParameter("Success", false, "设置成功") { IsVisibleInVariableManager = true },
+    new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, 0, "设置的密度",      true, UnitDensity),
+    new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, 0, "之前的密度", true, UnitDensity)
+}
                 },
                 Action = WrapAction("设置液体密度", async delegate (DeviceParameters parameters)
                 {
@@ -2132,11 +2144,11 @@ namespace FlowMeter_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-            {
-                new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
-                new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, newDensity, "设置的密度(g/cm³)") { IsVisibleInVariableManager = true },
-                new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, previousDensity, "之前的密度(g/cm³)") { IsVisibleInVariableManager = true }
-            }
+{
+    new BooleanParameter("Success", success, "设置成功") { IsVisibleInVariableManager = true },
+    new NumberParameter("SetDensity", MIN_DENSITY, MAX_DENSITY, newDensity, "设置的密度",        true, UnitDensity),
+    new NumberParameter("PreviousDensity", MIN_DENSITY, MAX_DENSITY, previousDensity, "之前的密度", true, UnitDensity)
+}
                     };
                 })
             });

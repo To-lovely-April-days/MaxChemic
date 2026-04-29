@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System;
+using System.Text.RegularExpressions;
 
 namespace DevicePlugins.Devices
 {
@@ -16,6 +17,7 @@ namespace DevicePlugins.Devices
         private bool _isRequired;
         private bool _isReadOnly;
         private bool _isVisibleInVariableManager = false;
+        private string _unit = string.Empty;   // ★ 新增
 
         /// <summary>
         /// 参数名称
@@ -48,7 +50,7 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// 帮助文本
+        /// 帮助文本(在很多地方也用作参数描述)
         /// </summary>
         public string HelpText
         {
@@ -56,6 +58,21 @@ namespace DevicePlugins.Devices
             set
             {
                 _helpText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// ★ 单位(温度=℃, 压力=MPa/bar, 流量=L/min/sccm 等)
+        /// 用于参数监控图表自动识别 Y 轴归属。
+        /// 大小写不敏感,可留空。如果留空,系统会尝试从 HelpText 末尾的括号提取(例如 "压力(bar)" → "bar")。
+        /// </summary>
+        public string Unit
+        {
+            get => _unit;
+            set
+            {
+                _unit = value ?? string.Empty;
                 OnPropertyChanged();
             }
         }
@@ -87,7 +104,7 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// 是否在变量管理器中可见（默认false）
+        /// 是否在变量管理器中可见(默认false)
         /// </summary>
         public bool IsVisibleInVariableManager
         {
@@ -122,40 +139,35 @@ namespace DevicePlugins.Devices
         /// <summary>
         /// 验证参数值
         /// </summary>
-        /// <returns>验证结果</returns>
         public virtual bool Validate()
         {
             if (IsRequired && Value == null)
                 return false;
-
             return ValidateValue();
         }
 
         /// <summary>
         /// 验证具体值(子类实现)
         /// </summary>
-        /// <returns>验证结果</returns>
         protected virtual bool ValidateValue()
         {
             return true;
         }
 
         /// <summary>
-        /// 克隆参数（深拷贝）
+        /// 克隆参数(深拷贝)
         /// </summary>
         public abstract object Clone();
 
         /// <summary>
-        /// 获取参数值（类型安全的辅助方法）
+        /// 获取参数值(类型安全的辅助方法)
         /// </summary>
         public T GetValue<T>()
         {
             if (Value is T typedValue)
                 return typedValue;
-
             if (Value == null)
                 return default(T);
-
             try
             {
                 return (T)Convert.ChangeType(Value, typeof(T));
@@ -167,11 +179,28 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// 获取参数值（非泛型版本）
+        /// 获取参数值(非泛型版本)
         /// </summary>
         public object GetValue()
         {
             return Value;
+        }
+
+        // ★ 新增:从 helpText 末尾的括号自动抽取单位
+        // 例如 "压力(bar)" → "bar", "温度(℃)" → "℃", "流量(mL/min)" → "mL/min"
+        // 支持中文括号 () 和英文括号 ()
+        private static readonly Regex UnitFromHelpTextRegex =
+            new Regex(@"[\(\(]([^\)\)]+)[\)\)]\s*$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 工具方法:从 helpText 末尾的括号自动抽取单位。
+        /// 子类构造函数中,如果 unit 没有显式指定,可调用此方法做兜底。
+        /// </summary>
+        protected static string TryExtractUnitFromHelpText(string helpText)
+        {
+            if (string.IsNullOrEmpty(helpText)) return "";
+            var m = UnitFromHelpTextRegex.Match(helpText);
+            return m.Success ? m.Groups[1].Value.Trim() : "";
         }
     }
 
@@ -183,9 +212,6 @@ namespace DevicePlugins.Devices
         private ObservableCollection<string> _options = new ObservableCollection<string>();
         private int _maxLength = int.MaxValue;
 
-        /// <summary>
-        /// 可选值列表
-        /// </summary>
         public ObservableCollection<string> Options
         {
             get => _options;
@@ -196,9 +222,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 最大长度
-        /// </summary>
         public int MaxLength
         {
             get => _maxLength;
@@ -209,30 +232,30 @@ namespace DevicePlugins.Devices
             }
         }
 
-        public StringParameter(string name, string value = "", string helpText = "", bool isVisibleInVariableManager = false)
+        public StringParameter(string name, string value = "", string helpText = "",
+            bool isVisibleInVariableManager = false, string unit = null)
         {
             Name = name;
             Value = value;
             HelpText = helpText;
             IsVisibleInVariableManager = isVisibleInVariableManager;
+
+            // ★ unit 优先用显式传入的;若为 null 则从 helpText 抽取
+            Unit = unit ?? TryExtractUnitFromHelpText(helpText);
         }
 
         protected override bool ValidateValue()
         {
             var stringValue = Value?.ToString() ?? string.Empty;
-
-            if (stringValue.Length > MaxLength)
-                return false;
-
-            if (Options.Count > 0 && !Options.Contains(stringValue))
-                return false;
-
+            if (stringValue.Length > MaxLength) return false;
+            if (Options.Count > 0 && !Options.Contains(stringValue)) return false;
             return true;
         }
 
         public override object Clone()
         {
-            var cloned = new StringParameter(Name, Value?.ToString() ?? "", HelpText, IsVisibleInVariableManager)
+            var cloned = new StringParameter(Name, Value?.ToString() ?? "", HelpText,
+                IsVisibleInVariableManager, Unit)
             {
                 IsRequired = IsRequired,
                 IsReadOnly = IsReadOnly,
@@ -252,9 +275,6 @@ namespace DevicePlugins.Devices
         private double _maxValue = double.MaxValue;
         private int _decimalPlaces = 2;
 
-        /// <summary>
-        /// 最小值
-        /// </summary>
         public double MinValue
         {
             get => _minValue;
@@ -265,9 +285,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 最大值
-        /// </summary>
         public double MaxValue
         {
             get => _maxValue;
@@ -278,9 +295,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 小数位数
-        /// </summary>
         public int DecimalPlaces
         {
             get => _decimalPlaces;
@@ -292,7 +306,8 @@ namespace DevicePlugins.Devices
         }
 
         public NumberParameter(string name, double minValue = double.MinValue, double maxValue = double.MaxValue,
-            double value = 0, string helpText = "", bool isVisibleInVariableManager = false)
+            double value = 0, string helpText = "", bool isVisibleInVariableManager = false,
+            string unit = null)
         {
             Name = name;
             MinValue = minValue;
@@ -300,20 +315,22 @@ namespace DevicePlugins.Devices
             Value = value;
             HelpText = helpText;
             IsVisibleInVariableManager = isVisibleInVariableManager;
+
+            // ★ unit 优先用显式传入的;若为 null 则从 helpText 抽取
+            // 例如 helpText="压力(bar)",自动得到 Unit="bar"
+            Unit = unit ?? TryExtractUnitFromHelpText(helpText);
         }
 
         protected override bool ValidateValue()
         {
-            if (Value is not double doubleValue)
-                return false;
-
+            if (Value is not double doubleValue) return false;
             return doubleValue >= MinValue && doubleValue <= MaxValue;
         }
 
         public override object Clone()
         {
             var cloned = new NumberParameter(Name, MinValue, MaxValue,
-                Value is double d ? d : 0, HelpText, IsVisibleInVariableManager)
+                Value is double d ? d : 0, HelpText, IsVisibleInVariableManager, Unit)
             {
                 IsRequired = IsRequired,
                 IsReadOnly = IsReadOnly,
@@ -328,12 +345,14 @@ namespace DevicePlugins.Devices
     /// </summary>
     public class BooleanParameter : ParameterBase
     {
-        public BooleanParameter(string name, bool value = false, string helpText = "", bool isVisibleInVariableManager = false)
+        public BooleanParameter(string name, bool value = false, string helpText = "",
+            bool isVisibleInVariableManager = false, string unit = null)
         {
             Name = name;
             Value = value;
             HelpText = helpText;
             IsVisibleInVariableManager = isVisibleInVariableManager;
+            Unit = unit ?? TryExtractUnitFromHelpText(helpText);
         }
 
         protected override bool ValidateValue()
@@ -344,7 +363,7 @@ namespace DevicePlugins.Devices
         public override object Clone()
         {
             var cloned = new BooleanParameter(Name,
-                Value is bool b ? b : false, HelpText, IsVisibleInVariableManager)
+                Value is bool b ? b : false, HelpText, IsVisibleInVariableManager, Unit)
             {
                 IsRequired = IsRequired,
                 IsReadOnly = IsReadOnly
@@ -360,9 +379,6 @@ namespace DevicePlugins.Devices
     {
         private Type _enumType;
 
-        /// <summary>
-        /// 枚举类型
-        /// </summary>
         public Type EnumType
         {
             get => _enumType;
@@ -376,7 +392,8 @@ namespace DevicePlugins.Devices
             }
         }
 
-        public EnumParameter(string name, Type enumType, object? value = null, string helpText = "", bool isVisibleInVariableManager = false)
+        public EnumParameter(string name, Type enumType, object? value = null, string helpText = "",
+            bool isVisibleInVariableManager = false, string unit = null)
         {
             if (!enumType.IsEnum)
                 throw new ArgumentException("Type must be an enum", nameof(enumType));
@@ -386,19 +403,18 @@ namespace DevicePlugins.Devices
             Value = value ?? Enum.GetValues(enumType).GetValue(0);
             HelpText = helpText;
             IsVisibleInVariableManager = isVisibleInVariableManager;
+            Unit = unit ?? TryExtractUnitFromHelpText(helpText);
         }
 
         protected override bool ValidateValue()
         {
-            if (Value == null)
-                return false;
-
+            if (Value == null) return false;
             return Enum.IsDefined(EnumType, Value);
         }
 
         public override object Clone()
         {
-            var cloned = new EnumParameter(Name, EnumType, Value, HelpText, IsVisibleInVariableManager)
+            var cloned = new EnumParameter(Name, EnumType, Value, HelpText, IsVisibleInVariableManager, Unit)
             {
                 IsRequired = IsRequired,
                 IsReadOnly = IsReadOnly

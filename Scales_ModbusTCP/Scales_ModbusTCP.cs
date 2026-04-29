@@ -749,14 +749,14 @@ namespace Scales_ModbusTCP
                 double density;
                 lock (_densityLock) { density = _currentDensity; }
 
-                WriteDetailedLog("".PadRight(80, ''));
-                WriteDetailedLog($"天平重量计法流量控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                WriteDetailedLog($"目标流量: {_targetFlowRate} g/min  密度: {density} g/cm³");
-                WriteDetailedLog($"控制方式: ΔW/Δt 线性回归 → PID → 泵速调整");
-                WriteDetailedLog($"PID参数: Kp={KP} Ki={KI} Kd={KD}");
-                WriteDetailedLog($"容差: ±{FLOW_TOLERANCE_PERCENT}%  死区: ±{DEAD_ZONE_PERCENT}%  超调保护: ±{UPPER_PROTECTION_PERCENT}%");
-                WriteDetailedLog($"等待档位: 低速{LOW_SPEED_WAIT_MS / 1000}s  中速{MID_SPEED_WAIT_MS / 1000}s  高速{HIGH_SPEED_WAIT_MS / 1000}s");
-                WriteDetailedLog("".PadRight(80, ''));
+                //WriteDetailedLog("".PadRight(80, ''));
+                //WriteDetailedLog($"天平重量计法流量控制启动 - {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                //WriteDetailedLog($"目标流量: {_targetFlowRate} g/min  密度: {density} g/cm³");
+                //WriteDetailedLog($"控制方式: ΔW/Δt 线性回归 → PID → 泵速调整");
+                //WriteDetailedLog($"PID参数: Kp={KP} Ki={KI} Kd={KD}");
+                //WriteDetailedLog($"容差: ±{FLOW_TOLERANCE_PERCENT}%  死区: ±{DEAD_ZONE_PERCENT}%  超调保护: ±{UPPER_PROTECTION_PERCENT}%");
+                //WriteDetailedLog($"等待档位: 低速{LOW_SPEED_WAIT_MS / 1000}s  中速{MID_SPEED_WAIT_MS / 1000}s  高速{HIGH_SPEED_WAIT_MS / 1000}s");
+                //WriteDetailedLog("".PadRight(80, ''));
             }
         }
 

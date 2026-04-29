@@ -40,7 +40,6 @@
             </Setter>
         </Style>
 
-        <!-- ═══ 分组标签样式 ═══ -->
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="{StaticResource Gray500}"/>
@@ -48,7 +47,6 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
-        <!-- ═══ 开关行文字样式 ═══ -->
         <Style x:Key="ToggleLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Foreground" Value="{StaticResource Gray700}"/>
@@ -56,7 +54,6 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <!-- ═══ Toggle 开关样式 ═══ -->
         <Style x:Key="ToggleStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="44"/>
             <Setter Property="Height" Value="24"/>
@@ -91,7 +88,6 @@
             </Setter>
         </Style>
 
-        <!-- ═══ 选项卡按钮样式 ═══ -->
         <Style x:Key="TabButtonStyle" TargetType="RadioButton">
             <Setter Property="Height" Value="34"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -131,7 +127,6 @@
             </Setter>
         </Style>
 
-        <!-- ═══ 方向选择按钮样式 ═══ -->
         <Style x:Key="DirectionButtonStyle" TargetType="RadioButton">
             <Setter Property="Height" Value="34"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -167,7 +162,6 @@
             </Setter>
         </Style>
 
-        <!-- ═══ 底部操作按钮 — 取消 ═══ -->
         <Style x:Key="CancelButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="34"/>
             <Setter Property="MinWidth" Value="80"/>
@@ -197,7 +191,6 @@
             </Setter>
         </Style>
 
-        <!-- ═══ 底部操作按钮 — 确定 ═══ -->
         <Style x:Key="ConfirmButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="34"/>
             <Setter Property="MinWidth" Value="80"/>
@@ -240,7 +233,6 @@
             </Setter>
         </Style>
 
-        <!-- ═══ 关闭按钮样式 ═══ -->
         <Style x:Key="CloseButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="28"/>
             <Setter Property="Height" Value="28"/>
@@ -265,16 +257,13 @@
             </Setter>
         </Style>
 
-        <!-- ═══ Slider 自定义样式 ═══ -->
         <Style x:Key="AccentSliderStyle" TargetType="Slider">
             <Setter Property="Height" Value="20"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Slider">
                         <Grid VerticalAlignment="Center">
-                            <!-- 轨道 -->
                             <Border Height="4" CornerRadius="2" Background="{StaticResource Gray200}"/>
-                            <!-- 已填充部分 — 用 Canvas 实现 -->
                             <Track x:Name="PART_Track">
                                 <Track.Thumb>
                                     <Thumb>
@@ -304,7 +293,6 @@
 
     </UserControl.Resources>
 
-    <!-- ═══ 主外框 — 白底圆角 + 阴影 ═══ -->
     <Border Background="White" CornerRadius="16"
             BorderBrush="{StaticResource Gray200}" BorderThickness="1">
         <Border.Effect>
@@ -314,23 +302,17 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <!-- 标题栏 -->
                 <RowDefinition Height="Auto"/>
-                <!-- 实时预览 -->
                 <RowDefinition Height="Auto"/>
-                <!-- 选项卡栏 -->
                 <RowDefinition Height="*"/>
-                <!-- 选项卡内容 -->
                 <RowDefinition Height="Auto"/>
-                <!-- 底部按钮 -->
             </Grid.RowDefinitions>
 
-            <!-- ═══ 标题栏 ═══ -->
+            <!-- 标题栏 -->
             <Border Grid.Row="0" Padding="20,14"
                     BorderBrush="{StaticResource Gray100}" BorderThickness="0,0,0,1">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- 红色小圆点 -->
                         <Ellipse Width="6" Height="6" Margin="0,0,10,0"
                                  Fill="{StaticResource AccentBrush}">
                             <Ellipse.Effect>
@@ -349,7 +331,7 @@
                 </Grid>
             </Border>
 
-            <!-- ═══ 实时预览（置顶） ═══ -->
+            <!-- 实时预览 -->
             <Border Grid.Row="1" Margin="20,16,20,0" Padding="20,14,20,10"
                     CornerRadius="12"
                     BorderBrush="{StaticResource Gray200}" BorderThickness="1">
@@ -362,7 +344,6 @@
                 </Border.Background>
 
                 <StackPanel>
-                    <!-- 预览标题 -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Border Width="12" Height="1.5" CornerRadius="1"
                                 Background="{StaticResource AccentBrush}" Margin="0,0,6,0"
@@ -375,7 +356,6 @@
                                 VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- 预览 Canvas -->
                     <Border HorizontalAlignment="Center" Height="56">
                         <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
                             <Canvas x:Name="PreviewCanvas"
@@ -387,7 +367,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 选项卡栏 ═══ -->
+            <!-- 选项卡栏 -->
             <Border Grid.Row="2" Margin="20,16,20,0"
                     Background="{StaticResource Gray100}"
                     CornerRadius="10" Padding="3">
@@ -423,28 +403,66 @@
                 </UniformGrid>
             </Border>
 
-            <!-- ═══ 选项卡内容区（可滚动） ═══ -->
+            <!-- 选项卡内容区 -->
             <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"
                           Margin="20,0,20,0" Padding="0,16,0,16">
 
-                <!-- 内容卡片容器 -->
                 <Border Background="{StaticResource Gray50}" CornerRadius="12"
                         Padding="18" BorderBrush="{StaticResource Gray100}" BorderThickness="1">
                     <Grid>
 
                         <!-- ─── 管道外观 ─── -->
                         <StackPanel x:Name="PanelAppearance">
-                            <!-- 管体颜色 -->
                             <TextBlock Name="TbBodyColorLabel" Text="管体颜色" Style="{StaticResource FieldLabelStyle}"/>
                             <WrapPanel x:Name="PipeColorPalette" Margin="0,0,0,16"/>
 
-                            <!-- 法兰颜色 -->
                             <TextBlock Name="TbFlangeColorLabel" Text="法兰颜色" Style="{StaticResource FieldLabelStyle}"/>
                             <WrapPanel x:Name="FlangeColorPalette"/>
+
+                            <!-- ★ 默认样式提示（勾选时显示） -->
+                            <Border x:Name="AppearanceLockedHint"
+                                    Background="#FFF7E8"
+                                    BorderBrush="#FFB84A"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="12,8"
+                                    Margin="0,16,0,0"
+                                    Visibility="Collapsed">
+                                <TextBlock Text="⚡ 已启用默认流动样式 — 管体/法兰颜色由科技感样式接管"
+                                           FontSize="11"
+                                           Foreground="#7A4A00"
+                                           TextWrapping="Wrap"/>
+                            </Border>
                         </StackPanel>
 
                         <!-- ─── 流体设置 ─── -->
                         <StackPanel x:Name="PanelFluid" Visibility="Collapsed">
+
+                            <!-- ★★★ 默认流动样式开关 ★★★ -->
+                            <Border Background="#FFF7E8"
+                                    BorderBrush="#FFB84A"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="14,10"
+                                    Margin="0,0,0,16">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <CheckBox x:Name="ChkUseDefaultStyle"
+                                                  Content="使用默认流动样式（赛博风 · 推荐）"
+                                                  FontSize="13"
+                                                  FontWeight="SemiBold"
+                                                  Foreground="#7A4A00"
+                                                  Checked="OnUseDefaultStyleChanged"
+                                                  Unchecked="OnUseDefaultStyleChanged"/>
+                                    </DockPanel>
+                                    <TextBlock Text="金属管壁 + 流光带 + 粒子辉光的科技效果。流体颜色、方向、流速仍可调整。"
+                                               FontSize="11"
+                                               Foreground="#996600"
+                                               TextWrapping="Wrap"
+                                               Margin="22,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
                             <!-- 显示流体开关 -->
                             <DockPanel Margin="0,0,0,16">
                                 <TextBlock Name="TbShowFlowLabel" Text="显示流体" Style="{StaticResource ToggleLabelStyle}"/>
@@ -456,12 +474,10 @@
                             </DockPanel>
 
                             <StackPanel x:Name="FluidSettingsPanel">
-                                <!-- 流体颜色 -->
                                 <TextBlock Name="TbFlowColorLabel" Text="流体颜色" Style="{StaticResource FieldLabelStyle}"/>
                                 <WrapPanel x:Name="FluidColorPalette" Margin="0,0,0,16"/>
 
-                                <!-- 透明度 -->
-                                <DockPanel>
+                                <DockPanel x:Name="OpacityRow">
                                     <TextBlock Name="TbTransparencyLabel" Text="透明度" Style="{StaticResource FieldLabelStyle}"
                                                Margin="0" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="TxtOpacity" Text="50%"
@@ -481,7 +497,6 @@
 
                         <!-- ─── 流动控制 ─── -->
                         <StackPanel x:Name="PanelFlow" Visibility="Collapsed">
-                            <!-- 流动状态 -->
                             <DockPanel Margin="0,0,0,16">
                                 <TextBlock Name="TbFlowStatusLabel" Text="流动状态" Style="{StaticResource ToggleLabelStyle}"/>
                                 <ToggleButton x:Name="ToggleFlowing"
@@ -492,7 +507,6 @@
                             </DockPanel>
 
                             <StackPanel x:Name="FlowControlPanel">
-                                <!-- 流动方向 -->
                                 <TextBlock Name="TbFlowDirectionLabel" Text="流动方向" Style="{StaticResource FieldLabelStyle}"/>
                                 <UniformGrid Columns="2" Margin="0,0,0,16">
                                     <RadioButton x:Name="RbLeftToRight"
@@ -507,7 +521,6 @@
                                                  Checked="OnFlowDirectionChanged"/>
                                 </UniformGrid>
 
-                                <!-- 流速 -->
                                 <DockPanel>
                                     <TextBlock Name="TbFlowVelocityLabel" Text="流速" Style="{StaticResource FieldLabelStyle}"
                                                Margin="0" VerticalAlignment="Center"/>
@@ -530,7 +543,7 @@
                 </Border>
             </ScrollViewer>
 
-            <!-- ═══ 底部按钮 ═══ -->
+            <!-- 底部按钮 -->
             <Border Grid.Row="4" Padding="20,12,20,16"
                     BorderBrush="{StaticResource Gray100}" BorderThickness="0,1,0,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

@@ -38,7 +38,15 @@ namespace PeristalticPumps_CY
 
         private readonly object _statesLock = new object();
         private string _lastReceivedData = string.Empty;
-
+        // ═══════════════════════════════════════════════════════
+        //  单位常量(全项目统一标准:温度=℃,流量=mL/min,压力=MPa)
+        // ═══════════════════════════════════════════════════════
+        private const string UnitTemperature = "℃";
+        private const string UnitFlow = "mL/min";
+        private const string UnitVolume = "mL";
+        private const string UnitPressure = "MPa";
+        private const string UnitPumpSpeed = "RPM";
+        private const string UnitTimeMin = "min";
         // 响应分隔符配置
         private const string RESPONSE_DELIMITER = "\r\n"; // 根据您的设备调整
         private const int MAX_RESPONSE_LENGTH = 1024;
@@ -752,7 +760,7 @@ namespace PeristalticPumps_CY
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-                        new NumberParameter("Temperature", -50, 200, 0, "当前温度") { IsVisibleInVariableManager = true },
+                        new NumberParameter("Temperature", -50, 200, 0, "当前温度", true, UnitTemperature),
                         new StringParameter("Unit", "℃", "温度单位") { IsVisibleInVariableManager = false },
                         new StringParameter("Timestamp", "", "采集时间") { IsVisibleInVariableManager = false },
                         new BooleanParameter("IsWarning", false, "是否超温警告") { IsVisibleInVariableManager = true },
@@ -828,7 +836,7 @@ namespace PeristalticPumps_CY
                         Variables = new ObservableCollection<ParameterBase>
                 {
                     new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                    new NumberParameter("Temperature", -50, 200, Math.Round(_currentTemperature, 2), "当前温度") { IsVisibleInVariableManager = true },
+                    new NumberParameter("Temperature", -50, 200, Math.Round(_currentTemperature, 2), "当前温度", true, UnitTemperature),
                     new StringParameter("Unit", "℃", "") { IsVisibleInVariableManager = false },
                     new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false },
                     new BooleanParameter("IsWarning", isWarning, "") { IsVisibleInVariableManager = true },
@@ -858,10 +866,10 @@ namespace PeristalticPumps_CY
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-                        new NumberParameter("FlowRate", 0, 1000, 0, "当前流量") { IsVisibleInVariableManager = true },
+                        new NumberParameter("FlowRate",     0, 1000,   0, "当前流量",     true, UnitFlow),
                         new StringParameter("Unit", "mL/min", "流量单位") { IsVisibleInVariableManager = false },
-                        new NumberParameter("TotalVolume", 0, 999999, 0, "累计流量(mL)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentSpeed", 0, 10000, 0, "当前转速(RPM)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TotalVolume",  0, 999999, 0, "累计流量",     true, UnitVolume),
+                        new NumberParameter("CurrentSpeed", 0, 10000,  0, "当前转速",     true, UnitPumpSpeed),
                         new StringParameter("Timestamp", "", "采集时间") { IsVisibleInVariableManager = false }
                     }
                 },
@@ -897,13 +905,7 @@ namespace PeristalticPumps_CY
                     }
 
                     // 单位转换
-                    double displayFlowRate = unit switch
-                    {
-                        FlowRateUnit.LPerMin => currentFlowRate / 1000,
-                        FlowRateUnit.MLPerSec => currentFlowRate / 60,
-                        _ => currentFlowRate
-                    };
-
+                    // 单位转换(仅供 Unit 字段显示给用户用,FlowRate 输出始终为 mL/min)
                     string unitStr = unit switch
                     {
                         FlowRateUnit.LPerMin => "L/min",
@@ -916,10 +918,10 @@ namespace PeristalticPumps_CY
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("FlowRate", 0, 1000, Math.Round(displayFlowRate, 3), "当前流量") { IsVisibleInVariableManager = true },
+                            new NumberParameter("FlowRate",     0, 1000,   Math.Round(currentFlowRate, 3), "当前流量",     true, UnitFlow),
                             new StringParameter("Unit", unitStr, "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("TotalVolume", 0, 999999, Math.Round(totalVolume, 2), "累计流量(mL)") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentSpeed", 0, 10000, Math.Round(currentSpeed, 1), "当前转速(RPM)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TotalVolume",  0, 999999, Math.Round(totalVolume, 2),     "累计流量",     true, UnitVolume),
+                            new NumberParameter("CurrentSpeed", 0, 10000,  Math.Round(currentSpeed, 1),    "当前转速",     true, UnitPumpSpeed),
                             new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false }
                         }
                     };
@@ -945,8 +947,8 @@ namespace PeristalticPumps_CY
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-                        new NumberParameter("Pressure", -100, 1000, 0, "当前压力") { IsVisibleInVariableManager = true },
-                        new StringParameter("Unit", "kPa", "压力单位") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Pressure", -1, 10, 0, "当前压力", true, UnitPressure),
+                        new StringParameter("Unit", "MPa", "压力单位") { IsVisibleInVariableManager = false },
                         new BooleanParameter("IsOverPressure", false, "是否超压") { IsVisibleInVariableManager = true },
                         new StringParameter("Timestamp", "", "采集时间") { IsVisibleInVariableManager = false }
                     }
@@ -973,25 +975,18 @@ namespace PeristalticPumps_CY
                         }
                     }
 
-                    // 单位转换
-                    double displayPressure = unit switch
-                    {
-                        PressureUnit.Bar => _currentPressure / 100,
-                        PressureUnit.PSI => _currentPressure * 0.145038,
-                        PressureUnit.MPa => _currentPressure / 1000,
-                        _ => _currentPressure
-                    };
+                    // 内部 _currentPressure 单位是 kPa,统一转换为 MPa 输出(与全项目压力单位对齐)
+                    double pressureInMPa = _currentPressure / 1000.0;
 
-                    string unitStr = unit.ToString();
-                    bool isOverPressure = _currentPressure > 500;
+                    bool isOverPressure = _currentPressure > 500;  // 判定阈值仍以内部 kPa 为准
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("Pressure", -100, 1000, Math.Round(displayPressure, 2), "当前压力") { IsVisibleInVariableManager = true },
-                            new StringParameter("Unit", unitStr, "") { IsVisibleInVariableManager = false },
+                            new NumberParameter("Pressure", -1, 10, Math.Round(pressureInMPa, 4), "当前压力", true, UnitPressure),
+                            new StringParameter("Unit", "MPa", "") { IsVisibleInVariableManager = false },
                             new BooleanParameter("IsOverPressure", isOverPressure, "") { IsVisibleInVariableManager = true },
                             new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "") { IsVisibleInVariableManager = false }
                         }
@@ -1021,7 +1016,7 @@ namespace PeristalticPumps_CY
                     {
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
                         new BooleanParameter("IsRunning", false, "运行状态") { IsVisibleInVariableManager = true },
-                        new NumberParameter("ActualSpeed", 0, 10000, 0, "实际转速(RPM)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("ActualSpeed", 0, 10000, 0, "实际转速", true, UnitPumpSpeed),
                         new StringParameter("Direction", "Forward", "运行方向") { IsVisibleInVariableManager = false },
                         new StringParameter("StartTime", "", "启动时间") { IsVisibleInVariableManager = false },
                         new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
@@ -1073,7 +1068,7 @@ namespace PeristalticPumps_CY
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
                             new BooleanParameter("IsRunning", true, "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("ActualSpeed", 0, 10000, Math.Round(actualSpeed, 1), "实际转速(RPM)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("ActualSpeed", 0, 10000, Math.Round(actualSpeed, 1), "实际转速", true, UnitPumpSpeed),
                             new StringParameter("Direction", direction.ToString(), "") { IsVisibleInVariableManager = false },
                             new StringParameter("StartTime", _startTime.ToString("yyyy-MM-dd HH:mm:ss"), "") { IsVisibleInVariableManager = false },
                             new StringParameter("Message", $"泵已启动，{(pulseFree ? "无脉动模式" : "标准模式")}", "") { IsVisibleInVariableManager = false }
@@ -1103,8 +1098,8 @@ namespace PeristalticPumps_CY
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
                         new BooleanParameter("IsRunning", true, "运行状态") { IsVisibleInVariableManager = true },
                         new StringParameter("StopTime", "", "停止时间") { IsVisibleInVariableManager = false },
-                        new NumberParameter("TotalRunTime", 0, 999999, 0, "总运行时间(分钟)") { IsVisibleInVariableManager = false },
-                        new NumberParameter("TotalVolume", 0, 999999, 0, "总泵送量(mL)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("TotalRunTime", 0, 999999, 0, "总运行时间", false, UnitTimeMin),
+                        new NumberParameter("TotalVolume",  0, 999999, 0, "总泵送量",   true,  UnitVolume),
                         new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
                     }
                 },
@@ -1155,8 +1150,8 @@ namespace PeristalticPumps_CY
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
                             new BooleanParameter("IsRunning", false, "") { IsVisibleInVariableManager = true },
                             new StringParameter("StopTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("TotalRunTime", 0, 999999, Math.Round(totalRunTime, 2), "总运行时间(分钟)") { IsVisibleInVariableManager = false },
-                            new NumberParameter("TotalVolume", 0, 999999, Math.Round(totalVolume, 2), "总泵送量(mL)") { IsVisibleInVariableManager = true },
+                            new NumberParameter("TotalRunTime", 0, 999999, Math.Round(totalRunTime, 2), "总运行时间", false, UnitTimeMin),
+                            new NumberParameter("TotalVolume",  0, 999999, Math.Round(totalVolume, 2),  "总泵送量",   true,  UnitVolume),
                             new StringParameter("Message", quickStop ? "紧急停止完成" : "正常停止完成", "") { IsVisibleInVariableManager = false }
                         }
                     };

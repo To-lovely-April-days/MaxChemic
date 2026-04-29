@@ -38,13 +38,26 @@ namespace DevicePlugins.Simulated
         private int _pressureStep = 0;
         private int _chromStep = 0;
         private int _flowRespStep = 0;
+
+        // ═══════════════════════════════════════════════════════
+        //  单位常量 - 集中定义,方便维护和复用
+        //  约定:温度=℃,压力=bar(国际化工常用),流量=mL/min 或 sccm,
+        //       色谱信号=mAU(未分类,不会画到温度/压力/流量轴上)
+        // ═══════════════════════════════════════════════════════
+        private const string UnitTemperature = "℃";
+        private const string UnitPressure = "MPa";
+        private const string UnitLiquidFlow = "mL/min";
+        private const string UnitGasFlow = "sccm";
+        private const string UnitTime = "s";
+        private const string UnitChromSignal = "mAU";
+
         public SimulatedProcessDevice()
         {
             _logger = LogManager.GetLogger<SimulatedProcessDevice>();
 
             Name = "Simulated_Reactor_V1";
             Manufacturer = "Virtual Devices Inc.";
-            Category = DeviceCategories.Reactors; // 或者根据你的框架调整分类
+            Category = DeviceCategories.Reactors;
             ComId = "SIM_PORT";
 
             AllowedRegions = new List<RegionType>()
@@ -55,7 +68,6 @@ namespace DevicePlugins.Simulated
                 RegionType.PostProcess
             };
 
-            // 使用默认图标或你自己的图标
             ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/Default.png";
 
             InitializeCommands();
@@ -75,31 +87,30 @@ namespace DevicePlugins.Simulated
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetTemperature", -50, 300, 25.0, "目标温度(℃)"),
-                        new NumberParameter("WaitTime", 1, 10,1, "等待时间")
+                        new NumberParameter("TargetTemperature", -50, 300, 25.0, "目标温度", unit: UnitTemperature),
+                        new NumberParameter("WaitTime", 1, 10, 1, "等待时间", unit: UnitTime)
                     }
                 },
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-                        new NumberParameter("CurrentTemperature", -50, 300, 0, "当前温度(℃)") { IsVisibleInVariableManager = true },
-                        new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
-                    }
+                {
+                    new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                    new NumberParameter("Time", 0, 99999, 0, "时间",
+                        unit: UnitTime) { IsVisibleInVariableManager = true },
+                    new NumberParameter("Pressure", 0, 10, 0, "压力",
+                        unit: UnitPressure) { IsVisibleInVariableManager = true }
+                }
                 },
                 Action = WrapAction("设置温度", async delegate (DeviceParameters parameters)
                 {
                     double targetTemp = parameters.GetValue<double>("TargetTemperature");
                     double waitTime = parameters.GetValue<double>("WaitTime");
-                    // 模拟硬件通信延迟
                     await Task.Delay(new Random().Next(200, 500));
-                    //await Task.Delay((int)waitTime*1000);
 
                     lock (_stateLock)
                     {
                         _targetTemperature = targetTemp;
-                        // 模拟温度瞬间达到目标值附近，并加入±0.5的随机噪声
                         _currentTemperature = targetTemp + (new Random().NextDouble() - 0.5);
                     }
 
@@ -108,8 +119,9 @@ namespace DevicePlugins.Simulated
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("CurrentTemperature", -50, 300, Math.Round(_currentTemperature, 2), "") { IsVisibleInVariableManager = true },
-                            new StringParameter("Message", $"温度已设定为 {targetTemp}℃", "") { IsVisibleInVariableManager = false }
+                            new NumberParameter("CurrentTemperature", -50, 300, Math.Round(_currentTemperature, 2),
+                                "", unit: UnitTemperature) { IsVisibleInVariableManager = true },
+                            new StringParameter("Message", $"温度已设定为 {targetTemp}{UnitTemperature}", "") { IsVisibleInVariableManager = false }
                         }
                     };
                 })
@@ -127,7 +139,7 @@ namespace DevicePlugins.Simulated
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetFlow", 0, 100, 1.0, "目标流量(mL/min)")
+                        new NumberParameter("TargetFlow", 0, 100, 1.0, "目标流量", unit: UnitLiquidFlow)
                     }
                 },
                 OutputParameters = new DeviceParameters
@@ -135,26 +147,23 @@ namespace DevicePlugins.Simulated
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-                        new NumberParameter("CurrentFlow", 0, 100, 0, "当前流量(mL/min)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentFlow", 0, 100, 0, "当前流量",
+                            unit: UnitLiquidFlow) { IsVisibleInVariableManager = true },
                         new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("设置流量", async delegate (DeviceParameters parameters)
                 {
                     double targetFlow = parameters.GetValue<double>("TargetFlow");
-
-                    // 模拟硬件通信延迟
                     await Task.Delay(new Random().Next(100, 300));
 
                     lock (_stateLock)
                     {
                         _targetLiquidFlow = targetFlow;
-                        // 模拟流量波动 (±0.05)
                         _currentLiquidFlow = targetFlow > 0 ? targetFlow + (new Random().NextDouble() * 0.1 - 0.05) : 0;
                         _isRunning = _currentLiquidFlow > 0;
                     }
 
-                    // 记录活跃状态 (如果流量大于0)
                     if (targetFlow > 0)
                     {
                         AddActiveState("LiquidPumping", "设置流量", "停止", stateData: targetFlow);
@@ -169,15 +178,16 @@ namespace DevicePlugins.Simulated
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("CurrentFlow", 0, 100, Math.Round(_currentLiquidFlow, 3), "") { IsVisibleInVariableManager = true },
-                            new StringParameter("Message", $"液体流量已设定为 {targetFlow} mL/min", "") { IsVisibleInVariableManager = false }
+                            new NumberParameter("CurrentFlow", 0, 100, Math.Round(_currentLiquidFlow, 3),
+                                "", unit: UnitLiquidFlow) { IsVisibleInVariableManager = true },
+                            new StringParameter("Message", $"液体流量已设定为 {targetFlow} {UnitLiquidFlow}", "") { IsVisibleInVariableManager = false }
                         }
                     };
                 })
             });
 
             // ==========================================
-            // 3. 设置氢气流量命令 (气体质量流量计 MFC 模拟)
+            // 3. 设置氢气流量命令 (MFC)
             // ==========================================
             Commands.Add(new DeviceCommand
             {
@@ -188,7 +198,7 @@ namespace DevicePlugins.Simulated
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
-                        new NumberParameter("TargetH2Flow", 0, 500, 50.0, "目标氢气流量(sccm)")
+                        new NumberParameter("TargetH2Flow", 0, 500, 50.0, "目标氢气流量", unit: UnitGasFlow)
                     }
                 },
                 OutputParameters = new DeviceParameters
@@ -196,21 +206,19 @@ namespace DevicePlugins.Simulated
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-                        new NumberParameter("CurrentH2Flow", 0, 500, 0, "当前氢气流量(sccm)") { IsVisibleInVariableManager = true },
+                        new NumberParameter("CurrentH2Flow", 0, 500, 0, "当前氢气流量",
+                            unit: UnitGasFlow) { IsVisibleInVariableManager = true },
                         new StringParameter("Message", "", "状态信息") { IsVisibleInVariableManager = false }
                     }
                 },
                 Action = WrapAction("设置氢气流量", async delegate (DeviceParameters parameters)
                 {
                     double targetH2 = parameters.GetValue<double>("TargetH2Flow");
-
-                    // 模拟硬件通信延迟
                     await Task.Delay(new Random().Next(100, 300));
 
                     lock (_stateLock)
                     {
                         _targetH2Flow = targetH2;
-                        // 气体流量计通常比较精准，加入极小波动 (±0.5 sccm)
                         _currentH2Flow = targetH2 > 0 ? targetH2 + (new Random().NextDouble() - 0.5) : 0;
                     }
 
@@ -228,15 +236,16 @@ namespace DevicePlugins.Simulated
                         Variables = new ObservableCollection<ParameterBase>
                         {
                             new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("CurrentH2Flow", 0, 500, Math.Round(_currentH2Flow, 1), "") { IsVisibleInVariableManager = true },
-                            new StringParameter("Message", $"氢气流量已设定为 {targetH2} sccm", "") { IsVisibleInVariableManager = false }
+                            new NumberParameter("CurrentH2Flow", 0, 500, Math.Round(_currentH2Flow, 1),
+                                "", unit: UnitGasFlow) { IsVisibleInVariableManager = true },
+                            new StringParameter("Message", $"氢气流量已设定为 {targetH2} {UnitGasFlow}", "") { IsVisibleInVariableManager = false }
                         }
                     };
                 })
             });
 
             // ==========================================
-            // 4. 停止命令 (用于紧急停止或清空状态)
+            // 4. 停止命令
             // ==========================================
             Commands.Add(new DeviceCommand
             {
@@ -261,7 +270,6 @@ namespace DevicePlugins.Simulated
                         _currentLiquidFlow = 0;
                         _targetH2Flow = 0;
                         _currentH2Flow = 0;
-                        // 温度通常不会瞬间归零，保留当前温度
                     }
 
                     RemoveActiveState("LiquidPumping");
@@ -277,20 +285,25 @@ namespace DevicePlugins.Simulated
                 })
             });
 
+            // ==========================================
+            // 5. 获取温度数据
+            // ==========================================
             Commands.Add(new DeviceCommand
             {
                 Name = "获取温度数据",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/temperature.png",
-                HelpText = "每次调用返回一个温度数据点，多次调用形成S型升温曲线",
+                HelpText = "每次调用返回一个温度数据点,多次调用形成S型升温曲线",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-        {
-            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
-            new NumberParameter("Temperature", -50, 500, 0, "温度(℃)") { IsVisibleInVariableManager = true }
-        }
+                    {
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Time", 0, 99999, 0, "时间",
+                            unit: UnitTime) { IsVisibleInVariableManager = true },
+                        new NumberParameter("Temperature", -50, 500, 0, "温度",
+                            unit: UnitTemperature) { IsVisibleInVariableManager = true }
+                    }
                 },
                 Action = WrapAction("获取温度数据", async delegate (DeviceParameters parameters)
                 {
@@ -299,40 +312,46 @@ namespace DevicePlugins.Simulated
                     int step;
                     lock (_stateLock) { step = _tempStep++; }
 
-                    double t = step * 0.5; // 每步0.5秒
-                                           // S型曲线 (sigmoid): 从25℃升到200℃
-                    double midPoint = 30.0; // 中间拐点时间
+                    double t = step * 0.5;
+                    double midPoint = 30.0;
                     double steepness = 0.15;
                     double value = 25.0 + 175.0 / (1.0 + Math.Exp(-steepness * (t - midPoint)));
-                    // 加噪声
                     double noise = (new Random().NextDouble() - 0.5) * 0.6;
                     value = Math.Round(value + noise, 2);
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-            {
-                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "") { IsVisibleInVariableManager = true },
-                new NumberParameter("Temperature", -50, 500, value, "") { IsVisibleInVariableManager = true }
-            }
+                        {
+                            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                            new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "",
+                                unit: UnitTime) { IsVisibleInVariableManager = true },
+                            new NumberParameter("Temperature", -50, 500, value, "",
+                                unit: UnitTemperature) { IsVisibleInVariableManager = true }
+                        }
                     };
                 })
             });
+
+            // ==========================================
+            // 6. 获取压力数据 ★ 关键命令
+            // ==========================================
             Commands.Add(new DeviceCommand
             {
                 Name = "获取压力数据",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/gas.png",
-                HelpText = "每次调用返回一个压力数据点，多次调用形成周期性波动曲线",
+                HelpText = "每次调用返回一个压力数据点,多次调用形成周期性波动曲线",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-        {
-            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
-            new NumberParameter("Pressure", 0, 100, 0, "压力(bar)") { IsVisibleInVariableManager = true }
-        }
+                    {
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Time", 0, 99999, 0, "时间",
+                            unit: UnitTime) { IsVisibleInVariableManager = true },
+                        new NumberParameter("Pressure", 0, 100, 0, "压力",
+                            unit: UnitPressure) { IsVisibleInVariableManager = true }
+                    }
                 },
                 Action = WrapAction("获取压力数据", async delegate (DeviceParameters parameters)
                 {
@@ -342,38 +361,48 @@ namespace DevicePlugins.Simulated
                     lock (_stateLock) { step = _pressureStep++; }
 
                     double t = step * 0.5;
-                    // 三个正弦叠加: 主波 + 谐波 + 慢漂移，形成丰富的波形
-                    double wave1 = 2.0 * Math.Sin(2 * Math.PI * 0.03 * t);           // 慢呼吸波
-                    double wave2 = 0.8 * Math.Sin(2 * Math.PI * 0.12 * t + 0.7);     // 中频泵脉动
-                    double wave3 = 0.3 * Math.Sin(2 * Math.PI * 0.31 * t + 2.1);     // 高频扰动
-                    double noise = (new Random().NextDouble() - 0.5) * 0.15;
-                    double value = Math.Round(10.0 + wave1 + wave2 + wave3 + noise, 3);
+                    // 中心值 1.0 MPa,波形和噪声幅度都缩小 10 倍(原 bar 系数 ÷ 10)
+                    double wave1 = 0.20 * Math.Sin(2 * Math.PI * 0.03 * t);
+                    double wave2 = 0.08 * Math.Sin(2 * Math.PI * 0.12 * t + 0.7);
+                    double wave3 = 0.03 * Math.Sin(2 * Math.PI * 0.31 * t + 2.1);
+                    double noise = (new Random().NextDouble() - 0.5) * 0.015;
+                    // 中心 1.0 MPa(= 原 10 bar),精度提升到 4 位小数
+                    double value = Math.Round(1.0 + wave1 + wave2 + wave3 + noise, 4);
 
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-            {
-                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "") { IsVisibleInVariableManager = true },
-                new NumberParameter("Pressure", 0, 100, value, "") { IsVisibleInVariableManager = true }
-            }
+                        {
+                            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                            new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "",
+                                unit: UnitTime) { IsVisibleInVariableManager = true },
+                            new NumberParameter("Pressure", 0, 10, value, "",
+                                unit: UnitPressure) { IsVisibleInVariableManager = true }
+                        }
                     };
                 })
             });
+
+            // ==========================================
+            // 7. 获取色谱信号
+            // 注:mAU 不属于温度/压力/流量,会显示"单位未分类"提示,这是预期行为
+            // ==========================================
             Commands.Add(new DeviceCommand
             {
                 Name = "获取色谱信号",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/Default.png",
-                HelpText = "每次调用返回一个色谱信号点，多次调用形成多峰色谱图",
+                HelpText = "每次调用返回一个色谱信号点,多次调用形成多峰色谱图",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-        {
-            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
-            new NumberParameter("Signal", 0, 99999, 0, "信号(mAU)") { IsVisibleInVariableManager = true }
-        }
+                    {
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Time", 0, 99999, 0, "时间",
+                            unit: UnitTime) { IsVisibleInVariableManager = true },
+                        new NumberParameter("Signal", 0, 99999, 0, "信号",
+                            unit: UnitChromSignal) { IsVisibleInVariableManager = true }
+                    }
                 },
                 Action = WrapAction("获取色谱信号", async delegate (DeviceParameters parameters)
                 {
@@ -384,15 +413,13 @@ namespace DevicePlugins.Simulated
 
                     double t = step * 0.5;
 
-                    // 5个高斯峰，手工调好位置和宽度，保证好看
-                    // (保留时间, 峰宽sigma, 峰高)
                     var peaks = new (double rt, double sigma, double height)[]
                     {
-            (15.0,  2.0,  800),    // 小前峰
-            (35.0,  3.0,  4500),   // 主峰1
-            (48.0,  2.5,  3200),   // 主峰2（与1有轻微重叠）
-            (70.0,  4.0,  6000),   // 最高峰
-            (95.0,  3.5,  2000),   // 尾峰
+                        (15.0, 2.0,  800),
+                        (35.0, 3.0,  4500),
+                        (48.0, 2.5,  3200),
+                        (70.0, 4.0,  6000),
+                        (95.0, 3.5,  2000),
                     };
 
                     double signal = 0;
@@ -401,7 +428,6 @@ namespace DevicePlugins.Simulated
                         signal += height * Math.Exp(-0.5 * Math.Pow((t - rt) / sigma, 2));
                     }
 
-                    // 基线缓慢漂移 + 微小噪声
                     double baseline = 3.0 * Math.Sin(2 * Math.PI * t / 200.0) + 5.0;
                     double noise = (new Random().NextDouble() - 0.5) * 8;
                     signal = Math.Round(signal + baseline + noise, 2);
@@ -410,28 +436,36 @@ namespace DevicePlugins.Simulated
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-            {
-                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "") { IsVisibleInVariableManager = true },
-                new NumberParameter("Signal", 0, 99999, signal, "") { IsVisibleInVariableManager = true }
-            }
+                        {
+                            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                            new NumberParameter("Time", 0, 99999, Math.Round(t, 1), "",
+                                unit: UnitTime) { IsVisibleInVariableManager = true },
+                            new NumberParameter("Signal", 0, 99999, signal, "",
+                                unit: UnitChromSignal) { IsVisibleInVariableManager = true }
+                        }
                     };
                 })
             });
+
+            // ==========================================
+            // 8. 获取流量响应
+            // ==========================================
             Commands.Add(new DeviceCommand
             {
                 Name = "获取流量响应",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
-                HelpText = "每次调用返回一个流量响应点，多次调用形成阶跃振荡衰减曲线",
+                HelpText = "每次调用返回一个流量响应点,多次调用形成阶跃振荡衰减曲线",
                 InputParameters = new DeviceParameters(),
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-        {
-            new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
-            new NumberParameter("Time", 0, 99999, 0, "时间(s)") { IsVisibleInVariableManager = true },
-            new NumberParameter("Flow", 0, 200, 0, "流量(mL/min)") { IsVisibleInVariableManager = true }
-        }
+                    {
+                        new StringParameter("Status", "PENDING", "执行状态") { IsVisibleInVariableManager = false },
+                        new NumberParameter("Time", 0, 99999, 0, "时间",
+                            unit: UnitTime) { IsVisibleInVariableManager = true },
+                        new NumberParameter("Flow", 0, 200, 0, "流量",
+                            unit: UnitLiquidFlow) { IsVisibleInVariableManager = true }
+                    }
                 },
                 Action = WrapAction("获取流量响应", async delegate (DeviceParameters parameters)
                 {
@@ -440,16 +474,16 @@ namespace DevicePlugins.Simulated
                     int step;
                     lock (_stateLock) { step = _flowRespStep++; }
 
-                    double t = step * 0.2; // 每步0.2秒，更密
+                    double t = step * 0.2;
                     double target = 20.0;
-                    double zeta = 0.2;   // 欠阻尼，振荡明显
+                    double zeta = 0.2;
                     double wn = 1.2;
                     double wd = wn * Math.Sqrt(1 - zeta * zeta);
 
                     double value;
                     if (t < 1.0)
                     {
-                        value = 0; // 初始静止
+                        value = 0;
                     }
                     else
                     {
@@ -464,17 +498,19 @@ namespace DevicePlugins.Simulated
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-            {
-                new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                new NumberParameter("Time", 0, 99999, Math.Round(t, 2), "") { IsVisibleInVariableManager = true },
-                new NumberParameter("Flow", 0, 200, value, "") { IsVisibleInVariableManager = true }
-            }
+                        {
+                            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+                            new NumberParameter("Time", 0, 99999, Math.Round(t, 2), "",
+                                unit: UnitTime) { IsVisibleInVariableManager = true },
+                            new NumberParameter("Flow", 0, 200, value, "",
+                                unit: UnitLiquidFlow) { IsVisibleInVariableManager = true }
+                        }
                     };
                 })
             });
         }
 
-        #region 生命周期与连接模拟 (纯模拟，全部返回True)
+        #region 生命周期与连接模拟
 
         public override void Initialize()
         {
@@ -499,7 +535,7 @@ namespace DevicePlugins.Simulated
         protected override async Task<bool> OnConnectAsync()
         {
             InfoLog("模拟设备连接成功");
-            await Task.Delay(200); // 模拟连接耗时
+            await Task.Delay(200);
             return true;
         }
 
@@ -512,13 +548,12 @@ namespace DevicePlugins.Simulated
 
         protected override async Task<bool> OnCheckConnectionAsync()
         {
-            // 模拟设备永远在线
             return true;
         }
 
         #endregion
 
-        #region IControllableDevice 状态管理 (保留原逻辑)
+        #region IControllableDevice 状态管理
 
         public List<DeviceActiveState> ActiveStates
         {

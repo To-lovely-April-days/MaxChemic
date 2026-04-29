@@ -101,7 +101,17 @@ namespace DigitalScale_ModbusTCP
 
         private const int MAX_PUMP_SPEED = 100;
         private const double LOW_WEIGHT_WARN_G = 100.0;
-
+        // ═══════════════════════════════════════════════════════
+        //  单位常量集中定义,与监控图表的轴分类对齐
+        //   - g/min 自动归属"流量轴"
+        //   - 其他单位(g, RPM, s, %, ...)归"未分类",不绘制在图表上
+        // ═══════════════════════════════════════════════════════
+        private const string UnitGram = "g";
+        private const string UnitFlowRate = "g/min";
+        private const string UnitPumpSpeed = "RPM";
+        private const string UnitTimeSec = "s";
+        private const string UnitPercent = "%";
+        private const string UnitKcoeff = "(g/min)/RPM";
         // 运行状态
         private double _lastPumpSpeed = 0.0;
         private bool _stabilityDeclared = false;
@@ -1845,13 +1855,13 @@ namespace DigitalScale_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new StringParameter("Status",        "PENDING", "执行状态")    { IsVisibleInVariableManager = false },
-                        new NumberParameter("CurrentWeight", -1000, 10000, 0, "当前重量") { IsVisibleInVariableManager = true  },
-                        new NumberParameter("TotalWeight",   0, 999999, 0, "累计重量")   { IsVisibleInVariableManager = true  },
-                        new StringParameter("Unit",          "g",       "重量单位")    { IsVisibleInVariableManager = false },
-                        new StringParameter("Timestamp",     "",        "采集时间")    { IsVisibleInVariableManager = false }
-                    }
+        {
+            new StringParameter("Status",        "PENDING", "执行状态")    { IsVisibleInVariableManager = false },
+            new NumberParameter("CurrentWeight", -1000, 10000, 0, "当前重量", true, UnitGram),
+            new NumberParameter("TotalWeight",   0, 999999, 0, "累计重量",   true, UnitGram),
+            new StringParameter("Unit",          "g",       "重量单位")    { IsVisibleInVariableManager = false },
+            new StringParameter("Timestamp",     "",        "采集时间")    { IsVisibleInVariableManager = false }
+        }
                 },
                 Action = WrapAction("获取称重值", async delegate (DeviceParameters parameters)
                 {
@@ -1883,18 +1893,18 @@ namespace DigitalScale_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
-                            new NumberParameter("CurrentWeight", -1000, 10000,
-                                Math.Round(ConvertWeight(currentWeight, WeightUnit.Gram, unit), 3), "当前重量")
-                                { IsVisibleInVariableManager = true },
-                            new NumberParameter("TotalWeight", 0, 999999,
-                                Math.Round(ConvertWeight(totalWeight, WeightUnit.Gram, unit), 2), "累计重量")
-                                { IsVisibleInVariableManager = true },
-                            new StringParameter("Unit",      GetUnitString(unit), "") { IsVisibleInVariableManager = false },
-                            new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "")
-                                { IsVisibleInVariableManager = false }
-                        }
+        {
+            new StringParameter("Status", "OK", "") { IsVisibleInVariableManager = false },
+            new NumberParameter("CurrentWeight", -1000, 10000,
+                Math.Round(ConvertWeight(currentWeight, WeightUnit.Gram, unit), 3), "当前重量",
+                true, GetUnitString(unit)),
+            new NumberParameter("TotalWeight", 0, 999999,
+                Math.Round(ConvertWeight(totalWeight, WeightUnit.Gram, unit), 2), "累计重量",
+                true, GetUnitString(unit)),
+            new StringParameter("Unit",      GetUnitString(unit), "") { IsVisibleInVariableManager = false },
+            new StringParameter("Timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), "")
+                { IsVisibleInVariableManager = false }
+        }
                     };
                 }),
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
@@ -1925,17 +1935,17 @@ namespace DigitalScale_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("Success",          false, "设置成功")              { IsVisibleInVariableManager = true },
-                        new NumberParameter("SetFlowRate",       0, 500,  0, "目标流速 (g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("InitialPumpSpeed",  0, 100,  0, "初始泵速 (RPM)")   { IsVisibleInVariableManager = true },
-                        new BooleanParameter("ControlStarted",   false, "控制已启动")            { IsVisibleInVariableManager = true },
-                        new BooleanParameter("Stabilized",       false, "流速已稳定")            { IsVisibleInVariableManager = true },
-                        new NumberParameter("FinalFlow",         0, 500,  0, "稳定时估算流速")   { IsVisibleInVariableManager = true },
-                        new NumberParameter("FinalRatio",        0, 200,  0, "稳定时 Ratio (%)")  { IsVisibleInVariableManager = true },
-                        new NumberParameter("ElapsedSec",        0, 9999, 0, "稳定耗时 (秒)")    { IsVisibleInVariableManager = true },
-                        new NumberParameter("AdaptiveCoeff",     0, 20,   0, "当前 Kcoeff")       { IsVisibleInVariableManager = true }
-                    }
+        {
+            new BooleanParameter("Success",          false, "设置成功")              { IsVisibleInVariableManager = true },
+            new NumberParameter("SetFlowRate",       0, 500,  0, "目标流速",         true, UnitFlowRate),
+            new NumberParameter("InitialPumpSpeed",  0, 100,  0, "初始泵速",         true, UnitPumpSpeed),
+            new BooleanParameter("ControlStarted",   false, "控制已启动")            { IsVisibleInVariableManager = true },
+            new BooleanParameter("Stabilized",       false, "流速已稳定")            { IsVisibleInVariableManager = true },
+            new NumberParameter("FinalFlow",         0, 500,  0, "稳定时估算流速",   true, UnitFlowRate),
+            new NumberParameter("FinalRatio",        0, 200,  0, "稳定时 Ratio",     true, UnitPercent),
+            new NumberParameter("ElapsedSec",        0, 9999, 0, "稳定耗时",         true, UnitTimeSec),
+            new NumberParameter("AdaptiveCoeff",     0, 20,   0, "当前 Kcoeff",      true, UnitKcoeff)
+        }
                 },
                 Action = WrapAction("设置目标流速", async delegate (DeviceParameters parameters)
                 {
@@ -2100,17 +2110,17 @@ namespace DigitalScale_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("Success",         success,                           "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("SetFlowRate",      0, 500,  targetFlow,               "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("InitialPumpSpeed", 0, 100,  Math.Round(initialPumpSpeed, 1), "") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("ControlStarted",  controlStarted,                    "") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("Stabilized",      stabilized,                        "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("FinalFlow",        0, 500,  Math.Round(finalEstLog, 4), "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("FinalRatio",       0, 200,  Math.Round(finalRatio, 2), "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("ElapsedSec",       0, 9999, Math.Round(elapsedSec, 1), "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("AdaptiveCoeff",    0, 20,   Math.Round(_adaptiveCoeff, 4), "") { IsVisibleInVariableManager = true }
-                        }
+        {
+            new BooleanParameter("Success",         success,                           "") { IsVisibleInVariableManager = true },
+            new NumberParameter("SetFlowRate",      0, 500,  targetFlow,               "", true, UnitFlowRate),
+            new NumberParameter("InitialPumpSpeed", 0, 100,  Math.Round(initialPumpSpeed, 1), "", true, UnitPumpSpeed),
+            new BooleanParameter("ControlStarted",  controlStarted,                    "") { IsVisibleInVariableManager = true },
+            new BooleanParameter("Stabilized",      stabilized,                        "") { IsVisibleInVariableManager = true },
+            new NumberParameter("FinalFlow",        0, 500,  Math.Round(finalEstLog, 4), "", true, UnitFlowRate),
+            new NumberParameter("FinalRatio",       0, 200,  Math.Round(finalRatio, 2), "", true, UnitPercent),
+            new NumberParameter("ElapsedSec",       0, 9999, Math.Round(elapsedSec, 1), "", true, UnitTimeSec),
+            new NumberParameter("AdaptiveCoeff",    0, 20,   Math.Round(_adaptiveCoeff, 4), "", true, UnitKcoeff)
+        }
                     };
                 }),
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
@@ -2176,28 +2186,28 @@ namespace DigitalScale_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new BooleanParameter("FlowControlEnabled",  false, "控制运行中")           { IsVisibleInVariableManager = true },
-                        new StringParameter("ControlPhase",         "",    "控制阶段")              { IsVisibleInVariableManager = true },
-                        new NumberParameter("TargetFlowRate",       0, 500,  0, "目标流速 (g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("EstimatedFlowRate",    0, 500,  0, "估算流速 (g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("KF_WeightEst",         0, 99999,0, "估算重量 (g)")     { IsVisibleInVariableManager = true },
-                        new NumberParameter("KF_FlowSigma",         0, 100,  0, "流速标准差")       { IsVisibleInVariableManager = true },
-                        new NumberParameter("DOB_DistEst",          -100,100,0, "扰动估计 (g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("Ratio",                0, 200,  0, "Ratio (%)")        { IsVisibleInVariableManager = true },
-                        new NumberParameter("Deviation",            -500,500,0, "偏差 (g/min)")     { IsVisibleInVariableManager = true },
-                        new NumberParameter("DeviationPct",         -100,100,0, "偏差百分比 (%)")   { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentPumpSpeed",     0, 100,  0, "当前泵速 (RPM)")   { IsVisibleInVariableManager = true },
-                        new NumberParameter("StableCount",          0, 10,   0, "稳定计数")         { IsVisibleInVariableManager = true },
-                        new BooleanParameter("StabilityDeclared",   false, "已声明稳定")            { IsVisibleInVariableManager = true },
-                        new NumberParameter("AdaptiveCoeff",        0, 20,   0, "Kcoeff")           { IsVisibleInVariableManager = true },
-                        new NumberParameter("CurrentWeight",        0, 99999,0, "天平实时重量 (g)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("ElapsedSeconds",       0, 9999, 0, "已运行秒数")       { IsVisibleInVariableManager = true },
-                        new NumberParameter("CycleCount",           0, 9999, 0, "MPC 周期数")       { IsVisibleInVariableManager = true },
-                        new StringParameter("PhysCalibState",       "",    "物理标定状态")          { IsVisibleInVariableManager = true },
-                        new StringParameter("LogFilePath",          "",    "日志文件路径")          { IsVisibleInVariableManager = true },
-                        new StringParameter("StatusSummary",        "",    "状态摘要")              { IsVisibleInVariableManager = true }
-                    }
+        {
+            new BooleanParameter("FlowControlEnabled",  false, "控制运行中")           { IsVisibleInVariableManager = true },
+            new StringParameter("ControlPhase",         "",    "控制阶段")              { IsVisibleInVariableManager = true },
+            new NumberParameter("TargetFlowRate",       0, 500,  0, "目标流速",        true, UnitFlowRate),
+            new NumberParameter("EstimatedFlowRate",    0, 500,  0, "估算流速",        true, UnitFlowRate),
+            new NumberParameter("KF_WeightEst",         0, 99999,0, "估算重量",        true, UnitGram),
+            new NumberParameter("KF_FlowSigma",         0, 100,  0, "流速标准差",      true, UnitFlowRate),
+            new NumberParameter("DOB_DistEst",          -100,100,0, "扰动估计",        true, UnitFlowRate),
+            new NumberParameter("Ratio",                0, 200,  0, "Ratio",          true, UnitPercent),
+            new NumberParameter("Deviation",            -500,500,0, "偏差",           true, UnitFlowRate),
+            new NumberParameter("DeviationPct",         -100,100,0, "偏差百分比",      true, UnitPercent),
+            new NumberParameter("CurrentPumpSpeed",     0, 100,  0, "当前泵速",        true, UnitPumpSpeed),
+            new NumberParameter("StableCount",          0, 10,   0, "稳定计数")         { IsVisibleInVariableManager = true },
+            new BooleanParameter("StabilityDeclared",   false, "已声明稳定")            { IsVisibleInVariableManager = true },
+            new NumberParameter("AdaptiveCoeff",        0, 20,   0, "Kcoeff",         true, UnitKcoeff),
+            new NumberParameter("CurrentWeight",        0, 99999,0, "天平实时重量",    true, UnitGram),
+            new NumberParameter("ElapsedSeconds",       0, 9999, 0, "已运行秒数",      true, UnitTimeSec),
+            new NumberParameter("CycleCount",           0, 9999, 0, "MPC 周期数")       { IsVisibleInVariableManager = true },
+            new StringParameter("PhysCalibState",       "",    "物理标定状态")          { IsVisibleInVariableManager = true },
+            new StringParameter("LogFilePath",          "",    "日志文件路径")          { IsVisibleInVariableManager = true },
+            new StringParameter("StatusSummary",        "",    "状态摘要")              { IsVisibleInVariableManager = true }
+        }
                 },
                 Action = WrapAction("获取流速控制状态", async delegate (DeviceParameters parameters)
                 {
@@ -2254,29 +2264,30 @@ namespace DigitalScale_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new BooleanParameter("FlowControlEnabled", enabled,                              "") { IsVisibleInVariableManager = true },
-                            new StringParameter("ControlPhase",        _controlPhase,                        "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("TargetFlowRate",      0, 500,  Math.Round(target, 2),       "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("EstimatedFlowRate",   0, 500,  Math.Round(estimated, 4),    "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("KF_WeightEst",        0, 99999,Math.Round(wEst, 2),         "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("KF_FlowSigma",        0, 100,  Math.Round(fSig, 4),         "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("DOB_DistEst",         -100,100,Math.Round(dEst, 4),         "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("Ratio",               0, 200,  Math.Round(ratio, 2),        "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("Deviation",           -500,500,Math.Round(deviation, 4),    "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("DeviationPct",        -100,100,Math.Round(deviationPct, 3), "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentPumpSpeed",    0, 100,  Math.Round(currentPump, 1),  "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("StableCount",         0, 10,   _stableCount,                "") { IsVisibleInVariableManager = true },
-                            new BooleanParameter("StabilityDeclared",  _stabilityDeclared,                   "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("AdaptiveCoeff",       0, 20,   Math.Round(_adaptiveCoeff, 4),"") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CurrentWeight",       0, 99999,Math.Round(currentW, 2),     "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("ElapsedSeconds",      0, 9999, Math.Round(elapsedSec, 1),   "") { IsVisibleInVariableManager = true },
-                            new NumberParameter("CycleCount",          0, 9999, _cycleCount,                 "") { IsVisibleInVariableManager = true },
-                            new StringParameter("PhysCalibState",      _physCalibState.ToString(),           "") { IsVisibleInVariableManager = true },
-                            new StringParameter("LogFilePath",         logPath,                              "") { IsVisibleInVariableManager = true },
-                            new StringParameter("StatusSummary",       summary,                              "") { IsVisibleInVariableManager = true }
-                        }
+        {
+            new BooleanParameter("FlowControlEnabled", enabled,                              "") { IsVisibleInVariableManager = true },
+            new StringParameter("ControlPhase",        _controlPhase,                        "") { IsVisibleInVariableManager = true },
+            new NumberParameter("TargetFlowRate",      0, 500,  Math.Round(target, 2),       "", true, UnitFlowRate),
+            new NumberParameter("EstimatedFlowRate",   0, 500,  Math.Round(estimated, 4),    "", true, UnitFlowRate),
+            new NumberParameter("KF_WeightEst",        0, 99999,Math.Round(wEst, 2),         "", true, UnitGram),
+            new NumberParameter("KF_FlowSigma",        0, 100,  Math.Round(fSig, 4),         "", true, UnitFlowRate),
+            new NumberParameter("DOB_DistEst",         -100,100,Math.Round(dEst, 4),         "", true, UnitFlowRate),
+            new NumberParameter("Ratio",               0, 200,  Math.Round(ratio, 2),        "", true, UnitPercent),
+            new NumberParameter("Deviation",           -500,500,Math.Round(deviation, 4),    "", true, UnitFlowRate),
+            new NumberParameter("DeviationPct",        -100,100,Math.Round(deviationPct, 3), "", true, UnitPercent),
+            new NumberParameter("CurrentPumpSpeed",    0, 100,  Math.Round(currentPump, 1),  "", true, UnitPumpSpeed),
+            new NumberParameter("StableCount",         0, 10,   _stableCount,                "") { IsVisibleInVariableManager = true },
+            new BooleanParameter("StabilityDeclared",  _stabilityDeclared,                   "") { IsVisibleInVariableManager = true },
+            new NumberParameter("AdaptiveCoeff",       0, 20,   Math.Round(_adaptiveCoeff, 4),"", true, UnitKcoeff),
+            new NumberParameter("CurrentWeight",       0, 99999,Math.Round(currentW, 2),     "", true, UnitGram),
+            new NumberParameter("ElapsedSeconds",      0, 9999, Math.Round(elapsedSec, 1),   "", true, UnitTimeSec),
+            new NumberParameter("CycleCount",          0, 9999, _cycleCount,                 "") { IsVisibleInVariableManager = true },
+            new StringParameter("PhysCalibState",      _physCalibState.ToString(),           "") { IsVisibleInVariableManager = true },
+            new StringParameter("LogFilePath",         logPath,                              "") { IsVisibleInVariableManager = true },
+            new StringParameter("StatusSummary",       summary,                              "") { IsVisibleInVariableManager = true }
+        }
                     };
+
                 }),
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
             });
@@ -2296,15 +2307,15 @@ namespace DigitalScale_ModbusTCP
                 OutputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
-                    {
-                        new NumberParameter("W1",             -1000, 99999, 0, "起始重量(g)")      { IsVisibleInVariableManager = true },
-                        new NumberParameter("W2",             -1000, 99999, 0, "结束重量(g)")      { IsVisibleInVariableManager = true },
-                        new NumberParameter("Consumed",           0,  9999, 0, "消耗重量(g)")      { IsVisibleInVariableManager = true },
-                        new NumberParameter("ActualDtSec",        0,  9999, 0, "实际计时(s)")      { IsVisibleInVariableManager = true },
-                        new NumberParameter("ActualFlowRate",     0,   500, 0, "实际流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("TargetFlowRate",     0,   500, 0, "目标流量(g/min)") { IsVisibleInVariableManager = true },
-                        new NumberParameter("ErrorPct",        -100,   100, 0, "误差(%)")          { IsVisibleInVariableManager = true }
-                    }
+        {
+            new NumberParameter("W1",             -1000, 99999, 0, "起始重量",      true, UnitGram),
+            new NumberParameter("W2",             -1000, 99999, 0, "结束重量",      true, UnitGram),
+            new NumberParameter("Consumed",           0,  9999, 0, "消耗重量",      true, UnitGram),
+            new NumberParameter("ActualDtSec",        0,  9999, 0, "实际计时",      true, UnitTimeSec),
+            new NumberParameter("ActualFlowRate",     0,   500, 0, "实际流量",      true, UnitFlowRate),
+            new NumberParameter("TargetFlowRate",     0,   500, 0, "目标流量",      true, UnitFlowRate),
+            new NumberParameter("ErrorPct",        -100,   100, 0, "误差",          true, UnitPercent)
+        }
                 },
                 Action = WrapAction("定时计量验证", async delegate (DeviceParameters parameters)
                 {
@@ -2331,19 +2342,21 @@ namespace DigitalScale_ModbusTCP
                     return new DeviceParameters
                     {
                         Variables = new ObservableCollection<ParameterBase>
-                        {
-                            new NumberParameter("W1",           -1000, 99999, Math.Round(w1, 3),         "起始重量(g)"),
-                            new NumberParameter("W2",           -1000, 99999, Math.Round(w2, 3),         "结束重量(g)"),
-                            new NumberParameter("Consumed",         0,  9999, Math.Round(consumed, 3),   "消耗重量(g)"),
-                            new NumberParameter("ActualDtSec",      0,  9999, Math.Round(actualDtSec, 2),"实际计时(s)"),
-                            new NumberParameter("ActualFlowRate",   0,   500, Math.Round(actualFlow, 4), "实际流量(g/min)"),
-                            new NumberParameter("TargetFlowRate",   0,   500, _targetFlowRate,           "目标流量(g/min)"),
-                            new NumberParameter("ErrorPct",      -100,   100,
-                                Math.Round(_targetFlowRate > 0
-                                    ? (actualFlow - _targetFlowRate) / _targetFlowRate * 100 : 0, 3),
-                                "误差(%)")
-                        }
+        {
+            new NumberParameter("W1",           -1000, 99999, Math.Round(w1, 3),         "起始重量",      true, UnitGram),
+            new NumberParameter("W2",           -1000, 99999, Math.Round(w2, 3),         "结束重量",      true, UnitGram),
+            new NumberParameter("Consumed",         0,  9999, Math.Round(consumed, 3),   "消耗重量",      true, UnitGram),
+            new NumberParameter("ActualDtSec",      0,  9999, Math.Round(actualDtSec, 2),"实际计时",      true, UnitTimeSec),
+            new NumberParameter("ActualFlowRate",   0,   500, Math.Round(actualFlow, 4), "实际流量",      true, UnitFlowRate),
+            new NumberParameter("TargetFlowRate",   0,   500, _targetFlowRate,           "目标流量",      true, UnitFlowRate),
+            new NumberParameter("ErrorPct",      -100,   100,
+                Math.Round(_targetFlowRate > 0
+                    ? (actualFlow - _targetFlowRate) / _targetFlowRate * 100 : 0, 3),
+                "误差",          true, UnitPercent)
+        }
                     };
+
+
                 }),
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/flowrate.png",
             });

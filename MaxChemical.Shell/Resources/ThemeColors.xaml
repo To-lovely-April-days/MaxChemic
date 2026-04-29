@@ -77,5 +77,29 @@
     <SolidColorBrush x:Key="Status.DangerLightBrush"  Color="{StaticResource Status.DangerLight}"/>
     <SolidColorBrush x:Key="Status.InfoBrush"         Color="{StaticResource Status.Info}"/>
     <SolidColorBrush x:Key="Status.InfoLightBrush"    Color="{StaticResource Status.InfoLight}"/>
+    <!-- ═══ 时间范围切换按钮样式 ═══ -->
+    <Style x:Key="TimeRangeRadioStyle" TargetType="RadioButton">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="11,4"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text.TertiaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background"
+                                Value="{DynamicResource Bg.PrimaryBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Text.PrimaryBrush}"/>
+                            <Setter Property="FontWeight" Value="Medium"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
 </ResourceDictionary>

@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -33,177 +34,88 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         public event EventHandler<ZPipeRotateEventArgs> PipeRotateCompleted;
         public event EventHandler<string> PipeSelected;
         public event EventHandler<string> PipeDeselected;
-        /// <summary>双击事件（打开属性对话框）</summary>
         public event EventHandler<string> PipeDoubleClicked;
 
         #endregion
 
-        #region 依赖属性 — 选择状态
+        #region 依赖属性
 
         public static readonly DependencyProperty IsSelectedProperty =
             DependencyProperty.Register(nameof(IsSelected), typeof(bool), typeof(ZShapePipeControl),
                 new PropertyMetadata(false, OnIsSelectedChanged));
-
-        public bool IsSelected
-        {
-            get => (bool)GetValue(IsSelectedProperty);
-            set => SetValue(IsSelectedProperty, value);
-        }
-
+        public bool IsSelected { get => (bool)GetValue(IsSelectedProperty); set => SetValue(IsSelectedProperty, value); }
         private static void OnIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is ZShapePipeControl c)
-            {
-                c.UpdateSelectionVisual((bool)e.NewValue);
-                c.OnPropertyChanged(nameof(IsSelected));
-            }
+            if (d is ZShapePipeControl c) { c.UpdateSelectionVisual((bool)e.NewValue); c.OnPropertyChanged(nameof(IsSelected)); }
         }
 
-        #endregion
-
-        #region 依赖属性 — 管道外观
-
-        // ═══ 管道颜色 ═══
         public static readonly DependencyProperty PipeColorProperty =
             DependencyProperty.Register(nameof(PipeColor), typeof(Color), typeof(ZShapePipeControl),
                 new PropertyMetadata(Color.FromRgb(0x72, 0x71, 0x71), OnPipeColorChanged));
-
-        public Color PipeColor
-        {
-            get => (Color)GetValue(PipeColorProperty);
-            set => SetValue(PipeColorProperty, value);
-        }
-
+        public Color PipeColor { get => (Color)GetValue(PipeColorProperty); set => SetValue(PipeColorProperty, value); }
         private static void OnPipeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyPipeColor();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyPipeColor(); }
 
-        // ═══ 法兰颜色 ═══
         public static readonly DependencyProperty FlangeColorProperty =
             DependencyProperty.Register(nameof(FlangeColor), typeof(Color), typeof(ZShapePipeControl),
                 new PropertyMetadata(Color.FromRgb(0xD9, 0xD9, 0xD9), OnFlangeColorChanged));
-
-        public Color FlangeColor
-        {
-            get => (Color)GetValue(FlangeColorProperty);
-            set => SetValue(FlangeColorProperty, value);
-        }
-
+        public Color FlangeColor { get => (Color)GetValue(FlangeColorProperty); set => SetValue(FlangeColorProperty, value); }
         private static void OnFlangeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFlangeColor();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFlangeColor(); }
 
-        #endregion
-
-        #region 依赖属性 — 流体
-
-        // ═══ 流体颜色 ═══
         public static readonly DependencyProperty FluidColorProperty =
             DependencyProperty.Register(nameof(FluidColor), typeof(Color), typeof(ZShapePipeControl),
                 new PropertyMetadata(Color.FromRgb(0x1E, 0xC1, 0xF4), OnFluidColorChanged));
-
-        public Color FluidColor
-        {
-            get => (Color)GetValue(FluidColorProperty);
-            set => SetValue(FluidColorProperty, value);
-        }
-
+        public Color FluidColor { get => (Color)GetValue(FluidColorProperty); set => SetValue(FluidColorProperty, value); }
         private static void OnFluidColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFluidColor();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFluidColor(); }
 
-        // ═══ 流体不透明度 ═══
         public static readonly DependencyProperty FluidOpacityProperty =
             DependencyProperty.Register(nameof(FluidOpacity), typeof(double), typeof(ZShapePipeControl),
                 new PropertyMetadata(0.5, OnFluidOpacityChanged));
-
-        public double FluidOpacity
-        {
-            get => (double)GetValue(FluidOpacityProperty);
-            set => SetValue(FluidOpacityProperty, value);
-        }
-
+        public double FluidOpacity { get => (double)GetValue(FluidOpacityProperty); set => SetValue(FluidOpacityProperty, value); }
         private static void OnFluidOpacityChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFluidOpacity();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFluidOpacity(); }
 
-        // ═══ 流体是否可见 ═══
         public static readonly DependencyProperty IsFluidVisibleProperty =
             DependencyProperty.Register(nameof(IsFluidVisible), typeof(bool), typeof(ZShapePipeControl),
                 new PropertyMetadata(false, OnIsFluidVisibleChanged));
-
-        public bool IsFluidVisible
-        {
-            get => (bool)GetValue(IsFluidVisibleProperty);
-            set => SetValue(IsFluidVisibleProperty, value);
-        }
-
+        public bool IsFluidVisible { get => (bool)GetValue(IsFluidVisibleProperty); set => SetValue(IsFluidVisibleProperty, value); }
         private static void OnIsFluidVisibleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFluidVisibility();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFluidVisibility(); }
 
-        #endregion
+        public static readonly DependencyProperty UseDefaultStyleProperty =
+            DependencyProperty.Register(nameof(UseDefaultStyle), typeof(bool), typeof(ZShapePipeControl),
+                new PropertyMetadata(false, OnUseDefaultStyleChanged));
+        public bool UseDefaultStyle { get => (bool)GetValue(UseDefaultStyleProperty); set => SetValue(UseDefaultStyleProperty, value); }
+        private static void OnUseDefaultStyleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        { if (d is ZShapePipeControl c) c.ApplyDefaultStyleSwitch(); }
 
-        #region 依赖属性 — 流动控制
-
-        // ═══ 是否流动 ═══
         public static readonly DependencyProperty IsFlowingProperty =
             DependencyProperty.Register(nameof(IsFlowing), typeof(bool), typeof(ZShapePipeControl),
                 new PropertyMetadata(false, OnIsFlowingChanged));
-
-        public bool IsFlowing
-        {
-            get => (bool)GetValue(IsFlowingProperty);
-            set => SetValue(IsFlowingProperty, value);
-        }
-
+        public bool IsFlowing { get => (bool)GetValue(IsFlowingProperty); set => SetValue(IsFlowingProperty, value); }
         private static void OnIsFlowingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFlowAnimation();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFlowAnimation(); }
 
-        // ═══ 流动方向 ═══
         public static readonly DependencyProperty PipeFlowDirProperty =
             DependencyProperty.Register(nameof(PipeFlowDir), typeof(PipeFlowDirection), typeof(ZShapePipeControl),
                 new PropertyMetadata(PipeFlowDirection.LeftToRight, OnPipeFlowDirChanged));
-
-        public PipeFlowDirection PipeFlowDir
-        {
-            get => (PipeFlowDirection)GetValue(PipeFlowDirProperty);
-            set => SetValue(PipeFlowDirProperty, value);
-        }
-
+        public PipeFlowDirection PipeFlowDir { get => (PipeFlowDirection)GetValue(PipeFlowDirProperty); set => SetValue(PipeFlowDirProperty, value); }
         private static void OnPipeFlowDirChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFlowAnimation();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFlowAnimation(); }
 
-        // ═══ 流动速度 ═══
         public static readonly DependencyProperty FlowSpeedProperty =
             DependencyProperty.Register(nameof(FlowSpeed), typeof(double), typeof(ZShapePipeControl),
                 new PropertyMetadata(1.0, OnFlowSpeedChanged));
-
-        public double FlowSpeed
-        {
-            get => (double)GetValue(FlowSpeedProperty);
-            set => SetValue(FlowSpeedProperty, value);
-        }
-
+        public double FlowSpeed { get => (double)GetValue(FlowSpeedProperty); set => SetValue(FlowSpeedProperty, value); }
         private static void OnFlowSpeedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is ZShapePipeControl c) c.ApplyFlowAnimation();
-        }
+        { if (d is ZShapePipeControl c) c.ApplyFlowAnimation(); }
 
         #endregion
 
         #region 私有字段
 
-        // 交互状态
         private bool _isDraggingPipe;
         private bool _isResizing;
         private bool _isRotating;
@@ -212,8 +124,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private Point _originalPosition;
         private ZPipeSize _originalSize;
         private double _originalRotation;
+        private Point _fixedWorldPoint;
 
-        // 尺寸常量
         private const double MinHorizontalLength = 10;
         private const double MaxHorizontalLength = 10000;
         private const double MinVerticalOffset = 15;
@@ -225,19 +137,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private const double FlangeSpacing = 2.0;
         private const double FLANGE_EXTENSION = 5.8;
 
-        // 尺寸字段
         private double _topHorizontalLength = 15;
         private double _bottomHorizontalLength = 15;
         private double _verticalOffset = 20;
         private double _pipeWidth = 20;
         private double _rotationAngle;
 
-        // 变换
         private RotateTransform _rotateTransform;
         private TransformGroup _transformGroup;
         private DispatcherTimer _rotationLabelTimer;
 
-        // ═══ 流体动画字段 ═══
         private TranslateTransform _topHorizFlowTransform;
         private TranslateTransform _diagFlowTransform;
         private TranslateTransform _bottomHorizFlowTransform;
@@ -245,7 +154,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         private DrawingBrush _diagPatternBrush;
         private DrawingBrush _bottomHorizPatternBrush;
 
-        // 气泡图案常量（与 StraightPipeControl / ElbowPipeControl 一致）
+        private DoubleAnimation _cyberMainAnim;
+        private DoubleAnimation _cyberParticleAnim;
+        private DoubleAnimation _cyberSparkAnim;
+        private double _cyberMainPeriod = 120;
+        private double _cyberParticlePeriod = 58;
+        private double _cyberSparkPeriod = 84;
+
         private const double PATTERN_W = 172.0;
         private const double PATTERN_H = 72.0;
 
@@ -267,7 +182,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region CLR 属性（尺寸）
+        #region CLR 属性
 
         public string PipeId { get; set; }
 
@@ -278,11 +193,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var nv = Math.Max(MinHorizontalLength, Math.Min(MaxHorizontalLength, value));
                 if (Math.Abs(_topHorizontalLength - nv) > 0.01)
-                {
-                    _topHorizontalLength = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(TopHorizontalLength));
-                }
+                { _topHorizontalLength = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(TopHorizontalLength)); }
             }
         }
 
@@ -293,11 +204,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var nv = Math.Max(MinHorizontalLength, Math.Min(MaxHorizontalLength, value));
                 if (Math.Abs(_bottomHorizontalLength - nv) > 0.01)
-                {
-                    _bottomHorizontalLength = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(BottomHorizontalLength));
-                }
+                { _bottomHorizontalLength = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(BottomHorizontalLength)); }
             }
         }
 
@@ -308,11 +215,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var nv = Math.Max(MinVerticalOffset, Math.Min(MaxVerticalOffset, value));
                 if (Math.Abs(_verticalOffset - nv) > 0.01)
-                {
-                    _verticalOffset = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(VerticalOffset));
-                }
+                { _verticalOffset = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(VerticalOffset)); }
             }
         }
 
@@ -323,11 +226,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             {
                 var nv = Math.Max(MinPipeWidth, Math.Min(MaxPipeWidth, value));
                 if (Math.Abs(_pipeWidth - nv) > 0.01)
-                {
-                    _pipeWidth = nv;
-                    UpdatePipeGeometry();
-                    OnPropertyChanged(nameof(PipeWidth));
-                }
+                { _pipeWidth = nv; UpdatePipeGeometry(); OnPropertyChanged(nameof(PipeWidth)); }
             }
         }
 
@@ -344,9 +243,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         }
 
         #endregion
-        // ★ 新增:开始拖拽前,固定端在画布上的世界坐标
-        private Point _fixedWorldPoint;
-        #region 构造函数
+
+        #region 构造
 
         public ZShapePipeControl()
         {
@@ -360,17 +258,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RenderTransform = _transformGroup;
             RenderTransformOrigin = new Point(0.5, 0.5);
 
-            // ★ 初始化外观
             InitializeAppearance();
 
             if (!DesignerProperties.GetIsInDesignMode(this))
             {
                 _rotationLabelTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-                _rotationLabelTimer.Tick += (s, e) =>
-                {
-                    RotationLabel.Visibility = Visibility.Collapsed;
-                    _rotationLabelTimer.Stop();
-                };
+                _rotationLabelTimer.Tick += (s, e) => { RotationLabel.Visibility = Visibility.Collapsed; _rotationLabelTimer.Stop(); };
 
                 MouseEnter += OnPipeMouseEnter;
                 MouseLeave += OnPipeMouseLeave;
@@ -381,26 +274,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 SetupAnchorEvents();
             }
 
-            Loaded += (s, e) =>
-            {
-                UpdatePipeGeometry();
-                ApplyFlowAnimation();
-            };
+            Loaded += (s, e) => { UpdatePipeGeometry(); ApplyFlowAnimation(); };
 
-            // 硬件加速
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
             RenderOptions.SetEdgeMode(this, EdgeMode.Unspecified);
             RenderOptions.SetCachingHint(this, CachingHint.Cache);
             RenderOptions.SetCacheInvalidationThresholdMinimum(this, 0.5);
             RenderOptions.SetCacheInvalidationThresholdMaximum(this, 2.0);
 
-            CacheMode = new BitmapCache
-            {
-                RenderAtScale = 1.0,
-                SnapsToDevicePixels = true,
-                EnableClearType = false
-            };
-
+            CacheMode = new BitmapCache { RenderAtScale = 1.0, SnapsToDevicePixels = true, EnableClearType = false };
             SnapsToDevicePixels = true;
             UseLayoutRounding = true;
         }
@@ -412,39 +294,32 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             ApplyFluidColor();
             RebuildFluidPatternBrushes();
             ApplyFluidVisibility();
+            ApplyDefaultStyleSwitch();
         }
 
         #endregion
 
-        #region 管道外观 — 管体渐变（动态颜色）
+        #region 管体外观
 
         private void ApplyPipeColor()
         {
             if (TopHorizontalPipe == null) return;
-
             var c = PipeColor;
 
-            // ─── 水平管道渐变（上→下）───
             var hGrad = MakeCylinderGradient(c, new Point(0, 0), new Point(0, 1));
             TopHorizontalPipe.Fill = hGrad;
             BottomHorizontalPipe.Fill = hGrad;
 
-            // ─── 垂直管道渐变（左→右）───
             var vGrad = MakeCylinderGradient(c, new Point(0, 0), new Point(1, 0));
             DiagonalPipe.Fill = vGrad;
 
-            // ─── 弯头渐变 ───
             ApplyElbowGradient(TopElbowPath, c, new Point(1, 0), new Point(0, 1));
             ApplyElbowGradient(BottomElbowPath, c, new Point(0, 1), new Point(1, 0));
-
-            // ─── 弯头高光 ───
             ApplyElbowHighlight(TopElbowHighlight, c, new Point(1, 0), new Point(0, 1));
             ApplyElbowHighlight(BottomElbowHighlight, c, new Point(0, 1), new Point(1, 0));
 
-            // ─── 描边 / 边框 / 连接处 ───
             var strokeBrush = new SolidColorBrush(c);
             strokeBrush.Freeze();
-
             TopElbowPath.Stroke = strokeBrush;
             BottomElbowPath.Stroke = strokeBrush;
             LeftFlangeBorder.Stroke = strokeBrush;
@@ -452,13 +327,9 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             LeftConnection.Fill = strokeBrush;
             RightConnection.Fill = strokeBrush;
 
-            // 纹理边带要跟管道色 → 需要重建
             RebuildFluidPatternBrushes();
         }
 
-        /// <summary>
-        /// 创建 7-stop 圆柱形渐变
-        /// </summary>
         private LinearGradientBrush MakeCylinderGradient(Color c, Point start, Point end)
         {
             var g = new LinearGradientBrush { StartPoint = start, EndPoint = end };
@@ -473,9 +344,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             return g;
         }
 
-        /// <summary>
-        /// 弯头 13-stop 渐变填充
-        /// </summary>
         private void ApplyElbowGradient(Path elbowPath, Color c, Point start, Point end)
         {
             var darkC = DarkenColor(c, 25);
@@ -501,9 +369,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             elbowPath.Fill = g;
         }
 
-        /// <summary>
-        /// 弯头高光
-        /// </summary>
         private void ApplyElbowHighlight(Path hlPath, Color c, Point start, Point end)
         {
             var g = new LinearGradientBrush { StartPoint = start, EndPoint = end };
@@ -515,24 +380,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             hlPath.Fill = g;
         }
 
-        #endregion
-
-        #region 管道外观 — 法兰颜色
-
         private void ApplyFlangeColor()
         {
             if (LeftFlangeBase == null) return;
-
             var c = FlangeColor;
             var baseBrush = new SolidColorBrush(c);
             baseBrush.Freeze();
-
             LeftFlangeBase.Fill = baseBrush;
             RightFlangeBase.Fill = baseBrush;
 
             var midColor = BlendColors(c, Colors.Gray, 0.4);
 
-            // 左法兰渐变（水平方向）
             var leftGrad = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
             leftGrad.GradientStops.Add(new GradientStop(c, 0));
             leftGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
@@ -540,7 +398,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             leftGrad.Freeze();
             LeftFlangeGradient.Fill = leftGrad;
 
-            // 右法兰渐变（水平方向，反方向）
             var rightGrad = new LinearGradientBrush { StartPoint = new Point(1, 0.5), EndPoint = new Point(0, 0.5) };
             rightGrad.GradientStops.Add(new GradientStop(c, 0));
             rightGrad.GradientStops.Add(new GradientStop(midColor, 0.5));
@@ -551,27 +408,26 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 流体 — 颜色、透明度与可见性
+        #region 流体颜色与可见性
 
         private void ApplyFluidColor()
         {
             if (TopHorizontalFluidBackground == null) return;
-
             var brush = new SolidColorBrush(FluidColor);
-
             TopHorizontalFluidBackground.Fill = brush;
             DiagonalFluidBackground.Fill = brush;
             BottomHorizontalFluidBackground.Fill = brush;
             TopElbowFluidBackground.Fill = brush;
             BottomElbowFluidBackground.Fill = brush;
-
             ApplyFluidOpacity();
+
+            if (UseDefaultStyle && CyberMainStream != null)
+                ApplyCyberStreamColors();
         }
 
         private void ApplyFluidOpacity()
         {
             if (TopHorizontalFluidBackground == null) return;
-
             TopHorizontalFluidBackground.Opacity = FluidOpacity;
             DiagonalFluidBackground.Opacity = FluidOpacity;
             BottomHorizontalFluidBackground.Opacity = FluidOpacity;
@@ -583,8 +439,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         {
             if (TopHorizontalFluidBackground == null) return;
 
-            var vis = IsFluidVisible ? Visibility.Visible : Visibility.Collapsed;
+            if (UseDefaultStyle)
+            {
+                TopHorizontalFluidBackground.Visibility = Visibility.Collapsed;
+                TopHorizontalFluidPattern.Visibility = Visibility.Collapsed;
+                DiagonalFluidBackground.Visibility = Visibility.Collapsed;
+                DiagonalFluidPattern.Visibility = Visibility.Collapsed;
+                BottomHorizontalFluidBackground.Visibility = Visibility.Collapsed;
+                BottomHorizontalFluidPattern.Visibility = Visibility.Collapsed;
+                TopElbowFluidBackground.Visibility = Visibility.Collapsed;
+                BottomElbowFluidBackground.Visibility = Visibility.Collapsed;
+                return;
+            }
 
+            var vis = IsFluidVisible ? Visibility.Visible : Visibility.Collapsed;
             TopHorizontalFluidBackground.Visibility = vis;
             TopHorizontalFluidPattern.Visibility = vis;
             DiagonalFluidBackground.Visibility = vis;
@@ -594,186 +462,365 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             TopElbowFluidBackground.Visibility = vis;
             BottomElbowFluidBackground.Visibility = vis;
 
-            if (IsFluidVisible && IsFlowing)
-                StartFlowAnimation();
-            else
-                StopFlowAnimation();
+            if (IsFluidVisible && IsFlowing) StartFlowAnimation(); else StopFlowAnimation();
         }
-
-        #endregion
-
-        #region 流体 — 气泡纹理画刷
 
         private void RebuildFluidPatternBrushes()
         {
             if (TopHorizontalFluidPattern == null) return;
-
             var pipeC = PipeColor;
 
-            // ── 水平段画刷（边带在上/下）──
             var hDrawing = CreateBubbleDrawing(pipeC, false);
             _topHorizFlowTransform = new TranslateTransform(0, 0);
-            _topHorizPatternBrush = new DrawingBrush(hDrawing)
-            {
-                TileMode = TileMode.Tile,
-                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
-                ViewboxUnits = BrushMappingMode.Absolute,
-                ViewportUnits = BrushMappingMode.Absolute,
-                Transform = _topHorizFlowTransform
-            };
+            _topHorizPatternBrush = new DrawingBrush(hDrawing) { TileMode = TileMode.Tile, Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H), ViewboxUnits = BrushMappingMode.Absolute, ViewportUnits = BrushMappingMode.Absolute, Transform = _topHorizFlowTransform };
             TopHorizontalFluidPattern.Fill = _topHorizPatternBrush;
 
             _bottomHorizFlowTransform = new TranslateTransform(0, 0);
-            var bottomHorizBrush = new DrawingBrush(hDrawing)
-            {
-                TileMode = TileMode.Tile,
-                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
-                ViewboxUnits = BrushMappingMode.Absolute,
-                ViewportUnits = BrushMappingMode.Absolute,
-                Transform = _bottomHorizFlowTransform
-            };
-            BottomHorizontalFluidPattern.Fill = bottomHorizBrush;
-            _bottomHorizPatternBrush = bottomHorizBrush;
+            _bottomHorizPatternBrush = new DrawingBrush(hDrawing) { TileMode = TileMode.Tile, Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H), ViewboxUnits = BrushMappingMode.Absolute, ViewportUnits = BrushMappingMode.Absolute, Transform = _bottomHorizFlowTransform };
+            BottomHorizontalFluidPattern.Fill = _bottomHorizPatternBrush;
 
-            // ── 垂直段画刷（边带在左/右）──
             var vDrawing = CreateBubbleDrawing(pipeC, true);
             _diagFlowTransform = new TranslateTransform(0, 0);
-            _diagPatternBrush = new DrawingBrush(vDrawing)
-            {
-                TileMode = TileMode.Tile,
-                Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H),
-                ViewboxUnits = BrushMappingMode.Absolute,
-                ViewportUnits = BrushMappingMode.Absolute,
-                Transform = _diagFlowTransform
-            };
+            _diagPatternBrush = new DrawingBrush(vDrawing) { TileMode = TileMode.Tile, Viewbox = new Rect(0, 0, PATTERN_W, PATTERN_H), ViewboxUnits = BrushMappingMode.Absolute, ViewportUnits = BrushMappingMode.Absolute, Transform = _diagFlowTransform };
             DiagonalFluidPattern.Fill = _diagPatternBrush;
 
             UpdateFluidPatternViewports();
-
-            if (IsFlowing && IsFluidVisible)
-                StartFlowAnimation();
+            if (IsFlowing && IsFluidVisible && !UseDefaultStyle) StartFlowAnimation();
         }
 
         private DrawingGroup CreateBubbleDrawing(Color pipeC, bool isVertical)
         {
             var group = new DrawingGroup();
-
-            // ── 气泡 ──
             foreach (var (x, y, r) in BubbleData)
             {
-                var radial = new RadialGradientBrush
-                {
-                    GradientOrigin = new Point(0.3, 0.3),
-                    Center = new Point(0.5, 0.5)
-                };
+                var radial = new RadialGradientBrush { GradientOrigin = new Point(0.3, 0.3), Center = new Point(0.5, 0.5) };
                 radial.GradientStops.Add(new GradientStop(Color.FromArgb(102, 255, 255, 255), 0));
                 radial.GradientStops.Add(new GradientStop(Color.FromArgb(38, 0, 0, 0), 1));
                 radial.Freeze();
-
-                group.Children.Add(new GeometryDrawing(
-                    radial, null,
-                    new EllipseGeometry(new Point(x, y), r, r)));
+                group.Children.Add(new GeometryDrawing(radial, null, new EllipseGeometry(new Point(x, y), r, r)));
             }
 
-            // ── 边带 ──
-            LinearGradientBrush edgeBrush;
-            if (!isVertical)
-                edgeBrush = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
-            else
-                edgeBrush = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
-
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.109));
-            edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.113));
-            edgeBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.887));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 0.891));
-            edgeBrush.GradientStops.Add(new GradientStop(pipeC, 1));
-            edgeBrush.Freeze();
-
-            group.Children.Add(new GeometryDrawing(
-                edgeBrush, null,
-                new RectangleGeometry(new Rect(0, 0, PATTERN_W, PATTERN_H))));
-
+            // ★ 去掉边带 — 之前边带占 11% 上 + 11% 下,管子细的时候把气泡挤到中间一条,
+            //   导致设了管道颜色后视觉上气泡跟管壁融成一片看不出动静
             return group;
         }
 
         private void UpdateFluidPatternViewports()
         {
-            double tileH = _pipeWidth;
+            // ★ 气泡尺寸放大 1.5 倍 — 全局视图下也能清晰看见气泡流动
+            const double BUBBLE_SCALE = 1.5;
+            double tileH = _pipeWidth * BUBBLE_SCALE;
             double tileW = tileH * (PATTERN_W / PATTERN_H);
-
-            if (_topHorizPatternBrush != null)
-                _topHorizPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
-            if (_bottomHorizPatternBrush != null)
-                _bottomHorizPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
-            if (_diagPatternBrush != null)
-                _diagPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+            if (_topHorizPatternBrush != null) _topHorizPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+            if (_bottomHorizPatternBrush != null) _bottomHorizPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
+            if (_diagPatternBrush != null) _diagPatternBrush.Viewport = new Rect(0, 0, tileW, tileH);
         }
 
         #endregion
 
-        #region 流体 — 流动动画
+        #region 流体动画（气泡）
 
         private void ApplyFlowAnimation()
         {
-            if (IsFlowing && IsFluidVisible)
-                StartFlowAnimation();
-            else
-                StopFlowAnimation();
+            if (UseDefaultStyle)
+            {
+                if (IsFlowing) StartCyberAnimation(); else StopCyberAnimation();
+                return;
+            }
+            if (IsFlowing && IsFluidVisible) StartFlowAnimation(); else StopFlowAnimation();
         }
 
         private void StartFlowAnimation()
         {
             if (_topHorizFlowTransform == null) return;
-
             StopFlowAnimation();
-
-            double tileW = _pipeWidth * (PATTERN_W / PATTERN_H);
-            double baseDurationMs = 1000.0 / Math.Max(0.1, FlowSpeed);
-
-            // Z形管道流向：LeftToRight = 左法兰→上段→弯头→中间段(向下)→弯头→下段→右法兰
+            // ★ 关键修复:滚动距离用 PATTERN_W (=172) 而不是 tileW (≈48)
+            //   跟原版 ThingsBoard 一致 — 流动感大幅增强
+            // ★ 速度调慢:基础时长 2000ms 而不是 1000ms
+            double baseDurationMs = 2000.0 / Math.Max(0.1, FlowSpeed);
             bool leftToRight = PipeFlowDir == PipeFlowDirection.LeftToRight;
 
-            // ── 上水平段 ──
-            double topTo = leftToRight ? tileW : -tileW;
+            double topTo = leftToRight ? PATTERN_W : -PATTERN_W;
             _topHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty,
                 new DoubleAnimation { From = 0, To = topTo, Duration = TimeSpan.FromMilliseconds(baseDurationMs), RepeatBehavior = RepeatBehavior.Forever });
 
-            // ── 中间垂直段 ──
-            double vPeriod = _pipeWidth;
-            double vDurationMs = baseDurationMs * (vPeriod / tileW);
-            double vTo = leftToRight ? vPeriod : -vPeriod;
+            double vTo = leftToRight ? PATTERN_W : -PATTERN_W;
             _diagFlowTransform.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation { From = 0, To = vTo, Duration = TimeSpan.FromMilliseconds(vDurationMs), RepeatBehavior = RepeatBehavior.Forever });
+                new DoubleAnimation { From = 0, To = vTo, Duration = TimeSpan.FromMilliseconds(baseDurationMs), RepeatBehavior = RepeatBehavior.Forever });
 
-            // ── 下水平段 ──
-            double bottomTo = leftToRight ? tileW : -tileW;
+            double bottomTo = leftToRight ? PATTERN_W : -PATTERN_W;
             _bottomHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty,
                 new DoubleAnimation { From = 0, To = bottomTo, Duration = TimeSpan.FromMilliseconds(baseDurationMs), RepeatBehavior = RepeatBehavior.Forever });
         }
 
         private void StopFlowAnimation()
         {
-            if (_topHorizFlowTransform != null)
-            {
-                _topHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty, null);
-                _topHorizFlowTransform.X = 0;
-            }
-            if (_diagFlowTransform != null)
-            {
-                _diagFlowTransform.BeginAnimation(TranslateTransform.YProperty, null);
-                _diagFlowTransform.Y = 0;
-            }
-            if (_bottomHorizFlowTransform != null)
-            {
-                _bottomHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty, null);
-                _bottomHorizFlowTransform.X = 0;
-            }
+            if (_topHorizFlowTransform != null) { _topHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty, null); _topHorizFlowTransform.X = 0; }
+            if (_diagFlowTransform != null) { _diagFlowTransform.BeginAnimation(TranslateTransform.YProperty, null); _diagFlowTransform.Y = 0; }
+            if (_bottomHorizFlowTransform != null) { _bottomHorizFlowTransform.BeginAnimation(TranslateTransform.XProperty, null); _bottomHorizFlowTransform.X = 0; }
         }
 
         #endregion
 
-        #region 辅助方法（颜色计算）
+        #region 赛博流光
+
+        private void ApplyDefaultStyleSwitch()
+        {
+            if (CyberMainStream == null) return;
+
+            if (UseDefaultStyle)
+            {
+                if (TopHorizontalPipe != null) TopHorizontalPipe.Visibility = Visibility.Collapsed;
+                if (DiagonalPipe != null) DiagonalPipe.Visibility = Visibility.Collapsed;
+                if (BottomHorizontalPipe != null) BottomHorizontalPipe.Visibility = Visibility.Collapsed;
+                if (TopElbowPath != null) TopElbowPath.Visibility = Visibility.Collapsed;
+                if (BottomElbowPath != null) BottomElbowPath.Visibility = Visibility.Collapsed;
+                if (TopElbowHighlight != null) TopElbowHighlight.Visibility = Visibility.Collapsed;
+                if (BottomElbowHighlight != null) BottomElbowHighlight.Visibility = Visibility.Collapsed;
+                // ★ Background 层不隐藏,改成透明 fill —— 保留命中(双击/拖拽)
+                if (TopHorizontalPipeBackground != null) { TopHorizontalPipeBackground.Fill = Brushes.Transparent; TopHorizontalPipeBackground.Visibility = Visibility.Visible; }
+                if (DiagonalPipeBackground != null) { DiagonalPipeBackground.Fill = Brushes.Transparent; DiagonalPipeBackground.Visibility = Visibility.Visible; }
+                if (BottomHorizontalPipeBackground != null) { BottomHorizontalPipeBackground.Fill = Brushes.Transparent; BottomHorizontalPipeBackground.Visibility = Visibility.Visible; }
+                if (TopElbowBackground != null) { TopElbowBackground.Fill = Brushes.Transparent; TopElbowBackground.Visibility = Visibility.Visible; }
+                if (BottomElbowBackground != null) { BottomElbowBackground.Fill = Brushes.Transparent; BottomElbowBackground.Visibility = Visibility.Visible; }
+
+                BuildCyberLayers();
+
+                CyberTopHorizMetal.Visibility = Visibility.Visible;
+                CyberTopElbowMetal.Visibility = Visibility.Visible;
+                CyberDiagMetal.Visibility = Visibility.Visible;
+                CyberBottomElbowMetal.Visibility = Visibility.Visible;
+                CyberBottomHorizMetal.Visibility = Visibility.Visible;
+                CyberTopHorizDark.Visibility = Visibility.Visible;
+                CyberTopElbowDark.Visibility = Visibility.Visible;
+                CyberDiagDark.Visibility = Visibility.Visible;
+                CyberBottomElbowDark.Visibility = Visibility.Visible;
+                CyberBottomHorizDark.Visibility = Visibility.Visible;
+                CyberMainStream.Visibility = Visibility.Visible;
+                CyberParticleStream.Visibility = Visibility.Visible;
+                CyberSparkStream.Visibility = Visibility.Visible;
+
+                if (IsFlowing) StartCyberAnimation(); else StopCyberAnimation();
+                StopFlowAnimation();
+                ApplyFluidVisibility();
+            }
+            else
+            {
+                CyberTopHorizMetal.Visibility = Visibility.Collapsed;
+                CyberTopElbowMetal.Visibility = Visibility.Collapsed;
+                CyberDiagMetal.Visibility = Visibility.Collapsed;
+                CyberBottomElbowMetal.Visibility = Visibility.Collapsed;
+                CyberBottomHorizMetal.Visibility = Visibility.Collapsed;
+                CyberTopHorizDark.Visibility = Visibility.Collapsed;
+                CyberTopElbowDark.Visibility = Visibility.Collapsed;
+                CyberDiagDark.Visibility = Visibility.Collapsed;
+                CyberBottomElbowDark.Visibility = Visibility.Collapsed;
+                CyberBottomHorizDark.Visibility = Visibility.Collapsed;
+                CyberMainStream.Visibility = Visibility.Collapsed;
+                CyberParticleStream.Visibility = Visibility.Collapsed;
+                CyberSparkStream.Visibility = Visibility.Collapsed;
+                StopCyberAnimation();
+
+                if (TopHorizontalPipe != null) TopHorizontalPipe.Visibility = Visibility.Visible;
+                if (DiagonalPipe != null) DiagonalPipe.Visibility = Visibility.Visible;
+                if (BottomHorizontalPipe != null) BottomHorizontalPipe.Visibility = Visibility.Visible;
+                if (TopElbowPath != null) TopElbowPath.Visibility = Visibility.Visible;
+                if (BottomElbowPath != null) BottomElbowPath.Visibility = Visibility.Visible;
+                if (TopElbowHighlight != null) TopElbowHighlight.Visibility = Visibility.Visible;
+                if (BottomElbowHighlight != null) BottomElbowHighlight.Visibility = Visibility.Visible;
+                // ★ 还原 Background 白底
+                if (TopHorizontalPipeBackground != null) { TopHorizontalPipeBackground.Fill = Brushes.White; TopHorizontalPipeBackground.Visibility = Visibility.Visible; }
+                if (DiagonalPipeBackground != null) { DiagonalPipeBackground.Fill = Brushes.White; DiagonalPipeBackground.Visibility = Visibility.Visible; }
+                if (BottomHorizontalPipeBackground != null) { BottomHorizontalPipeBackground.Fill = Brushes.White; BottomHorizontalPipeBackground.Visibility = Visibility.Visible; }
+                if (TopElbowBackground != null) { TopElbowBackground.Fill = Brushes.White; TopElbowBackground.Visibility = Visibility.Visible; }
+                if (BottomElbowBackground != null) { BottomElbowBackground.Fill = Brushes.White; BottomElbowBackground.Visibility = Visibility.Visible; }
+                ApplyFluidVisibility();
+            }
+        }
+
+        private void BuildCyberLayers()
+        {
+            if (CyberTopHorizMetal == null) return;
+
+            var hMetal = MakeMetalGradient(false);
+            CyberTopHorizMetal.Fill = hMetal;
+            CyberBottomHorizMetal.Fill = hMetal;
+            var vMetal = MakeMetalGradient(true);
+            CyberDiagMetal.Fill = vMetal;
+
+            var topElbowMetal = new LinearGradientBrush { StartPoint = new Point(1, 0), EndPoint = new Point(0, 1) };
+            topElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 0));
+            topElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.4));
+            topElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x8A, 0xA0, 0xC0), 0.6));
+            topElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.8));
+            topElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 1));
+            topElbowMetal.Freeze();
+            CyberTopElbowMetal.Fill = topElbowMetal;
+
+            var bottomElbowMetal = new LinearGradientBrush { StartPoint = new Point(0, 1), EndPoint = new Point(1, 0) };
+            bottomElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 0));
+            bottomElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.4));
+            bottomElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x8A, 0xA0, 0xC0), 0.6));
+            bottomElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.8));
+            bottomElbowMetal.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 1));
+            bottomElbowMetal.Freeze();
+            CyberBottomElbowMetal.Fill = bottomElbowMetal;
+
+            ApplyCyberStreamColors();
+            CyberMainStream.StrokeDashArray = new DoubleCollection { 30, 90 };
+            CyberParticleStream.StrokeDashArray = new DoubleCollection { 8, 50 };
+            CyberSparkStream.StrokeDashArray = new DoubleCollection { 4, 80 };
+
+            UpdateCyberGeometry();
+        }
+
+        private LinearGradientBrush MakeMetalGradient(bool vertical)
+        {
+            var g = vertical
+                ? new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) }
+                : new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 0));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.2));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x8A, 0xA0, 0xC0), 0.5));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x4A, 0x5A, 0x7A), 0.8));
+            g.GradientStops.Add(new GradientStop(Color.FromRgb(0x1A, 0x20, 0x30), 1));
+            g.Freeze();
+            return g;
+        }
+
+        private void ApplyCyberStreamColors()
+        {
+            if (CyberMainStream == null) return;
+            var c = FluidColor;
+            var brightC = LightenColor(c, 30);
+            var sparkC = LightenColor(c, 60);
+
+            var mainBrush = new SolidColorBrush(brightC);
+            mainBrush.Freeze();
+            CyberMainStream.Stroke = mainBrush;
+
+            var particleBrush = new SolidColorBrush(sparkC);
+            particleBrush.Freeze();
+            CyberParticleStream.Stroke = particleBrush;
+        }
+
+        /// <summary>
+        /// Z 形 5 段中心线流光路径（关键创新）
+        /// </summary>
+        private void UpdateCyberGeometry()
+        {
+            if (CyberTopHorizMetal == null) return;
+
+            double topFlangeY = 16;
+            double topPipeLeft = FlangeOffset + FlangeWidth + FlangeSpacing;
+            double topPipeTop = topFlangeY;
+            double topPipeWidth = _topHorizontalLength;
+
+            double elbow1Radius = _pipeWidth;
+            double elbow1CenterX = topPipeLeft + topPipeWidth + elbow1Radius;
+            double elbow1CenterY = topPipeTop + _pipeWidth / 2;
+
+            double diagPipeLeft = elbow1CenterX - _pipeWidth / 2;
+            double diagPipeTop = elbow1CenterY + elbow1Radius;
+            double diagPipeHeight = _verticalOffset;
+
+            double elbow2Radius = _pipeWidth;
+            double elbow2CenterX = diagPipeLeft + _pipeWidth / 2;
+            double elbow2CenterY = diagPipeTop + diagPipeHeight + elbow2Radius;
+
+            double bottomPipeLeft = elbow2CenterX + elbow2Radius;
+            double bottomPipeTop = elbow2CenterY - _pipeWidth / 2;
+            double bottomPipeWidth = _bottomHorizontalLength;
+
+            // 金属层尺寸
+            CyberTopHorizMetal.Width = topPipeWidth; CyberTopHorizMetal.Height = _pipeWidth;
+            Canvas.SetLeft(CyberTopHorizMetal, topPipeLeft); Canvas.SetTop(CyberTopHorizMetal, topPipeTop);
+            CyberTopHorizDark.Width = topPipeWidth; CyberTopHorizDark.Height = _pipeWidth;
+            Canvas.SetLeft(CyberTopHorizDark, topPipeLeft); Canvas.SetTop(CyberTopHorizDark, topPipeTop);
+
+            CyberDiagMetal.Width = _pipeWidth; CyberDiagMetal.Height = diagPipeHeight;
+            Canvas.SetLeft(CyberDiagMetal, diagPipeLeft); Canvas.SetTop(CyberDiagMetal, diagPipeTop);
+            CyberDiagDark.Width = _pipeWidth; CyberDiagDark.Height = diagPipeHeight;
+            Canvas.SetLeft(CyberDiagDark, diagPipeLeft); Canvas.SetTop(CyberDiagDark, diagPipeTop);
+
+            CyberBottomHorizMetal.Width = bottomPipeWidth; CyberBottomHorizMetal.Height = _pipeWidth;
+            Canvas.SetLeft(CyberBottomHorizMetal, bottomPipeLeft); Canvas.SetTop(CyberBottomHorizMetal, bottomPipeTop);
+            CyberBottomHorizDark.Width = bottomPipeWidth; CyberBottomHorizDark.Height = _pipeWidth;
+            Canvas.SetLeft(CyberBottomHorizDark, bottomPipeLeft); Canvas.SetTop(CyberBottomHorizDark, bottomPipeTop);
+
+            if (TopElbowPath != null && TopElbowPath.Data != null)
+            { CyberTopElbowMetal.Data = TopElbowPath.Data; CyberTopElbowDark.Data = TopElbowPath.Data; }
+            if (BottomElbowPath != null && BottomElbowPath.Data != null)
+            { CyberBottomElbowMetal.Data = BottomElbowPath.Data; CyberBottomElbowDark.Data = BottomElbowPath.Data; }
+
+            // ★★★ Z 形中心线流光 path ★★★
+            double startX = topPipeLeft;
+            double startY = elbow1CenterY;
+            double upElbowEntryX = topPipeLeft + topPipeWidth;
+            double upElbowEntryY = elbow1CenterY;
+            double upElbowExitX = elbow1CenterX;
+            double upElbowExitY = elbow1CenterY + elbow1Radius;
+            double diagEndX = elbow2CenterX;
+            double diagEndY = elbow2CenterY - elbow2Radius;
+            double downElbowExitX = elbow2CenterX + elbow2Radius;
+            double downElbowExitY = elbow2CenterY;
+            double endX = bottomPipeLeft + bottomPipeWidth;
+            double endY = elbow2CenterY;
+
+            var fig = new PathFigure { StartPoint = new Point(startX, startY) };
+            fig.Segments.Add(new LineSegment(new Point(upElbowEntryX, upElbowEntryY), true));
+            fig.Segments.Add(new ArcSegment(
+                new Point(upElbowExitX, upElbowExitY),
+                new Size(elbow1Radius, elbow1Radius),
+                0, false, SweepDirection.Clockwise, true));
+            fig.Segments.Add(new LineSegment(new Point(diagEndX, diagEndY), true));
+            fig.Segments.Add(new ArcSegment(
+                new Point(downElbowExitX, downElbowExitY),
+                new Size(elbow2Radius, elbow2Radius),
+                0, false, SweepDirection.Counterclockwise, true));
+            fig.Segments.Add(new LineSegment(new Point(endX, endY), true));
+
+            var geo = new PathGeometry();
+            geo.Figures.Add(fig);
+            geo.Freeze();
+
+            CyberMainStream.Data = geo;
+            CyberParticleStream.Data = geo;
+            CyberSparkStream.Data = geo;
+
+            CyberMainStream.StrokeThickness = Math.Max(2, _pipeWidth * 0.6);
+            CyberParticleStream.StrokeThickness = Math.Max(1.5, _pipeWidth * 0.3);
+            CyberSparkStream.StrokeThickness = Math.Max(1, _pipeWidth * 0.15);
+        }
+
+        private void StartCyberAnimation()
+        {
+            if (CyberMainStream == null) return;
+            StopCyberAnimation();
+            int sign = PipeFlowDir == PipeFlowDirection.LeftToRight ? -1 : 1;
+            double speed = Math.Max(0.1, FlowSpeed);
+
+            _cyberMainAnim = new DoubleAnimation { From = 0, To = sign * _cyberMainPeriod, Duration = TimeSpan.FromMilliseconds(2000.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberMainAnim);
+
+            _cyberParticleAnim = new DoubleAnimation { From = 0, To = sign * _cyberParticlePeriod, Duration = TimeSpan.FromMilliseconds(1500.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberParticleAnim);
+
+            _cyberSparkAnim = new DoubleAnimation { From = sign * -30, To = sign * (_cyberSparkPeriod - 30), Duration = TimeSpan.FromMilliseconds(1200.0 / speed), RepeatBehavior = RepeatBehavior.Forever };
+            CyberSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, _cyberSparkAnim);
+        }
+
+        private void StopCyberAnimation()
+        {
+            if (CyberMainStream == null) return;
+            CyberMainStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberParticleStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+            CyberSparkStream.BeginAnimation(Path.StrokeDashOffsetProperty, null);
+        }
+
+        #endregion
+
+        #region 颜色辅助
 
         private static Color LightenColor(Color c, byte amount)
         {
@@ -801,18 +848,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 锚点显示控制
+        #region 锚点显示
 
         private void OnPipeMouseEnter(object sender, MouseEventArgs e)
         {
             if (!_isResizing && !_isDraggingPipe && !_isRotating) ShowAllAnchors();
         }
-
         private void OnPipeMouseLeave(object sender, MouseEventArgs e)
         {
             if (!_isResizing && !_isDraggingPipe && !_isRotating && !IsSelected) HideAllAnchors();
         }
-
         private void ShowAllAnchors()
         {
             TopLengthAnchor.Opacity = 0.6;
@@ -822,7 +867,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchor.Opacity = 0.6;
             RotateAnchorLine.Opacity = 0.6;
         }
-
         private void HideAllAnchors()
         {
             TopLengthAnchor.Opacity = 0;
@@ -832,7 +876,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchor.Opacity = 0;
             RotateAnchorLine.Opacity = 0;
         }
-
         private void UpdateSelectionVisual(bool isSelected)
         {
             if (isSelected)
@@ -853,7 +896,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
         #endregion
 
-        #region 锚点事件设置
+        #region 锚点事件
 
         private void SetupAnchorEvents()
         {
@@ -887,26 +930,14 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             RotateAnchor.MouseMove += OnRotateAnchorMouseMove;
             RotateAnchor.MouseUp += OnRotateAnchorMouseUp;
         }
-
         private void OnAnchorMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (sender is Ellipse anchor && !_isRotating) anchor.Opacity = 1.0;
-        }
-
+        { if (sender is Ellipse anchor && !_isRotating) anchor.Opacity = 1.0; }
         private void OnAnchorMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (sender is Ellipse anchor && !_isResizing && !_isRotating) anchor.Opacity = 0.6;
-        }
-
+        { if (sender is Ellipse anchor && !_isResizing && !_isRotating) anchor.Opacity = 0.6; }
         private void OnRotateAnchorMouseEnter(object sender, MouseEventArgs e)
-        {
-            if (!_isRotating) { RotateAnchor.Opacity = 1.0; RotateAnchorLine.Opacity = 1.0; }
-        }
-
+        { if (!_isRotating) { RotateAnchor.Opacity = 1.0; RotateAnchorLine.Opacity = 1.0; } }
         private void OnRotateAnchorMouseLeave(object sender, MouseEventArgs e)
-        {
-            if (!_isRotating) { RotateAnchor.Opacity = 0.6; RotateAnchorLine.Opacity = 0.6; }
-        }
+        { if (!_isRotating) { RotateAnchor.Opacity = 0.6; RotateAnchorLine.Opacity = 0.6; } }
 
         #endregion
 
@@ -923,7 +954,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                      clicked.Name == "RotateAnchor"))
                     return;
 
-                // ★ 双击 → 打开属性对话框
                 if (e.ClickCount == 2)
                 {
                     _isDraggingPipe = false;
@@ -943,7 +973,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
                 if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
 
-                // 拖拽优化
                 CacheMode = null;
                 RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.LowQuality);
 
@@ -1011,18 +1040,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        private void OnControlMouseLeave(object sender, MouseEventArgs e)
-        {
-            // 拖拽期间鼠标离开不做处理
-        }
+        private void OnControlMouseLeave(object sender, MouseEventArgs e) { }
 
         #endregion
 
         #region 调整大小
-        /// <summary>
-        /// 计算指定锚点对应的"固定端"在画布世界坐标系里的位置。
-        /// 这是控件旋转后,改尺寸时需要保持不动的那个点。
-        /// </summary>
+
         private Point ComputeFixedWorldPoint(ZAnchorPosition anchor)
         {
             double pipeLeft = Canvas.GetLeft(this);
@@ -1042,13 +1065,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             return new Point(center.X + worldOffset.X, center.Y + worldOffset.Y);
         }
 
-        /// <summary>
-        /// 计算指定锚点对应的"固定端"在控件本地坐标系(中心为原点)的位置。
-        /// Z 管的几何参考 UpdatePipeGeometry 里的计算。
-        /// </summary>
         private Point ComputeLocalFixedPoint(ZAnchorPosition anchor, ZPipeSize size)
         {
-            // 重建控件本地几何 — 与 UpdatePipeGeometry 里的算法一一对应
             double flangeHeight = size.PipeWidth + FLANGE_EXTENSION;
             double topFlangeY = 16;
             double leftFlangeTop = topFlangeY + (size.PipeWidth - flangeHeight) / 2;
@@ -1084,29 +1102,18 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             switch (anchor)
             {
                 case ZAnchorPosition.TopLength:
-                    // 拖上段左端 → 固定下段右端(右法兰中心)
                     return new Point(rightFlangeX - cx, elbow2CenterY - cy);
-
                 case ZAnchorPosition.BottomLength:
-                    // 拖下段右端 → 固定上段左端(左法兰中心)
                     return new Point(FlangeOffset - cx, elbow1CenterY - cy);
-
                 case ZAnchorPosition.VerticalOffset:
-                    // 改垂直距离 → 固定上段左端(让上段不动,下段往下移)
                     return new Point(FlangeOffset - cx, elbow1CenterY - cy);
-
                 case ZAnchorPosition.PipeWidth:
-                    // 改管宽 → 固定上段左端中线
                     return new Point(FlangeOffset - cx, elbow1CenterY - cy);
-
                 default:
                     return new Point(0, 0);
             }
         }
 
-        /// <summary>
-        /// 改完尺寸后,根据"原始固定点"反推 Canvas.Left/Top,让固定端保持不动
-        /// </summary>
         private void RepositionByFixedPoint()
         {
             if (!_resizingAnchor.HasValue) return;
@@ -1132,6 +1139,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Canvas.SetLeft(this, newCenter.X - Width / 2);
             Canvas.SetTop(this, newCenter.Y - Height / 2);
         }
+
         private void StartResize(ZAnchorPosition anchor, MouseButtonEventArgs e)
         {
             _isResizing = true;
@@ -1145,7 +1153,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 PipeWidth = PipeWidth
             };
 
-            // ★ 新增:记下"开始拖之前的固定点世界坐标"
             _originalPosition = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
             if (double.IsNaN(_originalPosition.X)) _originalPosition.X = 0;
             if (double.IsNaN(_originalPosition.Y)) _originalPosition.Y = 0;
@@ -1175,37 +1182,28 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             double rawDx = currentPoint.X - _dragStartPoint.X;
             double rawDy = currentPoint.Y - _dragStartPoint.Y;
 
-            // ★ 关键:把鼠标位移投影到管子本地坐标系
             double radians = _rotationAngle * Math.PI / 180.0;
             double cos = Math.Cos(radians);
             double sin = Math.Sin(radians);
-            double localDx = rawDx * cos + rawDy * sin;   // 沿水平段方向
-            double localDy = -rawDx * sin + rawDy * cos;   // 垂直方向
+            double localDx = rawDx * cos + rawDy * sin;
+            double localDy = -rawDx * sin + rawDy * cos;
 
             switch (_resizingAnchor.Value)
             {
                 case ZAnchorPosition.TopLength:
-                    // 上段锚点在最左端,向左拖(localDx 变负)→ 上段变长
                     TopHorizontalLength = _originalSize.TopHorizontalLength - localDx;
                     break;
-
                 case ZAnchorPosition.BottomLength:
-                    // 下段锚点在最右端,向右拖(localDx 变正)→ 下段变长
                     BottomHorizontalLength = _originalSize.BottomHorizontalLength + localDx;
                     break;
-
                 case ZAnchorPosition.VerticalOffset:
-                    // 中间垂直段,向下拖(localDy 变正)→ 垂直距离变大
                     VerticalOffset = _originalSize.VerticalOffset + localDy;
                     break;
-
                 case ZAnchorPosition.PipeWidth:
-                    // 管宽锚点,向下拖 → 管子变粗
                     PipeWidth = _originalSize.PipeWidth + localDy;
                     break;
             }
 
-            // ★ 改完尺寸后反推位置,让固定端保持不动
             RepositionByFixedPoint();
 
             PipeResizing?.Invoke(this, new ZPipeResizeEventArgs
@@ -1354,7 +1352,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 double flangeHeight = _pipeWidth + FLANGE_EXTENSION;
                 double topFlangeY = 16;
 
-                // ═══ 左侧法兰 ═══
                 double leftFlangeTop = topFlangeY + (_pipeWidth - flangeHeight) / 2;
                 Canvas.SetTop(LeftFlangeGroup, leftFlangeTop);
                 LeftFlangeGroup.Width = FlangeWidth;
@@ -1366,7 +1363,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 LeftFlangeBorder.Width = FlangeWidth;
                 LeftFlangeBorder.Height = flangeHeight;
 
-                // ═══ 上方水平管道 ═══
                 double topPipeLeft = FlangeOffset + FlangeWidth + FlangeSpacing;
                 double topPipeTop = topFlangeY;
                 double topPipeWidth = _topHorizontalLength;
@@ -1386,13 +1382,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 TopHorizontalBottomEdge.X2 = topPipeLeft + topPipeWidth;
                 TopHorizontalBottomEdge.Y2 = topPipeTop + _pipeWidth - 0.32;
 
-                // ═══ 上弯头 ═══
                 double elbow1Radius = _pipeWidth;
                 double elbow1CenterX = topPipeLeft + topPipeWidth + elbow1Radius;
                 double elbow1CenterY = topPipeTop + _pipeWidth / 2;
                 UpdateTopElbow(elbow1CenterX, elbow1CenterY, elbow1Radius);
 
-                // ═══ 中间垂直管道 ═══
                 double diagPipeLeft = elbow1CenterX - _pipeWidth / 2;
                 double diagPipeTop = elbow1CenterY + elbow1Radius;
                 double diagPipeHeight = _verticalOffset;
@@ -1412,13 +1406,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 DiagonalRightEdge.X2 = diagPipeLeft + _pipeWidth - 0.32;
                 DiagonalRightEdge.Y2 = diagPipeTop + diagPipeHeight;
 
-                // ═══ 下弯头 ═══
                 double elbow2Radius = _pipeWidth;
                 double elbow2CenterX = diagPipeLeft + _pipeWidth / 2;
                 double elbow2CenterY = diagPipeTop + diagPipeHeight + elbow2Radius;
                 UpdateBottomElbow(elbow2CenterX, elbow2CenterY, elbow2Radius);
 
-                // ═══ 下方水平管道 ═══
                 double bottomPipeLeft = elbow2CenterX + elbow2Radius;
                 double bottomPipeTop = elbow2CenterY - _pipeWidth / 2;
                 double bottomPipeWidth = _bottomHorizontalLength;
@@ -1438,7 +1430,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 BottomHorizontalBottomEdge.X2 = bottomPipeLeft + bottomPipeWidth;
                 BottomHorizontalBottomEdge.Y2 = bottomPipeTop + _pipeWidth - 0.32;
 
-                // ═══ 右侧法兰 ═══
                 double rightFlangeX = bottomPipeLeft + bottomPipeWidth;
                 double rightFlangeY = bottomPipeTop + (_pipeWidth - flangeHeight) / 2;
                 Canvas.SetLeft(RightFlangeGroup, rightFlangeX);
@@ -1452,7 +1443,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 RightFlangeBorder.Width = FlangeWidth;
                 RightFlangeBorder.Height = flangeHeight;
 
-                // ═══ 连接处 ═══
                 Canvas.SetLeft(LeftConnection, FlangeOffset + FlangeWidth);
                 Canvas.SetTop(LeftConnection, topPipeTop);
                 LeftConnection.Height = _pipeWidth;
@@ -1461,7 +1451,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Canvas.SetTop(RightConnection, bottomPipeTop);
                 RightConnection.Height = _pipeWidth;
 
-                // ═══ 尺寸 + 锚点 ═══
                 UpdateAnchorPositions(topPipeLeft, topPipeTop, rightFlangeX, rightFlangeY,
                     diagPipeLeft, diagPipeTop, diagPipeHeight);
 
@@ -1470,20 +1459,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Width = totalWidth;
                 Height = totalHeight;
 
-                // 选中描边（Z 形：3 段）
-                // 上水平段：从左端延伸到弯头1中心
                 SelectionBorder.Width = (elbow1CenterX + _pipeWidth / 2) - topPipeLeft;
                 SelectionBorder.Height = _pipeWidth;
                 Canvas.SetLeft(SelectionBorder, topPipeLeft);
                 Canvas.SetTop(SelectionBorder, topPipeTop);
 
-                // 中间垂直段：从弯头1中心到弯头2中心
                 SelectionBorderM.Width = _pipeWidth;
                 SelectionBorderM.Height = (elbow2CenterY + _pipeWidth / 2) - (elbow1CenterY - _pipeWidth / 2);
                 Canvas.SetLeft(SelectionBorderM, diagPipeLeft);
                 Canvas.SetTop(SelectionBorderM, elbow1CenterY - _pipeWidth / 2);
 
-                // 下水平段：从弯头2中心到右端
                 SelectionBorderB.Width = (bottomPipeLeft + bottomPipeWidth) - (elbow2CenterX - _pipeWidth / 2);
                 SelectionBorderB.Height = _pipeWidth;
                 Canvas.SetLeft(SelectionBorderB, elbow2CenterX - _pipeWidth / 2);
@@ -1491,9 +1476,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls
 
                 PipeCanvas.EndInit();
 
-                // ═══ 更新纹理 + 动画 ═══
                 UpdateFluidPatternViewports();
-                if (IsFlowing && IsFluidVisible) StartFlowAnimation();
+                if (IsFlowing && IsFluidVisible && !UseDefaultStyle) StartFlowAnimation();
+
+                // ★ 同步赛博层
+                UpdateCyberGeometry();
+                if (UseDefaultStyle && IsFlowing) StartCyberAnimation();
             }
             catch (Exception ex)
             {
@@ -1501,9 +1489,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             }
         }
 
-        /// <summary>
-        /// 统一设置 Rectangle 的位置和尺寸
-        /// </summary>
         private void SetRectGeometry(Rectangle rect, double left, double top, double width, double height)
         {
             Canvas.SetLeft(rect, left);
@@ -1700,7 +1685,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             Point center = new Point(pipeLeft + ActualWidth / 2, pipeTop + ActualHeight / 2);
             double radians = _rotationAngle * Math.PI / 180.0;
 
-            // 左法兰
             double leftFX = 4 - ActualWidth / 2;
             double leftFY = Canvas.GetTop(LeftFlangeGroup) + LeftFlangeGroup.Height / 2 - ActualHeight / 2;
             Point leftWorld = RotatePoint(new Point(leftFX, leftFY), radians);
@@ -1711,7 +1695,6 @@ namespace MaxChemical.Modules.Designer.Views.Controls
                 Description = $"Z形管道左上法兰 (上段:{_topHorizontalLength:F0})"
             });
 
-            // 右法兰
             double rightFX = Canvas.GetLeft(RightFlangeGroup) + 2 - ActualWidth / 2;
             double rightFY = Canvas.GetTop(RightFlangeGroup) + RightFlangeGroup.Height / 2 - ActualHeight / 2;
             Point rightWorld = RotatePoint(new Point(rightFX, rightFY), radians);
@@ -1744,7 +1727,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls
         #endregion
     }
 
-    #region 辅助类和枚举（保持不变）
+    #region 辅助类和枚举
 
     public enum ZAnchorPosition
     {
