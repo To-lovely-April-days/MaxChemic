@@ -1106,61 +1106,60 @@ namespace MaxChemical.Modules.Designer.Views
                 var viewModel = DataContext as FlowDesignerViewModel;
                 _dragInsertService.ClearHighlight(viewModel);
 
-                var command = _dragDropService.ExtractCommandFromDragData(e.Data);
-                if (command != null)
+                // ★ 用新的 ExtractCommandDragInfo,可以拿到 SourceDeviceType
+                var dragInfo = _dragDropService.ExtractCommandDragInfo(e.Data);
+                if (dragInfo?.Command != null)
                 {
+                    var command = dragInfo.Command;          // DeviceCommand 类型
+                    var sourceDeviceType = dragInfo.SourceDeviceType;   // 可能为 null(老路径)
+
                     // 获取插入位置
                     int insertIndex = _currentDragPosition?.IsValidPosition == true ?
                         _currentDragPosition.InsertIndex : -1;
 
-                    if (command is DeviceCommand deviceCmd)
+                    // ★ 设备命令:把 sourceDeviceType 也传给 ViewModel
+                    if (insertIndex >= 0)
                     {
-                        if (insertIndex >= 0)
-                        {
-                            viewModel?.AddCommandToCanvasAtPosition(deviceCmd, insertIndex);
-                        }
-                        else
-                        {
-                            viewModel?.AddCommandToCanvas(deviceCmd);
-                        }
-                        _logger.LogDebug("设备命令 {CommandName} 已添加到流程，位置: {Position}",
-                            deviceCmd.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
+                        viewModel?.AddCommandToCanvasAtPosition(command, insertIndex, sourceDeviceType);
                     }
-                    else if (command is LogicCommand logicCmd)
+                    else
                     {
-                        if (insertIndex >= 0)
-                        {
-                            viewModel?.AddCommandToCanvasAtPosition(logicCmd, insertIndex);
-                        }
-                        else
-                        {
-                            viewModel?.AddCommandToCanvas(logicCmd);
-                        }
-                        _logger.LogDebug("逻辑命令 {CommandName} 已添加到流程，位置: {Position}",
-                            logicCmd.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
+                        viewModel?.AddCommandToCanvas(command, sourceDeviceType);
                     }
-                    else if (command is Services.PluginIdRequest pluginRequest)
+
+                    _logger.LogDebug("设备命令 {CommandName} 已添加到流程,位置: {Position},来源类型: {Type}",
+                        command.Name,
+                        insertIndex >= 0 ? insertIndex.ToString() : "末尾",
+                        sourceDeviceType ?? "(null)");
+                }
+                else
+                {
+                    // ★ 不是设备命令(可能是 LogicCommand),走老的提取路径
+                    var command = _dragDropService.ExtractCommandFromDragData(e.Data);
+                    if (command != null)
                     {
-                        var logicCommand = viewModel?.CreateLogicCommandFromPluginId(pluginRequest.PluginId);
-                        if (logicCommand != null)
+                        int insertIndex = _currentDragPosition?.IsValidPosition == true ?
+                            _currentDragPosition.InsertIndex : -1;
+
+                        if (command is LogicCommand logicCmd)
                         {
                             if (insertIndex >= 0)
                             {
-                                viewModel.AddCommandToCanvasAtPosition(logicCommand, insertIndex);
+                                viewModel?.AddCommandToCanvasAtPosition(logicCmd, insertIndex);
                             }
                             else
                             {
-                                viewModel.AddCommandToCanvas(logicCommand);
+                                viewModel?.AddCommandToCanvas(logicCmd);
                             }
-                            _logger.LogDebug("通过插件ID创建的逻辑命令 {CommandName} 已添加到流程，位置: {Position}",
-                                logicCommand.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
+                            _logger.LogDebug("逻辑命令 {CommandName} 已添加到流程,位置: {Position}",
+                                logicCmd.Name, insertIndex >= 0 ? insertIndex.ToString() : "末尾");
                         }
                     }
-                }
-                else if (e.Data.GetDataPresent("Device") && e.Data.GetData("Device") is IDevice device)
-                {
-                    Point dropPosition = e.GetPosition(DesignCanvas);
-                    viewModel?.AddDeviceToCanvas(device, dropPosition);
+                    else if (e.Data.GetDataPresent("Device") && e.Data.GetData("Device") is IDevice device)
+                    {
+                        Point dropPosition = e.GetPosition(DesignCanvas);
+                        viewModel?.AddDeviceToCanvas(device, dropPosition);
+                    }
                 }
 
                 // 重置拖拽位置

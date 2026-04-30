@@ -509,11 +509,15 @@ namespace MaxChemical.Modules.Designer.Views
                     command = args.ResultCommand;
                 }
 
+                // ★ 直接从 dragData 里取 SourceDeviceType,不污染 service
+                string sourceDeviceType = ExtractSourceDeviceTypeFromDragData(e.Data);
+
                 if (command != null)
                 {
-                    _logger.LogDebug("准备添加命令到 {Branch} 分支位置 {Index}: {Type}",
-                        isTrueBranch ? "TRUE" : "FALSE", insertionIndex, command.GetType().Name);
-                    AddCommandToBranch(command, isTrueBranch, insertionIndex);
+                    _logger.LogDebug("准备添加命令到 {Branch} 分支位置 {Index}: {Type}, 来源设备类型: {SrcType}",
+                        isTrueBranch ? "TRUE" : "FALSE", insertionIndex, command.GetType().Name,
+                        sourceDeviceType ?? "(null)");
+                    AddCommandToBranch(command, isTrueBranch, insertionIndex, sourceDeviceType);
                 }
                 else
                 {
@@ -526,16 +530,43 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
 
-        private void AddCommandToBranch(object command, bool isTrueBranch, int insertionIndex = -1)
+        /// <summary>
+        /// 从拖拽数据中提取 SourceDeviceType。
+        /// 用反射读 CommandDragInfo.SourceDeviceType 属性,跨命名空间也能用。
+        /// 没有则返回 null。
+        /// </summary>
+        private string ExtractSourceDeviceTypeFromDragData(IDataObject data)
+        {
+            try
+            {
+                if (data == null || !data.GetDataPresent("CommandDragInfo")) return null;
+                var raw = data.GetData("CommandDragInfo");
+                if (raw == null) return null;
+
+                var prop = raw.GetType().GetProperty("SourceDeviceType");
+                return prop?.GetValue(raw) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void AddCommandToBranch(object command, bool isTrueBranch, int insertionIndex = -1, string sourceDeviceType = null)
         {
             try
             {
                 CommandNode nestedNode = null;
 
                 if (command is DeviceCommand deviceCmd)
+                {
                     nestedNode = new CommandNode(deviceCmd);
+                    nestedNode.SourceDeviceType = sourceDeviceType;   // ★ 写入源设备类型
+                }
                 else if (command is LogicCommand logicCmd)
+                {
                     nestedNode = new CommandNode(logicCmd);
+                }
 
                 if (nestedNode == null || DataContext is not CommandNode ifNode) return;
 

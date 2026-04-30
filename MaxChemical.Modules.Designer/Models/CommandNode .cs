@@ -91,6 +91,14 @@ namespace MaxChemical.Modules.Designer.Models
         /// 逻辑命令（如果是逻辑命令节点）
         /// </summary>
         public LogicCommand LogicCommand { get; set; }
+        /// <summary>
+        /// 命令来源的设备类型(设备类的 GetType().Name,例如 "TemperatureCirculator_ModbusTCP")。
+        /// 用于:
+        /// 1. 设备绑定下拉框只列出同类型设备(避免不同驱动同名命令冲突)
+        /// 2. 流程加载时按设备类型精准匹配驱动模板,避免 Name 被错误的驱动模板污染
+        /// 老节点(老流程文件)没有这个值时为 null,候选列表会退回按命令名兜底匹配。
+        /// </summary>
+        public string SourceDeviceType { get; set; }
 
         /// <summary>
         /// 节点对应的用户控件（由插件创建）
@@ -1096,7 +1104,7 @@ namespace MaxChemical.Modules.Designer.Models
             clone.Order = Order;
             clone.IsSelected = false;
             clone.IsExecuting = false;
-
+            clone.SourceDeviceType = SourceDeviceType;   //  新增
             // 深拷贝子命令
             if (HasChildren)
             {

@@ -125,7 +125,7 @@ public class CanvasDevicePositionChangedEventArgs
     public bool IsCompleted { get; set; } // true表示拖拽完成，false表示拖拽中
 }
 
-
+public class DeviceTypeMapUpdatedEvent : PubSubEvent<Dictionary<string, string>> { }
 
 /// <summary>
 /// 语音创建设备事件参数

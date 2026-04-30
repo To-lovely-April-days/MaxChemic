@@ -17,6 +17,7 @@ using DevicePlugins.Devices;
 using MaxChemical.DataModule;
 using MaxChemical.DataModule.Model;
 using MaxChemical.Infrastructure.Events;
+using MaxChemical.Modules.Device.ViewModels;
 
 namespace MaxChemical.Modules.Device.Views
 {
@@ -29,6 +30,12 @@ namespace MaxChemical.Modules.Device.Views
         private Point _startPoint;
         private IDevice _draggedDevice = null;
         private DeviceCommand _draggedCommand = null;
+
+        //  命令拖拽时,记录命令来源的设备类型(GetType().Name,例如 "TemperatureCirculator_ModbusTCP")
+        //   用于让节点知道"我来自哪个设备类型",从而:
+        //   1. 设备绑定下拉框只列出同类型设备
+        //   2. 流程持久化后再加载时,精准匹配回正确的驱动模板
+        private string _draggedSourceDeviceType = null;
 
         public CommadLibraryView()
         {
@@ -189,15 +196,45 @@ namespace MaxChemical.Modules.Device.Views
                 {
                     _startPoint = e.GetPosition(button);
                     _draggedCommand = command;
-                    Debug.WriteLine($"鼠标按下，准备拖拽命令: {command.Name}");
 
-                    // 捕获鼠标，确保能接收到后续事件
+                    // 从可视树往上找父级 CanvasDeviceWithCommands,拿到源设备的类型名
+                    _draggedSourceDeviceType = FindSourceDeviceType(button);
+
+                    Debug.WriteLine($"鼠标按下,准备拖拽命令: {command.Name},来自设备类型: {_draggedSourceDeviceType ?? "(null)"}");
+
+                    // 捕获鼠标,确保能接收到后续事件
                     button.CaptureMouse();
 
-                    // 阻止事件冒泡，防止按钮的 Click 事件触发
+                    // 阻止事件冒泡,防止按钮的 Click 事件触发
                     e.Handled = true;
                 }
             }
+        }
+
+        /// <summary>
+        /// 从命令按钮的可视树往上找父级 CanvasDeviceWithCommands,
+        /// 取出 group.CanvasDevice.Device.GetType().Name 作为源设备类型。
+        /// 如果找不到(可能是 XAML 结构变化),返回 null,后续会触发兜底匹配。
+        /// </summary>
+        private string FindSourceDeviceType(DependencyObject start)
+        {
+            try
+            {
+                var current = start;
+                while (current != null)
+                {
+                    if (current is FrameworkElement fe && fe.DataContext is CanvasDeviceWithCommands group)
+                    {
+                        return group.CanvasDevice?.Device?.GetType().Name;
+                    }
+                    current = VisualTreeHelper.GetParent(current);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"FindSourceDeviceType 失败: {ex.Message}");
+            }
+            return null;
         }
 
         private void CommandButton_MouseMove(object sender, MouseEventArgs e)
@@ -243,7 +280,7 @@ namespace MaxChemical.Modules.Device.Views
         private void StartCommandDrag(Button button, DeviceCommand command)
         {
             _isDragging = true;
-            Debug.WriteLine($"开始拖拽命令: {command.Name}");
+            Debug.WriteLine($"开始拖拽命令: {command.Name},来自设备类型: {_draggedSourceDeviceType ?? "(null)"}");
 
             // 释放鼠标捕获
             if (button.IsMouseCaptured)
@@ -261,7 +298,8 @@ namespace MaxChemical.Modules.Device.Views
                 {
                     Command = command,
                     SourceControl = button,
-                    DragStartTime = DateTime.Now
+                    DragStartTime = DateTime.Now,
+                    SourceDeviceType = _draggedSourceDeviceType   //  关键:把源设备类型塞进 dragInfo
                 };
                 dragData.SetData("CommandDragInfo", dragInfo);
 
@@ -277,16 +315,15 @@ namespace MaxChemical.Modules.Device.Views
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"命令拖拽操作出现异常: {ex.Message}");
+                Debug.WriteLine($"拖拽操作出现异常: {ex.Message}");
             }
             finally
             {
                 _isDragging = false;
                 _draggedCommand = null;
+                _draggedSourceDeviceType = null;   //  清理
             }
         }
         #endregion
     }
-
-  
 }

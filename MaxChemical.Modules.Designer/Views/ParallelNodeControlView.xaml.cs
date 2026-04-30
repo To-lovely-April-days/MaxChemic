@@ -544,10 +544,14 @@ namespace MaxChemical.Modules.Designer.Views
                     command = args.ResultCommand;
                 }
 
+                // ★ 直接从 dragData 里取 SourceDeviceType
+                string sourceDeviceType = ExtractSourceDeviceTypeFromDragData(e.Data);
+
                 if (command != null)
                 {
-                    _logger.LogDebug("提取到命令: {Type}", command.GetType().Name);
-                    AddCommandToBranch(command, branchIndex, insertionIndex);
+                    _logger.LogDebug("提取到命令: {Type}, 来源设备类型: {SrcType}",
+                        command.GetType().Name, sourceDeviceType ?? "(null)");
+                    AddCommandToBranch(command, branchIndex, insertionIndex, sourceDeviceType);
                 }
                 else
                 {
@@ -557,6 +561,28 @@ namespace MaxChemical.Modules.Designer.Views
             catch (Exception ex)
             {
                 _logger.LogError(ex, "处理命令拖拽失败");
+            }
+        }
+
+        /// <summary>
+        /// 从拖拽数据中提取 SourceDeviceType。
+        /// 用反射读 CommandDragInfo.SourceDeviceType 属性,跨命名空间也能用。
+        /// 没有则返回 null。
+        /// </summary>
+        private string ExtractSourceDeviceTypeFromDragData(IDataObject data)
+        {
+            try
+            {
+                if (data == null || !data.GetDataPresent("CommandDragInfo")) return null;
+                var raw = data.GetData("CommandDragInfo");
+                if (raw == null) return null;
+
+                var prop = raw.GetType().GetProperty("SourceDeviceType");
+                return prop?.GetValue(raw) as string;
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -729,7 +755,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 命令管理
 
-        private void AddCommandToBranch(object command, int branchIndex, int insertionIndex = -1)
+        private void AddCommandToBranch(object command, int branchIndex, int insertionIndex = -1, string sourceDeviceType = null)
         {
             try
             {
@@ -741,6 +767,7 @@ namespace MaxChemical.Modules.Designer.Views
                 if (command is DeviceCommand deviceCmd)
                 {
                     nestedNode = new CommandNode(deviceCmd);
+                    nestedNode.SourceDeviceType = sourceDeviceType;   // ★ 写入源设备类型
                 }
                 else if (command is LogicCommand logicCmd)
                 {

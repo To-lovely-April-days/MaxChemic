@@ -144,7 +144,73 @@ namespace MaxChemical.Modules.Designer.Services
                 return null;
             }
         }
+        /// <summary>
+        /// 从拖拽数据中提取完整的 CommandDragInfo(包含 Command 和 SourceDeviceType)。
+        /// 注意:这里特意用全限定名 MaxChemical.DataModule.Model.CommandDragInfo,
+        /// 因为本文件顶部有 alias 把 CommandDragInfo 重定向到了 Events 命名空间下的简化类型,
+        /// 而拖拽起点(CommadLibraryView.StartCommandDrag)写入 dragData 的是 DataModule.Model 版本。
+        /// </summary>
+        public MaxChemical.DataModule.Model.CommandDragInfo ExtractCommandDragInfo(IDataObject data)
+        {
+            try
+            {
+                if (data.GetDataPresent("CommandDragInfo"))
+                {
+                    var raw = data.GetData("CommandDragInfo");
 
+                    // 1. 直接强类型匹配 DataModule.Model 版本(里面带 SourceDeviceType)
+                    if (raw is MaxChemical.DataModule.Model.CommandDragInfo dragInfo)
+                    {
+                        _logger.LogDebug("提取到完整 CommandDragInfo: Command={Cmd}, SourceDeviceType={Type}",
+                            dragInfo.Command?.Name, dragInfo.SourceDeviceType ?? "(null)");
+                        return dragInfo;
+                    }
+
+                    // 2. 反射兜底:有可能是 Events 命名空间下的简化版本,或跨程序集类型实例
+                    if (raw != null)
+                    {
+                        var t = raw.GetType();
+                        if (t.Name == "CommandDragInfo")
+                        {
+                            var cmdObj = t.GetProperty("Command")?.GetValue(raw);
+                            var cmd = cmdObj as DeviceCommand;
+                            var srcType = t.GetProperty("SourceDeviceType")?.GetValue(raw) as string;
+                            if (cmd != null)
+                            {
+                                _logger.LogDebug("反射提取 CommandDragInfo: Command={Cmd}, SourceDeviceType={Type}",
+                                    cmd.Name, srcType ?? "(null)");
+                                return new MaxChemical.DataModule.Model.CommandDragInfo
+                                {
+                                    Command = cmd,
+                                    SourceDeviceType = srcType
+                                };
+                            }
+                        }
+                    }
+                }
+
+                // 3. 最后兜底:用老的 ExtractCommandFromDragData 拿到 command,包成 DataModel 版本
+                //    这条路没有 SourceDeviceType,会触发 GetBindingCandidatesForNode 的按命令名兜底匹配
+                var fallbackCmd = ExtractCommandFromDragData(data) as DeviceCommand;
+                if (fallbackCmd != null)
+                {
+                    _logger.LogDebug("通过兜底路径提取到 DeviceCommand: {Cmd},无 SourceDeviceType", fallbackCmd.Name);
+                    return new MaxChemical.DataModule.Model.CommandDragInfo
+                    {
+                        Command = fallbackCmd,
+                        SourceDeviceType = null
+                    };
+                }
+
+                _logger.LogWarning("ExtractCommandDragInfo 未能提取到任何命令信息");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "提取 CommandDragInfo 失败");
+                return null;
+            }
+        }
         private object ExtractCommandFromDragInfo(object commandDragInfo)
         {
             try

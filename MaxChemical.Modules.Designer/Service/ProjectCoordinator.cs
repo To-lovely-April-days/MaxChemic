@@ -399,7 +399,13 @@ namespace MaxChemical.Modules.Designer.Service
 
                 // 步骤2：加载画布设计（包含设备和管道）
                 LoadCanvasDesignAsync(projectDocument.CanvasDesign);
-
+                // 提取 DeviceId → DeviceType 映射,供流程加载时按 ID 精准匹配设备类型
+                var deviceIdToTypeMap = projectDocument.CanvasDesign?.Devices?
+                    .Where(d => !string.IsNullOrEmpty(d.DeviceId) && !string.IsNullOrEmpty(d.DeviceType))
+                    .GroupBy(d => d.DeviceId)
+                    .ToDictionary(g => g.Key, g => g.First().DeviceType)
+                    ?? new Dictionary<string, string>();
+                _eventAggregator?.GetEvent<DeviceTypeMapUpdatedEvent>()?.Publish(deviceIdToTypeMap);
                 //  等待画布加载完成
                 await System.Threading.Tasks.Task.Delay(100);
 

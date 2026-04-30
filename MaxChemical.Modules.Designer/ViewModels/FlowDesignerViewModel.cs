@@ -59,7 +59,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         public ICommand ValidateAllNodesCommand { get; private set; }
         public ICommand RefreshPluginsCommand { get; private set; }
         public ICommand NodeClickCommand { get; private set; }
-
+        private Dictionary<string, string> _deviceIdToTypeMap = new();
         // 事件
         public event EventHandler<CommandNode> NodeAdded;
         public event EventHandler<CanvasWidthRequestEventArgs> CanvasWidthRequested;
@@ -327,6 +327,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
             InitializeTimelineTimer();
 
             LanguageChangedHandler("");
+            _eventAggregator.GetEvent<DeviceTypeMapUpdatedEvent>()
+    .Subscribe(map => _deviceIdToTypeMap = map ?? new Dictionary<string, string>());
             _logger.LogInformation("FlowDesignerViewModel 初始化完成");
         }
         private void InitializeTimelineTimer()
@@ -873,7 +875,10 @@ namespace MaxChemical.Modules.Designer.ViewModels
             {
                 nodeData.CommandType = "DeviceCommand";
                 nodeData.DeviceCommandName = commandNode.DeviceCommand.Name;
-                nodeData.DeviceCommandType = commandNode.DeviceCommand.GetType().Name;
+                // 复用 DeviceCommandType 字段存"源设备类型"(如 TemperatureCirculator_ModbusTCP),
+                //   而不是命令类的 GetType().Name(那永远是 "DeviceCommand",没有意义)。
+                //   老文件这个字段值是 "DeviceCommand",加载时会被自动忽略,走 fallback 匹配。
+                nodeData.DeviceCommandType = commandNode.SourceDeviceType;
                 nodeData.BoundDeviceId = commandNode.BoundDeviceId;
                 nodeData.BoundDeviceName = commandNode.BoundDeviceName;
 
@@ -1684,6 +1689,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (deviceCommand != null)
                 {
                     commandNode = new CommandNode(deviceCommand);
+                    //  把持久化的设备类型还原到节点上,用于后续下拉框过滤、再次保存等
+                    //   老文件存的是 "DeviceCommand",过滤掉(没意义);新文件存的是真实设备类名
+                    if (!string.IsNullOrEmpty(nodeData.DeviceCommandType) &&
+                        nodeData.DeviceCommandType != "DeviceCommand")
+                    {
+                        commandNode.SourceDeviceType = nodeData.DeviceCommandType;
+                    }
                 }
             }
             else if (nodeData.CommandType == "LogicCommand")
@@ -1740,67 +1752,60 @@ namespace MaxChemical.Modules.Designer.ViewModels
         {
             try
             {
+                var allDevices = _deviceManager.GetAllDevices();
                 IDevice matchedDevice = null;
+                string matchSource = null;
 
-                // ★ 第一优先级:按 BoundDeviceId 从画布设备列表中精准匹配
-                // 这能解决:不同类型设备同名命令、同类型多台设备的所有问题
-                if (!string.IsNullOrEmpty(nodeData.BoundDeviceId))
+                // ★ 第一优先级:用 nodeData.DeviceCommandType(实际存的是 SourceDeviceType)直接找驱动模板
+                //   不依赖任何事件时序,加载流程文件时 100% 可用
+                //   注意:老文件这个字段是 "DeviceCommand",过滤掉
+                if (!string.IsNullOrEmpty(nodeData.DeviceCommandType) &&
+                    nodeData.DeviceCommandType != "DeviceCommand")
                 {
-                    List<CanvasDeviceViewModel> canvasDevices = null;
-                    _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()
-                        ?.Publish(list => canvasDevices = list);
-
-                    matchedDevice = canvasDevices?
-                        .FirstOrDefault(d => d.DeviceId == nodeData.BoundDeviceId)
-                        ?.Device;
-
+                    matchedDevice = allDevices.FirstOrDefault(d => d.GetType().Name == nodeData.DeviceCommandType);
                     if (matchedDevice != null)
                     {
-                        _logger.LogDebug("按 BoundDeviceId 精准匹配到设备: {DeviceId} ({Type})",
-                            nodeData.BoundDeviceId, matchedDevice.GetType().Name);
+                        matchSource = $"按持久化设备类型({nodeData.DeviceCommandType})精准匹配";
                     }
                 }
 
-                // ★ 第二优先级:按 DeviceCommandType (设备类名) 匹配模板
-                // 兜底场景:画布设备还没创建好(加载顺序问题),或没有 BoundDeviceId
-                if (matchedDevice == null && !string.IsNullOrEmpty(nodeData.DeviceCommandType))
+                // ★ 第二优先级:按 BoundDeviceId → DeviceType 映射(适用于老文件,有 _deviceIdToTypeMap 才能用)
+                if (matchedDevice == null &&
+                    !string.IsNullOrEmpty(nodeData.BoundDeviceId) &&
+                    _deviceIdToTypeMap.TryGetValue(nodeData.BoundDeviceId, out var deviceType) &&
+                    !string.IsNullOrEmpty(deviceType))
                 {
-                    var allDevices = _deviceManager.GetAllDevices();
-                    matchedDevice = allDevices.FirstOrDefault(d =>
-                        d.GetType().Name == nodeData.DeviceCommandType);
-
+                    matchedDevice = allDevices.FirstOrDefault(d => d.GetType().Name == deviceType);
                     if (matchedDevice != null)
                     {
-                        _logger.LogDebug("按 DeviceCommandType 匹配到设备模板: {Type}",
-                            nodeData.DeviceCommandType);
+                        matchSource = $"按 BoundDeviceId({nodeData.BoundDeviceId.Substring(0, 8)})→Type({deviceType}) 匹配";
                     }
                 }
 
-                // ★ 第三优先级:实在不行才按命令名(老逻辑,可能错配)
+                // ★ 第三优先级:按命令名兜底(最不可靠,可能错配,但有警告日志)
                 if (matchedDevice == null)
                 {
-                    var allDevices = _deviceManager.GetAllDevices();
                     matchedDevice = allDevices.FirstOrDefault(d =>
                         d.Commands?.Any(c => c.Name == nodeData.DeviceCommandName) == true);
 
                     if (matchedDevice != null)
                     {
+                        matchSource = $"按命令名兜底匹配({matchedDevice.GetType().Name})";
                         _logger.LogWarning(
-                            "[兼容模式] 仅按命令名匹配,可能选错设备! " +
-                            "节点: BoundDeviceId={Id}, ExpectedType={Type}, 实际匹配类型={Actual}, Cmd={Cmd}",
-                            nodeData.BoundDeviceId, nodeData.DeviceCommandType,
-                            matchedDevice.GetType().Name, nodeData.DeviceCommandName);
+                            "[兼容模式] 未通过设备类型/BoundDeviceId 匹配到设备,退回按命令名匹配,可能选错驱动! " +
+                            "节点: DeviceCommandType={Type}, BoundDeviceId={Id}, BoundDeviceName={Name}, Cmd={Cmd}, 实际匹配类型={Actual}",
+                            nodeData.DeviceCommandType, nodeData.BoundDeviceId, nodeData.BoundDeviceName,
+                            nodeData.DeviceCommandName, matchedDevice.GetType().Name);
                     }
                 }
 
                 if (matchedDevice == null)
                 {
-                    _logger.LogError("未找到任何匹配设备: BoundDeviceId={Id}, Type={Type}, Cmd={Cmd}",
-                        nodeData.BoundDeviceId, nodeData.DeviceCommandType, nodeData.DeviceCommandName);
+                    _logger.LogError("未找到任何匹配设备: DeviceCommandType={Type}, BoundDeviceId={Id}, Cmd={Cmd}",
+                        nodeData.DeviceCommandType, nodeData.BoundDeviceId, nodeData.DeviceCommandName);
                     return null;
                 }
 
-                // 找到对应的命令
                 var command = matchedDevice.Commands?.FirstOrDefault(c => c.Name == nodeData.DeviceCommandName);
                 if (command == null)
                 {
@@ -1809,7 +1814,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     return null;
                 }
 
-                // 创建命令副本(注意:CloneDeviceParameters 也要改成深拷贝,见下面)
+                _logger.LogDebug("匹配到设备命令: {MatchSource} → {Cmd}", matchSource, command.Name);
+
+                // 深拷贝参数定义(关键!不污染模板,各节点独立)
                 var restoredCommand = new DeviceCommand
                 {
                     Name = command.Name,
@@ -1819,7 +1826,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     OutputParameters = CloneDeviceParameters(command.OutputParameters)
                 };
 
-                // 恢复参数值
+                // 应用保存的参数值
                 if (nodeData.DeviceCommandProperties != null && restoredCommand.InputParameters?.Variables != null)
                 {
                     foreach (var prop in nodeData.DeviceCommandProperties)
@@ -2445,6 +2452,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     if (deviceCommand != null)
                     {
                         childNode = new CommandNode(deviceCommand);
+                        //  把持久化的设备类型还原到节点上
+                        if (!string.IsNullOrEmpty(nodeData.DeviceCommandType) &&
+                            nodeData.DeviceCommandType != "DeviceCommand")
+                        {
+                            childNode.SourceDeviceType = nodeData.DeviceCommandType;
+                        }
                     }
                 }
                 else if (nodeData.CommandType == "LogicCommand")
@@ -2688,11 +2701,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
         #region 添加节点方法
 
-        public void AddCommandToCanvas(DeviceCommand command)
+        public void AddCommandToCanvas(DeviceCommand command, string sourceDeviceType = null)
         {
             try
             {
-                _logger.LogDebug("添加设备命令到画布: {CommandName}", command.Name);
+                _logger.LogDebug("添加设备命令到画布: {CommandName}, 来源设备类型: {Type}",
+                    command.Name, sourceDeviceType ?? "(null)");
 
                 System.Windows.Point newPosition = CalculateNextNodePosition();
 
@@ -2700,7 +2714,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 {
                     X = newPosition.X,
                     Y = newPosition.Y,
-                    Order = CommandNodes.Count + 1
+                    Order = CommandNodes.Count + 1,
+                    SourceDeviceType = sourceDeviceType   // ★ 记录命令来源的设备类型
                 };
 
                 CommandNodes.Add(commandNode);
@@ -2860,15 +2875,17 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
         #region 位置插入方法 - 新增这个区域
 
-        public void AddCommandToCanvasAtPosition(DeviceCommand command, int insertIndex)
+        public void AddCommandToCanvasAtPosition(DeviceCommand command, int insertIndex, string sourceDeviceType = null)
         {
             try
             {
-                _logger.LogDebug("在位置 {Position} 添加设备命令: {CommandName}", insertIndex, command.Name);
+                _logger.LogDebug("在位置 {Position} 添加设备命令: {CommandName}, 来源设备类型: {Type}",
+                    insertIndex, command.Name, sourceDeviceType ?? "(null)");
 
                 var commandNode = new CommandNode(command)
                 {
-                    Order = insertIndex + 1
+                    Order = insertIndex + 1,
+                    SourceDeviceType = sourceDeviceType   // ★ 记录命令来源的设备类型
                 };
 
                 // 插入到指定位置
@@ -4236,10 +4253,32 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     canvasDevices = result ?? new List<CanvasDeviceViewModel>();
                 });
 
-                // 2) 支持该命令
-                var supports = (canvasDevices ?? new List<CanvasDeviceViewModel>())
-                    .Where(d => d?.Device?.Commands?.Any(c => c.Name == node.DeviceCommand.Name) == true)
-                    .ToList();
+                var allCanvasDevices = canvasDevices ?? new List<CanvasDeviceViewModel>();
+
+                // 2) 过滤候选设备
+                List<CanvasDeviceViewModel> supports;
+
+                if (!string.IsNullOrEmpty(node.SourceDeviceType))
+                {
+                    // ★ 第一优先级:同类型 + 同命令名(精准匹配,避免不同驱动同名命令冲突)
+                    supports = allCanvasDevices
+                        .Where(d => d?.Device != null
+                                 && d.Device.GetType().Name == node.SourceDeviceType
+                                 && d.Device.Commands?.Any(c => c.Name == node.DeviceCommand.Name) == true)
+                        .ToList();
+
+                    _logger.LogTrace("按 SourceDeviceType={Type} 过滤,候选 {Count} 个",
+                        node.SourceDeviceType, supports.Count);
+                }
+                else
+                {
+                    // ★ 第二优先级:老节点没记录 SourceDeviceType,按命令名兜底匹配(老逻辑)
+                    supports = allCanvasDevices
+                        .Where(d => d?.Device?.Commands?.Any(c => c.Name == node.DeviceCommand.Name) == true)
+                        .ToList();
+
+                    _logger.LogTrace("[兼容模式] 节点无 SourceDeviceType,按命令名兜底匹配,候选 {Count} 个", supports.Count);
+                }
 
                 //// 3) 剔除已被其它节点占用的设备（允许当前节点保留自己的绑定）
                 //var usedIds = CommandNodes
@@ -4265,8 +4304,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     return new DeviceOption { Id = d.DeviceId, Display = display };
                 }).ToList();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "构造设备候选列表失败");
                 return new List<DeviceOption>();
             }
         }

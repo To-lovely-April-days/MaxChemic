@@ -608,10 +608,14 @@ namespace MaxChemical.Modules.Designer.Views
                         command = args.ResultCommand;
                     }
 
+                    // 直接从 dragData 里取 SourceDeviceType
+                    string sourceDeviceType = ExtractSourceDeviceTypeFromDragData(e.Data);
+
                     if (command != null)
                     {
-                        _logger.LogDebug("提取到命令: {Type}, 插入位置: {Index}", command.GetType().Name, insertionIndex);
-                        AddCommandToLoop(command, loopNode, insertionIndex);
+                        _logger.LogDebug("提取到命令: {Type}, 插入位置: {Index}, 来源设备类型: {SrcType}",
+                            command.GetType().Name, insertionIndex, sourceDeviceType ?? "(null)");
+                        AddCommandToLoop(command, loopNode, insertionIndex, sourceDeviceType);
                     }
                     else
                     {
@@ -763,7 +767,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 命令管理
 
-        private void AddCommandToLoop(object command, CommandNode loopNode, int insertionIndex = -1)
+        private void AddCommandToLoop(object command, CommandNode loopNode, int insertionIndex = -1, string sourceDeviceType = null)
         {
             try
             {
@@ -774,6 +778,7 @@ namespace MaxChemical.Modules.Designer.Views
                 if (command is DeviceCommand deviceCmd)
                 {
                     childNode = new CommandNode(deviceCmd);
+                    childNode.SourceDeviceType = sourceDeviceType;   // ★ 写入源设备类型
                 }
                 else if (command is LogicCommand logicCmd)
                 {
@@ -1028,7 +1033,27 @@ namespace MaxChemical.Modules.Designer.Views
                 _logger.LogError(ex, "更新子命令显示失败");
             }
         }
+        /// <summary>
+        /// 从拖拽数据中提取 SourceDeviceType。
+        /// 用反射读 CommandDragInfo.SourceDeviceType 属性,跨命名空间也能用。
+        /// 没有则返回 null。
+        /// </summary>
+        private string ExtractSourceDeviceTypeFromDragData(IDataObject data)
+        {
+            try
+            {
+                if (data == null || !data.GetDataPresent("CommandDragInfo")) return null;
+                var raw = data.GetData("CommandDragInfo");
+                if (raw == null) return null;
 
+                var prop = raw.GetType().GetProperty("SourceDeviceType");
+                return prop?.GetValue(raw) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
         public void RemoveLoopCommand(CommandNode childNode)
         {
             try
