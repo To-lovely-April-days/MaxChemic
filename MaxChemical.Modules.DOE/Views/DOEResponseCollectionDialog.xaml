@@ -40,7 +40,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="实验结果录入" FontSize="15" FontWeight="Medium"
+                        <TextBlock Name="TbTitle" Text="实验结果录入" FontSize="15" FontWeight="Medium"
                                    Foreground="#1A1F36"/>
                         <TextBlock x:Name="SubtitleText" FontSize="11" Foreground="#6B7280"
                                    Margin="0,4,0,0" TextWrapping="Wrap"/>
@@ -62,7 +62,7 @@
             <Border Grid.Row="1" Margin="22,14,22,0" CornerRadius="8" Padding="14,12"
                     Background="#F8F9FB">
                 <StackPanel>
-                    <TextBlock Text="本组实验参数" FontSize="10" FontWeight="Medium"
+                    <TextBlock Name="TbParam" Text="本组实验参数" FontSize="10" FontWeight="Medium"
                                Foreground="#9CA3AF" Margin="0,0,0,8"
                                />
 
@@ -95,7 +95,7 @@
 
             <!-- ═══ 响应值输入区 ═══ -->
             <StackPanel Grid.Row="2" Margin="22,16,22,0">
-                <TextBlock Text="请输入实验结果" FontSize="11" FontWeight="Medium"
+                <TextBlock Name="TbInputResult" Text="请输入实验结果" FontSize="11" FontWeight="Medium"
                            Foreground="#374151" Margin="0,0,0,10"/>
 
                 <ItemsControl x:Name="ResponseInputs">
@@ -157,12 +157,12 @@
                     BorderBrush="#E8EAED" BorderThickness="0,0.5,0,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- 跳过按钮 -->
-                    <Button Content="跳过本组" Click="Skip_Click" Cursor="Hand"
+                    <Button Name="BtnSkip" Content="跳过本组" Click="Skip_Click" Cursor="Hand"
                             Style="{StaticResource WzBtnGhost}"
                             FontSize="11" Padding="16,7" Margin="0,0,8,0"/>
 
                     <!-- 提交按钮 -->
-                    <Button Content="提交结果" Click="Submit_Click" Cursor="Hand"
+                    <Button Name="BtnSubmit" Content="提交结果" Click="Submit_Click" Cursor="Hand"
                             Style="{StaticResource WzBtnPrimary}"
                             FontSize="11" Padding="20,7"/>
                 </StackPanel>

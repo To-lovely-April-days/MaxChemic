@@ -53,14 +53,18 @@
                             <Run Text="#"/><Run Text="{Binding CurrentRun, Mode=OneWay, Converter={StaticResource PlusOne}}"/>
                         </TextBlock>
                         <!-- 执行中（运行时） -->
-                        <TextBlock Text=" 执行中" FontSize="13" FontWeight="Medium" Foreground="#2D3A8C"
+                        <TextBlock Name="TbExecuted" Text=" 执行中" FontSize="13" FontWeight="Medium" Foreground="#2D3A8C"
                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
                         <!-- 已暂停（暂停时） -->
-                        <TextBlock Text=" 已暂停" FontSize="13" FontWeight="Medium" Foreground="#D97706"
+                        <TextBlock Name="TbPaused" Text=" 已暂停" FontSize="13" FontWeight="Medium" Foreground="#D97706"
                                    Visibility="{Binding IsPaused, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                     <TextBlock FontSize="10" Foreground="#9CA3AF">
-                        <Run Text="{Binding CurrentRun, Mode=OneWay, Converter={StaticResource PlusOne}}"/><Run Text=" / "/><Run Text="{Binding TotalRuns, Mode=OneWay}"/><Run Text=" 组 · "/><Run Text="{Binding ETAText, Mode=OneWay}"/>
+                        <Run Text="{Binding CurrentRun, Mode=OneWay, Converter={StaticResource PlusOne}}"/>
+                        <Run Text=" / "/>
+                        <Run Text="{Binding TotalRuns, Mode=OneWay}"/>
+                        <Run Name="TbGroup" Text=" 组 · "/>
+                        <Run Text="{Binding ETAText, Mode=OneWay}"/>
                     </TextBlock>
                 </StackPanel>
             </StackPanel>
@@ -93,7 +97,7 @@
             </ItemsControl>
 
             <!-- 无因子时占位 -->
-            <TextBlock Grid.Column="2" Text="等待因子数据..." FontSize="11" Foreground="#9CA3AF"
+            <TextBlock Name="TbWaitData" Grid.Column="2" Text="等待因子数据..." FontSize="11" Foreground="#9CA3AF"
                        VerticalAlignment="Center" Margin="12,0">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
@@ -112,7 +116,7 @@
 
             <!-- ── 指标: 最优 ── -->
             <StackPanel Grid.Column="4" VerticalAlignment="Center" Margin="10,0">
-                <TextBlock Text="最优" FontSize="9" Foreground="#9CA3AF"/>
+                <TextBlock Name="TbBest" Text="最优" FontSize="9" Foreground="#9CA3AF"/>
                 <TextBlock Text="{Binding BestRunText}" FontSize="12" FontWeight="Medium" Foreground="#1A1F36"/>
             </StackPanel>
 
@@ -122,7 +126,7 @@
             <!-- ── 按钮组 ── -->
             <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
                 <!-- 暂停 -->
-                <Button Command="{Binding PauseCommand}" Margin="0,0,4,0">
+                <Button Name="BtnPause" Command="{Binding PauseCommand}" Margin="0,0,4,0">
                     <Button.Style>
                         <Style TargetType="Button">
                             <Setter Property="Visibility" Value="Visible"/>
@@ -132,7 +136,7 @@
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="Bd" CornerRadius="6" Padding="10,5"
                                                 Background="Transparent" BorderBrush="#C7CCD4" BorderThickness="0.5">
-                                            <TextBlock Text="暂停" FontSize="10" FontWeight="Medium" Foreground="#374151"
+                                            <TextBlock Text="{TemplateBinding Content}" FontSize="10" FontWeight="Medium" Foreground="#374151"
                                                        HorizontalAlignment="Center"/>
                                         </Border>
                                         <ControlTemplate.Triggers>
@@ -156,13 +160,13 @@
                 </Button>
 
                 <!-- 恢复 -->
-                <Button Command="{Binding ResumeCommand}" Margin="0,0,4,0"
+                <Button Name="BtnResume" Command="{Binding ResumeCommand}" Margin="0,0,4,0"
                         Visibility="{Binding IsPaused, Converter={StaticResource BoolToVis}}">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" CornerRadius="6" Padding="10,5"
                                     Background="Transparent" BorderBrush="#059669" BorderThickness="0.5">
-                                <TextBlock Text="恢复" FontSize="10" FontWeight="Medium" Foreground="#059669"
+                                <TextBlock Text="{TemplateBinding Content}" FontSize="10" FontWeight="Medium" Foreground="#059669"
                                            HorizontalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -178,12 +182,12 @@
                 </Button>
 
                 <!-- 终止 -->
-                <Button Command="{Binding AbortCommand}" Margin="0,0,4,0">
+                <Button Name="BtnSuspend" Command="{Binding AbortCommand}" Margin="0,0,4,0">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" CornerRadius="6" Padding="10,5"
                                     Background="Transparent" BorderBrush="#D4D8E0" BorderThickness="0.5">
-                                <TextBlock Text="终止" FontSize="10" FontWeight="Medium" Foreground="#DC2626"
+                                <TextBlock Text="{TemplateBinding Content}" FontSize="10" FontWeight="Medium" Foreground="#DC2626"
                                            HorizontalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -199,7 +203,7 @@
                 </Button>
 
                 <!-- 展开 -->
-                <Button Command="{Binding ToggleMiniModeCommand}" ToolTip="展开为大窗口" Cursor="Hand">
+                <Button Name="BtnExpand" Command="{Binding ToggleMiniModeCommand}" ToolTip="展开为大窗口" Cursor="Hand">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" CornerRadius="6" Width="28" Height="28"
