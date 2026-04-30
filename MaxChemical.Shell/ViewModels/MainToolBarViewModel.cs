@@ -9,6 +9,7 @@ using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.Services;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views;
+using MaxChemical.Modules.DOE.ViewModels;
 using MaxChemical.Modules.DOE.Views;
 using MaxChemical.Shell.Views;
 using Microsoft.Extensions.DependencyInjection;

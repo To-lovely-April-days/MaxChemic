@@ -21,6 +21,8 @@
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
             <converters:StringNotEmptyToVisibilityConverter x:Key="StringToVis"/>
+
+            <converters:BindingProxy x:Key="BindingProxy" Data="{Binding}"/>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -48,7 +50,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="OLS 回归分析" FontSize="14" FontWeight="Medium"
+                    <TextBlock Grid.Column="0" Text="{Binding TitleTxt}" FontSize="14" FontWeight="Medium"
                                Foreground="{StaticResource OlsText}" VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0"
                                FontSize="11" Foreground="{StaticResource OlsTextHint}">
@@ -70,7 +72,7 @@
             <Border Grid.Row="1" Background="{StaticResource OlsBg}"
         BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1" Padding="16,5">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="响应" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                    <TextBlock Text="{Binding CbResponseTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
                    VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <ComboBox Style="{StaticResource OlsCombo}" Width="100"
                   ItemsSource="{Binding ResponseNames}"
@@ -80,25 +82,25 @@
                     <StackPanel Orientation="Horizontal" Margin="12,0,0,0"
                     Visibility="{Binding ShowModelOrderSelector, Converter={StaticResource BoolToVis}}">
                         <Rectangle Width="1" Height="16" Fill="{StaticResource OlsBorderLight}" Margin="0,0,12,0"/>
-                        <TextBlock Text="阶数(I)" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                        <TextBlock Text="{Binding CbDegreeTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
                        VerticalAlignment="Center" Margin="0,0,6,0"
-                       ToolTip="模型中包含项的阶数 — 对标 Minitab「Include terms in the model up through order」"/>
+                       ToolTip="{Binding CbDegreeTipTxt}"/>
                         <ComboBox Style="{StaticResource OlsCombo}" Width="52"
                       ItemsSource="{Binding AvailableModelOrders}"
                       SelectedItem="{Binding SelectedModelOrder, Mode=TwoWay}"/>
                     </StackPanel>
 
                     <Rectangle Width="1" Height="16" Fill="{StaticResource OlsBorderLight}" Margin="12,0"/>
-                    <TextBlock Text="方程" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                    <TextBlock Text="{Binding CbEquationTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
                    VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <Button Style="{StaticResource OlsToolBtn}" Margin="0,0,4,0"
                 Command="{Binding ToggleEquationCodingCommand}">
                         <TextBlock Text="{Binding EquationModeText}" FontSize="10"/>
                     </Button>
                     <Border Width="1" HorizontalAlignment="Stretch"/>
-                    <Button Content="导出报告" Style="{StaticResource OlsToolBtn}"
+                    <Button Content="{Binding ExportReportTxt}" Style="{StaticResource OlsToolBtn}"
                 Command="{Binding ExportReportCommand}" Margin="8,0,0,0"/>
-                    <Button Content="重新分析" Style="{StaticResource OlsPrimaryBtn}"
+                    <Button Content="{Binding ReAnalysisTxt}" Style="{StaticResource OlsPrimaryBtn}"
                 Command="{Binding RefreshAllCommand}" Margin="6,0,0,0"/>
                 </StackPanel>
             </Border>
@@ -124,7 +126,7 @@
                         <StackPanel Grid.Row="0">
                             <Border Style="{StaticResource OlsSectionHeader}">
                                 <DockPanel>
-                                    <TextBlock Text="模型摘要" FontSize="10" FontWeight="Medium"
+                                    <TextBlock Text="{Binding ModelAbstractTxt}" FontSize="10" FontWeight="Medium"
                                                Foreground="{StaticResource OlsTextHint}" VerticalAlignment="Center"/>
                                     <Border Style="{StaticResource OlsBadge}" DockPanel.Dock="Right">
                                         <TextBlock FontSize="9" FontWeight="Medium" Foreground="{StaticResource Indigo}">
@@ -168,7 +170,7 @@
                                 </Border>
                                 <Border Padding="10,6">
                                     <StackPanel>
-                                        <TextBlock Text="模型 P" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding ModelPTxt}" Style="{StaticResource OlsKpiLabel}"/>
                                         <TextBlock Text="{Binding OlsResult.ModelSummary.ModelP, StringFormat=F4}" Style="{StaticResource OlsKpiValue}"
                                                    Foreground="{StaticResource RedSig}"/>
                                     </StackPanel>
@@ -179,9 +181,9 @@
                         <!-- Pareto 标题 -->
                         <Border Grid.Row="1" Style="{StaticResource OlsSectionHeader}">
                             <DockPanel>
-                                <TextBlock Text="效应 Pareto" FontSize="10" FontWeight="Medium"
+                                <TextBlock Text="{Binding ParetoTxt}" FontSize="10" FontWeight="Medium"
                                            Foreground="{StaticResource OlsTextHint}" VerticalAlignment="Center"/>
-                                <TextBlock Text="点击排除" FontSize="9" Foreground="{StaticResource OlsTextHint}"
+                                <TextBlock Text="{Binding ClickRemoveTxt}" FontSize="9" Foreground="{StaticResource OlsTextHint}"
                                            DockPanel.Dock="Right" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Border>
@@ -194,13 +196,13 @@
                         <Border Grid.Row="3" Background="{StaticResource OlsSurface}"
                                 BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0" Padding="10,7">
                             <DockPanel>
-                                <CheckBox Content="保留弯曲" IsChecked="{Binding KeepCtPtInRefit}"
+                                <CheckBox Content="{Binding CheckRemainTxt}" IsChecked="{Binding KeepCtPtInRefit}"
                                           FontSize="10" Foreground="{StaticResource OlsTextSec}"
                                           VerticalAlignment="Center" Style="{StaticResource OlsCheckBox}"/>
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Content="恢复完整" Style="{StaticResource OlsFooterBtn}"
+                                    <Button Content="{Binding ResumeCompleteTxt}" Style="{StaticResource OlsFooterBtn}"
                                             Command="{Binding RestoreFullModelCommand}" Margin="0,0,6,0"/>
-                                    <Button Content="重拟合" Style="{StaticResource OlsFooterPrimaryBtn}"
+                                    <Button Content="{Binding FitTxt}" Style="{StaticResource OlsFooterPrimaryBtn}"
                                             Command="{Binding RefitReducedModelCommand}"/>
                                 </StackPanel>
                             </DockPanel>
@@ -219,17 +221,17 @@
                     <Border Grid.Row="0" Background="{StaticResource OlsBg}"
                             BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal" Margin="6,0">
-                            <RadioButton Content="残差图" Style="{StaticResource OlsTab}" IsChecked="True"
+                            <RadioButton Content="{Binding ResidualPlotTxt}" Style="{StaticResource OlsTab}" IsChecked="True"
                                          GroupName="OlsTabs" x:Name="TabResidual"/>
-                            <RadioButton Content="曲面" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabSurface"/>
-                            <RadioButton Content="刻画器" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabProfiler"
+                            <RadioButton Content="{Binding CurvedSurfaceTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabSurface"/>
+                            <RadioButton Content="{Binding CarverTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabProfiler"
                                          Checked="TabProfiler_Checked"/>
-                            <RadioButton Content="效应图" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabEffects"/>
+                            <RadioButton Content="{Binding EffectDiagramTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabEffects"/>
                             <RadioButton Content="ANOVA" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabAnova"/>
-                            <RadioButton Content="系数" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabCoeff"/>
-                            <RadioButton Content="方程" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabEquation"/>
+                            <RadioButton Content="{Binding CoefficientTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabCoeff"/>
+                            <RadioButton Content="{Binding EquationTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabEquation"/>
                             <RadioButton Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabOutlier">
-                                <TextBlock Text="异常点"/>
+                                <TextBlock Text="{Binding OutliersTxt}"/>
                             </RadioButton>
                             <RadioButton Content="Tukey" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabTukey"
                                          Visibility="{Binding HasTukeyResult, Converter={StaticResource BoolToVis}}"/>
@@ -248,7 +250,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="正态概率图" Style="{StaticResource OlsChartTitle}"/>
+                                    <TextBlock Grid.Row="0" Text="{Binding NormalPlotTxt}" Style="{StaticResource OlsChartTitle}"/>
                                     <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
                                         <oxy:PlotView Model="{Binding NormalProbPlot}" Background="White" Margin="4"/>
                                     </Border>
@@ -260,7 +262,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="残差 vs 拟合值" Style="{StaticResource OlsChartTitle}"/>
+                                    <TextBlock Grid.Row="0" Text="{Binding ResidualFitTxt}" Style="{StaticResource OlsChartTitle}"/>
                                     <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
                                         <oxy:PlotView Model="{Binding ResidVsFittedPlot}" Background="White" Margin="4"/>
                                     </Border>
@@ -272,7 +274,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="残差直方图" Style="{StaticResource OlsChartTitle}"/>
+                                    <TextBlock Grid.Row="0" Text="{Binding ResidualhistogramTxt}" Style="{StaticResource OlsChartTitle}"/>
                                     <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
                                         <oxy:PlotView Model="{Binding ResidHistogramPlot}" Background="White" Margin="4"/>
                                     </Border>
@@ -284,7 +286,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="残差 vs 观测顺序" Style="{StaticResource OlsChartTitle}"/>
+                                    <TextBlock Grid.Row="0" Text="{Binding ResidualOrderTxt}" Style="{StaticResource OlsChartTitle}"/>
                                     <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
                                         <oxy:PlotView Model="{Binding ResidVsOrderPlot}" Background="White" Margin="4"/>
                                     </Border>
@@ -304,23 +306,23 @@
                                     BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,0">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
                                     <StackPanel>
-                                        <TextBlock Text="曲面设置" FontSize="10" FontWeight="Medium"
+                                        <TextBlock Text="{Binding CurvedSettingTxt}" FontSize="10" FontWeight="Medium"
                                                    Foreground="{StaticResource OlsTextHint}" Margin="0,0,0,10"/>
 
                                         <!-- 因子 X 选择 -->
-                                        <TextBlock Text="因子 X（水平轴）" FontSize="11" Foreground="{StaticResource OlsTextSec}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding FactorXTxt}" FontSize="11" Foreground="{StaticResource OlsTextSec}" Margin="0,0,0,4"/>
                                         <ComboBox Style="{StaticResource OlsCombo}" Margin="0,0,0,10"
                                                   ItemsSource="{Binding OlsContinuousFactors}"
                                                   SelectedItem="{Binding OlsSurfaceFactor1}"/>
 
                                         <!-- 因子 Y 选择 -->
-                                        <TextBlock Text="因子 Y（纵深轴）" FontSize="11" Foreground="{StaticResource OlsTextSec}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding FactorYTxt}" FontSize="11" Foreground="{StaticResource OlsTextSec}" Margin="0,0,0,4"/>
                                         <ComboBox Style="{StaticResource OlsCombo}" Margin="0,0,0,14"
                                                   ItemsSource="{Binding OlsContinuousFactors}"
                                                   SelectedItem="{Binding OlsSurfaceFactor2}"/>
 
                                         <!-- 生成按钮 -->
-                                        <Button Content="生成曲面" Style="{StaticResource OlsPrimaryBtn}"
+                                        <Button Content="{Binding GenerateTxt}" Style="{StaticResource OlsPrimaryBtn}"
                                                 HorizontalAlignment="Stretch" Margin="0,0,0,16"
                                                 Command="{Binding GenerateOlsSurfaceCommand}"/>
 
@@ -338,9 +340,9 @@
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
-                                                <TextBlock Text="固定因子" FontSize="10" FontWeight="Medium"
+                                                <TextBlock Text="{Binding FixedFactorTxt}" FontSize="10" FontWeight="Medium"
                                                            Foreground="{StaticResource OlsTextHint}" Margin="0,0,0,4"/>
-                                                <TextBlock Text="调整后点击「生成曲面」更新"
+                                                <TextBlock Text="{Binding CurvedTipTxt}"
                                                            FontSize="9" Foreground="{StaticResource OlsTextHint}"
                                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
 
@@ -390,7 +392,7 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="*"/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Text="3D 响应曲面" Style="{StaticResource OlsChartTitle}"/>
+                                        <TextBlock Grid.Row="0" Text="{Binding ResponseCurvedTxt}" Style="{StaticResource OlsChartTitle}"/>
                                         <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
                                             <doe:ResponseSurface3DView 
                                                 SurfaceData="{Binding OlsSurface3DData}"
@@ -408,7 +410,7 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="*"/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Text="等高线图" Style="{StaticResource OlsChartTitle}"/>
+                                        <TextBlock Grid.Row="0" Text="{Binding ContourTxt}" Style="{StaticResource OlsChartTitle}"/>
                                         <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
                                             <oxy:PlotView Model="{Binding OlsContourPlot}" Background="White" Margin="4"/>
                                         </Border>
@@ -429,12 +431,12 @@
                             <Border Grid.Row="0" Background="{StaticResource OlsBg}" Padding="14,8"
             BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
                                 <DockPanel>
-                                    <TextBlock Text="预测刻画器" FontSize="12" FontWeight="Medium"
+                                    <TextBlock Text="{Binding CarverTitleTxt}" FontSize="12" FontWeight="Medium"
                        Foreground="{StaticResource OlsText}" VerticalAlignment="Center"/>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="最大化" Style="{StaticResource OlsToolBtn}"
+                                        <Button Content="{Binding MaxTxt}" Style="{StaticResource OlsToolBtn}"
                         Command="{Binding FindOptimalMaxCommand}" Margin="0,0,4,0"/>
-                                        <Button Content="最小化" Style="{StaticResource OlsToolBtn}"
+                                        <Button Content="{Binding MinTxt}" Style="{StaticResource OlsToolBtn}"
                         Command="{Binding FindOptimalMinCommand}" Margin="0,0,4,0"/>
                                         <Border CornerRadius="4" Cursor="Hand" BorderThickness="1"
                         MouseLeftButtonDown="DesirabilityDropdown_Click">
@@ -451,7 +453,7 @@
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="意愿函数" FontSize="10" Padding="8,4,4,4" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Function}" FontSize="10" Padding="8,4,4,4" VerticalAlignment="Center">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Foreground" Value="{StaticResource OlsTextSec}"/>
@@ -577,7 +579,7 @@
                                 </Grid>
 
                                 <!-- 未加载提示 -->
-                                <TextBlock Text="正在加载刻画器..." FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                                <TextBlock Text="{Binding CarverLoadingTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding IsProfilerLoaded, Converter={StaticResource InverseBoolToVis}, FallbackValue=Visible}"/>
                             </Grid>
@@ -594,7 +596,7 @@
                                   Visibility="{Binding IsChecked, ElementName=TabAnova, Converter={StaticResource BoolToVis}}"
                                   ItemsSource="{Binding OlsResult.AnovaTable}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="来源" Binding="{Binding Source}" Width="140">
+                                <DataGridTextColumn Header="{Binding Data.AnovaHeaderSourceTxt,Source={StaticResource BindingProxy}}" Binding="{Binding Source}" Width="140">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
                                     </DataGridTextColumn.ElementStyle>
@@ -614,12 +616,12 @@
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="F 值" Binding="{Binding FValue, StringFormat=F2}" Width="90">
+                                <DataGridTextColumn Header="{Binding Data.FValueHeaderTxt,Source={StaticResource BindingProxy}}" Binding="{Binding FValue, StringFormat=F2}" Width="90">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="P 值" Binding="{Binding PValue, StringFormat=F4}" Width="90">
+                                <DataGridTextColumn Header="{Binding Data.PValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding PValue, StringFormat=F4}" Width="90">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsPValueCell}"/>
                                     </DataGridTextColumn.ElementStyle>
@@ -632,7 +634,7 @@
                                       VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="20">
                                 <TextBlock FontSize="13" FontWeight="Medium" Foreground="{StaticResource OlsText}" Margin="0,0,0,4">
-                                    <Run Text="最终方程（"/>
+                                    <Run Text="{Binding FinalEquationTxt}"/>
                                     <Run Text="{Binding EquationModeText, Mode=OneWay}"/>
                                     <Run Text="）"/>
                                 </TextBlock>
@@ -654,9 +656,9 @@
                                                    Foreground="{StaticResource OlsText}" TextWrapping="Wrap" LineHeight="22"/>
                                     </Border>
                                     <TextBlock FontSize="12" FontWeight="Medium" Foreground="{StaticResource OlsText}" Margin="0,0,0,8">
-                                        <Run Text="分类别方程（按 "/>
+                                        <Run Text="{Binding CategoryTxt}"/>
                                         <Run Text="{Binding CategoricalFactorName, Mode=OneWay}"/>
-                                        <Run Text=" 展开）"/>
+                                        <Run Text="{Binding ExpandTxt}"/>
                                     </TextBlock>
                                     <ItemsControl ItemsSource="{Binding CategoryEquations}">
                                         <ItemsControl.ItemTemplate>
@@ -682,17 +684,17 @@
                                   Visibility="{Binding IsChecked, ElementName=TabCoeff, Converter={StaticResource BoolToVis}}"
                                   ItemsSource="{Binding DisplayCoefficients}" CanUserSortColumns="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="项" Binding="{Binding Term}" Width="160">
+                                <DataGridTextColumn Header="{Binding Data.CoefficientItemTxt,Source={StaticResource BindingProxy}}" Binding="{Binding Term}" Width="160">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="效应" Binding="{Binding Effect, StringFormat=F4}" Width="100">
+                                <DataGridTextColumn Header="{Binding Data.EffectTxt,Source={StaticResource BindingProxy}}" Binding="{Binding Effect, StringFormat=F4}" Width="100">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="系数" Binding="{Binding Coefficient, StringFormat=F6}" Width="*">
+                                <DataGridTextColumn Header="{Binding Data.CoefficientHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Coefficient, StringFormat=F6}" Width="*">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                     </DataGridTextColumn.ElementStyle>
@@ -702,12 +704,12 @@
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="t 值" Binding="{Binding TValue, StringFormat=F3}" Width="90">
+                                <DataGridTextColumn Header="{Binding Data.TValueHeade,Source={StaticResource BindingProxy}}" Binding="{Binding TValue, StringFormat=F3}" Width="90">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="P 值" Binding="{Binding PValue, StringFormat=F4}" Width="90">
+                                <DataGridTextColumn Header="{Binding Data.PValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding PValue, StringFormat=F4}" Width="90">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource OlsPValueCell}"/>
                                     </DataGridTextColumn.ElementStyle>
@@ -739,37 +741,37 @@
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="观测值" Binding="{Binding Actual, StringFormat=F4}" Width="*">
+                                    <DataGridTextColumn Header="{Binding Data.ObserveValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Actual, StringFormat=F4}" Width="*">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="拟合值" Binding="{Binding Predicted, StringFormat=F4}" Width="*">
+                                    <DataGridTextColumn Header="{Binding Data.FitValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Predicted, StringFormat=F4}" Width="*">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="残差" Binding="{Binding Residual, StringFormat=F4}" Width="*">
+                                    <DataGridTextColumn Header="{Binding Data.ResidualHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Residual, StringFormat=F4}" Width="*">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="标准残差" Binding="{Binding StdResidual, StringFormat=F3}" Width="90">
+                                    <DataGridTextColumn Header="{Binding Data.StandardHeader,Source={StaticResource BindingProxy}}" Binding="{Binding StdResidual, StringFormat=F3}" Width="90">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="杠杆值" Binding="{Binding Leverage, StringFormat=F4}" Width="90">
+                                    <DataGridTextColumn Header="{Binding Data.LeverHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Leverage, StringFormat=F4}" Width="90">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Cook 距离" Binding="{Binding CooksD, StringFormat=F4}" Width="100">
+                                    <DataGridTextColumn Header="{Binding Data.DistHeader,Source={StaticResource BindingProxy}}" Binding="{Binding CooksD, StringFormat=F4}" Width="100">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="原因" Binding="{Binding Reasons}" Width="*">
+                                    <DataGridTextColumn Header="{Binding Data.ReasonHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Reasons}" Width="*">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
                                         </DataGridTextColumn.ElementStyle>
@@ -787,7 +789,7 @@
                             <Border Grid.Row="0" Background="{StaticResource OlsSurface}" Padding="10,6"
                                     BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
                                 <TextBlock FontSize="11" Foreground="{StaticResource OlsText}">
-                                    <Run Text="Tukey HSD 多重比较 — "/>
+                                    <Run Text="{Binding ComparisonTxt}"/>
                                     <Run Text="{Binding TukeyFactorName, Mode=OneWay}" FontWeight="Medium"
                                          Foreground="{StaticResource Indigo}"/>
                                 </TextBlock>
@@ -795,17 +797,17 @@
                             <DataGrid Grid.Row="1" Style="{StaticResource OlsDataGrid}"
                                       ItemsSource="{Binding TukeyComparisons}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="比较" Binding="{Binding ComparisonText}" Width="160">
+                                    <DataGridTextColumn Header="{Binding Data.CompareHeader,Source={StaticResource BindingProxy}}" Binding="{Binding ComparisonText}" Width="160">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="差异" Binding="{Binding DiffText}" Width="*">
+                                    <DataGridTextColumn Header="{Binding Data.DiffHeader,Source={StaticResource BindingProxy}}" Binding="{Binding DiffText}" Width="*">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="P 值" Binding="{Binding PValueText}" Width="90">
+                                    <DataGridTextColumn Header="{Binding Data.PValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding PValueText}" Width="90">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsPValueCell}"/>
                                         </DataGridTextColumn.ElementStyle>
@@ -815,7 +817,7 @@
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="显著" Binding="{Binding SignificanceMarker}" Width="55">
+                                    <DataGridTextColumn Header="{Binding Data.RemarkableHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SignificanceMarker}" Width="55">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#B71C1C"/>

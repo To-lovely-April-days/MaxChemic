@@ -1,8 +1,10 @@
-﻿using MaxChemical.Modules.DOE.Models;
+﻿using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.DOE.Models;
 using MaxChemical.Modules.DOE.ViewModels;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using Prism.Ioc;
 using System;
 using System.Linq;
 using System.Windows;
@@ -375,20 +377,41 @@ namespace MaxChemical.Modules.DOE.Views
             MenuItem Mi(string header) => new MenuItem { Header = header, Style = miStyle };
             Separator Sep() => new Separator { Style = sepStyle };
 
-            var i1 = Mi(vm.IsDesirabilityVisible ? "隐藏意愿行" : "显示意愿行");
-            i1.Click += (s, _) => vm.ToggleDesirabilityCommand.Execute();
-            menu.Items.Add(i1);
-            menu.Items.Add(Sep());
+            ILocalizationService localization = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (localization != null)
+            {
+                var i1 = Mi(vm.IsDesirabilityVisible ? localization.GetString("Doe_Analysis_Mi_Hide", "隐藏意愿行") : localization.GetString("Doe_Analysis_Mi_Display", "显示意愿行"));
+                i1.Click += (s, _) => vm.ToggleDesirabilityCommand.Execute();
+                menu.Items.Add(i1);
+                menu.Items.Add(Sep());
 
-            var i2 = Mi("最大化意愿"); i2.Click += (s, _) => vm.MaximizeDesirabilityCommand.Execute();
-            var i3 = Mi("最大化并记住"); i3.Click += (s, _) => vm.MaximizeAndRememberCommand.Execute();
-            menu.Items.Add(i2); menu.Items.Add(i3);
-            menu.Items.Add(Sep());
+                var i2 = Mi(localization.GetString("Doe_Analysis_Mi_Max", "最大化意愿")); i2.Click += (s, _) => vm.MaximizeDesirabilityCommand.Execute();
+                var i3 = Mi(localization.GetString("Doe_Analysis_Mi_Remember", "最大化并记住")); i3.Click += (s, _) => vm.MaximizeAndRememberCommand.Execute();
+                menu.Items.Add(i2); menu.Items.Add(i3);
+                menu.Items.Add(Sep());
 
-            var i4 = Mi("设置意愿..."); i4.Click += (s, _) => vm.SetDesirabilityCommand.Execute();
-            var i5 = Mi("保存意愿值"); i5.Click += (s, _) => vm.SaveDesirabilityCommand.Execute();
-            var i6 = Mi("保存意愿公式"); i6.Click += (s, _) => vm.SaveDesirabilityFormulaCommand.Execute();
-            menu.Items.Add(i4); menu.Items.Add(i5); menu.Items.Add(i6);
+                var i4 = Mi(localization.GetString("Doe_Analysis_Mi_Set", "设置意愿...")); i4.Click += (s, _) => vm.SetDesirabilityCommand.Execute();
+                var i5 = Mi(localization.GetString("Doe_Analysis_Mi_Value", "保存意愿值")); i5.Click += (s, _) => vm.SaveDesirabilityCommand.Execute();
+                var i6 = Mi(localization.GetString("Doe_Analysis_Mi_Save", "保存意愿公式")); i6.Click += (s, _) => vm.SaveDesirabilityFormulaCommand.Execute();
+                menu.Items.Add(i4); menu.Items.Add(i5); menu.Items.Add(i6);
+            }
+            else
+            {
+                var i1 = Mi(vm.IsDesirabilityVisible ? "隐藏意愿行" : "显示意愿行");
+                i1.Click += (s, _) => vm.ToggleDesirabilityCommand.Execute();
+                menu.Items.Add(i1);
+                menu.Items.Add(Sep());
+
+                var i2 = Mi("最大化意愿"); i2.Click += (s, _) => vm.MaximizeDesirabilityCommand.Execute();
+                var i3 = Mi("最大化并记住"); i3.Click += (s, _) => vm.MaximizeAndRememberCommand.Execute();
+                menu.Items.Add(i2); menu.Items.Add(i3);
+                menu.Items.Add(Sep());
+
+                var i4 = Mi("设置意愿..."); i4.Click += (s, _) => vm.SetDesirabilityCommand.Execute();
+                var i5 = Mi("保存意愿值"); i5.Click += (s, _) => vm.SaveDesirabilityCommand.Execute();
+                var i6 = Mi("保存意愿公式"); i6.Click += (s, _) => vm.SaveDesirabilityFormulaCommand.Execute();
+                menu.Items.Add(i4); menu.Items.Add(i5); menu.Items.Add(i6);
+            }
 
             menu.IsOpen = true;
             e.Handled = true;

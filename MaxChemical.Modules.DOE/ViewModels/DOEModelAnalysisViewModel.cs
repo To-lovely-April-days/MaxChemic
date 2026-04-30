@@ -1,4 +1,5 @@
 ﻿using MaxChemical.Infrastructure.DOE;
+using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
@@ -15,6 +16,7 @@ using OxyPlot.Axes;
 using OxyPlot.Legends;
 using OxyPlot.Series;
 using Prism.Commands;
+using Prism.Events;
 using Prism.Mvvm;
 using Python.Runtime;
 using System;
@@ -210,6 +212,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
           
             public object? Data { get; set; }
         }
+
         private readonly IGPRModelService _gprService;
         private readonly IDOEAnalysisService _analysisService;
         private readonly IDOERepository _repository;
@@ -219,6 +222,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly ILogService _logger;
         private readonly IModelRouter _modelRouter;
         private readonly IDesirabilityService _desirabilityService;
+        private readonly ILocalizationService _localizationService;
+        private readonly IEventAggregator _eventAggregator;
 
         // GPR
         private ObservableCollection<GPRModelTabItem> _models = new();
@@ -444,7 +449,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
             get => _paretoSubtitle;
             set => SetProperty(ref _paretoSubtitle, value);
         }
-        public string EquationModeText => IsCodedEquation ? "编码单位" : "未编码单位";
+        public string EquationModeText => 
+            IsCodedEquation 
+            ? _localizationService.GetString("Doe_Analysis_EquationMode_Code","编码单位")
+            : _localizationService.GetString("Doe_Analysis_EquationMode_Uncode", "未编码单位");
       
         public List<TukeyComparisonItem> TukeyComparisons { get => _tukeyComparisons; set => SetProperty(ref _tukeyComparisons, value); }
         public string TukeyFactorName { get => _tukeyFactorName; set => SetProperty(ref _tukeyFactorName, value); }
@@ -706,13 +714,22 @@ namespace MaxChemical.Modules.DOE.ViewModels
             IDOERepository repository, IFlowParameterProvider paramProvider,
             IDialogService dialogService, DOEExportService exportService,
             IModelRouter modelRouter, IDesirabilityService desirabilityService,
-            ILogService logger)
+            ILogService logger,
+            ILocalizationService localization,
+            IEventAggregator eventAggregator)
         {
             _gprService = gprService; _analysisService = analysisService;
             _repository = repository; _paramProvider = paramProvider;
             _dialogService = dialogService; _exportService = exportService;
             _modelRouter = modelRouter; _desirabilityService = desirabilityService;
             _logger = logger?.ForContext<DOEModelAnalysisViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            // 本地化服务，注册语言更改事件
+            _localizationService = localization ?? throw new ArgumentNullException(nameof(localization));
+            _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChangedEvent, false);
+
+            OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_SwitchAuto", "切换到此页后将自动加载可分析的批次列表");
+            OnLanguageChangedEvent("");
 
             RefreshAllCommand = new DelegateCommand(async () => await RefreshAllAsync());
             RetrainCommand = new DelegateCommand(async () => await RetrainAsync());
@@ -752,6 +769,207 @@ namespace MaxChemical.Modules.DOE.ViewModels
             SaveDesirabilityCommand = new DelegateCommand(async () => await SaveDesirabilityValuesAsync());
             SaveDesirabilityFormulaCommand = new DelegateCommand(async () => await SaveDesirabilityFormulaAsync());
         }
+
+        #region 文本标签本地化
+
+        private string _titleTxt;
+        private string _cbResponseTxt;
+        private string _cbDegreeTxt;
+        private string _cbDegreeTipTxt;
+        private string _cbEquationTxt;
+        private string _exportReportTxt;
+        private string _reAnalysisTxt;
+        private string _modelAbstractTxt;
+        private string _modelPTxt;
+        private string _paretoTxt;
+        private string _clickRemoveTxt;
+        private string _checkRemainTxt;
+        private string _resumeCompleteTxt;
+        private string _fitTxt;
+        private string _residualPlotTxt;
+        private string _curvedSurfaceTxt;
+        private string _carverTxt;
+        private string _effectDiagramTxt;
+        private string _coefficientTxt;
+        private string _equationTxt;
+        private string _outliersTxt;
+        private string _normalPlotTxt;
+        private string _residualFitTxt;
+        private string _residualhistogramTxt;
+        private string _residualOrderTxt;
+
+        private string _curvedSettingTxt;
+        private string _factorXTxt;
+        private string _factorYTxt;
+        private string _generateTxt;
+        private string _fixedFactorTxt;
+        private string _curvedTipTxt;
+        private string _3dRespCurvedTxt;
+        private string _contourTxt;
+
+        private string _carverTitleTxt;
+        private string _maxTxt;
+        private string _minTxt;
+        private string _function;
+        private string _carverLoadingTxt;
+
+        private string _anovaHeaderSourceTxt;
+        private string _fValueHeaderTxt;
+
+        private string _finalEquationTxt;
+        private string _categoryTxt;
+        private string _expandTxt;
+
+        private string _coefficientItemTxt;
+        private string _effectTxt;
+        private string _coefficientHeader;
+        private string _tValueHeaderTxt;
+
+        private string _observeValueHeader;
+        private string _fitValueHeader;
+        private string _residualHeader;
+        private string _standardHeader;
+        private string _leverHeader;
+        private string _reasonHeader;
+        private string _distHeader;
+
+        private string _comparisonTxt;
+        private string _compareHeader;
+        private string _diffHeader;
+        private string _pValueHeader;
+        private string _remarkableHeader;
+
+        public string TitleTxt { get { return _titleTxt; } set { SetProperty(ref _titleTxt, value); } }
+        public string CbResponseTxt { get { return _cbResponseTxt; } set { SetProperty(ref _cbResponseTxt, value); } }
+        public string CbDegreeTxt { get { return _cbDegreeTxt; } set { SetProperty(ref _cbDegreeTxt, value); } }
+        public string CbDegreeTipTxt { get { return _cbDegreeTipTxt; } set { SetProperty(ref _cbDegreeTipTxt, value); } }
+        public string CbEquationTxt { get { return _cbEquationTxt; } set { SetProperty(ref _cbEquationTxt, value); } }
+        public string ExportReportTxt { get { return _exportReportTxt; } set { SetProperty(ref _exportReportTxt, value); } }
+        public string ReAnalysisTxt { get { return _reAnalysisTxt; } set { SetProperty(ref _reAnalysisTxt, value); } }
+        public string ModelAbstractTxt { get { return _modelAbstractTxt; } set { SetProperty(ref _modelAbstractTxt, value); } }
+        public string ModelPTxt { get { return _modelPTxt; } set { SetProperty(ref _modelPTxt, value); } }
+        public string ParetoTxt { get { return _paretoTxt; } set { SetProperty(ref _paretoTxt, value); } }
+        public string ClickRemoveTxt { get { return _clickRemoveTxt; } set { SetProperty(ref _clickRemoveTxt, value); } }
+        public string CheckRemainTxt { get { return _checkRemainTxt; } set { SetProperty(ref _checkRemainTxt, value); } }
+        public string ResumeCompleteTxt { get { return _resumeCompleteTxt; } set { SetProperty(ref _resumeCompleteTxt, value); } }
+        public string FitTxt { get { return _fitTxt; } set { SetProperty(ref _fitTxt, value); } }
+        public string ResidualPlotTxt { get { return _residualPlotTxt; } set { SetProperty(ref _residualPlotTxt, value); } }
+        public string CurvedSurfaceTxt { get { return _curvedSurfaceTxt; } set { SetProperty(ref _curvedSurfaceTxt, value); } }
+        public string CarverTxt { get { return _carverTxt; } set { SetProperty(ref _carverTxt, value); } }
+        public string EffectDiagramTxt { get { return _effectDiagramTxt; } set { SetProperty(ref _effectDiagramTxt, value); } }
+        public string CoefficientTxt { get { return _coefficientTxt; } set { SetProperty(ref _coefficientTxt, value); } }
+        public string EquationTxt { get { return _equationTxt; } set { SetProperty(ref _equationTxt, value); } }
+        public string OutliersTxt { get { return _outliersTxt; } set { SetProperty(ref _outliersTxt, value); } }
+        public string NormalPlotTxt { get { return _normalPlotTxt; } set { SetProperty(ref _normalPlotTxt, value); } }
+        public string ResidualFitTxt { get { return _residualFitTxt; } set { SetProperty(ref _residualFitTxt, value); } }
+        public string ResidualhistogramTxt { get { return _residualhistogramTxt; } set { SetProperty(ref _residualhistogramTxt, value); } }
+        public string ResidualOrderTxt { get { return _residualOrderTxt; } set { SetProperty(ref _residualOrderTxt, value); } }
+
+        public string CurvedSettingTxt { get { return _curvedSettingTxt; } set { SetProperty(ref _curvedSettingTxt, value); } }
+        public string FactorXTxt { get { return _factorXTxt; } set { SetProperty(ref _factorXTxt, value); } }
+        public string FactorYTxt { get { return _factorYTxt; } set { SetProperty(ref _factorYTxt, value); } }
+        public string GenerateTxt { get { return _generateTxt; } set { SetProperty(ref _generateTxt, value); } }
+        public string FixedFactorTxt { get { return _fixedFactorTxt; } set { SetProperty(ref _fixedFactorTxt, value); } }
+        public string CurvedTipTxt { get { return _curvedTipTxt; } set { SetProperty(ref _curvedTipTxt, value); } }
+        public string ResponseCurvedTxt { get { return _3dRespCurvedTxt; } set { SetProperty(ref _3dRespCurvedTxt, value); } }
+        public string ContourTxt { get { return _contourTxt; } set { SetProperty(ref _contourTxt, value); } }
+
+        public string CarverTitleTxt { get { return _carverTitleTxt; } set { SetProperty(ref _carverTitleTxt, value); } }
+        public string MaxTxt { get { return _maxTxt; } set { SetProperty(ref _maxTxt, value); } }
+        public string MinTxt { get { return _minTxt; } set { SetProperty(ref _minTxt, value); } }
+        public string Function { get { return _function; } set { SetProperty(ref _function, value); } }
+        public string CarverLoadingTxt { get { return _carverLoadingTxt; } set { SetProperty(ref _carverLoadingTxt, value); } }
+
+        public string AnovaHeaderSourceTxt { get { return _anovaHeaderSourceTxt; } set { SetProperty(ref _anovaHeaderSourceTxt, value); } }
+        public string FValueHeaderTxt { get { return _fValueHeaderTxt; } set { SetProperty(ref _fValueHeaderTxt, value); } }
+
+        public string FinalEquationTxt { get { return _finalEquationTxt; } set { SetProperty(ref _finalEquationTxt, value); } }
+        public string CategoryTxt { get { return _categoryTxt; } set { SetProperty(ref _categoryTxt, value); } }
+        public string ExpandTxt { get { return _expandTxt; } set { SetProperty(ref _expandTxt, value); } }
+
+        public string CoefficientItemTxt { get { return _coefficientItemTxt; } set { SetProperty(ref _coefficientItemTxt, value); } }
+        public string EffectTxt { get { return _effectTxt; } set { SetProperty(ref _effectTxt, value); } }
+        public string CoefficientHeader { get { return _coefficientHeader; } set { SetProperty(ref _coefficientHeader, value); } }
+        public string TValueHeade { get { return _tValueHeaderTxt; } set { SetProperty(ref _tValueHeaderTxt, value); } }
+
+        public string ObserveValueHeader { get { return _observeValueHeader; } set { SetProperty(ref _observeValueHeader, value); } }
+        public string FitValueHeader { get { return _fitValueHeader; } set { SetProperty(ref _fitValueHeader, value); } }
+        public string ResidualHeader { get { return _residualHeader; } set { SetProperty(ref _residualHeader, value); } }
+        public string StandardHeader { get { return _standardHeader; } set { SetProperty(ref _standardHeader, value); } }
+        public string LeverHeader { get { return _leverHeader; } set { SetProperty(ref _leverHeader, value); } }
+        public string ReasonHeader { get { return _reasonHeader; } set { SetProperty(ref _reasonHeader, value); } }
+        public string DistHeader { get { return _distHeader; } set { SetProperty(ref _distHeader, value); } }
+
+        public string ComparisonTxt { get { return _comparisonTxt; } set { SetProperty(ref _comparisonTxt, value); } }
+        public string CompareHeader { get { return _compareHeader; } set { SetProperty(ref _compareHeader, value); } }
+        public string DiffHeader { get { return _diffHeader; } set { SetProperty(ref _diffHeader, value); } }
+        public string PValueHeader { get { return _pValueHeader; } set { SetProperty(ref _pValueHeader, value); } }
+        public string RemarkableHeader { get { return _remarkableHeader; } set { SetProperty(ref _remarkableHeader, value); } }
+
+        private void OnLanguageChangedEvent(string language)
+        {
+            TitleTxt = _localizationService.GetString("Doe_Analysis_Title", "Ols 回归分析");
+            CbResponseTxt = _localizationService.GetString("Doe_Analysis_RespLabe", "响应");
+            CbDegreeTxt = _localizationService.GetString("Doe_Analysis_DegreeLabel", "阶数(I)");
+            CbDegreeTipTxt = _localizationService.GetString("Doe_Analysis_DegreeTip", "模型中包含项的阶数 — 对标 Minitab「Include terms in the model up through order」");
+            CbEquationTxt = _localizationService.GetString("Doe_Analysis_EquationLabel", "方程");
+            ExportReportTxt = _localizationService.GetString("Doe_Analysis_Exprot", "导出报告");
+            ReAnalysisTxt = _localizationService.GetString("Doe_Analysis_Re-analysis", "重新分析");
+            ModelAbstractTxt = _localizationService.GetString("Doe_Analysis_ModelAbstract", "模型摘要");
+            ModelPTxt = _localizationService.GetString("Doe_Analysis_Model-P", "模型 P");
+            ParetoTxt = _localizationService.GetString("Doe_Analysis_ParetoLabel", "效应 pareto");
+            ClickRemoveTxt = _localizationService.GetString("Doe_Analysis_ClickRemove", " 点击排除");
+            CheckRemainTxt = _localizationService.GetString("Doe_Analysis_Remain", "保留弯曲");
+            ResumeCompleteTxt = _localizationService.GetString("Doe_Analysis_Resume", "恢复完整");
+            FitTxt = _localizationService.GetString("Doe_Analysis_Re-fit", "重拟合");
+            ResidualPlotTxt = _localizationService.GetString("Doe_Analysis_Residual", "残差图");
+            CurvedSurfaceTxt = _localizationService.GetString("Doe_Analysis_CurvedSuface", "曲面");
+            CarverTxt = _localizationService.GetString("Doe_Analysis_Carver", "刻画器");
+            EffectDiagramTxt = _localizationService.GetString("Doe_Analysis_EffectDiagram", "效应图");
+            CoefficientTxt = _localizationService.GetString("Doe_Analysis_Coefficient", "系数");
+            EquationTxt = _localizationService.GetString("Doe_Analysis_EquationLabel", "方程");
+            OutliersTxt = _localizationService.GetString("Doe_Analysis_Outliers", "异常点");
+            NormalPlotTxt = _localizationService.GetString("Doe_Analysis_NormalPlot", "正太概率图");
+            ResidualFitTxt = _localizationService.GetString("Doe_Analysis_ResidualPlot", "残差 vs 拟合值");
+            ResidualhistogramTxt = _localizationService.GetString("Doe_Analysis_ResiHistogram", "残差直方图");
+            ResidualOrderTxt = _localizationService.GetString("Doe_Analysis_ResiOrder", "残差 vs 观测顺序");
+            CurvedSettingTxt = _localizationService.GetString("Doe_Analysis_Curved_Title", "曲面设置");
+            FactorXTxt = _localizationService.GetString("Doe_Analysis_Curved_X", "因子 X（水平轴）");
+            FactorYTxt = _localizationService.GetString("Doe_Analysis_Curved_Y", "因子 Y（垂直轴）");
+            GenerateTxt = _localizationService.GetString("Doe_Analysis_Curved_Generate", "生成曲面");
+            FixedFactorTxt = _localizationService.GetString("Doe_Analysis_Curved_Fixed", "固定因子");
+            CurvedTipTxt = _localizationService.GetString("Doe_Analysis_Curved_Tip", "调整后点击「生成曲面」更新");
+            ResponseCurvedTxt = _localizationService.GetString("Doe_Analysis_Curved_Response", "3D 响应曲面");
+            ContourTxt = _localizationService.GetString("Doe_Analysis_Curved_Contour", "等高线图");
+            CarverTitleTxt = _localizationService.GetString("Doe_Analysis_Carver_Title", "预测刻画器");
+            MaxTxt = _localizationService.GetString("Doe_Analysis_Carver_Max", "最大化");
+            MinTxt = _localizationService.GetString("Doe_Analysis_Carver_Min", "最小化");
+            Function = _localizationService.GetString("Doe_Analysis_Carver_Func", "意愿函数");
+            CarverLoadingTxt = _localizationService.GetString("Doe_Analysis_Carver_LoadTip", "正在加载刻画器...");
+            AnovaHeaderSourceTxt = _localizationService.GetString("Doe_Analysis_Anova_Source", "来源");
+            FinalEquationTxt = _localizationService.GetString("Doe_Analysis_Equation_Final", "最终方程（");
+            CategoryTxt = _localizationService.GetString("Doe_Analysis_Equation_Category", "分类别方程（按 ");
+            ExpandTxt = _localizationService.GetString("Doe_Analysis_Equation_Expand", " 展开）");
+            CoefficientItemTxt = _localizationService.GetString("Doe_Analysis_Coefficient_Item", "项");
+            EffectTxt = _localizationService.GetString("Doe_Analysis_Coefficient_Effec", "效应");
+            CoefficientHeader = _localizationService.GetString("Doe_Analysis_Coefficient", "系数");
+            ObserveValueHeader = _localizationService.GetString("Doe_Analysis_Outliers_Observe", "观测值");
+            FitValueHeader = _localizationService.GetString("Doe_Analysis_Outliers_Fit", "拟合值");
+            ResidualHeader = _localizationService.GetString("Doe_Analysis_Outliers_Resid", "残差");
+            StandardHeader = _localizationService.GetString("Doe_Analysis_Outliers_Normal", "标准残差");
+            LeverHeader = _localizationService.GetString("Doe_Analysis_Outliers_Lever", "杠杆值");
+            ReasonHeader = _localizationService.GetString("Doe_Analysis_Outliers_Reason", "原因");
+            DistHeader = _localizationService.GetString("Doe_Analysis_Outliers_Dist", "Cook 距离");
+            ComparisonTxt = _localizationService.GetString("Doe_Analysis_Tukey_Comparison", "Tukey HSD 多重比较 — ");
+            CompareHeader = _localizationService.GetString("Doe_Analysis_Tukey_Compare", "比较");
+            DiffHeader = _localizationService.GetString("Doe_Analysis_Tukey_Diff", "差异");
+            PValueHeader = _localizationService.GetString("Doe_Analysis_Coefficient_P", "P 值");
+            RemarkableHeader = _localizationService.GetString("Doe_Analysis_Tukey_Remarkable", "显著");
+            FValueHeaderTxt = _localizationService.GetString("Doe_Analysis_Anova_F", "F 值");
+            TValueHeade = _localizationService.GetString("Doe_Analysis_Coefficient_T", "t 值");
+        }
+
+        #endregion
 
         // ══════════════ Properties — GPR ══════════════
         public ObservableCollection<GPRModelTabItem> Models { get => _models; set => SetProperty(ref _models, value); }
@@ -864,7 +1082,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在加载多响应刻画器...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InLoadCarver", "正在加载多响应刻画器...");
 
                 // 重置刻画器状态
                 IsProfilerLoaded = false;
@@ -878,7 +1096,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "多响应刻画器加载失败");
-                OlsStatusText = $"加载失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_LoadFail", "加载失败: {0}"),ex.Message);
             }
             finally
             {
@@ -1040,7 +1258,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (fixedValues.Count > 0)
                 {
                     var fixedStr = string.Join(", ", fixedValues.Select(kv => $"{kv.Key}={kv.Value:F2}"));
-                    OlsStatusText = $"响应曲面已生成（固定: {fixedStr}）";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_RespGenerate", "响应曲面已生成（固定: {0}）"),fixedStr);
                 }
             }
             catch (Exception ex)
@@ -1213,14 +1431,16 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = $"正在排除 {excluded.Count} 个异常点后重新拟合...";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_RemoveRefit", "正在排除 {0} 个异常点后重新拟合..."),excluded.Count);
 
                 OlsResult = await _analysisService.RefitExcludingAsync(
                     SelectedOlsBatch!.BatchId, _selectedResponseName, excluded);
 
                 if (OlsResult?.ModelSummary != null)
                 {
-                    OlsStatusText = $"排除 {excluded.Count} 点后: R²={OlsResult.ModelSummary.RSquared:F4}, R²adj={OlsResult.ModelSummary.RSquaredAdj:F4}";
+                    OlsStatusText = string.Format(
+                        _localizationService.GetString("Doe_Analysis_Status_RemoveAfter", "排除 {0} 点后: R²={1:F4}, R²adj={2:F4}"),
+                        excluded.Count, OlsResult.ModelSummary.RSquared, OlsResult.ModelSummary.RSquaredAdj);
                     UpdateEquationsDisplay(OlsResult);
                     await LoadOlsParetoAsync();
                     await LoadResidualDiagnosticsAsync();
@@ -1229,7 +1449,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "排除异常点重拟合失败");
-                OlsStatusText = $"重拟合失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_RefitFail", "重拟合失败: {0}"),ex.Message);
             }
             finally { IsLoading = false; }
         }
@@ -1486,7 +1706,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在加载批次列表...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_LoadBatch", "正在加载批次列表...");
                 string flowId = !string.IsNullOrEmpty(_currentFlowId) ? _currentFlowId : _paramProvider.GetCurrentFlowId() ?? "";
                 var allBatches = await _repository.GetBatchesByFlowAsync(flowId);
                 var items = new List<OlsBatchItem>();
@@ -1507,8 +1727,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
                 OlsBatchItems = new ObservableCollection<OlsBatchItem>(items);
                 OlsStatusText = items.Count == 0
-                    ? "没有已完成实验的批次。请先执行实验后再进行 OLS 分析。"
-                    : $"找到 {items.Count} 个可分析的批次，请选择一个进行 OLS 回归分析。";
+                    ? _localizationService.GetString("Doe_Analysis_Status_NoComplete", "没有已完成实验的批次。请先执行实验后再进行 OLS 分析。")
+                    : string.Format(_localizationService.GetString("Doe_Analysis_Status_FindAnalysis", "找到 {0} 个可分析的批次，请选择一个进行 OLS 回归分析。"),items.Count);
             }
             catch (Exception ex) { _logger.LogError(ex, "加载 OLS 批次列表失败"); OlsStatusText = $"加载失败: {ex.Message}"; }
             finally { IsLoading = false; }
@@ -1533,7 +1753,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在生成报告...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InReport", "正在生成报告...");
 
                 if (path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1555,7 +1775,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
                 }
 
-                OlsStatusText = $"报告已导出: {path}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_AlreadyExport", "报告已导出: {0}"),path);
                 _dialogService.ShowInfo($"OLS 分析报告已保存至:\n{path}", "报告已生成");
             }
             catch (Exception ex)
@@ -1616,7 +1836,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在进行 OLS 回归分析...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InOls", "正在进行 OLS 回归分析...");
                 StatusMessage = "正在进行 OLS 回归分析...";
                 var steps = new[] {
             "Fit OLS model", "ANOVA table", "Pareto effects",
@@ -1633,7 +1853,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     _analysisService.FitOlsAsync(SelectedOlsBatch.BatchId, _selectedResponseName, _currentOlsModelType, KeepCtPtInRefit, orderToUse));
                 if (OlsResult?.ModelSummary != null)
                 {
-                    OlsStatusText = $"OLS 分析完成: R²={OlsResult.ModelSummary.RSquared:F4}";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_OlsComplete", "OLS 分析完成: R²={0:F4}"),OlsResult.ModelSummary.RSquared);
                     await AdvanceLoadingStepAsync(0, totalSteps);
 
                     InestimableWarning = OlsResult.InestimableWarning ?? "";
@@ -1683,13 +1903,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
                 else
                 {
-                    OlsStatusText = "OLS 分析返回空结果";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_OlsNoneResult", "OLS 分析返回空结果");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "OLS 分析失败");
-                OlsStatusText = $"OLS 分析失败: {ex.Message}";
+                OlsStatusText = string.Format("{0}: {1}",_localizationService.GetString("Doe_Analysis_Status_OlsFail", "OLS 分析失败"),ex.Message);
             }
             finally
             {
@@ -2041,7 +2261,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = isFullModel ? "正在恢复完整模型..." : $"正在拟合精简模型 ({includedTerms.Count} 项)...";
+                OlsStatusText = isFullModel 
+                    ? _localizationService.GetString("Doe_Analysis_Status_InResumeModel", "正在恢复完整模型...") 
+                    : string.Format(_localizationService.GetString("Doe_Analysis_Status_InFitModel", "正在拟合精简模型 ({0} 项)..."),includedTerms.Count);
 
                 OLSAnalysisResult? newResult;
                 if (isFullModel)
@@ -2084,7 +2306,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 if (newResult?.ModelSummary == null)
                 {
-                    OlsStatusText = "拟合失败";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_FitFail", "拟合失败");
                     return;
                 }
 
@@ -2184,7 +2406,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "重拟合失败");
-                OlsStatusText = $"重拟合失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_RefitFail", "重拟合失败: {0}"),ex.Message);
             }
             finally
             {
@@ -2359,6 +2581,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _multiResponsePredictor = null;
             _lastProfilerData = null;
             IsProfilerLoaded = false;
+
+            // 取消事件的订阅
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Unsubscribe(OnLanguageChangedEvent);
         }
         private async Task LoadPredictionProfilerAsync()
         {
@@ -2395,7 +2620,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (!_isMultiResponseProfiler)
                 {
                     // ═══ 单响应: 保持原有逻辑完全不变 ═══
-                    OlsStatusText = "正在生成预测刻画器...";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InGenerateCarver", "正在生成预测刻画器...");
                     string json;
                     if (IsDirectImportMode)
                         json = await Task.Run(() =>
@@ -2437,12 +2662,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
             };
                     IsProfilerLoaded = true;
-                    OlsStatusText = $"预测刻画器已生成 ({data.Factors.Count} 个因子)";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_CarverAlready", "预测刻画器已生成 ({0} 个因子)"),data.Factors.Count);
                 }
                 else
                 {
                     // ═══ 多响应: 为每个响应独立加载 ═══
-                    OlsStatusText = "正在生成多响应预测刻画器...";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_MultCarver", "正在生成多响应预测刻画器...");
                     _multiProfilerData.Clear();
                     _multiProfilerYRanges.Clear();
 
@@ -2450,7 +2675,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                     foreach (var respName in _profilerResponseOrder)
                     {
-                        OlsStatusText = $"正在加载 {respName} 的刻画器数据...";
+                        OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_LoadCarver", "正在加载 {0} 的刻画器数据..."),respName);
 
                         // 切换到该响应的 OLS 模型
                         await FitForResponseAsync(respName);
@@ -2514,13 +2739,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     BuildMultiResponseProfilerPlots();
 
                     IsProfilerLoaded = true;
-                    OlsStatusText = $"多响应刻画器已生成 ({_profilerResponseOrder.Count} 个响应, {_profilerFactorOrder.Count} 个因子)";
+                    OlsStatusText = string.Format(
+                        _localizationService.GetString("Doe_Analysis_Status_MultCarverAlready", "多响应刻画器已生成 ({0} 个响应, {1} 个因子)"),
+                        _profilerResponseOrder.Count, _profilerFactorOrder.Count);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "预测刻画器加载失败");
-                OlsStatusText = $"预测刻画器失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_PredCarver", "预测刻画器失败: {0}"),ex.Message);
             }
             finally { IsLoading = false; }
         }
@@ -3749,7 +3976,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = maximize ? "正在搜索最大值..." : "正在搜索最小值...";
+                OlsStatusText = maximize
+                    ? _localizationService.GetString("Doe_Analysis_Status_InSerachMax", "正在搜索最大值...")
+                    : _localizationService.GetString("Doe_Analysis_Status_InSearchMin", "正在搜索最小值...");
 
                 string json;
                 if (IsDirectImportMode)
@@ -3773,7 +4002,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
                                         $"预测响应: {data.PredictedResponse:F4}\n" +
                                         $"最优条件:\n{factorsStr}\n" +
                                         $"{data.Note}";
-                    OlsStatusText = $"优化完成: {_selectedResponseName}={data.PredictedResponse:F4}";
+                    OlsStatusText = string.Format(
+                        _localizationService.GetString("Doe_Analysis_Status_OptimizeComplete", "优化完成: {0}={1:F4}"),
+                        _selectedResponseName, data.PredictedResponse);
 
                     // 用最优条件刷新 profiler（如果已加载）
                     if (IsProfilerLoaded)
@@ -3856,7 +4087,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (IsOlsTabSelected)
                 {
                     // ═══ OLS 模式: 对标 Minitab Response Optimizer ═══
-                    OlsStatusText = "正在搜索 OLS 多响应最优因子组合...";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InSearchOls", "正在搜索 OLS 多响应最优因子组合...");
 
                     // 获取当前批次信息
                     var batchId = IsDirectImportMode ? "" : SelectedOlsBatch?.BatchId;
@@ -3926,7 +4157,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 _logger.LogError(ex, "Desirability 优化失败");
                 if (IsOlsTabSelected)
-                    OlsStatusText = $"优化异常: {ex.Message}";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_OptimizeExp", "优化异常: {0}"),ex.Message);
                 else
                     StatusMessage = $"优化异常: {ex.Message}";
             }
@@ -4195,7 +4426,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (string.IsNullOrEmpty(path)) return;
 
                 IsLoading = true;
-                OlsStatusText = "正在读取 Excel 文件...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InReadExcel", "正在读取 Excel 文件...");
 
                 // Step 1: 后台读取原始数据
                 var rawData = await Task.Run(() => ReadExcelRawData(path));
@@ -4203,14 +4434,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (rawData.Errors.Count > 0)
                 {
                     _dialogService.ShowError($"读取失败:\n{string.Join("\n", rawData.Errors)}", "导入失败");
-                    OlsStatusText = "导入失败";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_ImportFail", "导入失败");
                     return;
                 }
 
                 if (rawData.DataRowCount < 3)
                 {
                     _dialogService.ShowError($"有效数据不足 3 行（当前 {rawData.DataRowCount} 行）", "数据不足");
-                    OlsStatusText = "数据不足";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_DataEnough", "数据不足");
                     return;
                 }
 
@@ -4230,20 +4461,20 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 if (!confirmed)
                 {
-                    OlsStatusText = "已取消导入";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_CancelImport", "已取消导入");
                     return;
                 }
 
                 // Step 3: 根据确认的配置构建分析数据
                 IsLoading = true;
-                OlsStatusText = "正在构建分析数据...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InCreateData", "正在构建分析数据...");
 
                 var importResult = ApplyConfirmedConfig(rawData, columnConfigs);
 
                 if (importResult.DataCount < 3)
                 {
                     _dialogService.ShowError("排除空值后有效数据不足 3 行。", "数据不足");
-                    OlsStatusText = "数据不足";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_DataEnough", "数据不足");
                     return;
                 }
 
@@ -4263,7 +4494,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 _selectedResponseName = ResponseNames.FirstOrDefault() ?? "";
                 RaisePropertyChanged(nameof(SelectedResponseName));
 
-                OlsStatusText = $"已导入 {importResult.DataCount} 行，{importResult.FactorNames.Count} 个因子，{importResult.ResponseNames.Count} 个响应";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_RowFactor", "已导入 {0} 行，{1} 个因子，{2} 个响应"),
+                    importResult.DataCount, importResult.FactorNames.Count, importResult.ResponseNames.Count);
 
                 await RunDirectOlsAnalysisAsync();
             }
@@ -4271,7 +4503,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             {
                 _logger.LogError(ex, "OLS 直接导入失败");
                 _dialogService.ShowError($"导入失败: {ex.Message}", "错误");
-                OlsStatusText = $"导入失败: {ex.Message}";
+                OlsStatusText = string.Format("{0}: {1}",_localizationService.GetString("Doe_Analysis_Status_ImportFail", "导入失败"),ex.Message);
             }
             finally
             {
@@ -4432,14 +4664,14 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             if (!_directImportResponsesData.TryGetValue(_selectedResponseName, out var responsesData))
             {
-                OlsStatusText = $"未找到响应变量: {_selectedResponseName}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_NotFindVar", "未找到响应变量: {0}"),_selectedResponseName);
                 return;
             }
 
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在进行 OLS 回归分析...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InOls", "正在进行 OLS 回归分析...");
                 StatusMessage = "正在进行 OLS 回归分析...";
                 var steps = new[] {
             "Fit OLS model", "Regression equation", "Pareto effects",
@@ -4458,14 +4690,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 if (OlsResult?.ModelSummary == null)
                 {
-                    OlsStatusText = "OLS 分析返回空结果";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_OlsNoneResult", "OLS 分析返回空结果");
                     return;
                 }
 
                 await AdvanceLoadingStepAsync(0, totalSteps);
 
-                OlsStatusText = $"OLS 分析完成: R²={OlsResult.ModelSummary.RSquared:F4}, " +
-                                 $"R²adj={OlsResult.ModelSummary.RSquaredAdj:F4}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_OlsAnalysisAdj",
+                    "OLS 分析完成: R²={0:F4}, R²adj={1:F4}"),
+                    OlsResult.ModelSummary.RSquared, OlsResult.ModelSummary.RSquaredAdj);
 
                 InestimableWarning = OlsResult.InestimableWarning ?? "";
                 HasInestimableWarning = !string.IsNullOrEmpty(InestimableWarning);
@@ -4514,14 +4747,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 }
                 await AdvanceLoadingStepAsync(8, totalSteps);
 
-                OlsStatusText = $"OLS 分析完成: R²={OlsResult.ModelSummary.RSquared:F4}, " +
-                                 $"R²adj={OlsResult.ModelSummary.RSquaredAdj:F4}, " +
-                                 $"来源=直接导入";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_AnalysisComp", "OLS 分析完成: R²={0:F4}, R²adj={1:F4}, 来源=直接导入")
+                    ,OlsResult.ModelSummary.RSquared,OlsResult.ModelSummary.RSquaredAdj);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "直接导入 OLS 分析失败");
-                OlsStatusText = $"分析失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_AnaylsisFail", "分析失败: {0}"),ex.Message);
             }
             finally
             {
@@ -4666,7 +4898,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 if (SurfaceFixedFactors.Count > 0)
                 {
                     var fixedStr = string.Join(", ", SurfaceFixedFactors.Select(sf => $"{sf.Name}={sf.Value:F2}"));
-                    OlsStatusText = $"响应曲面已生成（固定: {fixedStr}）";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_RespGenerate", "响应曲面已生成（固定: {0}）"),fixedStr);
                 }
             }
             catch (Exception ex)
@@ -4954,7 +5186,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "跳转 OLS 分析失败: {BatchId}", batchId);
-                OlsStatusText = $"加载失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_LoadFail", "加载失败: {}"),ex.Message);
             }
             finally
             {
@@ -5720,7 +5952,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在最大化意愿...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InMaxDesir", "正在最大化意愿...");
 
                 if (IsOlsTabSelected)
                 {
@@ -5743,12 +5975,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     if (_isMultiResponseProfiler)
                     {
                         // ★ 多响应: 始终重建 predictor
-                        OlsStatusText = "正在构建多响应模型...";
+                        OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InMultModel", "正在构建多响应模型...");
                         await BuildMultiResponsePredictorForProfiler();
 
                         if (_multiResponsePredictor == null)
                         {
-                            OlsStatusText = "多响应模型构建失败";
+                            OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_MultModelFail", "多响应模型构建失败");
                             return;
                         }
                     }
@@ -5774,7 +6006,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
 
                     // ★ 用过滤后的 configs
-                    OlsStatusText = "正在搜索最优因子组合...";
+                    OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InSearchFactor", "正在搜索最优因子组合...");
                     var optimResult = await Task.Run(() => OptimizeDesirabilityWithCSharp(optimConfigs));
                     DesirabilityResult = optimResult;
                 }
@@ -5813,17 +6045,17 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         BuildDesirabilityPlotsFromProfiler();
                     }
 
-                    OlsStatusText = $"最大化意愿完成: D = {DesirabilityResult.CompositeD:F4}";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_MaxDesirComplete", "最大化意愿完成: D = {0:F4}"),DesirabilityResult.CompositeD);
                 }
                 else
                 {
-                    OlsStatusText = $"优化失败: {DesirabilityResult?.ErrorMessage ?? "未知错误"}";
+                    OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_OptimizeFail", "优化失败: {0}"),DesirabilityResult?.ErrorMessage ?? "未知错误");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "最大化意愿失败");
-                OlsStatusText = $"最大化失败: {ex.Message}";
+                OlsStatusText = string.Format(_localizationService.GetString("Doe_Analysis_Status_MaxFail", "最大化失败: {0}"),ex.Message);
             }
             finally { IsLoading = false; }
         }
@@ -6991,7 +7223,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     BuildDesirabilityPlotsFromProfiler();
                 }
 
-                OlsStatusText = $"Desirability 配置已保存 ({dialogConfigs.Count} 个响应)";
+                OlsStatusText =string.Format(_localizationService.GetString("Doe_Analysis_Status_ConfigSave", "Desirability 配置已保存 ({0} 个响应)"),dialogConfigs.Count);
             }
         }
         private async Task SaveDesirabilityValuesAsync()
@@ -7003,13 +7235,13 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                OlsStatusText = "正在计算所有行的 Desirability...";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_InCalculator", "正在计算所有行的 Desirability...");
 
                 // TODO: 调用 Python engine.evaluate_all_rows()
                 // 结果保存到 _repository
                 // 更新 UI 显示 D 值列
 
-                OlsStatusText = "Desirability 值已保存";
+                OlsStatusText = _localizationService.GetString("Doe_Analysis_Status_ValueSave", "Desirability 值已保存");
             }
             catch (Exception ex)
             {
@@ -7033,6 +7265,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 _logger.LogError(ex, "保存公式失败");
             }
         }
+
+
         private class DirectImportRawData
         {
             public List<string> Headers { get; set; } = new();
