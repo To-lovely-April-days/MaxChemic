@@ -535,6 +535,8 @@
   "PipeProperty_Velocity":"Flow velocity",
   "PipeProperty_Cancel":"Cancel",
   "PipeProperty_Confirm":"Confirm",
+  "PipeProperty_UseDefStyle":"Use the default flow style (Cyber Style · Recommended)",
+  "PipeProperty_DefStyleTxt":"Metal pipe wall + glowing band + particle glow effect. The color, direction and speed of the fluid can still be adjusted.",
   
   "Doe_Main_Title":"DOE Experimental Design and Optimization",
   "Doe_Main_Overview":"Overview",

@@ -455,7 +455,7 @@
                                                   Checked="OnUseDefaultStyleChanged"
                                                   Unchecked="OnUseDefaultStyleChanged"/>
                                     </DockPanel>
-                                    <TextBlock Text="金属管壁 + 流光带 + 粒子辉光的科技效果。流体颜色、方向、流速仍可调整。"
+                                    <TextBlock Name="TbUseDefStyleText" Text="金属管壁 + 流光带 + 粒子辉光的科技效果。流体颜色、方向、流速仍可调整。"
                                                FontSize="11"
                                                Foreground="#996600"
                                                TextWrapping="Wrap"

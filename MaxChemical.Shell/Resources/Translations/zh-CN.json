@@ -521,6 +521,8 @@
   "PipeProperty_Velocity":"流速",
   "PipeProperty_Cancel":"取消",
   "PipeProperty_Confirm":"确定",
+  "PipeProperty_UseDefStyle":"使用默认流动样式（赛博风 · 推荐）",
+  "PipeProperty_DefStyleTxt":"金属管壁 + 流光带 + 粒子辉光的科技效果。流体颜色、方向、流速仍可调整。",
 
   "Doe_Main_Title":"DOE 实验设计与优化",
   "Doe_Main_Overview":"概览",

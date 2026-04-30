@@ -801,6 +801,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls
             TbFlowVelocityLabel.Text = _localization.GetString("PipeProperty_Velocity", "流速");
             BtnCancel.Content = _localization.GetString("PipeProperty_Cancel", "取消");
             BtnApply.Content = _localization.GetString("PipeProperty_Confirm", "确定");
+            ChkUseDefaultStyle.Content = _localization.GetString("PipeProperty_UseDefStyle", "使用默认流动样式（赛博风 · 推荐）");
+            TbUseDefStyleText.Text = _localization.GetString("PipeProperty_DefStyleTxt", "金属管壁 + 流光带 + 粒子辉光的科技效果。流体颜色、方向、流速仍可调整。");
         }
 
         #endregion
