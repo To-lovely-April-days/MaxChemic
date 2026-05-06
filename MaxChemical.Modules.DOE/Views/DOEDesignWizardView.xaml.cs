@@ -7,10 +7,13 @@ namespace MaxChemical.Modules.DOE.Views
 {
     public partial class DOEDesignWizardView : Window
     {
+        private readonly DOEDesignWizardViewModel _viewModel;
+
         public DOEDesignWizardView(DOEDesignWizardViewModel viewModel)
         {
             InitializeComponent();
             DataContext = viewModel;
+            _viewModel = viewModel;
 
             // Esc 键关闭窗口（Drawer 打开时先关 Drawer）
             PreviewKeyDown += (s, e) =>
@@ -117,15 +120,15 @@ namespace MaxChemical.Modules.DOE.Views
                     break;
                 case "FractionalFactorial":
                     DrawerFF.Visibility = Visibility.Visible;
-                    DrawerTitle.Text = "部分因子 (Fractional)";
+                    DrawerTitle.Text = _viewModel.SetDrawerTitleLocalizationTxt("Doe_Guide_Part_Title", "部分因子 (Fractional)");
                     break;
                 case "FullFactorial":
                     DrawerFull.Visibility = Visibility.Visible;
-                    DrawerTitle.Text = "全因子 (Full Factorial)";
+                    DrawerTitle.Text = _viewModel.SetDrawerTitleLocalizationTxt("Doe_Guide_Full_Title", "全因子 (Full Factorial)");
                     break;
                 case "CCD":
                     DrawerCCD.Visibility = Visibility.Visible;
-                    DrawerTitle.Text = "CCD 中心复合设计";
+                    DrawerTitle.Text = _viewModel.SetDrawerTitleLocalizationTxt("Doe_Guide_CCD_Title", "CCD 中心复合设计");
                     break;
                 case "BoxBehnken":
                     DrawerBBD.Visibility = Visibility.Visible;
@@ -137,11 +140,11 @@ namespace MaxChemical.Modules.DOE.Views
                     break;
                 case "Taguchi":
                     DrawerTaguchi.Visibility = Visibility.Visible;
-                    DrawerTitle.Text = "Taguchi 正交设计";
+                    DrawerTitle.Text = _viewModel.SetDrawerTitleLocalizationTxt("Doe_Guide_Tag_Title", "Taguchi 正交设计");
                     break;
                 case "Custom":
                     DrawerCustom.Visibility = Visibility.Visible;
-                    DrawerTitle.Text = "自定义导入";
+                    DrawerTitle.Text = _viewModel.SetDrawerTitleLocalizationTxt("Doe_Guide_Cust_Title", "自定义导入");
                     break;
                 default:
                     return;

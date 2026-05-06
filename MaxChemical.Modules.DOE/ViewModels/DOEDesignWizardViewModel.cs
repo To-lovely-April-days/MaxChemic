@@ -36,6 +36,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IEventAggregator _eventAggregator;      // ★ 新增: 事件聚合器
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localizationService; // 本地化
 
         // ── 向导状态 ──
         private int _currentStep = 1;
@@ -126,7 +127,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             IFlowParameterProvider paramProvider,
             IDialogService dialogService,
             IEventAggregator eventAggregator,                    // ★ 新增
-            ILogService logger)
+            ILogService logger,
+            ILocalizationService localizationService)
         {
             _designService = designService;
             _repository = repository;
@@ -137,6 +139,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             _multiGprService = multiGprService ?? throw new ArgumentNullException(nameof(multiGprService));
             _logger = logger?.ForContext<DOEDesignWizardViewModel>()
                       ?? throw new ArgumentNullException(nameof(logger));
+            // 本地化
+            _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+            InitLocalizationText();
 
             InitializeCommands();
             LoadAvailableCandidates();
@@ -147,6 +152,527 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 InitializeFromProject(payload);
             }, ThreadOption.UIThread);
         }
+
+        #region 本地化
+
+        private string _titleTxt;
+        public string TitleTxt { get { return _titleTxt; } set { SetProperty(ref _titleTxt, value); } }
+
+        private string _bottomTipCancelTxt;
+        public string BottomTipCancelTxt { get { return _bottomTipCancelTxt; } set { SetProperty(ref _bottomTipCancelTxt, value); } }
+
+        private string _bottomTipTxt;
+        public string BottomTipTxt { get { return _bottomTipTxt; } set { SetProperty(ref _bottomTipTxt, value); } }
+
+        private string _factorDefineTxt;
+        public string FactorDefineTxt { get { return _factorDefineTxt; } set { SetProperty(ref _factorDefineTxt, value); } }
+
+        private string _designMethodTxt;
+        public string DesignMethodTxt { get { return _designMethodTxt; } set { SetProperty(ref _designMethodTxt, value); } }
+
+        private string _matrixPreviewTxt;
+        public string MatrixPreviewTxt { get { return _matrixPreviewTxt; } set { SetProperty(ref _matrixPreviewTxt, value); } }
+
+        private string _respAndCondiTxt;
+        public string RespAndCondiTxt { get { return _respAndCondiTxt; } set { SetProperty(ref _respAndCondiTxt, value); } }
+
+        private string _confirmSaveTxt;
+        public string ConfirmSaveTxt { get { return _confirmSaveTxt; } set { SetProperty(ref _confirmSaveTxt, value); } }
+
+        private string _previousStepTxt;
+        public string PreviousStepTxt { get { return _previousStepTxt; } set { SetProperty(ref _previousStepTxt, value); } }
+
+        private string _nextStepTxt;
+        public string NextStepTxt { get { return _nextStepTxt; } set { SetProperty(ref _nextStepTxt, value); } }
+
+        private string _saveExecTxt;
+        public string SaveExecTxt { get { return _saveExecTxt; } set { SetProperty(ref _saveExecTxt, value); } }
+
+        private string _s1Title;
+        public string S1Title { get { return _s1Title; } set { SetProperty(ref _s1Title, value); } }
+
+        private string _s1Subtitle;
+        public string S1Subtitle { get { return _s1Subtitle; } set { SetProperty(ref _s1Subtitle, value); } }
+
+        private string _s1AddFactorTxt;
+        public string S1AddFactorTxt { get { return _s1AddFactorTxt; } set { SetProperty(ref _s1AddFactorTxt, value); } }
+
+        private string _s1InstructionTxt;
+        public string S1InstructionTxt { get { return _s1InstructionTxt; } set { SetProperty(ref _s1InstructionTxt, value); } }
+
+        private string _factorNameHeader;
+        public string FactorNameHeader { get { return _factorNameHeader; } set { SetProperty(ref _factorNameHeader, value); } }
+
+        private string _factorTypeHeader;
+        public string FactorTypeHeader { get { return _factorTypeHeader; } set { SetProperty(ref _factorTypeHeader, value); } }
+
+        private string _lowLevelHeader;
+        public string LowLevelHeader { get { return _lowLevelHeader; } set { SetProperty(ref _lowLevelHeader, value); } }
+
+        private string _highLevelHeader;
+        public string HighLevelHeader { get { return _highLevelHeader; } set { SetProperty(ref _highLevelHeader, value); } }
+
+        private string _lowerLimitHeader;
+        public string LowerLimitHeader { get { return _lowerLimitHeader; } set { SetProperty(ref _lowerLimitHeader, value); } }
+
+        private string _upperLimitHeader;
+        public string UpperLimitHeader { get { return _upperLimitHeader; } set { SetProperty(ref _upperLimitHeader, value); } }
+
+        private string _bindParamHeader;
+        public string BindParamHeader { get { return _bindParamHeader; } set { SetProperty(ref _bindParamHeader, value); } }
+
+        private string _s2Title;
+        public string S2Title { get { return _s2Title; } set { SetProperty(ref _s2Title, value); } }
+
+        private string _s2Sutitle;
+        public string S2Sutitle { get { return _s2Sutitle; } set { SetProperty(ref _s2Sutitle, value); } }
+
+        private string _configParamTxt;
+        public string ConfigParamTxt { get { return _configParamTxt; } set { SetProperty(ref _configParamTxt, value); } }
+
+        private string _screeningTitleTxt;
+        public string ScreeningTitleTxt { get { return _screeningTitleTxt; } set { SetProperty(ref _screeningTitleTxt, value); } }
+
+        private string _screeningDesc1;
+        public string ScreeningDesc1 { get { return _screeningDesc1; } set { SetProperty(ref _screeningDesc1, value); } }
+
+        private string _screeningDesc2;
+        public string ScreeningDesc2 { get { return _screeningDesc2; } set { SetProperty(ref _screeningDesc2, value); } }
+
+        private string _screeningLabel;
+        public string ScreeningLabel { get { return _screeningLabel; } set { SetProperty(ref _screeningLabel, value); } }
+
+        private string _factorTitle;
+        public string FactorTitle { get { return _factorTitle; } set { SetProperty(ref _factorTitle, value); } }
+
+        private string _factorDesc1;
+        public string FactorDesc1 { get { return _factorDesc1; } set { SetProperty(ref _factorDesc1, value); } }
+
+        private string _factorDesc2;
+        public string FactorDesc2 { get { return _factorDesc2; } set { SetProperty(ref _factorDesc2, value); } }
+
+        private string _factorialTitleTxt;
+        public string FactorialTitleTxt { get { return _factorialTitleTxt; } set { SetProperty(ref _factorialTitleTxt, value); } }
+
+        private string _fullTitle;
+        public string FullTitle { get { return _fullTitle; } set { SetProperty(ref _fullTitle, value); } }
+
+        private string _fullDesc1;
+        public string FullDesc1 { get { return _fullDesc1; } set { SetProperty(ref _fullDesc1, value); } }
+
+        private string _fullDesc2;
+        public string FullDesc2 { get { return _fullDesc2; } set { SetProperty(ref _fullDesc2, value); } }
+
+        private string _factorialLabel;
+        public string FactorialLabel { get { return _factorialLabel; } set { SetProperty(ref _factorialLabel, value); } }
+
+        private string _rsmTitleTxt;
+        public string RsmTitleTxt { get { return _rsmTitleTxt; } set { SetProperty(ref _rsmTitleTxt, value); } }
+
+        private string _ccdTitle;
+        public string CcdTitle { get { return _ccdTitle; } set { SetProperty(ref _ccdTitle, value); } }
+
+        private string _ccdDesc1;
+        public string CcdDesc1 { get { return _ccdDesc1; } set { SetProperty(ref _ccdDesc1, value); } }
+
+        private string _ccdDesc2;
+        public string CcdDesc2 { get { return _ccdDesc2; } set { SetProperty(ref _ccdDesc2, value); } }
+
+        private string _recommandLabel;
+        public string RecommandLabel { get { return _recommandLabel; } set { SetProperty(ref _recommandLabel, value); } }
+
+        private string _boxBehTitle;
+        public string BoxBehTitle { get { return _boxBehTitle; } set { SetProperty(ref _boxBehTitle, value); } }
+
+        private string _boxBehDesc1;
+        public string BoxBehDesc1 { get { return _boxBehDesc1; } set { SetProperty(ref _boxBehDesc1, value); } }
+
+        private string _boxBehDesc2;
+        public string BoxBehDesc2 { get { return _boxBehDesc2; } set { SetProperty(ref _boxBehDesc2, value); } }
+
+        private string _rsmLabel;
+        public string RsmLabel { get { return _rsmLabel; } set { SetProperty(ref _rsmLabel, value); } }
+
+        private string _dOptTitle;
+        public string DOptTitle { get { return _dOptTitle; } set { SetProperty(ref _dOptTitle, value); } }
+
+        private string _dOptDesc1;
+        public string DOptDesc1 { get { return _dOptDesc1; } set { SetProperty(ref _dOptDesc1, value); } }
+
+        private string _dOptDesc2;
+        public string DOptDesc2 { get { return _dOptDesc2; } set { SetProperty(ref _dOptDesc2, value); } }
+
+        private string _tagTitle;
+        public string TagTitle { get { return _tagTitle; } set { SetProperty(ref _tagTitle, value); } }
+
+        private string _tagDesc1;
+        public string TagDesc1 { get { return _tagDesc1; } set { SetProperty(ref _tagDesc1, value); } }
+
+        private string _tagDesc2;
+        public string TagDesc2 { get { return _tagDesc2; } set { SetProperty(ref _tagDesc2, value); } }
+
+        private string _customTitleTxt;
+        public string CustomTitleTxt { get { return _customTitleTxt; } set { SetProperty(ref _customTitleTxt, value); } }
+
+        private string _customTitle;
+        public string CustomTitle { get { return _customTitle; } set { SetProperty(ref _customTitle, value); } }
+
+        private string _customDesc1;
+        public string CustomDesc1 { get { return _customDesc1; } set { SetProperty(ref _customDesc1, value); } }
+
+        private string _customDesc2;
+        public string CustomDesc2 { get { return _customDesc2; } set { SetProperty(ref _customDesc2, value); } }
+
+        private string _customLabel;
+        public string CustomLabel { get { return _customLabel; } set { SetProperty(ref _customLabel, value); } }
+
+        private string _randomOrderTxt;
+        public string RandomOrderTxt { get { return _randomOrderTxt; } set { SetProperty(ref _randomOrderTxt, value); } }
+
+        private string _s3Title;
+        public string S3Title { get { return _s3Title; } set { SetProperty(ref _s3Title, value); } }
+
+        private string _s3Sutitle;
+        public string S3Sutitle { get { return _s3Sutitle; } set { SetProperty(ref _s3Sutitle, value); } }
+
+        private string _randomTxt;
+        public string RandomTxt { get { return _randomTxt; } set { SetProperty(ref _randomTxt, value); } }
+
+        private string _centerPointTxt;
+        public string CenterPointTxt { get { return _centerPointTxt; } set { SetProperty(ref _centerPointTxt, value); } }
+
+        private string _totalTxt;
+        public string TotalTxt { get { return _totalTxt; } set { SetProperty(ref _totalTxt, value); } }
+
+        private string _groupTxt;
+        public string GroupTxt { get { return _groupTxt; } set { SetProperty(ref _groupTxt, value); } }
+
+        private string _s4Title;
+        public string S4Title { get { return _s4Title; } set { SetProperty(ref _s4Title, value); } }
+
+        private string _s4Subtitle;
+        public string S4Subtitle { get { return _s4Subtitle; } set { SetProperty(ref _s4Subtitle, value); } }
+
+        private string _respVarTxt;
+        public string RespVarTxt { get { return _respVarTxt; } set { SetProperty(ref _respVarTxt, value); } }
+
+        private string _nameHeader;
+        public string NameHeader { get { return _nameHeader; } set { SetProperty(ref _nameHeader, value); } }
+
+        private string _targetHeader;
+        public string TargetHeader { get { return _targetHeader; } set { SetProperty(ref _targetHeader, value); } }
+
+        private string _weightHeader;
+        public string WeightHeader { get { return _weightHeader; } set { SetProperty(ref _weightHeader, value); } }
+
+        private string _addRespHeader;
+        public string AddRespHeader { get { return _addRespHeader; } set { SetProperty(ref _addRespHeader, value); } }
+
+        private string _stopCondiTxt;
+        public string StopCondiTxt { get { return _stopCondiTxt; } set { SetProperty(ref _stopCondiTxt, value); } }
+
+        private string _reaponseHeader;
+        public string ReaponseHeader { get { return _reaponseHeader; } set { SetProperty(ref _reaponseHeader, value); } }
+
+        private string _conditionHeader;
+        public string ConditionHeader { get { return _conditionHeader; } set { SetProperty(ref _conditionHeader, value); } }
+
+        private string _targetValueHeader;
+        public string TargetValueHeader { get { return _targetValueHeader; } set { SetProperty(ref _targetValueHeader, value); } }
+
+        private string _addCondiHeader;
+        public string AddCondiHeader { get { return _addCondiHeader; } set { SetProperty(ref _addCondiHeader, value); } }
+
+        private string _s5Title;
+        public string S5Title { get { return _s5Title; } set { SetProperty(ref _s5Title, value); } }
+
+        private string _s5Subtitle;
+        public string S5Subtitle { get { return _s5Subtitle; } set { SetProperty(ref _s5Subtitle, value); } }
+
+        private string _batchNameLabel;
+        public string BatchNameLabel { get { return _batchNameLabel; } set { SetProperty(ref _batchNameLabel, value); } }
+
+        private string _factorNumberTxt;
+        public string FactorNumberTxt { get { return _factorNumberTxt; } set { SetProperty(ref _factorNumberTxt, value); } }
+
+        private string _expriGroupTxt;
+        public string ExpriGroupTxt { get { return _expriGroupTxt; } set { SetProperty(ref _expriGroupTxt, value); } }
+
+        private string _stopCondiLabel;
+        public string StopCondiLabel { get { return _stopCondiLabel; } set { SetProperty(ref _stopCondiLabel, value); } }
+
+        private string _historyDataTxt;
+        public string HistoryDataTxt { get { return _historyDataTxt; } set { SetProperty(ref _historyDataTxt, value); } }
+
+        private string _designWeightTxt;
+        public string DesignWeightTxt { get { return _designWeightTxt; } set { SetProperty(ref _designWeightTxt, value); } }
+
+        private string _aEfficiency;
+        public string AEfficiency { get { return _aEfficiency; } set { SetProperty(ref _aEfficiency, value); } }
+
+        private string _dEfficiency;
+        public string DEfficiency { get { return _dEfficiency; } set { SetProperty(ref _dEfficiency, value); } }
+
+        private string _gEfficiency;
+        public string GEfficiency { get { return _gEfficiency; } set { SetProperty(ref _gEfficiency, value); } }
+
+        private string _freedom;
+        public string Freedom { get { return _freedom; } set { SetProperty(ref _freedom, value); } }
+
+        private string _paramConfigTitle;
+        public string ParamConfigTitle { get { return _paramConfigTitle; } set { SetProperty(ref _paramConfigTitle, value); } }
+
+        private string _confirm;
+        public string Confirm { get { return _confirm; } set { SetProperty(ref _confirm, value); } }
+
+        private string _expriNumberTxt;
+        public string ExpriNumberTxt { get { return _expriNumberTxt; } set { SetProperty(ref _expriNumberTxt, value); } }
+
+        private string _centerPointLabel;
+        public string CenterPointLabel { get { return _centerPointLabel; } set { SetProperty(ref _centerPointLabel, value); } }
+
+        private string _linesLabel;
+        public string LinesLabel { get { return _linesLabel; } set { SetProperty(ref _linesLabel, value); } }
+
+        private string _resolutionLabel;
+        public string ResolutionLabel { get { return _resolutionLabel; } set { SetProperty(ref _resolutionLabel, value); } }
+
+        private string _runLinesLabel;
+        public string RunLinesLabel { get { return _runLinesLabel; } set { SetProperty(ref _runLinesLabel, value); } }
+
+        private string _levelNumberLabel;
+        public string LevelNumberLabel { get { return _levelNumberLabel; } set { SetProperty(ref _levelNumberLabel, value); } }
+
+        private string _alphaTypeLabel;
+        public string AlphaTypeLabel { get { return _alphaTypeLabel; } set { SetProperty(ref _alphaTypeLabel, value); } }
+
+        private string _cubePointLabel;
+        public string CubePointLabel { get { return _cubePointLabel; } set { SetProperty(ref _cubePointLabel, value); } }
+
+        private string _axisPointLabel;
+        public string AxisPointLabel { get { return _axisPointLabel; } set { SetProperty(ref _axisPointLabel, value); } }
+
+        private string _useHalfFactorLabel;
+        public string UseHalfFactorLabel { get { return _useHalfFactorLabel; } set { SetProperty(ref _useHalfFactorLabel, value); } }
+
+        private string _modelLabel;
+        public string ModelLabel { get { return _modelLabel; } set { SetProperty(ref _modelLabel, value); } }
+
+        private string _restratsLabel;
+        public string RestratsLabel { get { return _restratsLabel; } set { SetProperty(ref _restratsLabel, value); } }
+
+        private string _iterationLabel;
+        public string IterationLabel { get { return _iterationLabel; } set { SetProperty(ref _iterationLabel, value); } }
+
+        private string _condidateGridLabel;
+        public string CondidateGridLabel { get { return _condidateGridLabel; } set { SetProperty(ref _condidateGridLabel, value); } }
+
+        private string _randomSeedLabel;
+        public string RandomSeedLabel { get { return _randomSeedLabel; } set { SetProperty(ref _randomSeedLabel, value); } }
+
+        private string _lTableLabel;
+        public string LTableLabel { get { return _lTableLabel; } set { SetProperty(ref _lTableLabel, value); } }
+
+        private string _snrLabel;
+        public string SnrLabel { get { return _snrLabel; } set { SetProperty(ref _snrLabel, value); } }
+
+        private string _analysisTypeLabel;
+        public string AnalysisTypeLabel { get { return _analysisTypeLabel; } set { SetProperty(ref _analysisTypeLabel, value); } }
+
+        private string _rotatableItem;
+        public string RotatableItem { get { return _rotatableItem; } set { SetProperty(ref _rotatableItem, value); } }
+
+        private string _orthogonalItem;
+        public string OrthogonalItem { get { return _orthogonalItem; } set { SetProperty(ref _orthogonalItem, value); } }
+
+        private string _faceHeartItem;
+        public string FaceHeartItem { get { return _faceHeartItem; } set { SetProperty(ref _faceHeartItem, value); } }
+
+        private string _practicalItem;
+        public string PracticalItem { get { return _practicalItem; } set { SetProperty(ref _practicalItem, value); } }
+
+        private string _doptimalTip;
+        public string DoptimalTip { get { return _doptimalTip; } set { SetProperty(ref _doptimalTip, value); } }
+
+        private string _modelLinear;
+        public string ModelLinear { get { return _modelLinear; } set { SetProperty(ref _modelLinear, value); } }
+
+        private string _modelInteraction;
+        public string ModelInteraction { get { return _modelInteraction; } set { SetProperty(ref _modelInteraction, value); } }
+
+        private string _modelQuadratic;
+        public string ModelQuadratic { get { return _modelQuadratic; } set { SetProperty(ref _modelQuadratic, value); } }
+
+        private string _seedTip;
+        public string SeedTip { get { return _seedTip; } set { SetProperty(ref _seedTip, value); } }
+
+        private string _autoItem;
+        public string AutoItem { get { return _autoItem; } set { SetProperty(ref _autoItem, value); } }
+
+        private string _largerItem;
+        public string LargerItem { get { return _largerItem; } set { SetProperty(ref _largerItem, value); } }
+
+        private string _smallerItem;
+        public string SmallerItem { get { return _smallerItem; } set { SetProperty(ref _smallerItem, value); } }
+
+        private string _nominalItem;
+        public string NominalItem { get { return _nominalItem; } set { SetProperty(ref _nominalItem, value); } }
+
+        private string _analysisLinear;
+        public string AnalysisLinear { get { return _analysisLinear; } set { SetProperty(ref _analysisLinear, value); } }
+
+        private string _analysisInteraction;
+        public string AnalysisInteraction { get { return _analysisInteraction; } set { SetProperty(ref _analysisInteraction, value); } }
+
+        private string _analysisQuadratic;
+        public string AnalysisQuadratic { get { return _analysisQuadratic; } set { SetProperty(ref _analysisQuadratic, value); } }
+
+        private string _cubeTip;
+        private string CubeTip { get { return _cubeTip; } set { SetProperty(ref _cubeTip, value); } }
+
+
+        private void InitLocalizationText()
+        {
+            TitleTxt = _localizationService.GetString("Doe_Guide_Title", "DOE 向导");
+            BottomTipCancelTxt = _localizationService.GetString("Doe_Guide_PressEsc", "按 ESC 取消");
+            BottomTipTxt = _localizationService.GetString("Doe_Guide_AutoSave", "进度自动保存");
+            FactorDefineTxt = _localizationService.GetString("Doe_Gudie_FactorDefine", "因子定义");
+            DesignMethodTxt = _localizationService.GetString("Doe_Guide_DesignMethod", "设计方法");
+            MatrixPreviewTxt = _localizationService.GetString("Doe_Guide_MatrixPreview", "矩阵预览");
+            RespAndCondiTxt = _localizationService.GetString("Doe_Guide_ResponseCondition", "响应条件");
+            ConfirmSaveTxt = _localizationService.GetString("Doe_Guide_ConfirmSave", "确认保存");
+            PreviousStepTxt = _localizationService.GetString("Doe_Guide_PreviousStep", "← 上一步");
+            NextStepTxt = _localizationService.GetString("Doe_Guide_NextStep", "下一步 →");
+            SaveExecTxt = _localizationService.GetString("Doe_Guide_SaveStartExec", "保存并开始执行");
+
+            S1Title = _localizationService.GetString("Doe_Guide_Step1Title", "定义实验因子");
+            S1Subtitle = _localizationService.GetString("Doe_Guide_Step1SubTitle", "添加因子，设置类型和水平范围");
+            S1AddFactorTxt = _localizationService.GetString("Doe_Guide_AddFactor", "+ 添加因子");
+            S1InstructionTxt = _localizationService.GetString("Doe_Guide_Instruction", "连续因子默认绑定流程参数;勾选「手动」则不绑定,由操作员按矩阵值手动调节。类别因子始终为手动操作。");
+            FactorNameHeader = _localizationService.GetString("Doe_Guide_FactorName", "因子名称");
+            FactorTypeHeader = _localizationService.GetString("Doe_Guide_Type", "类型");
+            LowLevelHeader = _localizationService.GetString("Doe_Guide_LowLevel", "低水平");
+            HighLevelHeader = _localizationService.GetString("Doe_Guide_HighLevel", "高水平");
+            LowerLimitHeader = _localizationService.GetString("Doe_Guide_Lower", "物理下限");
+            UpperLimitHeader = _localizationService.GetString("Doe_Guide_Upper", "物理上限");
+            BindParamHeader = _localizationService.GetString("Doe_Guide_BindParam", "绑定参数");
+
+            S2Title = _localizationService.GetString("Doe_Guide_Step2Title", "选择设计方法");
+            S2Sutitle = _localizationService.GetString("Doe_Guide_Step2SubTitle", "点击卡片选择方法，点「配置参数」调整详细设置");
+            ConfigParamTxt = _localizationService.GetString("Doe_Guide_ConfigParam", "配置参数 →");
+            ScreeningTitleTxt = _localizationService.GetString("Doe_Guide_ScreeningTitle", "筛选 Screening");
+            ScreeningDesc1 = _localizationService.GetString("Doe_Guide_PB_Desc1", "经济筛选设计");
+            ScreeningDesc2 = _localizationService.GetString("Doe_Guide_PB_Desc2", "实验次数为4的倍数，最多23因子");
+            ScreeningLabel = _localizationService.GetString("Doe_Guide_Screen", "刷选");
+            FactorTitle = _localizationService.GetString("Doe_Guide_Part_Title", "部分因子（Fractional）");
+            FactorDesc1 = _localizationService.GetString("Doe_Guide_Part_Desc1", "2^(k-p) 分辨度可控");
+            FactorDesc2 = _localizationService.GetString("Doe_Guide_Part_Desc2", "用更少实验量捕获主效应");
+            FactorialTitleTxt = _localizationService.GetString("Doe_Guide_FactorialTitle", "因子 Factorial");
+            FullTitle = _localizationService.GetString("Doe_Guide_Full_Title", "全因子（Full Factorial）");
+            FullDesc1 = _localizationService.GetString("Doe_Guide_Full_Desc1", "完全组合无混杂");
+            FullDesc2 = _localizationService.GetString("Doe_Guide_Full_Desc2", "所有因子所有水平完全交叉");
+            FactorialLabel = _localizationService.GetString("Doe_Guide_Factor", "因子");
+            RsmTitleTxt = _localizationService.GetString("Doe_Guide_RSMTitle", "响应曲面 RSM");
+            CcdTitle = _localizationService.GetString("Doe_Guide_CCD_Title", "CCD 中心复合设计");
+            CcdDesc1 = _localizationService.GetString("Doe_Guide_CCD_Desc1", "RSM 最常用");
+            CcdDesc2 = _localizationService.GetString("Doe_Guide_CCD_Desc2", "角点+轴点+中心点");
+            RecommandLabel = _localizationService.GetString("Doe_Guide_Recommend", "推荐");
+            //BoxBehTitle = _localizationService.GetString("", "");
+            BoxBehDesc1 = _localizationService.GetString("Doe_Guide_BB_Desc1", "无极端角点");
+            BoxBehDesc2 = _localizationService.GetString("Doe_Guide_BB_Desc2", "化工安全性更好，需 3+ 连续因子");
+            //RsmLabel = _localizationService.GetString("Doe_Guide_RSM", "RSM");
+            //DOptTitle = _localizationService.GetString("", "");
+            DOptDesc1 = _localizationService.GetString("Doe_Guide_DO_Desc1", "不规则因子空间");
+            DOptDesc2 = _localizationService.GetString("Doe_Guide_DO_Desc2", "coordinate-exchange 算法");
+            TagTitle = _localizationService.GetString("Doe_Guide_Tag_Title", "Taguchi 正交设计");
+            TagDesc1 = _localizationService.GetString("Doe_Guide_Tag_Desc1", "标准 L 表");
+            TagDesc2 = _localizationService.GetString("Doe_Guide_Tag_Desc2", "最经济实验数");
+            CustomTitleTxt = _localizationService.GetString("Doe_Guide_CustTitle", "自定义 Custom");
+            CustomTitle = _localizationService.GetString("Doe_Guide_Cust_Title", "自定义导入");
+            CustomDesc1 = _localizationService.GetString("Doe_Guide_Cust_Desc1", "从 Excel 导入矩阵");
+            CustomDesc2 = _localizationService.GetString("Doe_Guide_Cust_Desc2", "列名需要匹配因子名称");
+            CustomLabel = _localizationService.GetString("Doe_Guide_Custom", "自定义");
+            RandomOrderTxt = _localizationService.GetString("Doe_Guide_Randomization", "随机化运行顺序");
+
+            S3Title = _localizationService.GetString("Doe_Guide_Step3Title", "实验矩阵预览");
+            S3Sutitle = _localizationService.GetString("Doe_Guide_Step3SubTitle", "检查生成的实验方案");
+            RandomTxt = _localizationService.GetString("Doe_Guide_Random", "随机化");
+            CenterPointTxt = _localizationService.GetString("Doe_Guide_Drawer_PB_Center", "中心点");
+            TotalTxt = _localizationService.GetString("Doe_Guide_Totle", "共 ");
+            GroupTxt = _localizationService.GetString("Doe_Guide_Group", " 组");
+
+            S4Title = _localizationService.GetString("Doe_Guide_Step4Title", "响应变量与停止条件");
+            S4Subtitle = _localizationService.GetString("Doe_Guide_Step4SubTitle", "定义测量指标和自动终止规则");
+            RespVarTxt = _localizationService.GetString("Doe_Guide_ResponseVar", "响应变量");
+            NameHeader = _localizationService.GetString("Doe_Guide_Header_Name", "名称");
+            TargetHeader = _localizationService.GetString("Doe_Guide_Header_Target", "目标");
+            WeightHeader = _localizationService.GetString("Doe_Guide_Header_Weight", "权重");
+            AddRespHeader = _localizationService.GetString("Doe_Guide_AddResponse", "+ 添加响应");
+            StopCondiTxt = _localizationService.GetString("Doe_Guide_StopCondi", "停止条件（可选）");
+            ReaponseHeader = _localizationService.GetString("Doe_Guide_Header_Response", "响应");
+            ConditionHeader = _localizationService.GetString("Doe_Guide_Header_Condition", "条件");
+            TargetValueHeader = _localizationService.GetString("Doe_Guide_Header_TargetValue", "目标值");
+            AddCondiHeader = _localizationService.GetString("Doe_Guide_AddCondition", "+ 添加条件");
+
+            S5Title = _localizationService.GetString("Doe_Guide_Step5Title", "确认并保存");
+            S5Subtitle = _localizationService.GetString("Doe_Guide_Step5SubTitle", "核对以下配置，确认无误后保存");
+            BatchNameLabel = _localizationService.GetString("Doe_Guide_BatchName", "批次名称");
+            FactorNumberTxt = _localizationService.GetString("Doe_Guide_FactorNumber", "因子数");
+            ExpriGroupTxt = _localizationService.GetString("Doe_Guide_ExperiGroups", "实验组数");
+            StopCondiLabel = _localizationService.GetString("Doe_Guide_StopCondition", "停止条件");
+            HistoryDataTxt = _localizationService.GetString("Doe_Guide_HistoryData", "历史数据");
+            DesignWeightTxt = _localizationService.GetString("Doe_Guide_DesignWeight", "设计质量");
+            AEfficiency = _localizationService.GetString("Doe_Guide_AEfficiency", "A-效率");
+            DEfficiency = _localizationService.GetString("Doe_Guide_DEfficiency", "D-效率");
+            GEfficiency = _localizationService.GetString("Doe_Guide_GEfficiency", "G-效率");
+            Freedom = _localizationService.GetString("Doe_Guide_Freedom", "自由度");
+
+            ParamConfigTitle = _localizationService.GetString("Doe_Guide_Drawer_SubTitle", "参数配置");
+            Confirm = _localizationService.GetString("Doe_Guide_Drawer_Confirm", "确认");
+            ExpriNumberTxt = _localizationService.GetString("Doe_Guide_Drawer_PB_Number", "实验次数");
+            CenterPointLabel = _localizationService.GetString("Doe_Guide_Drawer_PB_Center", "中心点");
+            LinesLabel = _localizationService.GetString("Doe_Guide_Drawer_PB_Rows", "仿行数");
+            ResolutionLabel = _localizationService.GetString("Doe_Guide_Drawer_FF_Resolution", "分辨度");
+            RunLinesLabel = _localizationService.GetString("Doe_Guide_Drawer_FF_RunRows", "运行数");
+            LevelNumberLabel = _localizationService.GetString("Doe_Guide_Drawer_Full_Hori", "水平数");
+            AlphaTypeLabel = _localizationService.GetString("Doe_Guide_Drawer_CCD_Alpha", "Alpha 类型");
+            CubePointLabel = _localizationService.GetString("Doe_Guide_Drawer_CCD_Cube", "立方中心点");
+            AxisPointLabel = _localizationService.GetString("Doe_Guide_Drawer_CCD_Axis", "轴点中心点");
+            UseHalfFactorLabel = _localizationService.GetString("Doe_Guide_Drawer_CCD_UseHalf", "使用 1/2 部分因子");
+            ModelLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Model", "模型");
+            RestratsLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Restore", "重启次数");
+            IterationLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Iteration", "迭代上限");
+            CondidateGridLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Grid", "候选网格");
+            RandomSeedLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Seed", "随机种子");
+            LTableLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_L", "L表");
+            SnrLabel = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Noise", "信噪比");
+            AnalysisTypeLabel = _localizationService.GetString("Doe_Guide_Drawer_Custom_Type", "分析类型");
+
+            RotatableItem = _localizationService.GetString("Doe_Guide_Alpha_Rotatable", "可旋转（推荐）");
+            OrthogonalItem = _localizationService.GetString("Doe_Guide_Alpha_Orthogonal", "正交");
+            FaceHeartItem = _localizationService.GetString("Doe_Guide_Alpha_Face", "面心（α=1）");
+            PracticalItem = _localizationService.GetString("Doe_Guide_Alpha_Practical", "实用");
+            DoptimalTip = _localizationService.GetString("Doe_Guide_Drawer_DOpt_Instruc", "-1 = 自动");
+            ModelLinear = _localizationService.GetString("Doe_Guide_Model_Linear", "线性");
+            ModelInteraction = _localizationService.GetString("Doe_Guide_Model_Interaction", "交互");
+            ModelQuadratic = _localizationService.GetString("Doe_Guide_Model_Quadratic", "二阶（推荐）");
+            SeedTip = _localizationService.GetString("Doe_Guide_Drawer_DOpt_SeedTip", "0 = 时间种子");
+            AutoItem = _localizationService.GetString("Doe_Guide_L_Auto", "自动");
+            LargerItem = _localizationService.GetString("Doe_Guide_Noise_Larger", "越大越好");
+            SmallerItem = _localizationService.GetString("Doe_Guide_Noise_Smaller", "越小越好");
+            NominalItem = _localizationService.GetString("Doe_Guide_Noise_Nominal", "望目");
+            AnalysisLinear = _localizationService.GetString("Doe_Guide_AT_Linear", "筛选（主效应）");
+            AnalysisInteraction = _localizationService.GetString("Doe_Guide_AT_Interaction", "因子（主效应+交互）");
+            AnalysisQuadratic = _localizationService.GetString("Doe_Guide_AT_Quadratic", "响应曲面（二阶）");
+            CubeTip = _localizationService.GetString("Doe_Guide_Drawer_CCD_CubeTip", "-1 = Minitab 默认");
+        }
+
+        public string SetDrawerTitleLocalizationTxt(string key,string defTxt)
+        {
+            return _localizationService.GetString(key, defTxt);
+        }
+
+        #endregion
 
         // ══════════════ Properties ══════════════
 
@@ -385,7 +911,8 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
 
             // 提示信息
-            StatusMessage = $"项目模式: 第 {payload.RoundNumber} 轮 ({payload.RecommendedPhase})";
+            StatusMessage = string.Format(_localizationService.GetString("Doe_Guide_StatusMsg_ProjMode", 
+                "项目模式: 第 {0} 轮 ({1})"),payload.RoundNumber,payload.RecommendedPhase);
         }
 
         /// <summary>
@@ -569,7 +1096,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在生成参数矩阵...";
+                StatusMessage = _localizationService.GetString("Doe_Guide_StatusMsg_CreateMatrix", "正在生成参数矩阵...");
                 var factors = Factors.Select(f => f.ToModel()).ToList();
 
                 DesignOptions? options = SelectedMethod switch
@@ -644,7 +1171,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 {
                     MatrixTable = ConvertMatrixToDataTable(_designMatrix);
                     RaisePropertyChanged(nameof(MatrixRunCount));
-                    StatusMessage = $"已生成 {_designMatrix.RunCount} 组实验";
+                    StatusMessage = string.Format(_localizationService.GetString("Doe_Guide_StatusMsg_AlreadyGroup", "已生成 {0} 组实验"),_designMatrix.RunCount);
                     await EvaluateDesignQualityAsync(factors);
                 }
             }
@@ -718,7 +1245,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
             try
             {
-                StatusMessage = "正在评估设计质量...";
+                StatusMessage = _localizationService.GetString("Doe_Guide_StatusMsg_DesignQuality", "正在评估设计质量...");
 
                 // 根据设计方法选择合适的模型类型
                 string modelType = SelectedMethod switch
@@ -747,7 +1274,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
             finally
             {
-                StatusMessage = "设计质量评估完成";
+                StatusMessage = _localizationService.GetString("Doe_Guide_StatusMsg_AssessComplete", "设计质量评估完成");
             }
         }
         private void RandomizeMatrix()
@@ -822,7 +1349,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在校验导入文件...";
+                StatusMessage = _localizationService.GetString("Doe_Guide_StatusMsg_ValidFile", "正在校验导入文件...");
 
                 var factors = Factors.Select(f => f.ToModel()).ToList();
                 var responses = Responses.Select(r => r.ToModel()).ToList();
@@ -830,9 +1357,11 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 ValidationResult = await _designService.ValidateImportedDataAsync(ImportFilePath, factors, responses);
 
                 if (ValidationResult.IsValid)
-                    StatusMessage = $"校验通过，{ValidationResult.ValidRowCount} 行有效数据";
+                    StatusMessage = string.Format(_localizationService.GetString("Doe_Guide_StatusMsg_ValidEnter",
+                        "校验通过，{0} 行有效数据"),ValidationResult.ValidRowCount);
                 else
-                    StatusMessage = $"校验失败: {string.Join("; ", ValidationResult.Errors)}";
+                    StatusMessage = string.Format(_localizationService.GetString("Doe_Guide_StatusMsg_VaildFail",
+                        "校验失败: {0}"),string.Join("; ", ValidationResult.Errors));
             }
             catch (Exception ex)
             {
@@ -852,7 +1381,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在保存 DOE 方案...";
+                StatusMessage = _localizationService.GetString("Doe_Guide_StatusMsg_SavePlan", "正在保存 DOE 方案...");
 
                 if (string.IsNullOrWhiteSpace(BatchName))
                     BatchName = $"DOE_{DateTime.Now:yyyyMMdd_HHmmss}";
@@ -1019,7 +1548,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     }
                 }
 
-                StatusMessage = $"DOE 方案已保存: {batchId}";
+                StatusMessage = string.Format(_localizationService.GetString("Doe_Guide_StatusMsg_AlreadySave", "DOE 方案已保存: {0}"),batchId);
                 _logger.LogInformation("DOE 方案保存成功: {BatchId} - {BatchName}", batchId, BatchName);
 
                 BatchSaved?.Invoke(this, batchId);
@@ -1084,7 +1613,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             try
             {
-                StatusMessage = "正在初始化 GPR 预测模型...";
+                StatusMessage = _localizationService.GetString("Doe_Guide_StatusMsg_ForecastModel", "正在初始化 GPR 预测模型...");
                 // ★ 新增：传入项目 ID
                 _gprService.SetProjectId(_currentProjectId);
                 // Step 1: 初始化主响应模型（新建或恢复已有同签名模型）

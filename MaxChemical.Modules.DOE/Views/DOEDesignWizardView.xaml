@@ -21,6 +21,8 @@
             <converters:NullToVisibilityConverter x:Key="NullToVis"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
             <converters:StepBrushConverter x:Key="StepBrush"/>
+
+            <converters:BindingProxy x:Key="BindingProxyKey" Data="{Binding}"/>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -45,13 +47,13 @@
                         <Border Width="28" Height="28" CornerRadius="6" Background="{StaticResource WzPrimary}">
                             <TextBlock Text="D" FontSize="14" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="DOE 向导" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <TextBlock Text="{Binding TitleTxt}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
 
                     <!-- 底部提示 -->
                     <Border DockPanel.Dock="Bottom" Padding="20,12,20,16" BorderBrush="{StaticResource WzDivider}" BorderThickness="0,0.5,0,0">
                         <TextBlock FontSize="11" Foreground="{StaticResource WzTextHint}" TextWrapping="Wrap" LineHeight="17">
-                            <Run Text="按 Esc 取消"/><LineBreak/><Run Text="进度自动保存"/>
+                            <Run Text="{Binding BottomTipCancelTxt}"/><LineBreak/><Run Text="{Binding BottomTipTxt}"/>
                         </TextBlock>
                     </Border>
 
@@ -62,7 +64,7 @@
                                 <Border Width="22" Height="22" CornerRadius="6" Background="{Binding CurrentStep, Converter={StaticResource StepBrush}, ConverterParameter=1}">
                                     <TextBlock Text="1" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="因子定义" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
+                                <TextBlock Text="{Binding FactorDefineTxt}" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource WzNavItem}" MouseLeftButtonDown="NavStep_Click" Tag="2">
@@ -70,7 +72,7 @@
                                 <Border Width="22" Height="22" CornerRadius="6" Background="{Binding CurrentStep, Converter={StaticResource StepBrush}, ConverterParameter=2}">
                                     <TextBlock Text="2" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="设计方法" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
+                                <TextBlock Text="{Binding DesignMethodTxt}" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource WzNavItem}" MouseLeftButtonDown="NavStep_Click" Tag="3">
@@ -78,7 +80,7 @@
                                 <Border Width="22" Height="22" CornerRadius="6" Background="{Binding CurrentStep, Converter={StaticResource StepBrush}, ConverterParameter=3}">
                                     <TextBlock Text="3" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="矩阵预览" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
+                                <TextBlock Text="{Binding MatrixPreviewTxt}" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource WzNavItem}" MouseLeftButtonDown="NavStep_Click" Tag="4">
@@ -86,7 +88,7 @@
                                 <Border Width="22" Height="22" CornerRadius="6" Background="{Binding CurrentStep, Converter={StaticResource StepBrush}, ConverterParameter=4}">
                                     <TextBlock Text="4" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="响应与条件" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
+                                <TextBlock Text="{Binding RespAndCondiTxt}" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource WzNavItem}" MouseLeftButtonDown="NavStep_Click" Tag="5">
@@ -94,7 +96,7 @@
                                 <Border Width="22" Height="22" CornerRadius="6" Background="{Binding CurrentStep, Converter={StaticResource StepBrush}, ConverterParameter=5}">
                                     <TextBlock Text="5" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="确认保存" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
+                                <TextBlock Text="{Binding ConfirmSaveTxt}" FontSize="12.5" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource WzTextMuted}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -151,28 +153,28 @@
                         <Grid Margin="28,18,28,18">
 
                             <!-- ══════════════════════════════
-                                 Step 1: 因子定义
+                                 Step 1: 因子定义{Binding IsStep1Visible, Converter={StaticResource BoolToVis}}
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="{Binding IsStep1Visible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Visibility="Collapsed">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 1" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
-                                <TextBlock Text="定义实验因子" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
-                                <TextBlock Text="添加因子，设置类型和水平范围" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
+                                <TextBlock Text="{Binding S1Title}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding S1Subtitle}" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
 
                                 <!-- 因子表格（圆角容器包裹） -->
                                 <Border Style="{StaticResource WzTableContainer}">
                                     <DataGrid ItemsSource="{Binding Factors}" Style="{StaticResource WzDataGrid}"
                                               MinHeight="80" MaxHeight="320">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="因子名称" Width="120">
+                                            <DataGridTemplateColumn Header="{Binding Data.FactorNameHeader, Source={StaticResource BindingProxyKey}}" Width="120">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding FactorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzCellInput}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="类型" Width="80">
+                                            <DataGridTemplateColumn Header="{Binding Data.FactorTypeHeader, Source={StaticResource BindingProxyKey}}" Width="80">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <ComboBox SelectedItem="{Binding FactorType, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzComboCompact}">
@@ -200,7 +202,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="低水平" Width="80">
+                                            <DataGridTemplateColumn Header="{Binding Data.LowLevelHeader, Source={StaticResource BindingProxyKey}}" Width="80">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Grid>
@@ -214,28 +216,28 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="高水平" Width="80">
+                                            <DataGridTemplateColumn Header="{Binding Data.HighLevelHeader, Source={StaticResource BindingProxyKey}}" Width="80">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding UpperBound, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzCellNum}" Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="物理下限" Width="70">
+                                            <DataGridTemplateColumn Header="{Binding Data.LowerLimitHeader, Source={StaticResource BindingProxyKey}}" Width="70">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding PhysicalLowerLimit, StringFormat={}{0:F1}, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" Style="{StaticResource WzCellNum}" Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="物理上限" Width="70">
+                                            <DataGridTemplateColumn Header="{Binding Data.UpperLimitHeader, Source={StaticResource BindingProxyKey}}" Width="70">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding PhysicalUpperLimit, StringFormat={}{0:F1}, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" Style="{StaticResource WzCellNum}" Visibility="{Binding IsContinuous, Converter={StaticResource BoolToVis}}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="绑定参数" Width="*">
+                                            <DataGridTemplateColumn Header="{Binding Data.BindParamHeader, Source={StaticResource BindingProxyKey}}" Width="*">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Grid>
@@ -288,25 +290,25 @@
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Border>
-                                <Button Content="+ 添加因子" Command="{Binding AddFactorCommand}" Style="{StaticResource WzBtnAdd}"/>
+                                <Button Content="{Binding S1AddFactorTxt}" Command="{Binding AddFactorCommand}" Style="{StaticResource WzBtnAdd}"/>
                                 <TextBlock Style="{StaticResource WzHint}" Margin="0,8,0,0"
-           Text="连续因子默认绑定流程参数;勾选「手动」则不绑定,由操作员按矩阵值手动调节。类别因子始终为手动操作。"/>
+                                           Text="{Binding S1InstructionTxt}"/>
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 2: 设计方法（纯卡片点选，无 RadioButton 圆圈）
+                                 Step 2: 设计方法（纯卡片点选，无 RadioButton 圆圈）{Binding IsStep2Visible, Converter={StaticResource BoolToVis}}
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="{Binding IsStep2Visible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Visibility="Collapsed">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 2" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
-                                <TextBlock Text="选择设计方法" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
-                                <TextBlock Text="点击卡片选择方法，点「配置参数」调整详细设置" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
+                                <TextBlock Text="{Binding S2Title}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding S2Sutitle}" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
 
-                                <!-- ── 筛选 Screening ── -->
+                                 <!--── 筛选 Screening ──--> 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Ellipse Width="4" Height="4" Fill="{StaticResource WzTextHint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Text="筛选 Screening" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextMuted}"/>
+                                    <TextBlock Text="{Binding ScreeningTitleTxt}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextMuted}"/>
                                 </StackPanel>
                                 <UniformGrid Columns="2" Margin="0,0,0,16">
                                     <Border Style="{StaticResource WzMethodCard}" Margin="0,0,4,0">
@@ -314,13 +316,13 @@
                                             <Grid>
                                                 <StackPanel>
                                                     <TextBlock Text="Plackett-Burman" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                    <TextBlock Text="经济筛选设计" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="实验次数为 4 的倍数, 最多 23 因子" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0" LineHeight="15"/>
-                                                    <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="PlackettBurman"
+                                                    <TextBlock Text="{Binding ScreeningDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding ScreeningDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0" LineHeight="15"/>
+                                                    <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="PlackettBurman"
                                                             Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=PlackettBurman}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#FEF3C7" CornerRadius="3" Padding="6,2">
-                                                    <TextBlock Text="筛选" FontSize="9" FontWeight="SemiBold" Foreground="#D97706"/>
+                                                    <TextBlock Text="{Binding ScreeningLabel}" FontSize="9" FontWeight="SemiBold" Foreground="#D97706"/>
                                                 </Border>
                                             </Grid>
                                         </RadioButton>
@@ -329,14 +331,14 @@
                                         <RadioButton GroupName="Method" IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=FractionalFactorial}" Style="{StaticResource WzRadio}">
                                             <Grid>
                                                 <StackPanel>
-                                                    <TextBlock Text="部分因子 (Fractional)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                    <TextBlock Text="2^(k-p) 分辨度可控" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="用更少实验量捕获主效应" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0" LineHeight="15"/>
-                                                    <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="FractionalFactorial"
+                                                    <TextBlock Text="{Binding FactorTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
+                                                    <TextBlock Text="{Binding FactorDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding FactorDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0" LineHeight="15"/>
+                                                    <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="FractionalFactorial"
                                                             Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=FractionalFactorial}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#FEF3C7" CornerRadius="3" Padding="6,2">
-                                                    <TextBlock Text="筛选" FontSize="9" FontWeight="SemiBold" Foreground="#D97706"/>
+                                                    <TextBlock Text="{Binding ScreeningLabel}" FontSize="9" FontWeight="SemiBold" Foreground="#D97706"/>
                                                 </Border>
                                             </Grid>
                                         </RadioButton>
@@ -346,20 +348,20 @@
                                 <!-- ── 因子 Factorial ── -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Ellipse Width="4" Height="4" Fill="{StaticResource WzTextHint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Text="因子 Factorial" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextMuted}"/>
+                                    <TextBlock Text="{Binding FactorialTitleTxt}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextMuted}"/>
                                 </StackPanel>
                                 <Border Style="{StaticResource WzMethodCard}" Margin="0,0,0,16">
                                     <RadioButton GroupName="Method" IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=FullFactorial}" Style="{StaticResource WzRadio}">
                                         <Grid>
                                             <StackPanel>
-                                                <TextBlock Text="全因子 (Full Factorial)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                <TextBlock Text="完全组合无混杂" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                <TextBlock Text="所有因子所有水平完全交叉" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
-                                                <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="FullFactorial"
+                                                <TextBlock Text="{Binding FullTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
+                                                <TextBlock Text="{Binding FullDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                <TextBlock Text="{Binding FullDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
+                                                <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="FullFactorial"
                                                         Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=FullFactorial}" HorizontalAlignment="Left"/>
                                             </StackPanel>
                                             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#DBEAFE" CornerRadius="3" Padding="6,2">
-                                                <TextBlock Text="因子" FontSize="9" FontWeight="SemiBold" Foreground="#2563EB"/>
+                                                <TextBlock Text="{Binding FactorialLabel}" FontSize="9" FontWeight="SemiBold" Foreground="#2563EB"/>
                                             </Border>
                                         </Grid>
                                     </RadioButton>
@@ -368,7 +370,7 @@
                                 <!-- ── 响应曲面 RSM ── -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Ellipse Width="4" Height="4" Fill="{StaticResource WzPrimary}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Text="响应曲面 RSM" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzPrimary}"/>
+                                    <TextBlock Text="{Binding RsmTitleTxt}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzPrimary}"/>
                                 </StackPanel>
                                 <UniformGrid Columns="2" Margin="0,0,0,4">
                                     <!-- CCD -->
@@ -376,15 +378,15 @@
                                         <RadioButton GroupName="Method" IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=CCD}" Style="{StaticResource WzRadio}">
                                             <Grid>
                                                 <StackPanel>
-                                                    <TextBlock Text="CCD 中心复合设计" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                    <TextBlock Text="RSM 最常用" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="角点 + 轴点 + 中心点" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
-                                                    <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="CCD"
+                                                    <TextBlock Text="{Binding CcdTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
+                                                    <TextBlock Text="{Binding CcdDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding CcdDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
+                                                    <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="CCD"
                                                             Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=CCD}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">
                                                     <Border Background="{StaticResource WzPrimary}" CornerRadius="0,0,4,4" Padding="8,2" Margin="0,-14,-16,0">
-                                                        <TextBlock Text="推荐" FontSize="9" FontWeight="SemiBold" Foreground="White"/>
+                                                        <TextBlock Text="{Binding RecommandLabel}" FontSize="9" FontWeight="SemiBold" Foreground="White"/>
                                                     </Border>
                                                 </StackPanel>
                                             </Grid>
@@ -396,9 +398,9 @@
                                             <Grid>
                                                 <StackPanel>
                                                     <TextBlock Text="Box-Behnken" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                    <TextBlock Text="无极端角点" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="化工安全性更好, 需 3+ 连续因子" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
-                                                    <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="BoxBehnken"
+                                                    <TextBlock Text="{Binding BoxBehDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding BoxBehDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
+                                                    <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="BoxBehnken"
                                                             Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=BoxBehnken}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="{StaticResource WzPrimaryLight}" CornerRadius="3" Padding="6,2">
@@ -413,9 +415,9 @@
                                             <Grid>
                                                 <StackPanel>
                                                     <TextBlock Text="D-Optimal" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                    <TextBlock Text="不规则因子空间" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="coordinate-exchange 算法" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
-                                                    <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="DOptimal"
+                                                    <TextBlock Text="{Binding DOptDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding DOptDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
+                                                    <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="DOptimal"
                                                             Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=DOptimal}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="{StaticResource WzPrimaryLight}" CornerRadius="3" Padding="6,2">
@@ -429,10 +431,10 @@
                                         <RadioButton GroupName="Method" IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Taguchi}" Style="{StaticResource WzRadio}">
                                             <Grid>
                                                 <StackPanel>
-                                                    <TextBlock Text="Taguchi 正交设计" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                    <TextBlock Text="标准 L 表" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                    <TextBlock Text="最经济实验数" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
-                                                    <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="Taguchi"
+                                                    <TextBlock Text="{Binding TagTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
+                                                    <TextBlock Text="{Binding TagDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding TagDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
+                                                    <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="Taguchi"
                                                             Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=Taguchi}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="{StaticResource WzPrimaryLight}" CornerRadius="3" Padding="6,2">
@@ -446,20 +448,20 @@
                                 <!-- ── 自定义 ── -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Ellipse Width="4" Height="4" Fill="{StaticResource WzTextHint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Text="自定义 Custom" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextMuted}"/>
+                                    <TextBlock Text="{Binding CustomTitleTxt}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextMuted}"/>
                                 </StackPanel>
                                 <Border Style="{StaticResource WzMethodCard}" Margin="0,0,0,14">
                                     <RadioButton GroupName="Method" IsChecked="{Binding SelectedMethod, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Custom}" Style="{StaticResource WzRadio}">
                                         <Grid>
                                             <StackPanel>
-                                                <TextBlock Text="自定义导入" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                                <TextBlock Text="从 Excel 导入矩阵" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
-                                                <TextBlock Text="列名需匹配因子名称" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
-                                                <Button Content="配置参数 →" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="Custom"
+                                                <TextBlock Text="{Binding CustomTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
+                                                <TextBlock Text="{Binding CustomDesc1}" FontSize="11.5" Foreground="{StaticResource WzTextMuted}" Margin="0,3,0,0"/>
+                                                <TextBlock Text="{Binding CustomDesc2}" FontSize="10.5" Foreground="{StaticResource WzTextHint}" Margin="0,3,0,0"/>
+                                                <Button Content="{Binding ConfigParamTxt}" Style="{StaticResource WzBtnCfg}" Click="OpenDrawer_Click" Tag="Custom"
                                                         Visibility="{Binding SelectedMethod, Converter={StaticResource EnumToVis}, ConverterParameter=Custom}" HorizontalAlignment="Left"/>
                                             </StackPanel>
                                             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#F3F4F6" CornerRadius="3" Padding="6,2">
-                                                <TextBlock Text="自定义" FontSize="9" FontWeight="SemiBold" Foreground="#6B7280"/>
+                                                <TextBlock Text="{Binding CustomLabel}" FontSize="9" FontWeight="SemiBold" Foreground="#6B7280"/>
                                             </Border>
                                         </Grid>
                                     </RadioButton>
@@ -467,26 +469,26 @@
 
                                 <!-- 随机化 -->
                                 <Border BorderBrush="{StaticResource WzDivider}" BorderThickness="0,0.5,0,0" Padding="0,12,0,0">
-                                    <CheckBox Content="随机化运行顺序" IsChecked="{Binding RandomizeRunOrder}" Style="{StaticResource WzCheckBox}" FontSize="12"/>
+                                    <CheckBox Content="{Binding RandomOrderTxt}" IsChecked="{Binding RandomizeRunOrder}" Style="{StaticResource WzCheckBox}" FontSize="12"/>
                                 </Border>
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 3: 矩阵预览
+                                 Step 3: 矩阵预览{Binding IsStep3Visible, Converter={StaticResource BoolToVis}}
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="{Binding IsStep3Visible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Visibility="Collapsed">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 3" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
-                                <TextBlock Text="实验矩阵预览" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
-                                <TextBlock Text="检查生成的实验方案" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,14"/>
+                                <TextBlock Text="{Binding S3Title}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding S3Sutitle}" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,14"/>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                    <CheckBox Content="随机化" IsChecked="{Binding IsRandomized}" Style="{StaticResource WzCheckBox}" Margin="0,0,14,0"/>
-                                    <TextBlock Text="中心点:" FontSize="12" Foreground="{StaticResource WzTextSec}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <CheckBox Content="{Binding RandomTxt}" IsChecked="{Binding IsRandomized}" Style="{StaticResource WzCheckBox}" Margin="0,0,14,0"/>
+                                    <TextBlock Text="{Binding CenterPointTxt,StringFormat='{}{0}:'}" FontSize="12" Foreground="{StaticResource WzTextSec}" VerticalAlignment="Center" Margin="0,0,7,0"/>
                                     <TextBox Text="{Binding CenterPointCount}" Style="{StaticResource WzCellNum}" Width="42"/>
                                     <TextBlock FontSize="12" Foreground="{StaticResource WzTextHint}" VerticalAlignment="Center" Margin="14,0,0,0">
-                                        <Run Text="共 "/><Run Text="{Binding MatrixRunCount, Mode=OneWay}"/><Run Text=" 组"/>
+                                        <Run Text="{Binding TotalTxt}"/><Run Text="{Binding MatrixRunCount, Mode=OneWay}"/><Run Text="{Binding GroupTxt}"/>
                                     </TextBlock>
                                 </StackPanel>
 
@@ -511,35 +513,35 @@
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 4: 响应与条件
+                                 Step 4: 响应与条件{Binding IsStep4Visible, Converter={StaticResource BoolToVis}}
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="{Binding IsStep4Visible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Visibility="Collapsed">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 4" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
-                                <TextBlock Text="响应变量与停止条件" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
-                                <TextBlock Text="定义测量指标和自动终止规则" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
+                                <TextBlock Text="{Binding S4Title}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding S4Subtitle}" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
 
-                                <TextBlock Text="响应变量" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,6"/>
+                                <TextBlock Text="{Binding RespVarTxt}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,6"/>
                                 <Border Style="{StaticResource WzTableContainer}">
                                     <DataGrid ItemsSource="{Binding Responses}" Style="{StaticResource WzDataGrid}"
                                               RowHeight="42" ColumnHeaderHeight="32" MaxHeight="200">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="名称" Width="*">
+                                            <DataGridTemplateColumn Header="{Binding Data.NameHeader,Source={StaticResource BindingProxyKey}}" Width="*">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding ResponseName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzCellInput}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="目标" Width="100">
+                                            <DataGridTemplateColumn Header="{Binding Data.TargetHeader,Source={StaticResource BindingProxyKey}}" Width="100">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <ComboBox ItemsSource="{Binding GoalOptions}" SelectedItem="{Binding Goal, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzComboCompact}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="权重" Width="60">
+                                            <DataGridTemplateColumn Header="{Binding Data.WeightHeader,Source={StaticResource BindingProxyKey}}" Width="60">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding Importance, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzCellNum}"/>
@@ -556,21 +558,21 @@
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Border>
-                                <Button Content="+ 添加响应" Command="{Binding AddResponseCommand}" Style="{StaticResource WzBtnAdd}" Margin="0,0,0,20"/>
+                                <Button Content="{Binding AddRespHeader}" Command="{Binding AddResponseCommand}" Style="{StaticResource WzBtnAdd}" Margin="0,0,0,20"/>
 
-                                <TextBlock Text="停止条件（可选）" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,6"/>
+                                <TextBlock Text="{Binding StopCondiTxt}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,6"/>
                                 <Border Style="{StaticResource WzTableContainer}">
                                     <DataGrid ItemsSource="{Binding StopConditions}" Style="{StaticResource WzDataGrid}"
                                               RowHeight="42" ColumnHeaderHeight="32" MaxHeight="160">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="响应" Width="120">
+                                            <DataGridTemplateColumn Header="{Binding Data.ReaponseHeader,Source={StaticResource BindingProxyKey}}" Width="120">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding ResponseName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzCellInput}"/>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="条件" Width="70">
+                                            <DataGridTemplateColumn Header="{Binding Data.ConditionHeader,Source={StaticResource BindingProxyKey}}" Width="70">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <ComboBox SelectedItem="{Binding Operator, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzComboCompact}">
@@ -583,7 +585,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="目标值" Width="*">
+                                            <DataGridTemplateColumn Header="{Binding Data.TargetValueHeader,Source={StaticResource BindingProxyKey}}" Width="*">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzCellNum}"/>
@@ -600,20 +602,20 @@
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Border>
-                                <Button Content="+ 添加条件" Command="{Binding AddStopConditionCommand}" Style="{StaticResource WzBtnAdd}"/>
+                                <Button Content="{Binding AddCondiHeader}" Command="{Binding AddStopConditionCommand}" Style="{StaticResource WzBtnAdd}"/>
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 5: 确认保存
+                                 Step 5: 确认保存{Binding IsStep5Visible, Converter={StaticResource BoolToVis}}
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="{Binding IsStep5Visible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Visibility="Collapsed">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 5" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
-                                <TextBlock Text="确认并保存" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
-                                <TextBlock Text="核对以下配置，确认无误后保存" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
+                                <TextBlock Text="{Binding S5Title}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource WzText}" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding S5Subtitle}" FontSize="12.5" Foreground="{StaticResource WzTextMuted}" Margin="0,0,0,18"/>
 
-                                <TextBlock Text="批次名称" FontSize="12" FontWeight="Medium" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,5"/>
+                                <TextBlock Text="{Binding BatchNameLabel}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,5"/>
                                 <TextBox Text="{Binding BatchName}" Style="{StaticResource WzTextBox}" Tag="CCD_20250413_001" Margin="0,0,0,20" MaxWidth="320" HorizontalAlignment="Left" FontFamily="Consolas"/>
 
                                 <!-- 配置摘要表 -->
@@ -649,28 +651,28 @@
                                         </Style>
                                     </Grid.Resources>
                                     <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource RvBdr}"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="设计方法" Style="{StaticResource RvKey}"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DesignMethodTxt}" Style="{StaticResource RvKey}"/>
                                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedMethod, Mode=OneWay}" Style="{StaticResource RvVal}"/>
                                     <Border Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource RvBdr}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="因子数" Style="{StaticResource RvKey}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding FactorNumberTxt}" Style="{StaticResource RvKey}"/>
                                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Factors.Count}" Style="{StaticResource RvVal}"/>
                                     <Border Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource RvBdr}"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="实验组数" Style="{StaticResource RvKey}"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding ExpriGroupTxt}" Style="{StaticResource RvKey}"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MatrixRunCount, Mode=OneWay}" Style="{StaticResource RvVal}" FontFamily="Consolas"/>
                                     <Border Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource RvBdr}"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="响应变量" Style="{StaticResource RvKey}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding RespVarTxt}" Style="{StaticResource RvKey}"/>
                                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Responses.Count, StringFormat={}{0} 个}" Style="{StaticResource RvVal}"/>
                                     <Border Grid.Row="4" Grid.ColumnSpan="2" Style="{StaticResource RvBdr}"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="停止条件" Style="{StaticResource RvKey}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding StopCondiLabel}" Style="{StaticResource RvKey}"/>
                                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding StopConditions.Count, StringFormat={}{0} 条}" Style="{StaticResource RvVal}"/>
                                     <Border Grid.Row="5" Grid.ColumnSpan="2" Style="{StaticResource RvBdr}"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="历史数据" Style="{StaticResource RvKey}"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding HistoryDataTxt}" Style="{StaticResource RvKey}"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ImportedDataCount, StringFormat={}{0} 条}" Style="{StaticResource RvVal}"/>
                                 </Grid>
 
                                 <!-- 设计质量 -->
                                 <StackPanel Visibility="{Binding HasDesignQuality, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="设计质量" FontSize="12" FontWeight="Medium" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding DesignWeightTxt}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource WzTextSec}" Margin="0,0,0,8"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -682,10 +684,10 @@
                                             <RowDefinition/>
                                             <RowDefinition/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="D-效率" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,20,4"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="A-效率" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,20,4"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="G-效率" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,20,4"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="3" Text="自由度" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,0,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DEfficiency}" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,20,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AEfficiency}" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,20,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding GEfficiency}" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,20,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding Freedom}" FontSize="11" FontWeight="Medium" Foreground="{StaticResource WzTextHint}" Padding="0,4,0,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding QualityDEffText}" FontSize="13" FontFamily="Consolas" Foreground="{StaticResource WzText}" Padding="0,2,20,2"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding QualityAEffText}" FontSize="13" FontFamily="Consolas" Foreground="{StaticResource WzText}" Padding="0,2,20,2"/>
                                         <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding QualityGEffText}" FontSize="13" FontFamily="Consolas" Foreground="{StaticResource WzText}" Padding="0,2,20,2"/>
@@ -713,7 +715,7 @@
                                 <Grid>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock x:Name="DrawerTitle" Text="" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource WzText}"/>
-                                        <TextBlock x:Name="DrawerSubtitle" Text="参数配置" FontSize="10.5" Foreground="{StaticResource WzTextMuted}" Margin="0,2,0,0"/>
+                                        <TextBlock x:Name="DrawerSubtitle" Text="{Binding ParamConfigTitle}" FontSize="10.5" Foreground="{StaticResource WzTextMuted}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                     <Button Style="{StaticResource WzBtnDrawerClose}" HorizontalAlignment="Right" VerticalAlignment="Top" Click="CloseDrawer_Click"/>
                                 </Grid>
@@ -721,7 +723,7 @@
 
                             <!-- Drawer 底部确认 -->
                             <Border DockPanel.Dock="Bottom" Padding="20,12" BorderBrush="{StaticResource WzDivider}" BorderThickness="0,0.5,0,0">
-                                <Button Content="确认" Style="{StaticResource WzBtnDrawerConfirm}" HorizontalAlignment="Stretch" Click="CloseDrawer_Click"/>
+                                <Button Content="{Binding Confirm}" Style="{StaticResource WzBtnDrawerConfirm}" HorizontalAlignment="Stretch" Click="CloseDrawer_Click"/>
                             </Border>
 
                             <!-- Drawer 内容 -->
@@ -731,7 +733,7 @@
                                     <!-- ── PB 参数 ── -->
                                     <StackPanel x:Name="DrawerPB" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="实验次数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding ExpriNumberTxt}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding PbRunCount}" SelectedValuePath="Tag">
                                                 <ComboBoxItem Content="12" Tag="12"/>
                                                 <ComboBoxItem Content="20" Tag="20"/>
@@ -739,11 +741,11 @@
                                             </ComboBox>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="中心点" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding CenterPointLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding PbCenterCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="仿行数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LinesLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding PbReplicates, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -751,7 +753,7 @@
                                     <!-- ── FF 参数 ── -->
                                     <StackPanel x:Name="DrawerFF" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="分辨度" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding ResolutionLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding FractionalResolution}" SelectedValuePath="Tag">
                                                 <ComboBoxItem Content="3" Tag="3"/>
                                                 <ComboBoxItem Content="4" Tag="4"/>
@@ -759,16 +761,16 @@
                                             </ComboBox>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="运行数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding RunLinesLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding FfRunCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
-                                            <TextBlock Text="-1 = 自动" Style="{StaticResource WzHint}"/>
+                                            <TextBlock Text="{Binding DoptimalTip}" Style="{StaticResource WzHint}"/>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="中心点" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding CenterPointLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding FfCenterCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="仿行数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LinesLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding FfReplicates, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -776,18 +778,18 @@
                                     <!-- ── Full Factorial 参数 ── -->
                                     <StackPanel x:Name="DrawerFull" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="水平数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LevelNumberLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding FullFactorialLevels}" SelectedValuePath="Tag">
                                                 <ComboBoxItem Content="2" Tag="2"/>
                                                 <ComboBoxItem Content="3" Tag="3"/>
                                             </ComboBox>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="中心点" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding CenterPointLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding FullFactorialCenterCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="仿行数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LinesLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding FullFactorialReplicates, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -795,26 +797,26 @@
                                     <!-- ── CCD 参数 ── -->
                                     <StackPanel x:Name="DrawerCCD" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="Alpha 类型" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding AlphaTypeLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding CcdAlphaType}" SelectedValuePath="Tag">
-                                                <ComboBoxItem Content="可旋转 (推荐)" Tag="rotatable"/>
-                                                <ComboBoxItem Content="正交" Tag="orthogonal"/>
-                                                <ComboBoxItem Content="面心 (α=1)" Tag="face"/>
-                                                <ComboBoxItem Content="实用" Tag="practical"/>
+                                                <ComboBoxItem Content="{Binding RotatableItem}" Tag="rotatable"/>
+                                                <ComboBoxItem Content="{Binding OrthogonalItem}" Tag="orthogonal"/>
+                                                <ComboBoxItem Content="{Binding FaceHeartItem}" Tag="face"/>
+                                                <ComboBoxItem Content="{Binding PracticalItem}" Tag="practical"/>
                                             </ComboBox>
                                         </StackPanel>
-                                        <CheckBox Content="使用 1/2 部分因子" IsChecked="{Binding CcdUseFractional}" Style="{StaticResource WzCheckBox}" Margin="0,0,0,16"/>
+                                        <CheckBox Content="{Binding UseHalfFactorLabel}" IsChecked="{Binding CcdUseFractional}" Style="{StaticResource WzCheckBox}" Margin="0,0,0,16"/>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="立方中心点" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding CubePointLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding CcdCubeCenterCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
-                                            <TextBlock Text="-1 = Minitab 默认" Style="{StaticResource WzHint}"/>
+                                            <TextBlock Text="{Binding CubeTip}" Style="{StaticResource WzHint}"/>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="轴点中心点" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding AxisPointLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding CcdAxialCenterCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="仿行数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LinesLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding CcdReplicates, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -822,12 +824,12 @@
                                     <!-- ── BBD 参数 ── -->
                                     <StackPanel x:Name="DrawerBBD" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="中心点" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding CenterPointLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding BbdCenterCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
-                                            <TextBlock Text="-1 = Minitab 默认" Style="{StaticResource WzHint}"/>
+                                            <TextBlock Text="{Binding CubeTip}" Style="{StaticResource WzHint}"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="仿行数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LinesLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding BbdReplicates, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -835,43 +837,43 @@
                                     <!-- ── D-Optimal 参数 ── -->
                                     <StackPanel x:Name="DrawerDOpt" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="实验次数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding ExpriNumberTxt}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding DOptimalRunCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
-                                            <TextBlock Text="-1 = 自动" Style="{StaticResource WzHint}"/>
+                                            <TextBlock Text="{Binding DoptimalTip}" Style="{StaticResource WzHint}"/>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="模型" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding ModelLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding DOptimalModelType}" SelectedValuePath="Tag">
-                                                <ComboBoxItem Content="线性" Tag="linear"/>
-                                                <ComboBoxItem Content="交互" Tag="interaction"/>
-                                                <ComboBoxItem Content="二阶 (推荐)" Tag="quadratic"/>
+                                                <ComboBoxItem Content="{Binding ModelLinear}" Tag="linear"/>
+                                                <ComboBoxItem Content="{Binding ModelInteraction}" Tag="interaction"/>
+                                                <ComboBoxItem Content="{Binding ModelQuadratic}" Tag="quadratic"/>
                                             </ComboBox>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="重启次数" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding RestratsLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding DOptRestarts, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="迭代上限" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding IterationLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding DOptMaxIterations, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="候选网格" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding CondidateGridLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding DOptCandidateGridSize, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="随机种子" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding RandomSeedLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <TextBox Text="{Binding DOptRandomSeed, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WzNumBox}"/>
-                                            <TextBlock Text="0 = 时间种子" Style="{StaticResource WzHint}"/>
+                                            <TextBlock Text="{Binding SeedTip}" Style="{StaticResource WzHint}"/>
                                         </StackPanel>
                                     </StackPanel>
 
                                     <!-- ── Taguchi 参数 ── -->
                                     <StackPanel x:Name="DrawerTaguchi" Visibility="Collapsed">
                                         <StackPanel Margin="0,0,0,16">
-                                            <TextBlock Text="L 表" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding LTableLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding TaguchiTableType}" SelectedValuePath="Content">
-                                                <ComboBoxItem Content="自动"/>
+                                                <ComboBoxItem Content="{Binding AutoItem}"/>
                                                 <ComboBoxItem Content="L4"/>
                                                 <ComboBoxItem Content="L8"/>
                                                 <ComboBoxItem Content="L9"/>
@@ -882,11 +884,11 @@
                                             </ComboBox>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="信噪比" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding SnrLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding TaguchiSnRatio}" SelectedValuePath="Tag">
-                                                <ComboBoxItem Content="越大越好" Tag="larger"/>
-                                                <ComboBoxItem Content="越小越好" Tag="smaller"/>
-                                                <ComboBoxItem Content="望目" Tag="nominal"/>
+                                                <ComboBoxItem Content="{Binding LargerItem}" Tag="larger"/>
+                                                <ComboBoxItem Content="{Binding SmallerItem}" Tag="smaller"/>
+                                                <ComboBoxItem Content="NominalItem" Tag="nominal"/>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -894,11 +896,11 @@
                                     <!-- ── Custom 参数 ── -->
                                     <StackPanel x:Name="DrawerCustom" Visibility="Collapsed">
                                         <StackPanel>
-                                            <TextBlock Text="分析类型" Style="{StaticResource WzDrawerLabel}"/>
+                                            <TextBlock Text="{Binding AnalysisTypeLabel}" Style="{StaticResource WzDrawerLabel}"/>
                                             <ComboBox Style="{StaticResource WzComboBox}" SelectedValue="{Binding CustomAnalysisType}" SelectedValuePath="Tag">
-                                                <ComboBoxItem Content="筛选（主效应）" Tag="linear"/>
-                                                <ComboBoxItem Content="因子（主效应+交互）" Tag="interaction"/>
-                                                <ComboBoxItem Content="响应曲面（二阶）" Tag="quadratic"/>
+                                                <ComboBoxItem Content="{Binding AnalysisLinear}" Tag="linear"/>
+                                                <ComboBoxItem Content="{Binding AnalysisInteraction}" Tag="interaction"/>
+                                                <ComboBoxItem Content="{Binding AnalysisQuadratic}" Tag="quadratic"/>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -952,8 +954,8 @@
 
                         <!-- 右侧按钮 -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Content="← 上一步" Command="{Binding PreviousStepCommand}" Style="{StaticResource WzBtnGhost}" Margin="0,0,8,0"/>
-                            <Button Content="下一步 →" Command="{Binding NextStepCommand}" Margin="0,0,8,0">
+                            <Button Content="{Binding PreviousStepTxt}" Command="{Binding PreviousStepCommand}" Style="{StaticResource WzBtnGhost}" Margin="0,0,8,0"/>
+                            <Button Content="{Binding NextStepTxt}" Command="{Binding NextStepCommand}" Margin="0,0,8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource WzBtnPrimary}">
                                         <Style.Triggers>
@@ -964,7 +966,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Content="保存并开始执行" Command="{Binding SaveBatchCommand}">
+                            <Button Content="{Binding SaveExecTxt}" Command="{Binding SaveBatchCommand}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource WzBtnPrimary}">
                                         <Setter Property="Visibility" Value="Collapsed"/>
