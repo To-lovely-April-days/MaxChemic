@@ -102,6 +102,11 @@ namespace FlowMeter_ModbusTCP
         private double _simulatedFlow = 0;
         private double _flowTrend = 0;
         private DateTime _lastSimulationTime = DateTime.Now;
+
+        // 新增：流量轮询
+        private Task _currentFlowPollingTask;
+        private CancellationTokenSource _flowPollingTaskCts;
+
         #region IDeviceUIInteraction 实现
 
         /// <summary>
@@ -2326,6 +2331,9 @@ namespace FlowMeter_ModbusTCP
                     WarnLog("密度修正ModbusTCP流量计设备未连接，但流程已开始");
                 }
 
+                // 启动流量轮询
+                await StartCurrentFlowPollingAsync();
+
                 InfoLog("密度修正ModbusTCP流量计设备已准备好执行流程");
                 return true;
             }
@@ -2342,6 +2350,7 @@ namespace FlowMeter_ModbusTCP
             {
                 InfoLog($"密度修正ModbusTCP流量计流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
                 StopAutoControl();
+                await StopCurrentFlowPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("密度修正ModbusTCP流量计流程完成处理结束");
                 return true;
@@ -2359,6 +2368,7 @@ namespace FlowMeter_ModbusTCP
             {
                 ErrorLog($"密度修正ModbusTCP流量计流程失败: {context.FlowName}, 错误: {context.ErrorMessage}");
                 StopAutoControl();
+                await StopCurrentFlowPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("密度修正ModbusTCP流量计流程失败处理完成");
                 return true;
@@ -2713,5 +2723,128 @@ namespace FlowMeter_ModbusTCP
                 _logger.LogError(ex, "[{DeviceName}] 释放资源异常", Name);
             }
         }
+
+        #region 当前流量轮询
+
+        private async Task StartCurrentFlowPollingAsync()
+        {
+            InfoLog("启动流量轮询任务");
+            try
+            {
+                if (!_currentFlowPollingTask?.IsCompleted ?? false)
+                {
+                    InfoLog("已有流量轮询任务，先停止");
+                    await StopCurrentFlowPollingAsync();
+                }
+
+                _flowPollingTaskCts = new CancellationTokenSource();
+                _currentFlowPollingTask = Task.Run(async () => await CurrentFlowPollingAsync(_flowPollingTaskCts.Token), _flowPollingTaskCts.Token);
+
+                InfoLog("流量轮询已启动");
+            }
+            catch (Exception e)
+            {
+                ErrorLog("流量轮询启动失败", e);
+            }
+        }
+
+        private async Task CurrentFlowPollingAsync(CancellationToken token)
+        {
+            InfoLog("当前流量轮询任务已启动");
+
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    double flowValue = 0;
+                    bool changed = false;
+
+                    if (IsSimulationMode)
+                    {
+                        lock (_stateLock)
+                        {
+                            flowValue = _currentFlow;
+                        }
+                    }
+                    else if (ConnectionManager != null && DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp)
+                    {
+                        flowValue = await ConnectionManager.ReadAsync<double>(ComId, "_FT0101_g_m");
+                    }
+                    else
+                    {
+                        return;
+                    }
+
+                    lock (_stateLock)
+                    {
+                        if (_currentFlow != flowValue)
+                        {
+                            _currentFlow = flowValue;
+                            changed = true;
+                        }
+                    }
+                    // 更新UI界面
+                    if (changed)
+                    {
+                        RaiseControlStateChanged("CurrentFlow", flowValue);
+                    }
+                    // 等待
+                    await Task.Delay(1000, token);
+                }
+                catch(OperationCanceledException)
+                {
+                    InfoLog("当前流量轮询任务已取消");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    ErrorLog("当前流量轮询任务异常", e);
+
+                    try
+                    {
+                        await Task.Delay(1000, token); // 发生异常，等待一段时间再进行轮询
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break; // 操作取消，结束轮询
+                    }
+                }
+            }
+
+            InfoLog("当前流量轮询任务已退出");
+        }
+
+        private async Task StopCurrentFlowPollingAsync()
+        {
+            try
+            {
+                if (_flowPollingTaskCts != null)
+                {
+                    InfoLog("正在停止流量轮询");
+                    _flowPollingTaskCts.Cancel();
+                    try
+                    {
+                        if (_currentFlowPollingTask != null)
+                        {
+                            // 等待任务结束
+                            await _currentFlowPollingTask.WaitAsync(TimeSpan.FromSeconds(2));
+                        }
+                    }
+                    catch (Exception) { }
+
+                    _flowPollingTaskCts.Dispose();
+                    _flowPollingTaskCts = null;
+                    _currentFlowPollingTask = null;
+                    InfoLog("流量轮询已停止");
+                }
+            }
+            catch (Exception e)
+            {
+                ErrorLog("停止轮询失败",e);
+            }
+        }
+
+        #endregion
     }
 }
