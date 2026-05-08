@@ -27,6 +27,14 @@ namespace PeristalticPumps_ModbusTCP
         // *** 状态跟踪相关字段 ***
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
+
+        private double _temperature;
+        private double _flow;
+        private double _pressure;
+        private readonly object _dataLock = new object();
+        private Task _dataPollingTask;
+        private CancellationTokenSource _dataPollingCts;
+
         private readonly object _statesLock = new object();
 
         private CancellationTokenSource _statusPollingCts;
@@ -215,6 +223,9 @@ namespace PeristalticPumps_ModbusTCP
                 // ⭐ 启动状态轮询
                 StartStatusPolling();
 
+                //
+                await StartDataPollingAsync();
+
                 InfoLog("ModbusTCP蠕动泵设备已准备好执行流程");
                 return true;
             }
@@ -234,7 +245,7 @@ namespace PeristalticPumps_ModbusTCP
 
                 // 停止状态轮询
                 await StopStatusPollingAsync();
-
+                await StopDataPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP蠕动泵流程完成处理结束");
                 return true;
@@ -254,7 +265,7 @@ namespace PeristalticPumps_ModbusTCP
 
                 //  停止状态轮询
                 await StopStatusPollingAsync();
-
+                await StopDataPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP蠕动泵流程失败处理完成");
                 return true;
@@ -446,6 +457,119 @@ namespace PeristalticPumps_ModbusTCP
 
         #endregion
 
+        #region 出口数据轮询
+
+        private async Task StartDataPollingAsync()
+        {
+            try
+            {
+                InfoLog("启动出口数据轮询");
+                if (_dataPollingTask != null && !_dataPollingTask.IsCompleted)
+                {
+                    InfoLog("已存在出口数据轮询任务，先停止");
+                    await StopDataPollingAsync();
+                }
+
+                _dataPollingCts = new CancellationTokenSource();
+                _dataPollingTask = Task.Run(async () => { await DataPollingAsync(_dataPollingCts.Token); }, _dataPollingCts.Token);
+                InfoLog("出口数据轮询已启动");
+            }
+            catch (Exception e)
+            {
+                ErrorLog("出口数据轮询启动失败", e);
+            }
+        }
+
+        private async Task StopDataPollingAsync()
+        {
+            try
+            {
+                if (_dataPollingCts != null)
+                {
+                    InfoLog("正在停止出口数据轮询");
+                    if (_dataPollingTask != null)
+                    {
+                        try
+                        {
+                            await _dataPollingTask.WaitAsync(TimeSpan.FromSeconds(2));
+                        }
+                        catch (Exception)
+                        {
+
+                        }
+                    }
+                    _dataPollingCts.Dispose();
+                    _dataPollingCts = null;
+                    _dataPollingTask = null;
+                    InfoLog("出口数据轮询已停止");
+                }
+            }
+            catch (Exception e)
+            {
+                ErrorLog("出口数据轮询停止失败", e);
+            }
+        }
+
+        private async Task DataPollingAsync(CancellationToken token)
+        {
+            InfoLog("出口数据轮询任务已启动");
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    double temperature = 0;
+                    double flow = 0;
+                    double pressure = 0;
+
+                    if (IsSimulationMode)
+                    {
+                        pressure = 0.1 + new Random().NextDouble() * 0.5; // 模拟0.1-0.6MPa
+                        flow = _currentSpeed * 0.085; // 简单的转速-流量转换
+                        temperature = 20 + new Random().NextDouble() * 60; // 模拟20-80℃
+                    }
+                    else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                    {
+                        temperature = await ConnectionManager.ReadAsync<double>(ComId, "P0101出口温度");
+                        flow = await ConnectionManager.ReadAsync<double>(ComId, "P0101出口流量");
+                        temperature = await ConnectionManager.ReadAsync<double>(ComId, "P0101出口压力");
+                    }
+                    else
+                    {
+                        return;
+                    }
+
+                    lock (_dataLock)
+                    {
+                        _temperature = temperature;
+                        _flow = flow;
+                        _pressure = pressure;
+                    }
+
+                    await Task.Delay(1000, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    InfoLog("出口数据轮询任务已取消");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    ErrorLog("出口数据轮询失败", e);
+                    try
+                    {
+                        await Task.Delay(1000, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        #endregion
+
         #region  新增: IDeviceUIInteraction 实现
 
         /// <summary>
@@ -515,7 +639,10 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     ["IsRunning"] = _isRunning,
                     ["PumpSpeed"] = _currentSpeed,
-                    ["ComId"] = this.ComId
+                    ["ComId"] = this.ComId,
+                    ["Temperature"] = _temperature,
+                    ["Flow"] = _flow,
+                    ["Pressure"] = _pressure
                 }
             };
         }
