@@ -1,11 +1,13 @@
 ﻿using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.ViewModels;
 using Prism.Events;
 using Prism.Ioc;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -135,6 +137,15 @@ namespace MaxChemical.Modules.Designer.Views
             //  新增：IsWarning 默认值
             if (!logicCommand.Properties.ContainsKey("IsWarning"))
                 logicCommand.Properties["IsWarning"] = false;
+            //  新增：等待稳定相关默认值
+            if (!logicCommand.Properties.ContainsKey("WaitForStability"))
+                logicCommand.Properties["WaitForStability"] = false;
+
+            if (!logicCommand.Properties.ContainsKey("StabilityDeviceIds"))
+                logicCommand.Properties["StabilityDeviceIds"] = new List<string>();
+
+            if (!logicCommand.Properties.ContainsKey("StabilityTimeoutSeconds"))
+                logicCommand.Properties["StabilityTimeoutSeconds"] = 600.0;
         }
 
         private void InitializeFromProperties()
@@ -174,8 +185,137 @@ namespace MaxChemical.Modules.Designer.Views
             //  设置 IsWarning 复选框
             var isWarning = Convert.ToBoolean(node.LogicCommand.Properties.GetValueOrDefault("IsWarning", false));
             IsWarningCheckBox.IsChecked = isWarning;
+            //  新增：初始化"等待稳定"开关和设备列表
+            var waitForStability = Convert.ToBoolean(
+                node.LogicCommand.Properties.GetValueOrDefault("WaitForStability", false));
+            WaitForStabilityCheckBox.IsChecked = waitForStability;
+            StabilityDevicesPanel.Visibility = waitForStability ? Visibility.Visible : Visibility.Collapsed;
+
+            // 加载并刷新设备列表
+            LoadStabilityDeviceList();
+        }
+        /// <summary>
+        ///  新增：等待稳定开关切换
+        /// </summary>
+        private void WaitForStability_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not CommandNode node) return;
+            if (node.LogicCommand?.Properties == null) return;
+
+            bool isChecked = WaitForStabilityCheckBox.IsChecked == true;
+            node.LogicCommand.Properties["WaitForStability"] = isChecked;
+
+            if (StabilityDevicesPanel != null)
+            {
+                StabilityDevicesPanel.Visibility = isChecked ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (isChecked)
+            {
+                LoadStabilityDeviceList();
+            }
+
+            UpdateWaitPreview();
         }
 
+        /// <summary>
+        ///  新增：单个设备复选框变化
+        /// </summary>
+        private void StabilityDevice_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not CommandNode node) return;
+            if (node.LogicCommand?.Properties == null) return;
+            if (StabilityDevicesList?.ItemsSource is not IEnumerable<StabilityDeviceItem> items) return;
+
+            var selectedIds = items.Where(i => i.IsSelected).Select(i => i.DeviceId).ToList();
+            node.LogicCommand.Properties["StabilityDeviceIds"] = selectedIds;
+
+            UpdateWaitPreview();
+        }
+
+        /// <summary>
+        ///  新增：从画布加载设备列表填充到 ItemsControl
+        /// </summary>
+        private void LoadStabilityDeviceList()
+        {
+            try
+            {
+                if (StabilityDevicesList == null) return;
+                if (DataContext is not CommandNode node) return;
+
+                // 通过事件请求画布上所有设备
+                List<CanvasDeviceViewModel> canvasDevices = null;
+                _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+                if (canvasDevices == null || canvasDevices.Count == 0)
+                {
+                    StabilityDevicesList.ItemsSource = new List<StabilityDeviceItem>();
+                    return;
+                }
+
+                // 读取已选的 DeviceId 列表
+                var selectedIds = ParseSelectedDeviceIds(node.LogicCommand.Properties);
+
+                // 构建条目（不过滤设备类型，让所有设备都能选；运行时未实现 IsStable 的设备会被视为"已稳定"）
+                var items = canvasDevices
+                    .Where(d => d?.Device != null)
+                    .Select(d => new StabilityDeviceItem
+                    {
+                        DeviceId = d.DeviceId,
+                        DisplayName = BuildDeviceDisplayName(d),
+                        IsSelected = selectedIds.Contains(d.DeviceId)
+                    })
+                    .OrderBy(i => i.DisplayName)
+                    .ToList();
+
+                StabilityDevicesList.ItemsSource = items;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"加载稳定设备列表失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 从 Properties 里解析已选设备ID（兼容多种存储格式）
+        /// </summary>
+        private static List<string> ParseSelectedDeviceIds(IDictionary<string, object> props)
+        {
+            if (props == null || !props.TryGetValue("StabilityDeviceIds", out var raw) || raw == null)
+                return new List<string>();
+
+            if (raw is List<string> list) return list;
+            if (raw is IEnumerable<string> strs) return strs.ToList();
+            if (raw is IEnumerable<object> objs)
+                return objs.Select(o => o?.ToString())
+                           .Where(s => !string.IsNullOrEmpty(s))
+                           .ToList();
+            if (raw is string s)
+                return s.Split(',')
+                        .Select(x => x.Trim())
+                        .Where(x => !string.IsNullOrEmpty(x))
+                        .ToList();
+
+            return new List<string>();
+        }
+
+        /// <summary>
+        /// 构造设备显示名（优先用画布显示名，回退到设备 Name）
+        /// </summary>
+        private string BuildDeviceDisplayName(CanvasDeviceViewModel canvasDevice)
+        {
+            try
+            {
+                // 优先尝试通过解析器拿显示名（如"流量计#1"）
+                var resolver = ContainerLocator.Container.Resolve<MaxChemical.Modules.Designer.Service.IDeviceNameResolverService>();
+                var displayName = resolver?.GetDisplayNameByDeviceId(canvasDevice.DeviceId);
+                if (!string.IsNullOrEmpty(displayName))
+                    return displayName;
+            }
+            catch { }
+
+            return canvasDevice.Device?.Name ?? canvasDevice.DeviceId;
+        }
         private void ExecutionMode_Changed(object sender, RoutedEventArgs e)
         {
             if (DataContext is not CommandNode node) return;
@@ -355,7 +495,22 @@ namespace MaxChemical.Modules.Designer.Views
                         _ => "秒"
                     };
 
-                    previewText = $"[同步] 等待 {waitTime} {unitDisplay}";
+                    var waitForStability = Convert.ToBoolean(
+    node.LogicCommand.Properties.GetValueOrDefault("WaitForStability", false));
+
+                    if (waitForStability)
+                    {
+                        var deviceIds = ParseSelectedDeviceIds(node.LogicCommand.Properties);
+                        var deviceCountText = deviceIds.Count == 0 ? "未选择设备" : $"{deviceIds.Count} 个设备";
+                        var stabilityTimeout = Convert.ToDouble(
+                            node.LogicCommand.Properties.GetValueOrDefault("StabilityTimeoutSeconds", 600.0));
+                        previewText = $"[异步并行] 等待 {deviceCountText} 稳定（超时{stabilityTimeout:F0}s），" +
+                                      $"再停留 {waitTime} {unitDisplay}";
+                    }
+                    else
+                    {
+                        previewText = $"[同步] 等待 {waitTime} {unitDisplay}";
+                    }
                 }
                 else
                 {
@@ -529,7 +684,30 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
     }
+    /// <summary>
+    ///  新增：稳定设备列表项（绑定用）
+    /// </summary>
+    public class StabilityDeviceItem : INotifyPropertyChanged
+    {
+        public string DeviceId { get; set; }
+        public string DisplayName { get; set; }
 
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+    }
     public class StringEqualityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

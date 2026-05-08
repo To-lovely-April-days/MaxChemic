@@ -515,9 +515,8 @@
 
             <!-- 标题栏样式 -->
             <Style x:Key="TitleBarStyle" TargetType="Border">
-                <Setter Property="Background" Value="{StaticResource Brand.PrimaryBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource Brand.SecondaryBrush}"/>
                 <Setter Property="Height" Value="30"/>
-                <Setter Property="Width" Value="1140"/>
                 <Setter Property="CornerRadius" Value="8,8,0,0"/>
             </Style>
 
@@ -729,6 +728,87 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <!-- 对话框基础按钮模板 -->
+            <Style x:Key="DialogButtonBaseStyle" TargetType="Button">
+                <Setter Property="Height" Value="30"/>
+                <Setter Property="MinWidth" Value="80"/>
+                <Setter Property="Margin" Value="5"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- 对话框关闭按钮（白色X图标） -->
+            <Style x:Key="CloseButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Width" Value="15"/>
+                <Setter Property="Height" Value="15"/>
+                <Setter Property="Margin" Value="0,0,13,0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2">
+                                <Image Source="pack://siteoforigin:,,,/Resources/Icon/closeWhite.png" 
+                           Width="15" Height="15" 
+                           Stretch="Uniform"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource Brand.PrimaryBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource Brand.PrimaryDarkBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- 主按钮（确定/提交） -->
+            <Style x:Key="DialogPrimaryButtonStyle" TargetType="Button"
+       BasedOn="{StaticResource DialogButtonBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource Brand.PrimaryBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Text.OnPrimaryBrush}"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource Brand.PrimaryHoverBrush}"/>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource Brand.PrimaryDarkBrush}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- 次按钮（取消） -->
+            <Style x:Key="DialogSecondaryButtonStyle" TargetType="Button"
+       BasedOn="{StaticResource DialogButtonBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource Border.StrongBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Text.PrimaryBrush}"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource Bg.TertiaryBrush}"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

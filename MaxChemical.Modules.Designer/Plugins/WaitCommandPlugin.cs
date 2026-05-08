@@ -49,7 +49,10 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
             // 通用属性
             logicCommand.SetProperty("Description", properties.Description);
             logicCommand.SetProperty("Bezel_lessIconPath", Bezel_lessIconPath);
-
+            //  新增：等待稳定相关
+            logicCommand.SetProperty("WaitForStability", properties.WaitForStability);
+            logicCommand.SetProperty("StabilityDeviceIds", properties.StabilityDeviceIds);
+            logicCommand.SetProperty("StabilityTimeoutSeconds", properties.StabilityTimeoutSeconds);
             return new CommandNode(logicCommand);
         }
 

@@ -22,130 +22,30 @@
             <Setter Property="Margin" Value="5,0"/>
         </Style>
 
-        <!-- 生成布局按钮样式 -->
-        <Style x:Key="GenerateButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="92"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="Background" Value="#3F75CB"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Margin" Value="21,0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#5588BB"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+     
 
-        <!-- 底部按钮样式 - 确定 -->
-        <Style x:Key="ConfirmButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#3F75CB"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Width" Value="93"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="3">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#365A96"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+      
 
-        <!-- 底部按钮样式 - 取消 -->
-        <Style x:Key="CancelButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#C2C2C2"/>
-            <Setter Property="Foreground" Value="#333333"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Width" Value="93"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="3">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#BBBBBB"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+     
+
 
         <!-- 网格单元格样式 -->
         <Style x:Key="GridCellStyle" TargetType="Border">
-            <Setter Property="BorderBrush" Value="#D4D4D4"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Border.DefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="CornerRadius" Value="4"></Setter>
+            <Setter Property="CornerRadius" Value="4"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="BorderBrush" Value="#4472C4"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
                     <Setter Property="BorderThickness" Value="2"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
 
-        <!-- 关闭按钮样式 -->
-        <Style x:Key="CloseButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Width" Value="15"/>
-            <Setter Property="Height" Value="15"/>
-            <Setter Property="Margin" Value="0,0,13,0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}">
-                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/closeWhite.png" 
-                      Width="15" Height="15" 
-                      Stretch="Uniform"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#CC0000"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+      
         <!-- 上下文菜单项目样式 -->
         <Style x:Key="ContextMenuItemStyle" TargetType="MenuItem">
             <Setter Property="Header" Value="{Binding Header}"/>
@@ -191,7 +91,7 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter Property="Background" Value="#E8F4FD"/>
+                                        <Setter Property="Background" Value="{DynamicResource Brand.PrimaryLightBrush}"/>
                                     </Trigger>
                                     <Trigger Property="IsEnabled" Value="False">
                                         <Setter Property="Foreground" Value="#AAAAAA"/>
@@ -286,7 +186,7 @@
 
                     <Button Content="{Binding GenerateLayout}" 
                 Command="{Binding GenerateGridCommand}"
-                Style="{StaticResource GenerateButtonStyle}"/>
+                Style="{StaticResource DialogPrimaryButtonStyle}"/>
                 </StackPanel>
 
                 <!-- 提示信息在最右侧 -->
@@ -354,10 +254,10 @@
                         Margin="879,0,15,21">
                 <Button Content="{Binding OkLabel}" 
                         Command="{Binding ConfirmCommand}"
-                        Style="{StaticResource ConfirmButtonStyle}"/>
+                        Style="{StaticResource DialogPrimaryButtonStyle}"/>
                 <Button Content="{Binding CancelLabel}" 
                         Command="{Binding CancelCommand}"
-                        Style="{StaticResource CancelButtonStyle}"/>
+                        Style="{StaticResource DialogSecondaryButtonStyle}"/>
             </StackPanel>
         </Grid>
     </Border>

@@ -74,7 +74,8 @@ namespace FlowMeter_ModbusTCP
         // *** 稳定性检测 ***
         private int _stableCount = 0;
         private const int STABLE_CYCLES_REQUIRED = 3;
-
+        // 在 _stableCount 旁边加
+        private volatile bool _isStable = false;
         // *** 简化的三档动态等待时间参数 ***
         private const int LOW_SPEED_WAIT_MS = 70000;    // 低速: 70秒 (原55秒)
         private const int MID_SPEED_WAIT_MS = 50000;    // 中速: 50秒 (原35秒)  
@@ -166,6 +167,7 @@ namespace FlowMeter_ModbusTCP
                     ["CurrentFlow"] = _currentFlow,
                     ["TargetFlow"] = _targetFlow,
                     ["IsFlowing"] = _autoControlEnabled,
+                    ["IsStable"] = _isStable,        // ★ 新增
                     ["Density"] = currentDensity,
                     ["ComId"] = this.ComId
                 }
@@ -989,6 +991,8 @@ namespace FlowMeter_ModbusTCP
                 _previousPumpSpeed = 0;
                 _isOvershootMode = false;
                 _overshootProtectionCount = 0;
+                _isStable = false;
+                RaiseControlStateChanged("IsStable", false);
             }
         }
 
@@ -1206,9 +1210,16 @@ namespace FlowMeter_ModbusTCP
                     {
                         AddCycleLog($"│ 🎯 达到连续稳定要求 ({_stableCount} ≥ {STABLE_CYCLES_REQUIRED})");
                         _integralError = 0;
-                        AddCycleLog($"│ 积分误差已清零 - 密度修正系统防超调稳定");
 
-                        EndCycleLog($"密度修正防超调流量稳定 (连续{_stableCount}次在容差内, 密度{currentDensity:F2})");
+                        // ★ 新增：标记稳定并通知
+                        if (!_isStable)
+                        {
+                            _isStable = true;
+                            RaiseControlStateChanged("IsStable", true);
+                            AddCycleLog($"│ ✅ 流量稳定状态：true");
+                        }
+
+                        EndCycleLog($"...");
                         return;
                     }
                     else
@@ -1220,6 +1231,14 @@ namespace FlowMeter_ModbusTCP
                 {
                     AddCycleLog($"│  判断: 超出容差 ({errorPercent:F3}% > {FLOW_TOLERANCE_PERCENT}%)");
                     _stableCount = 0;
+
+                    // ★ 新增：失稳通知
+                    if (_isStable)
+                    {
+                        _isStable = false;
+                        RaiseControlStateChanged("IsStable", false);
+                        AddCycleLog($"│ ⚠ 流量失稳：true → false");
+                    }
                     AddCycleLog($"│ 稳定计数已重置: {_stableCount}");
                 }
 
@@ -1783,16 +1802,16 @@ namespace FlowMeter_ModbusTCP
                                 RaiseControlStateChanged("CommandState_设置基准流量", CommandExecutionState.Failed);
                             }
 
-                            if (success)
-                            {
-                                AddActiveState("FlowControlActive", "设置基准流量", "停止流量控制", stateData: new { targetFlow, density });
-                            }
+                            //if (success)
+                            //{
+                            //    AddActiveState("FlowControlActive", "设置基准流量", "停止流量控制", stateData: new { targetFlow, density });
+                            //}
                         }
                         else
                         {
                             // 目标流量为0，停止控制
                             StopAutoControl();
-                            RemoveActiveState("FlowControlActive");
+                            //RemoveActiveState("FlowControlActive");
                             success = true;
 
                             //  通知UI：流动已停止
@@ -2341,7 +2360,7 @@ namespace FlowMeter_ModbusTCP
             try
             {
                 InfoLog($"密度修正ModbusTCP流量计流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
-                StopAutoControl();
+                //StopAutoControl();
                 await StopAllActiveStatesAsync();
                 InfoLog("密度修正ModbusTCP流量计流程完成处理结束");
                 return true;

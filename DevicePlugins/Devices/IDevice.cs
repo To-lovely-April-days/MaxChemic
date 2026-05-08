@@ -135,5 +135,17 @@ namespace DevicePlugins.Devices
         /// 设备状态变更事件
         /// </summary>
         event EventHandler<DeviceStateChangedEventArgs> StateChanged;
+
+      
+
+        /// <summary>
+        /// 获取当前设备状态快照（包含 IsStable 等状态字段）
+        /// </summary>
+        DeviceState GetCurrentState();
+
+        /// <summary>
+        /// 设备控制状态变更事件（用于流量稳定/不稳定等状态广播）
+        /// </summary>
+        event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
     }
 }

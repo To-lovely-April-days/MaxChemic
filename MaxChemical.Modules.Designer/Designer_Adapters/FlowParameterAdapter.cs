@@ -67,11 +67,18 @@ namespace MaxChemical.Modules.Designer.Service
                 var flowVm = GetFlowViewModel();
                 if (flowVm?.CommandNodes == null)
                 {
-                    _logger.LogWarning("未获取到流程节点，无法提取因子候选列表");
+                    _logger.LogWarning("未获取到流程节点,无法提取因子候选列表");
                     return candidates;
                 }
 
                 CollectFactorCandidatesFromNodes(flowVm.CommandNodes, candidates);
+
+                // ★ 新增: 同名候选项消歧
+                // 场景: 流程里有多台同型号设备(都叫"泵"),它们的 speed 参数会产生
+                //       多个 DisplayName 完全相同的 candidate ("泵 → speed")。
+                //       NodeId 不同,注入正确,但用户在下拉框里选错。
+                DisambiguateDisplayNames(candidates);
+
                 _logger.LogInformation("共找到 {Count} 个因子候选项", candidates.Count);
             }
             catch (Exception ex)
@@ -80,6 +87,46 @@ namespace MaxChemical.Modules.Designer.Service
             }
 
             return candidates;
+        }
+
+       
+        /// <summary>
+        /// ★ 新增: 检测 DisplayName 重复的候选项,在设备名后追加序号区分。
+        /// 例:
+        ///   "泵 → speed" + "泵 → speed"
+        ///   → "泵#1 → speed" + "泵#2 → speed"
+        ///
+        /// 同名分组内按收集顺序编号(1, 2, 3...)。
+        /// 仅修改 DisplayName,不影响 ParameterId/NodeId/ParameterName 等用于注入的字段。
+        /// </summary>
+        private void DisambiguateDisplayNames(List<FactorCandidate> candidates)
+        {
+            var groups = candidates.GroupBy(c => c.DisplayName).ToList();
+            foreach (var group in groups)
+            {
+                var list = group.ToList();
+                if (list.Count <= 1) continue;  // 没有重名,跳过
+
+                _logger.LogInformation(
+                    "检测到 {Count} 个同名候选项 \"{Name}\",自动追加序号区分",
+                    list.Count, group.Key);
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var c = list[i];
+                    // 拆分 "泵 → speed" → ["泵", "speed"]
+                    var parts = c.DisplayName.Split(new[] { " → " }, 2, StringSplitOptions.None);
+                    if (parts.Length == 2)
+                    {
+                        c.DisplayName = $"{parts[0]}#{i + 1} → {parts[1]}";
+                    }
+                    else
+                    {
+                        // 兜底: 没有 " → " 分隔符就直接尾部加序号
+                        c.DisplayName = $"{c.DisplayName} #{i + 1}";
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -154,6 +201,14 @@ namespace MaxChemical.Modules.Designer.Service
                 // 设备命令节点的输入参数
                 if (node.DeviceCommand?.InputParameters?.Variables != null)
                 {
+                    // ★ 修改: 拼"设备身份名"而不是命令名
+                    //   优先用 BoundDeviceName(画布上绑定的具体设备,如"反应釜A"),
+                    //   未绑定则 fallback 到命令名(操作类型)。
+                    //   逻辑与 FlowDesignerViewModel.SyncSwimlaneRows 保持一致。
+                    string deviceLabel = !string.IsNullOrEmpty(node.BoundDeviceName)
+                        ? node.BoundDeviceName
+                        : node.DisplayName;
+
                     foreach (var param in node.DeviceCommand.InputParameters.Variables)
                     {
                         if (IsNumericValue(param.Value))
@@ -165,11 +220,11 @@ namespace MaxChemical.Modules.Designer.Service
                             candidates.Add(new FactorCandidate
                             {
                                 ParameterId = $"{node.NodeId}.{param.Name}",
-                                DisplayName = $"{node.DisplayName} → {param.Name}",
+                                DisplayName = $"{deviceLabel} → {param.Name}",   // ★ 用设备身份
                                 CurrentValue = overrideValue,
                                 SourceType = FactorSourceType.ParameterOverride,
                                 NodeId = node.NodeId,
-                                NodeDisplayName = node.DisplayName,
+                                NodeDisplayName = deviceLabel,                   // ★ 同步更新
                                 ParameterName = param.Name,
                                 DataType = "Double"
                             });

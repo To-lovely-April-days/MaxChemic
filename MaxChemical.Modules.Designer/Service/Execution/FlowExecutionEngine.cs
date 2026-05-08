@@ -2693,7 +2693,31 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             };
 
             _logger.LogDebug("固定时间等待: {WaitTime} {Unit}", waitTime, timeUnit);
+            // ★ 新增：把所有相关属性都打出来
+            var props = waitNode.LogicCommand.Properties;
+            _logger.LogInformation(">>> [WaitNode] 节点属性诊断:");
+            _logger.LogInformation(">>>   WaitForStability(原始) = {Raw}, 类型={Type}",
+                props?.GetValueOrDefault("WaitForStability"),
+                props?.GetValueOrDefault("WaitForStability")?.GetType()?.Name ?? "null");
+            _logger.LogInformation(">>>   StabilityDeviceIds(原始) = {Raw}, 类型={Type}",
+                props?.GetValueOrDefault("StabilityDeviceIds"),
+                props?.GetValueOrDefault("StabilityDeviceIds")?.GetType()?.Name ?? "null");
+            _logger.LogInformation(">>>   StabilityTimeoutSeconds(原始) = {Raw}",
+                props?.GetValueOrDefault("StabilityTimeoutSeconds"));
 
+            // ★ 你的判断分支
+            bool waitForStability = SafeToBool(
+                props?.GetValueOrDefault("WaitForStability", false), false);
+
+            _logger.LogInformation(">>> 解析后 waitForStability = {Result}", waitForStability);
+
+            if (waitForStability)
+            {
+                _logger.LogInformation(">>> 走等稳定 + 停留分支");
+                return await ExecuteWaitForStabilityAndDelayAsync(waitNode, waitTimeSpan, cancellationToken);
+            }
+
+            _logger.LogInformation(">>> 走原倒计时弹框分支");
             // *** 开始用户交互，暂停其他分支 ***
             BeginUserInteraction(waitNode, "FixedTimeWait", $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}");
 
@@ -2761,7 +2785,153 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 EndUserInteraction(waitNode, "FixedTimeWait");
             }
         }
+        // ★ 新增方法
+        private async Task<object> ExecuteWaitForStabilityAndDelayAsync(
+    CommandNode waitNode, TimeSpan delayAfterStable, CancellationToken cancellationToken)
+        {
+            var deviceIds = ParseDeviceIdsList(waitNode.LogicCommand.Properties);
+            var stabilityTimeoutSec = SafeToInt(
+                waitNode.LogicCommand.Properties?.GetValueOrDefault("StabilityTimeoutSeconds", 600), 600);
 
+            // ★ 诊断1：解析出几个DeviceId
+            _logger.LogInformation(">>> [Stability] 解析到 {Count} 个 DeviceId: {Ids}",
+                deviceIds.Count, string.Join(", ", deviceIds));
+
+            List<CanvasDeviceViewModel> canvasDevices = null;
+            _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
+
+            // ★ 诊断2:画布设备情况
+            _logger.LogInformation(">>> [Stability] 画布共 {Count} 个设备",
+                canvasDevices?.Count ?? 0);
+            if (canvasDevices != null)
+            {
+                foreach (var cd in canvasDevices)
+                {
+                    _logger.LogInformation(">>>   画布设备: DeviceId={Id}, Name={Name}, Type={Type}",
+                        cd.DeviceId, cd.Device?.Name, cd.Device?.GetType().Name);
+                }
+            }
+
+            var devices = canvasDevices?
+                .Where(d => deviceIds.Contains(d.DeviceId))
+                .Select(d => d.Device)
+                .Where(d => d != null)
+                .ToList()
+                ?? new List<IDevice>();
+
+            // ★ 诊断3:匹配到几个设备
+            _logger.LogInformation(">>> [Stability] 匹配到 {Count} 个设备实例",
+                devices.Count);
+
+            if (!devices.Any())
+            {
+                _logger.LogWarning(">>> [Stability] ⚠ 未找到任何匹配设备，将直接停留计时");
+            }
+            else
+            {
+                // ★ 诊断4:进入轮询循环时打第一次状态
+                foreach (var dev in devices)
+                {
+                    try
+                    {
+                        var st = dev.GetCurrentState();
+                        if (st?.States != null)
+                        {
+                            var hasIsStable = st.States.ContainsKey("IsStable");
+                            var isStableVal = hasIsStable ? st.States["IsStable"] : "[字段不存在]";
+                            _logger.LogInformation(">>>   设备 {Name} 当前状态: 字段数={N}, 含IsStable={H}, IsStable值={V}",
+                                dev.Name, st.States.Count, hasIsStable, isStableVal);
+                            // 列出所有 key 帮你定位
+                            _logger.LogInformation(">>>     所有字段: {Keys}",
+                                string.Join(", ", st.States.Keys));
+                        }
+                        else
+                        {
+                            _logger.LogWarning(">>>   设备 {Name} GetCurrentState 返回 null 或 States 为空", dev.Name);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, ">>>   设备 {Name} 取状态异常", dev.Name);
+                    }
+                }
+
+                // ★ 进入正常的轮询循环
+                var stabilityStart = DateTime.Now;
+                int pollCount = 0;
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    bool allStable = devices.All(IsDeviceStable);
+                    pollCount++;
+                    _logger.LogDebug(">>> [Stability] 第{N}次轮询: allStable={Stable}",
+                        pollCount, allStable);
+
+                    if (allStable)
+                    {
+                        _logger.LogInformation(">>> [Stability] ✅ 所有设备已稳定（轮询{N}次），开始停留 {Delay}",
+                            pollCount, delayAfterStable);
+                        break;
+                    }
+
+                    if ((DateTime.Now - stabilityStart).TotalSeconds > stabilityTimeoutSec)
+                    {
+                        var unstableNames = devices.Where(d => !IsDeviceStable(d)).Select(d => d.Name);
+                        throw new TimeoutException(
+                            $"等待设备稳定超时（{stabilityTimeoutSec}秒）：" +
+                            string.Join(", ", unstableNames));
+                    }
+
+                    await Task.Delay(1000, cancellationToken);
+                }
+            }
+
+            _logger.LogInformation(">>> [Stability] 进入停留计时: {Delay}", delayAfterStable);
+            await Task.Delay(delayAfterStable, cancellationToken);
+            _logger.LogInformation(">>> [Stability] 停留完成");
+            return delayAfterStable.TotalMilliseconds;
+        }
+        /// <summary>
+        /// 判断设备是否处于稳定状态。
+        /// 设备未实现 IsStable 字段时视为"已稳定"，避免卡死流程。
+        /// </summary>
+        private static bool IsDeviceStable(IDevice device)
+        {
+            if (device == null) return true;
+
+            try
+            {
+                var state = device.GetCurrentState();
+                if (state?.States == null) return true;
+
+                if (!state.States.TryGetValue("IsStable", out var raw))
+                    return true; // 没有这个字段 → 视为稳定，让流程继续
+
+                if (raw is bool b) return b;
+
+                // 兼容字符串 "true"/"false" 这种取值
+                if (raw != null && bool.TryParse(raw.ToString(), out var parsed))
+                    return parsed;
+
+                return true; // 解析不出来也视为稳定，不卡流程
+            }
+            catch
+            {
+                return true; // 取状态失败也不卡流程
+            }
+        }
+        private List<string> ParseDeviceIdsList(IDictionary<string, object> props)
+        {
+            if (props == null || !props.TryGetValue("StabilityDeviceIds", out var raw))
+                return new List<string>();
+            if (raw is List<string> list) return list;
+            if (raw is IEnumerable<object> enumerable)
+                return enumerable.Select(o => o?.ToString()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+            if (raw is string s) return s.Split(',').Select(x => x.Trim())
+                                          .Where(x => !string.IsNullOrEmpty(x)).ToList();
+            return new List<string>();
+        }
         /// <summary>
         /// 执行条件等待（循环检查条件）
         /// </summary>

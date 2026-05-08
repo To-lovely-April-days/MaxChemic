@@ -14,45 +14,9 @@
                           Opacity="0.3" 
                           Direction="270"/>
 
-        <!-- 标题栏样式 -->
-        <Style x:Key="TitleBarStyle" TargetType="Border">
-            <Setter Property="Background" Value="#003A96"/>
-            <Setter Property="Height" Value="30"/>
-            <!-- 移除固定宽度，让它自适应 -->
-            <!-- <Setter Property="Width" Value="1140"/> -->
-            <Setter Property="CornerRadius" Value="8,8,0,0"/>
-        </Style>
+      
 
-        <!-- 关闭按钮样式 -->
-        <Style x:Key="CloseButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Width" Value="15"/>
-            <Setter Property="Height" Value="15"/>
-            <Setter Property="Margin" Value="0,0,13,0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="2">
-                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/closeWhite.png" 
-                                   Width="15" Height="15" 
-                                   Stretch="Uniform"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#CC0000"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#AA0000"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
+     
         <!-- 样式定义 -->
         <Style x:Key="ErrorTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="Red"/>
@@ -125,20 +89,7 @@
             </Setter>
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
-            <Setter Property="Background" Value="#007ACC"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#007ACC"/>
-            <Setter Property="Tag" Value="#005A9E"/>
-        </Style>
-
-        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
-            <Setter Property="Background" Value="#F8F8F8"/>
-            <Setter Property="Foreground" Value="#333333"/>
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
-            <Setter Property="Tag" Value="#E8E8E8"/>
-        </Style>
-
+      
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
 
@@ -227,10 +178,10 @@
                             Margin="0,20,0,0">
                     <Button Content="{Binding CancelText}" 
                             Command="{Binding CancelCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}"/>
+                            Style="{StaticResource DialogSecondaryButtonStyle}"/>
                     <Button Content="{Binding OkText}" 
                             Command="{Binding ConfirmCommand}"
-                            Style="{StaticResource PrimaryButtonStyle}"/>
+                            Style="{StaticResource DialogPrimaryButtonStyle}"/>
                 </StackPanel>
             </Grid>
         </Grid>

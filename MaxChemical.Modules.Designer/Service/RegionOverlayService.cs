@@ -190,7 +190,7 @@ namespace MaxChemical.Modules.Designer.Service
                 canvas.Width = totalSize.Width;
                 canvas.Height = totalSize.Height;
 
-                // 🔥 关键：完全重新绘制区域覆盖层内容
+                //  关键：完全重新绘制区域覆盖层内容
                 RedrawRegionOverlayContent(layout, currentScale);
 
                 // 通知画布尺寸变更
@@ -220,7 +220,7 @@ namespace MaxChemical.Modules.Designer.Service
             }
         }
 
-        // 🔥 新增：绘制区域内容（线条和标签）
+        //  新增：绘制区域内容（线条和标签）
         private void DrawRegionContent(RegionLayout layout, double currentScale)
         {
             double gapSize = 8.0;
@@ -265,7 +265,7 @@ namespace MaxChemical.Modules.Designer.Service
             }
         }
 
-        // 🔥 新增：重新绘制区域覆盖层内容（拖动时调用）
+        //  新增：重新绘制区域覆盖层内容（拖动时调用）
         private void RedrawRegionOverlayContent(RegionLayout layout, double currentScale)
         {
             if (_regionOverlay == null) return;
@@ -475,7 +475,7 @@ namespace MaxChemical.Modules.Designer.Service
                     var lineInfo = dragArea.Tag as RegionLineInfo;
                     if (lineInfo?.Layout != null)
                     {
-                        // 🔥 恢复连接线正常模式
+                        //  恢复连接线正常模式
                         if (_connectionService != null)
                         {
                             _connectionService.SetDragMode(false);
@@ -512,7 +512,122 @@ namespace MaxChemical.Modules.Designer.Service
         }
 
         #endregion
+        #region 管道相关辅助方法
 
+        /// <summary>
+        /// 判断元素是否为管道控件
+        /// </summary>
+        private bool IsPipeControl(UIElement element)
+        {
+            if (element == null) return false;
+            string typeName = element.GetType().Name;
+            return typeName == "StraightPipeControl"
+                || typeName == "ElbowPipeControl"
+                || typeName == "ZShapePipeControl"
+                || typeName == "TShapePipeControl";
+        }
+
+        /// <summary>
+        /// 获取管道类型名(简化)
+        /// </summary>
+        private string GetPipeType(UIElement element)
+        {
+            if (element == null) return null;
+            string typeName = element.GetType().Name;
+            switch (typeName)
+            {
+                case "StraightPipeControl": return "Straight";
+                case "ElbowPipeControl": return "Elbow";
+                case "ZShapePipeControl": return "ZShape";
+                case "TShapePipeControl": return "TShape";
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// 判断管道是否为横向(0° 或 180°,容差 5°)
+        /// 只有横管在区域水平缩放时才会调整"水平长度"属性
+        /// </summary>
+        private bool IsHorizontalPipe(UIElement element)
+        {
+            if (!IsPipeControl(element)) return false;
+
+            double angle = GetPropertyValue<double>(element, "RotationAngle", 0);
+            angle = ((angle % 360) + 360) % 360;
+
+            return (angle < 5 || angle > 355) || (angle > 175 && angle < 185);
+        }
+
+        /// <summary>
+        /// 反射读取属性值(失败返回默认值)
+        /// </summary>
+        private T GetPropertyValue<T>(UIElement element, string propertyName, T defaultValue)
+        {
+            try
+            {
+                var prop = element.GetType().GetProperty(propertyName);
+                if (prop != null)
+                {
+                    object val = prop.GetValue(element);
+                    if (val is T typed) return typed;
+                }
+            }
+            catch { }
+            return defaultValue;
+        }
+
+        /// <summary>
+        /// 反射写入属性值
+        /// </summary>
+        private void SetPropertyValue<T>(UIElement element, string propertyName, T value)
+        {
+            try
+            {
+                var prop = element.GetType().GetProperty(propertyName);
+                if (prop != null && prop.CanWrite)
+                {
+                    prop.SetValue(element, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"设置属性 {propertyName} 失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 根据缩放比例,调整指定管道的"水平长度"属性
+        /// 各管道控件 setter 内部会自动夹紧到合法范围,不需要外部判断
+        /// </summary>
+        private void ApplyHorizontalScaleToPipe(UIElement element, DeviceRegionInfo info, double widthRatio)
+        {
+            switch (info.PipeType)
+            {
+                case "Straight":
+                    SetPropertyValue(element, "PipeLength",
+                        info.OriginalPipeLength * widthRatio);
+                    break;
+
+                case "Elbow":
+                    SetPropertyValue(element, "HorizontalLength",
+                        info.OriginalHorizontalLength * widthRatio);
+                    break;
+
+                case "ZShape":
+                    SetPropertyValue(element, "TopHorizontalLength",
+                        info.OriginalTopHorizontalLength * widthRatio);
+                    SetPropertyValue(element, "BottomHorizontalLength",
+                        info.OriginalBottomHorizontalLength * widthRatio);
+                    break;
+
+                case "TShape":
+                    SetPropertyValue(element, "MainPipeLength",
+                        info.OriginalMainPipeLength * widthRatio);
+                    break;
+            }
+        }
+
+        #endregion
         #region 辅助方法
 
         private void ClearDragAreas()
@@ -553,37 +668,40 @@ namespace MaxChemical.Modules.Designer.Service
 
                 try
                 {
-                    // 改进：基于相对位置重新计算设备位置
+                    //  第一步:对横管,先按区域宽度比例缩放"水平长度"属性
+                    if (info.CanScaleHorizontal && info.OriginalRegionWidth > 0)
+                    {
+                        double widthRatio = info.Region.Width / info.OriginalRegionWidth;
+                        ApplyHorizontalScaleToPipe(element, info, widthRatio);
+
+                        // 必须强制刷新,让管道的 ActualWidth 真实更新
+                        element.UpdateLayout();
+                    }
+
+                    //  第二步:重新获取当前尺寸(管道缩了之后尺寸变了)
+                    Size currentSize = info.CanScaleHorizontal
+                        ? GetElementSize(element)
+                        : info.DeviceSize;
+
+                    //  第三步:按相对位置算新位置(原有逻辑)
                     double newX = info.Region.Left + info.RelativeX * info.Region.Width;
                     double newY = info.Region.Top + info.RelativeY * info.Region.Height;
 
-                    // 改进：确保设备完全在区域内
-                    double deviceWidth = info.DeviceSize.Width;
-                    double deviceHeight = info.DeviceSize.Height;
-
-                    // 边界检查，确保设备不超出区域
-                    double maxX = Math.Max(info.Region.Left, info.Region.Right - deviceWidth);
-                    double maxY = Math.Max(info.Region.Top, info.Region.Bottom - deviceHeight);
+                    // 边界夹紧
+                    double maxX = Math.Max(info.Region.Left, info.Region.Right - currentSize.Width);
+                    double maxY = Math.Max(info.Region.Top, info.Region.Bottom - currentSize.Height);
 
                     newX = Math.Max(info.Region.Left, Math.Min(maxX, newX));
                     newY = Math.Max(info.Region.Top, Math.Min(maxY, newY));
 
-                    // 调试信息
-                    Debug.WriteLine($"更新设备位置: {element.GetType().Name}");
-                    Debug.WriteLine($"  区域: ({info.Region.Left:F1}, {info.Region.Top:F1}) - ({info.Region.Right:F1}, {info.Region.Bottom:F1})");
-                    Debug.WriteLine($"  相对位置: ({info.RelativeX:F3}, {info.RelativeY:F3})");
-                    Debug.WriteLine($"  新位置: ({newX:F1}, {newY:F1})");
-
                     Canvas.SetLeft(element, newX);
                     Canvas.SetTop(element, newY);
 
-                    // 强制更新布局
                     element.UpdateLayout();
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"更新设备位置失败: {ex.Message}");
-                    // 回退到原始位置
+                    Debug.WriteLine($"更新元素位置失败 ({element.GetType().Name}): {ex.Message}");
                     Canvas.SetLeft(element, info.OriginalPosition.X);
                     Canvas.SetTop(element, info.OriginalPosition.Y);
                 }
@@ -594,7 +712,7 @@ namespace MaxChemical.Modules.Designer.Service
         {
             try
             {
-                // 🔥 直接使用注入的服务
+                //  直接使用注入的服务
                 if (_connectionService != null)
                 {
                     // 启用拖拽模式以提高性能
@@ -658,6 +776,8 @@ namespace MaxChemical.Modules.Designer.Service
                 int panelCount = 0;
                 int otherCount = 0;
 
+                int pipeCount = 0;  //  新增：管道计数
+
                 foreach (UIElement element in _currentCanvas.Children)
                 {
                     Debug.WriteLine($"检查元素: {element.GetType().Name}");
@@ -688,6 +808,13 @@ namespace MaxChemical.Modules.Designer.Service
                             otherCount++;
                         }
                     }
+                    // 新增：识别所有管道控件,让它们也跟随区域移动
+                    else if (IsPipeControl(element))
+                    {
+                        pipeCount++;
+                        Debug.WriteLine($"  识别为管道控件: {element.GetType().Name}");
+                        RecordElementPosition(element, layout);
+                    }
                     else
                     {
                         Debug.WriteLine($"  非Border元素: {element.GetType().Name}");
@@ -695,13 +822,15 @@ namespace MaxChemical.Modules.Designer.Service
                     }
                 }
 
+                Debug.WriteLine($"统计结果 - 设备: {deviceCount}, 面板: {panelCount}, 管道: {pipeCount}, 其他: {otherCount}");
+
                 Debug.WriteLine($"统计结果 - 设备: {deviceCount}, 面板: {panelCount}, 其他: {otherCount}");
             }
 
             Debug.WriteLine($"最终 _deviceRegionMap 数量: {_deviceRegionMap.Count}");
             Debug.WriteLine("=== 记录原始状态完成 ===");
         }
-
+     
         // 新增：统一的元素位置记录方法
         private void RecordElementPosition(UIElement element, RegionLayout layout)
         {
@@ -746,16 +875,44 @@ namespace MaxChemical.Modules.Designer.Service
 
                 Debug.WriteLine($"    相对位置: ({relativeX:F3}, {relativeY:F3})");
 
-                _deviceRegionMap[element] = new DeviceRegionInfo
+                //  构造 DeviceRegionInfo,如果是管道则额外记录长度参数
+                var info = new DeviceRegionInfo
                 {
                     Region = region,
                     RelativeX = relativeX,
                     RelativeY = relativeY,
                     OriginalPosition = elementPos,
-                    DeviceSize = elementSize
+                    DeviceSize = elementSize,
+                    PipeType = GetPipeType(element),
+                    CanScaleHorizontal = IsHorizontalPipe(element),
+                    OriginalRegionWidth = region.Width
                 };
 
-                Debug.WriteLine($"    成功记录到 _deviceRegionMap");
+                // 记录各类管道的原始长度参数
+                if (info.CanScaleHorizontal)
+                {
+                    switch (info.PipeType)
+                    {
+                        case "Straight":
+                            info.OriginalPipeLength = GetPropertyValue<double>(element, "PipeLength", 0);
+                            break;
+                        case "Elbow":
+                            info.OriginalHorizontalLength = GetPropertyValue<double>(element, "HorizontalLength", 0);
+                            break;
+                        case "ZShape":
+                            info.OriginalTopHorizontalLength = GetPropertyValue<double>(element, "TopHorizontalLength", 0);
+                            info.OriginalBottomHorizontalLength = GetPropertyValue<double>(element, "BottomHorizontalLength", 0);
+                            break;
+                        case "TShape":
+                            info.OriginalMainPipeLength = GetPropertyValue<double>(element, "MainPipeLength", 0);
+                            break;
+                    }
+                    Debug.WriteLine($"    记录横管原始长度信息: 类型={info.PipeType}, 区域宽={info.OriginalRegionWidth:F1}");
+                }
+
+                _deviceRegionMap[element] = info;
+                Debug.WriteLine($"    成功记录到 _deviceRegionMap (PipeType={info.PipeType}, CanScale={info.CanScaleHorizontal})");
+                
             }
             else
             {
@@ -897,6 +1054,18 @@ namespace MaxChemical.Modules.Designer.Service
         public double RelativeY { get; set; }
         public Point OriginalPosition { get; set; }
         public Size DeviceSize { get; set; }
+
+        // 新增:管道伸缩相关
+        public string PipeType { get; set; }            // null=非管道, "Straight"/"Elbow"/"ZShape"/"TShape"
+        public bool CanScaleHorizontal { get; set; }    // 是否为横管(0°/180°),只有横管才缩长度
+        public double OriginalRegionWidth { get; set; } // 记录时区域的原始宽度(基准)
+
+        // 各类管道的原始长度参数(只用得到的会赋值)
+        public double OriginalPipeLength { get; set; }          // Straight: PipeLength
+        public double OriginalHorizontalLength { get; set; }    // Elbow: HorizontalLength
+        public double OriginalTopHorizontalLength { get; set; } // Z: TopHorizontalLength
+        public double OriginalBottomHorizontalLength { get; set; } // Z: BottomHorizontalLength
+        public double OriginalMainPipeLength { get; set; }      // T: MainPipeLength
     }
 
     #endregion

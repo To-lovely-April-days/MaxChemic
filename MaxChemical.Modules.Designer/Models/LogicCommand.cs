@@ -190,6 +190,10 @@ namespace MaxChemical.Modules.Designer.Models
         public string Description { get; set; } = "等待指定时间";
 
         public bool IsWarning { get; set; } = false;
+        // ★ 新增：等待设备稳定
+        public bool WaitForStability { get; set; } = false;
+        public List<string> StabilityDeviceIds { get; set; } = new List<string>();
+        public double StabilityTimeoutSeconds { get; set; } = 600.0; // 默认10分钟超时
     }
 
 

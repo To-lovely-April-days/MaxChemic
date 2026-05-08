@@ -412,6 +412,48 @@
                                 <ComboBoxItem Content="小时" Tag="Hours"/>
                             </ComboBox>
                         </Grid>
+                        <!-- ★ 新增：等待稳定选项 -->
+                        <Border Margin="0,12,0,0" Padding="10,8"
+        Background="#F0F7FF" BorderBrush="#BBDEFB" BorderThickness="1" CornerRadius="6">
+                            <StackPanel>
+                                <CheckBox x:Name="WaitForStabilityCheckBox"
+                  Style="{StaticResource FieldCheckBoxStyle}"
+                  Content="等待设备稳定后再开始计时"
+                  IsChecked="{Binding LogicCommand.Properties[WaitForStability], UpdateSourceTrigger=PropertyChanged}"
+                  Checked="WaitForStability_Changed" Unchecked="WaitForStability_Changed"/>
+                                <TextBlock Text="勾选后，节点会先等待选定设备进入稳定状态，再开始倒计时"
+                   FontSize="10" Foreground="#1565C0" Margin="24,4,0,8"
+                   TextWrapping="Wrap"/>
+
+                                <!-- 设备多选区 -->
+                                <StackPanel x:Name="StabilityDevicesPanel" Margin="24,0,0,0" Visibility="Collapsed">
+                                    <TextBlock Text="参与稳定的设备" Style="{StaticResource FieldLabelStyle}" Margin="0,4,0,5"/>
+                                    <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" 
+                    Background="White" Padding="8" MinHeight="60">
+                                        <ItemsControl x:Name="StabilityDevicesList">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource FieldCheckBoxStyle}"
+                                      Content="{Binding DisplayName}"
+                                      IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                      Checked="StabilityDevice_Changed" 
+                                      Unchecked="StabilityDevice_Changed"
+                                      Margin="0,2"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+
+                                    <TextBlock Text="稳定超时（秒）" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,5"/>
+                                    <TextBox x:Name="StabilityTimeoutTextBox"
+                     Style="{StaticResource FieldInputStyle}"
+                     Text="{Binding LogicCommand.Properties[StabilityTimeoutSeconds], UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="OnValueChanged"/>
+                                    <TextBlock Text="超过此时间仍未全部稳定将报错" 
+                       FontSize="10" Foreground="#9E9E9E" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
