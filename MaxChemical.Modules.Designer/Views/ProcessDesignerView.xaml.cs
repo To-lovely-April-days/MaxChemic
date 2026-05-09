@@ -3534,6 +3534,30 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleMicroreactorTemperatureState(reactorControl, e);
                     }
+                    // 新增：换热器温度，压力更新
+                    var heatControl = FindVisualChild<HeatExchangerControl>(deviceElement);
+                    if (heatControl != null)
+                    {
+                        switch (e.StateName)
+                        {
+                            case "TemperatureValue":
+                                if (e.StateValue is double t)
+                                {
+                                    heatControl.Temperature = Math.Round(t, 1);
+                                    Debug.WriteLine($" 温度已更新: {t}℃");
+                                }
+                                break;
+                            case "PressureValue":
+                                if (e.StateValue is double p)
+                                {
+                                    heatControl.Pressure = Math.Round(p, 1);
+                                    Debug.WriteLine($" 压力已更新: {p}Mpa");
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                     //// 新增：处理管式反应器状态
                     //var tubularReactorControl = FindVisualChild<TubularReactorControl>(deviceElement);
                     //if (tubularReactorControl != null)

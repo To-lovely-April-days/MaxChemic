@@ -2781,10 +2781,8 @@ namespace FlowMeter_ModbusTCP
 
                     if (IsSimulationMode)
                     {
-                        lock (_stateLock)
-                        {
-                            flowValue = _currentFlow;
-                        }
+                        Random random = new Random();
+                        flowValue = random.NextDouble() + 10;
                     }
                     else if (ConnectionManager != null && DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp)
                     {

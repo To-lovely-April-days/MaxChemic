@@ -31,6 +31,11 @@ namespace HeatExchanger_ModbusTCP
         // ═══════════════════════════════════════════════════════
         private const string UnitPressure = "MPa";
         private const string UnitTemperature = "℃";
+
+
+        private Task _dataPollingTask;
+        private CancellationTokenSource _dataPollingCts;
+
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates
@@ -133,6 +138,9 @@ namespace HeatExchanger_ModbusTCP
                     _deviceData.Clear();
                 }
 
+                // 启动温度压力数据轮询
+                await StartPollingAsync();
+
                 InfoLog("ModbusTCP换热器设备已准备好执行流程");
                 return true;
             }
@@ -148,6 +156,7 @@ namespace HeatExchanger_ModbusTCP
             try
             {
                 InfoLog($"ModbusTCP换热器设备流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
+                await StopPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP换热器设备流程完成处理结束");
                 return true;
@@ -164,6 +173,7 @@ namespace HeatExchanger_ModbusTCP
             try
             {
                 ErrorLog($"ModbusTCP换热器设备流程失败: {context.FlowName}, 错误: {context.ErrorMessage}");
+                await StopPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("ModbusTCP换热器设备流程失败处理完成");
                 return true;
@@ -239,21 +249,7 @@ namespace HeatExchanger_ModbusTCP
 
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
-                        {
-                            // 并行读取换热器数据
-                            var pt0113Task = ConnectionManager.ReadAsync<double>(ComId, "PT0113_Mpa");
-                            var tt0113Task = ConnectionManager.ReadAsync<double>(ComId, "TT0113_℃");
-
-                            await Task.WhenAll(pt0113Task, tt0113Task);
-
-                            pt0113 = await pt0113Task;
-                            tt0113 = await tt0113Task;
-
-                            InfoLog($"读取 {deviceId} 换热器数据: 出口压力PT0113={pt0113}MPa, 出口温度TT0113={tt0113}℃");
-                            success = true;
-                        }
-                        else if (IsSimulationMode)
+                        if (IsSimulationMode)
                         {
                             // 模拟换热器数据
                             pt0113 = 0.1 + new Random().NextDouble() * 5; // 0.1-5.1 MPa
@@ -267,6 +263,20 @@ namespace HeatExchanger_ModbusTCP
 
                             success = true;
                             InfoLog($"模拟模式读取 {deviceId} 换热器数据: 出口压力PT0113={pt0113:F3}MPa, 出口温度TT0113={tt0113:F2}℃");
+                        }
+                        else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            // 并行读取换热器数据
+                            var pt0113Task = ConnectionManager.ReadAsync<double>(ComId, "PT0113_Mpa");
+                            var tt0113Task = ConnectionManager.ReadAsync<double>(ComId, "TT0113_℃");
+
+                            await Task.WhenAll(pt0113Task, tt0113Task);
+
+                            pt0113 = await pt0113Task;
+                            tt0113 = await tt0113Task;
+
+                            InfoLog($"读取 {deviceId} 换热器数据: 出口压力PT0113={pt0113}MPa, 出口温度TT0113={tt0113}℃");
+                            success = true;
                         }
                         else
                         {
@@ -473,5 +483,127 @@ namespace HeatExchanger_ModbusTCP
                 }
             };
         }
+
+        #region 换热器数据轮询
+
+        private async Task StartPollingAsync()
+        {
+            InfoLog("换热器数据轮询启动");
+            try
+            {
+                if (_dataPollingTask != null && !_dataPollingTask.IsCompleted)
+                {
+                    InfoLog("换热器数据轮询任务已存在，先停止");
+                    await StopPollingAsync();
+                }
+
+                _dataPollingCts = new CancellationTokenSource();
+                _dataPollingTask = Task.Run(async () => { await DataPollingAsync(_dataPollingCts.Token); }, _dataPollingCts.Token);
+                InfoLog("换热器数据轮询已启动");
+            }
+            catch (Exception e)
+            {
+                ErrorLog("换热器数据轮询启动失败", e);
+            }
+        }
+
+        private async Task StopPollingAsync()
+        {
+            InfoLog("换热器数据轮询停止");
+            try
+            {
+                if (_dataPollingCts != null)
+                {
+                    _dataPollingCts.Cancel();
+                    if (_dataPollingTask != null)
+                    {
+                        try
+                        {
+                            await _dataPollingTask.WaitAsync(TimeSpan.FromSeconds(2));
+                        }
+                        catch (Exception)
+                        {
+
+                        }
+                    }
+                    _dataPollingCts.Dispose();
+                    _dataPollingCts = null;
+                    _dataPollingTask = null;
+                    InfoLog("换热器数据轮询已停止");
+                }
+            }
+            catch (Exception e)
+            {
+                ErrorLog("换热器数据轮询停止失败", e);
+            }
+        }
+
+        private async Task DataPollingAsync(CancellationToken token)
+        {
+            InfoLog("换热器数据轮询任务已启动");
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    string deviceId = Parameters.GetValue<string>("DeviceId");
+                    double temperature = 0;
+                    double pressure = 0;
+
+                    if (IsSimulationMode)
+                    {
+                        pressure = 0.1 + new Random().NextDouble() * 5; // 0.1-5.1 MPa
+                        temperature = 20 + new Random().NextDouble() * 200;  // 20-220℃
+                    }
+                    else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                    {
+                        var tTask = ConnectionManager.ReadAsync<double>(ComId, "TT0113_℃");
+                        var pTask = ConnectionManager.ReadAsync<double>(ComId, "PT0113_Mpa");
+                        await Task.WhenAll(tTask, pTask);
+                        temperature = await tTask;
+                        pressure = await pTask;
+                    }
+                    else
+                    {
+
+                    }
+
+                    bool changed;
+                    lock (_stateLock)
+                    {
+                        _deviceData[$"{deviceId}_TT0113"] = temperature;
+                        _deviceData[$"{deviceId}_PT0113"] = pressure;
+                        changed = true;
+                    }
+                    // 更新UI显示
+                    if (changed)
+                    {
+                        OnStateChanged("TemperatureValue", temperature);
+                        OnStateChanged("PressureValue", pressure);
+                    }
+                    // 等待执行
+                    await Task.Delay(1000, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    InfoLog("换热器数据轮询任务已取消");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    ErrorLog("换热器数据轮询任务失败", e);
+                    try
+                    {
+                        await Task.Delay(1000, token);
+                    }
+                    catch (Exception)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }
