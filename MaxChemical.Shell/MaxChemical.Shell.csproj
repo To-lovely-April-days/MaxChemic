@@ -97,10 +97,17 @@
 	  <None Remove="Resources\Icon\delete.png" />
 	  <None Remove="Resources\Icon\device.png" />
 	  <None Remove="Resources\Icon\DeviceLibrary.png" />
+	  <None Remove="Resources\Icon\ElectronicScales.png" />
 	  <None Remove="Resources\Icon\Exportexperimentaldata.png" />
+	  <None Remove="Resources\Icon\Filter.png" />
+	  <None Remove="Resources\Icon\Flowmeter.png" />
+	  <None Remove="Resources\Icon\HeatExchanger.png" />
 	  <None Remove="Resources\Icon\Historicalrecords.png" />
 	  <None Remove="Resources\Icon\info.png" />
+	  <None Remove="Resources\Icon\InlineDetection.png" />
 	  <None Remove="Resources\Icon\Language.png" />
+	  <None Remove="Resources\Icon\LevelGauge.png" />
+	  <None Remove="Resources\Icon\LiquidAccumulator.png" />
 	  <None Remove="Resources\Icon\logo.png" />
 	  <None Remove="Resources\Icon\maximize.png" />
 	  <None Remove="Resources\Icon\Menu.png" />
@@ -112,15 +119,19 @@
 	  <None Remove="Resources\Icon\partition.png" />
 	  <None Remove="Resources\Icon\play.png" />
 	  <None Remove="Resources\Icon\play_disabled.png" />
+	  <None Remove="Resources\Icon\PressureGauge.png" />
+	  <None Remove="Resources\Icon\PulicWorker.png" />
 	  <None Remove="Resources\Icon\Pumps.png" />
 	  <None Remove="Resources\Icon\Reactors.png" />
 	  <None Remove="Resources\Icon\redo.png" />
 	  <None Remove="Resources\Icon\reduce.png" />
 	  <None Remove="Resources\Icon\saveas.png" />
 	  <None Remove="Resources\Icon\savefile.png" />
+	  <None Remove="Resources\Icon\Sensors.png" />
 	  <None Remove="Resources\Icon\setting.png" />
 	  <None Remove="Resources\Icon\stop.png" />
 	  <None Remove="Resources\Icon\user.png" />
+	  <None Remove="Resources\Icon\Valves.png" />
 	  <None Remove="Resources\Icon\zoom.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
@@ -293,7 +304,19 @@
 	  <EmbeddedResource Include="Resources\Icon\DeviceLibrary.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\ElectronicScales.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\Exportexperimentaldata.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Filter.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Flowmeter.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\HeatExchanger.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\Historicalrecords.png">
@@ -302,7 +325,16 @@
 	  <EmbeddedResource Include="Resources\Icon\info.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\InlineDetection.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\Language.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\LevelGauge.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\LiquidAccumulator.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\maximize.png">
@@ -338,6 +370,12 @@
 	  <EmbeddedResource Include="Resources\Icon\play_disabled.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\PressureGauge.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\PublicWorks.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\Pumps.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -356,6 +394,9 @@
 	  <EmbeddedResource Include="Resources\Icon\savefile.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Sensors.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\setting.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -366,6 +407,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\undo.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Valves.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\zoom.png">
