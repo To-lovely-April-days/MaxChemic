@@ -183,28 +183,28 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="当前" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock Name="TbCurrentLabel" Text="当前" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupCurrentValue"
                                           Text="--"
                                           Style="{StaticResource PopupValueStyle}"
                                           Margin="0,2,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="最大" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock Name="TbMaxLabel" Text="最大" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupMaxValue"
                                           Text="--"
                                           Style="{StaticResource PopupValueStyle}"
                                           Margin="0,2,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="最小" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock Name="TbMinLabel" Text="最小" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupMinValue"
                                           Text="--"
                                           Style="{StaticResource PopupValueStyle}"
                                           Margin="0,2,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="3">
-                                <TextBlock Text="平均" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock Name="TbAvgLabel" Text="平均" Style="{StaticResource PopupSubtitleStyle}"/>
                                 <TextBlock x:Name="PopupAvgValue"
                                           Text="--"
                                           Style="{StaticResource PopupValueStyle}"
@@ -219,6 +219,9 @@
                             Background="#FFFFFF"
                             Margin="6"
                             SizeChanged="ChartCanvas_SizeChanged"/>
+                    
+                    <!-- 无数据提示文本 -->
+                    <TextBlock Name="TbNoneDataLabel" Grid.Row="2" Text="暂无足够数据" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Grid>
             </Border>
         </Popup>

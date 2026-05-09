@@ -1017,5 +1017,11 @@
   "Doe_Guide_StatusMsg_VaildFail":"校验失败：{0}",
   "Doe_Guide_StatusMsg_SavePlan":"正在保存 DOE 方案",
   "Doe_Guide_StatusMsg_AlreadySave":"DOE 方案已保存：{0}",
-  "Doe_Guide_StatusMsg_ForecastModel":"正在初始化 GPR 预测模型"
+  "Doe_Guide_StatusMsg_ForecastModel":"正在初始化 GPR 预测模型",
+
+  "ParamMonitorCard_Current":"当前",
+  "ParamMonitorCard_Max":"最大",
+  "ParamMonitorCard_Min":"最小",
+  "ParamMonitorCard_Avg":"平均",
+  "ParamMonitorCard_NoneEnough":"暂无足够数据"
 }

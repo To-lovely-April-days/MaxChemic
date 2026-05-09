@@ -1030,5 +1030,11 @@
 "Doe_Guide_StatusMsg_VaildFail": "Validation failed: {0}",
 "Doe_Guide_StatusMsg_SavePlan": "Saving DOE plan...",
 "Doe_Guide_StatusMsg_AlreadySave": "DOE plan saved: {0}",
-"Doe_Guide_StatusMsg_ForecastModel": "Initializing GPR forecast model"
+"Doe_Guide_StatusMsg_ForecastModel": "Initializing GPR forecast model",
+
+  "ParamMonitorCard_Current":"Currently",
+  "ParamMonitorCard_Max":"Maximum",
+  "ParamMonitorCard_Min":"Minimum",
+  "ParamMonitorCard_Avg":"Average",
+  "ParamMonitorCard_NoneEnough":"There is not enough data available"
 }

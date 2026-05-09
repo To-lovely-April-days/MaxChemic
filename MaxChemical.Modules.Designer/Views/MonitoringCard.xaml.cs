@@ -11,6 +11,8 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using DevicePlugins.Devices;
+using MaxChemical.Infrastructure.Services;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -271,6 +273,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void ShowParameterPopup(MonitorParameter parameter)
         {
             PopupTitleText.Text = $"{DeviceName} - {parameter.Name}";
+            UpdatePopupLacalizationTxt();
             UpdatePopupForParameter(parameter);
 
             // ★ 用 Background 优先级而不是 Input
@@ -300,6 +303,22 @@ namespace MaxChemical.Modules.Designer.Views
                 PopupMinValue.Text = "--";
                 PopupAvgValue.Text = "--";
                 ChartCanvas.Children.Clear();
+            }
+        }
+
+        /// <summary>
+        /// 更新弹出窗口标签的本地化文本
+        /// </summary>
+        private void UpdatePopupLacalizationTxt()
+        {
+            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
+            if (service != null)
+            {
+                TbCurrentLabel.Text = service.GetString("ParamMonitorCard_Current", "当前");
+                TbMaxLabel.Text = service.GetString("ParamMonitorCard_Max", "最大");
+                TbMinLabel.Text = service.GetString("ParamMonitorCard_Min", "最小");
+                TbAvgLabel.Text = service.GetString("ParamMonitorCard_Avg", "平均");
+                TbNoneDataLabel.Text = service.GetString("ParamMonitorCard_NoneEnough", "暂无足够数据");
             }
         }
 
@@ -344,18 +363,23 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (data == null || data.Count < 2)
                 {
-                    var tb = new TextBlock
-                    {
-                        Text = "暂无足够数据",
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Color.FromRgb(153, 153, 153)),
-                        FontWeight = FontWeights.Normal
-                    };
-                    Canvas.SetLeft(tb, (canvas.ActualWidth - 80) / 2);
-                    Canvas.SetTop(tb, (canvas.ActualHeight - 20) / 2);
-                    canvas.Children.Add(tb);
+                    //var tb = new TextBlock
+                    //{
+                    //    Text = "暂无足够数据",
+                    //    FontSize = 11,
+                    //    Foreground = new SolidColorBrush(Color.FromRgb(153, 153, 153)),
+                    //    FontWeight = FontWeights.Normal
+                    //};
+                    //Canvas.SetLeft(tb, (canvas.ActualWidth - 80) / 2);
+                    //Canvas.SetTop(tb, (canvas.ActualHeight - 20) / 2);
+                    //canvas.Children.Add(tb);
+
+                    //隐藏无数据提示文本
+                    TbNoneDataLabel.Visibility = Visibility.Visible;
                     return;
                 }
+                //隐藏无数据提示文本
+                TbNoneDataLabel.Visibility = Visibility.Collapsed;
 
                 double width = canvas.ActualWidth;
                 double height = canvas.ActualHeight;
