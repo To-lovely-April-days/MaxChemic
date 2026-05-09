@@ -28,10 +28,7 @@ namespace PeristalticPumps_ModbusTCP
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
 
-        private double _temperature;
-        private double _flow;
-        private double _pressure;
-        private readonly object _dataLock = new object();
+        // 泵速轮询任务和任务取消令牌
         private Task _dataPollingTask;
         private CancellationTokenSource _dataPollingCts;
 
@@ -457,26 +454,26 @@ namespace PeristalticPumps_ModbusTCP
 
         #endregion
 
-        #region 出口数据轮询
+        #region 泵速轮询
 
         private async Task StartDataPollingAsync()
         {
             try
             {
-                InfoLog("启动出口数据轮询");
+                InfoLog("启动泵速轮询");
                 if (_dataPollingTask != null && !_dataPollingTask.IsCompleted)
                 {
-                    InfoLog("已存在出口数据轮询任务，先停止");
+                    InfoLog("已存在泵速轮询任务，先停止");
                     await StopDataPollingAsync();
                 }
 
                 _dataPollingCts = new CancellationTokenSource();
                 _dataPollingTask = Task.Run(async () => { await DataPollingAsync(_dataPollingCts.Token); }, _dataPollingCts.Token);
-                InfoLog("出口数据轮询已启动");
+                InfoLog("泵速轮询已启动");
             }
             catch (Exception e)
             {
-                ErrorLog("出口数据轮询启动失败", e);
+                ErrorLog("泵速轮询启动失败", e);
             }
         }
 
@@ -486,7 +483,8 @@ namespace PeristalticPumps_ModbusTCP
             {
                 if (_dataPollingCts != null)
                 {
-                    InfoLog("正在停止出口数据轮询");
+                    InfoLog("正在停止泵速轮询");
+                    _dataPollingCts.Cancel();
                     if (_dataPollingTask != null)
                     {
                         try
@@ -501,61 +499,64 @@ namespace PeristalticPumps_ModbusTCP
                     _dataPollingCts.Dispose();
                     _dataPollingCts = null;
                     _dataPollingTask = null;
-                    InfoLog("出口数据轮询已停止");
+                    InfoLog("泵速轮询已停止");
                 }
             }
             catch (Exception e)
             {
-                ErrorLog("出口数据轮询停止失败", e);
+                ErrorLog("泵速轮询停止失败", e);
             }
         }
 
         private async Task DataPollingAsync(CancellationToken token)
         {
-            InfoLog("出口数据轮询任务已启动");
+            InfoLog("泵速轮询任务已启动");
             while (!token.IsCancellationRequested)
             {
                 try
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
-                    double temperature = 0;
-                    double flow = 0;
-                    double pressure = 0;
+                    double speed = 0;
 
                     if (IsSimulationMode)
                     {
-                        pressure = 0.1 + new Random().NextDouble() * 0.5; // 模拟0.1-0.6MPa
-                        flow = _currentSpeed * 0.085; // 简单的转速-流量转换
-                        temperature = 20 + new Random().NextDouble() * 60; // 模拟20-80℃
+                        speed = 20 + new Random().NextDouble() * 60; // 模拟20-80
                     }
                     else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                     {
-                        temperature = await ConnectionManager.ReadAsync<double>(ComId, "P0101出口温度");
-                        flow = await ConnectionManager.ReadAsync<double>(ComId, "P0101出口流量");
-                        temperature = await ConnectionManager.ReadAsync<double>(ComId, "P0101出口压力");
+                        speed = await ConnectionManager.ReadAsync<double>(ComId, "P0101泵速");
                     }
                     else
                     {
                         return;
                     }
-
-                    lock (_dataLock)
+                    // 数据是否发生变化
+                    bool changed = false;
+                    lock (_stateLock)
                     {
-                        _temperature = temperature;
-                        _flow = flow;
-                        _pressure = pressure;
+                        if (_currentSpeed != speed)
+                        {
+                            _currentSpeed = speed;
+                            changed = true;
+                        }
                     }
 
+                    // 更新UI显示
+                    if (changed)
+                    {
+                        RaiseControlStateChanged("PumpSpeed", (int)speed);
+                    }
+                    // 等待间隔
                     await Task.Delay(1000, token);
                 }
                 catch (OperationCanceledException)
                 {
-                    InfoLog("出口数据轮询任务已取消");
+                    InfoLog("泵速轮询任务已取消");
                     break;
                 }
                 catch (Exception e)
                 {
-                    ErrorLog("出口数据轮询失败", e);
+                    ErrorLog("泵速轮询任务失败", e);
                     try
                     {
                         await Task.Delay(1000, token);
@@ -639,10 +640,7 @@ namespace PeristalticPumps_ModbusTCP
                 {
                     ["IsRunning"] = _isRunning,
                     ["PumpSpeed"] = _currentSpeed,
-                    ["ComId"] = this.ComId,
-                    ["Temperature"] = _temperature,
-                    ["Flow"] = _flow,
-                    ["Pressure"] = _pressure
+                    ["ComId"] = this.ComId
                 }
             };
         }
@@ -1025,7 +1023,7 @@ namespace PeristalticPumps_ModbusTCP
 
                     try
                     {
-                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null && !IsSimulationMode)
                         {
                             pumpSpeed = await ConnectionManager.ReadAsync<double>(ComId, "P0101泵速");
                             InfoLog($"从ModbusTCP地址40001获取泵速: {pumpSpeed} RPM");
