@@ -2368,7 +2368,7 @@ namespace FlowMeter_ModbusTCP
             try
             {
                 InfoLog($"密度修正ModbusTCP流量计流程完成: {context.FlowName}, 成功: {context.IsSuccessful}");
-                StopAutoControl();
+                //StopAutoControl();
                 await StopCurrentFlowPollingAsync();
                 await StopAllActiveStatesAsync();
                 InfoLog("密度修正ModbusTCP流量计流程完成处理结束");
