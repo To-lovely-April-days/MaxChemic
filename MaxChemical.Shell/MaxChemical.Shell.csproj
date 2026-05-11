@@ -150,10 +150,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Content Include="Resources\Icon\app.ico" />
-	</ItemGroup>
-
-	<ItemGroup>
 	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessIF.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
