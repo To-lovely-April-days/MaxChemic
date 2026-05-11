@@ -1,14 +1,17 @@
-﻿using System;
+﻿using MaxChemical.Infrastructure.Services;
+using System;
 using System.Globalization;
 using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using Prism.Ioc;
 
 namespace MaxChemical.Modules.Designer.Views
 {
     public partial class ConditionMetDialog : Window
     {
+        private readonly ILocalizationService _localization; // 本地化服务
         private readonly CancellationTokenSource _cancellationTokenSource;
         private bool _isContinue = false;
         private bool _isStopped = false;
@@ -35,10 +38,15 @@ namespace MaxChemical.Modules.Designer.Views
             double? currentValue, double? thresholdValue, string parameterName)
         {
             InitializeComponent();
+            // 
+            _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
+            ContinueButton.Content = _localization.GetString("Condition_ContinueBtn_Exec", "继续执行");
+            StopButton.Content = _localization.GetString("Condition_StopBtn","停止流程");
+
             _cancellationTokenSource = new CancellationTokenSource();
 
             ConditionText.Text = conditionExpression;
-            ExecutionModeText.Text = isAsyncMode ? "异步执行模式" : "同步执行模式";
+            ExecutionModeText.Text = isAsyncMode ? _localization.GetString("Condition_SyncMode_Async", "异步执行模式") : _localization.GetString("Condition_SyncMode_Sync", "同步执行模式");
             HelpText.Text = "• 继续：流程将继续执行下一步骤\n• 停止：终止整个流程的执行";
 
             if (isWarning)
@@ -66,16 +74,16 @@ namespace MaxChemical.Modules.Designer.Views
             ConditionCard.Background = new SolidColorBrush(Color.FromRgb(255, 248, 240));
             ConditionCard.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 224, 178));
             ContinueButton.Background = warningColor;
-            ContinueButton.Content = "确认继续";
+            ContinueButton.Content = _localization.GetString("Condition_ContinueBtn_Confirm", "确认继续");
 
             var (unit, gaugeMin, gaugeMax) = GuessParameterRange(parameterName, currentValue, thresholdValue);
             double cv = currentValue ?? 0;
             double tv = thresholdValue ?? gaugeMax * 0.6;
 
             string displayName = ExtractDisplayName(parameterName);
-            TitleText.Text = $"{displayName} 超出阈值";
+            TitleText.Text = string.Format(_localization.GetString("Condition_Title_Than", "{0} 超出阈值"),displayName);
             double exceeded = Math.Abs(cv - tv);
-            ExecutionModeText.Text = $"阈值 {tv:G5}{unit} · 超出 {exceeded:G4}{unit}";
+            ExecutionModeText.Text = string.Format(_localization.GetString("Condition_SyncMode_Than", "阈值 {0:G5}{1} · 超出 {2:G4}{3}"), tv, unit, exceeded, unit);
 
             GaugeCenterValue.Text = FormatValue(cv);
             GaugeCenterValue.Foreground = warningColor;
@@ -105,7 +113,7 @@ namespace MaxChemical.Modules.Designer.Views
             var successColor = new SolidColorBrush(Color.FromRgb(46, 125, 50));
             GaugeValueArc.Stroke = new SolidColorBrush(Color.FromRgb(76, 175, 80));
 
-            TitleText.Text = "条件已满足";
+            TitleText.Text = _localization.GetString("Condition_Title_Satisfy", "条件已满足");
             TitleText.Foreground = successColor;
             ConditionText.Foreground = successColor;
             ConditionCard.Background = new SolidColorBrush(Color.FromRgb(241, 248, 233));
@@ -115,7 +123,7 @@ namespace MaxChemical.Modules.Designer.Views
             GaugeCenterValue.Text = "PASS";
             GaugeCenterValue.FontSize = 22;
             GaugeCenterValue.Foreground = successColor;
-            GaugeCenterUnit.Text = "条件已满足";
+            GaugeCenterUnit.Text = _localization.GetString("Condition_Title_Satisfy", "条件已满足");
 
             GaugeMinLabel.Visibility = Visibility.Collapsed;
             GaugeMaxLabel.Visibility = Visibility.Collapsed;

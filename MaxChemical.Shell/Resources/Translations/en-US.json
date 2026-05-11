@@ -1036,5 +1036,21 @@
   "ParamMonitorCard_Max":"Maximum",
   "ParamMonitorCard_Min":"Minimum",
   "ParamMonitorCard_Avg":"Average",
-  "ParamMonitorCard_NoneEnough":"There is not enough data available"
+  "ParamMonitorCard_NoneEnough":"There is not enough data available",
+
+  "Countdown_Stop":"Stop the process",
+  "Countdown_Skip":"Skip the waiting",
+  "Countdown_Fixed":"Fixed-time waiting",
+  "Countdown_WaitInfo_Waiting":"Have been waiting for {0} / Total {1}",
+  "Countdown_Status_RemainS":"Remaining {0} seconds",
+  "Countdown_Status_RemainM":"Remaining {0} points {1} seconds",
+  
+  "Condition_Title_Than":"{0} Exceeds the threshold",
+  "Condition_Title_Satisfy":"The conditions have been met",
+  "Condition_SyncMode_Async":"Asynchronous execution mode",
+  "Condition_SyncMode_Sync":"Synchronous execution mode",
+  "Condition_SyncMode_Than":"Threshold {0:G5}{1} · Exceeds {2:G4}{3}",
+  "Condition_ContinueBtn_Confirm":"Confirm to proceed",
+  "Condition_ContinueBtn_Exec":"Continue to execute",
+  "Condition_StopBtn":"Stop the process"
 }

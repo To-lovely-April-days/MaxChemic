@@ -4,7 +4,8 @@
 // 改动：用 Ellipse StrokeDashArray/Offset 实现圆环进度
 // 新增：拖动支持
 // ============================================================
-
+using MaxChemical.Infrastructure.Services;
+using Prism.Ioc;
 using System;
 using System.Windows;
 using System.Windows.Input;
@@ -14,6 +15,7 @@ namespace MaxChemical.Modules.Designer.Views
 {
     public partial class CountdownDialog : Window
     {
+        private readonly ILocalizationService _localization;
         private readonly TimeSpan _totalTime;
         private TimeSpan _remainingTime;
         private readonly DispatcherTimer _timer;
@@ -29,6 +31,12 @@ namespace MaxChemical.Modules.Designer.Views
         public CountdownDialog(TimeSpan waitTime, string waitInfo = null)
         {
             InitializeComponent();
+
+            _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
+
+            SkipButton.Content = _localization.GetString("Countdown_Skip", "跳过等待");
+            StopButton.Content = _localization.GetString("Countdown_Stop", "停止流程");
+            TbFixedLabel.Text = _localization.GetString("Countdown_Fixed", "固定时间等待");
 
             _totalTime = waitTime;
             _remainingTime = waitTime;
@@ -109,7 +117,7 @@ namespace MaxChemical.Modules.Designer.Views
             var elapsed = _totalTime - _remainingTime;
             string totalStr = FormatTime(_totalTime);
             string elapsedStr = FormatTime(elapsed);
-            WaitInfoText.Text = $"已等待 {elapsedStr} / 共 {totalStr}";
+            WaitInfoText.Text = string.Format(_localization.GetString("Countdown_WaitInfo_Waiting", "已等待 {0} / 共 {1}"), elapsedStr, totalStr);
 
             // 状态文本
             var totalSeconds = (int)_remainingTime.TotalSeconds;
@@ -117,11 +125,11 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 var minutes = totalSeconds / 60;
                 var seconds = totalSeconds % 60;
-                StatusText.Text = $"剩余 {minutes} 分 {seconds} 秒";
+                StatusText.Text = string.Format(_localization.GetString("Countdown_Status_RemainM", "剩余 {0} 分 {1} 秒"), minutes, seconds);
             }
             else
             {
-                StatusText.Text = $"剩余 {totalSeconds} 秒";
+                StatusText.Text = string.Format(_localization.GetString("Countdown_Status_RemainS", "剩余 {0} 秒"), totalSeconds);
             }
         }
 

@@ -79,7 +79,7 @@
                 </Grid>
 
                 <!-- 标题 -->
-                <TextBlock Text="固定时间等待"
+                <TextBlock Name="TbFixedLabel" Text="固定时间等待"
                            FontSize="14" FontWeight="Medium" Foreground="#212121"
                            HorizontalAlignment="Center" Margin="0,0,0,3"/>
 

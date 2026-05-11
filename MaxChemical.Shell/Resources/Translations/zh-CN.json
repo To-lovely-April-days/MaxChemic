@@ -1023,5 +1023,21 @@
   "ParamMonitorCard_Max":"最大",
   "ParamMonitorCard_Min":"最小",
   "ParamMonitorCard_Avg":"平均",
-  "ParamMonitorCard_NoneEnough":"暂无足够数据"
+  "ParamMonitorCard_NoneEnough":"暂无足够数据",
+
+  "Countdown_Stop":"停止流程",
+  "Countdown_Skip":"跳过等待",
+  "Countdown_Fixed":"固定时间等待",
+  "Countdown_WaitInfo_Waiting":"已等待 {0} / 共 {1}",
+  "Countdown_Status_RemainS":"剩余 {0} 秒",
+  "Countdown_Status_RemainM":"剩余 {0} 分 {1} 秒",
+
+  "Condition_Title_Than":"{0} 超出阈值",
+  "Condition_Title_Satisfy":"条件已满足",
+  "Condition_SyncMode_Async":"异步执行模式",
+  "Condition_SyncMode_Sync":"同步执行模式",
+  "Condition_SyncMode_Than":"阈值 {0:G5}{1} · 超出{2:G4}{3}",
+  "Condition_ContinueBtn_Confirm":"确认继续",
+  "Condition_ContinueBtn_Exec":"继续执行",
+  "Condition_StopBtn":"停止流程"
 }
