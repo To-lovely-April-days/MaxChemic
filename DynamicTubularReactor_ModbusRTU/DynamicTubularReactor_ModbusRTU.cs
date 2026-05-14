@@ -80,12 +80,13 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取搅拌 SV",
+                HelpText = "获取100ml动态管反的搅拌 SV",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("SV", 0 , 1000, 0, "100ml动态管反搅拌 SV", true)
+                        new NumberParameter("SV", 0 , 1000, 0, "100ml动态管反的搅拌 SV", true, "RPM")
                     }
                 },
 
@@ -130,7 +131,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog(e.Message);
+                        ErrorLog($"获取100ml动态官反搅拌 SV 失败：{e.Message}");
                         throw;
                     }
 
@@ -138,7 +139,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new NumberParameter("SV", 0 , 1000, value, "100ml动态管反搅拌 SV", true)
+                            new NumberParameter("SV", 0 , 1000, value, "100ml动态管反的搅拌 SV", true, "RPM")
                         }
                     };
                 })
@@ -155,11 +156,11 @@ namespace DynamicTubularReactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("PV", 0, 100, 0, "搅拌 PV", true)
+                        new NumberParameter("PV", 0, 100, 0, "搅拌 PV", true, "RPM")
                     }
                 },
 
-                Action = WrapAction("获取搅拌速度", async parameter =>
+                Action = WrapAction("获取搅拌 PV", async parameter =>
                 {
                     float speed = 0;
                     try
@@ -202,7 +203,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new NumberParameter("PV", 0 , 1000, speed, "搅拌速度", true)
+                            new NumberParameter("PV", 0 , 1000, speed, "搅拌 PV", true, "RPM")
                         }
                     };
                 })
@@ -218,7 +219,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Temperature", 0, 1000, 0, "反应釜温度", true)
+                        new NumberParameter("Temperature", 0, 1000, 0, "反应釜温度", true, "℃")
                     }
                 },
 
@@ -265,7 +266,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new NumberParameter("Temperature", 0, 1000, temperature, "反应釜温度", true)
+                            new NumberParameter("Temperature", 0, 1000, temperature, "反应釜温度", true, "℃")
                         }
                     };
                 })
@@ -281,7 +282,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Pressure", 0, 1000, 0, "反应釜压力", true)
+                        new NumberParameter("Pressure", 0, 1000, 0, "反应釜压力", true, "Mpa")
                     }
                 },
 
@@ -328,7 +329,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new NumberParameter("Temperature", 0, 1000, pressure, "反应釜压力", true)
+                            new NumberParameter("Temperature", 0, 1000, pressure, "反应釜压力", true, "Mpa")
                         }
                     };
                 })
@@ -338,7 +339,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取搅拌 ON/OFF",
-                HelpText = "获取100ml动态管反 搅拌 ON/OFF",
+                HelpText = "获取100ml动态管反的搅拌 ON/OFF",
 
                 OutputParameters = new DeviceParameters()
                 {
@@ -401,6 +402,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警数据",
+                HelpText = "获取100ml动态管反的报警数据",
 
                 OutputParameters = new DeviceParameters()
                 {
@@ -471,12 +473,13 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警消音状态",
+                HelpText = "获取100ml动态管反报警消音",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new BooleanParameter("Al silence", false, "100ml动态管反消音状态", true)
+                        new BooleanParameter("AlarmSilence", false, "100ml动态管反消音状态", true)
                     }
                 },
 
@@ -523,7 +526,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new BooleanParameter("Al silence", pressure == 0 ? false : true, "100ml动态管反消音状态", true)
+                            new BooleanParameter("AlarmSilence", pressure == 0 ? false : true, "100ml动态管反消音状态", true)
                         }
                     };
                 })
@@ -533,12 +536,13 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警状态",
+                HelpText = "获取100ml动态管反的报警状态",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new BooleanParameter("Alarm status", false, "获取100ml动态管反报警状态(0:无报警，1:有报警)", true)
+                        new BooleanParameter("AlarmStatus", false, "获取100ml动态管反报警状态(0:无报警，1:有报警)", true)
                     }
                 },
 
@@ -585,7 +589,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new BooleanParameter("Alarm status", pressure == 0 ? false : true, "获取100ml动态管反报警状态(0:无报警，1:有报警)", true)
+                            new BooleanParameter("AlarmStatus", pressure == 0 ? false : true, "获取100ml动态管反报警状态(0:无报警，1:有报警)", true)
                         }
                     };
                 })
@@ -596,12 +600,13 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置 SV",
+                HelpText = "设置100ml动态管反的搅拌 SV",
 
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TargetValue",0,1000,0,"PV 设置值",true)
+                        new NumberParameter("TargetValue",0,1000,0,"SV 设置值",true)
                     }
                 },
 
@@ -619,7 +624,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -636,7 +641,7 @@ namespace DynamicTubularReactor_ModbusRTU
                                 ReverseArray(data);
                             }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 10, 0, 0, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = { slaveId, 16, 0, 0, 0, 2, 4, data[0], data[1], data[2], data[3] };
                             frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -653,7 +658,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"SV 设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反的搅拌 SV 设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -663,6 +668,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置 PV",
+                HelpText = "设置100ml动态管反的搅拌 PV",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -686,7 +692,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -703,7 +709,7 @@ namespace DynamicTubularReactor_ModbusRTU
                                 ReverseArray(data);
                             }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 10, 0, 2, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = { slaveId, 16, 0, 2, 0, 2, 4, data[0], data[1], data[2], data[3] };
                             frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -720,7 +726,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"PV 设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反的搅拌 PV 设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -730,12 +736,13 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置釜温",
+                HelpText = "设置100ml动态管反的温度",
 
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TargetValue",0,1000,0,"目标值",true)
+                        new NumberParameter("TargetValue",0,1000,0,"目标温度值",true, "℃")
                     }
                 },
 
@@ -744,7 +751,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     Variables = new ObservableCollection<ParameterBase>()
                     {
                         new BooleanParameter("Success",false,"设置成功",true),
-                        new NumberParameter("SetTemperature",0,1000,0,"釜温设置值",true)
+                        new NumberParameter("SetTemperature",0,1000,0,"釜温设置值",true, "℃")
                     }
                 },
 
@@ -753,7 +760,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -770,7 +777,7 @@ namespace DynamicTubularReactor_ModbusRTU
                                 ReverseArray(data);
                             }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 10, 0, 4, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = { slaveId, 16, 0, 4, 0, 2, 4, data[0], data[1], data[2], data[3] };
                             frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -781,13 +788,13 @@ namespace DynamicTubularReactor_ModbusRTU
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new BooleanParameter("Success",success,"设置成功",true),
-                                new NumberParameter("SetTemperature",0,1000,targetValue,"釜温设置值",true)
+                                new NumberParameter("SetTemperature",0,1000,targetValue,"釜温设置值",true, "℃")
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"釜温设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反的釜温设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -797,12 +804,13 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置压力",
+                HelpText = "设置100ml动态管反的压力",
 
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TargetValue",0,1000,0,"目标值",true)
+                        new NumberParameter("TargetValue",0,1000,0,"目标压力值",true, "Mpa")
                     }
                 },
 
@@ -811,7 +819,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     Variables = new ObservableCollection<ParameterBase>()
                     {
                         new BooleanParameter("Success",false,"设置成功",true),
-                        new NumberParameter("SetPressure",0,1000,0,"压力设置值",true)
+                        new NumberParameter("SetPressure",0,1000,0,"压力设置值",true, "Mpa")
                     }
                 },
 
@@ -820,7 +828,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -837,7 +845,7 @@ namespace DynamicTubularReactor_ModbusRTU
                                 ReverseArray(data);
                             }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 10, 0, 6, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = { slaveId, 16, 0, 6, 0, 2, 4, data[0], data[1], data[2], data[3] };
                             frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -848,13 +856,13 @@ namespace DynamicTubularReactor_ModbusRTU
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new BooleanParameter("Success",success,"设置成功",true),
-                                new NumberParameter("SetPressure",0,1000,targetValue,"压力设置值",true)
+                                new NumberParameter("SetPressure",0,1000,targetValue,"压力设置值",true, "Mpa")
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"压力设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反压力设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -864,6 +872,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置 ON/OFF",
+                HelpText = "设置100ml动态管反 ON/OFF",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -887,8 +896,8 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
+                        byte targetValue = parameter.GetValue<byte>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -898,10 +907,8 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 8, 0, value };
+                            byte[] frame = { slaveId, 6, 0, 8, 0, targetValue };
                             frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -918,7 +925,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"ON/OFF 设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反 ON/OFF 设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -928,6 +935,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置釜温上限报警",
+                HelpText = "设置100ml动态管反的釜温上限报警",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -951,7 +959,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short targetValue = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -982,7 +990,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"釜温上限报警设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反釜温上限报警设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -992,6 +1000,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置压力上限报警",
+                HelpText = "设置100ml动态管反的压力上限报警",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -1015,7 +1024,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short targetValue = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1046,7 +1055,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"压力上限报警设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反压力上限报警设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1056,6 +1065,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置釜温通信故障",
+                HelpText = "设置100ml动态管反釜温通信故障",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -1079,7 +1089,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short targetValue = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1110,7 +1120,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"釜温通信故障设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反釜温通信故障设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1120,6 +1130,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置压力通讯故障",
+                HelpText = "设置100ml动态管反压力通信故障",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -1143,7 +1154,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short targetValue = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1174,7 +1185,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"压力通讯故障设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反压力通讯故障设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1236,6 +1247,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "报警消音",
+                HelpText = "100ml动态管反报警消音",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -1259,7 +1271,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short targetValue = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1290,7 +1302,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"报警消音设置失败：{e.Message}");
+                        ErrorLog($"100ml动态管反报警消音设置失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1300,6 +1312,7 @@ namespace DynamicTubularReactor_ModbusRTU
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置报警状态",
+                HelpText = "设置100ml动态管反报警",
 
                 InputParameters = new DeviceParameters()
                 {
@@ -1323,7 +1336,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short targetValue = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1354,7 +1367,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"设置报警状态失败：{e.Message}");
+                        ErrorLog($"100ml动态管反设置报警状态失败：{e.Message}");
                         throw;
                     }
                 })
