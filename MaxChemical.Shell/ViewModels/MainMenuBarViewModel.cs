@@ -12,6 +12,7 @@ using Prism.Mvvm;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
+using MaxChemical.Modules.GatewayConfig.Services;
 
 namespace MaxChemical.Shell.ViewModels;
 
@@ -23,6 +24,7 @@ public class MainMenuBarViewModel : BindableBase
     private readonly IExperimentDataRepository _experimentRepository;
     private readonly IExcelExportService _excelExportService;
     private readonly ILogService _logger;
+    private readonly IGatewayConfigWindowService _gatewayConfigWindowService;
     private bool _isToolbarVisible = true;
     private bool _isStatusBarVisible = true;
     private bool _isPropertyPanelVisible = true;
@@ -54,13 +56,15 @@ public class MainMenuBarViewModel : BindableBase
     private string _menuAbout = string.Empty;
 
     public MainMenuBarViewModel(IEventAggregator eventAggregator, ILocalizationService localizationService,
-         IExperimentDataRepository experimentRepository, IExcelExportService excelExportService, ILogService logger)
+         IExperimentDataRepository experimentRepository, IExcelExportService excelExportService, ILogService logger,
+         IGatewayConfigWindowService gatewayConfigWindowService)
     {
         _eventAggregator = eventAggregator;
         _localizationService = localizationService;
         _experimentRepository = experimentRepository ?? throw new ArgumentNullException(nameof(experimentRepository));
         _excelExportService = excelExportService ?? throw new ArgumentNullException(nameof(excelExportService));
         _logger=logger.ForContext<MainMenuBarViewModel>();
+        _gatewayConfigWindowService = gatewayConfigWindowService;  //  新增
         InitializeCommands();
         LoadLocalizedStrings();
         LoadRecentFiles();
@@ -290,7 +294,7 @@ public class MainMenuBarViewModel : BindableBase
     public DelegateCommand FeedbackCommand { get; private set; } = null!;
     public DelegateCommand CheckUpdateCommand { get; private set; } = null!;
     public DelegateCommand AboutCommand { get; private set; } = null!;
-
+    public DelegateCommand GatewayConfigCommand { get; private set; } = null!;
     #endregion
 
     private void InitializeCommands()
@@ -344,6 +348,7 @@ public class MainMenuBarViewModel : BindableBase
         FeedbackCommand = new DelegateCommand(ExecuteFeedback);
         CheckUpdateCommand = new DelegateCommand(ExecuteCheckUpdate);
         AboutCommand = new DelegateCommand(ExecuteAbout);
+        GatewayConfigCommand = new DelegateCommand(ExecuteGatewayConfig);
     }
 
     private void LoadLocalizedStrings()
@@ -595,7 +600,21 @@ public class MainMenuBarViewModel : BindableBase
     private void ExecuteFeedback() => MessageBox.Show("反馈建议", _localizationService.GetString("Message_Info"));
     private void ExecuteCheckUpdate() => MessageBox.Show(_localizationService.GetString("Message_CheckUpdate"), _localizationService.GetString("Message_Info"));
     private void ExecuteAbout() => MessageBox.Show(_localizationService.GetString("Message_About"), _localizationService.GetString("Menu_About"));
-
+    private void ExecuteGatewayConfig()
+    {
+        try
+        {
+            // 把 Shell 主窗口作为 Owner 传进去
+            var mainWindow = Application.Current.MainWindow;
+            _gatewayConfigWindowService.ShowGatewayConfig(mainWindow);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "打开网关配置窗口失败");
+            MessageBox.Show($"打开网关配置失败:{ex.Message}", "错误",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
     #endregion
 }
 

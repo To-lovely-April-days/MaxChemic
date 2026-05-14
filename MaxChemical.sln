@@ -61,6 +61,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimulatedProcessDevice", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Modules.DOE.Tests", "MaxChemical.Modules.DOE.Tests\MaxChemical.Modules.DOE.Tests.csproj", "{A8A4CA29-8394-40E5-A23D-BD9B6BB5DFF3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.GatewayConfig.Proxy", "MaxChemical.GatewayConfig.Proxy\MaxChemical.GatewayConfig.Proxy.csproj", "{1E62EDF5-43C0-DE51-84E5-28106B0008DA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Modules.GatewayConfig", "MaxChemical.Modules.GatewayConfig\MaxChemical.Modules.GatewayConfig.csproj", "{170F7791-8FC9-011A-0B59-680180B68642}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -179,6 +183,14 @@ Global
 		{A8A4CA29-8394-40E5-A23D-BD9B6BB5DFF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A8A4CA29-8394-40E5-A23D-BD9B6BB5DFF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A8A4CA29-8394-40E5-A23D-BD9B6BB5DFF3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E62EDF5-43C0-DE51-84E5-28106B0008DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E62EDF5-43C0-DE51-84E5-28106B0008DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E62EDF5-43C0-DE51-84E5-28106B0008DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E62EDF5-43C0-DE51-84E5-28106B0008DA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{170F7791-8FC9-011A-0B59-680180B68642}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{170F7791-8FC9-011A-0B59-680180B68642}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{170F7791-8FC9-011A-0B59-680180B68642}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{170F7791-8FC9-011A-0B59-680180B68642}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

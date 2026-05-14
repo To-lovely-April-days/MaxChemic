@@ -119,6 +119,11 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IFlowParameterProvider, FlowParameterAdapter>();
         // ========== Prism日志服务 ==========
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
+        // 网关配置 — 打开主窗口的服务,必须在 Shell 这层注册
+        // (因为 MainMenuBarViewModel 在 Shell 启动早期就被解析,那时模块还没加载)
+        containerRegistry.RegisterSingleton< MaxChemical.Modules.GatewayConfig.Services.IGatewayConfigWindowService,
+    MaxChemical.Modules.GatewayConfig.Services.GatewayConfigWindowService >
+    ();
 
         // ==========  新增：注册配置服务 ==========
         if (_host != null)
@@ -206,6 +211,7 @@ public partial class App : PrismApplication
             moduleCatalog.AddModule<DeviceModule>();
             moduleCatalog.AddModule<DesignerModule>();
             moduleCatalog.AddModule<DOEModule>();
+            moduleCatalog.AddModule<MaxChemical.Modules.GatewayConfig.GatewayConfigModule>(); // ★ 新增这一行
             _logger?.LogInformation("模块目录配置完成");
         }
         catch (Exception ex)
