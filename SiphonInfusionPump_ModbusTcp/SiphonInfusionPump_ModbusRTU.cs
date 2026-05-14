@@ -42,7 +42,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 RegionType.PostProcess
             };
 
-            Parameters.Variables.Add(new StringParameter("DeviceId", "", "ModbusRTU设备ID")
+            Parameters.Variables.Add(new StringParameter("DeviceId", "SIP0001", "ModbusRTU设备ID")
             {
                 Options = new ObservableCollection<string>() { "SIP0001", "SIP0002", "SIP0003", "SIP0004", "SIP0005" },
             });
