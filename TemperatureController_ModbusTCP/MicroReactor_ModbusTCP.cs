@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -15,16 +14,20 @@ using MaxChemical.Logging;
 namespace MicroReactor_ModbusTCP
 {
     /// <summary>
-    /// 微反应器 (ModbusTCP) - 重构版
+    /// 微反应器 (ModbusTCP) - 经典串级 PID 控制版
     /// 
-    /// 核心架构:
-    /// 1. 单 MasterSlaveTemperatureController 替代原来的 3 个独立 controller
-    /// 2. 主从控制策略: UI 选主控传感器,其他作为监测路
-    /// 3. 工艺偏置起步策略,不再用 98%
-    /// 4. 微调累积上次循环器值,具有积分性质
-    /// 5. 失稳迟滞 + 失控保护 + 安全监测三级报警(收敛性判据)
-    /// 6. 流程结束不停控制器(跨流程持续运行)
-    /// 7. 同一批物料分阶段升温:平滑切换不停循环器
+    /// 控制策略: 工业标准串级 PID
+    /// - 外环 PI(D) + 前馈 + 抗饱和: 控制物料温度,输出循环器目标
+    /// - 内环: 由循环器自带 PID 处理(夹套油温)
+    /// - 加入 Kd 微分项: 提前预判趋势,减少过冲
+    /// - 简单限幅 ±MaxBias,不做动态限幅
+    /// - 让 PID 自由发挥,靠反应釜热惯性过滤夹套振荡
+    /// 
+    /// 调参流程:
+    /// 1. 第一次用保守参数(Kp=0.5, Ki秒=300, Kd秒=30, MaxBias=30)
+    /// 2. 跑实验,贴日志
+    /// 3. 根据日志诊断,每次只改一个参数
+    /// 4. 5~10 次实验后调到工业级表现
     /// </summary>
     [Export(typeof(IDevice))]
     public class MicroReactor_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
@@ -38,7 +41,7 @@ namespace MicroReactor_ModbusTCP
         private const string UnitTemperature = "℃";
         private const string UnitPressure = "MPa";
 
-        private MasterSlaveTemperatureController _activeController;
+        private CascadePidController _activeController;
         private readonly object _controllerLock = new object();
 
         private volatile SystemStabilityStatus _stabilityStatus = new SystemStabilityStatus();
@@ -76,7 +79,7 @@ namespace MicroReactor_ModbusTCP
                 {
                     "R0101", "R0201"
                 }),
-                HelpText = "ModbusTCP微反应器设备ID"
+                HelpText = "ModbusTCP 微反应器设备 ID"
             });
 
             Parameters.Variables.Add(new StringParameter("CirculatorDeviceId", "TC0101")
@@ -85,7 +88,7 @@ namespace MicroReactor_ModbusTCP
                 {
                     "TC0101", "TC0201"
                 }),
-                HelpText = "选择用于温度控制的高低温循环器设备ID"
+                HelpText = "选择用于温度控制的高低温循环器设备 ID"
             });
 
             Parameters.Variables.Add(new StringParameter("MasterSensor", "TT1002")
@@ -94,7 +97,7 @@ namespace MicroReactor_ModbusTCP
                 {
                     "TT1001", "TT1002", "TT1003"
                 }),
-                HelpText = "主控传感器:控制器跟踪此路温度,其他两路作为监测使用"
+                HelpText = "主控传感器: 控制器跟踪此路温度,其他两路作为监测使用"
             });
 
             InitializeCommands();
@@ -128,6 +131,8 @@ namespace MicroReactor_ModbusTCP
                     states["ControlPhase"] = _activeController.CurrentPhase.ToString();
                     states["MasterSensor"] = _activeController.MasterSensor;
                     states["ControlPhaseInfo"] = _activeController.GetCurrentStateInfo();
+                    states["JacketCommand"] = _activeController.LastJacketTarget;
+                    states["IntegralAccum"] = _activeController.IntegralAccum;
                     if (_activeController.CurrentPhase == ControlPhase.Failed)
                     {
                         states["FailureReason"] = _activeController.FailureReason;
@@ -175,7 +180,7 @@ namespace MicroReactor_ModbusTCP
 
         public override async Task<bool> ResumeAllPausedStatesAsync()
         {
-            MasterSlaveTemperatureController controller;
+            CascadePidController controller;
             lock (_controllerLock)
             {
                 controller = _activeController;
@@ -202,7 +207,7 @@ namespace MicroReactor_ModbusTCP
 
         public override async Task<bool> StopAllActiveStatesAsync()
         {
-            MasterSlaveTemperatureController controller;
+            CascadePidController controller;
             lock (_controllerLock)
             {
                 controller = _activeController;
@@ -237,12 +242,8 @@ namespace MicroReactor_ModbusTCP
             try
             {
                 InfoLog($"流程开始: {context.FlowName}");
-
-                _controlLogger.Close();
-                _controlLogger.Initialize(context.FlowName);
-
+                _controlLogger.EnsureInitialized(context.FlowName);
                 StartTemperaturePolling();
-
                 InfoLog("微反应器准备好执行流程,温度轮询已启动");
 
                 lock (_controllerLock)
@@ -272,18 +273,15 @@ namespace MicroReactor_ModbusTCP
                 {
                     if (_activeController != null)
                     {
-                        _controlLogger.LogInfo("流程已结束,温度控制继续后台运行",
-                            $"阶段:{_activeController.CurrentPhase}, 主控:{_activeController.MasterSensor}");
+                        _controlLogger.LogInfo("====== 流程结束,温度控制继续后台运行 ======",
+                            $"阶段:{_activeController.CurrentPhase}\n" +
+                            $"主控:{_activeController.MasterSensor}\n" +
+                            $"日志保持打开,继续记录后台运行");
                     }
-                }
-
-                bool hasRunning;
-                lock (_controllerLock) { hasRunning = _activeController != null; }
-                if (hasRunning)
-                {
-                    _controlLogger.Close();
-                    _controlLogger.Initialize($"{context.FlowName}_BackgroundContinue");
-                    _controlLogger.LogInfo("== 后台运行日志开始 ==", "流程已结束,但温度控制继续");
+                    else
+                    {
+                        _controlLogger.LogInfo("流程结束,无活跃温度控制器");
+                    }
                 }
 
                 return true;
@@ -327,7 +325,7 @@ namespace MicroReactor_ModbusTCP
         }
 
         // ============================================================
-        // 命令 1: 智能设置温度
+        // 命令 1: 智能设置温度 (经典串级 PID)
         // ============================================================
         private void InitializeIntelligentSetTemperatureCommand()
         {
@@ -335,9 +333,10 @@ namespace MicroReactor_ModbusTCP
             {
                 Name = "智能设置温度",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/temp_set.png",
-                HelpText = "主从智能温度控制:单一控制器跟踪主控传感器,其他作为监测路。" +
-                           "具备工艺偏置起步、循环器命令限幅、收敛性判据、安全监测三级报警。" +
-                           "支持平滑切换目标温度(同一批物料分阶段升温)。",
+                HelpText = "经典串级 PID 控制(工业标准)。" +
+                           "外环 PI(D) + 前馈 + 抗饱和。" +
+                           "靠反应釜热惯性过滤夹套振荡,物料温度天然平滑。" +
+                           "支持平滑切换(同一批物料分阶段升温)。",
 
                 InputParameters = new DeviceParameters
                 {
@@ -346,60 +345,59 @@ namespace MicroReactor_ModbusTCP
                         // ============ 工艺参数 ============
                         new NumberParameter("TargetTemperature", -100, 500, 25, "目标温度(℃)")
                         {
-                            HelpText = "三路温度的统一目标值。三路必须设相同值(物理上一个循环器无法支持不同目标)"
+                            HelpText = "三路温度的统一目标值"
                         },
                         new NumberParameter("Tolerance", 0.1, 5.0, 0.5, "温度容差(℃)")
                         {
-                            HelpText = "稳定容差:主控温度在 ±此值内即视为达标。失稳阈值=3*容差(迟滞)"
+                            HelpText = "稳定容差: 主控温度在 ±此值内持续 30 秒即视为达标"
                         },
-                        new NumberParameter("ReadingInterval", 2, 10, 3, "读数间隔(秒)")
+                        new NumberParameter("ControlInterval", 1, 30, 5, "控制周期(秒)")
                         {
-                            HelpText = "温度读取的时间间隔,建议 2~5 秒"
-                        },
-                        new NumberParameter("StabilityTime", 10, 60, 20, "稳定检测时间(秒)")
-                        {
-                            HelpText = "判断稳定所需的最少持续时间,建议 15~30 秒"
-                        },
-                        new NumberParameter("FineAdjustStep", 0.1, 2.0, 0.5, "微调步长(℃)")
-                        {
-                            HelpText = "微调时循环器温度的基础调整步长,根据偏差自适应放大"
+                            HelpText = "PID 计算频率。慢响应循环器建议 5 秒"
                         },
 
-                        // ============ 工艺偏置参数 ============
-                        new NumberParameter("WarmingBias", 0, 30, 5, "升温偏置(℃)")
+                        // ============ PID 三参数 ============
+                        new NumberParameter("Kp", 0.05, 5.0, 0.5, "Kp 比例增益")
                         {
-                            HelpText = "升温时:循环器目标 = 物料目标 + 此值。预留传热损失"
+                            HelpText = "比例项: 大→响应快但易过冲;小→响应慢但稳。第一次用 0.5"
                         },
-                        new NumberParameter("CoolingBias", 0, 30, 5, "降温偏置(℃)")
+                        new NumberParameter("KiSeconds", 30, 3000, 300, "Ki(秒) 积分时间")
                         {
-                            HelpText = "降温时:循环器目标 = 物料目标 - 此值。预留传热损失"
+                            HelpText = "积分时间(秒): 大→积分慢、抗扰差;小→积分快、易过冲。第一次用 300"
+                        },
+                        new NumberParameter("KdSeconds", 0, 300, 30, "Kd(秒) 微分时间")
+                        {
+                            HelpText = "微分时间(秒): 防过冲利器,但放大噪声。0=不用微分。第一次用 30"
+                        },
+                        new NumberParameter("FeedforwardBias", 0, 20, 5, "前馈偏置(℃)")
+                        {
+                            HelpText = "升温时循环器命令额外加 +N℃,降温时 -N℃。给 PID 一个起始推力。第一次用 5"
+                        },
+                        new NumberParameter("MaxBias", 5, 60, 30, "最大偏置(℃)")
+                        {
+                            HelpText = "循环器命令最多偏离目标 ±此值。让 PID 充分发挥。第一次用 30"
                         },
 
                         // ============ [安全] 参数 ============
-                        new NumberParameter("[安全]循环器最大偏置", 5, 50, 15, "[安全]循环器命令限幅(℃)")
+                        new NumberParameter("[安全]稳定确认时长秒", 10, 300, 30, "[安全]稳定确认时长(秒)")
                         {
-                            HelpText = "循环器命令值不允许超出物料目标 ± 此值的范围,防止控制器算错把循环器拉飞"
+                            HelpText = "误差进容差后,持续此时间才确认稳定"
                         },
                         new NumberParameter("[安全]大偏差报警阈值", 5, 50, 10, "[安全]大偏差报警阈值(℃)")
                         {
-                            HelpText = "物料偏离目标超过此值,且收敛性异常时才触发报警(配合下面的检查窗口)"
+                            HelpText = "物料偏离目标超过此值且收敛性异常时报警"
                         },
                         new NumberParameter("[安全]收敛性检查窗口", 60, 600, 120, "[安全]收敛性检查窗口(秒)")
                         {
-                            HelpText = "偏差超过阈值且不再缩小持续此时间 → 报警。" +
-                                       "升温过程中偏差缩小是正常的,不会触发"
+                            HelpText = "偏差超阈值且不再缩小持续此时间 → 报警"
                         },
                         new NumberParameter("[安全]温度速率上限", 1, 50, 10, "[安全]温度变化速率上限(℃/分钟)")
                         {
-                            HelpText = "物料温度变化速率超过此值 → 触发报警(可能升温过快)"
+                            HelpText = "物料温度变化速率超过此值 → 报警"
                         },
                         new NumberParameter("[安全]监测路偏差", 5, 30, 10, "[安全]监测路偏差报警(℃)")
                         {
-                            HelpText = "监测传感器与主控偏差超过此值 → 仅报警不停止控制"
-                        },
-                        new NumberParameter("[安全]最大微调次数", 5, 100, 20, "[安全]最大微调次数")
-                        {
-                            HelpText = "微调累计达到此次数仍未稳定 → 进入失败状态(系统未收敛)"
+                            HelpText = "监测传感器与主控偏差超过此值 → 仅报警不停止"
                         }
                     }
                 },
@@ -432,31 +430,40 @@ namespace MicroReactor_ModbusTCP
             string circulatorId = Parameters.GetValue<string>("CirculatorDeviceId");
             string masterSensor = Parameters.GetValue<string>("MasterSensor");
 
+            // 工艺参数
             double targetTemp = parameters.GetValue<double>("TargetTemperature");
             double tolerance = parameters.GetValue<double>("Tolerance");
-            int readingInterval = (int)parameters.GetValue<double>("ReadingInterval");
-            int stabilityTime = (int)parameters.GetValue<double>("StabilityTime");
-            double fineAdjustStep = parameters.GetValue<double>("FineAdjustStep");
-            double warmingBias = parameters.GetValue<double>("WarmingBias");
-            double coolingBias = parameters.GetValue<double>("CoolingBias");
+            int controlInterval = (int)parameters.GetValue<double>("ControlInterval");
 
-            double maxBias = parameters.GetValue<double>("[安全]循环器最大偏置");
+            // PID
+            double kp = parameters.GetValue<double>("Kp");
+            double kiSec = parameters.GetValue<double>("KiSeconds");
+            double kdSec = parameters.GetValue<double>("KdSeconds");
+            double feedforward = parameters.GetValue<double>("FeedforwardBias");
+            double maxBias = parameters.GetValue<double>("MaxBias");
+
+            // 安全
+            double stableConfirmSec = parameters.GetValue<double>("[安全]稳定确认时长秒");
             double alarmDeviation = parameters.GetValue<double>("[安全]大偏差报警阈值");
             double alarmDuration = parameters.GetValue<double>("[安全]收敛性检查窗口");
             double maxRate = parameters.GetValue<double>("[安全]温度速率上限");
             double monitorMaxDev = parameters.GetValue<double>("[安全]监测路偏差");
-            int maxFineAdjust = (int)parameters.GetValue<double>("[安全]最大微调次数");
 
             bool overallSuccess = false;
             string message = "";
 
             try
             {
-                InfoLog($"启动主从智能温度控制: 设备={deviceId}, 循环器={circulatorId}, 主控={masterSensor}, 目标={targetTemp}℃");
+                string flowName = "PID";
+                _controlLogger.ForceReinitialize(flowName);
+
+                InfoLog($"启动经典 PID 控制: 设备={deviceId}, 循环器={circulatorId}, 主控={masterSensor}, " +
+                        $"目标={targetTemp}℃, Kp={kp}, Ki(秒)={kiSec}, Kd(秒)={kdSec}");
+
                 _controlLogger.LogControlStart(deviceId, circulatorId);
 
                 // 1. 处理已有控制器
-                MasterSlaveTemperatureController existingController;
+                CascadePidController existingController;
                 lock (_controllerLock)
                 {
                     existingController = _activeController;
@@ -464,7 +471,6 @@ namespace MicroReactor_ModbusTCP
 
                 if (existingController != null)
                 {
-                    // 检查是否能平滑切换
                     bool canSmoothSwitch =
                         existingController.MasterSensor == masterSensor &&
                         existingController.CurrentPhase != ControlPhase.Stopped &&
@@ -473,24 +479,13 @@ namespace MicroReactor_ModbusTCP
                     if (canSmoothSwitch)
                     {
                         _controlLogger.LogInfo("检测到运行中的控制器,执行平滑切换",
-                            $"目标温度 → {targetTemp:F1}℃");
+                            $"目标温度 → {targetTemp:F2}℃");
 
                         bool ok = await existingController.ChangeTargetAsync(targetTemp);
                         if (ok)
                         {
-                            return new DeviceParameters
-                            {
-                                Variables = new ObservableCollection<ParameterBase>
-                                {
-                                    new StringParameter("DeviceId", deviceId, "设备ID") { IsVisibleInVariableManager = true },
-                                    new StringParameter("CirculatorId", circulatorId, "循环器ID") { IsVisibleInVariableManager = true },
-                                    new StringParameter("MasterSensor", masterSensor, "主控传感器") { IsVisibleInVariableManager = true },
-                                    new NumberParameter("TargetTemp", -100, 500, Math.Round(targetTemp, 2), "目标温度", true, UnitTemperature),
-                                    new BooleanParameter("ControlStarted", true, "智能控制启动") { IsVisibleInVariableManager = true },
-                                    new BooleanParameter("Success", true, "命令成功") { IsVisibleInVariableManager = true },
-                                    new StringParameter("Message", $"平滑切换成功 - 主控{masterSensor}, 新目标{targetTemp:F1}℃", "执行说明") { IsVisibleInVariableManager = true }
-                                }
-                            };
+                            return BuildResult(deviceId, circulatorId, masterSensor, targetTemp, true,
+                                $"平滑切换成功 - 主控{masterSensor}, 新目标{targetTemp:F2}℃");
                         }
                         else
                         {
@@ -503,7 +498,6 @@ namespace MicroReactor_ModbusTCP
                             $"主控:{existingController.MasterSensor} vs {masterSensor}, 阶段:{existingController.CurrentPhase}");
                     }
 
-                    // 不能平滑切换 → 停止旧控制器
                     lock (_controllerLock)
                     {
                         _activeController = null;
@@ -511,7 +505,7 @@ namespace MicroReactor_ModbusTCP
                     await existingController.StopAsync(stopCirculator: true);
                 }
 
-                // 2. 启动循环器各功能
+                // 2. 启动循环器
                 _controlLogger.LogInfo("开始按顺序启动循环器功能");
                 await EnsureCirculatorCycleRunning(circulatorId);
                 await Task.Delay(3000);
@@ -532,26 +526,29 @@ namespace MicroReactor_ModbusTCP
                 _controlLogger.LogSuccess($"循环器 {circulatorId} 全部功能已启动");
 
                 // 3. 创建配置
-                var config = new MasterSlaveControllerConfig
+                var config = new CascadePidConfig
                 {
                     TargetTemperature = targetTemp,
                     MasterSensor = masterSensor,
                     Tolerance = tolerance,
-                    ReadingInterval = TimeSpan.FromSeconds(readingInterval),
-                    StabilityTime = TimeSpan.FromSeconds(stabilityTime),
-                    FineAdjustStep = fineAdjustStep,
-                    WarmingBias = warmingBias,
-                    CoolingBias = coolingBias,
+                    ReadingInterval = TimeSpan.FromSeconds(controlInterval),
+
+                    Kp = kp,
+                    KiSeconds = kiSec,
+                    KdSeconds = kdSec,
+                    FeedforwardBias = feedforward,
                     MaxBias = maxBias,
+
+                    StableConfirmDuration = TimeSpan.FromSeconds(stableConfirmSec),
+
                     AlarmDeviationDeg = alarmDeviation,
                     AlarmDurationSec = alarmDuration,
                     MaxRateDegPerMin = maxRate,
-                    MonitorMaxDeviation = monitorMaxDev,
-                    MaxFineAdjustments = maxFineAdjust
+                    MonitorMaxDeviation = monitorMaxDev
                 };
 
                 // 4. 创建并启动 controller
-                var controller = new MasterSlaveTemperatureController(
+                var controller = new CascadePidController(
                     deviceId: deviceId,
                     circulatorDeviceId: circulatorId,
                     config: config,
@@ -570,20 +567,26 @@ namespace MicroReactor_ModbusTCP
                     _activeController = controller;
                 }
 
-                _controlLogger.LogControllerStart(masterSensor, targetTemp, tolerance, readingInterval);
-                _controlLogger.LogSuccess("主从智能温度控制启动成功");
+                _controlLogger.LogSuccess("经典 PID 温度控制启动成功");
 
                 overallSuccess = true;
-                message = $"启动成功 - 主控{masterSensor}, 目标{targetTemp:F1}℃";
+                message = $"启动成功 - 主控{masterSensor}, 目标{targetTemp:F2}℃, " +
+                          $"Kp={kp}, Ki秒={kiSec}, Kd秒={kdSec}";
             }
             catch (Exception ex)
             {
-                ErrorLog($"启动主从智能温度控制失败: {ex.Message}");
+                ErrorLog($"启动失败: {ex.Message}");
                 _controlLogger.LogError($"启动失败: {ex.Message}", ex);
                 overallSuccess = false;
                 message = $"启动失败: {ex.Message}";
             }
 
+            return BuildResult(deviceId, circulatorId, masterSensor, targetTemp, overallSuccess, message);
+        }
+
+        private DeviceParameters BuildResult(string deviceId, string circulatorId,
+            string masterSensor, double targetTemp, bool success, string message)
+        {
             return new DeviceParameters
             {
                 Variables = new ObservableCollection<ParameterBase>
@@ -592,8 +595,8 @@ namespace MicroReactor_ModbusTCP
                     new StringParameter("CirculatorId", circulatorId, "循环器ID") { IsVisibleInVariableManager = true },
                     new StringParameter("MasterSensor", masterSensor, "主控传感器") { IsVisibleInVariableManager = true },
                     new NumberParameter("TargetTemp", -100, 500, Math.Round(targetTemp, 2), "目标温度", true, UnitTemperature),
-                    new BooleanParameter("ControlStarted", overallSuccess, "智能控制启动") { IsVisibleInVariableManager = true },
-                    new BooleanParameter("Success", overallSuccess, "命令成功") { IsVisibleInVariableManager = true },
+                    new BooleanParameter("ControlStarted", success, "智能控制启动") { IsVisibleInVariableManager = true },
+                    new BooleanParameter("Success", success, "命令成功") { IsVisibleInVariableManager = true },
                     new StringParameter("Message", message, "执行说明") { IsVisibleInVariableManager = true }
                 }
             };
@@ -727,14 +730,14 @@ namespace MicroReactor_ModbusTCP
             {
                 Name = "停止温度控制",
                 ImageLocation = "pack://siteoforigin:,,,/Resources/CommadIcon/stop_control.png",
-                HelpText = "停止智能温度控制并完全关闭循环器(加热/制冷/循环)",
+                HelpText = "停止智能温度控制并完全关闭循环器",
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new BooleanParameter("StopCirculator", true, "停止循环器")
                         {
-                            HelpText = "true=完全停止循环器(加热/制冷/循环);false=只停 controller,循环器保持运行"
+                            HelpText = "true=完全停止循环器;false=只停 controller,循环器保持"
                         }
                     }
                 },
@@ -768,9 +771,10 @@ namespace MicroReactor_ModbusTCP
 
             try
             {
-                _controlLogger.LogInfo("开始停止智能温度控制");
+                _controlLogger.EnsureInitialized("StopCmd");
+                _controlLogger.LogInfo("====== 停止智能温度控制 ======");
 
-                MasterSlaveTemperatureController controller;
+                CascadePidController controller;
                 lock (_controllerLock)
                 {
                     controller = _activeController;
@@ -781,7 +785,6 @@ namespace MicroReactor_ModbusTCP
                 {
                     await controller.StopAsync();
                     controllerStopped = true;
-                    InfoLog("温度控制器已停止");
                     _controlLogger.LogInfo("温度控制器已停止");
                 }
 
@@ -797,10 +800,12 @@ namespace MicroReactor_ModbusTCP
 
                 success = true;
                 _controlLogger.LogSuccess("智能温度控制停止完成");
+
+                _controlLogger.Close();
             }
             catch (Exception ex)
             {
-                ErrorLog($"停止智能温度控制失败: {deviceId} - {ex.Message}");
+                ErrorLog($"停止失败: {deviceId} - {ex.Message}");
                 _controlLogger.LogError($"停止失败: {ex.Message}", ex);
                 success = false;
             }
@@ -963,7 +968,7 @@ namespace MicroReactor_ModbusTCP
         }
 
         // ============================================================
-        // 循环器辅助方法
+        // 循环器辅助
         // ============================================================
 
         private async Task EnsureCirculatorCycleRunning(string circulatorId)
@@ -1021,18 +1026,13 @@ namespace MicroReactor_ModbusTCP
 
         private string GetCirculatorHeatingCommand(string circulatorId) =>
             circulatorId == "TC0101" ? "YY_Heat_1" : "YY_Heat_2";
-
         private string GetCirculatorCoolingCommand(string circulatorId) =>
             circulatorId == "TC0101" ? "YY_Cool_1" : "YY_Cool_2";
-
         private string GetCirculatorCycleCommand(string circulatorId) =>
             circulatorId == "TC0101" ? "YY_Cycle_1" : "YY_Cycle_2";
 
-        private string GetCirculatorTempSetCommand(string circulatorId) =>
-            circulatorId == "TC0101" ? "YY_SV_Set_1" : "YY_SV_Set_2";
-
         // ============================================================
-        // 基类重写方法
+        // 基类重写
         // ============================================================
 
         public override void Initialize()
@@ -1099,7 +1099,7 @@ namespace MicroReactor_ModbusTCP
     }
 
     // ============================================================
-    // SmartControlLogger - 智能控制专用日志(写入程序运行目录)
+    // SmartControlLogger - 修复版,保证日志永远在记录
     // ============================================================
     public class SmartControlLogger
     {
@@ -1107,12 +1107,48 @@ namespace MicroReactor_ModbusTCP
         private readonly object _logLock = new object();
         private StreamWriter _logWriter;
         private bool _isInitialized = false;
+        private string _currentFlowName = "";
+
+        public void EnsureInitialized(string flowName)
+        {
+            if (_isInitialized) return;
+            Initialize(flowName);
+        }
+
+        public void ForceReinitialize(string flowName)
+        {
+            try
+            {
+                lock (_logLock)
+                {
+                    if (_isInitialized && _logWriter != null)
+                    {
+                        try
+                        {
+                            _logWriter.WriteLine();
+                            _logWriter.WriteLine("=".PadRight(80, '='));
+                            _logWriter.WriteLine($"日志重建于: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                            _logWriter.WriteLine("=".PadRight(80, '='));
+                            _logWriter.Dispose();
+                        }
+                        catch { }
+                        _logWriter = null;
+                    }
+                    _isInitialized = false;
+                }
+
+                Initialize(flowName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"日志强制重建失败: {ex.Message}");
+            }
+        }
 
         public void Initialize(string flowName)
         {
             try
             {
-                // 写入程序运行目录下的 ControlLogs 文件夹(与流量计驱动一致)
                 string logDirectory = Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     "ControlLogs",
@@ -1123,6 +1159,7 @@ namespace MicroReactor_ModbusTCP
 
                 string fileName = $"TempControl_{flowName}_{DateTime.Now:HHmmss}.log";
                 _logFilePath = Path.Combine(logDirectory, fileName);
+                _currentFlowName = flowName;
 
                 lock (_logLock)
                 {
@@ -1135,73 +1172,78 @@ namespace MicroReactor_ModbusTCP
                     _isInitialized = true;
 
                     _logWriter.WriteLine("=".PadRight(80, '='));
-                    _logWriter.WriteLine("主从智能温度控制系统日志");
-                    _logWriter.WriteLine($"流程名称: {flowName}");
+                    _logWriter.WriteLine("经典串级 PID 温度控制系统日志");
+                    _logWriter.WriteLine($"流程/任务名称: {flowName}");
                     _logWriter.WriteLine($"开始时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
                     _logWriter.WriteLine($"日志文件: {fileName}");
-                    _logWriter.WriteLine("控制策略: 主从控制 + 工艺偏置起步 + 微调累积 + 失稳迟滞");
-                    _logWriter.WriteLine("安全保护: 收敛性判据 + 速率监测 + 趋势预测 + 失控保护");
+                    _logWriter.WriteLine("控制策略: 经典串级 PID (PI(D) + 前馈 + 抗饱和)");
+                    _logWriter.WriteLine("内环说明: 由循环器自带 PID 处理(夹套油温),本驱动只控外环");
+                    _logWriter.WriteLine("Kd 用'测量值变化率',防止目标突变时微分冲击");
+                    _logWriter.WriteLine("简单限幅,不做动态限幅,让 PID 自由发挥");
                     _logWriter.WriteLine("=".PadRight(80, '='));
                     _logWriter.WriteLine();
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"智能控制日志初始化失败: {ex.Message}");
+                Console.WriteLine($"日志初始化失败: {ex.Message}");
             }
         }
 
         public void LogControlStart(string deviceId, string circulatorId)
         {
+            EnsureInitialized("AutoStart");
             WriteLog("INFO", "启动智能温度控制系统", $"设备ID: {deviceId}, 循环器ID: {circulatorId}");
-        }
-
-        public void LogControllerStart(string sensorName, double targetTemp, double tolerance, int interval)
-        {
-            WriteLog("INFO", $"启动控制器, 主控: {sensorName}",
-                $"目标温度: {targetTemp}℃, 容差: ±{tolerance}℃, 间隔: {interval}秒");
         }
 
         public void LogTemperatureReading(string sensorName, double actualTemp, double targetTemp, double error)
         {
+            EnsureInitialized("AutoStart");
             WriteLog("DATA", $"温度读取 {sensorName}",
                 $"物料温度: {actualTemp:F2}℃, 目标: {targetTemp:F2}℃, 偏差: {error:F2}℃");
         }
 
         public void LogStabilityCheck(string sensorName, bool isStable, string details)
         {
+            EnsureInitialized("AutoStart");
             WriteLog("STABILITY", $"{sensorName}稳定性",
                 $"稳定: {(isStable ? "是" : "否")}, 详情: {details}");
         }
 
         public void LogSystemStable()
         {
+            EnsureInitialized("AutoStart");
             WriteLog("SUCCESS", "系统整体稳定", "可以开始进料反应");
         }
 
         public void LogWarning(string message, string details = "")
         {
+            EnsureInitialized("AutoStart");
             WriteLog("WARN", message, details);
         }
 
         public void LogError(string message, Exception ex = null)
         {
+            EnsureInitialized("AutoStart");
             string details = ex != null ? $"异常: {ex.Message}\n堆栈: {ex.StackTrace}" : "";
             WriteLog("ERROR", message, details);
         }
 
         public void LogInfo(string message, string details = "")
         {
+            EnsureInitialized("AutoStart");
             WriteLog("INFO", message, details);
         }
 
         public void LogSuccess(string message, string details = "")
         {
+            EnsureInitialized("AutoStart");
             WriteLog("SUCCESS", message, details);
         }
 
         public void LogDebug(string message, string details = "")
         {
+            EnsureInitialized("AutoStart");
             WriteLog("DEBUG", message, details);
         }
 
@@ -1213,6 +1255,7 @@ namespace MicroReactor_ModbusTCP
             {
                 lock (_logLock)
                 {
+                    if (_logWriter == null) return;
                     var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
                     var threadId = Thread.CurrentThread.ManagedThreadId.ToString().PadLeft(3);
 
@@ -1265,7 +1308,7 @@ namespace MicroReactor_ModbusTCP
     }
 
     // ============================================================
-    // SystemStabilityStatus - 系统稳定状态
+    // SystemStabilityStatus
     // ============================================================
     public class SystemStabilityStatus
     {
@@ -1291,15 +1334,12 @@ namespace MicroReactor_ModbusTCP
             set => _tt1003Stable = value;
         }
 
-        /// <summary>
-        /// 系统是否稳定 - OR 判据(任一路稳定即为系统稳定)
-        /// </summary>
         public bool IsSystemStable => _tt1001Stable || _tt1002Stable || _tt1003Stable;
 
         public string GetStatusReport()
         {
             return string.Format(
-                "主从智能控制系统稳定性状态(OR 判据):\n" +
+                "经典 PID 控制系统稳定性状态(OR 判据):\n" +
                 "  TT1001: {0}\n" +
                 "  TT1002: {1}\n" +
                 "  TT1003: {2}\n" +

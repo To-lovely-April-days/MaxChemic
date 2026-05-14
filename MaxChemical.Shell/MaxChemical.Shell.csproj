@@ -37,6 +37,7 @@
 		<ProjectReference Include="..\MaxChemical.Modules.Data\MaxChemical.Modules.Data.csproj" />
 		<ProjectReference Include="..\MaxChemical.Modules.Device\MaxChemical.Modules.Device.csproj" />
 		<ProjectReference Include="..\MaxChemical.Modules.DOE\MaxChemical.Modules.DOE.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.GatewayConfig\MaxChemical.Modules.GatewayConfig.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -439,5 +440,21 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>
-
+<!-- 把 32 位网关代理拷贝到 Shell 输出目录的 GatewayConfigProxy 子文件夹 -->
+<Target Name="CopyGatewayProxyToShell" AfterTargets="Build">
+    <PropertyGroup>
+        <GwProxyOutDir>$(OutputPath)GatewayConfigProxy\</GwProxyOutDir>
+        <GwProxyBuildDir>$(MSBuildThisFileDirectory)..\MaxChemical.GatewayConfig.Proxy\bin\$(Configuration)\net8.0-windows\</GwProxyBuildDir>
+    </PropertyGroup>
+    <ItemGroup>
+        <GwProxyFiles Include="$(GwProxyBuildDir)**\*.*" />
+    </ItemGroup>
+    <MakeDir Directories="$(GwProxyOutDir)" Condition="!Exists('$(GwProxyOutDir)')" />
+    <Copy SourceFiles="@(GwProxyFiles)"
+          DestinationFolder="$(GwProxyOutDir)%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(GwProxyBuildDir)')" />
+    <Message Text="[Shell] 网关代理已拷贝到 $(GwProxyOutDir)" Importance="high" Condition="Exists('$(GwProxyBuildDir)')" />
+    <Warning Text="[Shell] 找不到网关代理 $(GwProxyBuildDir),请先构建 MaxChemical.GatewayConfig.Proxy" Condition="!Exists('$(GwProxyBuildDir)')" />
+</Target>
 </Project>

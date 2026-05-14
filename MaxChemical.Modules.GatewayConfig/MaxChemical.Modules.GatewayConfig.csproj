@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <!-- 防止 WPF SDK 自动把任何 xaml 识别为 ApplicationDefinition,避免和 Shell 的 App.xaml 冲突 -->
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Prism.Wpf" Version="8.1.97" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MaxChemical.Core\MaxChemical.Core.csproj" />
+    <ProjectReference Include="..\MaxChemical.Infrastructure\MaxChemical.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- 构建后:把 32 位代理产物拷贝到本模块输出的 GatewayConfigProxy 子目录 -->
+  <Target Name="CopyGatewayProxy" AfterTargets="Build">
+    <PropertyGroup>
+      <ProxyOutputDir>$(OutputPath)GatewayConfigProxy\</ProxyOutputDir>
+      <ProxyBuildDir>$(MSBuildThisFileDirectory)..\MaxChemical.GatewayConfig.Proxy\bin\$(Configuration)\net8.0-windows\</ProxyBuildDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <ProxyFiles Include="$(ProxyBuildDir)**\*.*" />
+    </ItemGroup>
+    <MakeDir Directories="$(ProxyOutputDir)" Condition="!Exists('$(ProxyOutputDir)')" />
+    <Copy SourceFiles="@(ProxyFiles)"
+          DestinationFolder="$(ProxyOutputDir)%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(ProxyBuildDir)')" />
+  </Target>
+
+</Project>
