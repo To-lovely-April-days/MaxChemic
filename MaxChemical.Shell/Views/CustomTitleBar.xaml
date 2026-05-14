@@ -150,7 +150,7 @@
                         Orientation="Horizontal" 
                         VerticalAlignment="Center" 
                         Margin="8,0">
-                <Border Width="16" Height="16" Margin="12,0,4,0">
+                <Border Width="32" Height="16" Margin="12,0,4,0">
                     <Image Source="pack://siteoforigin:,,,/Resources/Icon/logo.png"/>
                 </Border>
                 <TextBlock Text="{Binding ApplicationTitle}"
