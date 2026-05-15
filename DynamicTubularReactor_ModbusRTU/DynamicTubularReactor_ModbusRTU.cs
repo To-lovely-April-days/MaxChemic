@@ -1395,7 +1395,7 @@ namespace DynamicTubularReactor_ModbusRTU
         {
             return (DeviceParameters parameters) =>
             {
-                _logger.LogInformation($"[ModbusRTU平流输液泵命令-开始] Device={Name} Command={commandName}");
+                _logger.LogInformation($"[ModbusRTU100ml动态管式反应釜-开始] Device={Name} Command={commandName}");
 
                 var sw = Stopwatch.StartNew();
                 try
@@ -1403,13 +1403,13 @@ namespace DynamicTubularReactor_ModbusRTU
                     var output = innerAsync(parameters).GetAwaiter().GetResult();
                     sw.Stop();
 
-                    _logger.LogInformation($"[ModbusRTU平流输液泵命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogInformation($"[ModbusRTU100ml动态管式反应釜-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     return output;
                 }
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    _logger.LogError(ex, $"[ModbusRTU平流输液泵命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogError(ex, $"[ModbusRTU100ml动态管式反应釜-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
             };

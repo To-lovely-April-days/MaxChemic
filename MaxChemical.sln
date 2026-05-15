@@ -71,6 +71,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicTubularReactor_Modbu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiliconCarbideChip_ModbusRTU", "SiliconCarbideChip_ModbusRTU\SiliconCarbideChip_ModbusRTU.csproj", "{676460DF-1863-4EB2-867A-0A6B61C545E0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighPreactor_ModbusRTU", "HighPreactor_ModbusRTU\HighPreactor_ModbusRTU.csproj", "{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -209,6 +211,10 @@ Global
 		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -233,6 +239,7 @@ Global
 		{AEFFDDBD-34B2-4728-9055-41E8A1608DD2} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{25451B0D-50F2-40D9-8ACC-95BDB326C4DF} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{676460DF-1863-4EB2-867A-0A6B61C545E0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {72D8DB25-9C37-4F38-B4CF-213BB0AEEFF7}
