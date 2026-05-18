@@ -50,7 +50,9 @@ namespace MaxChemical.Core
         /// <summary>
         /// ModbusTcp统一连接模式
         /// </summary>
-        ModbusTcp = 2
+        ModbusTcp = 2,
+
+        ZLanGateway,    // 透过 ZLAN 网关的 TCP 连接模式
     }
 
     /// <summary>
@@ -61,7 +63,7 @@ namespace MaxChemical.Core
         /// <summary>
         /// Modbus服务器IP地址
         /// </summary>
-        public string IpAddress { get; set; } = "192.168.1.100";
+        public string IpAddress { get; set; } = "192.168.2.191";
 
         /// <summary>
         /// Modbus服务器端口

@@ -121,10 +121,8 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
         // 网关配置 — 打开主窗口的服务,必须在 Shell 这层注册
         // (因为 MainMenuBarViewModel 在 Shell 启动早期就被解析,那时模块还没加载)
-        containerRegistry.RegisterSingleton< MaxChemical.Modules.GatewayConfig.Services.IGatewayConfigWindowService,
-    MaxChemical.Modules.GatewayConfig.Services.GatewayConfigWindowService >
-    ();
-
+        containerRegistry.RegisterSingleton< MaxChemical.Modules.GatewayConfig.Services.IGatewayConfigWindowService,MaxChemical.Modules.GatewayConfig.Services.GatewayConfigWindowService >();
+     
         // ==========  新增：注册配置服务 ==========
         if (_host != null)
         {
@@ -169,6 +167,8 @@ public partial class App : PrismApplication
 
         containerRegistry.RegisterSingleton<IDatabaseConnectionFactory, DatabaseConnectionFactory>();
         containerRegistry.RegisterSingleton<IExperimentDataRepository, ExperimentDataRepository>();
+        containerRegistry.RegisterSingleton<IGatewayBindingRepository, GatewayBindingRepository>();
+        containerRegistry.RegisterSingleton<IDeviceTransportFactory, DeviceTransportFactory>();
         containerRegistry.RegisterSingleton<IExperimentDataCollectionService, ExperimentDataCollectionService>();
         containerRegistry.RegisterSingleton<IExcelExportService, ExcelExportService>();
         containerRegistry.RegisterSingleton<IExperimentDataAdapter, ExperimentDataAdapter>();
@@ -227,15 +227,18 @@ public partial class App : PrismApplication
         {
             base.OnInitialized();
 
-            // 启动 Host
             if (_host != null)
             {
                 await _host.StartAsync();
                 _logger?.LogInformation("Host启动完成");
             }
-            // 在容器初始化完成后初始化数据库
+
             await InitializeDatabaseAsync();
-            // 启动变量持久化后台服务
+
+            // 填充设备插件可访问的服务入口
+            MaxChemical.Core.DeviceServices.TransportFactory =
+                Container.Resolve<MaxChemical.Core.IDeviceTransportFactory>();
+
             var persistenceService = Container.Resolve<IVariablePersistenceBackgroundService>();
             persistenceService.StartListening();
 
@@ -244,7 +247,8 @@ public partial class App : PrismApplication
         catch (Exception ex)
         {
             _logger?.LogCritical(ex, "应用程序初始化失败");
-            MessageBox.Show($"应用程序初始化失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"应用程序初始化失败:{ex.Message}", "错误",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -256,6 +260,10 @@ public partial class App : PrismApplication
 
             _logger?.LogInformation("开始初始化数据库...");
             await customVariablePersistenceService.InitializeDatabaseAsync();
+            // 新增:建网关绑定表
+            var gatewayBindingRepo = Container.Resolve<IGatewayBindingRepository>();
+            await gatewayBindingRepo.InitializeAsync();
+
             _logger?.LogInformation("数据库初始化完成");
         }
         catch (Exception ex)

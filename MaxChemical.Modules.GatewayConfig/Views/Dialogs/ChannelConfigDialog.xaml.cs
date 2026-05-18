@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using MaxChemical.Core;
+using MaxChemical.Data.Repositories;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.GatewayConfig.Models;
 using MaxChemical.Modules.GatewayConfig.Services;
@@ -17,10 +19,18 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
         public ChannelConfigDialog(GatewayModel gateway, ChannelModel channel)
         {
             InitializeComponent();
-            var service = ContainerLocator.Container.Resolve<IGatewayConfigService>();
-            var dialog = ContainerLocator.Container.Resolve<IDialogService>();
-            var ea = ContainerLocator.Container.Resolve<IEventAggregator>();
-            _vm = new ChannelConfigViewModel(gateway, channel, service, dialog, ea);
+            var c = ContainerLocator.Container;
+            var service = c.Resolve<IGatewayConfigService>();
+            var dialog = c.Resolve<IDialogService>();
+            var ea = c.Resolve<IEventAggregator>();
+            var deviceManager = c.Resolve<IDeviceManager>();
+            var bindingRepo = c.Resolve<IGatewayBindingRepository>();
+            var transportFactory = c.Resolve<IDeviceTransportFactory>();
+
+            _vm = new ChannelConfigViewModel(
+                gateway, channel,
+                service, dialog, ea,
+                deviceManager, bindingRepo, transportFactory);
             DataContext = _vm;
 
             _vm.CloseRequested += ok =>
@@ -32,7 +42,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
             _vm.ApplyFinished += (ok, msg) =>
             {
                 HideLoading();
-                var ds = ContainerLocator.Container.Resolve<IDialogService>();
+                var ds = c.Resolve<IDialogService>();
                 if (ok) ds.ShowInfo(msg, "应用成功");
                 else ds.ShowError(msg, "应用失败");
             };

@@ -10,8 +10,7 @@ using MaxChemical.Core;
 using MaxChemical.Logging;
 
 namespace DevicePlugins.Devices
-{    
-    
+{
     #region 设备基类
     public abstract class Device : IDevice, IDeviceUIInteraction, IDisposable
     {
@@ -20,21 +19,17 @@ namespace DevicePlugins.Devices
         private DateTime? _connectedTime;
         private DateTime? _lastHeartbeatTime;
         private Timer? _heartbeatTimer;
-        private int _connectionTimeout = 30; // 默认30秒超时
+        private int _connectionTimeout = 30;
         private bool _disposed = false;
         protected bool _isSimulationMode = false;
 
-        // 新增字段
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
         private readonly object _statesLock = new object();
 
-        // 添加连接管理器字段
-        protected IDeviceConnectionManager ConnectionManager { get;  set; }
+        protected IDeviceConnectionManager ConnectionManager { get; set; }
         protected string? ComId { get; set; }
-        /// <summary>
-        /// 是否为模拟模式
-        /// </summary>
+
         public bool IsSimulationMode
         {
             get => _isSimulationMode;
@@ -45,15 +40,15 @@ namespace DevicePlugins.Devices
                 OnSimulationModeChanged(value);
             }
         }
-        //  实现接口事件
+
         public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
 
         protected Device()
         {
             _logger = LogManager.GetLogger(GetType().Name);
-            // 初始化连接管理器
             InitializeConnectionManager();
         }
+
         private void InitializeConnectionManager()
         {
             try
@@ -66,55 +61,27 @@ namespace DevicePlugins.Devices
             }
         }
 
+        /// <inheritdoc/>
+        public virtual bool SupportsZLanGateway => false;
+
         #region Properties
 
         public string DeviceId { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 设备名称
-        /// </summary>
         public string Name { get; protected set; } = string.Empty;
-
-        /// <summary>
-        /// 制造商
-        /// </summary>
         public string Manufacturer { get; protected set; } = string.Empty;
-
-        /// <summary>
-        /// 图标位置
-        /// </summary>
         public string ImageLocation { get; protected set; } = string.Empty;
-
-        /// <summary>
-        /// 设备类别
-        /// </summary>
         public string Category { get; protected set; } = string.Empty;
-
-        /// <summary>
-        /// 设备参数
-        /// </summary>
         public DeviceParameters Parameters { get; } = new DeviceParameters();
-
-        /// <summary>
-        /// 设备命令
-        /// </summary>
         public List<DeviceCommand> Commands { get; } = new List<DeviceCommand>();
 
-        // 内部存储字段
         private List<RegionType> _allowedRegions = new List<RegionType>();
 
-        /// <summary>
-        /// 允许的区域类型列表(新接口)
-        /// </summary>
         public virtual List<RegionType> AllowedRegions
         {
             get => _allowedRegions;
             protected set => _allowedRegions = value ?? new List<RegionType>();
         }
 
-        /// <summary>
-        /// 允许的区域类型(兼容旧接口)
-        /// </summary>
         public virtual RegionType AllowedRegion
         {
             get => _allowedRegions.FirstOrDefault();
@@ -138,9 +105,6 @@ namespace DevicePlugins.Devices
 
         #region 连接状态相关属性
 
-        /// <summary>
-        /// 连接状态
-        /// </summary>
         public DeviceConnectionStatus ConnectionStatus
         {
             get => _connectionStatus;
@@ -157,14 +121,8 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 是否已连接
-        /// </summary>
         public bool IsConnected => ConnectionStatus == DeviceConnectionStatus.Connected;
 
-        /// <summary>
-        /// 连接时间
-        /// </summary>
         public DateTime? ConnectedTime
         {
             get => _connectedTime;
@@ -175,9 +133,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 最后心跳时间
-        /// </summary>
         public DateTime? LastHeartbeatTime
         {
             get => _lastHeartbeatTime;
@@ -188,9 +143,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 连接超时时间(秒)
-        /// </summary>
         public int ConnectionTimeout
         {
             get => _connectionTimeout;
@@ -205,14 +157,7 @@ namespace DevicePlugins.Devices
 
         #region Events
 
-        /// <summary>
-        /// 属性变更事件
-        /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
-
-        /// <summary>
-        /// 连接状态变更事件
-        /// </summary>
         public event EventHandler<DeviceConnectionStatusChangedEventArgs>? ConnectionStatusChanged;
 
         protected virtual void OnConnectionStatusChanged(DeviceConnectionStatus oldStatus, DeviceConnectionStatus newStatus)
@@ -220,19 +165,16 @@ namespace DevicePlugins.Devices
             InfoLog($"连接状态变更: {oldStatus} -> {newStatus}");
             ConnectionStatusChanged?.Invoke(this, new DeviceConnectionStatusChangedEventArgs(oldStatus, newStatus));
 
-            // 根据状态变更更新时间戳
             switch (newStatus)
             {
                 case DeviceConnectionStatus.Connected:
                     ConnectedTime = DateTime.Now;
                     LastHeartbeatTime = DateTime.Now;
-                    //StartHeartbeat();
                     break;
                 case DeviceConnectionStatus.Disconnected:
                 case DeviceConnectionStatus.Error:
                     ConnectedTime = null;
                     LastHeartbeatTime = null;
-                    //StopHeartbeat();
                     break;
             }
         }
@@ -241,27 +183,17 @@ namespace DevicePlugins.Devices
 
         #region Methods
 
-        /// <summary>
-        /// 触发属性变更通知
-        /// </summary>
-        /// <param name="name">属性名称</param>
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
-        /// <summary>
-        /// 初始化设备
-        /// </summary>
         public virtual void Initialize()
         {
             TraceLog("设备初始化开始");
-
             try
             {
-                // 子类可以重写此方法进行具体的初始化操作
                 OnInitialize();
-
                 TraceLog("设备初始化完成");
             }
             catch (Exception ex)
@@ -271,21 +203,13 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 关闭设备
-        /// </summary>
         public virtual void Shutdown()
         {
             TraceLog("设备关闭开始");
-
             try
             {
-                // 先断开连接
                 DisconnectAsync().Wait();
-
-                // 子类可以重写此方法进行具体的关闭操作
                 OnShutdown();
-
                 TraceLog("设备关闭完成");
             }
             catch (Exception ex)
@@ -295,29 +219,49 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 具体的初始化实现(子类重写)
-        /// </summary>
-        protected virtual void OnInitialize()
-        {
-            // 子类实现具体初始化逻辑
-        }
+        protected virtual void OnInitialize() { }
+        protected virtual void OnShutdown() { }
+
+        #endregion
+
+        #region 通信模式解析
 
         /// <summary>
-        /// 具体的关闭实现(子类重写)
+        /// 取当前设备的通信方式。
+        /// 优先用本设备实例的参数 "通信方式" (每个设备实例可自选)。
+        /// 没设这个参数时,fall back 到 DeviceConnectionConfig.CommunicationMode (全局默认)。
         /// </summary>
-        protected virtual void OnShutdown()
+        protected CommunicationMode GetDeviceCommunicationMode()
         {
-            // 子类实现具体关闭逻辑
+            try
+            {
+                var modeStr = Parameters?.GetValue<string>("通信方式");
+                if (!string.IsNullOrEmpty(modeStr) &&
+                    Enum.TryParse<CommunicationMode>(modeStr, out var mode))
+                {
+                    return mode;
+                }
+            }
+            catch { }
+            return DeviceConnectionConfig.CommunicationMode;
+        }
+
+        private string GetConnectionModeDescription(CommunicationMode mode)
+        {
+            return mode switch
+            {
+                CommunicationMode.PLC => "PLC模式",
+                CommunicationMode.ModbusTcp => "ModbusTcp模式",
+                CommunicationMode.ZLanGateway => "ZLAN网关模式",
+                CommunicationMode.Direct => IsSimulationMode ? "模拟模式" : "直连模式",
+                _ => "未知模式"
+            };
         }
 
         #endregion
 
         #region 连接管理方法
 
-        /// <summary>
-        /// 连接设备
-        /// </summary>
         public virtual async Task<bool> ConnectAsync()
         {
             if (IsConnected)
@@ -327,30 +271,41 @@ namespace DevicePlugins.Devices
             }
 
             ConnectionStatus = DeviceConnectionStatus.Connecting;
-            InfoLog($"开始连接设备 ({GetConnectionModeDescription()})");
+            var mode = GetDeviceCommunicationMode();
+            InfoLog($"开始连接设备 ({GetConnectionModeDescription(mode)})");
 
             try
             {
                 bool result;
 
-                if (DeviceConnectionConfig.CommunicationMode != CommunicationMode.Direct &&
-                    ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+                switch (mode)
                 {
-                    // 统一连接模式：通过连接管理器连接
-                    result = await ConnectionManager.ConnectAsync(ComId);
-                    InfoLog($"通过{GetConnectionModeDescription()}连接: {result}");
-                }
-                else
-                {
-                    // 直连模式：使用原有的连接逻辑
-                    if (IsSimulationMode)
-                    {
-                        result = await OnConnectSimulationAsync();
-                    }
-                    else
-                    {
-                        result = await OnConnectAsync();
-                    }
+                    case CommunicationMode.ZLanGateway:
+                        result = await OnConnectViaGatewayAsync();
+                        break;
+
+                    case CommunicationMode.PLC:
+                    case CommunicationMode.ModbusTcp:
+                        if (ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+                        {
+                            result = await ConnectionManager.ConnectAsync(ComId);
+                            InfoLog($"通过 {mode} 连接管理器连接: {result}");
+                        }
+                        else
+                        {
+                            WarnLog($"通信方式为 {mode} 但 ConnectionManager 或 ComId 未配置,fallback 直连");
+                            result = IsSimulationMode
+                                ? await OnConnectSimulationAsync()
+                                : await OnConnectAsync();
+                        }
+                        break;
+
+                    case CommunicationMode.Direct:
+                    default:
+                        result = IsSimulationMode
+                            ? await OnConnectSimulationAsync()
+                            : await OnConnectAsync();
+                        break;
                 }
 
                 ConnectionStatus = result ? DeviceConnectionStatus.Connected : DeviceConnectionStatus.Error;
@@ -363,19 +318,7 @@ namespace DevicePlugins.Devices
                 return false;
             }
         }
-        private string GetConnectionModeDescription()
-        {
-            return DeviceConnectionConfig.CommunicationMode switch
-            {
-                CommunicationMode.PLC => "PLC模式",
-                CommunicationMode.ModbusTcp => "ModbusTcp模式",
-                CommunicationMode.Direct => IsSimulationMode ? "模拟模式" : "直连模式",
-                _ => "未知模式"
-            };
-        }
-        /// <summary>
-        /// 断开设备连接
-        /// </summary>
+
         public virtual async Task<bool> DisconnectAsync()
         {
             if (!IsConnected)
@@ -385,31 +328,40 @@ namespace DevicePlugins.Devices
             }
 
             ConnectionStatus = DeviceConnectionStatus.Disconnecting;
-            InfoLog($"开始断开设备连接 ({(IsSimulationMode ? "模拟模式" : "实际模式")})");
+            var mode = GetDeviceCommunicationMode();
+            InfoLog($"开始断开设备连接 ({GetConnectionModeDescription(mode)})");
 
             try
             {
                 bool result;
-                if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+
+                switch (mode)
                 {
-                    // PLC模式：通过连接管理器连接
-                    result = await ConnectionManager.DisconnectAsync(ComId);
-                    InfoLog($"通过PLC连接管理器连接: {result}");
-                }
-                else
-                {
-                    if (IsSimulationMode)
-                    {
-                        // 模拟模式断开
-                        result = await OnDisconnectSimulationAsync();
-                    }
-                    else
-                    {
-                        // 实际模式断开
+                    case CommunicationMode.PLC:
+                    case CommunicationMode.ModbusTcp:
+                        if (ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+                        {
+                            result = await ConnectionManager.DisconnectAsync(ComId);
+                        }
+                        else
+                        {
+                            result = IsSimulationMode
+                                ? await OnDisconnectSimulationAsync()
+                                : await OnDisconnectAsync();
+                        }
+                        break;
+
+                    case CommunicationMode.ZLanGateway:
                         result = await OnDisconnectAsync();
-                    }
+                        break;
+
+                    case CommunicationMode.Direct:
+                    default:
+                        result = IsSimulationMode
+                            ? await OnDisconnectSimulationAsync()
+                            : await OnDisconnectAsync();
+                        break;
                 }
-               
 
                 ConnectionStatus = DeviceConnectionStatus.Disconnected;
                 InfoLog("设备连接已断开");
@@ -423,9 +375,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 检查连接状态
-        /// </summary>
         public virtual async Task<bool> CheckConnectionAsync()
         {
             try
@@ -433,34 +382,46 @@ namespace DevicePlugins.Devices
                 if (!IsConnected)
                     return false;
 
+                var mode = GetDeviceCommunicationMode();
                 bool isAlive;
-                if (DeviceConnectionConfig.UsePLCMode && ConnectionManager != null && !string.IsNullOrEmpty(ComId))
-                {
-                    // PLC模式：通过连接管理器连接
-                    isAlive = await ConnectionManager.CheckConnectionAsync(ComId);
-                    InfoLog($"通过PLC连接管理器连接: {isAlive}");
-                }else
-                {
-                    if (IsSimulationMode)
-                    {
-                        // 模拟模式检查
-                        isAlive = await OnCheckConnectionSimulationAsync();
-                    }
-                    else
-                    {
-                        // 实际模式检查
-                        isAlive = await OnCheckConnectionAsync();
-                    }
 
-                    if (isAlive)
-                    {
-                        LastHeartbeatTime = DateTime.Now;
-                    }
-                    else
-                    {
-                        ConnectionStatus = DeviceConnectionStatus.Error;
-                    }
+                switch (mode)
+                {
+                    case CommunicationMode.PLC:
+                    case CommunicationMode.ModbusTcp:
+                        if (ConnectionManager != null && !string.IsNullOrEmpty(ComId))
+                        {
+                            isAlive = await ConnectionManager.CheckConnectionAsync(ComId);
+                            InfoLog($"通过 {mode} 连接管理器检查: {isAlive}");
+                        }
+                        else
+                        {
+                            WarnLog($"通信方式为 {mode} 但 ConnectionManager 或 ComId 未配置,fallback 直连检查");
+                            isAlive = IsSimulationMode
+                                ? await OnCheckConnectionSimulationAsync()
+                                : await OnCheckConnectionAsync();
+                        }
+                        break;
 
+                    case CommunicationMode.ZLanGateway:
+                        isAlive = await OnCheckConnectionViaGatewayAsync();
+                        break;
+
+                    case CommunicationMode.Direct:
+                    default:
+                        isAlive = IsSimulationMode
+                            ? await OnCheckConnectionSimulationAsync()
+                            : await OnCheckConnectionAsync();
+                        break;
+                }
+
+                if (isAlive)
+                {
+                    LastHeartbeatTime = DateTime.Now;
+                }
+                else
+                {
+                    ConnectionStatus = DeviceConnectionStatus.Error;
                 }
 
                 return isAlive;
@@ -477,23 +438,19 @@ namespace DevicePlugins.Devices
 
         #region 模拟模式相关方法
 
-        /// <summary>
-        /// 模拟模式改变时的处理
-        /// </summary>
         protected virtual void OnSimulationModeChanged(bool isSimulationMode)
         {
             InfoLog($"设备模拟模式切换: {(isSimulationMode ? "模拟模式" : "实际模式")}");
 
-            // 如果当前已连接，需要重新连接以应用新模式
             if (IsConnected)
             {
-                InfoLog("检测到设备已连接，将重新连接以应用新模式");
+                InfoLog("检测到设备已连接,将重新连接以应用新模式");
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         await DisconnectAsync();
-                        await Task.Delay(500); // 短暂延迟
+                        await Task.Delay(500);
                         await ConnectAsync();
                     }
                     catch (Exception ex)
@@ -504,36 +461,24 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 模拟模式连接实现
-        /// </summary>
         protected virtual async Task<bool> OnConnectSimulationAsync()
         {
-            // 默认模拟连接实现
-            await Task.Delay(100 + new Random().Next(0, 200)); // 模拟连接延迟
+            await Task.Delay(100 + new Random().Next(0, 200));
             InfoLog("模拟连接成功");
             return true;
         }
 
-        /// <summary>
-        /// 模拟模式断开连接实现
-        /// </summary>
         protected virtual async Task<bool> OnDisconnectSimulationAsync()
         {
-            // 默认模拟断开实现
-            await Task.Delay(50 + new Random().Next(0, 100)); // 模拟断开延迟
+            await Task.Delay(50 + new Random().Next(0, 100));
             InfoLog("模拟断开连接成功");
             return true;
         }
 
-        /// <summary>
-        /// 模拟模式连接检查实现
-        /// </summary>
         protected virtual async Task<bool> OnCheckConnectionSimulationAsync()
         {
-            // 默认模拟检查实现（95%成功率）
             await Task.Delay(10);
-            return new Random().NextDouble() > 0.05; // 5% 概率返回失败，模拟网络波动
+            return new Random().NextDouble() > 0.05;
         }
 
         #endregion
@@ -543,7 +488,6 @@ namespace DevicePlugins.Devices
         private void StartHeartbeat()
         {
             StopHeartbeat();
-
             if (ConnectionTimeout > 0)
             {
                 _heartbeatTimer = new Timer(async _ => await HeartbeatCallback(),
@@ -559,10 +503,8 @@ namespace DevicePlugins.Devices
 
         private async Task HeartbeatCallback()
         {
-            if (!IsConnected)
-                return;
+            if (!IsConnected) return;
 
-            // 检查是否超时
             if (LastHeartbeatTime.HasValue)
             {
                 var timeSinceLastHeartbeat = DateTime.Now - LastHeartbeatTime.Value;
@@ -574,7 +516,6 @@ namespace DevicePlugins.Devices
                 }
             }
 
-            // 执行心跳检查
             await CheckConnectionAsync();
         }
 
@@ -583,7 +524,7 @@ namespace DevicePlugins.Devices
         #region 子类实现的虚方法
 
         /// <summary>
-        /// 具体的连接实现(子类重写)
+        /// 具体的连接实现 (子类重写) — Direct 模式下被调用。
         /// </summary>
         protected virtual Task<bool> OnConnectAsync()
         {
@@ -591,7 +532,16 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// 具体的断开连接实现(子类重写)
+        /// 通过 ZLAN 网关连接 (子类重写) — ZLanGateway 模式下被调用。
+        /// 默认实现:复用 OnConnectAsync。子类应 override 以提供协议探测逻辑。
+        /// </summary>
+        protected virtual Task<bool> OnConnectViaGatewayAsync()
+        {
+            return OnConnectAsync();
+        }
+
+        /// <summary>
+        /// 具体的断开连接实现 (子类重写)。
         /// </summary>
         protected virtual Task<bool> OnDisconnectAsync()
         {
@@ -599,11 +549,43 @@ namespace DevicePlugins.Devices
         }
 
         /// <summary>
-        /// 具体的连接检查实现(子类重写)
+        /// 具体的连接检查实现 (子类重写) — Direct 模式下被调用。
         /// </summary>
         protected virtual Task<bool> OnCheckConnectionAsync()
         {
             return Task.FromResult(true);
+        }
+
+        /// <summary>
+        /// 通过 ZLAN 网关检查连接 (子类重写) — ZLanGateway 模式下被调用。
+        /// 默认实现:复用 OnConnectViaGatewayAsync。
+        /// </summary>
+        protected virtual Task<bool> OnCheckConnectionViaGatewayAsync()
+        {
+            return OnConnectViaGatewayAsync();
+        }
+
+        /// <summary>
+        /// 创建该设备的字节流通信通道。
+        /// 框架层根据该设备实例的"通信方式"参数和绑定关系,
+        /// 自动返回 SerialPortTransport 或 TcpClientTransport。
+        /// 调用方负责 Dispose 返回的 Transport (推荐 using)。
+        /// </summary>
+        /// <param name="serialConfig">Direct 模式时使用的串口配置</param>
+        protected async Task<IDeviceTransport> CreateTransportAsync(SerialPortConfig serialConfig)
+        {
+            var factory = DeviceServices.TransportFactory
+                ?? throw new InvalidOperationException(
+                    "IDeviceTransportFactory 未注册。请确保 Shell 在启动时设置 DeviceServices.TransportFactory。");
+
+            var deviceInstanceId = Parameters?.GetValue<string>("DeviceId") ?? DeviceId;
+            var mode = GetDeviceCommunicationMode();
+
+            return await factory.CreateTransportAsync(
+                this.GetType().Name,
+                deviceInstanceId,
+                serialConfig,
+                mode);
         }
 
         #endregion
@@ -632,36 +614,26 @@ namespace DevicePlugins.Devices
                     InfoLog("没有活跃状态需要暂停");
                     return true;
                 }
-
                 InfoLog($"暂停 {_activeStates.Count} 个活跃状态");
             }
 
             var pauseTasks = new List<Task<bool>>();
             DeviceActiveState[] statesToPause;
-
             lock (_statesLock)
             {
                 statesToPause = _activeStates.ToArray();
             }
 
             foreach (var state in statesToPause)
-            {
                 pauseTasks.Add(PauseStateAsync(state));
-            }
 
             try
             {
                 var results = await Task.WhenAll(pauseTasks);
                 bool allSuccess = results.All(r => r);
 
-                if (allSuccess)
-                {
-                    InfoLog("所有活跃状态已暂停");
-                }
-                else
-                {
-                    WarnLog("部分活跃状态暂停失败");
-                }
+                if (allSuccess) InfoLog("所有活跃状态已暂停");
+                else WarnLog("部分活跃状态暂停失败");
 
                 return allSuccess;
             }
@@ -681,36 +653,26 @@ namespace DevicePlugins.Devices
                     InfoLog("没有暂停的状态需要恢复");
                     return true;
                 }
-
                 InfoLog($"恢复 {_pausedStates.Count} 个暂停的状态");
             }
 
             var resumeTasks = new List<Task<bool>>();
             DeviceActiveState[] statesToResume;
-
             lock (_statesLock)
             {
                 statesToResume = _pausedStates.ToArray();
             }
 
             foreach (var state in statesToResume)
-            {
                 resumeTasks.Add(ResumeStateAsync(state));
-            }
 
             try
             {
                 var results = await Task.WhenAll(resumeTasks);
                 bool allSuccess = results.All(r => r);
 
-                if (allSuccess)
-                {
-                    InfoLog("所有暂停状态已恢复");
-                }
-                else
-                {
-                    WarnLog("部分暂停状态恢复失败");
-                }
+                if (allSuccess) InfoLog("所有暂停状态已恢复");
+                else WarnLog("部分暂停状态恢复失败");
 
                 return allSuccess;
             }
@@ -730,43 +692,32 @@ namespace DevicePlugins.Devices
                     InfoLog("没有活跃或暂停的状态需要停止");
                     return true;
                 }
-
                 InfoLog($"停止 {_activeStates.Count} 个活跃状态和 {_pausedStates.Count} 个暂停状态");
             }
 
             var stopTasks = new List<Task<bool>>();
             DeviceActiveState[] allStates;
-
             lock (_statesLock)
             {
                 allStates = _activeStates.Concat(_pausedStates).ToArray();
             }
 
             foreach (var state in allStates)
-            {
                 stopTasks.Add(StopStateAsync(state));
-            }
 
             try
             {
                 var results = await Task.WhenAll(stopTasks);
                 bool allSuccess = results.All(r => r);
 
-                // 清空所有状态
                 lock (_statesLock)
                 {
                     _activeStates.Clear();
                     _pausedStates.Clear();
                 }
 
-                if (allSuccess)
-                {
-                    InfoLog("所有状态已停止");
-                }
-                else
-                {
-                    WarnLog("部分状态停止失败");
-                }
+                if (allSuccess) InfoLog("所有状态已停止");
+                else WarnLog("部分状态停止失败");
 
                 return allSuccess;
             }
@@ -781,19 +732,15 @@ namespace DevicePlugins.Devices
 
         #region 状态管理内部方法
 
-        /// <summary>
-        /// 添加活跃状态
-        /// </summary>
         protected void AddActiveState(string stateName, string activateCommand, string deactivateCommand,
             string pauseCommand = null, string resumeCommand = null, object stateData = null)
         {
             lock (_statesLock)
             {
-                // 检查是否已经存在相同状态
                 var existing = _activeStates.FirstOrDefault(s => s.StateName == stateName);
                 if (existing != null)
                 {
-                    WarnLog($"状态已存在，更新时间: {stateName}");
+                    WarnLog($"状态已存在,更新时间: {stateName}");
                     existing.ActivatedTime = DateTime.Now;
                     existing.StateData = stateData;
                     return;
@@ -823,9 +770,6 @@ namespace DevicePlugins.Devices
             });
         }
 
-        /// <summary>
-        /// 移除活跃状态
-        /// </summary>
         protected void RemoveActiveState(string stateName)
         {
             lock (_statesLock)
@@ -837,7 +781,6 @@ namespace DevicePlugins.Devices
                     InfoLog($"移除活跃状态: {stateName}");
                 }
 
-                // 同时从暂停状态中移除
                 var pausedState = _pausedStates.FirstOrDefault(s => s.StateName == stateName);
                 if (pausedState != null)
                 {
@@ -854,16 +797,12 @@ namespace DevicePlugins.Devices
             });
         }
 
-        /// <summary>
-        /// 暂停单个状态
-        /// </summary>
         private async Task<bool> PauseStateAsync(DeviceActiveState state)
         {
             try
             {
                 InfoLog($"暂停状态: {state.StateName}");
 
-                // 如果有专用的暂停命令，执行暂停命令
                 if (!string.IsNullOrEmpty(state.PauseCommand))
                 {
                     var pauseCommand = Commands.FirstOrDefault(c => c.Name == state.PauseCommand);
@@ -877,7 +816,6 @@ namespace DevicePlugins.Devices
                         WarnLog($"未找到暂停命令: {state.PauseCommand}");
                     }
                 }
-                // 如果没有暂停命令，执行停止命令
                 else if (!string.IsNullOrEmpty(state.DeactivateCommand))
                 {
                     var stopCommand = Commands.FirstOrDefault(c => c.Name == state.DeactivateCommand);
@@ -892,7 +830,6 @@ namespace DevicePlugins.Devices
                     }
                 }
 
-                // 移动到暂停状态列表
                 lock (_statesLock)
                 {
                     _activeStates.Remove(state);
@@ -909,16 +846,12 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 恢复单个状态
-        /// </summary>
         private async Task<bool> ResumeStateAsync(DeviceActiveState state)
         {
             try
             {
                 InfoLog($"恢复状态: {state.StateName}");
 
-                // 如果有专用的恢复命令，执行恢复命令
                 if (!string.IsNullOrEmpty(state.ResumeCommand))
                 {
                     var resumeCommand = Commands.FirstOrDefault(c => c.Name == state.ResumeCommand);
@@ -932,7 +865,6 @@ namespace DevicePlugins.Devices
                         WarnLog($"未找到恢复命令: {state.ResumeCommand}");
                     }
                 }
-                // 如果没有恢复命令，重新执行激活命令
                 else if (!string.IsNullOrEmpty(state.ActivateCommand))
                 {
                     var activateCommand = Commands.FirstOrDefault(c => c.Name == state.ActivateCommand);
@@ -947,12 +879,11 @@ namespace DevicePlugins.Devices
                     }
                 }
 
-                // 移动回活跃状态列表
                 lock (_statesLock)
                 {
                     _pausedStates.Remove(state);
                     state.IsPaused = false;
-                    state.ActivatedTime = DateTime.Now; // 更新激活时间
+                    state.ActivatedTime = DateTime.Now;
                     _activeStates.Add(state);
                 }
 
@@ -965,9 +896,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 停止单个状态
-        /// </summary>
         private async Task<bool> StopStateAsync(DeviceActiveState state)
         {
             try
@@ -1001,68 +929,34 @@ namespace DevicePlugins.Devices
 
         #region 日志
 
-        /// <summary>
-        /// 记录跟踪日志
-        /// </summary>
-        /// <param name="message">日志消息</param>
-        protected void TraceLog(string message)
-        {
+        protected void TraceLog(string message) =>
             _logger.LogTrace("[{DeviceName}]: {Message}", Name, message);
-        }
 
-        /// <summary>
-        /// 记录调试日志
-        /// </summary>
-        /// <param name="message">调试消息</param>
-        protected void DebugLog(string message)
-        {
+        protected void DebugLog(string message) =>
             _logger.LogDebug("[{DeviceName}]: {Message}", Name, message);
-        }
 
-        /// <summary>
-        /// 记录信息日志
-        /// </summary>
-        /// <param name="message">信息消息</param>
-        protected void InfoLog(string message)
-        {
+        protected void InfoLog(string message) =>
             _logger.LogInformation("[{DeviceName}]: {Message}", Name, message);
-        }
 
-        /// <summary>
-        /// 记录警告日志
-        /// </summary>
-        /// <param name="message">警告消息</param>
-        protected void WarnLog(string message)
-        {
+        protected void WarnLog(string message) =>
             _logger.LogWarning("[{DeviceName}]: {Message}", Name, message);
-        }
 
-        /// <summary>
-        /// 记录错误日志
-        /// </summary>
-        /// <param name="message">错误消息</param>
-        /// <param name="exception">异常对象</param>
         protected void ErrorLog(string message, Exception? exception = null)
         {
             if (exception != null)
-            {
                 _logger.LogError(exception, "[{DeviceName}]: {Message}", Name, message);
-            }
             else
-            {
                 _logger.LogError("[{DeviceName}]: {Message}", Name, message);
-            }
         }
 
         #endregion
-        /// <summary>
-        ///  虚方法：执行UI命令（子类可重写）
-        /// </summary>
+
+        #region UI 命令 / 状态 / 事件
+
         public virtual async Task<CommandExecutionResult> ExecuteUICommandAsync(
             string commandName,
             Dictionary<string, object> parameters = null)
         {
-            // 默认实现：查找对应命令并执行
             var command = Commands?.FirstOrDefault(c => c.Name == commandName);
             if (command?.Action == null)
             {
@@ -1105,9 +999,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        ///  虚方法：获取当前状态（子类可重写）
-        /// </summary>
         public virtual DeviceState GetCurrentState()
         {
             return new DeviceState
@@ -1121,16 +1012,13 @@ namespace DevicePlugins.Devices
             };
         }
 
-        /// <summary>
-        /// 支持自定义所有阶段的状态同步
-        /// </summary>
         protected Func<DeviceParameters, DeviceParameters> WrapActionWithAutoStateSync(
-      string commandName,
-      Func<DeviceParameters, Task<DeviceParameters>> innerAsync,
-      Action<DeviceParameters> onSuccessStateSync = null,
-      Action onStartStateSync = null,
-      Action<DeviceParameters> onFailureStateSync = null,
-      Action<string> onErrorStateSync = null)
+            string commandName,
+            Func<DeviceParameters, Task<DeviceParameters>> innerAsync,
+            Action<DeviceParameters> onSuccessStateSync = null,
+            Action onStartStateSync = null,
+            Action<DeviceParameters> onFailureStateSync = null,
+            Action<string> onErrorStateSync = null)
         {
             return (DeviceParameters parameters) =>
             {
@@ -1138,26 +1026,23 @@ namespace DevicePlugins.Devices
 
                 try
                 {
-                    // 1️⃣ 发送"执行中"状态
-                    OnCommandStateChanged(commandName, CommandExecutionState.Running); //  直接传枚举
+                    OnCommandStateChanged(commandName, CommandExecutionState.Running);
                     onStartStateSync?.Invoke();
 
-                    // 2️⃣ 执行命令
                     var output = innerAsync(parameters).GetAwaiter().GetResult();
                     sw.Stop();
 
-                    // 3️⃣ 判断成功/失败
                     var success = output?.GetValue<bool>("Success") ?? false;
 
                     if (success)
                     {
                         onSuccessStateSync?.Invoke(output);
-                        OnCommandStateChanged(commandName, CommandExecutionState.Succeeded, output); //  传枚举 + 输出
+                        OnCommandStateChanged(commandName, CommandExecutionState.Succeeded, output);
                     }
                     else
                     {
                         onFailureStateSync?.Invoke(output);
-                        OnCommandStateChanged(commandName, CommandExecutionState.Failed, output); //  传枚举 + 输出
+                        OnCommandStateChanged(commandName, CommandExecutionState.Failed, output);
                     }
 
                     return output;
@@ -1166,17 +1051,12 @@ namespace DevicePlugins.Devices
                 {
                     sw.Stop();
                     onErrorStateSync?.Invoke(ex.Message);
-                    OnCommandStateChanged(commandName, CommandExecutionState.Error,
-                        errorMessage: ex.Message); //  传枚举 + 错误 + 异常
-
+                    OnCommandStateChanged(commandName, CommandExecutionState.Error, errorMessage: ex.Message);
                     throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
             };
         }
 
-        /// <summary>
-        ///  触发命令执行状态事件
-        /// </summary>
         protected virtual void OnCommandStateChanged(
             string commandName,
             CommandExecutionState state,
@@ -1198,16 +1078,10 @@ namespace DevicePlugins.Devices
                 };
 
                 if (output != null)
-                {
                     eventArgs.AdditionalData["OutputParameters"] = output;
-                }
-
                 if (!string.IsNullOrEmpty(errorMessage))
-                {
                     eventArgs.AdditionalData["ErrorMessage"] = errorMessage;
-                }
 
-                //  直接触发事件
                 ControlStateChanged?.Invoke(this, eventArgs);
             }
             catch (Exception ex)
@@ -1216,9 +1090,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        ///  触发设备状态变化事件
-        /// </summary>
         protected virtual void OnStateChanged(string stateName, object stateValue)
         {
             try
@@ -1238,9 +1109,6 @@ namespace DevicePlugins.Devices
             }
         }
 
-        /// <summary>
-        /// 辅助方法：转换输出参数为字典
-        /// </summary>
         private Dictionary<string, object> ConvertToOutputData(DeviceParameters output)
         {
             var data = new Dictionary<string, object>();
@@ -1253,6 +1121,8 @@ namespace DevicePlugins.Devices
             }
             return data;
         }
+
+        #endregion
 
         #region IDisposable Implementation
 
@@ -1282,8 +1152,5 @@ namespace DevicePlugins.Devices
 
         #endregion
     }
-
-#endregion
-
-
+    #endregion
 }

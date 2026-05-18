@@ -17,6 +17,7 @@ namespace MaxChemical.Modules.GatewayConfig
         {
             containerRegistry.RegisterSingleton<IGatewayConfigService, GatewayConfigService>();
             containerRegistry.Register<ViewModels.GatewayConfigMainViewModel>();
+            containerRegistry.RegisterSingleton<IChannelProbeService, ChannelProbeService>();
         }
 
         public void OnInitialized(IContainerProvider containerProvider)

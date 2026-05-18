@@ -23,11 +23,16 @@ namespace MaxChemical.Modules.GatewayConfig.Views
         }
 
         private readonly IEventAggregator _eventAggregator;
-        private static readonly SolidColorBrush LineBrush = (SolidColorBrush)
+
+        // ─── 颜色 ───
+        private static readonly SolidColorBrush BlackBrush = (SolidColorBrush)
             new BrushConverter().ConvertFromString("#1A1A1A");
         private static readonly SolidColorBrush DisabledBrush = (SolidColorBrush)
             new BrushConverter().ConvertFromString("#B4B2A9");
-
+        private static readonly SolidColorBrush BrandRedBrush = (SolidColorBrush)
+            new BrushConverter().ConvertFromString("#A41626");
+        private static readonly SolidColorBrush WarnBrush = (SolidColorBrush)
+            new BrushConverter().ConvertFromString("#D29C36");             // 警告黄
         public GatewayBodyControl()
         {
             InitializeComponent();
@@ -38,7 +43,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
         {
             if (d is GatewayBodyControl ctl) ctl.Rebuild();
         }
-
+       
         private void Rebuild()
         {
             if (Gateway == null) return;
@@ -52,41 +57,75 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         private ContentControl GetDb9Slot(int i) => i switch
         {
-            0 => Db9_1, 1 => Db9_2, 2 => Db9_3, 3 => Db9_4, _ => null
+            0 => Db9_1,
+            1 => Db9_2,
+            2 => Db9_3,
+            3 => Db9_4,
+            _ => null
         };
         private ContentControl GetRs485Slot(int i) => i switch
         {
-            0 => Rs485_1, 1 => Rs485_2, 2 => Rs485_3, 3 => Rs485_4, _ => null
+            0 => Rs485_1,
+            1 => Rs485_2,
+            2 => Rs485_3,
+            3 => Rs485_4,
+            _ => null
         };
 
+        /// <summary>根据通道状态选颜色:已绑定→品牌红,可用→黑色,未启用→灰色虚线</summary>
+        private static SolidColorBrush PickStroke(ChannelModel ch)
+        {
+            if (ch == null || !ch.IsAvailable) return DisabledBrush;
+            if (!ch.IsBound) return BlackBrush;
+
+            return ch.ConnectionState switch
+            {
+                ChannelConnectionState.BoundOnline => BrandRedBrush,
+                ChannelConnectionState.BoundOffline => WarnBrush,
+                _ => BlackBrush
+            };
+        }
         private void BuildDb9(ContentControl slot, ChannelModel ch, int idx)
         {
             if (slot == null) return;
-            var canvas = new Canvas { Width = 76, Height = 64 };
             var available = ch != null && ch.IsAvailable;
-            var stroke = available ? LineBrush : DisabledBrush;
-            var fill   = available ? LineBrush : DisabledBrush;
-            var dash   = available ? null : new DoubleCollection { 2, 2 };
+            var bound = ch != null && ch.IsBound;
+            var stroke = PickStroke(ch);
+            var fill = stroke;
+            var dash = available ? null : new DoubleCollection { 2, 2 };
 
+            // 多行标签时高度变大
+            double canvasH = bound ? 80 : 64;
+            var canvas = new Canvas { Width = 76, Height = canvasH };
+
+            // DB9 梯形外框
             var trap = new Polygon
             {
                 Points = new PointCollection
                 {
                     new Point(6, 8), new Point(70, 8), new Point(66, 40), new Point(10, 40)
                 },
-                Stroke = stroke, StrokeThickness = 1, Fill = Brushes.Transparent,
+                Stroke = stroke,
+                StrokeThickness = bound ? 1.5 : 1,
+                Fill = Brushes.Transparent,
             };
             if (dash != null) trap.StrokeDashArray = dash;
             canvas.Children.Add(trap);
 
+            // 螺丝盒
             var screwBox = new Rectangle
             {
-                Width = 76, Height = 36, Stroke = stroke, StrokeThickness = 1, Fill = Brushes.Transparent,
+                Width = 76,
+                Height = 36,
+                Stroke = stroke,
+                StrokeThickness = bound ? 1.5 : 1,
+                Fill = Brushes.Transparent,
             };
             if (dash != null) screwBox.StrokeDashArray = dash;
             Canvas.SetLeft(screwBox, 0); Canvas.SetTop(screwBox, 6);
             canvas.Children.Add(screwBox);
 
+            // 针脚 / 未启用标签
             if (available)
             {
                 int[] xs1 = { 14, 22, 30, 38, 46, 54, 62 };
@@ -100,22 +139,74 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             {
                 var label = new TextBlock
                 {
-                    Text = "未启用", FontFamily = new FontFamily("Arial"),
-                    FontSize = 8, Foreground = DisabledBrush,
+                    Text = "未启用",
+                    FontFamily = new FontFamily("Arial"),
+                    FontSize = 8,
+                    Foreground = DisabledBrush,
                 };
                 Canvas.SetLeft(label, 24); Canvas.SetTop(label, 22);
                 canvas.Children.Add(label);
             }
 
+            // 通道标签
             var tag = new TextBlock
             {
                 Text = $"RS-232 ({idx + 1})",
-                FontFamily = new FontFamily("Arial"), FontSize = 8,
-                FontWeight = FontWeights.Medium, Foreground = available ? LineBrush : DisabledBrush,
+                FontFamily = new FontFamily("Arial"),
+                FontSize = 8,
+                FontWeight = FontWeights.Medium,
+                Foreground = stroke,
             };
             Canvas.SetLeft(tag, 16); Canvas.SetTop(tag, 50);
             canvas.Children.Add(tag);
 
+            // ★ 绑定的设备名 (两行:名 + ID)
+            if (bound)
+            {
+                var deviceName = new TextBlock
+                {
+                    Text = ch.BoundDeviceName,
+                    FontFamily = new FontFamily("Microsoft YaHei"),
+                    FontSize = 9,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = BrandRedBrush,
+                    Width = 76,
+                    TextAlignment = TextAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                };
+                Canvas.SetLeft(deviceName, 0); Canvas.SetTop(deviceName, 63);
+                canvas.Children.Add(deviceName);
+                // ★ 已绑定但未连通时,加个小标识
+                if (ch.ConnectionState == ChannelConnectionState.BoundOffline)
+                {
+                    var offlineDot = new Ellipse
+                    {
+                        Width = 6,
+                        Height = 6,
+                        Fill = WarnBrush,
+                        Stroke = Brushes.White,
+                        StrokeThickness = 1,
+                    };
+                    Canvas.SetLeft(offlineDot, 60); Canvas.SetTop(offlineDot, 2);
+                    canvas.Children.Add(offlineDot);
+                }
+                if (!string.IsNullOrEmpty(ch.BoundDeviceInstanceId))
+                {
+                    var deviceId = new TextBlock
+                    {
+                        Text = ch.BoundDeviceInstanceId,
+                        FontFamily = new FontFamily("Consolas"),
+                        FontSize = 8,
+                        Foreground = BrandRedBrush,
+                        Width = 76,
+                        TextAlignment = TextAlignment.Center,
+                    };
+                    Canvas.SetLeft(deviceId, 0); Canvas.SetTop(deviceId, 73);
+                    canvas.Children.Add(deviceId);
+                }
+            }
+
+            // 点击热区
             var btn = new Button
             {
                 Content = canvas,
@@ -134,14 +225,21 @@ namespace MaxChemical.Modules.GatewayConfig.Views
         private void BuildRs485(ContentControl slot, ChannelModel ch, int idx)
         {
             if (slot == null) return;
-            var canvas = new Canvas { Width = 260, Height = 36 };
             var available = ch != null && ch.IsAvailable;
-            var stroke = available ? LineBrush : DisabledBrush;
+            var bound = ch != null && ch.IsBound;
+            var stroke = PickStroke(ch);
             var dash = available ? null : new DoubleCollection { 2, 2 };
+
+            double canvasH = bound ? 56 : 36;
+            var canvas = new Canvas { Width = 260, Height = canvasH };
 
             var box = new Rectangle
             {
-                Width = 260, Height = 22, Stroke = stroke, StrokeThickness = 0.8, Fill = Brushes.Transparent,
+                Width = 260,
+                Height = 22,
+                Stroke = stroke,
+                StrokeThickness = bound ? 1.2 : 0.8,
+                Fill = Brushes.Transparent,
             };
             if (dash != null) box.StrokeDashArray = dash;
             Canvas.SetLeft(box, 0); Canvas.SetTop(box, 6);
@@ -154,7 +252,11 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 {
                     var c = new Ellipse
                     {
-                        Width = 7, Height = 7, Stroke = stroke, StrokeThickness = 0.5, Fill = Brushes.Transparent,
+                        Width = 7,
+                        Height = 7,
+                        Stroke = stroke,
+                        StrokeThickness = 0.5,
+                        Fill = Brushes.Transparent,
                     };
                     Canvas.SetLeft(c, x - 3.5); Canvas.SetTop(c, 13.5);
                     canvas.Children.Add(c);
@@ -164,11 +266,30 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             var tag = new TextBlock
             {
                 Text = $"RS-485 / RS-422 ({idx + 1})",
-                FontFamily = new FontFamily("Arial"), FontSize = 7,
-                FontWeight = FontWeights.Medium, Foreground = available ? LineBrush : DisabledBrush,
+                FontFamily = new FontFamily("Arial"),
+                FontSize = 7,
+                FontWeight = FontWeights.Medium,
+                Foreground = stroke,
             };
             Canvas.SetLeft(tag, 0); Canvas.SetTop(tag, -8);
             canvas.Children.Add(tag);
+
+            // ★ 绑定的设备名
+            if (bound)
+            {
+                var deviceText = new TextBlock
+                {
+                    Text = string.IsNullOrEmpty(ch.BoundDeviceInstanceId)
+                        ? ch.BoundDeviceName
+                        : $"{ch.BoundDeviceName} · {ch.BoundDeviceInstanceId}",
+                    FontFamily = new FontFamily("Microsoft YaHei"),
+                    FontSize = 9,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = BrandRedBrush,
+                };
+                Canvas.SetLeft(deviceText, 0); Canvas.SetTop(deviceText, 34);
+                canvas.Children.Add(deviceText);
+            }
 
             var btn = new Button
             {

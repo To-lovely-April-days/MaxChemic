@@ -147,5 +147,12 @@ namespace DevicePlugins.Devices
         /// 设备控制状态变更事件（用于流量稳定/不稳定等状态广播）
         /// </summary>
         event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
+
+        /// <summary>
+        /// 是否支持通过 ZLAN 网关通信。
+        /// true:此设备可在网关配置界面被选择绑定到通道
+        /// false (默认):此设备只能走物理串口/TCP直连,不出现在网关绑定下拉框
+        /// </summary>
+        bool SupportsZLanGateway { get; }
     }
 }

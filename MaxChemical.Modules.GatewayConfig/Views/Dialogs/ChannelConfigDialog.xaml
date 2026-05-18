@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:models="clr-namespace:MaxChemical.Modules.GatewayConfig.Models"
         Title="通道参数配置"
-        Width="720" SizeToContent="Height"
+        Width="760" SizeToContent="Height"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
 
@@ -13,7 +13,7 @@
                 <ResourceDictionary Source="pack://application:,,,/MaxChemical.Shell;component/Resources/ThemeColors.xaml"/>
                 <ResourceDictionary Source="pack://application:,,,/MaxChemical.Shell;component/Resources/SharedStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-
+            <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <Style x:Key="FieldTextBoxStyle" TargetType="TextBox">
                 <Setter Property="Height" Value="26"/>
                 <Setter Property="Padding" Value="6,2"/>
@@ -48,6 +48,35 @@
                 <Setter Property="Padding" Value="14,12"/>
                 <Setter Property="Background" Value="White"/>
             </Style>
+
+            <!-- ★ 设备下拉框 ItemTemplate (图标 + 名称 + ID) -->
+            <DataTemplate x:Key="DeviceCandidateTemplate" DataType="{x:Type models:BindableDeviceCandidate}">
+                <Grid Height="44" Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" Background="#F5F5F5"
+                            CornerRadius="3" HorizontalAlignment="Center">
+                        <Image Source="{Binding ImageLocation}" Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="HighQuality" Margin="4"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
+                        <TextBlock Text="{Binding DisplayName}" FontSize="13"
+                                   FontWeight="SemiBold" Foreground="#1A1A1A"/>
+                        <TextBlock Text="{Binding SubtitleText}" FontSize="11"
+                                   Foreground="#888780" FontFamily="Consolas" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="2" Background="#EFEFEF" CornerRadius="2"
+                            Padding="6,1" VerticalAlignment="Center" Margin="0,0,4,0"
+                            Visibility="{Binding IsBoundElsewhere, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="已绑定" FontSize="10" Foreground="#888780"/>
+                    </Border>
+                </Grid>
+            </DataTemplate>
+
+         
         </ResourceDictionary>
     </Window.Resources>
 
@@ -70,14 +99,14 @@
                     <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="14"
                                FontWeight="SemiBold" VerticalAlignment="Center" Margin="28,0,0,0"/>
                     <Button Style="{DynamicResource CloseButtonStyle}"
-                            HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Click="OnCancelClick"/>
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnCancelClick"/>
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="1" Margin="35,32,35,12">
+            <!-- 头信息 -->
+            <Grid Grid.Row="1" Margin="35,28,35,10">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Style="{StaticResource FieldLabelStyle}" Text="设备 ID："/>
+                    <TextBlock Style="{StaticResource FieldLabelStyle}" Text="设备 ID:"/>
                     <TextBlock Text="{Binding DeviceIdHex}" Foreground="#757575"
                                FontFamily="Consolas" FontSize="12" VerticalAlignment="Center"/>
                     <TextBlock Text="  ·  " Foreground="#888780" VerticalAlignment="Center" Margin="6,0"/>
@@ -88,8 +117,10 @@
                            FontSize="12" Foreground="#757575" Text="修改后设备会自动重启"/>
             </Grid>
 
-            <Grid Grid.Row="2" Margin="50,0,50,16">
+            <!-- 主体 -->
+            <Grid Grid.Row="2" Margin="35,0,35,16">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -99,12 +130,12 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- 串口参数 -->
                 <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource GroupCardStyle}">
                     <StackPanel>
                         <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1" Padding="0,0,0,8" Margin="0,0,0,10">
                             <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="串口参数"/>
                         </Border>
-
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -176,12 +207,12 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 工作模式 -->
                 <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource GroupCardStyle}">
                     <StackPanel>
                         <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1" Padding="0,0,0,8" Margin="0,0,0,10">
                             <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="工作模式"/>
                         </Border>
-
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -206,39 +237,140 @@
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="本地端口"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource FieldTextBoxStyle}"
-         Text="{Binding Working.LocalPort, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                     Text="{Binding Working.LocalPort, Mode=TwoWay}" Margin="0,0,0,6"/>
 
                             <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="目的 IP"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource FieldTextBoxStyle}"
-                                     Text="{Binding Working.DestIp, Mode=TwoWay}"
-                                     Margin="0,0,0,6"/>
+                                     Text="{Binding Working.DestIp, Mode=TwoWay}" Margin="0,0,0,6"/>
 
                             <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="目的端口"/>
                             <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource FieldTextBoxStyle}"
-                                     Text="{Binding Working.DestPort, Mode=TwoWay}"
-                                     IsEnabled="{Binding DestRequired}"/>
+                                     Text="{Binding Working.DestPort, Mode=TwoWay}"/>
                         </Grid>
                     </StackPanel>
                 </Border>
 
+                <!-- ★ 绑定设备 -->
                 <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                        Style="{StaticResource GroupCardStyle}" Margin="0,14,0,0">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="绑定设备"/>
+                            <TextBlock HorizontalAlignment="Right" FontSize="11" Foreground="#888780"
+                                       Text="绑定后,该设备的所有命令通过此通道收发"/>
+                        </Grid>
+
+                        <!-- 当前绑定状态 -->
+                        <!-- 已绑定状态 + 操作按钮 -->
+                        <Border Background="#FEF1F3" BorderBrush="#F3D7DC" BorderThickness="1"
+        CornerRadius="3" Padding="10,8" Margin="0,0,0,10"
+        Visibility="{Binding HasBinding, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="6" Height="6" Fill="#A41626"
+                     VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="已绑定:" FontSize="12" Foreground="#5F5F5F"
+                       VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CurrentBoundDeviceText}"
+                       FontSize="12" FontWeight="SemiBold" Foreground="#A41626"
+                       VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                                    <Button Background="Transparent" BorderThickness="0"
+                    Foreground="#0F6E56" FontSize="12"
+                    Content="测试连接" Cursor="Hand" Padding="8,2"
+                    Command="{Binding TestConnectionCommand}"/>
+                                    <Rectangle Width="1" Height="14" Fill="#E0E0E0" VerticalAlignment="Center" Margin="4,0"/>
+                                    <Button Background="Transparent" BorderThickness="0"
+                    Foreground="#A41626" FontSize="12"
+                    Content="解绑" Cursor="Hand" Padding="8,2"
+                    Command="{Binding UnbindDeviceCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- ★ 测试结果显示 -->
+                        <Border Background="#FAFAF8" BorderBrush="#EAEAEA" BorderThickness="1"
+        CornerRadius="3" Padding="10,8" Margin="0,0,0,10"
+        Visibility="{Binding HasBinding, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding TestResultText}"
+               FontSize="11" Foreground="#3F3F3F"
+               FontFamily="Consolas" TextWrapping="Wrap"
+               LineHeight="16"
+               MinHeight="20"/>
+                        </Border>
+
+                        <!-- 选择设备 + 绑定按钮 -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox Grid.Column="0"
+                                      Height="50"
+                                      ItemsSource="{Binding DeviceCandidates}"
+                                      SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                      ItemTemplate="{StaticResource DeviceCandidateTemplate}"
+                                      BorderBrush="#CCCCCC" BorderThickness="1"
+                                      VerticalContentAlignment="Center"
+                                      Padding="4">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="Padding" Value="6,2"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBoundElsewhere}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                                <Setter Property="Opacity" Value="0.55"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
+                            </ComboBox>
+
+                            <Button Grid.Column="1" Content="绑定到此通道"
+                                    Command="{Binding BindDeviceCommand}"
+                                    Background="#A41626" Foreground="White"
+                                    BorderThickness="0" Height="50" MinWidth="120"
+                                    Padding="14,0" FontSize="12" FontWeight="SemiBold"
+                                    Cursor="Hand" Margin="10,0,0,0">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#7A0E1E"/>
+                                            </Trigger>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 连接保活 -->
+                <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                         Style="{StaticResource GroupCardStyle}" Margin="0,14,0,0">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
                             <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="连接保活"/>
                             <Button HorizontalAlignment="Right" Background="Transparent"
                                     BorderThickness="0" Foreground="#A41626" FontSize="12"
-                                    Content="↗ 同步到所有通道" Cursor="Hand" Padding="0"
+                                    Content="同步到所有通道" Cursor="Hand" Padding="0"
                                     Command="{Binding SyncToAllCommand}"/>
                         </Grid>
-
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource FieldLabelStyle}" Text="断线重连"/>
                             <TextBox Style="{StaticResource FieldTextBoxStyle}" Width="70"
                                      Text="{Binding Working.ReconnectTime, Mode=TwoWay}"/>
                             <TextBlock Text="秒" Foreground="#757575" FontSize="12"
                                        VerticalAlignment="Center" Margin="6,0,24,0"/>
-
                             <TextBlock Style="{StaticResource FieldLabelStyle}" Text="保活时间"/>
                             <TextBox Style="{StaticResource FieldTextBoxStyle}" Width="70"
                                      Text="{Binding Working.KeepAliveTime, Mode=TwoWay}"/>
@@ -249,6 +381,7 @@
                 </Border>
             </Grid>
 
+            <!-- 底部按钮 -->
             <StackPanel Grid.Row="3" Orientation="Horizontal"
                         HorizontalAlignment="Right" Margin="0,0,15,21">
                 <Button Style="{DynamicResource DialogSecondaryButtonStyle}" Content="取消" Click="OnCancelClick"/>

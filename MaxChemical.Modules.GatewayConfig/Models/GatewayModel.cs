@@ -98,5 +98,30 @@ namespace MaxChemical.Modules.GatewayConfig.Models
 
         private LinkStatus _linkStatus;
         public LinkStatus LinkStatus { get => _linkStatus; set => SetProperty(ref _linkStatus, value); }
+
+        //  新增:绑定状态
+        private string _boundDeviceName = "";
+        public string BoundDeviceName
+        {
+            get => _boundDeviceName;
+            set { SetProperty(ref _boundDeviceName, value); RaisePropertyChanged(nameof(IsBound)); }
+        }
+
+        private string _boundDeviceInstanceId = "";
+        public string BoundDeviceInstanceId
+        {
+            get => _boundDeviceInstanceId;
+            set => SetProperty(ref _boundDeviceInstanceId, value);
+        }
+
+        public bool IsBound => !string.IsNullOrEmpty(_boundDeviceName);
+
+        //  新增:连接探测状态
+        private ChannelConnectionState _connectionState = ChannelConnectionState.Unbound;
+        public ChannelConnectionState ConnectionState
+        {
+            get => _connectionState;
+            set => SetProperty(ref _connectionState, value);
+        }
     }
 }
