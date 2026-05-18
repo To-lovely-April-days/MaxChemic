@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36518.9 d17.14
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11716.220
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Shell", "MaxChemical.Shell\MaxChemical.Shell.csproj", "{F96DA0CA-79A7-4387-AAAF-6DD47577BFA7}"
 EndProject
@@ -66,6 +66,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.GatewayConfig.Proxy", "MaxChemical.GatewayConfig.Proxy\MaxChemical.GatewayConfig.Proxy.csproj", "{1E62EDF5-43C0-DE51-84E5-28106B0008DA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Modules.GatewayConfig", "MaxChemical.Modules.GatewayConfig\MaxChemical.Modules.GatewayConfig.csproj", "{170F7791-8FC9-011A-0B59-680180B68642}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicTubularReactor_ModbusRTU", "DynamicTubularReactor_ModbusRTU\DynamicTubularReactor_ModbusRTU.csproj", "{25451B0D-50F2-40D9-8ACC-95BDB326C4DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiliconCarbideChip_ModbusRTU", "SiliconCarbideChip_ModbusRTU\SiliconCarbideChip_ModbusRTU.csproj", "{676460DF-1863-4EB2-867A-0A6B61C545E0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighPreactor_ModbusRTU", "HighPreactor_ModbusRTU\HighPreactor_ModbusRTU.csproj", "{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -197,6 +203,18 @@ Global
 		{170F7791-8FC9-011A-0B59-680180B68642}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{170F7791-8FC9-011A-0B59-680180B68642}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{170F7791-8FC9-011A-0B59-680180B68642}.Release|Any CPU.Build.0 = Release|Any CPU
+		{25451B0D-50F2-40D9-8ACC-95BDB326C4DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{25451B0D-50F2-40D9-8ACC-95BDB326C4DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{25451B0D-50F2-40D9-8ACC-95BDB326C4DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{25451B0D-50F2-40D9-8ACC-95BDB326C4DF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{676460DF-1863-4EB2-867A-0A6B61C545E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -219,6 +237,9 @@ Global
 		{0C1AE729-25DC-4D3A-B1D7-FFEBC775C678} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{7C8F52B1-1ED0-4EBF-9597-03841B531576} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{AEFFDDBD-34B2-4728-9055-41E8A1608DD2} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{25451B0D-50F2-40D9-8ACC-95BDB326C4DF} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{676460DF-1863-4EB2-867A-0A6B61C545E0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {72D8DB25-9C37-4F38-B4CF-213BB0AEEFF7}

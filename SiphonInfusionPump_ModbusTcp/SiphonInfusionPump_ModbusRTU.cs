@@ -42,7 +42,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 RegionType.PostProcess
             };
 
-            Parameters.Variables.Add(new StringParameter("DeviceId", "", "ModbusRTU设备ID")
+            Parameters.Variables.Add(new StringParameter("DeviceId", "SIP0001", "ModbusRTU设备ID")
             {
                 Options = new ObservableCollection<string>() { "SIP0001", "SIP0002", "SIP0003", "SIP0004", "SIP0005" },
             });
@@ -214,59 +214,127 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 获取实时压力
+            // 冲洗
             Commands.Add(new DeviceCommand()
             {
-                Name = "获取实时压力",
+                Name = "冲洗",
                 ImageLocation = "",
-                HelpText = "获取平流输液泵的实时压力",
+                HelpText = "冲洗平流输液泵",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Pressure", 0, 5000, 0, "实时压力", true, "Mpa")
+                        new BooleanParameter("Success", false, "冲洗成功", true)
                     }
                 },
 
-                AsyncAction = AsyncWrapAction("获取实时压力", async parameter =>
+                Action = WrapAction("冲洗", async parameters =>
                 {
                     try
                     {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        double pressure = 0;
+                        ComId = parameters.GetValue<string>("DeviceId");
+                        bool success = false;
+
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            pressure = new Random().Next(20, 100);
-                            InfoLog($"模拟模式获取平流输液泵实时压力，结果（{pressure}）");
+                            success = true;
+                            InfoLog("模拟模式冲洗平流输液泵");
                         }
                         else
                         {
-                            byte[] buffers = new byte[1024];
-                            int len = await ReadAsync(buffers, 0, buffers.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                pressure = BitConverter.ToInt16(data);
-                            }
+                            byte[] buffers = new byte[8];
+                            buffers[0] = 85;
+                            buffers[1] = 6;
+                            buffers[2] = 0;
+                            buffers[3] = 6;
+                            buffers[4] = 0;
+                            buffers[5] = 1;
+                            buffers[6] = 165;
+                            buffers[7] = 223;
+
+                            success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
+
+                        //  通知UI：命令执行结果
+                        OnStateChanged("CommandState_冲洗水平输液泵", success ? CommandExecutionState.Succeeded : CommandExecutionState.Failed);
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Pressure", 0, 5000, pressure, "实时压力", true, "Mpa")
+                                new BooleanParameter("Success",false, "冲洗成功", true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"获取平流输液泵实施压力失败：{e.Message}");
+                        OnStateChanged("CommandState_冲洗输液泵", CommandExecutionState.Error);
+                        ErrorLog($"平流输液泵冲洗失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 压力校零
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "压力校零",
+                ImageLocation = "",
+                HelpText = "平流输液泵压力校零",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success", false, "压力校零成功", true)
+                    }
+                },
+
+                Action = WrapAction("压力校零", async parameters =>
+                {
+                    try
+                    {
+                        ComId = parameters.GetValue<string>("DeviceId");
+                        bool success = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            success = true;
+                            InfoLog("模拟模式平流输液泵压力校零");
+                        }
+                        else
+                        {
+                            byte[] buffers = new byte[8];
+                            buffers[0] = 85;
+                            buffers[1] = 6;
+                            buffers[2] = 0;
+                            buffers[3] = 8;
+                            buffers[4] = 0;
+                            buffers[5] = 1;
+                            buffers[6] = 196;
+                            buffers[7] = 28;
+
+                            success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                        }
+
+                        //  通知UI：命令执行结果
+                        OnStateChanged("CommandState_压力校零", success ? CommandExecutionState.Succeeded : CommandExecutionState.Failed);
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success",false, "压力校零成功", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        OnStateChanged("CommandState_压力校零", CommandExecutionState.Error);
+                        ErrorLog($"平流输液泵压力校零失败：{e.Message}");
                         throw;
                     }
                 })
@@ -302,7 +370,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         bool success = false;
-                        double upperLimit = parameter.GetValue<double>("PressureUpperLimit");
+                        short upperLimit = parameter.GetValue<short>("PressureUpperLimit");
 
                         if (IsSimulationMode)
                         {
@@ -312,16 +380,19 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)upperLimit);
-                            byte[] buffers = new byte[8];
+                            byte[] data = BitConverter.GetBytes(upperLimit);
+                            if (BitConverter.IsLittleEndian)
+                            {
+                                ReverseArray(data);
+                            }
+                            byte[] buffers = new byte[6];
                             buffers[0] = 85;
                             buffers[1] = 6;
                             buffers[2] = 0;
                             buffers[3] = 2;
                             buffers[4] = data[0];
                             buffers[5] = data[1];
-                            buffers[6] = 37;
-                            buffers[7] = 245;
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, 6);
 
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
@@ -342,7 +413,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 })
             });
-            
+
             // 设置压力下限
             Commands.Add(new DeviceCommand()
             {
@@ -373,7 +444,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         bool success = false;
-                        double lowerLimit = parameter.GetValue<double>("PressureLowerLimit");
+                        short lowerLimit = parameter.GetValue<short>("PressureLowerLimit");
 
                         if (IsSimulationMode)
                         {
@@ -388,16 +459,19 @@ namespace SiphonInfusionPump_ModbusTcp
                         //}
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)lowerLimit);
-                            byte[] buffers = new byte[8];
+                            byte[] data = BitConverter.GetBytes(lowerLimit);
+                            if (BitConverter.IsLittleEndian)
+                            {
+                                ReverseArray(data);
+                            }
+                            byte[] buffers = new byte[6];
                             buffers[0] = 85;
                             buffers[1] = 6;
                             buffers[2] = 0;
                             buffers[3] = 3;
                             buffers[4] = data[0];
                             buffers[5] = data[1];
-                            buffers[6] = 116;
-                            buffers[7] = 30;
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, 6);
 
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
@@ -414,6 +488,459 @@ namespace SiphonInfusionPump_ModbusTcp
                     catch (Exception e)
                     {
                         ErrorLog($"设置平流输液泵压力下限失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 设置流量
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "设置流量",
+                ImageLocation = "",
+                HelpText = "设置平流输液泵流量",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("TargetFlow", 0, 9999, 0, "设置的目标值", true, "ml/min")
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success", false, "设置平流输液泵流量成功", true),
+                        new NumberParameter("SetFlow", 0, 9999, 0, "设置的目标值", true, "ml/min")
+                    }
+                },
+
+                Action = WrapAction("设置流量", async parameters =>
+                {
+                    try
+                    {
+                        ComId = parameters.GetValue<string>("DeviceId");
+                        bool success = false;
+                        short target = parameters.GetValue<short>("TargetFlow");
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            success = true;
+                            InfoLog("模拟模式设置平流输液泵流量");
+                        }
+                        else
+                        {
+                            byte[] data = BitConverter.GetBytes(target);
+                            if (BitConverter.IsLittleEndian)
+                            {
+                                ReverseArray(data);
+                            }
+                            byte[] buffers = { 0x55, 0x06, 0x00, 0x00, data[0], data[1] };
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
+
+                            success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                        }
+
+                        //  通知UI：命令执行结果
+                        OnStateChanged("CommandState_设置平流输液泵流量", success ? CommandExecutionState.Succeeded : CommandExecutionState.Failed);
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success",false, "设置平流输液泵流量成功", true),
+                                new NumberParameter("SetFlow", 0, 9999, target, "设置的目标值", true, "ml/min")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        OnStateChanged("CommandState_设置平流输液泵流量", CommandExecutionState.Error);
+                        ErrorLog($"设置平流输液泵流量失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 设置流量2
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "设置流量2",
+                ImageLocation = "",
+                HelpText = "设置平流输液泵流量2",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("TargetFlow2", 0, 9999, 0, "设置的目标值", true, "ml/min")
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success", false, "设置平流输液泵流量2成功", true)
+                    }
+                },
+
+                Action = WrapAction("设置流量2", async parameters =>
+                {
+                    try
+                    {
+                        ComId = parameters.GetValue<string>("DeviceId");
+                        bool success = false;
+                        short target = parameters.GetValue<short>("TargetFlow2");
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            success = true;
+                            InfoLog("模拟模式设置平流输液泵流量2");
+                        }
+                        else
+                        {
+                            byte[] data = BitConverter.GetBytes(target);
+                            if (BitConverter.IsLittleEndian)
+                            {
+                                ReverseArray(data);
+                            }
+                            byte[] buffers = { 0x55, 0x06, 0x00, 0x01, data[0], data[1] };
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
+
+                            success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                        }
+
+                        //  通知UI：命令执行结果
+                        OnStateChanged("CommandState_设置平流输液泵流量2", success ? CommandExecutionState.Succeeded : CommandExecutionState.Failed);
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success",false, "设置平流输液泵流量2成功", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        OnStateChanged("CommandState_设置平流输液泵流量2", CommandExecutionState.Error);
+                        ErrorLog($"设置平流输液泵流量2失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+            
+            
+            // 获取实时压力
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取实时压力",
+                ImageLocation = "",
+                HelpText = "获取平流输液泵的实时压力",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("Pressure", 0, 5000, 0, "实时压力", true, "Mpa")
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取实时压力", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        double pressure = 0;
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            pressure = new Random().Next(20, 100);
+                            InfoLog($"模拟模式获取平流输液泵实时压力，结果（{pressure}）");
+                        }
+                        else
+                        {
+                            // 发送的指令报文
+                            byte[] frame = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+
+                            byte[] buffers = new byte[1024];
+                            Array.Copy(frame, buffers, frame.Length);
+                            int len = await ReadAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                            if (len > 0)
+                            {
+                                byte[] data = ExtractPayload(buffers);
+                                if (BitConverter.IsLittleEndian)
+                                {
+                                    ReverseArray(data);
+                                }
+                                pressure = BitConverter.ToInt16(data);
+                            }
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("Pressure", 0, 5000, pressure, "实时压力", true, "Mpa")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取平流输液泵实施压力失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取压力上限
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取压力上限",
+                ImageLocation = "",
+                HelpText = "获取平流输液泵的压力上限",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("UpperLimit", 0, 5000, 0, "压力上限", true, "Mpa")
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取压力上限", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        double pressure = 0;
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            pressure = new Random().Next(20, 100);
+                            InfoLog($"模拟模式获取平流输液泵压力上限，结果（{pressure}）");
+                        }
+                        else
+                        {
+                            // 发送的指令报文
+                            byte[] frame = { 0x55, 0x03, 0x00, 0x02, 0x00, 0x01, 0x28, 0x1E};
+
+                            byte[] buffers = new byte[1024];
+                            Array.Copy(frame, buffers, frame.Length);
+                            int len = await ReadAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                            if (len > 0)
+                            {
+                                byte[] data = ExtractPayload(buffers);
+                                if (BitConverter.IsLittleEndian)
+                                {
+                                    ReverseArray(data);
+                                }
+                                pressure = BitConverter.ToInt16(data);
+                            }
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("Pressure", 0, 5000, pressure, "压力上限", true, "Mpa")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取平流输液泵压力上限失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取压力下限
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取压力下限",
+                ImageLocation = "",
+                HelpText = "获取平流输液泵的压力下限",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("LowerLimit", 0, 420, 0, "压力下限", true, "Mpa")
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取压力下限", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        double pressure = 0;
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            pressure = new Random().Next(20, 100);
+                            InfoLog($"模拟模式获取平流输液泵压力下限，结果（{pressure}）");
+                        }
+                        else
+                        {
+                            // 发送的指令报文
+                            byte[] frame = { 0x55, 0x03, 0x00, 0x03, 0x00, 0x01, 0x79, 0xDE };
+
+                            byte[] buffers = new byte[1024];
+                            Array.Copy(frame, buffers, frame.Length);
+                            int len = await ReadAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                            if (len > 0)
+                            {
+                                byte[] data = ExtractPayload(buffers);
+                                if (BitConverter.IsLittleEndian)
+                                {
+                                    ReverseArray(data);
+                                }
+                                pressure = BitConverter.ToInt16(data);
+                            }
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("LowerLimit", 0, 420, pressure, "压力下限", true, "Mpa")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取平流输液泵压力下限失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取流量
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取流量",
+                ImageLocation = "",
+                HelpText = "获取平流输液泵的流量",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("Flow", 0, 9999, 0, "流量", true, "ml/min")
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取流量", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        double pressure = 0;
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            pressure = new Random().Next(20, 100);
+                            InfoLog($"模拟模式获取平流输液泵流量，结果（{pressure}）");
+                        }
+                        else
+                        {
+                            // 发送的指令报文
+                            byte[] frame = { 0x55, 0x03, 0x00, 0x00, 0x00, 0x01, 0x89, 0xDE };
+
+                            byte[] buffers = new byte[1024];
+                            Array.Copy(frame, buffers, frame.Length);
+                            int len = await ReadAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                            if (len > 0)
+                            {
+                                byte[] data = ExtractPayload(buffers);
+                                if (BitConverter.IsLittleEndian)
+                                {
+                                    ReverseArray(data);
+                                }
+                                pressure = BitConverter.ToInt16(data);
+                            }
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("Flow", 0, 9999, pressure, "流量", true, "ml/min")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取平流输液泵流量：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取流量2
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取流量2",
+                ImageLocation = "",
+                HelpText = "获取平流输液泵的流量2",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("Flow2", 0, 9999, 0, "流量", true, "ml/min")
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取流量2", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        double pressure = 0;
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(2000);
+                            pressure = new Random().Next(20, 100);
+                            InfoLog($"模拟模式获取平流输液泵流量2，结果（{pressure}）");
+                        }
+                        else
+                        {
+                            // 发送的指令报文
+                            byte[] frame = { 0x55, 0x03, 0x00, 0x01, 0x00, 0x01, 0xD8, 0x1E };
+
+                            byte[] buffers = new byte[1024];
+                            Array.Copy(frame, buffers, frame.Length);
+                            int len = await ReadAsync(buffers, 0, buffers.Length, CancellationToken.None);
+                            if (len > 0)
+                            {
+                                byte[] data = ExtractPayload(buffers);
+                                if (BitConverter.IsLittleEndian)
+                                {
+                                    ReverseArray(data);
+                                }
+                                pressure = BitConverter.ToInt16(data);
+                            }
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("Flow2", 0, 9999, pressure, "流量2", true, "ml/min")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取平流输液泵流量2失败：{e.Message}");
                         throw;
                     }
                 })
@@ -663,7 +1190,11 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                     else
                     {
+                        // 发送的指令报文
+                        byte[] frame = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+
                         byte[] buffers = new byte[1024];
+                        Array.Copy(frame, buffers, frame.Length);
                         int len = await ReadAsync(buffers, 0, buffers.Length, token);
                         if (len > 0)
                         {
@@ -711,9 +1242,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 string dataBit = Parameters.GetValue<string>("数据位");
                 string stopBit = Parameters.GetValue<string>("停止位");
 
-                // 读取数据的指令
-                byte[] bytes = new byte[] { 85, 3, 0, 4, 0, 1, 200, 31 };
-
                 // 等待释放信号
                 await _slim.WaitAsync(token);
 
@@ -729,9 +1257,9 @@ namespace SiphonInfusionPump_ModbusTcp
                 serialPort.Open();
 
                 // 发送指令
-                await serialPort.BaseStream.WriteAsync(bytes, 0, bytes.Length, token);
+                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
 
-                var reader = serialPort.BaseStream.ReadAsync(buffers, offset, count, token);
+                var reader = serialPort.BaseStream.ReadAsync(buffers, 0, buffers.Length, token);
                 var complete = await Task.WhenAny(reader, Task.Delay(3000, token));
                 if (complete != reader)
                 {
