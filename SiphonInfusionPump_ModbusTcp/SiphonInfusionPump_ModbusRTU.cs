@@ -67,16 +67,14 @@ namespace SiphonInfusionPump_ModbusTcp
             });
 
             // 通信方式:由用户在画布参数面板逐实例选择
-            // Direct        - 本机物理串口
-            // PLC           - 经 PLC 统一连接器中转
-            // ModbusTcp     - 经 ModbusTcp 统一连接器中转
-            // ZLanGateway   - 经 ZLAN 网关 TCP 透传到远端串口
             Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
             {
                 Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
             });
 
-            // 初始化设备命令
+            // Modbus 从机站号 (1~254),由用户根据设备面板设定填写
+            Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
             InitializeCommands();
         }
 
@@ -85,9 +83,6 @@ namespace SiphonInfusionPump_ModbusTcp
         /// </summary>
         public override bool SupportsZLanGateway => true;
 
-        /// <summary>
-        /// 初始化命令集合
-        /// </summary>
         private void InitializeCommands()
         {
             // 停止
@@ -96,7 +91,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "停止泵",
                 ImageLocation = "",
                 HelpText = "停止平流输液泵",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -104,7 +98,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new BooleanParameter("Success", true, "平流输液泵停止成功", true)
                     }
                 },
-
                 Action = WrapAction("停止泵", async parameter =>
                 {
                     OnStateChanged("CommandState_停止水平输液泵", CommandExecutionState.Running);
@@ -120,7 +113,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 7, 0, 1, 244, 31 };
+                            byte[] buffers = BuildWriteCmd(register: 0x0007, value: 0x0001);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -150,7 +143,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "启动泵",
                 ImageLocation = "",
                 HelpText = "启动平流输液泵",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -158,7 +150,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new BooleanParameter("Success", false, "平流输液泵启动成功", true)
                     }
                 },
-
                 Action = WrapAction("启动泵", async parameters =>
                 {
                     try
@@ -174,7 +165,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 5, 0, 1, 85, 223 };
+                            byte[] buffers = BuildWriteCmd(register: 0x0005, value: 0x0001);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -204,7 +195,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "冲洗",
                 ImageLocation = "",
                 HelpText = "冲洗平流输液泵",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -212,7 +202,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new BooleanParameter("Success", false, "冲洗成功", true)
                     }
                 },
-
                 Action = WrapAction("冲洗", async parameters =>
                 {
                     try
@@ -228,7 +217,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 6, 0, 1, 165, 223 };
+                            byte[] buffers = BuildWriteCmd(register: 0x0006, value: 0x0001);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -258,7 +247,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "压力校零",
                 ImageLocation = "",
                 HelpText = "平流输液泵压力校零",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -266,7 +254,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new BooleanParameter("Success", false, "压力校零成功", true)
                     }
                 },
-
                 Action = WrapAction("压力校零", async parameters =>
                 {
                     try
@@ -282,7 +269,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 8, 0, 1, 196, 28 };
+                            byte[] buffers = BuildWriteCmd(register: 0x0008, value: 0x0001);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -312,7 +299,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "设置压力上限",
                 ImageLocation = "",
                 HelpText = "设置平流输液泵压力上限",
-
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -320,7 +306,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("PressureUpperLimit", 0, 100, 20, "设置的上限值", false)
                     }
                 },
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -329,7 +314,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("SetUpperLimit", 0, 100, 0, "设置的上限值", true)
                     }
                 },
-
                 Action = WrapAction("设置压力上限", async parameter =>
                 {
                     try
@@ -346,20 +330,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(upperLimit);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            byte[] buffers = new byte[6];
-                            buffers[0] = 85;
-                            buffers[1] = 6;
-                            buffers[2] = 0;
-                            buffers[3] = 2;
-                            buffers[4] = data[0];
-                            buffers[5] = data[1];
-                            buffers = Crc16Modbus.AppendCrc(buffers, 0, 6);
-
+                            byte[] buffers = BuildWriteCmd(register: 0x0002, value: (ushort)upperLimit);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -386,7 +357,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "设置压力下限",
                 ImageLocation = "",
                 HelpText = "设置平流输液泵的最小压力",
-
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -394,7 +364,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("PressureLowerLimit", 0, 100, 0, "设置的下限值", false)
                     }
                 },
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -403,7 +372,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("SetLowerLimit", 0, 100, 0, "设置的下限值", true)
                     }
                 },
-
                 Action = WrapAction("设置压力下限", async parameter =>
                 {
                     try
@@ -420,20 +388,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(lowerLimit);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            byte[] buffers = new byte[6];
-                            buffers[0] = 85;
-                            buffers[1] = 6;
-                            buffers[2] = 0;
-                            buffers[3] = 3;
-                            buffers[4] = data[0];
-                            buffers[5] = data[1];
-                            buffers = Crc16Modbus.AppendCrc(buffers, 0, 6);
-
+                            byte[] buffers = BuildWriteCmd(register: 0x0003, value: (ushort)lowerLimit);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -460,7 +415,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "设置流量",
                 ImageLocation = "",
                 HelpText = "设置平流输液泵流量",
-
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -468,7 +422,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("TargetFlow", 0, 9999, 0, "设置的目标值", true, "ml/min")
                     }
                 },
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -477,7 +430,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("SetFlow", 0, 9999, 0, "设置的目标值", true, "ml/min")
                     }
                 },
-
                 Action = WrapAction("设置流量", async parameters =>
                 {
                     try
@@ -494,14 +446,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            byte[] buffers = { 0x55, 0x06, 0x00, 0x00, data[0], data[1] };
-                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
-
+                            byte[] buffers = BuildWriteCmd(register: 0x0000, value: (ushort)target);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -532,7 +477,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "设置流量2",
                 ImageLocation = "",
                 HelpText = "设置平流输液泵流量2",
-
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -540,7 +484,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("TargetFlow2", 0, 9999, 0, "设置的目标值", true, "ml/min")
                     }
                 },
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -548,7 +491,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new BooleanParameter("Success", false, "设置平流输液泵流量2成功", true)
                     }
                 },
-
                 Action = WrapAction("设置流量2", async parameters =>
                 {
                     try
@@ -565,14 +507,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            byte[] buffers = { 0x55, 0x06, 0x00, 0x01, data[0], data[1] };
-                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
-
+                            byte[] buffers = BuildWriteCmd(register: 0x0001, value: (ushort)target);
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -602,7 +537,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "获取实时压力",
                 ImageLocation = "",
                 HelpText = "获取平流输液泵的实时压力",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -610,7 +544,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("Pressure", 0, 5000, 0, "实时压力", true, "Mpa")
                     }
                 },
-
                 AsyncAction = AsyncWrapAction("获取实时压力", async parameter =>
                 {
                     try
@@ -625,7 +558,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+                            byte[] sendCmd = BuildReadCmd(register: 0x0004, count: 0x0001);
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -651,7 +584,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "获取压力上限",
                 ImageLocation = "",
                 HelpText = "获取平流输液泵的压力上限",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -659,7 +591,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("UpperLimit", 0, 5000, 0, "压力上限", true, "Mpa")
                     }
                 },
-
                 AsyncAction = AsyncWrapAction("获取压力上限", async parameter =>
                 {
                     try
@@ -674,7 +605,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x02, 0x00, 0x01, 0x28, 0x1E };
+                            byte[] sendCmd = BuildReadCmd(register: 0x0002, count: 0x0001);
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -700,7 +631,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "获取压力下限",
                 ImageLocation = "",
                 HelpText = "获取平流输液泵的压力下限",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -708,7 +638,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("LowerLimit", 0, 420, 0, "压力下限", true, "Mpa")
                     }
                 },
-
                 AsyncAction = AsyncWrapAction("获取压力下限", async parameter =>
                 {
                     try
@@ -723,7 +652,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x03, 0x00, 0x01, 0x79, 0xDE };
+                            byte[] sendCmd = BuildReadCmd(register: 0x0003, count: 0x0001);
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -749,7 +678,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "获取流量",
                 ImageLocation = "",
                 HelpText = "获取平流输液泵的流量",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -757,7 +685,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("Flow", 0, 9999, 0, "流量", true, "ml/min")
                     }
                 },
-
                 AsyncAction = AsyncWrapAction("获取流量", async parameter =>
                 {
                     try
@@ -772,7 +699,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x00, 0x00, 0x01, 0x89, 0xDE };
+                            byte[] sendCmd = BuildReadCmd(register: 0x0000, count: 0x0001);
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -798,7 +725,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Name = "获取流量2",
                 ImageLocation = "",
                 HelpText = "获取平流输液泵的流量2",
-
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
@@ -806,7 +732,6 @@ namespace SiphonInfusionPump_ModbusTcp
                         new NumberParameter("Flow2", 0, 9999, 0, "流量", true, "ml/min")
                     }
                 },
-
                 AsyncAction = AsyncWrapAction("获取流量2", async parameter =>
                 {
                     try
@@ -821,7 +746,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x01, 0x00, 0x01, 0xD8, 0x1E };
+                            byte[] sendCmd = BuildReadCmd(register: 0x0001, count: 0x0001);
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -891,7 +816,7 @@ namespace SiphonInfusionPump_ModbusTcp
             try
             {
                 InfoLog("通过 ZLAN 网关测试连接");
-                byte[] sendCmd = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+                byte[] sendCmd = BuildReadCmd(register: 0x0004, count: 0x0001);
                 var pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                 InfoLog($"网关连接成功,当前压力 {pressure}");
                 return true;
@@ -919,7 +844,7 @@ namespace SiphonInfusionPump_ModbusTcp
         #region 命令包装(日志 + 异常封装)
 
         private Func<DeviceParameters, DeviceParameters> WrapAction(
-            string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
+      string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
             return (DeviceParameters parameters) =>
             {
@@ -927,7 +852,8 @@ namespace SiphonInfusionPump_ModbusTcp
                 var sw = Stopwatch.StartNew();
                 try
                 {
-                    var output = innerAsync(parameters).GetAwaiter().GetResult();
+                    // 用 Task.Run 把 inner 切到线程池,避免 UI 线程死锁
+                    var output = Task.Run(() => innerAsync(parameters)).GetAwaiter().GetResult();
                     sw.Stop();
                     _logger.LogInformation($"[ModbusRTU平流输液泵命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     return output;
@@ -1089,7 +1015,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                     else
                     {
-                        byte[] sendCmd = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+                        byte[] sendCmd = BuildReadCmd(register: 0x0004, count: 0x0001);
                         pressure = await SendAndParseInt16Async(sendCmd, token);
                     }
 
@@ -1112,6 +1038,55 @@ namespace SiphonInfusionPump_ModbusTcp
         #endregion
 
         #region 通信层
+
+        /// <summary>
+        /// 取当前配置的 Modbus 从机站号 (用户在参数面板可改,1~254)。
+        /// </summary>
+        private byte GetSlaveAddress()
+        {
+            try
+            {
+                var addr = (int)Parameters.GetValue<double>("Modbus站号");
+                if (addr < 1 || addr > 254) addr = 1;
+                return (byte)addr;
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写单寄存器命令 (功能码 0x06),自动加 CRC。
+        /// 格式: [站号] 06 [reg_hi] [reg_lo] [val_hi] [val_lo] [crc_lo] [crc_hi]
+        /// </summary>
+        private byte[] BuildWriteCmd(ushort register, ushort value)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x06,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(value >> 8),    (byte)(value & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 读保持寄存器命令 (功能码 0x03),自动加 CRC。
+        /// 格式: [站号] 03 [reg_hi] [reg_lo] [cnt_hi] [cnt_lo] [crc_lo] [crc_hi]
+        /// </summary>
+        private byte[] BuildReadCmd(ushort register, ushort count)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x03,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(count >> 8),    (byte)(count & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
 
         /// <summary>
         /// 写命令。底层走 IDeviceTransport,由框架根据"通信方式"参数路由到串口或网关 TCP。
