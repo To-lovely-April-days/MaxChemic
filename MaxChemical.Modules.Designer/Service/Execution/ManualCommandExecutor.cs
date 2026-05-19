@@ -13,6 +13,7 @@ using Prism.Events;
 using System.Diagnostics;
 using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Services;
+using System.Windows;
 
 namespace MaxChemical.Modules.Designer.Service.Execution
 {
@@ -306,60 +307,49 @@ namespace MaxChemical.Modules.Designer.Service.Execution
 
             var cmd = target.Commands?.FirstOrDefault(c => c.Name == node.DeviceCommand.Name);
             if (cmd == null)
-                throw new InvalidOperationException($"设备不支持命令：{node.DeviceCommand.Name}");
+                throw new InvalidOperationException($"设备不支持命令:{node.DeviceCommand.Name}");
 
-            // *** 修正：在修改任何状态之前先验证设备连接 ***
-            // 先准备设备模拟模式（临时），用于连接验证
             bool originalSimulationMode = target.IsSimulationMode;
             bool currentSimulationMode = GetCurrentSimulationMode();
 
-            // 临时设置模拟模式进行连接验证
             if (target.IsSimulationMode != currentSimulationMode)
             {
                 target.IsSimulationMode = currentSimulationMode;
-                _logger.LogDebug("ManualCommandExecutor: 临时调整设备模拟模式用于连接验证: {DeviceName} -> {Mode}",
-                    target.Name, currentSimulationMode ? "模拟" : "实际");
             }
 
             try
             {
-                // *** 在修改执行状态之前验证设备连接 ***
                 await ValidateAndEnsureDeviceConnection(target, node.BoundDeviceId);
             }
             catch (Exception ex)
             {
-                // 连接验证失败，恢复原始模拟模式
                 target.IsSimulationMode = originalSimulationMode;
-                _logger.LogError(ex, "ManualCommandExecutor: 设备连接验证失败，已恢复原始模拟模式: {DeviceName}", target.Name);
-                throw; // 重新抛出异常
+                _logger.LogError(ex, "ManualCommandExecutor: 设备连接验证失败");
+                throw;
             }
 
-            // *** 连接验证成功后才开始修改执行状态 ***
             var cts = new CancellationTokenSource();
             if (!_ctsMap.TryAdd(node.NodeId, cts))
             {
-                // 恢复原始模拟模式
                 target.IsSimulationMode = originalSimulationMode;
                 cts.Dispose();
                 throw new InvalidOperationException("该命令正在执行中。");
             }
 
-            // 设置执行状态
-            node.IsManualExecuting = true;
-            node.ExecutionStatus = CommandNode.NodeExecutionStatus.Executing;
+            // 设置执行状态 - 切到 UI 线程
+            SetOnUI(() =>
+            {
+                node.IsManualExecuting = true;
+                node.ExecutionStatus = CommandNode.NodeExecutionStatus.Executing;
+            });
 
-            // *** 正式保存设备原始模拟模式状态 ***
             if (!_originalDeviceSimulationModes.ContainsKey(node.NodeId))
             {
                 _originalDeviceSimulationModes.TryAdd(node.NodeId, originalSimulationMode);
-                _logger.LogDebug("ManualCommandExecutor: 保存设备 {DeviceName} 原始模拟模式: {Mode}",
-                    target.Name, originalSimulationMode ? "模拟" : "实际");
             }
 
-            // 保存设备引用
             node.Device = target;
 
-            // *** 连接验证成功后才发布动画开始事件 ***
             _eventAggregator?.GetEvent<DeviceExecutionStartedEvent>()?.Publish(new DeviceExecutionEventArgs
             {
                 DeviceId = node.BoundDeviceId,
@@ -367,31 +357,24 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                 IsSimulationMode = currentSimulationMode
             });
 
-            // *** 记录详细的执行信息 ***
             var sw = Stopwatch.StartNew();
             var inputParameters = BuildEffectiveParametersCopy(node);
 
             _logger.LogInformation(
-                "ManualCommandExecutor: 执行设备命令开始: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} SimulationMode={SimulationMode} Params={Params}",
-                node.DisplayName, node.NodeId, node.BoundDeviceId, target.Name, cmd.Name,
-                currentSimulationMode ? "模拟" : "实际", FormatParameters(inputParameters));
+                "ManualCommandExecutor: 执行设备命令开始: Node={Node} Command={Command}",
+                node.DisplayName, cmd.Name);
 
             try
             {
-                // 声明输出参数变量
                 DeviceParameters outputParams = null;
 
-                // 优先使用异步 Action,兼容同步 Action,两者都为 null 时报错
                 if (cmd.AsyncAction != null)
                 {
-                    // 异步 Action:直接 await,无需 Task.Run 包裹(避免嵌套 Task)
-                    // 仍要响应取消信号
                     cts.Token.ThrowIfCancellationRequested();
                     outputParams = await cmd.AsyncAction.Invoke(inputParameters).ConfigureAwait(false);
                 }
                 else if (cmd.Action != null)
                 {
-                    // 同步 Action:放到线程池执行,避免阻塞调用线程
                     await Task.Run(() =>
                     {
                         if (cts.IsCancellationRequested) return;
@@ -408,7 +391,6 @@ namespace MaxChemical.Modules.Designer.Service.Execution
 
                 if (!cts.IsCancellationRequested && outputParams != null)
                 {
-                    // 保存执行结果
                     node.LastExecutionResult = new DeviceCommandResult
                     {
                         Success = true,
@@ -416,7 +398,7 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                         ExecutionTime = DateTime.Now,
                         IsSimulationMode = currentSimulationMode
                     };
-                    // *** 新增：记录手动执行的设备数据 ***
+
                     var currentExperimentId = _experimentDataAdapter.GetCurrentExperimentId();
                     if (!string.IsNullOrEmpty(currentExperimentId))
                     {
@@ -430,7 +412,7 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                             node.NodeId,
                             node.DisplayName);
                     }
-                    // 发布结果更新事件
+
                     _eventAggregator?.GetEvent<NodeExecutionResultUpdatedEvent>()?.Publish(new NodeExecutionResultEventArgs
                     {
                         NodeId = node.NodeId,
@@ -440,19 +422,25 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                         IsSimulationMode = currentSimulationMode
                     });
 
-                    // 发布监控卡片更新事件
                     PublishMonitoringCardUpdateEvent(node.BoundDeviceId, cmd.Name, outputParams);
 
-                    node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
+                    //  关键修复:UI 线程上设状态
+                    SetOnUI(() =>
+                    {
+                        node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
+                    });
 
                     _logger.LogInformation(
-                        "ManualCommandExecutor: 执行设备命令完成: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} SimulationMode={SimulationMode} DurationMs={Duration} Output={Output}",
-                        node.DisplayName, node.NodeId, node.BoundDeviceId, target.Name, cmd.Name,
-                        currentSimulationMode ? "模拟" : "实际", sw.ElapsedMilliseconds, FormatParameters(outputParams));
+                        "ManualCommandExecutor: 执行设备命令完成: Node={Node} Command={Command} DurationMs={Duration}",
+                        node.DisplayName, cmd.Name, sw.ElapsedMilliseconds);
                 }
                 else if (cts.IsCancellationRequested)
                 {
-                    node.ExecutionStatus = CommandNode.NodeExecutionStatus.Failed;
+                    SetOnUI(() =>
+                    {
+                        node.ExecutionStatus = CommandNode.NodeExecutionStatus.Failed;
+                    });
+
                     node.LastExecutionResult = new DeviceCommandResult
                     {
                         Success = false,
@@ -460,12 +448,14 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                         ExecutionTime = DateTime.Now,
                         IsSimulationMode = currentSimulationMode
                     };
-
-                    _logger.LogInformation("ManualCommandExecutor: 命令执行被取消: {Node}", node.DisplayName);
                 }
                 else
                 {
-                    node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
+                    SetOnUI(() =>
+                    {
+                        node.ExecutionStatus = CommandNode.NodeExecutionStatus.Completed;
+                    });
+
                     node.LastExecutionResult = new DeviceCommandResult
                     {
                         Success = true,
@@ -473,8 +463,6 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                         ExecutionTime = DateTime.Now,
                         IsSimulationMode = currentSimulationMode
                     };
-
-                    _logger.LogDebug("ManualCommandExecutor: 命令执行完成，无输出参数: {Node}", node.DisplayName);
                 }
 
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
@@ -489,7 +477,12 @@ namespace MaxChemical.Modules.Designer.Service.Execution
             {
                 sw.Stop();
 
-                node.ExecutionStatus = CommandNode.NodeExecutionStatus.Failed;
+                //  关键修复:UI 线程上设状态
+                SetOnUI(() =>
+                {
+                    node.ExecutionStatus = CommandNode.NodeExecutionStatus.Failed;
+                });
+
                 node.LastExecutionResult = new DeviceCommandResult
                 {
                     Success = false,
@@ -499,10 +492,8 @@ namespace MaxChemical.Modules.Designer.Service.Execution
                     IsSimulationMode = currentSimulationMode
                 };
 
-                _logger.LogError(ex,
-                    "ManualCommandExecutor: 执行设备命令失败: Node={Node} NodeId={NodeId} DeviceId={DeviceId} DeviceName={DeviceName} Command={Command} SimulationMode={SimulationMode} DurationMs={Duration} Params={Params}",
-                    node.DisplayName, node.NodeId, node.BoundDeviceId, target.Name, cmd.Name,
-                    currentSimulationMode ? "模拟" : "实际", sw.ElapsedMilliseconds, FormatParameters(inputParameters));
+                _logger.LogError(ex, "ManualCommandExecutor: 执行设备命令失败: Node={Node} Command={Command}",
+                    node.DisplayName, cmd.Name);
 
                 _eventAggregator?.GetEvent<DeviceExecutionEndedEvent>()?.Publish(new DeviceExecutionEventArgs
                 {
@@ -517,17 +508,36 @@ namespace MaxChemical.Modules.Designer.Service.Execution
             }
             finally
             {
-                // *** 清理执行状态 ***
-                node.IsManualExecuting = false;
+                //  关键修复:UI 线程上设状态
+                SetOnUI(() =>
+                {
+                    node.IsManualExecuting = false;
+                });
 
-                // *** 恢复设备原始模拟模式状态 ***
                 RestoreDeviceSimulationMode(target, node.NodeId);
 
-                // *** 清理执行队列 ***
                 if (_ctsMap.TryRemove(node.NodeId, out var token))
                     token.Dispose();
 
                 _logger.LogDebug("ManualCommandExecutor: 命令执行清理完成: {Node}", node.DisplayName);
+            }
+        }
+
+        /// <summary>
+        /// 把动作切到 UI 线程上执行。若已在 UI 线程则同步执行,否则用 Dispatcher.Invoke 同步等待。
+        /// </summary>
+        private static void SetOnUI(Action action)
+        {
+            if (action == null) return;
+
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess())
+            {
+                action();
+            }
+            else
+            {
+                dispatcher.Invoke(action);
             }
         }
 
