@@ -41,8 +41,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 Options = new ObservableCollection<string>() { "SIP0001", "SIP0002", "SIP0003", "SIP0004", "SIP0005" },
             });
 
-            Parameters.Variables.Add(new NumberParameter("SlaveId", 1, 247, 1, "从站地址", true));
-
             Parameters.Variables.Add(new StringParameter("串口号", "COM1")
             {
                 Options = new ObservableCollection<string>() { "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7" }
@@ -107,7 +105,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -160,7 +157,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -214,7 +210,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -269,7 +264,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -331,7 +325,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short upperLimit = parameter.GetValue<short>("PressureUpperLimit");
 
@@ -343,7 +336,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = BuildWriteCmd(register: 0x0002, value: (ushort)upperLimit);
+                            byte[] buffers = BuildWriteCmd(register: 0x0002, value: (ushort)(upperLimit*10));
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -391,7 +384,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short lowerLimit = parameter.GetValue<short>("PressureLowerLimit");
 
@@ -403,7 +395,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = BuildWriteCmd(register: 0x0003, value: (ushort)lowerLimit);
+                            byte[] buffers = BuildWriteCmd(register: 0x0003, value: (ushort)(lowerLimit * 10));
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -451,7 +443,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short target = parameters.GetValue<short>("TargetFlow");
 
@@ -463,7 +454,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = BuildWriteCmd(register: 0x0000, value: (ushort)target);
+                            byte[] buffers = BuildWriteCmd(register: 0x0000, value: (ushort)(target*100));
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -514,7 +505,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short target = parameters.GetValue<short>("TargetFlow2");
 
@@ -526,7 +516,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = BuildWriteCmd(register: 0x0001, value: (ushort)target);
+                            byte[] buffers = BuildWriteCmd(register: 0x0001, value: (ushort)(target*10));
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -568,7 +558,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -616,7 +605,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -664,7 +652,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -712,7 +699,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -760,7 +746,6 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -1030,7 +1015,6 @@ namespace SiphonInfusionPump_ModbusTcp
                 try
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
-                    byte slaveId = Parameters.GetValue<byte>("SlaveId");
                     double pressure = 0;
 
                     if (IsSimulationMode)
