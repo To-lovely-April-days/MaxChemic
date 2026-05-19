@@ -41,6 +41,8 @@ namespace SiphonInfusionPump_ModbusTcp
                 Options = new ObservableCollection<string>() { "SIP0001", "SIP0002", "SIP0003", "SIP0004", "SIP0005" },
             });
 
+            Parameters.Variables.Add(new NumberParameter("SlaveId", 1, 247, 1, "从站地址", true));
+
             Parameters.Variables.Add(new StringParameter("串口号", "COM1")
             {
                 Options = new ObservableCollection<string>() { "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7" }
@@ -105,12 +107,13 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("停止泵", async parameter =>
+                AsyncAction = AsyncWrapAction("停止泵", async parameter =>
                 {
                     OnStateChanged("CommandState_停止水平输液泵", CommandExecutionState.Running);
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -120,7 +123,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 7, 0, 1, 244, 31 };
+                            byte[] buffers = { slaveId, 6, 0, 7, 0, 1 };
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
+
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -159,11 +164,12 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("启动泵", async parameters =>
+                AsyncAction = AsyncWrapAction("启动泵", async parameters =>
                 {
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -174,7 +180,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 5, 0, 1, 85, 223 };
+                            byte[] buffers = new byte[] { slaveId, 6, 0, 5, 0, 1 };
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
+
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -213,11 +221,12 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("冲洗", async parameters =>
+                AsyncAction = AsyncWrapAction("冲洗", async parameters =>
                 {
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -228,7 +237,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 6, 0, 1, 165, 223 };
+                            byte[] buffers = new byte[] { slaveId, 6, 0, 6, 0, 1 };
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
+
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
@@ -252,55 +263,58 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 压力校零
+            // 重置压力
             Commands.Add(new DeviceCommand()
             {
-                Name = "压力校零",
+                Name = "重置压力",
                 ImageLocation = "",
-                HelpText = "平流输液泵压力校零",
+                HelpText = "平流输液泵重置压力",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new BooleanParameter("Success", false, "压力校零成功", true)
+                        new BooleanParameter("Success", false, "重置压力成功", true)
                     }
                 },
 
-                Action = WrapAction("压力校零", async parameters =>
+                AsyncAction = AsyncWrapAction("重置压力", async parameters =>
                 {
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
                             success = true;
-                            InfoLog("模拟模式平流输液泵压力校零");
+                            InfoLog("模拟模式平流输液泵重置压力");
                         }
                         else
                         {
-                            byte[] buffers = new byte[] { 85, 6, 0, 8, 0, 1, 196, 28 };
+                            byte[] buffers = new byte[] { slaveId, 6, 0, 8, 0, 1 };
+                            buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
+
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                         }
 
-                        OnStateChanged("CommandState_压力校零",
+                        OnStateChanged("CommandState_重置压力",
                             success ? CommandExecutionState.Succeeded : CommandExecutionState.Failed);
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new BooleanParameter("Success", success, "压力校零成功", true)
+                                new BooleanParameter("Success", success, "重置压力成功", true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        OnStateChanged("CommandState_压力校零", CommandExecutionState.Error);
-                        ErrorLog($"平流输液泵压力校零失败:{e.Message}");
+                        OnStateChanged("CommandState_重置压力", CommandExecutionState.Error);
+                        ErrorLog($"平流输液泵重置压力失败:{e.Message}");
                         throw;
                     }
                 })
@@ -317,7 +331,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("PressureUpperLimit", 0, 100, 20, "设置的上限值", false)
+                        new NumberParameter("PressureUpperLimit", 0, 25, 20, "设置的上限值", false)
                     }
                 },
 
@@ -330,11 +344,12 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("设置压力上限", async parameter =>
+                AsyncAction = AsyncWrapAction("设置压力上限", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short upperLimit = parameter.GetValue<short>("PressureUpperLimit");
 
@@ -346,13 +361,13 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(upperLimit);
+                            byte[] data = BitConverter.GetBytes((short)(upperLimit * 10));
                             if (BitConverter.IsLittleEndian)
                             {
                                 ReverseArray(data);
                             }
                             byte[] buffers = new byte[6];
-                            buffers[0] = 85;
+                            buffers[0] = slaveId;
                             buffers[1] = 6;
                             buffers[2] = 0;
                             buffers[3] = 2;
@@ -368,7 +383,7 @@ namespace SiphonInfusionPump_ModbusTcp
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetUpperLimit", 0, 100, upperLimit, "设置的上限值", true)
+                                new NumberParameter("SetUpperLimit", 0, 25, upperLimit, "设置的上限值", true)
                             }
                         };
                     }
@@ -391,7 +406,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("PressureLowerLimit", 0, 100, 0, "设置的下限值", false)
+                        new NumberParameter("PressureLowerLimit", 0, 25, 0, "设置的下限值", false)
                     }
                 },
 
@@ -404,11 +419,12 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("设置压力下限", async parameter =>
+                AsyncAction = AsyncWrapAction("设置压力下限", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short lowerLimit = parameter.GetValue<short>("PressureLowerLimit");
 
@@ -420,13 +436,13 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(lowerLimit);
+                            byte[] data = BitConverter.GetBytes((short)(lowerLimit*10));
                             if (BitConverter.IsLittleEndian)
                             {
                                 ReverseArray(data);
                             }
                             byte[] buffers = new byte[6];
-                            buffers[0] = 85;
+                            buffers[0] = slaveId;
                             buffers[1] = 6;
                             buffers[2] = 0;
                             buffers[3] = 3;
@@ -478,11 +494,12 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("设置流量", async parameters =>
+                AsyncAction = AsyncWrapAction("设置流量", async parameters =>
                 {
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short target = parameters.GetValue<short>("TargetFlow");
 
@@ -494,12 +511,12 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
+                            byte[] data = BitConverter.GetBytes((short)(target * 100));
                             if (BitConverter.IsLittleEndian)
                             {
                                 ReverseArray(data);
                             }
-                            byte[] buffers = { 0x55, 0x06, 0x00, 0x00, data[0], data[1] };
+                            byte[] buffers = { slaveId, 0x06, 0x00, 0x00, data[0], data[1] };
                             buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
 
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
@@ -549,11 +566,12 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                 },
 
-                Action = WrapAction("设置流量2", async parameters =>
+                AsyncAction = AsyncWrapAction("设置流量2", async parameters =>
                 {
                     try
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
                         short target = parameters.GetValue<short>("TargetFlow2");
 
@@ -565,12 +583,12 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
+                            byte[] data = BitConverter.GetBytes((short)(target * 10));
                             if (BitConverter.IsLittleEndian)
                             {
                                 ReverseArray(data);
                             }
-                            byte[] buffers = { 0x55, 0x06, 0x00, 0x01, data[0], data[1] };
+                            byte[] buffers = { slaveId, 0x06, 0x00, 0x01, data[0], data[1] };
                             buffers = Crc16Modbus.AppendCrc(buffers, 0, buffers.Length);
 
                             success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
@@ -616,6 +634,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -625,7 +644,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+                            byte[] sendCmd = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x01 };
+                            sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -633,7 +654,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Pressure", 0, 5000, pressure, "实时压力", true, "Mpa")
+                                new NumberParameter("Pressure", 0, 5000, pressure / 10.0, "实时压力", true, "Mpa")
                             }
                         };
                     }
@@ -665,6 +686,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -674,7 +696,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x02, 0x00, 0x01, 0x28, 0x1E };
+                            byte[] sendCmd = { slaveId, 0x03, 0x00, 0x02, 0x00, 0x01 };
+                            sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -682,7 +706,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Pressure", 0, 5000, pressure, "压力上限", true, "Mpa")
+                                new NumberParameter("UpperLimit", 0, 25, pressure / 10.0, "压力上限", true, "Mpa")
                             }
                         };
                     }
@@ -714,6 +738,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -723,7 +748,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x03, 0x00, 0x01, 0x79, 0xDE };
+                            byte[] sendCmd = { slaveId, 0x03, 0x00, 0x03, 0x00, 0x01 };
+                            sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -731,7 +758,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("LowerLimit", 0, 420, pressure, "压力下限", true, "Mpa")
+                                new NumberParameter("LowerLimit", 0, 25, pressure / 10.0, "压力下限", true, "Mpa")
                             }
                         };
                     }
@@ -763,6 +790,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -772,7 +800,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x00, 0x00, 0x01, 0x89, 0xDE };
+                            byte[] sendCmd = { slaveId, 0x03, 0x00, 0x00, 0x00, 0x01 };
+                            sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -780,7 +810,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Flow", 0, 9999, pressure, "流量", true, "ml/min")
+                                new NumberParameter("Flow", 0, 9999, pressure / 100.0, "流量", true, "ml/min")
                             }
                         };
                     }
@@ -812,6 +842,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
+                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         double pressure = 0;
                         if (IsSimulationMode)
                         {
@@ -821,7 +852,9 @@ namespace SiphonInfusionPump_ModbusTcp
                         }
                         else
                         {
-                            byte[] sendCmd = { 0x55, 0x03, 0x00, 0x01, 0x00, 0x01, 0xD8, 0x1E };
+                            byte[] sendCmd = { slaveId, 0x03, 0x00, 0x01, 0x00, 0x01 };
+                            sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                             pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                         }
 
@@ -829,7 +862,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Flow2", 0, 9999, pressure, "流量2", true, "ml/min")
+                                new NumberParameter("Flow2", 0, 9999, pressure / 10.0, "流量2", true, "ml/min")
                             }
                         };
                     }
@@ -891,7 +924,11 @@ namespace SiphonInfusionPump_ModbusTcp
             try
             {
                 InfoLog("通过 ZLAN 网关测试连接");
-                byte[] sendCmd = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+                byte slaveId = Parameters.GetValue<byte>("SlaveId");
+
+                byte[] sendCmd = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x01};
+                sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                 var pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
                 InfoLog($"网关连接成功,当前压力 {pressure}");
                 return true;
@@ -1080,6 +1117,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 try
                 {
                     ComId = Parameters.GetValue<string>("DeviceId");
+                    byte slaveId = Parameters.GetValue<byte>("SlaveId");
                     double pressure = 0;
 
                     if (IsSimulationMode)
@@ -1089,7 +1127,9 @@ namespace SiphonInfusionPump_ModbusTcp
                     }
                     else
                     {
-                        byte[] sendCmd = { 0x55, 0x03, 0x00, 0x04, 0x00, 0x01, 0xC8, 0x1F };
+                        byte[] sendCmd = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x01 };
+                        sendCmd = Crc16Modbus.AppendCrc(sendCmd, 0, sendCmd.Length);
+
                         pressure = await SendAndParseInt16Async(sendCmd, token);
                     }
 
