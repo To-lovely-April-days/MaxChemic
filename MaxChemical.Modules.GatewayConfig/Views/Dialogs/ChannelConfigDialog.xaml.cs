@@ -48,7 +48,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
             };
             _vm.PollAttemptChanged += attempt =>
             {
-                if (_loadingOverlay != null) _loadingOverlay.UpdateMessage($"探测中… 第 {attempt} 次");
+                if (_loadingOverlay != null) _loadingOverlay.UpdateMessage($"设备重启中… 第 {attempt} 次探测");
             };
         }
 
@@ -63,7 +63,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
         private void ShowLoading()
         {
             _loadingOverlay = new LoadingOverlayWindow(this);
-            _loadingOverlay.Show("网关正在重启…");
+            _loadingOverlay.Show("设备正在重启…");
         }
 
         private void HideLoading()

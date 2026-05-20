@@ -2,9 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Root"
-             Width="640" Height="320">
-    <Canvas Width="640" Height="320">
-        <Rectangle Canvas.Left="20" Canvas.Top="20" Width="600" Height="280"
+             Width="640" Height="380">
+    <Canvas Width="640" Height="380">
+        <Rectangle Canvas.Left="20" Canvas.Top="20" Width="600" Height="340"
                    Fill="White" Stroke="#1A1A1A" StrokeThickness="1.2"/>
         <Line X1="20" Y1="50" X2="620" Y2="50" Stroke="#1A1A1A" StrokeThickness="0.8"/>
 
@@ -12,17 +12,20 @@
                    FontFamily="Arial" FontSize="11" FontWeight="SemiBold" Foreground="#1A1A1A"
                    Text="SERIAL GATEWAY · 4-PORT"/>
 
+        <!-- 左侧 4 个 DB9 -->
         <ContentControl x:Name="Db9_1" Canvas.Left="56"  Canvas.Top="84"  Tag="0"/>
         <ContentControl x:Name="Db9_2" Canvas.Left="176" Canvas.Top="84"  Tag="1"/>
-        <ContentControl x:Name="Db9_3" Canvas.Left="56"  Canvas.Top="176" Tag="2"/>
-        <ContentControl x:Name="Db9_4" Canvas.Left="176" Canvas.Top="176" Tag="3"/>
+        <ContentControl x:Name="Db9_3" Canvas.Left="56"  Canvas.Top="200" Tag="2"/>
+        <ContentControl x:Name="Db9_4" Canvas.Left="176" Canvas.Top="200" Tag="3"/>
 
-        <Line X1="300" Y1="76" X2="300" Y2="290" Stroke="#1A1A1A"
+        <!-- 中间分隔虚线 -->
+        <Line X1="300" Y1="76" X2="300" Y2="350" Stroke="#1A1A1A"
               StrokeThickness="0.4" StrokeDashArray="2,3"/>
 
+        <!-- 右侧 4 个端子排,间距加大到 64 -->
         <ContentControl x:Name="Rs485_1" Canvas.Left="330" Canvas.Top="84"  Tag="0"/>
-        <ContentControl x:Name="Rs485_2" Canvas.Left="330" Canvas.Top="130" Tag="1"/>
-        <ContentControl x:Name="Rs485_3" Canvas.Left="330" Canvas.Top="178" Tag="2"/>
-        <ContentControl x:Name="Rs485_4" Canvas.Left="330" Canvas.Top="226" Tag="3"/>
+        <ContentControl x:Name="Rs485_2" Canvas.Left="330" Canvas.Top="148" Tag="1"/>
+        <ContentControl x:Name="Rs485_3" Canvas.Left="330" Canvas.Top="212" Tag="2"/>
+        <ContentControl x:Name="Rs485_4" Canvas.Left="330" Canvas.Top="276" Tag="3"/>
     </Canvas>
 </UserControl>

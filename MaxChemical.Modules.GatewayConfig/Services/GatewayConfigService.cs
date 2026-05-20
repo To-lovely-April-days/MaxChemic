@@ -16,8 +16,7 @@ namespace MaxChemical.Modules.GatewayConfig.Services
         Task<IReadOnlyList<GatewayModel>> SearchAsync(int timeoutMs = 3000);
         Task RefreshChannelAsync(ChannelModel channel);
         Task<bool> ApplyChannelAsync(ChannelModel channel, ChannelModel original, Action<int> onPollAttempt = null);
-        Task<bool> ApplyGatewayAsync(GatewayModel gateway, GatewayModel original, Action<int> onPollAttempt = null);
-        Task<bool> ResetToDefaultAsync(GatewayModel gateway, Action<int> onPollAttempt = null);
+        Task<bool> ResetChannelToDefaultAsync(ChannelModel channel, Action<int> onPollAttempt = null);
         Task ShutdownAsync();
     }
 
@@ -36,13 +35,11 @@ namespace MaxChemical.Modules.GatewayConfig.Services
 
         public async Task InitializeAsync()
         {
-            // 已初始化且连接还活着 → 直接返回
             lock (_lifecycleLock)
             {
                 if (_initialized && _proxy != null && _proxy.IsConnected)
                     return;
 
-                // 状态不一致:之前关过窗口 / 代理挂了 → 重建 client
                 if (_proxy != null)
                 {
                     try { _proxy.Dispose(); } catch { }
@@ -100,41 +97,20 @@ namespace MaxChemical.Modules.GatewayConfig.Services
             return await PollAsync(channel.DeviceId, onPollAttempt).ConfigureAwait(false);
         }
 
-        public async Task<bool> ApplyGatewayAsync(GatewayModel gateway, GatewayModel original,
-            Action<int> onPollAttempt = null)
+        /// <summary>
+        /// 把单台设备恢复出厂(仅作用于本通道对应的那台物理设备,不影响其他通道)。
+        /// </summary>
+        public async Task<bool> ResetChannelToDefaultAsync(ChannelModel channel, Action<int> onPollAttempt = null)
         {
             await EnsureInitializedAsync().ConfigureAwait(false);
-            var primary = gateway.Channels.FirstOrDefault(c => c != null && c.IsAvailable);
-            if (primary == null) return false;
-
-            var changes = DiffGateway(gateway, original);
-            if (changes.Count == 0) return true;
-
-            var resp = await _proxy.SendRequestAsync(IpcProtocol.Op.WriteParams,
-                new Dictionary<string, object>
-                {
-                    ["deviceId"] = primary.DeviceId,
-                    ["changes"] = changes,
-                }).ConfigureAwait(false);
-
-            if (!resp.Success)
-                throw new InvalidOperationException("写入失败: " + resp.ErrorMessage);
-
-            return await PollAsync(primary.DeviceId, onPollAttempt).ConfigureAwait(false);
-        }
-
-        public async Task<bool> ResetToDefaultAsync(GatewayModel gateway, Action<int> onPollAttempt = null)
-        {
-            await EnsureInitializedAsync().ConfigureAwait(false);
-            var primary = gateway.Channels.FirstOrDefault(c => c != null && c.IsAvailable);
-            if (primary == null) return false;
+            if (channel == null || string.IsNullOrEmpty(channel.DeviceId)) return false;
 
             var resp = await _proxy.SendRequestAsync(IpcProtocol.Op.SetDefault,
-                new Dictionary<string, object> { ["deviceId"] = primary.DeviceId }).ConfigureAwait(false);
+                new Dictionary<string, object> { ["deviceId"] = channel.DeviceId }).ConfigureAwait(false);
             if (!resp.Success)
                 throw new InvalidOperationException("恢复出厂失败: " + resp.ErrorMessage);
 
-            return await PollAsync(primary.DeviceId, onPollAttempt).ConfigureAwait(false);
+            return await PollAsync(channel.DeviceId, onPollAttempt).ConfigureAwait(false);
         }
 
         public async Task ShutdownAsync()
@@ -217,19 +193,18 @@ namespace MaxChemical.Modules.GatewayConfig.Services
                     if (lastDot > 0 && int.TryParse(ip.Substring(lastDot + 1), out var n)) return n;
                     return int.MaxValue;
                 }).ToList();
+
                 var first = ordered[0];
+                // 虚拟总网关:身份信息只是为了卡片上展示,无任何可配置参数
                 var gw = new GatewayModel
                 {
                     DisplayName = string.IsNullOrEmpty(first.DeviceName) ? $"GW-{first.Ip}" : first.DeviceName,
                     Mac = FormatMacFromDeviceId(first.DeviceId),
                     Ip = first.Ip,
-                    Netmask = first.Netmask,
-                    GatewayAddr = first.Gateway,
-                    DnsServer = first.DnsServer,
-                    WebPort = first.WebPort,
                     FirmwareVersion = first.FirmwareVersion,
                     IsOnline = true,
                 };
+
                 for (int i = 0; i < 4; i++)
                 {
                     var snap = i < ordered.Count ? ordered[i] : null;
@@ -266,11 +241,23 @@ namespace MaxChemical.Modules.GatewayConfig.Services
         private static void ApplySnapshotToChannel(ChannelModel ch, DeviceSnapshot s)
         {
             ch.DeviceId = s.DeviceId;
+            // 设备身份
+            ch.DeviceName = s.DeviceName ?? "";
+            ch.Mac = FormatMacFromDeviceId(s.DeviceId);
+            ch.FirmwareVersion = s.FirmwareVersion ?? "";
+            // 网络参数
+            ch.Ip = s.Ip ?? "";
+            ch.Netmask = s.Netmask ?? "";
+            ch.GatewayAddr = s.Gateway ?? "";
+            ch.DnsServer = s.DnsServer ?? "";
+            ch.WebPort = s.WebPort;
+            // 串口参数
             ch.BaudRate = ParseEnum<BaudRate>(s.BaudRate, BaudRate.Bps_9600);
             ch.DataBits = ParseEnum<DataBits>(s.DataBits, DataBits.Bits_8);
             ch.Parity = ParseEnum<Parity>(s.Parity, Parity.None);
             ch.StopBit = ParseEnum<StopBit>(s.StopBit, StopBit.Stop_1);
             ch.FlowControl = ParseEnum<FlowControl>(s.FlowControl, FlowControl.None);
+            // TCP/UDP
             ch.WorkMode = ParseEnum<WorkMode>(s.WorkMode, WorkMode.TcpServer);
             ch.LocalPort = s.LocalPort;
             ch.DestPort = s.DestPort;
@@ -284,29 +271,27 @@ namespace MaxChemical.Modules.GatewayConfig.Services
         private static Dictionary<string, object> DiffChannel(ChannelModel cur, ChannelModel orig)
         {
             var d = new Dictionary<string, object>();
+            // 设备身份
+            if (cur.DeviceName != orig.DeviceName) d["PARAM_DEV_NAME"] = cur.DeviceName ?? "";
+            // 网络
+            if (cur.IpMode != orig.IpMode) d["PARAM_IP_MODE"] = (int)cur.IpMode;
+            if (cur.Netmask != orig.Netmask) d["PARAM_NET_MASK"] = cur.Netmask ?? "";
+            if (cur.GatewayAddr != orig.GatewayAddr) d["PARAM_GATEWAY"] = cur.GatewayAddr ?? "";
+            if (cur.DnsServer != orig.DnsServer) d["PARAM_DNS_SERVER_IP"] = cur.DnsServer ?? "";
+            if (cur.WebPort != orig.WebPort) d["PARAM_WEB_PORT"] = (int)cur.WebPort;
+            // 串口
             if (cur.BaudRate != orig.BaudRate) d["PARAM_BAUNDRATE"] = (int)cur.BaudRate;
             if (cur.DataBits != orig.DataBits) d["PARAM_DATA_BITS"] = (int)cur.DataBits;
             if (cur.Parity != orig.Parity) d["PARAM_PARITY"] = (int)cur.Parity;
             if (cur.StopBit != orig.StopBit) d["PARAM_STOP_BIT"] = (int)cur.StopBit;
             if (cur.FlowControl != orig.FlowControl) d["PARAM_FLOW_CONTROL"] = (int)cur.FlowControl;
+            // TCP/UDP
             if (cur.WorkMode != orig.WorkMode) d["PARAM_WORK_MODE"] = (int)cur.WorkMode;
             if (cur.LocalPort != orig.LocalPort) d["PARAM_DEV_LOCAL_PORT"] = (int)cur.LocalPort;
             if (cur.DestPort != orig.DestPort) d["PARAM_DEST_PORT"] = (int)cur.DestPort;
             if (cur.DestIp != orig.DestIp) d["PARAM_DEST_IP"] = cur.DestIp ?? "";
             if (cur.ReconnectTime != orig.ReconnectTime) d["PARAM_RECONNECT_TIME"] = cur.ReconnectTime;
             if (cur.KeepAliveTime != orig.KeepAliveTime) d["PARAM_KEEP_ALIVE_TIME"] = cur.KeepAliveTime;
-            return d;
-        }
-
-        private static Dictionary<string, object> DiffGateway(GatewayModel cur, GatewayModel orig)
-        {
-            var d = new Dictionary<string, object>();
-            if (cur.DisplayName != orig.DisplayName) d["PARAM_DEV_NAME"] = cur.DisplayName ?? "";
-            if (cur.IpMode != orig.IpMode) d["PARAM_IP_MODE"] = (int)cur.IpMode;
-            if (cur.Netmask != orig.Netmask) d["PARAM_NET_MASK"] = cur.Netmask ?? "";
-            if (cur.GatewayAddr != orig.GatewayAddr) d["PARAM_GATEWAY"] = cur.GatewayAddr ?? "";
-            if (cur.DnsServer != orig.DnsServer) d["PARAM_DNS_SERVER_IP"] = cur.DnsServer ?? "";
-            if (cur.WebPort != orig.WebPort) d["PARAM_WEB_PORT"] = cur.WebPort;
             return d;
         }
 

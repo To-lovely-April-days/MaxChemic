@@ -251,7 +251,112 @@
             </Trigger>
         </Style.Triggers>
     </Style>
+    <!-- ══ 输入框 (跟 FieldComboStyle 配套) ══ -->
+    <Style x:Key="FieldTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="9,0"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="#212121"/>
+        <Setter Property="BorderBrush" Value="#E0E0E0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Background" Value="#FAFAFA"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="6"
+                        SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                  Margin="{TemplateBinding Padding}"
+                                  VerticalAlignment="Center"
+                                  Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Hidden"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#BDBDBD"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
+                            <Setter TargetName="Bd" Property="BorderThickness" Value="1.5"/>
+                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
+    <!-- ══ 等宽字体输入框 (IP / 端口 / MAC 等技术字段) ══ -->
+    <Style x:Key="FieldMonoTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource FieldTextBoxStyle}">
+        <Setter Property="FontFamily" Value="Consolas, Microsoft YaHei"/>
+    </Style>
+
+    <!-- ══ 字段标签 ══ -->
+    <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#5F5F5F"/>
+        <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+
+    <!-- ══ 版块标题 (带左侧红色色块) ══ -->
+    <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="#1A1A1A"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ══ 卡片容器 ══ -->
+    <Style x:Key="GroupCardStyle" TargetType="Border">
+        <Setter Property="BorderBrush" Value="#E5E7EB"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="16,12,16,14"/>
+        <Setter Property="Background" Value="White"/>
+    </Style>
+
+    <!-- ══ 主操作按钮 (品牌红实色) — 改大尺寸的实用变体 ══ -->
+    <Style x:Key="DialogPrimaryButtonStyleLg" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="84"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+
+    <!-- ══ 警示按钮 (红描边白底,用于"恢复默认"等带警告意味的操作) ══ -->
+    <Style x:Key="DialogWarnButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonBaseStyle}">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource Brand.PrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="84"/>
+        <Setter Property="Margin" Value="0"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#FEF1F3"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="#FBD7DD"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ══ 次按钮 (灰色) — 改大尺寸的实用变体 ══ -->
+    <Style x:Key="DialogSecondaryButtonStyleLg" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="84"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
     <!-- ═══ BooleanToVisibilityConverter 全局可用 ═══ -->
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 

@@ -17,6 +17,11 @@ using Prism.Mvvm;
 
 namespace MaxChemical.Modules.GatewayConfig.ViewModels
 {
+    /// <summary>
+    /// 单台物理设备的参数编辑 ViewModel。
+    /// 每个 ChannelModel 对应一台真实的卓岚设备,所有网络 + 串口参数都属于这台设备。
+    /// 虚拟总网关本身不需要 ViewModel,因为它没有任何参数。
+    /// </summary>
     public class ChannelConfigViewModel : BindableBase
     {
         private readonly IGatewayConfigService _service;
@@ -25,7 +30,7 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
         private readonly IDeviceManager _deviceManager;
         private readonly IGatewayBindingRepository _bindingRepository;
         private readonly IDeviceTransportFactory _transportFactory;
-        private readonly ChannelModel _original;
+        private ChannelModel _original;
 
         public ChannelModel Working { get; }
         public GatewayModel Gateway { get; }
@@ -33,7 +38,8 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
         // ─── 命令 ───
         public DelegateCommand ApplyCommand { get; }
         public DelegateCommand CancelCommand { get; }
-        public DelegateCommand SyncToAllCommand { get; }
+        public DelegateCommand RefreshCommand { get; }
+        public DelegateCommand ResetToDefaultCommand { get; }
         public DelegateCommand BindDeviceCommand { get; }
         public DelegateCommand UnbindDeviceCommand { get; }
         public DelegateCommand TestConnectionCommand { get; }
@@ -65,7 +71,8 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
 
             ApplyCommand = new DelegateCommand(async () => await OnApplyAsync());
             CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false));
-            SyncToAllCommand = new DelegateCommand(OnSyncToAll);
+            RefreshCommand = new DelegateCommand(async () => await OnRefreshAsync());
+            ResetToDefaultCommand = new DelegateCommand(async () => await OnResetToDefaultAsync());
 
             BindDeviceCommand = new DelegateCommand(async () => await OnBindDeviceAsync(),
                 () => SelectedDevice != null && !SelectedDevice.IsBoundElsewhere)
@@ -80,13 +87,16 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                 .ObservesProperty(() => IsTesting)
                 .ObservesProperty(() => HasBinding);
 
-            // 异步加载候选设备 + 当前绑定
             _ = LoadDeviceCandidatesAsync();
         }
 
-        public string TitleText => $"通道 {Working.Index + 1} · 参数配置";
+        public string TitleText => string.IsNullOrEmpty(Working.DeviceName)
+            ? $"设备参数编辑 · 通道 {Working.Index + 1}"
+            : $"设备参数编辑 · {Working.DeviceName}";
+
         public string DeviceIdHex => Working.DeviceId;
-        public string DeviceEndpoint => $"{Gateway.Ip} : {Working.LocalPort}";
+        public string FirmwareText => string.IsNullOrEmpty(Working.FirmwareVersion) ? "—" : Working.FirmwareVersion;
+        public string MacText => string.IsNullOrEmpty(Working.Mac) ? "—" : Working.Mac;
 
         public bool DestRequired => Working.WorkMode == WorkMode.TcpClient ||
                                     Working.WorkMode == WorkMode.Udp ||
@@ -111,7 +121,7 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             set
             {
                 if (SetProperty(ref _currentBoundDeviceText, value))
-                    RaisePropertyChanged(nameof(HasBinding));   // ★ 通知"已绑定提示框"显示/隐藏
+                    RaisePropertyChanged(nameof(HasBinding));
             }
         }
 
@@ -211,7 +221,11 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                 var binding = new GatewayChannelBinding
                 {
                     GatewayMac = NormalizeMac(Gateway.Mac),
-                    GatewayIp = Gateway.Ip ?? "",
+                    //  关键修复:用 Working(=当前通道对应的物理设备)的 IP,不是虚拟总网关的 IP
+                    // 4 台独立卓岚设备各自的 IP 不同(192.168.1.200/201/202/203),
+                    // 之前写 Gateway.Ip 会让 4 个 binding 的 IP 全都变成 .200,
+                    // 导致除第一通道外其他通道运行时 TCP 都连错地址。
+                    GatewayIp = Working.Ip ?? "",
                     ChannelIndex = Working.Index,
                     ChannelLocalPort = Working.LocalPort,
                     DeviceTypeName = SelectedDevice.DeviceTypeName,
@@ -228,7 +242,8 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                     _transportFactory.InvalidateCache();
                     _eventAggregator.GetEvent<GatewayBindingChangedEvent>().Publish();
                     _dialogService.ShowInfo(
-                        $"已将 {SelectedDevice.DisplayName} {SelectedDevice.InstanceId} 绑定到通道 {Working.Index + 1}。",
+                        $"已将 {SelectedDevice.DisplayName} {SelectedDevice.InstanceId} 绑定到通道 {Working.Index + 1}\n" +
+                        $"路由地址:{Working.Ip}:{Working.LocalPort}",
                         "绑定成功");
                     await LoadDeviceCandidatesAsync();
                 }
@@ -291,11 +306,6 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             set => SetProperty(ref _isTesting, value);
         }
 
-        /// <summary>
-        /// 测试连接 — 直接调用设备驱动的"获取实时压力"命令,
-        /// 这个命令内部用 IDeviceTransport (走绑定路由 → TCP),
-        /// 跟流程引擎运行时完全一致,且不受基类 ConnectionManager 干扰。
-        /// </summary>
         private async Task OnTestConnectionAsync()
         {
             if (string.IsNullOrEmpty(CurrentBoundDeviceText)) return;
@@ -321,7 +331,6 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                     return;
                 }
 
-                // 临时把 DeviceId + 通信方式 调到测试需要的状态
                 var deviceIdParam = device.Parameters?.Variables
                     ?.FirstOrDefault(p => p.Name == "DeviceId") as StringParameter;
                 var modeParam = device.Parameters?.Variables
@@ -333,13 +342,12 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                 try
                 {
                     if (deviceIdParam != null) deviceIdParam.Value = binding.DeviceInstanceId;
-                    if (modeParam != null) modeParam.Value = "ZLanGateway";   // 强制测网关路径
+                    if (modeParam != null) modeParam.Value = "ZLanGateway";
 
                     var startTime = DateTime.Now;
                     var connected = await device.ConnectAsync();
                     var elapsed = (DateTime.Now - startTime).TotalMilliseconds;
 
-                    // 测完立即断开,避免影响后续
                     try { await device.DisconnectAsync(); } catch { }
 
                     if (connected)
@@ -347,7 +355,8 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                         TestResultText =
                             $"✓ 连接成功!\n" +
                             $"  设备: {device.Name} · {binding.DeviceInstanceId}\n" +
-                            $"  通道: {Gateway.Ip}:{Working.LocalPort}\n" +
+                            // ★ 用 Working.Ip 而不是 Gateway.Ip
+                            $"  通道: {Working.Ip}:{Working.LocalPort}\n" +
                             $"  路径: ZLAN 网关 TCP 透传\n" +
                             $"  耗时: {elapsed:F0} ms";
                     }
@@ -356,7 +365,8 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                         TestResultText =
                             $"✗ 设备连接失败\n" +
                             $"  设备: {device.Name} · {binding.DeviceInstanceId}\n" +
-                            $"  通道: {Gateway.Ip}:{Working.LocalPort}\n" +
+                            // ★ 用 Working.Ip 而不是 Gateway.Ip
+                            $"  通道: {Working.Ip}:{Working.LocalPort}\n" +
                             $"  请查看日志了解详细原因\n" +
                             $"  常见原因:\n" +
                             $"   · TCP 链路通但设备无应答 (接线/拨码/站号)\n" +
@@ -366,7 +376,6 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                 }
                 finally
                 {
-                    // 恢复用户原本的选择
                     if (deviceIdParam != null) deviceIdParam.Value = originalDeviceId;
                     if (modeParam != null) modeParam.Value = originalMode;
                 }
@@ -378,183 +387,53 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             finally
             {
                 IsTesting = false;
-                // ★ 通知主窗口刷新这个通道的探测状态
                 _eventAggregator.GetEvent<ChannelProbeRequestedEvent>()
                     .Publish((Gateway, Working.Index));
             }
         }
+
         private static string NormalizeMac(string mac)
         {
             if (string.IsNullOrEmpty(mac)) return "";
             return mac.Replace(":", "").Replace("-", "").Replace(" ", "").ToUpperInvariant();
         }
 
-        // ═══════════ 参数应用 (沿用原逻辑) ═══════════
-
-        private async Task OnApplyAsync()
+        // ═══════════ 重新读取 ═══════════
+        private async Task OnRefreshAsync()
         {
-            var confirmMsg = BuildDiffSummary();
-            if (string.IsNullOrEmpty(confirmMsg))
-            {
-                _dialogService.ShowInfo("没有需要保存的修改。", "提示");
-                CloseRequested?.Invoke(false);
-                return;
-            }
-
-            if (!_dialogService.ShowConfirmation(
-                $"下发修改并重启网关?\n\n{confirmMsg}\n\n所有 TCP 连接会中断,设备重启约需 8–15 秒。",
-                "确认应用"))
-                return;
-
-            ApplyStarted?.Invoke(true);
             try
             {
-                var ok = await _service.ApplyChannelAsync(Working, _original,
-                    attempt => PollAttemptChanged?.Invoke(attempt));
-                ApplyFinished?.Invoke(ok, ok
-                    ? $"通道 {Working.Index + 1} 已使用新参数运行"
-                    : "设备未在 30 秒内回归,参数已下发但未确认是否生效。");
-                _eventAggregator.GetEvent<GatewayApplyFinishedEvent>().Publish(ok);
-                if (ok) CloseRequested?.Invoke(true);
+                await _service.RefreshChannelAsync(Working);
+                // 同步更新基准
+                _original = Clone(Working);
+                // 通知 UI 标题/固件/MAC 等也可能变了
+                RaisePropertyChanged(nameof(TitleText));
+                RaisePropertyChanged(nameof(FirmwareText));
+                RaisePropertyChanged(nameof(MacText));
+                _dialogService.ShowInfo("已从设备读取最新参数。", "刷新完成");
             }
             catch (Exception ex)
             {
-                ApplyFinished?.Invoke(false, ex.Message);
-                _eventAggregator.GetEvent<GatewayApplyFinishedEvent>().Publish(false);
+                _dialogService.ShowError($"读取失败:{ex.Message}", "错误");
             }
         }
 
-        private void OnSyncToAll()
+        // ═══════════ 恢复默认 ═══════════
+        private async Task OnResetToDefaultAsync()
         {
             if (!_dialogService.ShowConfirmation(
-                "把当前通道的串口参数 (波特率、数据位、校验、停止位、流控) 同步到所有其他通道?",
-                "同步参数"))
-                return;
-
-            foreach (var ch in Gateway.Channels)
-            {
-                if (ch == null || !ch.IsAvailable || ch == Working) continue;
-                ch.BaudRate = Working.BaudRate;
-                ch.DataBits = Working.DataBits;
-                ch.Parity = Working.Parity;
-                ch.StopBit = Working.StopBit;
-                ch.FlowControl = Working.FlowControl;
-            }
-            _dialogService.ShowInfo("已同步到其他通道。修改尚未下发到设备,需要逐个应用。", "同步完成");
-        }
-
-        private string BuildDiffSummary()
-        {
-            var sb = new System.Text.StringBuilder();
-            void AppendIfChanged<T>(string name, T cur, T orig)
-            {
-                if (!Equals(cur, orig)) sb.AppendLine($"  · {name}: {orig} → {cur}");
-            }
-            AppendIfChanged("波特率", Working.BaudRate, _original.BaudRate);
-            AppendIfChanged("数据位", Working.DataBits, _original.DataBits);
-            AppendIfChanged("校验位", Working.Parity, _original.Parity);
-            AppendIfChanged("停止位", Working.StopBit, _original.StopBit);
-            AppendIfChanged("流控", Working.FlowControl, _original.FlowControl);
-            AppendIfChanged("工作模式", Working.WorkMode, _original.WorkMode);
-            AppendIfChanged("本地端口", Working.LocalPort, _original.LocalPort);
-            AppendIfChanged("目的 IP", Working.DestIp, _original.DestIp);
-            AppendIfChanged("目的端口", Working.DestPort, _original.DestPort);
-            AppendIfChanged("断线重连", Working.ReconnectTime, _original.ReconnectTime);
-            AppendIfChanged("保活时间", Working.KeepAliveTime, _original.KeepAliveTime);
-            return sb.ToString().TrimEnd();
-        }
-
-        private static ChannelModel Clone(ChannelModel src) => new ChannelModel
-        {
-            Index = src.Index,
-            DeviceId = src.DeviceId,
-            IsAvailable = src.IsAvailable,
-            BaudRate = src.BaudRate,
-            DataBits = src.DataBits,
-            Parity = src.Parity,
-            StopBit = src.StopBit,
-            FlowControl = src.FlowControl,
-            WorkMode = src.WorkMode,
-            LocalPort = src.LocalPort,
-            DestIp = src.DestIp,
-            DestPort = src.DestPort,
-            ReconnectTime = src.ReconnectTime,
-            KeepAliveTime = src.KeepAliveTime,
-            LinkStatus = src.LinkStatus,
-        };
-    }
-
-    // ─── GlobalParamsViewModel 不动 ───
-    public class GlobalParamsViewModel : BindableBase
-    {
-        private readonly IGatewayConfigService _service;
-        private readonly IDialogService _dialogService;
-        private readonly IEventAggregator _eventAggregator;
-        private readonly GatewayModel _original;
-
-        public GatewayModel Working { get; }
-
-        public DelegateCommand ApplyCommand { get; }
-        public DelegateCommand CancelCommand { get; }
-        public DelegateCommand ResetToDefaultCommand { get; }
-
-        public event Action<bool> CloseRequested;
-        public event Action<int> PollAttemptChanged;
-        public event Action<bool> ApplyStarted;
-        public event Action<bool, string> ApplyFinished;
-
-        public GlobalParamsViewModel(GatewayModel gateway,
-            IGatewayConfigService service,
-            IDialogService dialogService,
-            IEventAggregator eventAggregator)
-        {
-            _service = service;
-            _dialogService = dialogService;
-            _eventAggregator = eventAggregator;
-            _original = Clone(gateway);
-            Working = Clone(gateway);
-
-            ApplyCommand = new DelegateCommand(async () => await OnApplyAsync());
-            CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false));
-            ResetToDefaultCommand = new DelegateCommand(async () => await OnResetAsync());
-        }
-
-        public string TitleText => $"网关全局参数 · {Working.DisplayName}";
-
-        private async Task OnApplyAsync()
-        {
-            if (!_dialogService.ShowConfirmation(
-                "下发修改并重启网关?所有 TCP 连接会中断,设备重启约需 8–15 秒。",
-                "确认应用"))
+                $"将设备 \"{(string.IsNullOrEmpty(Working.DeviceName) ? Working.DeviceId : Working.DeviceName)}\" 恢复出厂设置?\n\n" +
+                $"  · IP 将变回 192.168.1.200\n" +
+                $"  · 所有自定义参数会丢失\n" +
+                $"  · 设备会自动重启 (约 8-15 秒)\n\n" +
+                $"注意:仅恢复这一台设备,不影响其他通道。",
+                "确认恢复出厂"))
                 return;
 
             ApplyStarted?.Invoke(true);
             try
             {
-                var ok = await _service.ApplyGatewayAsync(Working, _original,
-                    attempt => PollAttemptChanged?.Invoke(attempt));
-                ApplyFinished?.Invoke(ok, ok ? "网关参数已应用" : "设备未在 30 秒内回归。");
-                _eventAggregator.GetEvent<GatewayApplyFinishedEvent>().Publish(ok);
-                if (ok) CloseRequested?.Invoke(true);
-            }
-            catch (Exception ex)
-            {
-                ApplyFinished?.Invoke(false, ex.Message);
-                _eventAggregator.GetEvent<GatewayApplyFinishedEvent>().Publish(false);
-            }
-        }
-
-        private async Task OnResetAsync()
-        {
-            if (!_dialogService.ShowConfirmation(
-                "此操作不可撤销 — 整台网关 (4 个通道) 的所有参数将恢复出厂默认,设备会自动重启。\n\n确认继续?",
-                "恢复出厂设置"))
-                return;
-
-            ApplyStarted?.Invoke(true);
-            try
-            {
-                var ok = await _service.ResetToDefaultAsync(Working,
+                var ok = await _service.ResetChannelToDefaultAsync(Working,
                     attempt => PollAttemptChanged?.Invoke(attempt));
                 ApplyFinished?.Invoke(ok, ok
                     ? "已恢复出厂设置,请用默认 IP (192.168.1.200) 重新搜索。"
@@ -569,24 +448,106 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             }
         }
 
-        private static GatewayModel Clone(GatewayModel src)
+        // ═══════════ 保存修改 ═══════════
+        private async Task OnApplyAsync()
         {
-            var g = new GatewayModel
+            var confirmMsg = BuildDiffSummary();
+            if (string.IsNullOrEmpty(confirmMsg))
             {
-                DisplayName = src.DisplayName,
-                Mac = src.Mac,
-                Ip = src.Ip,
-                Netmask = src.Netmask,
-                GatewayAddr = src.GatewayAddr,
-                DnsServer = src.DnsServer,
-                WebPort = src.WebPort,
-                IpMode = src.IpMode,
-                FirmwareVersion = src.FirmwareVersion,
-                IsOnline = src.IsOnline,
-            };
-            foreach (var ch in src.Channels) g.Channels.Add(ch);
-            return g;
+                _dialogService.ShowInfo("没有需要保存的修改。", "提示");
+                CloseRequested?.Invoke(false);
+                return;
+            }
+
+            if (!_dialogService.ShowConfirmation(
+                $"下发修改并重启设备?\n\n{confirmMsg}\n\n所有 TCP 连接会中断,设备重启约需 8-15 秒。",
+                "确认应用"))
+                return;
+
+            ApplyStarted?.Invoke(true);
+            try
+            {
+                var ok = await _service.ApplyChannelAsync(Working, _original,
+                    attempt => PollAttemptChanged?.Invoke(attempt));
+                ApplyFinished?.Invoke(ok, ok
+                    ? $"设备 \"{(string.IsNullOrEmpty(Working.DeviceName) ? Working.DeviceId : Working.DeviceName)}\" 已使用新参数运行"
+                    : "设备未在 30 秒内回归,参数已下发但未确认是否生效。");
+                _eventAggregator.GetEvent<GatewayApplyFinishedEvent>().Publish(ok);
+                if (ok) CloseRequested?.Invoke(true);
+            }
+            catch (Exception ex)
+            {
+                ApplyFinished?.Invoke(false, ex.Message);
+                _eventAggregator.GetEvent<GatewayApplyFinishedEvent>().Publish(false);
+            }
         }
+
+        private string BuildDiffSummary()
+        {
+            var sb = new System.Text.StringBuilder();
+            void AppendIfChanged<T>(string name, T cur, T orig)
+            {
+                if (!Equals(cur, orig)) sb.AppendLine($"  · {name}: {orig} → {cur}");
+            }
+            // 身份
+            AppendIfChanged("设备名称", Working.DeviceName, _original.DeviceName);
+            // 网络
+            AppendIfChanged("IP 模式", Working.IpMode, _original.IpMode);
+            AppendIfChanged("子网掩码", Working.Netmask, _original.Netmask);
+            AppendIfChanged("网关", Working.GatewayAddr, _original.GatewayAddr);
+            AppendIfChanged("DNS", Working.DnsServer, _original.DnsServer);
+            AppendIfChanged("Web 端口", Working.WebPort, _original.WebPort);
+            // 串口
+            AppendIfChanged("波特率", Working.BaudRate, _original.BaudRate);
+            AppendIfChanged("数据位", Working.DataBits, _original.DataBits);
+            AppendIfChanged("校验位", Working.Parity, _original.Parity);
+            AppendIfChanged("停止位", Working.StopBit, _original.StopBit);
+            AppendIfChanged("流控", Working.FlowControl, _original.FlowControl);
+            // TCP/UDP
+            AppendIfChanged("工作模式", Working.WorkMode, _original.WorkMode);
+            AppendIfChanged("本地端口", Working.LocalPort, _original.LocalPort);
+            AppendIfChanged("目的 IP", Working.DestIp, _original.DestIp);
+            AppendIfChanged("目的端口", Working.DestPort, _original.DestPort);
+            AppendIfChanged("断线重连", Working.ReconnectTime, _original.ReconnectTime);
+            AppendIfChanged("保活时间", Working.KeepAliveTime, _original.KeepAliveTime);
+            return sb.ToString().TrimEnd();
+        }
+
+        private static ChannelModel Clone(ChannelModel src) => new ChannelModel
+        {
+            Index = src.Index,
+            DeviceId = src.DeviceId,
+            IsAvailable = src.IsAvailable,
+            // 身份
+            DeviceName = src.DeviceName,
+            Mac = src.Mac,
+            FirmwareVersion = src.FirmwareVersion,
+            // 网络
+            IpMode = src.IpMode,
+            Ip = src.Ip,
+            Netmask = src.Netmask,
+            GatewayAddr = src.GatewayAddr,
+            DnsServer = src.DnsServer,
+            WebPort = src.WebPort,
+            // 串口
+            BaudRate = src.BaudRate,
+            DataBits = src.DataBits,
+            Parity = src.Parity,
+            StopBit = src.StopBit,
+            FlowControl = src.FlowControl,
+            // TCP/UDP
+            WorkMode = src.WorkMode,
+            LocalPort = src.LocalPort,
+            DestIp = src.DestIp,
+            DestPort = src.DestPort,
+            ReconnectTime = src.ReconnectTime,
+            KeepAliveTime = src.KeepAliveTime,
+            LinkStatus = src.LinkStatus,
+            // 绑定状态
+            BoundDeviceName = src.BoundDeviceName,
+            BoundDeviceInstanceId = src.BoundDeviceInstanceId,
+            ConnectionState = src.ConnectionState,
+        };
     }
 
     public class GatewayBindingChangedEvent : Prism.Events.PubSubEvent { }

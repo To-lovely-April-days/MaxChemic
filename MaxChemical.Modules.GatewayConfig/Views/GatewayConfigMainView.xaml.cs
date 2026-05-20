@@ -37,7 +37,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             _probeService = c.Resolve<IChannelProbeService>();
 
             _eventAggregator.GetEvent<OpenChannelDialogEvent>().Subscribe(OnOpenChannel, ThreadOption.UIThread);
-            _eventAggregator.GetEvent<OpenGlobalParamsDialogEvent>().Subscribe(OnOpenGlobalParams, ThreadOption.UIThread);
+           
             _eventAggregator.GetEvent<GatewayConfigStatusEvent>().Subscribe(msg =>
             {
                 if (StatusBarText != null) StatusBarText.Text = msg;
@@ -303,12 +303,6 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             dialog.ShowDialog();
         }
 
-        private void OnOpenGlobalParams(GatewayModel gateway)
-        {
-            if (gateway == null) return;
-            var dialog = new GlobalParamsDialog(gateway);
-            dialog.Owner = this;
-            dialog.ShowDialog();
-        }
+       
     }
 }
