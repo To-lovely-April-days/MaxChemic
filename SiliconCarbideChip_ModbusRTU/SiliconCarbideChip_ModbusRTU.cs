@@ -1,10 +1,12 @@
 ﻿using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Logging;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.IO.Ports;
+using System.Windows.Input;
 
 namespace SiliconCarbideChip_ModbusRTU
 {
@@ -13,9 +15,14 @@ namespace SiliconCarbideChip_ModbusRTU
     {
         private readonly ILogService _logger;
 
+        // 通信层重试参数
+        private const int MaxRetries = 3;       // 总共尝试 3 次
+        private const int RetryDelayMs = 100;   // 重试间隔 100ms
 
-        // 限制每次只能打开一个串口
-        private readonly SemaphoreSlim _slim = new SemaphoreSlim(1, 1);
+        // 实例级 TCP 互斥锁:同一设备实例的所有 IO 串行化,避免与轮询/心跳撞车
+        // 用静态字典按 DeviceId 隔离不同设备实例
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _instanceLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
+
 
         public SiliconCarbideChip_ModbusRTU()
         {
@@ -24,7 +31,7 @@ namespace SiliconCarbideChip_ModbusRTU
             DeviceId = "SCC0001";
             Name = "进料系统集成碳化硅芯片";
             Manufacturer = "ModbusRTU 进料系统集成碳化硅芯片";
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumps_CY.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/SiliconCarbideChip_CY.png";
             Category = DeviceCategories.PublicWorks;
             ComId = "SCC0001"; // 默认设备ID
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
@@ -41,8 +48,6 @@ namespace SiliconCarbideChip_ModbusRTU
             {
                 Options = new ObservableCollection<string>() { "SCC0001", "SCC0002", "SCC0003", "SCC0004", "SCC0005" },
             });
-
-            Parameters.Variables.Add(new NumberParameter("SlaveId", 1, 254, 1, "从站ID"));
 
             Parameters.Variables.Add(new StringParameter("串口号", "COM1")
             {
@@ -69,8 +74,23 @@ namespace SiliconCarbideChip_ModbusRTU
                 Options = new ObservableCollection<string>() { "None", "One", "Two", "OnePointFive" }
             });
 
+            // 通信方式
+            Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
+            {
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+            });
+
+            // Modbus 从机站号 (1~254)
+            Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
             InitializeCommands();
         }
+
+
+        /// <summary>
+        /// 声明本驱动支持通过 ZLAN 网关通信。
+        /// </summary>
+        public override bool SupportsZLanGateway => true;
 
 
         private void InitializeCommands()
@@ -89,12 +109,11 @@ namespace SiliconCarbideChip_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取 T1", async parameter =>
+                AsyncAction = AsyncWrapAction("获取 T1", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         float temperature = 0;
 
                         if (IsSimulationMode)
@@ -105,21 +124,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x00, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度 T1，结果（{temperature} ℃）");
-                            }
+                            byte[] buffers = BuildReadCmd(0, 2);
+                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -168,21 +174,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x02, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度 T2，结果（{temperature} ℃）");
-                            }
+                            byte[] buffers = BuildReadCmd(2, 2);
+                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -232,20 +225,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] frame = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度 T3，结果（{temperature} ℃）");
-                            }
+                            byte[] buffers = BuildReadCmd(4, 2);
+                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -295,20 +276,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] frame = { slaveId, 0x03, 0x00, 0x06, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度 T4，结果（{temperature} ℃）");
-                            }
+                            byte[] buffers = BuildReadCmd(6, 2);
+                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -357,21 +326,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x08, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度 T5，结果（{temperature} ℃）");
-                            }
+                            byte[] buffers = BuildReadCmd(8, 2);
+                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -420,21 +376,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x0A, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度 T6，结果（{temperature} ℃）");
-                            }
+                            byte[] buffers = BuildReadCmd(0x0A, 2);
+                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -483,21 +426,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x0C, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                pressure = BitConverter.ToSingle(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片背压阀压力P，结果（{pressure} Bar）");
-                            }
+                            byte[] buffers = BuildReadCmd(0x0C, 2);
+                            pressure = await SendAndParseInt32Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -546,21 +476,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x0E, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片背压阀模式，结果（{mode}）");
-                            }
+                            byte[] buffers = BuildReadCmd(0x0E, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -609,21 +526,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x0F, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片背压阀手动SV，结果（{mode}）");
-                            }
+                            byte[] buffers = BuildReadCmd(0x0F, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -672,21 +576,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x10, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片背压阀自动SV，结果（{mode}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x10, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(16, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -735,21 +627,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x11, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片背压阀ON/OFF，结果（{mode}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x11, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(17, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -798,21 +678,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x12, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度T1上限报警，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x12, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(18, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -861,21 +729,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x13, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度T2上限报警，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x13, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(19, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -924,21 +780,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x14, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度T3上限报警，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x14, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(20, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -987,21 +831,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x15, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度T4上限报警，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x15, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(21, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1050,21 +882,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x16, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度T5上限报警，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x16, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(22, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1114,20 +934,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] frame = { slaveId, 0x03, 0x00, 0x17, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度T6上限报警，结果（{mode == 1}）");
-                            }
+                            byte[] buffers = BuildReadCmd(23, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1177,20 +985,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] frame = { slaveId, 0x03, 0x00, 0x18, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片压力上限报警，结果（{mode == 1}）");
-                            }
+                            byte[] buffers = BuildReadCmd(24, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1240,20 +1036,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] frame = { slaveId, 0x03, 0x00, 0x19, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片温度检测通讯故障，结果（{mode == 1}）");
-                            }
+                            byte[] buffers = BuildReadCmd(25, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1303,20 +1087,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] frame = { slaveId, 0x03, 0x00, 0x1A, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片压力检测通讯故障，结果（{mode == 1}）");
-                            }
+                            byte[] buffers = BuildReadCmd(26, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1365,21 +1137,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x1B, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片报警复位结果，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x1B, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(27, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1428,21 +1188,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x1C, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片报警消音结果，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x1C, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(28, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1491,21 +1239,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x1D, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                mode = BitConverter.ToInt16(data);
-                                InfoLog($"读取进料系统集成碳化硅芯片报警状态，结果（{mode == 1}）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x1D, 0x00, 0x01 };
+                            byte[] buffers = BuildReadCmd(29, 1);
+                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
                         }
 
                         return new DeviceParameters()
@@ -1565,15 +1301,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
+                            byte[] buffers = BuildMultWriteCmd(0, (int)target);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T1值成功：{success}，目标值：{target}");
                         }
 
@@ -1634,14 +1364,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x02, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x02, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(2, (int)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T2值成功：{success}，目标值：{target}");
                         }
@@ -1703,14 +1427,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x04, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x04, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(4, (int)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T3值成功：{success}，目标值：{target}");
                         }
@@ -1772,14 +1490,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x06, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x06, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(6, (int)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T4值成功：{success}，目标值：{target}");
                         }
@@ -1841,14 +1553,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x08, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x08, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(8, (int)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T5值成功：{success}，目标值：{target}");
                         }
@@ -1910,14 +1616,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x0A, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x0A, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(10, (int)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T6值成功：{success}，目标值：{target}");
                         }
@@ -1979,14 +1679,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x0C, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x0C, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(12, (int)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片背压阀压力P值成功：{success}，目标值：{target}");
                         }
@@ -2048,14 +1742,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x0E, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x0E, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(14, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片背压阀模式成功：{success}，目标值：{target}");
                         }
@@ -2117,14 +1805,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x0F, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x0F, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(15, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片背压阀手动SV成功：{success}，目标值：{target}");
                         }
@@ -2186,14 +1868,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x10, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x10, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(16, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片背压阀自动SV成功：{success}，目标值：{target}");
                         }
@@ -2255,14 +1931,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x11, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x11, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(17, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片背压阀ON/OFF成功：{success}，目标值：{target}");
                         }
@@ -2324,14 +1994,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x12, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x12, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(18, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T1上限报警成功：{success}，目标值：{target}");
                         }
@@ -2393,14 +2057,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x13, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x13, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(19, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T2上限报警成功：{success}，目标值：{target}");
                         }
@@ -2462,14 +2120,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x14, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x14, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(20, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T3上限报警成功：{success}，目标值：{target}");
                         }
@@ -2531,14 +2183,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x15, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x15, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(21, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T4上限报警成功：{success}，目标值：{target}");
                         }
@@ -2600,14 +2246,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x16, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x16, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(22, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T5上限报警成功：{success}，目标值：{target}");
                         }
@@ -2669,14 +2309,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x17, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x17, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(23, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片T6上限报警成功：{success}，目标值：{target}");
                         }
@@ -2738,14 +2372,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x18, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x18, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(24, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片压力上限报警成功：{success}，目标值：{target}");
                         }
@@ -2807,14 +2435,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x19, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x19, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(25, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片温度检测通讯故障成功：{success}，目标值：{target}");
                         }
@@ -2876,14 +2498,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-                            // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x1A, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x1A, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(26, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片压力检测通讯故障成功：{success}，目标值：{target}");
                         }
@@ -2936,8 +2552,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x1B, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x1B, 0x00, 0x01 };
+                            byte[] frame = BuildWriteCmd(27, 1);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"复位进料系统继承碳化硅芯片故障成功：{success}");
                         }
@@ -2989,8 +2605,8 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x1C, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x1C, 0x00, 0x01 };
+                            byte[] frame = BuildWriteCmd(28, 1);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"进料系统继承碳化硅芯片报警消音成功：{success}");
                         }
@@ -3039,7 +2655,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -3051,14 +2666,9 @@ namespace SiliconCarbideChip_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(target);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 发送的指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x1D, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x1D, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(29, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置进料系统继承碳化硅芯片报警成功：{success}，目标值：{target}");
                         }
@@ -3098,6 +2708,32 @@ namespace SiliconCarbideChip_ModbusRTU
         }
 
 
+        /// <summary>
+        /// ZLanGateway 模式下的连接实现。发送 Modbus 读寄存器命令,若收到合法应答则视为连通。
+        /// </summary>
+        protected override async Task<bool> OnConnectViaGatewayAsync()
+        {
+            try
+            {
+                InfoLog("通过 ZLAN 网关测试连接");
+                byte[] sendCmd = BuildReadCmd(register: 29, count: 1);
+                var pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
+                InfoLog($"网关连接成功,当前报警状态 {pressure}");
+                return true;
+            }
+            catch (TimeoutException)
+            {
+                ErrorLog("网关连接超时:链路通但设备无应答");
+                return false;
+            }
+            catch (Exception e)
+            {
+                ErrorLog("网关连接失败", e);
+                return false;
+            }
+        }
+
+
         private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
             return (DeviceParameters parameters) =>
@@ -3122,126 +2758,361 @@ namespace SiliconCarbideChip_ModbusRTU
             };
         }
 
-
-        private async Task<int> ReadAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        private Func<DeviceParameters, Task<DeviceParameters>> AsyncWrapAction(
+            string commandName,
+            Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
-            SerialPort serialPort = null;
-            try
+            return async (DeviceParameters parameters) =>
             {
-                string com = Parameters.GetValue<string>("串口号");
-                string baudRate = Parameters.GetValue<string>("波特率");
-                string parity = Parameters.GetValue<string>("校验位");
-                string dataBit = Parameters.GetValue<string>("数据位");
-                string stopBit = Parameters.GetValue<string>("停止位");
-
-                // 等待释放信号
-                await _slim.WaitAsync(token);
-
-                serialPort = new SerialPort(com);
-                serialPort.BaudRate = int.Parse(baudRate);
-                serialPort.Parity = (Parity)Enum.Parse(typeof(Parity), parity);
-                serialPort.DataBits = int.Parse(dataBit);
-                serialPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), stopBit);
-                serialPort.ReadTimeout = 3000;
-                serialPort.WriteTimeout = 3000;
-
-                // 打开串口
-                serialPort.Open();
-
-                // 发送读取指令
-                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
-
-                var reader = serialPort.BaseStream.ReadAsync(buffers, 0, buffers.Length, token);
-                var complete = await Task.WhenAny(reader, Task.Delay(3000, token));
-                if (complete != reader)
-                {
-                    throw new TimeoutException("串口读取超时，设备无响应");
-                }
-                // 返回读取结果
-                return await reader;
-            }
-            finally
-            {
+                _logger.LogInformation($"[ModbusRTU平流输液泵命令-开始] Device={Name} Command={commandName}");
+                var sw = Stopwatch.StartNew();
                 try
                 {
-                    if (serialPort != null)
-                    {
-                        serialPort.Close();
-                        serialPort.Dispose();
-                    }
+                    var output = await innerAsync(parameters);
+                    sw.Stop();
+                    _logger.LogInformation($"[ModbusRTU平流输液泵命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    return output;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    _logger.LogError(ex, $"[ModbusRTU平流输液泵命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
+                }
+            };
+        }
 
-                // 释放信号
-                _slim.Release();
+        #region 通信层
+
+        /// <summary>
+        /// 取当前配置的 Modbus 从机站号 (1~254)。
+        /// </summary>
+        private byte GetSlaveAddress()
+        {
+            try
+            {
+                var addr = (int)Parameters.GetValue<double>("Modbus站号");
+                if (addr < 1 || addr > 254) addr = 1;
+                return (byte)addr;
+            }
+            catch
+            {
+                return 1;
             }
         }
 
+        /// <summary>
+        /// 获取本设备实例专属的互斥锁。
+        /// 同一 DeviceId 共享同一把锁,确保 IO 串行化,避免轮询/手动/心跳并发撞车。
+        /// </summary>
+        private SemaphoreSlim GetInstanceLock()
+        {
+            var key = Parameters?.GetValue<string>("DeviceId") ?? DeviceId ?? "default";
+            return _instanceLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写单寄存器命令 (功能码 0x06),自动加 CRC。
+        /// </summary>
+        private byte[] BuildWriteCmd(ushort register, ushort value)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x06,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(value >> 8),    (byte)(value & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写多个寄存器（功能码 0x10），自动加CRC
+        /// </summary>
+        /// <param name="register"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        private byte[] BuildMultWriteCmd(ushort register, int value)
+        {
+            byte slaveId = GetSlaveAddress();
+            byte[] frame =
+            {
+                slaveId,
+                0x10,
+                (byte)(register >> 8),(byte)(register & 0xFF),
+                0x00, 0x02,
+                0x04,
+                (byte)(register >> 24),(byte)(register >> 16),
+                (byte)(register >> 8),(byte)(register & 0xFF),
+            };
+
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 读保持寄存器命令 (功能码 0x03),自动加 CRC。
+        /// </summary>
+        private byte[] BuildReadCmd(ushort register, ushort count)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x03,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(count >> 8),    (byte)(count & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 写命令。自动重试 3 次以应对工业链路偶发抖动。
+        /// </summary>
         private async Task<bool> WriteAsync(byte[] buffers, int offset, int count, CancellationToken token)
         {
-            SerialPort serialPort = null;
-            try
-            {
-                string com = Parameters.GetValue<string>("串口号");
-                string baudRate = Parameters.GetValue<string>("波特率");
-                string parity = Parameters.GetValue<string>("校验位");
-                string dataBit = Parameters.GetValue<string>("数据位");
-                string stopBit = Parameters.GetValue<string>("停止位");
+            Exception lastException = null;
 
-                // 等待释放信号
-                await _slim.WaitAsync(token);
-
-                serialPort = new SerialPort(com);
-                serialPort.BaudRate = int.Parse(baudRate);
-                serialPort.Parity = (Parity)Enum.Parse(typeof(Parity), parity);
-                serialPort.DataBits = int.Parse(dataBit);
-                serialPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), stopBit);
-                serialPort.ReadTimeout = 3000;
-                serialPort.WriteTimeout = 3000;
-
-                // 打开串口
-                serialPort.Open();
-
-                // 发送指令
-                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
-                // 接收响应报文
-                byte[] frame = new byte[128];
-                var response = serialPort.BaseStream.ReadAsync(frame, 0, frame.Length, token);
-
-                if (await Task.WhenAny(Task.Delay(3000), response) != response)
-                {
-                    throw new TimeoutException("串口写入超时，设备无响应");
-                }
-
-                int len = await response;
-                if (len < 5)
-                {
-                    throw new Exception("写入失败：响应报文长度无效");
-                }
-
-                if (frame[1] >= 0x80)
-                {
-                    throw new ArgumentException($"写入失败，Modbus 异常响应，异常码：{frame[2]:X2}");
-                }
-
-                return true;
-            }
-            finally
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
             {
                 try
                 {
-                    if (serialPort != null)
+                    return await WriteOnceAsync(buffers, offset, count, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
                     {
-                        serialPort.Close();
-                        serialPort.Dispose();
+                        _logger?.LogWarning("Modbus 写入超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
                     }
                 }
-                catch { }
+            }
 
-                // 释放信号
-                _slim.Release();
+            throw new TimeoutException(
+                $"Modbus 写入失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        /// <summary>
+        /// 写命令的单次执行实现。走实例锁排队,通过 IDeviceTransport 发出。
+        /// </summary>
+        private async Task<bool> WriteOnceAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                return await transport.SendAsync(buffers, offset, count, token).ConfigureAwait(false);
+            }
+            finally
+            {
+                sem.Release();
             }
         }
+
+        /// <summary>
+        /// 发送 Modbus 读寄存器命令并解析应答中的 Int16 数据。
+        /// 自动重试 3 次以应对工业链路偶发抖动。
+        /// </summary>
+        private async Task<short> SendAndParseInt16Async(byte[] sendCmd, CancellationToken token)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await SendAndParseInt16OnceAsync(sendCmd, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
+                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
+                    throw;
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        /// <summary>
+        /// 读命令的单次执行实现。走实例锁排队,加站号/功能码/长度校验。
+        /// </summary>
+        private async Task<short> SendAndParseInt16OnceAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(2)+CRC(2) = 7 字节
+                if (len < 7)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 7 字节", len);
+                    return 0;
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}",
+                        expectedAddr, recv[0]);
+                    return 0;
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return 0;
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return 0;
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                if (BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(data);
+                }
+                return BitConverter.ToInt16(data, 0);
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
+        /// 发送 Modbus 读寄存器命令并解析应答中的 Int32 数据，自动重试3次
+        /// </summary>
+        /// <param name="sendCmd"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        /// <exception cref="TimeoutException"></exception>
+        private async Task<int> SendAndParseInt32Async(byte[] sendCmd, CancellationToken token)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await SendAndParseInt32OnceAsync(sendCmd, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
+                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
+                    throw;
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        private async Task<int> SendAndParseInt32OnceAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(4)+CRC(2) = 9 字节
+                if (len < 9)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 9 字节", len);
+                    return 0;
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return 0;
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return 0;
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return 0;
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                if (BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(data);
+                }
+                return BitConverter.ToInt32(data, 0);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        /// <summary>
+        /// 通过基类的 CreateTransportAsync 获取 Transport。
+        /// </summary>
+        private Task<IDeviceTransport> GetTransportAsync()
+        {
+            var serialConfig = new SerialPortConfig
+            {
+                PortName = Parameters.GetValue<string>("串口号") ?? "COM1",
+                BaudRate = int.Parse(Parameters.GetValue<string>("波特率") ?? "9600"),
+                Parity = Parameters.GetValue<string>("校验位") ?? "None",
+                DataBits = int.Parse(Parameters.GetValue<string>("数据位") ?? "8"),
+                StopBits = Parameters.GetValue<string>("停止位") ?? "One",
+                ReadTimeoutMs = 3000,
+                WriteTimeoutMs = 3000,
+            };
+            return CreateTransportAsync(serialConfig);
+        }
+
+        #endregion
+
 
         private byte[] ExtractPayload(byte[] frame)
         {
