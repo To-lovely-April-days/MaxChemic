@@ -26,7 +26,7 @@ namespace DynamicTubularReactor_ModbusRTU
             DeviceId = "DTR0001";
             Name = "100ml动态管式反应釜";
             Manufacturer = "ModbusRTU 100ml动态管式反应釜";
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumps_CY.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/DynamicTubularReactor_CY.png";
             Category = DeviceCategories.Reactors;
             ComId = "DTR0001"; // 默认设备ID
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();

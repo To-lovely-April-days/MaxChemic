@@ -33,7 +33,7 @@ namespace SiphonInfusionPump_ModbusTcp
             DeviceId = "SIP0001";
             Name = "平流输液泵";
             Manufacturer = "ModbusRTU平流输液泵";
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumps_CY.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/SiphonInfusionPump_CY.png";
             Category = DeviceCategories.Pumps;
             ComId = "SIP0001";
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();

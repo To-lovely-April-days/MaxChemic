@@ -238,6 +238,9 @@
 	  <EmbeddedResource Include="Resources\DeviceIcon\Default.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\DynamicTubularReactor_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\ErlenmeyerFlasks.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -266,6 +269,12 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\Scale.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SiliconCarbideChip_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SiphoninfusionPump_CY.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png">
@@ -450,10 +459,7 @@
         <GwProxyFiles Include="$(GwProxyBuildDir)**\*.*" />
     </ItemGroup>
     <MakeDir Directories="$(GwProxyOutDir)" Condition="!Exists('$(GwProxyOutDir)')" />
-    <Copy SourceFiles="@(GwProxyFiles)"
-          DestinationFolder="$(GwProxyOutDir)%(RecursiveDir)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(GwProxyBuildDir)')" />
+    <Copy SourceFiles="@(GwProxyFiles)" DestinationFolder="$(GwProxyOutDir)%(RecursiveDir)" SkipUnchangedFiles="true" Condition="Exists('$(GwProxyBuildDir)')" />
     <Message Text="[Shell] 网关代理已拷贝到 $(GwProxyOutDir)" Importance="high" Condition="Exists('$(GwProxyBuildDir)')" />
     <Warning Text="[Shell] 找不到网关代理 $(GwProxyBuildDir),请先构建 MaxChemical.GatewayConfig.Proxy" Condition="!Exists('$(GwProxyBuildDir)')" />
 </Target>
