@@ -92,305 +92,68 @@ namespace SiliconCarbideChip_ModbusRTU
         /// </summary>
         public override bool SupportsZLanGateway => true;
 
-
+        /// <summary>
+        /// 初始化设备命令
+        /// </summary>
         private void InitializeCommands()
         {
-            // 获取温度 T1
+            // 获取温度
             Commands.Add(new DeviceCommand()
             {
-                Name = "获取 T1",
-                HelpText = "获取进料系统集成碳化硅芯片温度 T1",
+                Name = "获取温度",
+                HelpText = "获取进料系统集成碳化硅芯片温度",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("T1",0,1000,0,"温度 T1",true,"℃")
-                    }
-                },
-
-                AsyncAction = AsyncWrapAction("获取 T1", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        float temperature = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            temperature = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度 T1，结果（{temperature} ℃）");
-                        }
-                        else
-                        {
-                            byte[] buffers = BuildReadCmd(0, 2);
-                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("T1",0,1000,temperature,"温度 T1",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度 T1 失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T2
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取 T2",
-                HelpText = "获取进料系统集成碳化硅芯片温度 T2",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("T2",0,1000,0,"温度 T2",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取 T2", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        float temperature = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            temperature = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度 T2，结果（{temperature} ℃）");
-                        }
-                        else
-                        {
-                            byte[] buffers = BuildReadCmd(2, 2);
-                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("T2",0,1000,temperature,"温度 T2",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度 T2 失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T3
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取 T3",
-                HelpText = "获取进料系统集成碳化硅芯片温度 T3",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("T3",0,1000,0,"温度 T3",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取 T3", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        float temperature = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            temperature = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度 T3，结果（{temperature} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x02 };
-                            byte[] buffers = BuildReadCmd(4, 2);
-                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("T3",0,1000,temperature,"温度 T3",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度 T3 失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T4
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取 T4",
-                HelpText = "获取进料系统集成碳化硅芯片温度 T4",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("T4",0,1000,0,"温度 T4",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取 T4", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        float temperature = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            temperature = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度 T4，结果（{temperature} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x06, 0x00, 0x02 };
-                            byte[] buffers = BuildReadCmd(6, 2);
-                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("T4",0,1000,temperature,"温度 T4",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度 T4 失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T5
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取 T5",
-                HelpText = "获取进料系统集成碳化硅芯片温度 T5",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("T5",0,1000,0,"温度 T5",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取 T5", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        float temperature = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            temperature = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度 T5，结果（{temperature} ℃）");
-                        }
-                        else
-                        {
-                            byte[] buffers = BuildReadCmd(8, 2);
-                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("T5",0,1000,temperature,"温度 T5",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度 T5 失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T6
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取 T6",
-                HelpText = "获取进料系统集成碳化硅芯片温度 T6",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
+                        new NumberParameter("T1",0,1000,0,"温度 T1",true,"℃"),
+                        new NumberParameter("T2",0,1000,0,"温度 T2",true,"℃"),
+                        new NumberParameter("T3",0,1000,0,"温度 T3",true,"℃"),
+                        new NumberParameter("T4",0,1000,0,"温度 T4",true,"℃"),
+                        new NumberParameter("T5",0,1000,0,"温度 T5",true,"℃"),
                         new NumberParameter("T6",0,1000,0,"温度 T6",true,"℃")
                     }
                 },
 
-                Action = WrapAction("获取 T6", async parameter =>
+                AsyncAction = AsyncWrapAction("获取温度", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        float temperature = 0;
+                        float[] temperature = new float[6];
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度 T6，结果（{temperature} ℃）");
+                            //temperature = new Random().Next(0, 100);
                         }
                         else
                         {
-                            byte[] buffers = BuildReadCmd(0x0A, 2);
-                            temperature = await SendAndParseInt32Async(buffers, CancellationToken.None);
+                            byte[] buffers = BuildReadCmd(0, 12);
+                            temperature = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseSingleArrayAsync);
+                            if (temperature == null || temperature.Length != 6)
+                            {
+                                temperature = new float[6];
+                            }
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("T6",0,1000,temperature,"温度 T6",true,"℃")
+                                new NumberParameter("T1",0,1000, Math.Round(temperature[0], 1),"温度 T1",true,"℃"),
+                                new NumberParameter("T2",0,1000, Math.Round(temperature[1], 1),"温度 T2",true,"℃"),
+                                new NumberParameter("T3",0,1000, Math.Round(temperature[2], 1),"温度 T3",true,"℃"),
+                                new NumberParameter("T4",0,1000, Math.Round(temperature[3], 1),"温度 T4",true,"℃"),
+                                new NumberParameter("T5",0,1000, Math.Round(temperature[4], 1),"温度 T5",true,"℃"),
+                                new NumberParameter("T6",0,1000, Math.Round(temperature[5], 1),"温度 T6",true,"℃")
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度 T6 失败：{e.Message}");
+                        ErrorLog($"获取进料系统集成碳化硅芯片温度失败：{e.Message}");
                         throw;
                     }
                 })
@@ -415,7 +178,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         float pressure = 0;
 
                         if (IsSimulationMode)
@@ -427,14 +189,14 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] buffers = BuildReadCmd(0x0C, 2);
-                            pressure = await SendAndParseInt32Async(buffers, CancellationToken.None);
+                            pressure = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseSingleAsync);
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Pressure",0,1000,pressure,"背压阀压力P",true,"Bar")
+                                new NumberParameter("Pressure",0,1000, Math.Round(pressure, 2),"背压阀压力P",true,"Bar")
                             }
                         };
                     }
@@ -465,7 +227,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
@@ -477,7 +238,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         else
                         {
                             byte[] buffers = BuildReadCmd(0x0E, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
+                            mode = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseInt16Async);
                         }
 
                         return new DeviceParameters()
@@ -499,48 +260,47 @@ namespace SiliconCarbideChip_ModbusRTU
             // 获取背压阀SV%
             Commands.Add(new DeviceCommand()
             {
-                Name = "获取背压阀手动SV",
-                HelpText = "获取进料系统集成碳化硅芯片背压阀手动SV",
+                Name = "获取背压阀SV%",
+                HelpText = "获取进料系统集成碳化硅芯片背压阀SV%",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Manual SV",0,1000,0,"背压阀手动SV",true)
+                        new NumberParameter("SV%",0,1000,0,"背压阀SV%",true)
                     }
                 },
 
-                Action = WrapAction("获取背压阀手动SV", async parameter =>
+                Action = WrapAction("获取背压阀SV%", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
                             mode = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀手动SV，结果（{mode}）");
+                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀SV%，结果（{mode}）");
                         }
                         else
                         {
                             byte[] buffers = BuildReadCmd(0x0F, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
+                            mode = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseInt16Async);
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Manual SV",0,1000,mode,"背压阀手动SV",true)
+                                new NumberParameter("SV%",0,1000,mode,"背压阀SV%",true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"获取进料系统集成碳化硅芯片背压阀手动SV失败：{e.Message}");
+                        ErrorLog($"获取进料系统集成碳化硅芯片背压阀SV%失败：{e.Message}");
                         throw;
                     }
                 })
@@ -549,49 +309,48 @@ namespace SiliconCarbideChip_ModbusRTU
             // 获取背压阀P SV
             Commands.Add(new DeviceCommand()
             {
-                Name = "获取背压阀自动SV",
-                HelpText = "获取进料系统集成碳化硅芯片背压阀自动SV",
+                Name = "获取背压阀P SV",
+                HelpText = "获取进料系统集成碳化硅芯片背压阀P SV",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Auto SV",0,1000,0,"背压阀自动SV",true)
+                        new NumberParameter("P SV",0,1000,0,"背压阀P SV",true)
                     }
                 },
 
-                Action = WrapAction("获取背压阀自动SV", async parameter =>
+                Action = WrapAction("获取背压阀P SV", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
                             mode = new Random().Next(0, 100);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀自动SV，结果（{mode}）");
+                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀P SV，结果（{mode}）");
                         }
                         else
                         {
                             //byte[] frame = { slaveId, 0x03, 0x00, 0x10, 0x00, 0x01 };
                             byte[] buffers = BuildReadCmd(16, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
+                            mode = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseInt16Async);
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Auto SV",0,1000,mode,"背压阀自动SV",true)
+                                new NumberParameter("P SV",0,1000,mode,"背压阀P SV",true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"获取进料系统集成碳化硅芯片背压阀自动SV失败：{e.Message}");
+                        ErrorLog($"获取进料系统集成碳化硅芯片背压阀P SV失败：{e.Message}");
                         throw;
                     }
                 })
@@ -616,7 +375,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
@@ -629,7 +387,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         {
                             //byte[] frame = { slaveId, 0x03, 0x00, 0x11, 0x00, 0x01 };
                             byte[] buffers = BuildReadCmd(17, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
+                            mode = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseInt16Async);
                         }
 
                         return new DeviceParameters()
@@ -648,466 +406,7 @@ namespace SiliconCarbideChip_ModbusRTU
                 })
             });
 
-            // 获取温度T1上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度T1上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片温度T1上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("T1 alarm",false,"温度T1上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度T1上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度T1上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x03, 0x00, 0x12, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(18, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("T1 alarm", mode == 1, "温度T1上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度T1上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T2上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度T2上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片温度T2上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("T2 alarm",false,"温度T2上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度T2上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度T2上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x03, 0x00, 0x13, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(19, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("T2 alarm", mode == 1, "温度T2上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度T2上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T3上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度T3上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片温度T3上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("T3 alarm",false,"温度T3上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度T3上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度T3上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x03, 0x00, 0x14, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(20, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("T3 alarm", mode == 1, "温度T3上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度T3上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T4上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度T4上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片温度T4上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("T4 alarm",false,"温度T4上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度T4上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度T4上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x03, 0x00, 0x15, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(21, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("T4 alarm", mode == 1, "温度T4上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度T4上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T5上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度T5上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片温度T5上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("T5 alarm",false,"温度T5上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度T5上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度T5上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x03, 0x00, 0x16, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(22, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("T5 alarm", mode == 1, "温度T5上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度T5上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度T6上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度T6上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片温度T6上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("T6 alarm",false,"温度T6上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度T6上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度T6上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x17, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(23, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("T6 alarm", mode == 1, "温度T6上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度T6上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取压力上限报警
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取压力上限报警",
-                HelpText = "获取进料系统集成碳化硅芯片压力上限报警",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("PressureUpperLimitAlarm",false,"压力上限报警",true)
-                    }
-                },
-
-                Action = WrapAction("获取压力上限报警", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片压力上限报警，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x18, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(24, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("PressureUpperLimitAlarm", mode == 1, "压力上限报警", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片压力上限报警失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取温度检测通讯故障
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取温度检测通讯故障",
-                HelpText = "获取进料系统集成碳化硅芯片温度检测通讯故障",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("TemperatureCheckAlarm",false,"温度检测通讯故障",true)
-                    }
-                },
-
-                Action = WrapAction("获取温度检测通讯故障", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度检测通讯故障，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x19, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(25, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("TemperatureCheckAlarm", mode == 1, "温度检测通讯故障", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片温度检测通讯故障失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取压力检测通讯故障
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取压力检测通讯故障",
-                HelpText = "获取进料系统集成碳化硅芯片压力检测通讯故障",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("PressureCheckAlarm",false,"压力检测通讯故障",true)
-                    }
-                },
-
-                Action = WrapAction("获取压力检测通讯故障", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
-                        int mode = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
-                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片压力检测通讯故障，结果（{mode == 1}）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x1A, 0x00, 0x01 };
-                            byte[] buffers = BuildReadCmd(26, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("PressureCheckAlarm", mode == 1, "压力检测通讯故障", true)
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取进料系统集成碳化硅芯片压力检测通讯故障失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取报警复位结果
+            /*// 获取报警复位结果
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警复位结果",
@@ -1126,7 +425,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
@@ -1177,7 +475,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
@@ -1207,7 +504,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         throw;
                     }
                 })
-            });
+            });*/
 
             // 报警状态
             Commands.Add(new DeviceCommand()
@@ -1228,7 +525,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = parameter.GetValue<byte>("SlaveId");
                         int mode = 0;
 
                         if (IsSimulationMode)
@@ -1241,7 +537,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         {
                             //byte[] frame = { slaveId, 0x03, 0x00, 0x1D, 0x00, 0x01 };
                             byte[] buffers = BuildReadCmd(29, 1);
-                            mode = await SendAndParseInt16Async(buffers, CancellationToken.None);
+                            mode = await SendAndReceiveWrapperAsync(buffers, CancellationToken.None, SendAndParseInt16Async);
                         }
 
                         return new DeviceParameters()
@@ -1260,447 +556,6 @@ namespace SiliconCarbideChip_ModbusRTU
                 })
             });
 
-
-            // 设置 T1
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置 T1",
-                HelpText = "设置进料系统集成碳化硅芯片温度T1",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "T1 目标值", true, "℃")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的 T1 值", true, "℃")
-                    }
-                },
-
-                Action = WrapAction("设置 T1", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片T1值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            byte[] buffers = BuildMultWriteCmd(0, (int)target);
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            success = await WriteAsync(buffers, 0, buffers.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片T1值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的 T1 值", true, "℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片T1值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 设置 T2
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置 T2",
-                HelpText = "设置进料系统集成碳化硅芯片温度T2",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "T2 目标值", true, "℃")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的 T2 值", true, "℃")
-                    }
-                },
-
-                Action = WrapAction("设置 T2", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片T2值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x02, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(2, (int)target);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片T2值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的 T2 值", true, "℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片T2值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 设置 T3
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置 T3",
-                HelpText = "设置进料系统集成碳化硅芯片温度T3",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "T3 目标值", true, "℃")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的 T3 值", true, "℃")
-                    }
-                },
-
-                Action = WrapAction("设置 T3", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片T3值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x04, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(4, (int)target);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片T3值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的 T3 值", true, "℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片T3值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 设置 T4
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置 T4",
-                HelpText = "设置进料系统集成碳化硅芯片温度T4",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "T4 目标值", true, "℃")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的 T4 值", true, "℃")
-                    }
-                },
-
-                Action = WrapAction("设置 T4", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片T4值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x06, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(6, (int)target);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片T4值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的 T4 值", true, "℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片T4值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 设置 T5
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置 T5",
-                HelpText = "设置进料系统集成碳化硅芯片温度T5",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "T5 目标值", true, "℃")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的 T5 值", true, "℃")
-                    }
-                },
-
-                Action = WrapAction("设置 T5", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片T5值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x08, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(8, (int)target);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片T5值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的 T5 值", true, "℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片T5值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 设置 T6
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置 T6",
-                HelpText = "设置进料系统集成碳化硅芯片温度T6",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "T6 目标值", true, "℃")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的 T6 值", true, "℃")
-                    }
-                },
-
-                Action = WrapAction("设置 T6", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片T6值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x0A, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(10, (int)target);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片T6值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的 T6 值", true, "℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片T6值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 设置背压阀压力P
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "设置背压阀压力P",
-                HelpText = "设置进料系统集成碳化硅芯片背压阀压力P",
-
-                InputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "背压阀压力P目标值", true, "Bar")
-                    }
-                },
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的背压阀压力P值", true, "Bar")
-                    }
-                },
-
-                Action = WrapAction("设置背压阀压力P", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        float target = parameter.GetValue<float>("TargetValue");
-                        bool success = false;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片背压阀压力P值，结果（成功：{success}，目标值：{target}）");
-                        }
-                        else
-                        {
-                            //byte[] frame = { slaveId, 0x10, 0x00, 0x0C, 0x00, 0x02, 0x04, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(12, (int)target);
-                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片背压阀压力P值成功：{success}，目标值：{target}");
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的背压阀压力P值", true, "Bar")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"设置进料集成系统碳化硅芯片背压阀压力P值失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
 
             // 设置背压阀模式
             Commands.Add(new DeviceCommand()
@@ -1730,7 +585,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1768,14 +622,14 @@ namespace SiliconCarbideChip_ModbusRTU
             // 设置背压阀SV%
             Commands.Add(new DeviceCommand()
             {
-                Name = "设置背压阀手动SV",
-                HelpText = "设置进料系统集成碳化硅芯片背压阀手动SV",
+                Name = "设置背压阀SV%",
+                HelpText = "设置进料系统集成碳化硅芯片背压阀SV%",
 
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "背压阀手动SV目标值", true)
+                        new NumberParameter("TargetValue", 0, 1000, 0, "背压阀SV%目标值", true)
                     }
                 },
 
@@ -1784,16 +638,15 @@ namespace SiliconCarbideChip_ModbusRTU
                     Variables = new ObservableCollection<ParameterBase>()
                     {
                         new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的背压阀手动SV", true)
+                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的背压阀SV%", true)
                     }
                 },
 
-                Action = WrapAction("设置背压阀手动SV", async parameter =>
+                Action = WrapAction("设置背压阀SV%", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1801,14 +654,14 @@ namespace SiliconCarbideChip_ModbusRTU
                         {
                             await Task.Delay(1000);
                             success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片背压阀手动SV，结果（成功：{success}，目标值：{target}）");
+                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片背压阀SV%，结果（成功：{success}，目标值：{target}）");
                         }
                         else
                         {
                             //byte[] frame = { slaveId, 0x06, 0x00, 0x0F, data[0], data[1] };
                             byte[] frame = BuildWriteCmd(15, (ushort)target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片背压阀手动SV成功：{success}，目标值：{target}");
+                            InfoLog($"设置进料系统继承碳化硅芯片背压阀SV%成功：{success}，目标值：{target}");
                         }
 
                         return new DeviceParameters()
@@ -1816,13 +669,13 @@ namespace SiliconCarbideChip_ModbusRTU
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的背压阀手动SV", true)
+                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的背压阀SV%", true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"设置进料集成系统碳化硅芯片背压阀手动SV失败：{e.Message}");
+                        ErrorLog($"设置进料集成系统碳化硅芯片背压阀SV%失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1831,14 +684,14 @@ namespace SiliconCarbideChip_ModbusRTU
             // 设置背压阀P SV
             Commands.Add(new DeviceCommand()
             {
-                Name = "设置背压阀自动SV",
-                HelpText = "设置进料系统集成碳化硅芯片背压阀自动SV",
+                Name = "设置背压阀P SV",
+                HelpText = "设置进料系统集成碳化硅芯片背压阀P SV",
 
                 InputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TargetValue", 0, 1000, 0, "背压阀自动SV目标值", true)
+                        new NumberParameter("TargetValue", 0, 1000, 0, "背压阀P SV目标值", true)
                     }
                 },
 
@@ -1847,31 +700,30 @@ namespace SiliconCarbideChip_ModbusRTU
                     Variables = new ObservableCollection<ParameterBase>()
                     {
                         new BooleanParameter("Success", false, "设置成功", true),
-                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的背压阀自动SV", true)
+                        new NumberParameter("SetTargetValue", 0, 1000, 0, "设置的背压阀P SV", true)
                     }
                 },
 
-                Action = WrapAction("设置背压阀自动SV", async parameter =>
+                Action = WrapAction("设置背压阀P SV", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short target = parameter.GetValue<short>("TargetValue");
+                        ushort target = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
                             success = true;
-                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片背压阀自动SV，结果（成功：{success}，目标值：{target}）");
+                            InfoLog($"模拟模式设置进料继承系统碳化硅芯片背压阀P SV，结果（成功：{success}，目标值：{target}）");
                         }
                         else
                         {
                             //byte[] frame = { slaveId, 0x06, 0x00, 0x10, data[0], data[1] };
-                            byte[] frame = BuildWriteCmd(16, (ushort)target);
+                            byte[] frame = BuildWriteCmd(16, target);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
-                            InfoLog($"设置进料系统继承碳化硅芯片背压阀自动SV成功：{success}，目标值：{target}");
+                            InfoLog($"设置进料系统继承碳化硅芯片背压阀P SV成功：{success}，目标值：{target}");
                         }
 
                         return new DeviceParameters()
@@ -1879,13 +731,13 @@ namespace SiliconCarbideChip_ModbusRTU
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new BooleanParameter("Success", success, "设置成功", true),
-                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的背压阀自动SV", true)
+                                new NumberParameter("SetTargetValue", 0, 1000, target, "设置的背压阀P SV", true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"设置进料集成系统碳化硅芯片背压阀自动SV失败：{e.Message}");
+                        ErrorLog($"设置进料集成系统碳化硅芯片背压阀P SV失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1919,7 +771,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -1954,6 +805,7 @@ namespace SiliconCarbideChip_ModbusRTU
                 })
             });
 
+            /*
             // 设置T1上限报警
             Commands.Add(new DeviceCommand()
             {
@@ -1982,7 +834,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2045,7 +896,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2108,7 +958,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2171,7 +1020,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2234,7 +1082,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2297,7 +1144,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2360,7 +1206,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2423,7 +1268,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2486,7 +1330,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         short target = parameter.GetValue<short>("TargetValue");
                         bool success = false;
 
@@ -2519,7 +1362,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         throw;
                     }
                 })
-            });
+            }); */
 
             // 报警复位
             Commands.Add(new DeviceCommand()
@@ -2540,7 +1383,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -2593,7 +1435,6 @@ namespace SiliconCarbideChip_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -2717,7 +1558,7 @@ namespace SiliconCarbideChip_ModbusRTU
             {
                 InfoLog("通过 ZLAN 网关测试连接");
                 byte[] sendCmd = BuildReadCmd(register: 29, count: 1);
-                var pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
+                var pressure = await SendAndReceiveWrapperAsync(sendCmd, CancellationToken.None, SendAndParseInt16Async);
                 InfoLog($"网关连接成功,当前报警状态 {pressure}");
                 return true;
             }
@@ -2733,6 +1574,8 @@ namespace SiliconCarbideChip_ModbusRTU
             }
         }
 
+
+        #region 命令包装（日志+异常）
 
         private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
@@ -2781,6 +1624,9 @@ namespace SiliconCarbideChip_ModbusRTU
                 }
             };
         }
+
+        #endregion
+
 
         #region 通信层
 
@@ -2832,9 +1678,16 @@ namespace SiliconCarbideChip_ModbusRTU
         /// <param name="register"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        private byte[] BuildMultWriteCmd(ushort register, int value)
+        private byte[] BuildMultWriteCmd(ushort register, float value)
         {
             byte slaveId = GetSlaveAddress();
+
+            byte[] bytes = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian)
+            {
+                ReverseArray(bytes);
+            }
+
             byte[] frame =
             {
                 slaveId,
@@ -2842,8 +1695,7 @@ namespace SiliconCarbideChip_ModbusRTU
                 (byte)(register >> 8),(byte)(register & 0xFF),
                 0x00, 0x02,
                 0x04,
-                (byte)(register >> 24),(byte)(register >> 16),
-                (byte)(register >> 8),(byte)(register & 0xFF),
+                bytes[0], bytes[1], bytes[2], bytes[3]
             };
 
             return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
@@ -2912,45 +1764,9 @@ namespace SiliconCarbideChip_ModbusRTU
         }
 
         /// <summary>
-        /// 发送 Modbus 读寄存器命令并解析应答中的 Int16 数据。
-        /// 自动重试 3 次以应对工业链路偶发抖动。
-        /// </summary>
-        private async Task<short> SendAndParseInt16Async(byte[] sendCmd, CancellationToken token)
-        {
-            Exception lastException = null;
-
-            for (int attempt = 1; attempt <= MaxRetries; attempt++)
-            {
-                try
-                {
-                    return await SendAndParseInt16OnceAsync(sendCmd, token).ConfigureAwait(false);
-                }
-                catch (TimeoutException ex)
-                {
-                    lastException = ex;
-                    if (attempt < MaxRetries)
-                    {
-                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
-                            attempt, MaxRetries, RetryDelayMs);
-                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
-                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
-                    throw;
-                }
-            }
-
-            throw new TimeoutException(
-                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
-        }
-
-        /// <summary>
         /// 读命令的单次执行实现。走实例锁排队,加站号/功能码/长度校验。
         /// </summary>
-        private async Task<short> SendAndParseInt16OnceAsync(byte[] sendCmd, CancellationToken token)
+        private async Task<short> SendAndParseInt16Async(byte[] sendCmd, CancellationToken token)
         {
             var sem = GetInstanceLock();
             await sem.WaitAsync(token).ConfigureAwait(false);
@@ -3003,45 +1819,12 @@ namespace SiliconCarbideChip_ModbusRTU
         }
 
         /// <summary>
-        /// 发送 Modbus 读寄存器命令并解析应答中的 Int32 数据，自动重试3次
+        /// 读取 Modbus 寄存器并解析 float 数据
         /// </summary>
         /// <param name="sendCmd"></param>
         /// <param name="token"></param>
         /// <returns></returns>
-        /// <exception cref="TimeoutException"></exception>
-        private async Task<int> SendAndParseInt32Async(byte[] sendCmd, CancellationToken token)
-        {
-            Exception lastException = null;
-
-            for (int attempt = 1; attempt <= MaxRetries; attempt++)
-            {
-                try
-                {
-                    return await SendAndParseInt32OnceAsync(sendCmd, token).ConfigureAwait(false);
-                }
-                catch (TimeoutException ex)
-                {
-                    lastException = ex;
-                    if (attempt < MaxRetries)
-                    {
-                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
-                            attempt, MaxRetries, RetryDelayMs);
-                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
-                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
-                    throw;
-                }
-            }
-
-            throw new TimeoutException(
-                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
-        }
-
-        private async Task<int> SendAndParseInt32OnceAsync(byte[] sendCmd, CancellationToken token)
+        private async Task<float> SendAndParseSingleAsync(byte[] sendCmd, CancellationToken token)
         {
             var slim = GetInstanceLock();
             await slim.WaitAsync(token).ConfigureAwait(false);
@@ -3085,7 +1868,56 @@ namespace SiliconCarbideChip_ModbusRTU
                 {
                     ReverseArray(data);
                 }
-                return BitConverter.ToInt32(data, 0);
+                return BitConverter.ToSingle(data, 0);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        /// <summary>
+        /// 解析 Modbus 单精度浮点数组
+        /// </summary>
+        /// <param name="sendCmd"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        private async Task<float[]> SendAndParseSingleArrayAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+异常码(1)+CRC(2) = 5 字节
+                if (len < 5)
+                {
+                    _logger?.LogWarning("应答帧长度无效,需要至少 5 字节，实际 {len} 字节", len);
+                    return Array.Empty<float>();
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return Array.Empty<float>();
+                }
+
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return Array.Empty<float>();
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+
+                return ByteArrayToSingleArray(data);
             }
             finally
             {
@@ -3111,9 +1943,89 @@ namespace SiliconCarbideChip_ModbusRTU
             return CreateTransportAsync(serialConfig);
         }
 
+        /// <summary>
+        /// 将字节数组（字节序：ABCD）转换为浮点数组
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        private float[] ByteArrayToSingleArray(byte[] data)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException("输入字节数为空");
+            }
+
+            if (data.Length == 0 || data.Length % 4 != 0)
+            {
+                throw new ArgumentException($"输入字节数组长度无效，应为4的倍数。数组长度：{data.Length}");
+            }
+
+            float[] result = new float[data.Length / 4];
+            byte[] temp = new byte[4];
+            for (int i = 0; i < result.Length; i++)
+            {
+                temp[3] = data[4 * i];
+                temp[2] = data[4 * i + 1];
+                temp[1] = data[4 * i + 2];
+                temp[0] = data[4 * i + 3];
+                result[i] = BitConverter.ToSingle(temp, 0);
+            }
+            return result;
+        }
+
+
+        /// <summary>
+        /// 发送 Modbus 读取寄存器命令的包装方法，自动重试三次
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="sendCmd">指令报文</param>
+        /// <param name="token">取消标记</param>
+        /// <param name="function">执行的委托</param>
+        /// <returns></returns>
+        /// <exception cref="TimeoutException"></exception>
+        private async Task<T> SendAndReceiveWrapperAsync<T>(byte[] sendCmd, CancellationToken token, Func<byte[],CancellationToken, Task<T>> function)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await function(sendCmd, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
+                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
+                    throw;
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
         #endregion
 
 
+        /// <summary>
+        /// 提取响应报文中的数据
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         private byte[] ExtractPayload(byte[] frame)
         {
             if (frame == null || frame.Length < 5)
@@ -3139,7 +2051,7 @@ namespace SiliconCarbideChip_ModbusRTU
         }
 
         /// <summary>
-        /// 反转字节数组
+        /// 反转字节数组（大小端互转）
         /// </summary>
         /// <param name="buffers">输入数组</param>
         private void ReverseArray(byte[] buffers)
@@ -3162,6 +2074,10 @@ namespace SiliconCarbideChip_ModbusRTU
         }
     }
 
+
+    /// <summary>
+    /// Modbus CRC 校验帮助类
+    /// </summary>
     public static class Crc16Modbus
     {
         /// <summary>
