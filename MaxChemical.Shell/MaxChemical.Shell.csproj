@@ -90,6 +90,7 @@
 	  <None Remove="Resources\DeviceIcon\RoboticArm.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
 	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
+	  <None Remove="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png" />
 	  <None Remove="Resources\Icon\app.ico" />
 	  <None Remove="Resources\Icon\Canvasscaling.png" />
 	  <None Remove="Resources\Icon\close.png" />
@@ -281,6 +282,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\TemperatureCirculator.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\app.ico">
