@@ -5351,6 +5351,14 @@ namespace MaxChemical.Modules.Designer.Views
         {
             try
             {
+                //  特定设备直接返回固定尺寸,绕开 60~120 的图片尺寸限制
+                switch (device?.GetType().Name)
+                {
+                    case "TwoLiquidOneGasFeedSystem_ModbusRTU":
+                        return new Size(200, 280);
+                        // 以后还想给别的设备单独定尺寸,继续在这里加 case
+                }
+
                 var imageLocationProperty = device.GetType().GetProperty("ImageLocation");
                 string imageLocation = imageLocationProperty?.GetValue(device) as string;
 
