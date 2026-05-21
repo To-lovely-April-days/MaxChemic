@@ -32,7 +32,7 @@ namespace SiliconCarbideChip_ModbusRTU
             Name = "进料系统集成碳化硅芯片";
             Manufacturer = "ModbusRTU 进料系统集成碳化硅芯片";
             ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/SiliconCarbideChip_CY.png";
-            Category = DeviceCategories.PublicWorks;
+            Category = DeviceCategories.Reactors;
             ComId = "SCC0001"; // 默认设备ID
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
             AllowedRegions = new List<RegionType>()
