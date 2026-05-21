@@ -1,6 +1,7 @@
 ﻿using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Logging;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
@@ -16,8 +17,15 @@ namespace DynamicTubularReactor_ModbusRTU
         private Task _dataTask;
         private CancellationTokenSource _dataCts;
 
-        // 限制每次只能打开一个串口
-        private readonly SemaphoreSlim _slim = new SemaphoreSlim(1, 1);
+        // 实例级 TCP 互斥锁:同一设备实例的所有 IO 串行化,避免与轮询/心跳撞车
+        // 用静态字典按 DeviceId 隔离不同设备实例
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _instanceLocks
+            = new ConcurrentDictionary<string, SemaphoreSlim>();
+
+        // 通信层重试参数
+        private const int MaxRetries = 3;       // 总共尝试 3 次
+        private const int RetryDelayMs = 100;   // 重试间隔 100ms
+
 
         public DynamicTubularReactor_ModbusRTU()
         {
@@ -44,8 +52,6 @@ namespace DynamicTubularReactor_ModbusRTU
                 Options = new ObservableCollection<string>() { "DTR0001", "DTR0002", "DTR0003", "DTR0004", "DTR0005" },
             });
 
-            Parameters.Variables.Add(new NumberParameter("SlaveId", 1, 254, 1, "从站ID"));
-
             Parameters.Variables.Add(new StringParameter("串口号", "COM1")
             {
                 Options = new ObservableCollection<string>() { "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7" }
@@ -71,8 +77,25 @@ namespace DynamicTubularReactor_ModbusRTU
                 Options = new ObservableCollection<string>() { "None", "One", "Two", "OnePointFive" }
             });
 
+            // 通信方式
+            Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
+            {
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+            });
+
+            // Modbus 从机站号 (1~254)
+            Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
+
             InitializeCommands();
         }
+
+
+        /// <summary>
+        /// 声明本驱动支持通过 ZLAN 网关通信。
+        /// </summary>
+        public override bool SupportsZLanGateway => true;
+
 
         private void InitializeCommands()
         {
@@ -90,13 +113,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取搅拌 SV", async parameter =>
+                AsyncAction = AsyncWrapAction("获取搅拌 SV", async parameter =>
                 {
                     float value = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -106,27 +128,15 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6];
-                            frame[0] = slaveId; // 从站地址
-                            frame[1] = 3;       // 功能码
-                            frame[2] = 0;       // 起始地址
-                            frame[3] = 0;
-                            frame[4] = 0;       // 读取数量
-                            frame[5] = 2;
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                value = BitConverter.ToSingle(data);
-                            }
+                            //byte[] frame = new byte[6];
+                            //frame[0] = slaveId; // 从站地址
+                            //frame[1] = 3;       // 功能码
+                            //frame[2] = 0;       // 起始地址
+                            //frame[3] = 0;
+                            //frame[4] = 0;       // 读取数量
+                            //frame[5] = 2;
+                            byte[] frame = BuildReadCmd(0, 2);
+                            value = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
                         }
                     }
                     catch (Exception e)
@@ -160,13 +170,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取搅拌 PV", async parameter =>
+                AsyncAction = AsyncWrapAction("获取搅拌 PV", async parameter =>
                 {
                     float speed = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -176,21 +185,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6] { slaveId, 3, 0, 2, 0, 2 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                speed = BitConverter.ToSingle(data);
-                            }
+                            //byte[] frame = new byte[6] { slaveId, 3, 0, 2, 0, 2 };
+                            byte[] frame = BuildReadCmd(2, 2);
+                            speed = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
                         }
                     }
                     catch (Exception e)
@@ -223,13 +220,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取反应釜温度", async parameter =>
+                AsyncAction = AsyncWrapAction("获取反应釜温度", async parameter =>
                 {
                     float temperature = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -239,21 +235,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6] { slaveId, 3, 0, 4, 0, 2 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToSingle(data);
-                            }
+                            //byte[] frame = new byte[6] { slaveId, 3, 0, 4, 0, 2 };
+                            byte[] frame = BuildReadCmd(4, 2);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
                         }
                     }
                     catch (Exception e)
@@ -286,13 +270,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取反应釜压力", async parameter =>
+                AsyncAction = AsyncWrapAction("获取反应釜压力", async parameter =>
                 {
                     float pressure = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -302,21 +285,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6] { slaveId, 3, 0, 6, 0, 2 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                pressure = BitConverter.ToSingle(data);
-                            }
+                            //byte[] frame = new byte[6] { slaveId, 3, 0, 6, 0, 2 };
+                            byte[] frame = BuildReadCmd(6, 2);
+                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
                         }
                     }
                     catch (Exception e)
@@ -349,13 +320,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取搅拌 ON/OFF", async parameter =>
+                AsyncAction = AsyncWrapAction("获取搅拌 ON/OFF", async parameter =>
                 {
-                    float pressure = 0;
+                    int pressure = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -365,21 +335,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6] { slaveId, 3, 0, 8, 0, 1 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                pressure = BitConverter.ToInt16(data);
-                            }
+                            //byte[] frame = new byte[6] { slaveId, 3, 0, 8, 0, 1 };
+                            byte[] frame = BuildReadCmd(8, 1);
+                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                         }
                     }
                     catch (Exception e)
@@ -398,7 +356,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 })
             });
 
-            // 获取 报警
+            /*// 获取 报警
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警数据",
@@ -415,7 +373,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取报警数据", async parameter =>
+                AsyncAction = AsyncWrapAction("获取报警数据", async parameter =>
                 {
                     int alarm1 = 0;
                     int alarm2 = 0;
@@ -424,29 +382,23 @@ namespace DynamicTubularReactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            alarm1 = new Random().Next(-1, 1);
                         }
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 3, 0, 9, 0, 4 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
+                            //byte[] frame = { slaveId, 3, 0, 9, 0, 4 };
+                            byte[] frame = BuildReadCmd(9, 4);
+                            ushort[] arr = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseUInt16ArrayAsync);
+                            if (arr.Length == 4)
                             {
-                                byte[] data = ExtractPayload(buffers);
-                                alarm1 = data[0] << 8 | data[1];
-                                alarm2 = data[2] << 8 | data[3];
-                                alarm3 = data[4] << 8 | data[5];
-                                alarm4 = data[6] << 8 | data[7];
+                                alarm1 = arr[0];
+                                alarm2 = arr[1];
+                                alarm3 = arr[2];
+                                alarm4 = arr[3];
                             }
                         }
                     }
@@ -483,13 +435,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取报警消音状态", async parameter =>
+                AsyncAction = AsyncWrapAction("获取报警消音状态", async parameter =>
                 {
                     int pressure = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -499,21 +450,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6] { slaveId, 3, 0, 14, 0, 1 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                pressure = BitConverter.ToInt16(data, 0);
-                            }
+                            //byte[] frame = new byte[6] { slaveId, 3, 0, 14, 0, 1 };
+                            byte[] frame = BuildReadCmd(14, 1);
+                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                         }
                     }
                     catch (Exception e)
@@ -530,7 +469,7 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                     };
                 })
-            });
+            });*/
 
             // 获取 报警状态
             Commands.Add(new DeviceCommand()
@@ -546,13 +485,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("获取报警状态", async parameter =>
+                AsyncAction = AsyncWrapAction("获取报警状态", async parameter =>
                 {
                     int pressure = 0;
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
 
                         if (IsSimulationMode)
                         {
@@ -562,21 +500,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = new byte[6] { slaveId, 3, 0, 15, 0, 1 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                pressure = BitConverter.ToInt16(data, 0);
-                            }
+                            //byte[] frame = new byte[6] { slaveId, 3, 0, 15, 0, 1 };
+                            byte[] frame = BuildReadCmd(15, 1);
+                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                         }
                     }
                     catch (Exception e)
@@ -619,12 +545,11 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置 SV", async parameter =>
+                AsyncAction = AsyncWrapAction("设置 SV", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -641,9 +566,9 @@ namespace DynamicTubularReactor_ModbusRTU
                                 ReverseArray(data);
                             }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 16, 0, 0, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 16, 0, 0, 0, 2, 4, data[0], data[1], data[2], data[3] };
 
+                            byte[] frame = BuildMultWriteCmd(0, (int)targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -687,12 +612,11 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置 PV", async parameter =>
+                AsyncAction = AsyncWrapAction("设置 PV", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -703,15 +627,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(targetValue);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 16, 0, 2, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 16, 0, 2, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(2, (int)targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -755,12 +673,11 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置釜温", async parameter =>
+                AsyncAction = AsyncWrapAction("设置釜温", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -771,15 +688,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(targetValue);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 16, 0, 4, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 16, 0, 4, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(4, (int)targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -823,12 +734,11 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置压力", async parameter =>
+                AsyncAction = AsyncWrapAction("设置压力", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float targetValue = parameter.GetValue<float>("TargetValue");
                         bool success = false;
 
@@ -839,15 +749,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(targetValue);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 16, 0, 6, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 16, 0, 6, 0, 2, 4, data[0], data[1], data[2], data[3] };
+                            byte[] frame = BuildMultWriteCmd(6, (int)targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -891,12 +795,11 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置 ON/OFF", async parameter =>
+                AsyncAction = AsyncWrapAction("设置 ON/OFF", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         byte targetValue = parameter.GetValue<byte>("TargetValue");
                         bool success = false;
 
@@ -908,9 +811,8 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 8, 0, targetValue };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 8, 0, targetValue };
+                            byte[] frame = BuildWriteCmd(8, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -931,7 +833,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 })
             });
 
-            // 设置 釜温上限报警
+            /*// 设置 釜温上限报警
             Commands.Add(new DeviceCommand()
             {
                 Name = "设置釜温上限报警",
@@ -954,13 +856,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置釜温上限报警", async parameter =>
+                AsyncAction = AsyncWrapAction("设置釜温上限报警", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        ushort targetValue = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -970,12 +871,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 9, 0, value };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 9, 0, value };
+                            byte[] frame = BuildWriteCmd(9, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1019,13 +917,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置压力上限报警", async parameter =>
+                AsyncAction = AsyncWrapAction("设置压力上限报警", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        ushort targetValue = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1035,12 +932,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 10, 0, value };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 10, 0, value };
+                            byte[] frame = BuildWriteCmd(10, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1084,13 +978,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置釜温通信故障", async parameter =>
+                AsyncAction = AsyncWrapAction("设置釜温通信故障", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        ushort targetValue = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1100,12 +993,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 11, 0, value };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 11, 0, value };
+                            byte[] frame = BuildWriteCmd(11, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1149,13 +1039,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置压力通讯故障", async parameter =>
+                AsyncAction = AsyncWrapAction("设置压力通讯故障", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        ushort targetValue = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1165,12 +1054,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 12, 0, value };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 12, 0, value };
+                            byte[] frame = BuildWriteCmd(12, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1189,7 +1075,7 @@ namespace DynamicTubularReactor_ModbusRTU
                         throw;
                     }
                 })
-            });
+            });*/
 
             // 设置 报警复位
             Commands.Add(new DeviceCommand()
@@ -1205,12 +1091,11 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("报警复位", async parameter =>
+                AsyncAction = AsyncWrapAction("报警复位", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1221,9 +1106,8 @@ namespace DynamicTubularReactor_ModbusRTU
                         else
                         {
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 13, 0, 1 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 13, 0, 1 };
+                            byte[] frame = BuildWriteCmd(13, 1);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1266,13 +1150,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("报警消音", async parameter =>
+                AsyncAction = AsyncWrapAction("报警消音", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        ushort targetValue = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1282,12 +1165,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 14, 0, value };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 14, 0, value };
+                            byte[] frame = BuildWriteCmd(14, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1331,13 +1211,12 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 },
 
-                Action = WrapAction("设置报警状态", async parameter =>
+                AsyncAction = AsyncWrapAction("设置报警状态", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short targetValue = parameter.GetValue<short>("TargetValue");
+                        ushort targetValue = parameter.GetValue<ushort>("TargetValue");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1347,12 +1226,9 @@ namespace DynamicTubularReactor_ModbusRTU
                         }
                         else
                         {
-                            byte value = (byte)targetValue;
-
                             // 发送的指令报文
-                            byte[] frame = { slaveId, 6, 0, 15, 0, value };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 6, 0, 15, 0, value };
+                            byte[] frame = BuildWriteCmd(15, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1391,6 +1267,31 @@ namespace DynamicTubularReactor_ModbusRTU
         }
 
 
+        protected override async Task<bool> OnConnectViaGatewayAsync()
+        {
+            try
+            {
+                InfoLog("通过 ZLAN 网关测试连接");
+                byte[] sendCmd = BuildReadCmd(register: 15, count: 1);
+                var pressure = await SendAndParseInt16Async(sendCmd, CancellationToken.None);
+                InfoLog($"网关连接成功,当前报警状态 {pressure}");
+                return true;
+            }
+            catch (TimeoutException)
+            {
+                ErrorLog("网关连接超时:链路通但设备无应答");
+                return false;
+            }
+            catch (Exception e)
+            {
+                ErrorLog("网关连接失败", e);
+                return false;
+            }
+        }
+
+
+        #region 命令包装(日志 + 异常封装)
+
         private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
             return (DeviceParameters parameters) =>
@@ -1415,126 +1316,376 @@ namespace DynamicTubularReactor_ModbusRTU
             };
         }
 
-
-        private async Task<int> ReadAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        private Func<DeviceParameters, Task<DeviceParameters>> AsyncWrapAction(
+            string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
-            SerialPort serialPort = null;
-            try
+            return async (DeviceParameters parameters) =>
             {
-                string com = Parameters.GetValue<string>("串口号");
-                string baudRate = Parameters.GetValue<string>("波特率");
-                string parity = Parameters.GetValue<string>("校验位");
-                string dataBit = Parameters.GetValue<string>("数据位");
-                string stopBit = Parameters.GetValue<string>("停止位");
-
-                // 等待释放信号
-                await _slim.WaitAsync(token);
-
-                serialPort = new SerialPort(com);
-                serialPort.BaudRate = int.Parse(baudRate);
-                serialPort.Parity = (Parity)Enum.Parse(typeof(Parity), parity);
-                serialPort.DataBits = int.Parse(dataBit);
-                serialPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), stopBit);
-                serialPort.ReadTimeout = 3000;
-                serialPort.WriteTimeout = 3000;
-
-                // 打开串口
-                serialPort.Open();
-
-                // 发送读取指令
-                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
-
-                var reader = serialPort.BaseStream.ReadAsync(buffers, 0, buffers.Length, token);
-                var complete = await Task.WhenAny(reader, Task.Delay(3000, token));
-                if (complete != reader)
-                {
-                    throw new TimeoutException("串口读取超时，设备无响应");
-                }
-                // 返回读取结果
-                return await reader;
-            }
-            finally
-            {
+                _logger.LogInformation($"[ModbusRTU平流输液泵命令-开始] Device={Name} Command={commandName}");
+                var sw = Stopwatch.StartNew();
                 try
                 {
-                    if (serialPort != null)
-                    {
-                        serialPort.Close();
-                        serialPort.Dispose();
-                    }
+                    var output = await innerAsync(parameters);
+                    sw.Stop();
+                    _logger.LogInformation($"[ModbusRTU平流输液泵命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    return output;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    _logger.LogError(ex, $"[ModbusRTU平流输液泵命令-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
+                }
+            };
+        }
 
-                // 释放信号
-                _slim.Release();
+        #endregion
+
+
+        #region 通信层
+
+        /// <summary>
+        /// 取当前配置的 Modbus 从机站号 (1~254)。
+        /// </summary>
+        private byte GetSlaveAddress()
+        {
+            try
+            {
+                var addr = (int)Parameters.GetValue<double>("Modbus站号");
+                if (addr < 1 || addr > 254) addr = 1;
+                return (byte)addr;
+            }
+            catch
+            {
+                return 1;
             }
         }
 
+        /// <summary>
+        /// 获取本设备实例专属的互斥锁。
+        /// 同一 DeviceId 共享同一把锁,确保 IO 串行化,避免轮询/手动/心跳并发撞车。
+        /// </summary>
+        private SemaphoreSlim GetInstanceLock()
+        {
+            var key = Parameters?.GetValue<string>("DeviceId") ?? DeviceId ?? "default";
+            return _instanceLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写单寄存器命令 (功能码 0x06),自动加 CRC。
+        /// </summary>
+        private byte[] BuildWriteCmd(ushort register, ushort value)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x06,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(value >> 8),    (byte)(value & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写多个寄存器（功能码 0x10），自动加CRC
+        /// </summary>
+        /// <param name="register"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        private byte[] BuildMultWriteCmd(ushort register, int value)
+        {
+            byte slaveId = GetSlaveAddress();
+            byte[] frame =
+            {
+                slaveId,
+                0x10,
+                (byte)(register >> 8),(byte)(register & 0xFF),
+                0x00, 0x02,
+                0x04,
+                (byte)(register >> 24),(byte)(register >> 16),
+                (byte)(register >> 8),(byte)(register & 0xFF),
+            };
+
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 读保持寄存器命令 (功能码 0x03),自动加 CRC。
+        /// </summary>
+        private byte[] BuildReadCmd(ushort register, ushort count)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x03,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(count >> 8),    (byte)(count & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 写命令。自动重试 3 次以应对工业链路偶发抖动。
+        /// </summary>
         private async Task<bool> WriteAsync(byte[] buffers, int offset, int count, CancellationToken token)
         {
-            SerialPort serialPort = null;
-            try
-            {
-                string com = Parameters.GetValue<string>("串口号");
-                string baudRate = Parameters.GetValue<string>("波特率");
-                string parity = Parameters.GetValue<string>("校验位");
-                string dataBit = Parameters.GetValue<string>("数据位");
-                string stopBit = Parameters.GetValue<string>("停止位");
+            Exception lastException = null;
 
-                // 等待释放信号
-                await _slim.WaitAsync(token);
-
-                serialPort = new SerialPort(com);
-                serialPort.BaudRate = int.Parse(baudRate);
-                serialPort.Parity = (Parity)Enum.Parse(typeof(Parity), parity);
-                serialPort.DataBits = int.Parse(dataBit);
-                serialPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), stopBit);
-                serialPort.ReadTimeout = 3000;
-                serialPort.WriteTimeout = 3000;
-
-                // 打开串口
-                serialPort.Open();
-
-                // 发送指令
-                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
-                // 接收响应报文
-                byte[] frame = new byte[128];
-                var response = serialPort.BaseStream.ReadAsync(frame, 0, frame.Length, token);
-
-                if (await Task.WhenAny(Task.Delay(3000), response) != response)
-                {
-                    throw new TimeoutException("串口写入超时，设备无响应");
-                }
-
-                int len = await response;
-                if (len < 5)
-                {
-                    throw new Exception("写入失败：响应报文长度无效");
-                }
-
-                if (frame[1] >= 0x80)
-                {
-                    throw new ArgumentException($"写入失败，Modbus 异常响应，异常码：{frame[2]:X2}");
-                }
-
-                return true;
-            }
-            finally
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
             {
                 try
                 {
-                    if (serialPort != null)
+                    return await WriteOnceAsync(buffers, offset, count, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
                     {
-                        serialPort.Close();
-                        serialPort.Dispose();
+                        _logger?.LogWarning("Modbus 写入超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
                     }
                 }
-                catch { }
+            }
 
-                // 释放信号
-                _slim.Release();
+            throw new TimeoutException(
+                $"Modbus 写入失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        /// <summary>
+        /// 写命令的单次执行实现。走实例锁排队,通过 IDeviceTransport 发出。
+        /// </summary>
+        private async Task<bool> WriteOnceAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                return await transport.SendAsync(buffers, offset, count, token).ConfigureAwait(false);
+            }
+            finally
+            {
+                sem.Release();
             }
         }
+
+        /// <summary>
+        /// 读命令的单次执行实现。走实例锁排队,加站号/功能码/长度校验。
+        /// </summary>
+        private async Task<short> SendAndParseInt16Async(byte[] sendCmd, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(2)+CRC(2) = 7 字节
+                if (len < 7)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 7 字节", len);
+                    return 0;
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}",
+                        expectedAddr, recv[0]);
+                    return 0;
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return 0;
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return 0;
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                if (BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(data);
+                }
+                return BitConverter.ToInt16(data, 0);
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        private async Task<int> SendAndParseInt32Async(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(4)+CRC(2) = 9 字节
+                if (len < 9)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 9 字节", len);
+                    return 0;
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return 0;
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return 0;
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return 0;
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                if (BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(data);
+                }
+                return BitConverter.ToInt32(data, 0);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        private async Task<ushort[]> SendAndParseUInt16ArrayAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(8)+CRC(2) = 13 字节
+                if (len < 13)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 13 字节", len);
+                    return Array.Empty<ushort>();
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return Array.Empty<ushort>();
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return Array.Empty<ushort>();
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return Array.Empty<ushort>();
+                }
+
+                byte[] data = ExtractPayload(recv);
+
+                return ByteArrayToUshortArray(data);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        /// <summary>
+        /// 通过基类的 CreateTransportAsync 获取 Transport。
+        /// </summary>
+        private Task<IDeviceTransport> GetTransportAsync()
+        {
+            var serialConfig = new SerialPortConfig
+            {
+                PortName = Parameters.GetValue<string>("串口号") ?? "COM1",
+                BaudRate = int.Parse(Parameters.GetValue<string>("波特率") ?? "9600"),
+                Parity = Parameters.GetValue<string>("校验位") ?? "None",
+                DataBits = int.Parse(Parameters.GetValue<string>("数据位") ?? "8"),
+                StopBits = Parameters.GetValue<string>("停止位") ?? "One",
+                ReadTimeoutMs = 3000,
+                WriteTimeoutMs = 3000,
+            };
+            return CreateTransportAsync(serialConfig);
+        }
+
+        /// <summary>
+        /// 发送 Modbus 读取寄存器命令的包装方法，自动重试三次
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="sendCmd">指令报文</param>
+        /// <param name="token">取消标记</param>
+        /// <param name="function">执行的委托</param>
+        /// <returns></returns>
+        /// <exception cref="TimeoutException"></exception>
+        private async Task<T> SendAndReceiveWrapperAsync<T>(byte[] sendCmd, CancellationToken token, Func<byte[], CancellationToken, Task<T>> function)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await function(sendCmd, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
+                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
+                    throw;
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        #endregion
 
         private byte[] ExtractPayload(byte[] frame)
         {
@@ -1581,6 +1732,32 @@ namespace DynamicTubularReactor_ModbusRTU
                 buffers[i] = buffers[length - i];
                 buffers[length - i] = temp;
             }
+        }
+
+        /// <summary>
+        /// 将字节数组转换成ushort数组
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        private ushort[] ByteArrayToUshortArray(byte[] data)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException("输入字节数为空");
+            }
+
+            if (data.Length == 0 || data.Length%2 != 0)
+            {
+                throw new ArgumentException($"输入字节数组长度无效，应为2的倍数。数组长度：{data.Length}");
+            }
+
+            ushort[] result = new ushort[data.Length / 2];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = (ushort)(data[i * 2] << 8 | data[i * 2 + 1]);
+            }
+            return result;
         }
     }
 
