@@ -31,7 +31,7 @@ namespace SiphonInfusionPump_ModbusTcp
             _logger = LogManager.GetLogger<SiphonInfusionPump_ModbusRTU>();
 
             DeviceId = "SIP0001";
-            Name = "平流输液泵";
+            Name = "平流泵";
             Manufacturer = "ModbusRTU平流输液泵";
             ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/SiphonInfusionPump_CY.png";
             Category = DeviceCategories.Pumps;

@@ -79,7 +79,6 @@
 	  <None Remove="Resources\CommadIcon\wait.png" />
 	  <None Remove="Resources\CommadIcon\waitif.png" />
 	  <None Remove="Resources\CommadIcon\weight.png" />
-	  <None Remove="Resources\DeviceIcon\D07-19BMassFlowMeter.png" />
 	  <None Remove="Resources\DeviceIcon\Default.png" />
 	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
 	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
@@ -89,6 +88,7 @@
 	  <None Remove="Resources\DeviceIcon\ProportionalReliefValve.png" />
 	  <None Remove="Resources\DeviceIcon\RoboticArm.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
+	  <None Remove="Resources\DeviceIcon\SiliconCarbideChip_CY.png" />
 	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
 	  <None Remove="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png" />
 	  <None Remove="Resources\Icon\app.ico" />
@@ -231,9 +231,6 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\CommadIcon\weight.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\DeviceIcon\D07-19BMassFlowMeter.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\Default.png">
