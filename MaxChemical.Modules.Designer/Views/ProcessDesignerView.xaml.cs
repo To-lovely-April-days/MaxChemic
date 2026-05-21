@@ -5355,7 +5355,11 @@ namespace MaxChemical.Modules.Designer.Views
                 switch (device?.GetType().Name)
                 {
                     case "TwoLiquidOneGasFeedSystem_ModbusRTU":
-                        return new Size(200, 280);
+                        return new Size(200*0.7, 280*0.7); 
+                    case "SiliconCarbideChip_ModbusRTU":
+                        return new Size(200,170);
+                    case "SiphonInfusionPump_ModbusRTU":
+                        return new Size(200, 170);
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }
 
