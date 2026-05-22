@@ -5360,6 +5360,8 @@ namespace MaxChemical.Modules.Designer.Views
                         return new Size(200,170);
                     case "SiphonInfusionPump_ModbusRTU":
                         return new Size(200, 170);
+                    case "DynamicTubularReactor_ModbusRTU":
+                        return new Size(240, 216);
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }
 
