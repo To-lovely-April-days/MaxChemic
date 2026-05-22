@@ -80,6 +80,7 @@
 	  <None Remove="Resources\CommadIcon\waitif.png" />
 	  <None Remove="Resources\CommadIcon\weight.png" />
 	  <None Remove="Resources\DeviceIcon\Default.png" />
+	  <None Remove="Resources\DeviceIcon\DynamicTubularReactor_CY.jpg" />
 	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
 	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
