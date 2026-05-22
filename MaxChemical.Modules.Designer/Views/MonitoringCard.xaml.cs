@@ -132,14 +132,27 @@ namespace MaxChemical.Modules.Designer.Views
                 var monitorParam = new MonitorParameter
                 {
                     Name = param.Name,              // 保留原名(弹窗里用)
-                    Value = param.Value?.ToString() ?? "--",
+                    Value = FormatValue(param),
                     OriginalParameter = param
                 };
                 monitorParam.AddHistoryValue(DateTime.Now, ParseValue(param.Value));
                 Parameters.Add(monitorParam);
             }
         }
+        /// <summary>
+        /// 按参数类型格式化显示值。数值参数按 DecimalPlaces 保留小数,消除 float 精度误差。
+        /// </summary>
+        private string FormatValue(ParameterBase param)
+        {
+            if (param?.Value == null) return "--";
 
+            if (param is NumberParameter np &&
+                double.TryParse(param.Value.ToString(), out double d))
+            {
+                return d.ToString("F" + np.DecimalPlaces);
+            }
+            return param.Value.ToString();
+        }
         public void UpdateParameterValues(DeviceParameters outputParameters)
         {
             if (outputParameters?.Variables == null) return;
@@ -153,7 +166,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                 if (updatedParam != null)
                 {
-                    var newValue = updatedParam.Value?.ToString() ?? "--";
+                    var newValue = FormatValue(updatedParam);
                     if (param.Value != newValue)
                     {
                         param.Value = newValue;

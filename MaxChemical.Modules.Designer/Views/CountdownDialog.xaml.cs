@@ -3,6 +3,7 @@
 //
 // 改动：用 Ellipse StrokeDashArray/Offset 实现圆环进度
 // 新增：拖动支持
+// 新增：等待设备稳定前置阶段（EnterStabilityPhase / UpdateStabilityProgress / EnterCountdownPhase）
 // ============================================================
 using MaxChemical.Infrastructure.Services;
 using Prism.Ioc;
@@ -21,6 +22,9 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly DispatcherTimer _timer;
         private bool _isSkipped = false;
         private bool _isStopped = false;
+
+        // ★ 新增：是否处于"等待设备稳定"前置阶段（此阶段不跑倒计时）
+        private bool _isStabilityPhase = false;
 
         // 圆环周长（直径110，stroke占5px，有效半径 = (110-5)/2 = 52.5）
         private const double RingCircumference = 2 * Math.PI * 52.5; // ≈ 329.87
@@ -81,6 +85,78 @@ namespace MaxChemical.Modules.Designer.Views
             _timer.Start();
         }
 
+        // ============================================================
+        // ★ 新增：等待设备稳定阶段支持
+        // ============================================================
+
+        /// <summary>
+        /// 进入"等待设备稳定"阶段（倒计时尚未开始）。
+        /// 调用后对话框显示"等待设备稳定中…"，圆环置满表示尚未计时。
+        /// </summary>
+        public void EnterStabilityPhase(string deviceCountText)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => EnterStabilityPhase(deviceCountText));
+                return;
+            }
+
+            _isStabilityPhase = true;
+
+            // 稳定阶段不跑计时器
+            _timer.Stop();
+
+            TbFixedLabel.Text = _localization.GetString("Stability_Title", "等待设备稳定");
+            CountdownText.Text = "…";
+            WaitInfoText.Text = string.Format(
+                _localization.GetString("Stability_Waiting", "等待 {0} 进入稳定状态…"),
+                deviceCountText ?? "");
+            StatusText.Text = _localization.GetString("Stability_Polling", "正在检测设备状态");
+
+            // 稳定阶段不显示真实进度，圆环置满
+            ProgressRing.StrokeDashOffset = 0;
+        }
+
+        /// <summary>
+        /// 在稳定阶段刷新进度文字（例如 "3/5 设备已稳定，已等待 12s"）。
+        /// 仅在稳定阶段生效。
+        /// </summary>
+        public void UpdateStabilityProgress(int stableCount, int totalCount, int elapsedSeconds)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => UpdateStabilityProgress(stableCount, totalCount, elapsedSeconds));
+                return;
+            }
+            if (!_isStabilityPhase) return;
+
+            WaitInfoText.Text = string.Format(
+                _localization.GetString("Stability_Progress", "{0}/{1} 设备已稳定，已等待 {2}s"),
+                stableCount, totalCount, elapsedSeconds);
+        }
+
+        /// <summary>
+        /// 稳定阶段结束，切换到正常倒计时阶段并启动计时。
+        /// </summary>
+        public void EnterCountdownPhase()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(EnterCountdownPhase);
+                return;
+            }
+
+            _isStabilityPhase = false;
+            TbFixedLabel.Text = _localization.GetString("Countdown_Fixed", "固定时间等待");
+
+            // 重置剩余时间并刷新显示，再启动计时器
+            _remainingTime = _totalTime;
+            InitializeRing();
+            UpdateDisplay();
+
+            _timer.Start();
+        }
+
         private void Timer_Tick(object sender, EventArgs e)
         {
             _remainingTime = _remainingTime.Subtract(TimeSpan.FromMilliseconds(100));
@@ -99,6 +175,9 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void UpdateDisplay()
         {
+            // ★ 稳定阶段不更新倒计时显示（文字由稳定阶段方法控制）
+            if (_isStabilityPhase) return;
+
             // 倒计时文字
             if (_remainingTime.TotalHours >= 1)
                 CountdownText.Text = _remainingTime.ToString(@"hh\:mm\:ss");

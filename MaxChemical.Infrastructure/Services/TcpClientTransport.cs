@@ -16,6 +16,9 @@ namespace MaxChemical.Infrastructure.Services
     /// 1. 读取时循环 Read 直到收到完整 Modbus 帧 (避免 TCP 分包导致只读到一半)
     /// 2. 根据 Modbus 功能码动态计算期望长度
     /// 3. CancelAfter 控制超时,真正取消而不是悬挂任务
+    /// 4. OpenAsync 内置连接重试 + 退避:卓岚网关 TCP Server 一个通道只允许一个连接,
+    ///    即建即关高频/多路场景下,新连接可能撞上"上一条尚未在网关侧释放" -> 被拒,
+    ///    用重试吸收这种瞬时失败(典型现象:刚连失败,重连就好)。
     /// </summary>
     internal class TcpClientTransport : IDeviceTransport
     {
@@ -24,6 +27,10 @@ namespace MaxChemical.Infrastructure.Services
         private readonly int _connectTimeoutMs;
         private readonly ILogService _logger;
         private readonly SemaphoreSlim _ioLock = new SemaphoreSlim(1, 1);
+
+        // 连接重试参数
+        private const int ConnectMaxAttempts = 3;
+        private const int ConnectRetryBaseDelayMs = 150;  // 退避基数:150ms / 300ms
 
         public TcpClientTransport(string gatewayIp, int channelPort, ILogService logger,
             int connectTimeoutMs = 3000)
@@ -123,6 +130,7 @@ namespace MaxChemical.Infrastructure.Services
                 _ioLock.Release();
             }
         }
+
         /// <summary>
         /// 清空接收缓冲里的残留字节(对应串口的 DiscardInBuffer)。
         /// 只读取当前已到达的数据,不阻塞等待。
@@ -145,6 +153,7 @@ namespace MaxChemical.Infrastructure.Services
                 // 清缓冲失败不影响后续逻辑
             }
         }
+
         /// <summary>
         /// 根据已收到的字节推算 Modbus RTU 应答完整帧长。返回 &lt;= 0 表示无法推断。
         /// 与 SerialPortTransport 保持完全一致的判断逻辑。
@@ -180,10 +189,7 @@ namespace MaxChemical.Infrastructure.Services
                     return -1;   // 未知功能码,交上层处理
             }
         }
-        /// <summary>
-        /// 循环 Read 直到收到完整 Modbus 帧 (避免 TCP 分包问题)。
-        /// 根据功能码动态判断期望长度。
-        /// </summary>
+
         /// <summary>
         /// 循环 Read 直到收到完整 Modbus 帧 (避免 TCP 分包问题)。
         /// 语义对齐 SerialPortTransport.ReadModbusFrameAsync:
@@ -254,28 +260,67 @@ namespace MaxChemical.Infrastructure.Services
             }
         }
 
+        /// <summary>
+        /// 建立 TCP 连接,内置重试 + 退避。
+        /// 网关 TCP Server 一个通道同一时刻只允许一个连接,即建即关高频场景下
+        /// 新连接可能撞上上一条尚未释放 -> 被拒(SocketException),这里用重试吸收。
+        /// </summary>
         private async Task<TcpClient> OpenAsync(CancellationToken ct)
         {
-            var client = new TcpClient();
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(_connectTimeoutMs);
+            Exception last = null;
 
-            try
+            for (int attempt = 1; attempt <= ConnectMaxAttempts; attempt++)
             {
-                await client.ConnectAsync(_ip, _port, timeoutCts.Token).ConfigureAwait(false);
-                client.NoDelay = true;
-                return client;
+                ct.ThrowIfCancellationRequested();
+
+                var client = new TcpClient();
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(_connectTimeoutMs);
+
+                try
+                {
+                    await client.ConnectAsync(_ip, _port, timeoutCts.Token).ConfigureAwait(false);
+                    client.NoDelay = true;
+                    if (attempt > 1)
+                        _logger?.LogDebug("连接网关成功 {Ip}:{Port} (第 {N} 次尝试)", _ip, _port, attempt);
+                    return client;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // 外部主动取消,直接抛,不重试
+                    client.Dispose();
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    // 连接超时(timeoutCts 触发)
+                    client.Dispose();
+                    last = new TimeoutException($"连接网关超时 {_ip}:{_port}");
+                    _logger?.LogWarning("连接网关超时 {Ip}:{Port} (第 {N}/{Max} 次)",
+                        _ip, _port, attempt, ConnectMaxAttempts);
+                }
+                catch (SocketException ex)
+                {
+                    // 网关拒绝 / 上一条连接尚未释放 / 网络瞬断
+                    client.Dispose();
+                    last = ex;
+                    _logger?.LogWarning("连接网关被拒 {Ip}:{Port} (第 {N}/{Max} 次): {Code} {Msg}",
+                        _ip, _port, attempt, ConnectMaxAttempts, ex.SocketErrorCode, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    client.Dispose();
+                    last = ex;
+                    _logger?.LogWarning("连接网关异常 {Ip}:{Port} (第 {N}/{Max} 次): {Msg}",
+                        _ip, _port, attempt, ConnectMaxAttempts, ex.Message);
+                }
+
+                if (attempt < ConnectMaxAttempts)
+                    await Task.Delay(ConnectRetryBaseDelayMs * attempt, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                client.Dispose();
-                throw new TimeoutException($"连接网关超时 {_ip}:{_port}");
-            }
-            catch
-            {
-                client.Dispose();
-                throw;
-            }
+
+            // 重试用尽,抛最后一次的异常(超时类抛 TimeoutException,便于上层驱动的重试逻辑识别)
+            throw last ?? new TimeoutException($"连接网关失败 {_ip}:{_port}");
         }
 
         private static void Close(TcpClient client)

@@ -85,7 +85,11 @@ namespace DynamicTubularReactor_ModbusRTU
 
             // Modbus 从机站号 (1~254)
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
-
+            // 32位浮点字节序 (Modbus 协议不规定，由设备决定，需现场确认)
+            Parameters.Variables.Add(new StringParameter("浮点字节序", "ABCD", "32位浮点字节序：ABCD=大端, CDAB=字交换, BADC=字节交换, DCBA=小端")
+            {
+                Options = new ObservableCollection<string>() { "ABCD", "CDAB", "BADC", "DCBA" }
+            });
 
             InitializeCommands();
         }
@@ -238,6 +242,7 @@ namespace DynamicTubularReactor_ModbusRTU
                             //byte[] frame = new byte[6] { slaveId, 3, 0, 4, 0, 2 };
                             byte[] frame = BuildReadCmd(4, 2);
                             temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseSingleAsync);
+                            
                         }
                     }
                     catch (Exception e)
@@ -568,7 +573,7 @@ namespace DynamicTubularReactor_ModbusRTU
                             // 发送的指令报文
                             //byte[] frame = { slaveId, 16, 0, 0, 0, 2, 4, data[0], data[1], data[2], data[3] };
 
-                            byte[] frame = BuildMultWriteCmd(0, (int)targetValue);
+                            byte[] frame = BuildMultWriteCmd(0, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -629,7 +634,7 @@ namespace DynamicTubularReactor_ModbusRTU
                         {
                             // 发送的指令报文
                             //byte[] frame = { slaveId, 16, 0, 2, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(2, (int)targetValue);
+                            byte[] frame = BuildMultWriteCmd(2, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -690,7 +695,7 @@ namespace DynamicTubularReactor_ModbusRTU
                         {
                             // 发送的指令报文
                             //byte[] frame = { slaveId, 16, 0, 4, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(4, (int)targetValue);
+                            byte[] frame = BuildMultWriteCmd(4, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -751,7 +756,7 @@ namespace DynamicTubularReactor_ModbusRTU
                         {
                             // 发送的指令报文
                             //byte[] frame = { slaveId, 16, 0, 6, 0, 2, 4, data[0], data[1], data[2], data[3] };
-                            byte[] frame = BuildMultWriteCmd(6, (int)targetValue);
+                            byte[] frame = BuildMultWriteCmd(6, targetValue);
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                         }
 
@@ -1392,19 +1397,36 @@ namespace DynamicTubularReactor_ModbusRTU
         /// <param name="register"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        private byte[] BuildMultWriteCmd(ushort register, int value)
+        /// <summary>
+        /// 构造 Modbus RTU 写多个寄存器命令 (功能码 0x10)，写入一个 32 位 IEEE754 浮点值。
+        /// 数据字节按配置的字节序排列，自动加 CRC。
+        /// </summary>
+        /// <param name="register">起始寄存器地址 (协议地址，0 基)</param>
+        /// <param name="value">要写入的浮点值</param>
+        private byte[] BuildMultWriteCmd(ushort register, float value)
         {
             byte slaveId = GetSlaveAddress();
+
+            // 1. 取 IEEE754 标准的 4 字节 (BitConverter 在小端机器上得到的是 DCBA 顺序)
+            byte[] raw = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian)
+            {
+                ReverseArray(raw);   // 统一翻成 ABCD (大端) 作为基准
+            }
+
+            // 2. 按配置的字节序重排
+            byte[] data = ApplyFloatByteOrder(raw);
+
+            // 3. 拼装 0x10 报文：站号 功能码 起始地址(2) 寄存器数量(2) 字节数(1) 数据(4)
             byte[] frame =
             {
-                slaveId,
-                0x10,
-                (byte)(register >> 8),(byte)(register & 0xFF),
-                0x00, 0x02,
-                0x04,
-                (byte)(register >> 24),(byte)(register >> 16),
-                (byte)(register >> 8),(byte)(register & 0xFF),
-            };
+        slaveId,
+        0x10,
+        (byte)(register >> 8), (byte)(register & 0xFF),
+        0x00, 0x02,            // 写 2 个寄存器
+        0x04,                  // 字节数 = 4
+        data[0], data[1], data[2], data[3],
+    };
 
             return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
         }
@@ -1570,20 +1592,57 @@ namespace DynamicTubularReactor_ModbusRTU
                     return 0;
                 }
 
-                // 提取数据载荷
+                // 提取数据载荷 (4 字节，设备按配置的字节序发送)
                 byte[] data = ExtractPayload(recv);
+              
+                // 1. 先按配置的字节序还原成大端 ABCD 基准
+                byte[] abcd = RestoreFloatByteOrder(data);
+
+                // 2. 大端 → 本机字节序 (小端机器需翻转后再解析 IEEE754)
                 if (BitConverter.IsLittleEndian)
                 {
-                    ReverseArray(data);
+                    ReverseArray(abcd);
                 }
-                return BitConverter.ToSingle(data, 0);
+                return BitConverter.ToSingle(abcd, 0);
             }
             finally
             {
                 slim.Release();
             }
         }
+        /// <summary>
+        /// 把大端 ABCD 基准的 4 字节，按当前配置的字节序重排（用于发送）。
+        /// </summary>
+        private byte[] ApplyFloatByteOrder(byte[] abcd)
+        {
+            string order = Parameters.GetValue<string>("浮点字节序") ?? "ABCD";
+            // abcd[0]=A abcd[1]=B abcd[2]=C abcd[3]=D
+            switch (order)
+            {
+                case "CDAB": return new byte[] { abcd[2], abcd[3], abcd[0], abcd[1] };
+                case "BADC": return new byte[] { abcd[1], abcd[0], abcd[3], abcd[2] };
+                case "DCBA": return new byte[] { abcd[3], abcd[2], abcd[1], abcd[0] };
+                case "ABCD":
+                default: return new byte[] { abcd[0], abcd[1], abcd[2], abcd[3] };
+            }
+        }
 
+        /// <summary>
+        /// 把设备发来的（按配置字节序排列的）4 字节，还原成大端 ABCD 基准（用于接收）。
+        /// 注意：这几种排列都是自反的，还原映射与发送映射一致。
+        /// </summary>
+        private byte[] RestoreFloatByteOrder(byte[] recv)
+        {
+            string order = Parameters.GetValue<string>("浮点字节序") ?? "ABCD";
+            switch (order)
+            {
+                case "CDAB": return new byte[] { recv[2], recv[3], recv[0], recv[1] };
+                case "BADC": return new byte[] { recv[1], recv[0], recv[3], recv[2] };
+                case "DCBA": return new byte[] { recv[3], recv[2], recv[1], recv[0] };
+                case "ABCD":
+                default: return new byte[] { recv[0], recv[1], recv[2], recv[3] };
+            }
+        }
         /// <summary>
         /// 读取 Modbus 多个寄存器，并解析为 UInt16 数组
         /// </summary>
