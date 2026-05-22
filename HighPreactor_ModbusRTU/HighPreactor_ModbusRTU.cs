@@ -1,6 +1,7 @@
 ﻿using DevicePlugins.Devices;
 using MaxChemical.Core;
 using MaxChemical.Logging;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
@@ -13,9 +14,13 @@ namespace HighPreactor_ModbusRTU
     {
         private readonly ILogService _logger;
 
+        // 通信层重试参数
+        private const int MaxRetries = 3;       // 总共尝试 3 次
+        private const int RetryDelayMs = 100;   // 重试间隔 100ms
 
-        // 限制每次只能打开一个串口
-        private readonly SemaphoreSlim _slim = new SemaphoreSlim(1, 1);
+        // 实例级 TCP 互斥锁:同一设备实例的所有 IO 串行化,避免与轮询/心跳撞车
+        // 用静态字典按 DeviceId 隔离不同设备实例
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _instanceLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
 
 
         public HighPreactor_ModbusRTU()
@@ -73,6 +78,13 @@ namespace HighPreactor_ModbusRTU
             // 初始化命令
             InitializeCommands();
         }
+
+
+        /// <summary>
+        /// 声明本驱动支持通过 ZLAN 网关通信。
+        /// </summary>
+        public override bool SupportsZLanGateway => true;
+
 
         private void InitializeCommands()
         {
@@ -3356,6 +3368,33 @@ namespace HighPreactor_ModbusRTU
         }
 
 
+
+        /// <summary>
+        /// ZLanGateway 模式下的连接实现。发送 Modbus 读寄存器命令,若收到合法应答则视为连通。
+        /// </summary>
+        protected override async Task<bool> OnConnectViaGatewayAsync()
+        {
+            try
+            {
+                InfoLog("通过 ZLAN 网关测试连接");
+                byte[] sendCmd = BuildReadCmd(register: 29, count: 1);
+                var pressure = await SendAndReceiveWrapperAsync(sendCmd, CancellationToken.None, SendAndParseInt16Async);
+                InfoLog($"网关连接成功,当前报警状态 {pressure}");
+                return true;
+            }
+            catch (TimeoutException)
+            {
+                ErrorLog("网关连接超时:链路通但设备无应答");
+                return false;
+            }
+            catch (Exception e)
+            {
+                ErrorLog("网关连接失败", e);
+                return false;
+            }
+        }
+
+
         public Task<bool> OnFlowCompletedAsync(FlowCompletionContext context)
         {
             return Task.FromResult(true);
@@ -3516,6 +3555,397 @@ namespace HighPreactor_ModbusRTU
                 _slim.Release();
             }
         }
+
+        #region 通信层
+
+        /// <summary>
+        /// 取当前配置的 Modbus 从机站号 (1~254)。
+        /// </summary>
+        private byte GetSlaveAddress()
+        {
+            try
+            {
+                var addr = (int)Parameters.GetValue<double>("Modbus站号");
+                if (addr < 1 || addr > 254) addr = 1;
+                return (byte)addr;
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// 获取本设备实例专属的互斥锁。
+        /// 同一 DeviceId 共享同一把锁,确保 IO 串行化,避免轮询/手动/心跳并发撞车。
+        /// </summary>
+        private SemaphoreSlim GetInstanceLock()
+        {
+            var key = Parameters?.GetValue<string>("DeviceId") ?? DeviceId ?? "default";
+            return _instanceLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写单寄存器命令 (功能码 0x06),自动加 CRC。
+        /// </summary>
+        private byte[] BuildWriteCmd(ushort register, ushort value)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x06,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(value >> 8),    (byte)(value & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 写多个寄存器（功能码 0x10），自动加CRC
+        /// </summary>
+        /// <param name="register"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        private byte[] BuildMultWriteCmd(ushort register, float value)
+        {
+            byte slaveId = GetSlaveAddress();
+
+            byte[] bytes = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian)
+            {
+                ReverseArray(bytes);
+            }
+
+            byte[] frame =
+            {
+                slaveId,
+                0x10,
+                (byte)(register >> 8),(byte)(register & 0xFF),
+                0x00, 0x02,
+                0x04,
+                bytes[0], bytes[1], bytes[2], bytes[3]
+            };
+
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 构造 Modbus RTU 读保持寄存器命令 (功能码 0x03),自动加 CRC。
+        /// </summary>
+        private byte[] BuildReadCmd(ushort register, ushort count)
+        {
+            byte[] frame = new byte[]
+            {
+                GetSlaveAddress(),
+                0x03,
+                (byte)(register >> 8), (byte)(register & 0xFF),
+                (byte)(count >> 8),    (byte)(count & 0xFF),
+            };
+            return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+        }
+
+        /// <summary>
+        /// 写命令。自动重试 3 次以应对工业链路偶发抖动。
+        /// </summary>
+        private async Task<bool> WriteAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await WriteOnceAsync(buffers, offset, count, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 写入超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 写入失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        /// <summary>
+        /// 写命令的单次执行实现。走实例锁排队,通过 IDeviceTransport 发出。
+        /// </summary>
+        private async Task<bool> WriteOnceAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                return await transport.SendAsync(buffers, offset, count, token).ConfigureAwait(false);
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
+        /// 读命令的单次执行实现。走实例锁排队,加站号/功能码/长度校验。
+        /// </summary>
+        private async Task<short> SendAndParseInt16Async(byte[] sendCmd, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(2)+CRC(2) = 7 字节
+                if (len < 7)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 7 字节", len);
+                    return 0;
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}",
+                        expectedAddr, recv[0]);
+                    return 0;
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return 0;
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return 0;
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                if (BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(data);
+                }
+                return BitConverter.ToInt16(data, 0);
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
+        /// <summary>
+        /// 读取 Modbus 寄存器并解析 float 数据
+        /// </summary>
+        /// <param name="sendCmd"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        private async Task<float> SendAndParseSingleAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(4)+CRC(2) = 9 字节
+                if (len < 9)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 9 字节", len);
+                    return 0;
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return 0;
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return 0;
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return 0;
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                if (BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(data);
+                }
+                return BitConverter.ToSingle(data, 0);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        /// <summary>
+        /// 解析 Modbus 单精度浮点数组
+        /// </summary>
+        /// <param name="sendCmd"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        private async Task<float[]> SendAndParseSingleArrayAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+异常码(1)+CRC(2) = 5 字节
+                if (len < 5)
+                {
+                    _logger?.LogWarning("应答帧长度无效,需要至少 5 字节，实际 {len} 字节", len);
+                    return Array.Empty<float>();
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return Array.Empty<float>();
+                }
+
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return Array.Empty<float>();
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+
+                return ByteArrayToSingleArray(data);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        /// <summary>
+        /// 通过基类的 CreateTransportAsync 获取 Transport。
+        /// </summary>
+        private Task<IDeviceTransport> GetTransportAsync()
+        {
+            var serialConfig = new SerialPortConfig
+            {
+                PortName = Parameters.GetValue<string>("串口号") ?? "COM1",
+                BaudRate = int.Parse(Parameters.GetValue<string>("波特率") ?? "9600"),
+                Parity = Parameters.GetValue<string>("校验位") ?? "None",
+                DataBits = int.Parse(Parameters.GetValue<string>("数据位") ?? "8"),
+                StopBits = Parameters.GetValue<string>("停止位") ?? "One",
+                ReadTimeoutMs = 3000,
+                WriteTimeoutMs = 3000,
+            };
+            return CreateTransportAsync(serialConfig);
+        }
+
+        /// <summary>
+        /// 将字节数组（字节序：ABCD）转换为浮点数组
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        private float[] ByteArrayToSingleArray(byte[] data)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException("输入字节数为空");
+            }
+
+            if (data.Length == 0 || data.Length % 4 != 0)
+            {
+                throw new ArgumentException($"输入字节数组长度无效，应为4的倍数。数组长度：{data.Length}");
+            }
+
+            float[] result = new float[data.Length / 4];
+            byte[] temp = new byte[4];
+            for (int i = 0; i < result.Length; i++)
+            {
+                temp[3] = data[4 * i];
+                temp[2] = data[4 * i + 1];
+                temp[1] = data[4 * i + 2];
+                temp[0] = data[4 * i + 3];
+                result[i] = BitConverter.ToSingle(temp, 0);
+            }
+            return result;
+        }
+
+
+        /// <summary>
+        /// 发送 Modbus 读取寄存器命令的包装方法，自动重试三次
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="sendCmd">指令报文</param>
+        /// <param name="token">取消标记</param>
+        /// <param name="function">执行的委托</param>
+        /// <returns></returns>
+        /// <exception cref="TimeoutException"></exception>
+        private async Task<T> SendAndReceiveWrapperAsync<T>(byte[] sendCmd, CancellationToken token, Func<byte[], CancellationToken, Task<T>> function)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await function(sendCmd, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
+                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
+                    throw;
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        #endregion
 
         private byte[] ExtractPayload(byte[] frame)
         {
