@@ -1,3 +1,7 @@
+using DevicePlugins.Devices;
+using MaxChemical.Core;
+using MaxChemical.Logging;
+using MicroReactor_ModbusTCP.MpcCore;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -7,9 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DevicePlugins.Devices;
-using MaxChemical.Core;
-using MaxChemical.Logging;
 
 namespace MicroReactor_ModbusTCP
 {
@@ -41,7 +42,7 @@ namespace MicroReactor_ModbusTCP
         private const string UnitTemperature = "℃";
         private const string UnitPressure = "MPa";
 
-        private CascadePidController _activeController;
+        private CascadeMpcReactorController  _activeController;
         private readonly object _controllerLock = new object();
 
         private volatile SystemStabilityStatus _stabilityStatus = new SystemStabilityStatus();
@@ -180,7 +181,7 @@ namespace MicroReactor_ModbusTCP
 
         public override async Task<bool> ResumeAllPausedStatesAsync()
         {
-            CascadePidController controller;
+            CascadeMpcReactorController controller;
             lock (_controllerLock)
             {
                 controller = _activeController;
@@ -207,7 +208,7 @@ namespace MicroReactor_ModbusTCP
 
         public override async Task<bool> StopAllActiveStatesAsync()
         {
-            CascadePidController controller;
+            CascadeMpcReactorController controller;
             lock (_controllerLock)
             {
                 controller = _activeController;
@@ -347,7 +348,7 @@ namespace MicroReactor_ModbusTCP
                         {
                             HelpText = "三路温度的统一目标值"
                         },
-                        new NumberParameter("Tolerance", 0.1, 5.0, 0.5, "温度容差(℃)")
+                        new NumberParameter("Tolerance", 0.1, 5.0, 3.0, "温度容差(℃)")
                         {
                             HelpText = "稳定容差: 主控温度在 ±此值内持续 30 秒即视为达标"
                         },
@@ -463,7 +464,7 @@ namespace MicroReactor_ModbusTCP
                 _controlLogger.LogControlStart(deviceId, circulatorId);
 
                 // 1. 处理已有控制器
-                CascadePidController existingController;
+                CascadeMpcReactorController existingController;
                 lock (_controllerLock)
                 {
                     existingController = _activeController;
@@ -526,29 +527,23 @@ namespace MicroReactor_ModbusTCP
                 _controlLogger.LogSuccess($"循环器 {circulatorId} 全部功能已启动");
 
                 // 3. 创建配置
-                var config = new CascadePidConfig
+                var config = new CascadeMpcConfig
                 {
                     TargetTemperature = targetTemp,
                     MasterSensor = masterSensor,
-                    Tolerance = tolerance,
-                    ReadingInterval = TimeSpan.FromSeconds(controlInterval),
-
-                    Kp = kp,
-                    KiSeconds = kiSec,
-                    KdSeconds = kdSec,
-                    FeedforwardBias = feedforward,
-                    MaxBias = maxBias,
-
+                    Tolerance = tolerance,                       // 见改动 B,默认值改 3.0
+                    ReadingInterval = TimeSpan.FromSeconds(10),  // 强制 10 秒(MPC Ts=10)
                     StableConfirmDuration = TimeSpan.FromSeconds(stableConfirmSec),
-
                     AlarmDeviationDeg = alarmDeviation,
                     AlarmDurationSec = alarmDuration,
                     MaxRateDegPerMin = maxRate,
-                    MonitorMaxDeviation = monitorMaxDev
+                    MonitorMaxDeviation = monitorMaxDev,
+                    // 循环器上下限沿用原 Safety 配置(若有);否则用默认 5/90
+                    MinCirculatorCommand = 5.0,
+                    MaxCirculatorCommand = 90.0,
                 };
-
                 // 4. 创建并启动 controller
-                var controller = new CascadePidController(
+                var controller = new CascadeMpcReactorController(
                     deviceId: deviceId,
                     circulatorDeviceId: circulatorId,
                     config: config,
@@ -774,7 +769,7 @@ namespace MicroReactor_ModbusTCP
                 _controlLogger.EnsureInitialized("StopCmd");
                 _controlLogger.LogInfo("====== 停止智能温度控制 ======");
 
-                CascadePidController controller;
+                CascadeMpcReactorController controller;
                 lock (_controllerLock)
                 {
                     controller = _activeController;
