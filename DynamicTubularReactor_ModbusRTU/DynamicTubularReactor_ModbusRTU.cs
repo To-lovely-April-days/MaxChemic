@@ -305,7 +305,7 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new NumberParameter("Temperature", 0, 1000, pressure, "反应釜压力", true, "Mpa")
+                            new NumberParameter("Pressure", 0, 1000, pressure, "反应釜压力", true, "Mpa")
                         }
                     };
                 })
