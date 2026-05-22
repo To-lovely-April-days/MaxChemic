@@ -136,7 +136,7 @@ namespace DynamicTubularReactor_ModbusRTU
                             //frame[4] = 0;       // 读取数量
                             //frame[5] = 2;
                             byte[] frame = BuildReadCmd(0, 2);
-                            value = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            value = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseSingleAsync);
                         }
                     }
                     catch (Exception e)
@@ -187,7 +187,7 @@ namespace DynamicTubularReactor_ModbusRTU
                             // 发送的指令报文
                             //byte[] frame = new byte[6] { slaveId, 3, 0, 2, 0, 2 };
                             byte[] frame = BuildReadCmd(2, 2);
-                            speed = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            speed = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseSingleAsync);
                         }
                     }
                     catch (Exception e)
@@ -237,7 +237,7 @@ namespace DynamicTubularReactor_ModbusRTU
                             // 发送的指令报文
                             //byte[] frame = new byte[6] { slaveId, 3, 0, 4, 0, 2 };
                             byte[] frame = BuildReadCmd(4, 2);
-                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseSingleAsync);
                         }
                     }
                     catch (Exception e)
@@ -287,7 +287,7 @@ namespace DynamicTubularReactor_ModbusRTU
                             // 发送的指令报文
                             //byte[] frame = new byte[6] { slaveId, 3, 0, 6, 0, 2 };
                             byte[] frame = BuildReadCmd(6, 2);
-                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseSingleAsync);
                         }
                     }
                     catch (Exception e)
@@ -316,7 +316,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("搅拌 ON/OFF", 0, 1, 0, "100ml动态管反 搅拌 ON/OFF(1：停止，0：运行)", true)
+                        new NumberParameter("ON/OFF", 0, 1, 0, "100ml动态管反 搅拌 ON/OFF(1：停止，0：运行)", true)
                     }
                 },
 
@@ -350,17 +350,17 @@ namespace DynamicTubularReactor_ModbusRTU
                     {
                         Variables = new ObservableCollection<ParameterBase>()
                         {
-                            new NumberParameter("搅拌 ON/OFF", 0, 1, pressure, "100ml动态管反 搅拌 ON/OFF(1：停止，0：运行)", true)
+                            new NumberParameter("ON/OFF", 0, 1, pressure, "100ml动态管反 搅拌 ON/OFF(1：停止，0：运行)", true)
                         }
                     };
                 })
             });
 
-            /*// 获取 报警
+            // 获取 报警
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警数据",
-                HelpText = "获取100ml动态管反的报警数据",
+                HelpText = "获取100ml动态管反的报警数据（釜温上限报警、压力上限报警、釜温通信故障、压力通信故障）",
 
                 OutputParameters = new DeviceParameters()
                 {
@@ -421,7 +421,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 })
             });
 
-            // 获取 报警消音
+            /*// 获取 报警消音
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取报警消音状态",
@@ -1526,7 +1526,13 @@ namespace DynamicTubularReactor_ModbusRTU
             }
         }
 
-        private async Task<int> SendAndParseInt32Async(byte[] sendCmd, CancellationToken token)
+        /// <summary>
+        /// 读取 Modbus 多个寄存器，并解析 float 数据
+        /// </summary>
+        /// <param name="sendCmd"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        private async Task<float> SendAndParseSingleAsync(byte[] sendCmd, CancellationToken token)
         {
             var slim = GetInstanceLock();
             await slim.WaitAsync(token).ConfigureAwait(false);
@@ -1570,7 +1576,7 @@ namespace DynamicTubularReactor_ModbusRTU
                 {
                     ReverseArray(data);
                 }
-                return BitConverter.ToInt32(data, 0);
+                return BitConverter.ToSingle(data, 0);
             }
             finally
             {
@@ -1578,6 +1584,12 @@ namespace DynamicTubularReactor_ModbusRTU
             }
         }
 
+        /// <summary>
+        /// 读取 Modbus 多个寄存器，并解析为 UInt16 数组
+        /// </summary>
+        /// <param name="sendCmd"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
         private async Task<ushort[]> SendAndParseUInt16ArrayAsync(byte[] sendCmd, CancellationToken token)
         {
             var slim = GetInstanceLock();
