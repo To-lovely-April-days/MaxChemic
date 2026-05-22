@@ -29,12 +29,26 @@ namespace MaxChemical.Modules.Designer.Views
         // 圆环周长（直径110，stroke占5px，有效半径 = (110-5)/2 = 52.5）
         private const double RingCircumference = 2 * Math.PI * 52.5; // ≈ 329.87
 
+        // ★ 新增：倒计时自然走完标志（非模态下不能用 DialogResult，改用此标志）
+        private bool _isCompleted = false;
+
         public bool IsSkipped => _isSkipped;
         public bool IsStopped => _isStopped;
+        public bool IsCompleted => _isCompleted;
 
         public CountdownDialog(TimeSpan waitTime, string waitInfo = null)
         {
             InitializeComponent();
+
+            // ★ 任务栏图标：用运行目录的绝对路径设置，避免 XAML 资源路径解析问题
+            try
+            {
+                var iconPath = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "Resources", "Icon", "app.ico");
+                if (System.IO.File.Exists(iconPath))
+                    this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(iconPath));
+            }
+            catch { /* 图标加载失败不影响弹框使用 */ }
 
             _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
 
@@ -165,7 +179,7 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 _remainingTime = TimeSpan.Zero;
                 _timer.Stop();
-                DialogResult = true;
+                _isCompleted = true;   // ★ 非模态：用标志代替 DialogResult
                 Close();
                 return;
             }
@@ -223,16 +237,14 @@ namespace MaxChemical.Modules.Designer.Views
         {
             _isSkipped = true;
             _timer?.Stop();
-            DialogResult = true;
-            Close();
+            Close();   // ★ 非模态：不设 DialogResult
         }
 
         private void StopButton_Click(object sender, RoutedEventArgs e)
         {
             _isStopped = true;
             _timer?.Stop();
-            DialogResult = false;
-            Close();
+            Close();   // ★ 非模态：不设 DialogResult
         }
 
         /// <summary>

@@ -37,7 +37,11 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         // 新增：用户交互事件
         public event EventHandler<UserInteractionEventArgs> UserInteractionStarted;
         public event EventHandler<UserInteractionEventArgs> UserInteractionEnded;
-
+        // 标记当前是否处于"后台异步任务"执行上下文。
+        // 后台异步任务（如异步 Loop 采集泵）不应被用户交互暂停（BeginUserInteraction）冻结，
+        // 但仍响应用户主动暂停（_pauseEvent）。
+        // AsyncLocal 会沿 await 调用链自动流动，前台主流程读到 false，Task.Run 出去的后台链读到 true。
+        private readonly AsyncLocal<bool> _isInBackgroundAsyncContext = new AsyncLocal<bool>();
         private FlowExecutionContext _executionContext;
         private readonly INodeExecutionStatusService _statusService;
         private readonly IEventAggregator _eventAggregator;
@@ -1312,8 +1316,12 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 NodeExecuting?.Invoke(this, executionArgs);
                 // *** 新增：在节点执行前检查暂停状态 ***
                 cancellationToken.ThrowIfCancellationRequested();
-                _pauseEvent.Wait(cancellationToken);
-                _userInteractionPauseEvent.Wait(cancellationToken);
+                _pauseEvent.Wait(cancellationToken);   // 用户主动暂停：前台后台都响应（后台采集也会停）
+                                                       // 后台异步任务（如异步 Loop 采集泵）不响应"用户交互暂停"，避免等待节点弹框时冻结后台采集
+                if (!_isInBackgroundAsyncContext.Value)
+                {
+                    _userInteractionPauseEvent.Wait(cancellationToken);
+                }
 
                 object result = null;
 
@@ -1745,6 +1753,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                     var bgTask = Task.Run(async () =>
                     {
+                        _isInBackgroundAsyncContext.Value = true;   //  本任务链为后台异步，豁免用户交互暂停
                         try
                         {
                             switch (loopType)
@@ -2669,7 +2678,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         }
 
         /// <summary>
-        /// 执行固定时间等待（带倒计时对话框）
+        /// 执行固定时间等待（带倒计时对话框，非模态）
         /// </summary>
         private async Task<object> ExecuteFixedTimeWaitAsync(CommandNode waitNode, FlowExecutionContext context, CancellationToken cancellationToken)
         {
@@ -2693,7 +2702,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             };
 
             _logger.LogDebug("固定时间等待: {WaitTime} {Unit}", waitTime, timeUnit);
-            // ★ 新增：把所有相关属性都打出来
+
+            // 诊断：把所有相关属性都打出来
             var props = waitNode.LogicCommand.Properties;
             _logger.LogInformation(">>> [WaitNode] 节点属性诊断:");
             _logger.LogInformation(">>>   WaitForStability(原始) = {Raw}, 类型={Type}",
@@ -2705,7 +2715,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             _logger.LogInformation(">>>   StabilityTimeoutSeconds(原始) = {Raw}",
                 props?.GetValueOrDefault("StabilityTimeoutSeconds"));
 
-            // ★ 你的判断分支
+            // 判断分支
             bool waitForStability = SafeToBool(
                 props?.GetValueOrDefault("WaitForStability", false), false);
 
@@ -2717,92 +2727,105 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 return await ExecuteWaitForStabilityAndDelayAsync(waitNode, waitTimeSpan, cancellationToken);
             }
 
-            _logger.LogInformation(">>> 走原倒计时弹框分支");
-            // *** 开始用户交互，暂停其他分支 ***
+            _logger.LogInformation(">>> 走原倒计时弹框分支（非模态）");
+
+            // *** 开始用户交互，暂停其他分支（UI 非模态，用户仍可操作界面） ***
             BeginUserInteraction(waitNode, "FixedTimeWait", $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}");
+
+            CountdownDialog countdownDialog = null;
+            var countdownDone = new TaskCompletionSource<CountdownResult>();
 
             try
             {
-                // 使用TaskCompletionSource处理跨线程通信
-                var tcs = new TaskCompletionSource<CountdownResult>();
-
-                // 在UI线程显示对话框
+                // 在UI线程以【非模态】方式显示对话框
                 Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     try
                     {
                         var mainWindow = Application.Current.MainWindow;
-                        var countdownDialog = new CountdownDialog(waitTimeSpan, $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}")
+                        countdownDialog = new CountdownDialog(waitTimeSpan, $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}")
                         {
                             Owner = mainWindow
                         };
 
-                        // 启动倒计时
-                        countdownDialog.StartCountdown();
-
-                        // 显示对话框并处理结果
-                        var dialogResult = countdownDialog.ShowDialog();
-
-                        // 设置结果
-                        var result = new CountdownResult
+                        // 关闭时通过标志读取结果（非模态没有 DialogResult 返回值）
+                        countdownDialog.Closed += (s, e) =>
                         {
-                            IsCompleted = dialogResult == true,
-                            IsSkipped = countdownDialog.IsSkipped,
-                            IsStopped = countdownDialog.IsStopped,
-                            ActualWaitTime = waitTimeSpan.TotalMilliseconds
+                            countdownDone.TrySetResult(new CountdownResult
+                            {
+                                IsCompleted = countdownDialog.IsCompleted,
+                                IsSkipped = countdownDialog.IsSkipped,
+                                IsStopped = countdownDialog.IsStopped,
+                                ActualWaitTime = waitTimeSpan.TotalMilliseconds
+                            });
                         };
 
-                        tcs.SetResult(result);
+                        countdownDialog.Show();          // 非模态
+                        countdownDialog.StartCountdown(); // 启动倒计时
                     }
                     catch (Exception ex)
                     {
-                        tcs.SetException(ex);
+                        countdownDone.TrySetException(ex);
                     }
                 }));
 
-                // 等待UI线程的结果
-                var result = await tcs.Task;
-
-                // 检查用户操作
-                if (result.IsStopped)
+                // 等待对话框关闭（倒计时结束 / 跳过 / 停止）
+                // 同时响应流程取消：取消时主动关闭对话框
+                using (cancellationToken.Register(() =>
                 {
-                    _logger.LogInformation("用户停止了固定时间等待");
-                    throw new OperationCanceledException("用户停止了等待流程");
-                }
-
-                if (result.IsSkipped)
+                    Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        try { if (countdownDialog?.IsVisible == true) countdownDialog.Close(); } catch { }
+                    }));
+                }))
                 {
-                    _logger.LogInformation("用户跳过了固定时间等待");
-                    return 0; // 跳过等待，立即返回
-                }
+                    var result = await countdownDone.Task;
 
-                _logger.LogDebug("固定时间等待完成: {NodeName}", waitNode.DisplayName);
-                return result.ActualWaitTime;
+                    // 检查用户操作
+                    if (result.IsStopped)
+                    {
+                        _logger.LogInformation("用户停止了固定时间等待");
+                        throw new OperationCanceledException("用户停止了等待流程");
+                    }
+
+                    if (result.IsSkipped)
+                    {
+                        _logger.LogInformation("用户跳过了固定时间等待");
+                        return 0; // 跳过等待，立即返回
+                    }
+
+                    _logger.LogDebug("固定时间等待完成: {NodeName}", waitNode.DisplayName);
+                    return result.ActualWaitTime;
+                }
             }
             finally
             {
+                // 兜底：确保对话框被关闭
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    try { if (countdownDialog?.IsVisible == true) countdownDialog.Close(); } catch { }
+                });
+
                 // *** 结束用户交互，恢复其他分支 ***
                 EndUserInteraction(waitNode, "FixedTimeWait");
             }
         }
-        // ★ 新增方法
+
+        // ★ 等稳定 + 停留分支（非模态）
         private async Task<object> ExecuteWaitForStabilityAndDelayAsync(
-    CommandNode waitNode, TimeSpan delayAfterStable, CancellationToken cancellationToken)
+            CommandNode waitNode, TimeSpan delayAfterStable, CancellationToken cancellationToken)
         {
             var deviceIds = ParseDeviceIdsList(waitNode.LogicCommand.Properties);
             var stabilityTimeoutSec = SafeToInt(
                 waitNode.LogicCommand.Properties?.GetValueOrDefault("StabilityTimeoutSeconds", 600), 600);
 
-            // ★ 诊断1：解析出几个DeviceId
             _logger.LogInformation(">>> [Stability] 解析到 {Count} 个 DeviceId: {Ids}",
                 deviceIds.Count, string.Join(", ", deviceIds));
 
             List<CanvasDeviceViewModel> canvasDevices = null;
             _eventAggregator?.GetEvent<RequestCanvasDevicesEvent>()?.Publish(list => canvasDevices = list);
 
-            // ★ 诊断2:画布设备情况
-            _logger.LogInformation(">>> [Stability] 画布共 {Count} 个设备",
-                canvasDevices?.Count ?? 0);
+            _logger.LogInformation(">>> [Stability] 画布共 {Count} 个设备", canvasDevices?.Count ?? 0);
             if (canvasDevices != null)
             {
                 foreach (var cd in canvasDevices)
@@ -2819,17 +2842,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 .ToList()
                 ?? new List<IDevice>();
 
-            // ★ 诊断3:匹配到几个设备
-            _logger.LogInformation(">>> [Stability] 匹配到 {Count} 个设备实例",
-                devices.Count);
+            _logger.LogInformation(">>> [Stability] 匹配到 {Count} 个设备实例", devices.Count);
 
             if (!devices.Any())
             {
-                _logger.LogWarning(">>> [Stability] ⚠ 未找到任何匹配设备，将直接停留计时");
+                _logger.LogWarning(">>> [Stability] 未找到任何匹配设备，将直接停留计时");
             }
             else
             {
-                // ★ 诊断4:进入轮询循环时打第一次状态
                 foreach (var dev in devices)
                 {
                     try
@@ -2841,9 +2861,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                             var isStableVal = hasIsStable ? st.States["IsStable"] : "[字段不存在]";
                             _logger.LogInformation(">>>   设备 {Name} 当前状态: 字段数={N}, 含IsStable={H}, IsStable值={V}",
                                 dev.Name, st.States.Count, hasIsStable, isStableVal);
-                            // 列出所有 key 帮你定位
-                            _logger.LogInformation(">>>     所有字段: {Keys}",
-                                string.Join(", ", st.States.Keys));
+                            _logger.LogInformation(">>>     所有字段: {Keys}", string.Join(", ", st.States.Keys));
                         }
                         else
                         {
@@ -2855,42 +2873,137 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         _logger.LogError(ex, ">>>   设备 {Name} 取状态异常", dev.Name);
                     }
                 }
+            }
 
-                // ★ 进入正常的轮询循环
+            var deviceCountText = devices.Count == 0 ? "未选择设备" : $"{devices.Count} 个设备";
+
+            // 流程逻辑上仍然停在这里，暂停其他并行分支；但 UI 非模态，用户可操作界面
+            BeginUserInteraction(waitNode, "WaitForStability", $"等待 {deviceCountText} 稳定后停留");
+
+            CountdownDialog stabilityDialog = null;
+            var dialogReady = new TaskCompletionSource<bool>();
+
+            try
+            {
+                // 在 UI 线程创建并以【非模态】方式显示对话框（先进入"稳定等待"阶段）
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        stabilityDialog = new CountdownDialog(delayAfterStable, $"等待 {deviceCountText} 稳定")
+                        {
+                            Owner = Application.Current.MainWindow
+                        };
+                        stabilityDialog.EnterStabilityPhase(deviceCountText);
+                        stabilityDialog.Show();   // 非模态，不阻塞 UI 线程
+                        dialogReady.TrySetResult(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        dialogReady.TrySetException(ex);
+                    }
+                }));
+
+                await dialogReady.Task;
+
+                // ===== 阶段一：后台轮询设备稳定 =====
                 var stabilityStart = DateTime.Now;
                 int pollCount = 0;
-                while (true)
+                bool stabilized = devices.Count == 0; // 没有设备则直接视为已稳定
+
+                while (!stabilized)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    bool allStable = devices.All(IsDeviceStable);
-                    pollCount++;
-                    _logger.LogDebug(">>> [Stability] 第{N}次轮询: allStable={Stable}",
-                        pollCount, allStable);
-
-                    if (allStable)
+                    if (stabilityDialog?.IsStopped == true)
+                        throw new OperationCanceledException("用户停止了等待流程");
+                    if (stabilityDialog?.IsSkipped == true)
                     {
-                        _logger.LogInformation(">>> [Stability] ✅ 所有设备已稳定（轮询{N}次），开始停留 {Delay}",
-                            pollCount, delayAfterStable);
+                        _logger.LogInformation(">>> [Stability] 用户在稳定阶段跳过了节点");
+                        return 0;
+                    }
+
+                    int stableCount = devices.Count(IsDeviceStable);
+                    pollCount++;
+                    var elapsedSec = (int)(DateTime.Now - stabilityStart).TotalSeconds;
+                    _logger.LogDebug(">>> [Stability] 第{N}次轮询: {Stable}/{Total} 稳定",
+                        pollCount, stableCount, devices.Count);
+
+                    stabilityDialog?.UpdateStabilityProgress(stableCount, devices.Count, elapsedSec);
+
+                    if (stableCount == devices.Count)
+                    {
+                        _logger.LogInformation(">>> [Stability] 所有设备已稳定（轮询{N}次）", pollCount);
+                        stabilized = true;
                         break;
                     }
 
                     if ((DateTime.Now - stabilityStart).TotalSeconds > stabilityTimeoutSec)
                     {
                         var unstableNames = devices.Where(d => !IsDeviceStable(d)).Select(d => d.Name);
+                        Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            try { if (stabilityDialog?.IsVisible == true) stabilityDialog.Close(); } catch { }
+                        });
                         throw new TimeoutException(
-                            $"等待设备稳定超时（{stabilityTimeoutSec}秒）：" +
-                            string.Join(", ", unstableNames));
+                            $"等待设备稳定超时（{stabilityTimeoutSec}秒）：" + string.Join(", ", unstableNames));
                     }
 
                     await Task.Delay(1000, cancellationToken);
                 }
-            }
 
-            _logger.LogInformation(">>> [Stability] 进入停留计时: {Delay}", delayAfterStable);
-            await Task.Delay(delayAfterStable, cancellationToken);
-            _logger.LogInformation(">>> [Stability] 停留完成");
-            return delayAfterStable.TotalMilliseconds;
+                // ===== 阶段二：切换到倒计时，等待对话框自然关闭 =====
+                _logger.LogInformation(">>> [Stability] 进入停留计时: {Delay}", delayAfterStable);
+
+                var countdownDone = new TaskCompletionSource<CountdownResult>();
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        stabilityDialog.Closed += (s, e) =>
+                        {
+                            countdownDone.TrySetResult(new CountdownResult
+                            {
+                                IsCompleted = stabilityDialog.IsCompleted,   // 非模态：读标志而非 DialogResult
+                                IsSkipped = stabilityDialog.IsSkipped,
+                                IsStopped = stabilityDialog.IsStopped,
+                                ActualWaitTime = delayAfterStable.TotalMilliseconds
+                            });
+                        };
+
+                        stabilityDialog.EnterCountdownPhase(); // 内部启动计时器
+                    }
+                    catch (Exception ex)
+                    {
+                        countdownDone.TrySetException(ex);
+                    }
+                }));
+
+                var result = await countdownDone.Task;
+
+                if (result.IsStopped)
+                {
+                    _logger.LogInformation(">>> [Stability] 用户停止了停留计时");
+                    throw new OperationCanceledException("用户停止了等待流程");
+                }
+                if (result.IsSkipped)
+                {
+                    _logger.LogInformation(">>> [Stability] 用户跳过了停留计时");
+                    return 0;
+                }
+
+                _logger.LogInformation(">>> [Stability] 停留完成");
+                return result.ActualWaitTime;
+            }
+            finally
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    try { if (stabilityDialog?.IsVisible == true) stabilityDialog.Close(); } catch { }
+                });
+
+                EndUserInteraction(waitNode, "WaitForStability");
+            }
         }
         /// <summary>
         /// 判断设备是否处于稳定状态。
