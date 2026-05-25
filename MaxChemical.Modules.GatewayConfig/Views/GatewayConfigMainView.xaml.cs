@@ -22,10 +22,16 @@ namespace MaxChemical.Modules.GatewayConfig.Views
         private readonly IGatewayBindingRepository _bindingRepository;
         private readonly IChannelProbeService _probeService;
 
+        // ★ 事件订阅 token,窗口关闭时取消,避免已关闭实例继续响应事件
+        private SubscriptionToken _openChannelToken;
+        private SubscriptionToken _statusToken;
+        private SubscriptionToken _bindingChangedToken;
+        private SubscriptionToken _channelProbeToken;
+
         // ★ 心跳 Timer
         private DispatcherTimer _heartbeatTimer;
         private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
-        private volatile bool _heartbeatBusy;   // 防止上一次没探完下一次又来
+        private volatile bool _heartbeatBusy;
 
         public GatewayConfigMainView()
         {
@@ -36,15 +42,17 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             _bindingRepository = c.Resolve<IGatewayBindingRepository>();
             _probeService = c.Resolve<IChannelProbeService>();
 
-            _eventAggregator.GetEvent<OpenChannelDialogEvent>().Subscribe(OnOpenChannel, ThreadOption.UIThread);
-           
-            _eventAggregator.GetEvent<GatewayConfigStatusEvent>().Subscribe(msg =>
+            // ★ 每个 Subscribe 都接住 token,关闭时统一取消
+            _openChannelToken = _eventAggregator.GetEvent<OpenChannelDialogEvent>()
+                .Subscribe(OnOpenChannel, ThreadOption.UIThread);
+
+            _statusToken = _eventAggregator.GetEvent<GatewayConfigStatusEvent>().Subscribe(msg =>
             {
                 if (StatusBarText != null) StatusBarText.Text = msg;
             }, ThreadOption.UIThread);
 
             // 绑定变更后,先刷新绑定再探测
-            _eventAggregator.GetEvent<GatewayBindingChangedEvent>().Subscribe(async () =>
+            _bindingChangedToken = _eventAggregator.GetEvent<GatewayBindingChangedEvent>().Subscribe(async () =>
             {
                 if (DataContext is GatewayConfigMainViewModel vm && vm.SelectedGateway != null)
                 {
@@ -55,7 +63,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             }, ThreadOption.UIThread);
 
             // 测试连接完成后,只刷新这一个通道的探测状态
-            _eventAggregator.GetEvent<ChannelProbeRequestedEvent>().Subscribe(async tup =>
+            _channelProbeToken = _eventAggregator.GetEvent<ChannelProbeRequestedEvent>().Subscribe(async tup =>
             {
                 if (DataContext is GatewayConfigMainViewModel vm)
                 {
@@ -78,8 +86,8 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
             await vm.InitializeAsync();
 
-            var loading = new LoadingOverlayWindow(this);
-            loading.Show("正在搜索网关…");
+            // ★ 显示内嵌遮罩
+            ShowLoading("正在搜索网关…");
 
             var deadline = DateTime.UtcNow.AddSeconds(60);
             int attempt = 0;
@@ -90,7 +98,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 while (DateTime.UtcNow < deadline)
                 {
                     attempt++;
-                    loading.UpdateMessage($"正在搜索网关… 第 {attempt} 次");
+                    UpdateLoading($"正在搜索网关… 第 {attempt} 次");
                     try
                     {
                         var list = await vm.AutoSearchOnceAsync();
@@ -125,7 +133,8 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             }
             finally
             {
-                loading.Hide();
+                // ★ 隐藏内嵌遮罩
+                HideLoading();
             }
 
             if (!found)
@@ -142,8 +151,22 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         private async void OnWindowClosed(object sender, EventArgs e)
         {
-            // 停止心跳
             StopHeartbeat();
+
+            // ★ 取消所有事件订阅,避免已关闭的窗口实例继续响应事件
+            //   (否则再次打开窗口时,旧实例还在监听,会用已关闭的窗口设 Owner 而抛异常)
+            try
+            {
+                if (_openChannelToken != null)
+                    _eventAggregator.GetEvent<OpenChannelDialogEvent>().Unsubscribe(_openChannelToken);
+                if (_statusToken != null)
+                    _eventAggregator.GetEvent<GatewayConfigStatusEvent>().Unsubscribe(_statusToken);
+                if (_bindingChangedToken != null)
+                    _eventAggregator.GetEvent<GatewayBindingChangedEvent>().Unsubscribe(_bindingChangedToken);
+                if (_channelProbeToken != null)
+                    _eventAggregator.GetEvent<ChannelProbeRequestedEvent>().Unsubscribe(_channelProbeToken);
+            }
+            catch { }
 
             try
             {
@@ -151,6 +174,24 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 await service.ShutdownAsync();
             }
             catch { }
+        }
+
+        // ═══════════ 内嵌 Loading 遮罩 ═══════════
+
+        private void ShowLoading(string message)
+        {
+            if (LoadingMessage != null) LoadingMessage.Text = message;
+            if (LoadingOverlay != null) LoadingOverlay.Visibility = Visibility.Visible;
+        }
+
+        private void UpdateLoading(string message)
+        {
+            if (LoadingMessage != null) LoadingMessage.Text = message;
+        }
+
+        private void HideLoading()
+        {
+            if (LoadingOverlay != null) LoadingOverlay.Visibility = Visibility.Collapsed;
         }
 
         // ═══════════ 心跳探测 ═══════════
@@ -182,7 +223,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         private async void OnHeartbeatTick(object sender, EventArgs e)
         {
-            if (_heartbeatBusy) return;   // 上一轮还没探完就跳过
+            if (_heartbeatBusy) return;
             _heartbeatBusy = true;
 
             try
@@ -190,10 +231,8 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 if (!(DataContext is GatewayConfigMainViewModel vm)) return;
                 if (vm.Gateways == null || vm.Gateways.Count == 0) return;
 
-                // 记录探测前的状态,用来检测变化
                 var snapshotBefore = TakeStateSnapshot(vm);
 
-                // 并发探测所有网关 (在后台线程)
                 await Task.Run(async () =>
                 {
                     foreach (var g in vm.Gateways)
@@ -209,7 +248,6 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                     }
                 });
 
-                // 探测后状态有变化才重绘
                 var snapshotAfter = TakeStateSnapshot(vm);
                 if (snapshotBefore != snapshotAfter)
                 {
@@ -223,7 +261,6 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             }
         }
 
-        /// <summary>把所有通道的探测状态拼成一个字符串,用来对比变化</summary>
         private static string TakeStateSnapshot(GatewayConfigMainViewModel vm)
         {
             if (vm?.Gateways == null) return "";
@@ -240,10 +277,6 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         // ═══════════ UI 重绘 ═══════════
 
-        /// <summary>
-        /// 强制 SVG 重新渲染 — 通过将 SelectedGateway 置 null 再赋回,
-        /// 触发 GatewayBodyControl 的 OnGatewayChanged。
-        /// </summary>
         private void ForceRedraw(GatewayConfigMainViewModel vm)
         {
             if (vm == null) return;
@@ -298,11 +331,22 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         private void OnOpenChannel((GatewayModel Gateway, ChannelModel Channel) tup)
         {
+            // ★ 窗口已关闭/不可见就不处理(兜底:防止已关闭的旧实例仍响应事件)
+            if (!IsLoaded || !IsVisible) return;
+
             var dialog = new ChannelConfigDialog(tup.Gateway, tup.Channel);
-            dialog.Owner = this;
+
+            // ★ 只在 Owner 仍然有效时才设置,失败则让对话框独立显示,不崩
+            try
+            {
+                dialog.Owner = this;
+            }
+            catch (InvalidOperationException)
+            {
+                // Owner 已关闭,不设 Owner
+            }
+
             dialog.ShowDialog();
         }
-
-       
     }
 }
