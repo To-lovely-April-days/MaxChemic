@@ -1,4 +1,12 @@
-﻿using System;
+﻿using DevicePlugins.Devices;
+using MaxChemical.Core;
+using MaxChemical.Infrastructure.Services;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.Designer.Views.Controls;
+using MaxChemical.Modules.Designer.Views.Controls.Screens;
+using Prism.Ioc;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -8,13 +16,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using DevicePlugins.Devices;
-using Prism.Ioc;
-using MaxChemical.Core;
-using MaxChemical.Infrastructure.Services;
-using MaxChemical.Modules.Designer.Models;
-using MaxChemical.Modules.Designer.ViewModels;
-using MaxChemical.Modules.Designer.Views.Controls;
 
 namespace MaxChemical.Modules.Designer.Views
 {
@@ -24,6 +25,7 @@ namespace MaxChemical.Modules.Designer.Views
         public event EventHandler<bool> DialogResult;
 
         private CanvasDeviceViewModel _canvasDevice;
+        private DeviceScreenBase _activeScreen;   // 当前内嵌的屏幕控件实例
         private DeviceCommand _selectedCommand;
         private List<CheckBox> _monitorParameterCheckBoxes = new List<CheckBox>();
         private string _deviceDisplayName;
@@ -440,7 +442,11 @@ namespace MaxChemical.Modules.Designer.Views
                 // 只选择第一个命令，不选中任何参数
                 SelectFirstCommandOnly();
             }
-
+            // 切回 Overview 并按设备有无屏幕决定 Tab 可见性 + 清理上一台设备的屏幕
+            DetachActiveScreen();
+            ShowOverview();
+            bool hasScreen = DeviceScreenRegistry.HasScreen(_canvasDevice?.Device);
+            ScreenTabBorder.Visibility = hasScreen ? Visibility.Visible : Visibility.Collapsed;
             _isInitializing = false;
             Debug.WriteLine("设备数据设置完成，所有状态已清理");
             Debug.WriteLine("=== 设备数据设置完成 ===\n");
@@ -1721,11 +1727,103 @@ namespace MaxChemical.Modules.Designer.Views
         #endregion
 
         #region *** 事件处理 ***
+        /// <summary>点击 Overview Tab：显示原内容，隐藏并停掉屏幕。</summary>
+        private void OverviewTab_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            e.Handled = true;   // 阻止冒泡到 TitleBar_MouseDown 的 DragMove
+            ShowOverview();
+        }
 
+        /// <summary>点击 设备屏幕 Tab：挂载并显示屏幕。</summary>
+        private void ScreenTab_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            e.Handled = true;   // 阻止冒泡到 TitleBar_MouseDown 的 DragMove
+            var device = _canvasDevice?.Device;
+            if (device == null || !DeviceScreenRegistry.HasScreen(device)) return;
+
+            // 屏幕会直接操作真机：未连接时提示一次（不强制）
+            if (!_isDeviceConnected)
+            {
+                var r = MessageBox.Show(
+                    "设备尚未连接，屏幕将读不到实时数据，开关操作也不会生效。\n\n仍要查看屏幕吗？",
+                    "设备未连接", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (r != MessageBoxResult.Yes) return;
+            }
+
+            // 懒挂载：第一次切过去才创建屏幕实例
+            if (_activeScreen == null)
+            {
+                var screen = DeviceScreenRegistry.CreateScreen(device, out var res);
+                if (screen == null)
+                {
+                    MessageBox.Show("创建设备屏幕失败", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                screen.Width = res.Width;
+                screen.Height = res.Height;
+                ScreenContentHost.Child = screen;   // Viewbox 会等比缩放
+                _activeScreen = screen;
+                ScreenHeaderText.Text = (_deviceDisplayName ?? device.Name) + " — 设备屏幕";
+            }
+
+            ShowScreen();
+        }
+
+        /// <summary>显示 Overview，隐藏屏幕层并停止其轮询。</summary>
+        private void ShowOverview()
+        {
+            ScreenHost.Visibility = Visibility.Collapsed;
+
+            // 屏幕被遮起来时停轮询，省 IO；下次切回再启动（见 ShowScreen）
+            // 注意：屏幕控件的 Unloaded 在它被移出可视树时才触发；这里用 Visibility 隐藏
+            // 不会触发 Unloaded，所以手动停。
+            _activeScreen?.StopPolling();
+
+            // Tab 视觉：Overview 高亮，设备屏幕置灰
+            SetTabActive(overviewActive: true);
+        }
+
+        /// <summary>显示屏幕层。</summary>
+        private void ShowScreen()
+        {
+            ScreenHost.Visibility = Visibility.Visible;
+
+            // 切回屏幕时重新启动轮询。屏幕基类的 OnScreenLoaded 只在首次 Loaded 跑，
+            // 这里直接调一次 StartPolling 兜底（基类需暴露 StartPolling，见步骤 5）。
+            _activeScreen?.StartPolling();
+
+            SetTabActive(overviewActive: false);
+        }
+
+        /// <summary>切换设备 / 关闭前，卸载并销毁当前屏幕。</summary>
+        private void DetachActiveScreen()
+        {
+            if (_activeScreen != null)
+            {
+                _activeScreen.StopPolling();
+                _activeScreen = null;
+            }
+            ScreenContentHost.Child = null;
+        }
+
+        /// <summary>设置两个 Tab 的高亮状态。</summary>
+        private void SetTabActive(bool overviewActive)
+        {
+            var active = new SolidColorBrush(Color.FromRgb(0x15, 0x65, 0xC0));   // #1565C0
+            var inactive = new SolidColorBrush(Color.FromRgb(0x9E, 0x9E, 0x9E)); // #9E9E9E
+
+            OverviewTabBorder.BorderBrush = overviewActive ? active : Brushes.Transparent;
+            OverviewTabText.Foreground = overviewActive ? active : inactive;
+
+            ScreenTabBorder.BorderBrush = overviewActive ? Brushes.Transparent : active;
+            ScreenTabText.Foreground = overviewActive ? inactive : active;
+        }
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
+                DetachActiveScreen();
                 if (!string.IsNullOrEmpty(_currentCommandName) && _monitorParameterCheckBoxes.Count > 0)
                 {
                     Debug.WriteLine("关闭前保存当前命令状态");

@@ -363,8 +363,17 @@
                                 MouseLeftButtonDown="TitleBar_MouseDown">
                             <Grid Height="40">
                                 <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center">
-                                    <Border BorderBrush="#1565C0" BorderThickness="0,0,0,2" Padding="0,0,0,2">
-                                        <TextBlock Text="Overview" FontSize="12" FontWeight="Medium" Foreground="#1565C0"/>
+                                    <Border x:Name="OverviewTabBorder" Background="Transparent" BorderBrush="#1565C0" BorderThickness="0,0,0,2"
+        Padding="4,2" Margin="0,0,18,0" Cursor="Hand"
+        MouseLeftButtonDown="OverviewTab_Click">
+                                        <TextBlock x:Name="OverviewTabText" Text="Overview" FontSize="12"
+               FontWeight="Medium" Foreground="#1565C0"/>
+                                    </Border>
+                                    <Border x:Name="ScreenTabBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2"
+        Padding="4,2" Cursor="Hand" Visibility="Collapsed"
+        MouseLeftButtonDown="ScreenTab_Click">
+                                        <TextBlock x:Name="ScreenTabText" Text="设备屏幕" FontSize="12"
+               FontWeight="Medium" Foreground="#9E9E9E"/>
                                     </Border>
                                 </StackPanel>
                                 <Button HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -505,6 +514,62 @@
                     </Grid>
                 </Grid>
             </Grid>
+
+            <!-- ═══ 设备屏幕层（默认隐藏，点“设备屏幕”Tab 显示，盖住 Overview 内容） ═══ -->
+            <Border x:Name="ScreenHost" Grid.Row="0" Grid.RowSpan="2"
+                    Background="#0E0F12" CornerRadius="0,0,12,12"
+                    Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 屏幕层自己的顶栏：标题 + 关闭（关闭按钮复用现有 CloseButton_Click） -->
+                    <Border Grid.Row="0" Background="#16181D" BorderBrush="#2A2F37"
+                            BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseDown">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center">
+                                <Border x:Name="OverviewTabBorder2" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2"
+        Padding="4,2" Margin="0,0,18,0" Cursor="Hand"
+        MouseLeftButtonDown="OverviewTab_Click">
+                                    <TextBlock Text="Overview" FontSize="12" FontWeight="Medium" Foreground="#9E9E9E"/>
+                                </Border>
+                                <Border Background="Transparent" BorderBrush="#4FD1C5" BorderThickness="0,0,0,2" Padding="4,2" Cursor="Hand"
+        MouseLeftButtonDown="ScreenTab_Click">
+                                    <TextBlock Text="设备屏幕" FontSize="12" FontWeight="Medium" Foreground="#4FD1C5"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock x:Name="ScreenHeaderText" Text="设备屏幕"
+                                       Foreground="#6B7280" FontSize="11"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Width="30" Height="30" Margin="0,0,8,0"
+                                    Click="CloseButton_Click" Cursor="Hand"
+                                    Background="Transparent" BorderThickness="0">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="6">
+                                            <TextBlock Text="×" FontSize="18" Foreground="#9E9E9E"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#2A2F37"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- 屏幕控件挂载点：Viewbox 等比缩放 -->
+                    <Viewbox x:Name="ScreenContentHost" Grid.Row="1"
+                             Stretch="Uniform" StretchDirection="Both" Margin="10"/>
+                </Grid>
+            </Border>
+
         </Grid>
     </Border>
 </UserControl>
