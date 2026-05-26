@@ -17,6 +17,7 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Ioc;
 using Prism.Mvvm;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 
@@ -337,6 +338,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand PauseCommand { get; private set; }
         public DelegateCommand StopCommand { get; private set; }
         public DelegateCommand StatusCommand { get; private set; }
+        public DelegateCommand ShowLogViewCommand { get; private set; }
 
         #endregion
 
@@ -362,6 +364,7 @@ namespace MaxChemical.Shell.ViewModels
             StopCommand = new DelegateCommand(ExecuteStop, CanExecuteStop);
             StatusCommand = new DelegateCommand(ExecuteStatus);
             DOECommand = new DelegateCommand(ExecuteOpenDOE);
+            ShowLogViewCommand = new DelegateCommand(ExecuteShowLogViewCommand);
             System.Diagnostics.Debug.WriteLine("MainToolBarViewModel InitializeCommands 完成");
         }
 
@@ -1794,6 +1797,12 @@ namespace MaxChemical.Shell.ViewModels
                 _logger.LogError(ex, "打开数据分析窗口失败");
                 _dialogService?.ShowError($"打开数据分析失败: {ex.Message}", "错误");
             }
+        }
+
+        private void ExecuteShowLogViewCommand()
+        {
+            var win = _container.Resolve<LogMessageViewer>();
+            win.Show();
         }
         #endregion
     }

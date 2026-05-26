@@ -75,6 +75,15 @@ namespace HighPreactor_ModbusRTU
                 Options = new ObservableCollection<string>() { "None", "One", "Two", "OnePointFive" }
             });
 
+            // 通信方式
+            Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
+            {
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+            });
+
+            // Modbus 从机站号 (1~254)
+            Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
             // 初始化命令
             InitializeCommands();
         }
@@ -86,6 +95,9 @@ namespace HighPreactor_ModbusRTU
         public override bool SupportsZLanGateway => true;
 
 
+        /// <summary>
+        /// 初始化设备命令
+        /// </summary>
         private void InitializeCommands()
         {
             // 获取釜温 PV
@@ -98,7 +110,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Temperatur",-200,600,0,"反应釜釜温",true,"℃")
+                        new NumberParameter("BathTemperature",-200,600,0,"反应釜釜温",true,"℃")
                     }
                 },
 
@@ -108,7 +120,7 @@ namespace HighPreactor_ModbusRTU
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int temperature = 0;
+                        float temperature = 0;
 
                         if (IsSimulationMode)
                         {
@@ -118,31 +130,19 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x00, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                temperature = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜温度，结果（{temperature/100.0} ℃）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x00, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0, 2);
+
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+
+                            InfoLog($"获取微型反应釜温度，结果（{temperature / 100} ℃）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Temperatur",-200,600,temperature/100.0,"反应釜釜温",true,"℃")
+                                new NumberParameter("BathTemperature",-200,600,temperature/100,"反应釜釜温",true,"℃")
                             }
                         };
                     }
@@ -164,7 +164,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Temperatur",-200,600,0,"反应釜炉温",true,"℃")
+                        new NumberParameter("FurnaceTemperature",-200,600,0,"反应釜炉温",true,"℃")
                     }
                 },
 
@@ -184,31 +184,18 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                temperature = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜炉温，结果（{temperature/100.0} ℃）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x04, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(4, 2);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+
+                            InfoLog($"获取微型反应釜炉温，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Temperatur",-200,600,temperature/100.0,"反应釜炉温",true,"℃")
+                                new NumberParameter("FurnaceTemperature",-200,600,temperature/100.0,"反应釜炉温",true,"℃")
                             }
                         };
                     }
@@ -230,7 +217,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Temperatur",-200,600,0,"反应釜压力",true,"Bar")
+                        new NumberParameter("Pressure",-200,600,0,"反应釜压力",true,"Bar")
                     }
                 },
 
@@ -250,28 +237,18 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0x06, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜压力，结果（{temperature / 100.0} Bar）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0x06, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x0106, 1);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜压力，结果（{temperature / 100.0} Bar）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Temperatur",-200,600,temperature/100.0,"反应釜压力",true,"Bar")
+                                new NumberParameter("Pressure",-200,600,temperature/100.0,"反应釜压力",true,"Bar")
                             }
                         };
                     }
@@ -293,7 +270,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Speed", 0, 1500,0,"反应釜搅拌速度",true,"RPM")
+                        new NumberParameter("Speed PV", 0, 1500,0,"反应釜搅拌速度",true,"RPM")
                     }
                 },
 
@@ -313,28 +290,18 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0xFB, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜搅拌速度，结果（{temperature} RPM）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0xFB, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x00FB, 1);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜搅拌速度，结果（{temperature} RPM）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Speed", 0, 1500,temperature,"反应釜搅拌速度",true,"RPM")
+                                new NumberParameter("Speed PV", 0, 1500,temperature,"反应釜搅拌速度",true,"RPM")
                             }
                         };
                     }
@@ -356,7 +323,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Temperatur",-200,600,0,"反应釜设定温度",true,"℃")
+                        new NumberParameter("SettingTemperature",-200,600,0,"反应釜设定温度",true,"℃")
                     }
                 },
 
@@ -376,31 +343,18 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x32, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                temperature = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜设定温度，结果（{temperature / 100.0} ℃）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x32, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0x0032, 2);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+
+                            InfoLog($"获取微型反应釜设定温度，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Temperatur",-200,600,temperature/100.0,"反应釜设定温度",true,"℃")
+                                new NumberParameter("SettingTemperature",-200,600,temperature/100.0,"反应釜设定温度",true,"℃")
                             }
                         };
                     }
@@ -452,14 +406,8 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(temperature * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data); // ABCD
-                            }
-                            // 寄存器 CDAB
-                            byte[] frame = { slaveId, 0x10, 0x00, 0x32, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x00, 0x32, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0032, (int)(temperature * 100));
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -493,7 +441,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("Speed", 0, 1500,0,"反应釜搅拌速度 SV",true,"RPM")
+                        new NumberParameter("Speed SV", 0, 1500,0,"反应釜搅拌速度 SV",true,"RPM")
                     }
                 },
 
@@ -513,28 +461,18 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0xFC, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜搅拌速度 SV，结果（{temperature} RPM）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0xFC, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x00FC, 1);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜搅拌速度 SV，结果（{temperature} RPM）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Speed", 0, 1500,temperature,"反应釜搅拌速度 SV",true,"RPM")
+                                new NumberParameter("Speed SV", 0, 1500,temperature,"反应釜搅拌速度 SV",true,"RPM")
                             }
                         };
                     }
@@ -575,7 +513,7 @@ namespace HighPreactor_ModbusRTU
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short temperature = parameter.GetValue<short>("TargetSpeed");
+                        ushort temperature = parameter.GetValue<ushort>("TargetSpeed");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -585,14 +523,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(temperature);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0xFC, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0xFC, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x00FC, temperature);
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -626,7 +559,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TemperatureUpperLimit",-200,600,0,"反应釜釜温上限",true,"℃")
+                        new NumberParameter("BathUpperLimit",-200,600,0,"反应釜釜温上限",true,"℃")
                     }
                 },
 
@@ -646,32 +579,19 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0x0E, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0x0E, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0x010E, 2);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                temperature = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜温度上限，结果（{temperature / 100.0} ℃）");
-                            }
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+
+                            InfoLog($"获取微型反应釜温度上限，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("TemperatureUpperLimit",-200,600,temperature/100.0,"反应釜釜温上限",true,"℃")
+                                new NumberParameter("BathUpperLimit",-200,600,temperature/100.0,"反应釜釜温上限",true,"℃")
                             }
                         };
                     }
@@ -723,14 +643,8 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(temperature * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
-                            byte[] frame = { slaveId, 0x10, 0x01, 0x0E, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x01, 0x0E, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x010E, (int)(temperature * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜温度上限，结果（成功：{success}，设定值：{temperature} ℃）");
@@ -763,7 +677,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("TemperatureUpperLimit",-200,600,0,"反应釜炉温上限",true,"℃")
+                        new NumberParameter("FuranceUpperLimit",-200,600,0,"反应釜炉温上限",true,"℃")
                     }
                 },
 
@@ -783,32 +697,19 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0x10, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0x10, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0x0110, 2);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                temperature = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜炉温上限，结果（{temperature / 100.0} ℃）");
-                            }
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+
+                            InfoLog($"获取微型反应釜炉温上限，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("TemperatureUpperLimit",-200,600,temperature/100.0,"反应釜炉温上限",true,"℃")
+                                new NumberParameter("FuranceUpperLimit",-200,600,temperature/100.0,"反应釜炉温上限",true,"℃")
                             }
                         };
                     }
@@ -860,14 +761,8 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(temperature * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
-                            byte[] frame = { slaveId, 0x10, 0x01, 0x10, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x01, 0x10, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0110, (int)(temperature * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜炉温上限，结果（成功：{success}，设定值：{temperature} ℃）");
@@ -920,21 +815,11 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0x12, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜压力上限，结果（{temperature / 100.0} Bar）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0x12, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x0112, 1);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜压力上限，结果（{temperature / 100.0} Bar）");
                         }
 
                         return new DeviceParameters()
@@ -993,14 +878,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(temperature * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x01, 0x12, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x01, 0x12, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x0112, (ushort)(temperature * 100));
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -1054,22 +934,12 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x7F, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x7F, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x007F, 1);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜转换拟合阈值，结果（{temperature / 100.0} ℃）");
-                            }
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜转换拟合阈值，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
@@ -1128,14 +998,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(temperature * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x7F, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x7F, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x007F, (ushort)(temperature * 100));
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -1189,22 +1054,12 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x00, 0x81, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x00, 0x81, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x0081, 1);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜升温斜率，结果（{temperature / 100.0} ℃）");
-                            }
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜升温斜率，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
@@ -1263,14 +1118,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(temperature * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x00, 0x81, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x00, 0x81, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x0081, (ushort)(temperature * 100));
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -1324,22 +1174,12 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0x04, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0x04, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x0104, 1);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜已运行时间，结果（{temperature} MIN）");
-                            }
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜已运行时间，结果（{temperature} MIN）");
                         }
 
                         return new DeviceParameters()
@@ -1387,7 +1227,7 @@ namespace HighPreactor_ModbusRTU
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        short temperature = parameter.GetValue<short>("TargetTime");
+                        ushort temperature = parameter.GetValue<ushort>("TargetTime");
                         bool success = false;
 
                         if (IsSimulationMode)
@@ -1398,14 +1238,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes(temperature);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x01, 0x04, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x01, 0x04, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x0104, temperature);
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜运行时间，结果（成功：{success}，设定值：{temperature} MIN）");
@@ -1458,22 +1293,12 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0xF5, 0x00, 0x01 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0xF5, 0x00, 0x01 };
+                            byte[] frame = BuildReadCmd(0x01F5, 1);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                byte[] data = ExtractPayload(buffers);
-                                if (BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(data);
-                                }
-                                temperature = BitConverter.ToInt16(data);
-                                InfoLog($"获取微型反应釜当前运行段，结果（{temperature} ）");
-                            }
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+
+                            InfoLog($"获取微型反应釜当前运行段，结果（{temperature} ）");
                         }
 
                         return new DeviceParameters()
@@ -1523,20 +1348,17 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0xF6, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0xF6, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0x01F6, 2);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
+                            short[] result = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16ArrayAsync);
+                            if (result.Length == 2)
                             {
-                                byte[] data = ExtractPayload(buffers);
-                                duration = (short)(data[0] << 8 | data[1]);
-                                total = (short)(data[2] << 8 | data[3]);
-
-                                InfoLog($"获取微型反应釜当前段运行时间数据，结果（Run:{duration / 10.0}，Total:{total / 10.0} MIN）");
+                                duration = result[0];
+                                total = result[1];
                             }
+
+                            InfoLog($"获取微型反应釜当前段运行时间数据，结果（Run:{duration / 10.0}，Total:{total / 10.0} MIN）");
                         }
 
                         return new DeviceParameters()
@@ -1586,24 +1408,11 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0xF8, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                temperature = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜实时设定值，结果（{temperature / 100.0} ℃）");
-                            }
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0xF8, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0x01F8, 2);
+                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+
+                            InfoLog($"获取微型反应釜实时设定值，结果（{temperature / 100.0} ℃）");
                         }
 
                         return new DeviceParameters()
@@ -1622,537 +1431,73 @@ namespace HighPreactor_ModbusRTU
                 })
             });
 
-            // 获取SP1
+            // 获取SP1、SP2、SP3、SP4、SP5、SP6、SP7、SP8
             Commands.Add(new DeviceCommand()
             {
-                Name = "获取SP1",
-                HelpText = "获取微型反应釜SP1",
+                Name = "获取SP",
+                HelpText = "获取微型反应釜SP",
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("SP1",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP1", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP1，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0xFA, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP1，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP1",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP1失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP2
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP2",
-                HelpText = "获取微型反应釜SP2",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("SP2",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP2", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP2，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0xFC, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP2，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP2",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP2失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP3
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP3",
-                HelpText = "获取微型反应釜SP3",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("SP3",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP3", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP3，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x01, 0xFE, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP3，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP3",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP3失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP4
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP4",
-                HelpText = "获取微型反应釜SP4",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("SP4",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP4", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP4，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x02, 0x00, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP4，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP4",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP4失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP5
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP5",
-                HelpText = "获取微型反应釜SP5",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("SP5",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP5", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP5，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x02, 0x02, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP5，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP5",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP5失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP6
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP6",
-                HelpText = "获取微型反应釜SP6",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("SP6",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP6", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP6，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x02, 0x04, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP6，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP6",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP6失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP7
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP7",
-                HelpText = "获取微型反应釜SP7",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
-                        new NumberParameter("SP7",-200,600,0,"",true,"℃")
-                    }
-                },
-
-                Action = WrapAction("获取SP7", async parameter =>
-                {
-                    try
-                    {
-                        ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
-
-                        if (IsSimulationMode)
-                        {
-                            await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP7，结果（{sp} ℃）");
-                        }
-                        else
-                        {
-                            byte[] frame = { slaveId, 0x03, 0x02, 0x06, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
-                            {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP7，结果（{sp / 100.0} ℃）");
-                            }
-                        }
-
-                        return new DeviceParameters()
-                        {
-                            Variables = new ObservableCollection<ParameterBase>()
-                            {
-                                new NumberParameter("SP7",-200,600,sp/100.0,"",true,"℃")
-                            }
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorLog($"获取微型反应釜SP7失败：{e.Message}");
-                        throw;
-                    }
-                })
-            });
-
-            // 获取SP8
-            Commands.Add(new DeviceCommand()
-            {
-                Name = "获取SP8",
-                HelpText = "获取微型反应釜SP8",
-
-                OutputParameters = new DeviceParameters()
-                {
-                    Variables = new ObservableCollection<ParameterBase>()
-                    {
+                        new NumberParameter("SP1",-200,600,0,"",true,"℃"),
+                        new NumberParameter("SP2",-200,600,0,"",true,"℃"),
+                        new NumberParameter("SP3",-200,600,0,"",true,"℃"),
+                        new NumberParameter("SP4",-200,600,0,"",true,"℃"),
+                        new NumberParameter("SP5",-200,600,0,"",true,"℃"),
+                        new NumberParameter("SP6",-200,600,0,"",true,"℃"),
+                        new NumberParameter("SP7",-200,600,0,"",true,"℃"),
                         new NumberParameter("SP8",-200,600,0,"",true,"℃")
                     }
                 },
 
-                Action = WrapAction("获取SP8", async parameter =>
+                Action = WrapAction("获取SP", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int sp = 0;
+                        float[] sp = new float[8];
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜SP8，结果（{sp} ℃）");
+                            //sp = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
+                            InfoLog($"模拟模式获取微型反应釜SP，结果（{sp} ℃）");
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x02, 0x08, 0x00, 0x02 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0xFA, 0x00, 0x02 };
+                            byte[] frame = BuildReadCmd(0x01FA, 16);
 
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
+                            var result = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseSingleArrayAsync);
+                            if (result.Length == 8)
                             {
-                                // 字节序 CDAB
-                                byte[] data = ExtractPayload(buffers);
-                                // DCBA
-                                byte[] dcba = { data[1], data[0], data[3], data[2] };
-                                if (!BitConverter.IsLittleEndian)
-                                {
-                                    ReverseArray(dcba);
-                                }
-                                sp = BitConverter.ToInt32(data);
-                                InfoLog($"获取微型反应釜SP8，结果（{sp / 100.0} ℃）");
+                                sp = result;
                             }
+
+                            InfoLog($"获取微型反应釜SP，结果（{string.Join("，", sp)} ℃）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("SP8",-200,600,sp/100.0,"",true,"℃")
+                                new NumberParameter("SP1",-200,600,sp[0]/100.0,"",true,"℃"),
+                                new NumberParameter("SP2",-200,600,sp[1]/100.0,"",true,"℃"),
+                                new NumberParameter("SP3",-200,600,sp[2]/100.0,"",true,"℃"),
+                                new NumberParameter("SP4",-200,600,sp[3]/100.0,"",true,"℃"),
+                                new NumberParameter("SP5",-200,600,sp[4]/100.0,"",true,"℃"),
+                                new NumberParameter("SP6",-200,600,sp[5]/100.0,"",true,"℃"),
+                                new NumberParameter("SP7",-200,600,sp[6]/100.0,"",true,"℃"),
+                                new NumberParameter("SP8",-200,600,sp[7]/100.0,"",true,"℃")
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"获取微型反应釜SP8失败：{e.Message}");
+                        ErrorLog($"获取微型反应釜SP失败：{e.Message}");
                         throw;
                     }
                 })
@@ -2197,15 +1542,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x01, 0xFA, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x01, 0xFA, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x01FA, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP1值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2267,15 +1606,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x01, 0xFC, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x01, 0xFC, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x01FC, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP2值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2337,15 +1670,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x01, 0xFE, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x01, 0xFE, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x01FE, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP3值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2407,15 +1734,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x02, 0x00, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x02, 0x00, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0200, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP4值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2477,15 +1798,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x02, 0x02, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x02, 0x02, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0202, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP5值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2547,15 +1862,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x02, 0x04, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x02, 0x04, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0204, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP6值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2617,15 +1926,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x02, 0x06, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x02, 0x06, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0206, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP7值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2687,15 +1990,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((int)(target * 100));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
-
                             // 创建发送的指令
-                            byte[] frame = { slaveId, 0x10, 0x02, 0x08, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x10, 0x02, 0x08, 0x00, 0x02, 0x04, data[2], data[3], data[0], data[1] };
+                            byte[] frame = BuildMultWriteCmd(0x0208, (int)(target * 100));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜SP8值，结果（成功：{success}，设定值：{target} ℃）");
@@ -2761,26 +2058,21 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] frame = { slaveId, 0x03, 0x02, 0x4A, 0x00, 0x08 };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
-                            byte[] buffers = new byte[1024];
-                            Array.Copy(frame, buffers, frame.Length);
-                            int len = await ReadAsync(buffers, 0, frame.Length, CancellationToken.None);
-                            if (len > 0)
+                            //byte[] frame = { slaveId, 0x03, 0x02, 0x4A, 0x00, 0x08 };
+                            byte[] frame = BuildReadCmd(0x024A, 8);
+                            var result = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16ArrayAsync);
+                            if (result.Length == 8)
                             {
-                                byte[] data = ExtractPayload(buffers);
-                                st1 = (short)(data[0] << 8 | data[1]);
-                                st2 = (short)(data[2] << 8 | data[3]);
-                                st3 = (short)(data[4] << 8 | data[5]);
-                                st4 = (short)(data[6] << 8 | data[7]);
-                                st5 = (short)(data[8] << 8 | data[9]);
-                                st6 = (short)(data[10] << 8 | data[11]);
-                                st7 = (short)(data[12] << 8 | data[13]);
-                                st8 = (short)(data[14] << 8 | data[15]);
-
-                                InfoLog($"获取微型反应釜时间设定值，结果（{st1},{st2},{st3},{st4},{st5},{st6},{st7},{st8} MIN）");
+                                st1 = result[0];
+                                st2 = result[1];
+                                st3 = result[2];
+                                st4 = result[3];
+                                st5 = result[4];
+                                st6 = result[5];
+                                st7 = result[6];
+                                st8 = result[7];
                             }
+                            InfoLog($"获取微型反应釜时间设定值，结果（{st1},{st2},{st3},{st4},{st5},{st6},{st7},{st8} MIN）");
                         }
 
                         return new DeviceParameters()
@@ -3336,14 +2628,9 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x51, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x51, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x0251, (ushort)(st * 10));
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST8，结果（成功：{success}，设定值：{st} MIN）");
@@ -3411,11 +2698,13 @@ namespace HighPreactor_ModbusRTU
         }
 
 
+        #region 命令包装(日志 + 异常封装)
+
         private Func<DeviceParameters, DeviceParameters> WrapAction(string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
             return (DeviceParameters parameters) =>
             {
-                _logger.LogInformation($"[ModbusRTU微型反应釜-开始] Device={Name} Command={commandName}");
+                _logger.LogInformation($"[ModbusRTU 微型反应釜-开始] Device={Name} Command={commandName}");
 
                 var sw = Stopwatch.StartNew();
                 try
@@ -3423,138 +2712,43 @@ namespace HighPreactor_ModbusRTU
                     var output = innerAsync(parameters).GetAwaiter().GetResult();
                     sw.Stop();
 
-                    _logger.LogInformation($"[ModbusRTU微型反应釜-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogInformation($"[ModbusRTU 微型反应釜-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     return output;
                 }
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    _logger.LogError(ex, $"[ModbusRTU微型反应釜-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    _logger.LogError(ex, $"[ModbusRTU 微型反应釜-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
                     throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
                 }
             };
         }
 
-
-        private async Task<int> ReadAsync(byte[] buffers, int offset, int count, CancellationToken token)
+        private Func<DeviceParameters, Task<DeviceParameters>> AsyncWrapAction(
+            string commandName, Func<DeviceParameters, Task<DeviceParameters>> innerAsync)
         {
-            SerialPort serialPort = null;
-            try
+            return async (DeviceParameters parameters) =>
             {
-                string com = Parameters.GetValue<string>("串口号");
-                string baudRate = Parameters.GetValue<string>("波特率");
-                string parity = Parameters.GetValue<string>("校验位");
-                string dataBit = Parameters.GetValue<string>("数据位");
-                string stopBit = Parameters.GetValue<string>("停止位");
-
-                // 等待释放信号
-                await _slim.WaitAsync(token);
-
-                serialPort = new SerialPort(com);
-                serialPort.BaudRate = int.Parse(baudRate);
-                serialPort.Parity = (Parity)Enum.Parse(typeof(Parity), parity);
-                serialPort.DataBits = int.Parse(dataBit);
-                serialPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), stopBit);
-                serialPort.ReadTimeout = 3000;
-                serialPort.WriteTimeout = 3000;
-
-                // 打开串口
-                serialPort.Open();
-
-                // 发送读取指令
-                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
-
-                var reader = serialPort.BaseStream.ReadAsync(buffers, 0, buffers.Length, token);
-                var complete = await Task.WhenAny(reader, Task.Delay(3000, token));
-                if (complete != reader)
-                {
-                    throw new TimeoutException("串口读取超时，设备无响应");
-                }
-                // 返回读取结果
-                return await reader;
-            }
-            finally
-            {
+                _logger.LogInformation($"[ModbusRTU 微型反应釜-开始] Device={Name} Command={commandName}");
+                var sw = Stopwatch.StartNew();
                 try
                 {
-                    if (serialPort != null)
-                    {
-                        serialPort.Close();
-                        serialPort.Dispose();
-                    }
+                    var output = await innerAsync(parameters);
+                    sw.Stop();
+                    _logger.LogInformation($"[ModbusRTU 微型反应釜-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    return output;
                 }
-                catch { }
-
-                // 释放信号
-                _slim.Release();
-            }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    _logger.LogError(ex, $"[ModbusRTU 微型反应釜-异常] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
+                    throw new DeviceCommandExecutionException(Name, commandName, ex.Message, ex);
+                }
+            };
         }
 
-        private async Task<bool> WriteAsync(byte[] buffers, int offset, int count, CancellationToken token)
-        {
-            SerialPort serialPort = null;
-            try
-            {
-                string com = Parameters.GetValue<string>("串口号");
-                string baudRate = Parameters.GetValue<string>("波特率");
-                string parity = Parameters.GetValue<string>("校验位");
-                string dataBit = Parameters.GetValue<string>("数据位");
-                string stopBit = Parameters.GetValue<string>("停止位");
+        #endregion
 
-                // 等待释放信号
-                await _slim.WaitAsync(token);
-
-                serialPort = new SerialPort(com);
-                serialPort.BaudRate = int.Parse(baudRate);
-                serialPort.Parity = (Parity)Enum.Parse(typeof(Parity), parity);
-                serialPort.DataBits = int.Parse(dataBit);
-                serialPort.StopBits = (StopBits)Enum.Parse(typeof(StopBits), stopBit);
-                serialPort.ReadTimeout = 3000;
-                serialPort.WriteTimeout = 3000;
-
-                // 打开串口
-                serialPort.Open();
-
-                // 发送指令
-                await serialPort.BaseStream.WriteAsync(buffers, offset, count, token);
-                // 接收响应报文
-                byte[] frame = new byte[128];
-                var response = serialPort.BaseStream.ReadAsync(frame, 0, frame.Length, token);
-
-                if (await Task.WhenAny(Task.Delay(3000), response) != response)
-                {
-                    throw new TimeoutException("串口写入超时，设备无响应");
-                }
-
-                int len = await response;
-                if (len < 5)
-                {
-                    throw new Exception("写入失败：响应报文长度无效");
-                }
-
-                if (frame[1] >= 0x80)
-                {
-                    throw new ArgumentException($"写入失败，Modbus 异常响应，异常码：{frame[2]:X2}");
-                }
-
-                return true;
-            }
-            finally
-            {
-                try
-                {
-                    if (serialPort != null)
-                    {
-                        serialPort.Close();
-                        serialPort.Dispose();
-                    }
-                }
-                catch { }
-
-                // 释放信号
-                _slim.Release();
-            }
-        }
 
         #region 通信层
 
@@ -3606,7 +2800,7 @@ namespace HighPreactor_ModbusRTU
         /// <param name="register"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        private byte[] BuildMultWriteCmd(ushort register, float value)
+        private byte[] BuildMultWriteCmd(ushort register, int value)
         {
             byte slaveId = GetSlaveAddress();
 
@@ -3623,7 +2817,7 @@ namespace HighPreactor_ModbusRTU
                 (byte)(register >> 8),(byte)(register & 0xFF),
                 0x00, 0x02,
                 0x04,
-                bytes[0], bytes[1], bytes[2], bytes[3]
+                bytes[2], bytes[3], bytes[0], bytes[1]
             };
 
             return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
@@ -3746,13 +2940,74 @@ namespace HighPreactor_ModbusRTU
             }
         }
 
+        private async Task<short[]> SendAndParseInt16ArrayAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(2)+CRC(2) = 7 字节
+                if (len < 7)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 7 字节", len);
+                    return Array.Empty<short>();
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}",
+                        expectedAddr, recv[0]);
+                    return Array.Empty<short>();
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return Array.Empty<short>();
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return Array.Empty<short>();
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                short[] result = new short[data.Length / 2];
+
+                for (int i = 0; i < result.Length; i++)
+                {
+                    // 获取 int16 数据的实际字节（AB）
+                    byte[] bytes = { data[i * 2], data[i * 2 + 1] };
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        ReverseArray(bytes);
+                    }
+                    result[i] = BitConverter.ToInt16(bytes, 0);
+                }
+
+                return result;
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
         /// <summary>
         /// 读取 Modbus 寄存器并解析 float 数据
         /// </summary>
         /// <param name="sendCmd"></param>
         /// <param name="token"></param>
         /// <returns></returns>
-        private async Task<float> SendAndParseSingleAsync(byte[] sendCmd, CancellationToken token)
+        private async Task<int> SendAndParseInt32Async(byte[] sendCmd, CancellationToken token)
         {
             var slim = GetInstanceLock();
             await slim.WaitAsync(token).ConfigureAwait(false);
@@ -3790,13 +3045,15 @@ namespace HighPreactor_ModbusRTU
                     return 0;
                 }
 
-                // 提取数据载荷
+                // 提取数据载荷 (CDAB)
                 byte[] data = ExtractPayload(recv);
+                // 将获取到的数据转换成大端序
+                byte[] abcd = { data[2], data[3], data[0], data[1] };
                 if (BitConverter.IsLittleEndian)
                 {
-                    ReverseArray(data);
+                    ReverseArray(abcd);
                 }
-                return BitConverter.ToSingle(data, 0);
+                return BitConverter.ToInt32(abcd, 0);
             }
             finally
             {
@@ -3894,10 +3151,14 @@ namespace HighPreactor_ModbusRTU
             byte[] temp = new byte[4];
             for (int i = 0; i < result.Length; i++)
             {
-                temp[3] = data[4 * i];
-                temp[2] = data[4 * i + 1];
-                temp[1] = data[4 * i + 2];
-                temp[0] = data[4 * i + 3];
+                temp[3] = data[4 * i + 2]; // A
+                temp[2] = data[4 * i + 3]; // B
+                temp[1] = data[4 * i];     // C
+                temp[0] = data[4 * i + 1]; // D
+                if (!BitConverter.IsLittleEndian)
+                {
+                    ReverseArray(temp);
+                }
                 result[i] = BitConverter.ToSingle(temp, 0);
             }
             return result;

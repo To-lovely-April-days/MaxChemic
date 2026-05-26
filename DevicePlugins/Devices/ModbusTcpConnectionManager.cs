@@ -1036,6 +1036,28 @@ namespace DevicePlugins.Devices
 
                 }
             });
+
+            _deviceMappings.TryAdd("", new ModbusDeviceMapping()
+            {
+                ComId = "HLT0001",
+                SlaveId = 1,
+                CommandAddresses = new Dictionary<string, string>()
+                {
+                    ["出口温度"]="40011",
+                    ["物料温度"]="40013",
+                    ["回口温度"]="40015",
+                    ["温度SV"]="40114",
+                    ["启动/停止"]="10005",
+                    ["启动界面"]="10004",
+                    ["停止界面"]="10006",
+                    ["程式启动/停止"]="10008",
+                    ["程式启动界面"]="10007",
+                    ["程式停止界面"]="10009",
+                    ["运行模式"]="10002",
+                    ["报警数据38"]="10011"
+                }
+            });
+
             _logger.LogInformation("已加载 {Count} 个设备的ModbusTcp地址映射", _deviceMappings.Count);
         }
 
