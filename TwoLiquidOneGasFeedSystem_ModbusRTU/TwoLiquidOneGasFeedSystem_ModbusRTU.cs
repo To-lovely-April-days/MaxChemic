@@ -55,7 +55,7 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
     ///     48  报警状态          AL_Status
     /// </summary>
     [Export(typeof(IDevice))]
-    public class TwoLiquidOneGasFeedSystem_ModbusRTU : Device, IFlowLifecycleAware
+    public class TwoLiquidOneGasFeedSystem_ModbusRTU : Device, IFlowLifecycleAware,IDeviceScreen
     {
         private readonly ILogService _logger;
 
@@ -1026,7 +1026,7 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
             };
             return CreateTransportAsync(serialConfig);
         }
-
+        public string ScreenKey => "TwoLiquidOneGasFeed";
         #endregion
 
         /// <summary>

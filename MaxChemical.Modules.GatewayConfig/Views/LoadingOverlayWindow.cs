@@ -1,7 +1,9 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -12,6 +14,10 @@ namespace MaxChemical.Modules.GatewayConfig.Views
     /// <summary>
     /// 网关配置专用 Loading 遮罩,独立 Dispatcher 线程。
     /// SDK 阻塞调用不会冻住动画。
+    ///
+    /// 层级处理:不使用 Topmost(否则会浮在所有应用最前),
+    /// 改用 Win32 SetWindowLongPtr(GWL_HWNDPARENT) 把 owner 句柄设为网关主窗口,
+    /// 使遮罩跟随主窗口的 Z 序——主窗口在前它在前,主窗口被其他应用盖住它也跟着沉下去。
     /// </summary>
     public class LoadingOverlayWindow
     {
@@ -22,9 +28,10 @@ namespace MaxChemical.Modules.GatewayConfig.Views
         private Dispatcher _dispatcher;
         private readonly ManualResetEventSlim _ready = new ManualResetEventSlim(false);
 
-        // 在主线程上抓 owner 几何,跨线程时只传值类型,不再访问 owner 对象
+        // 在主线程上抓 owner 几何 + 句柄,跨线程时只传值类型
         private double _ownerLeft, _ownerTop, _ownerWidth, _ownerHeight;
         private bool _ownerSnapped;
+        private IntPtr _ownerHandle = IntPtr.Zero;
 
         public LoadingOverlayWindow(Window owner)
         {
@@ -33,7 +40,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         public void Show(string initialMessage)
         {
-            // 先在调用方 (主 UI) 线程里把 owner 几何快照下来
+            // 先在调用方 (主 UI) 线程里把 owner 几何 + 句柄快照下来
             if (_owner != null && _owner.IsLoaded)
             {
                 _ownerLeft = _owner.Left;
@@ -41,6 +48,12 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 _ownerWidth = _owner.ActualWidth;
                 _ownerHeight = _owner.ActualHeight;
                 _ownerSnapped = true;
+
+                try
+                {
+                    _ownerHandle = new WindowInteropHelper(_owner).Handle;
+                }
+                catch { _ownerHandle = IntPtr.Zero; }
             }
 
             _thread = new Thread(() =>
@@ -48,6 +61,10 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 _window = BuildWindow(initialMessage);
                 _dispatcher = _window.Dispatcher;
                 _window.Show();
+
+                // 窗口 Show 之后才有句柄,设置 owner 句柄使其跟随主窗口 Z 序
+                ApplyOwnerHandle();
+
                 _ready.Set();
                 Dispatcher.Run();
             })
@@ -82,6 +99,21 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             catch { }
         }
 
+        private void ApplyOwnerHandle()
+        {
+            if (_ownerHandle == IntPtr.Zero || _window == null) return;
+            try
+            {
+                var helper = new WindowInteropHelper(_window);
+                var childHandle = helper.Handle;
+                if (childHandle != IntPtr.Zero)
+                {
+                    SetWindowLongPtrSafe(childHandle, GWL_HWNDPARENT, _ownerHandle);
+                }
+            }
+            catch { }
+        }
+
         private Window BuildWindow(string initialMessage)
         {
             var w = new Window
@@ -90,7 +122,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 AllowsTransparency = true,
                 Background = new SolidColorBrush(Color.FromArgb(0x8C, 0x1A, 0x1A, 0x1A)),
                 ShowInTaskbar = false,
-                Topmost = true,
+                Topmost = false,                 // ★ 不再全局置顶
                 WindowStartupLocation = WindowStartupLocation.Manual,
             };
 
@@ -209,5 +241,23 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             transform.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
             dot.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
         }
+
+        // ═══════════ Win32 互操作 ═══════════
+
+        private const int GWL_HWNDPARENT = -8;
+
+        private static IntPtr SetWindowLongPtrSafe(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+        {
+            // 64 位用 SetWindowLongPtr,32 位用 SetWindowLong
+            if (IntPtr.Size == 8)
+                return SetWindowLongPtr64(hWnd, nIndex, dwNewLong);
+            return new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
+        }
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
+        private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
+        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
     }
 }
