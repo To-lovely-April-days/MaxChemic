@@ -58,7 +58,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Factory = () => new TwoLiquidOneGasFeedScreen(),
                     Resolution = new Size(1240, 620),
                 });
-
+                Register("DynamicTubularReactor", new ScreenRegistration
+                {
+                    Factory = () => new DynamicTubularReactorScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+                Register("SiliconCarbideChip", new ScreenRegistration
+                {
+                    Factory = () => new SiliconCarbideChipScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+             
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
                 _initialized = true;

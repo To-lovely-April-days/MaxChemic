@@ -10,7 +10,7 @@ using System.IO.Ports;
 namespace DynamicTubularReactor_ModbusRTU
 {
     [Export(typeof(IDevice))]
-    public class DynamicTubularReactor_ModbusRTU : Device, IFlowLifecycleAware
+    public class DynamicTubularReactor_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
         private readonly ILogService _logger;
 
@@ -26,7 +26,7 @@ namespace DynamicTubularReactor_ModbusRTU
         private const int MaxRetries = 3;       // 总共尝试 3 次
         private const int RetryDelayMs = 100;   // 重试间隔 100ms
 
-
+        public string ScreenKey => "DynamicTubularReactor";
         public DynamicTubularReactor_ModbusRTU()
         {
             _logger = LogManager.GetLogger<DynamicTubularReactor_ModbusRTU>();
@@ -1253,8 +1253,87 @@ namespace DynamicTubularReactor_ModbusRTU
                     }
                 })
             });
-        }
 
+            // 获取所有数据（屏幕轮询用，一条读全部）
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取所有数据",
+                HelpText = "一次读取 搅拌SV/PV、釜温、压力、搅拌ON/OFF（屏幕轮询用，共9个寄存器）",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("SV",          0, 1000, 0, "搅拌 SV",  true, "RPM"),
+                        new NumberParameter("PV",          0, 1000, 0, "搅拌 PV",  true, "RPM"),
+                        new NumberParameter("Temperature", 0, 1000, 0, "釜温",     true, "℃"),
+                        new NumberParameter("Pressure",    0, 1000, 0, "压力",     true, "MPa"),
+                        new NumberParameter("ON/OFF",      0, 1,    0, "搅拌 ON/OFF(0:运行,1:停止)", true),
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取所有数据", async parameter =>
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    float sv = 0, pv = 0, temp = 0, press = 0;
+                    int onoff = 0;
+
+                    if (IsSimulationMode)
+                    {
+                        await Task.Delay(200);
+                        var rnd = new Random();
+                        sv = rnd.Next(0, 300);
+                        pv = sv + rnd.Next(-5, 5);
+                        temp = rnd.Next(20, 200);
+                        press = (float)(rnd.NextDouble() * 5);
+                        onoff = rnd.Next(0, 2);
+                    }
+                    else
+                    {
+                        // 一次读 9 个寄存器（地址 0~8）
+                        byte[] frame = BuildReadCmd(0, 9);
+                        ushort[] regs = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseUInt16ArrayAsync);
+
+                        if (regs != null && regs.Length >= 9)
+                        {
+                            sv = RegsToFloat(regs[0], regs[1]);
+                            pv = RegsToFloat(regs[2], regs[3]);
+                            temp = RegsToFloat(regs[4], regs[5]);
+                            press = RegsToFloat(regs[6], regs[7]);
+                            onoff = (short)regs[8];
+                        }
+                    }
+
+                    return new DeviceParameters()
+                    {
+                        Variables = new ObservableCollection<ParameterBase>()
+                        {
+                            new NumberParameter("SV",          0, 1000, sv,    "搅拌 SV",  true, "RPM"),
+                            new NumberParameter("PV",          0, 1000, pv,    "搅拌 PV",  true, "RPM"),
+                            new NumberParameter("Temperature", 0, 1000, temp,  "釜温",     true, "℃"),
+                            new NumberParameter("Pressure",    0, 1000, press, "压力",     true, "MPa"),
+                            new NumberParameter("ON/OFF",      0, 1,    onoff, "搅拌 ON/OFF(0:运行,1:停止)", true),
+                        }
+                    };
+                })
+            });
+        }
+        /// <summary>
+        /// 把两个寄存器(高字在前)按当前配置的浮点字节序拼成 float。
+        /// 复用 RestoreFloatByteOrder + ReverseArray，与单点读 SendAndParseSingleAsync 一致。
+        /// </summary>
+        private float RegsToFloat(ushort high, ushort low)
+        {
+            byte[] data = new byte[4]
+            {
+                (byte)(high >> 8), (byte)(high & 0xFF),
+                (byte)(low  >> 8), (byte)(low  & 0xFF),
+            };
+            byte[] abcd = RestoreFloatByteOrder(data);   // 按配置字节序还原成大端 ABCD
+            if (BitConverter.IsLittleEndian)
+                ReverseArray(abcd);                       // 大端 → 本机字节序
+            return BitConverter.ToSingle(abcd, 0);
+        }
 
         public Task<bool> OnFlowCompletedAsync(FlowCompletionContext context)
         {

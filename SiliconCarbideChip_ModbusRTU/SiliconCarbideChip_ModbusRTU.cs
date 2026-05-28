@@ -11,7 +11,7 @@ using System.Windows.Input;
 namespace SiliconCarbideChip_ModbusRTU
 {
     [Export(typeof(IDevice))]
-    public class SiliconCarbideChip_ModbusRTU : Device, IFlowLifecycleAware
+    public class SiliconCarbideChip_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
         private readonly ILogService _logger;
 
@@ -23,7 +23,7 @@ namespace SiliconCarbideChip_ModbusRTU
         // 用静态字典按 DeviceId 隔离不同设备实例
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> _instanceLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
 
-
+        public string ScreenKey => "SiliconCarbideChip";
         public SiliconCarbideChip_ModbusRTU()
         {
             _logger = LogManager.GetLogger<SiliconCarbideChip_ModbusRTU>();
@@ -403,6 +403,88 @@ namespace SiliconCarbideChip_ModbusRTU
                         ErrorLog($"获取进料系统集成碳化硅芯片背压阀ON/OFF失败：{e.Message}");
                         throw;
                     }
+                })
+            });
+            // 获取所有数据（屏幕轮询用，一条读全部 18 个寄存器）
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取所有数据",
+                HelpText = "一次读取 T1~T6、背压阀压力P、模式、SV%、P_SV、ON/OFF（屏幕轮询用，共18寄存器）",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("T1",0,1000,0,"温度 T1",true,"℃"),
+                        new NumberParameter("T2",0,1000,0,"温度 T2",true,"℃"),
+                        new NumberParameter("T3",0,1000,0,"温度 T3",true,"℃"),
+                        new NumberParameter("T4",0,1000,0,"温度 T4",true,"℃"),
+                        new NumberParameter("T5",0,1000,0,"温度 T5",true,"℃"),
+                        new NumberParameter("T6",0,1000,0,"温度 T6",true,"℃"),
+                        new NumberParameter("Pressure",0,1000,0,"背压阀压力P",true,"Bar"),
+                        new NumberParameter("Mode",0,1000,0,"背压阀模式",true),
+                        new NumberParameter("SV%",0,1000,0,"背压阀SV%",true),
+                        new NumberParameter("P SV",0,1000,0,"背压阀P SV",true),
+                        new NumberParameter("ON/OFF",0,1,0,"背压阀ON/OFF(0:运行,1:停止)",true),
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取所有数据", async parameter =>
+                {
+                    ComId = Parameters.GetValue<string>("DeviceId");
+                    float[] t = new float[6];
+                    float press = 0;
+                    int mode = 0, svp = 0, psv = 0, onoff = 0;
+
+                    if (IsSimulationMode)
+                    {
+                        await Task.Delay(200);
+                        var rnd = new Random();
+                        for (int i = 0; i < 6; i++) t[i] = (float)Math.Round(rnd.NextDouble() * 200, 1);
+                        press = (float)Math.Round(rnd.NextDouble() * 10, 2);
+                        mode = rnd.Next(0, 2) == 0 ? 1 : 4;
+                        svp = rnd.Next(0, 100);
+                        psv = rnd.Next(0, 100);
+                        onoff = rnd.Next(0, 2);
+                    }
+                    else
+                    {
+                        // 一次读 18 个寄存器（地址 0~17）
+                        byte[] frame = BuildReadCmd(0, 18);
+                        ushort[] regs = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseUInt16ArrayAsync);
+
+                        if (regs != null && regs.Length >= 18)
+                        {
+                            // T1~T6：寄存器 0~11，每 2 个一组解 float（与 ByteArrayToSingleArray 同字节序 DCBA）
+                            for (int i = 0; i < 6; i++)
+                                t[i] = (float)Math.Round(RegsToFloat(regs[i * 2], regs[i * 2 + 1]), 1);
+                            // 压力：寄存器 12~13
+                            press = (float)Math.Round(RegsToFloat(regs[12], regs[13]), 2);
+                            // Int 项
+                            mode = (short)regs[14];
+                            svp = (short)regs[15];
+                            psv = (short)regs[16];
+                            onoff = (short)regs[17];
+                        }
+                    }
+
+                    return new DeviceParameters()
+                    {
+                        Variables = new ObservableCollection<ParameterBase>()
+                        {
+                            new NumberParameter("T1",0,1000,t[0],"温度 T1",true,"℃"),
+                            new NumberParameter("T2",0,1000,t[1],"温度 T2",true,"℃"),
+                            new NumberParameter("T3",0,1000,t[2],"温度 T3",true,"℃"),
+                            new NumberParameter("T4",0,1000,t[3],"温度 T4",true,"℃"),
+                            new NumberParameter("T5",0,1000,t[4],"温度 T5",true,"℃"),
+                            new NumberParameter("T6",0,1000,t[5],"温度 T6",true,"℃"),
+                            new NumberParameter("Pressure",0,1000,press,"背压阀压力P",true,"Bar"),
+                            new NumberParameter("Mode",0,1000,mode,"背压阀模式",true),
+                            new NumberParameter("SV%",0,1000,svp,"背压阀SV%",true),
+                            new NumberParameter("P SV",0,1000,psv,"背压阀P SV",true),
+                            new NumberParameter("ON/OFF",0,1,onoff,"背压阀ON/OFF(0:运行,1:停止)",true),
+                        }
+                    };
                 })
             });
 
@@ -1547,7 +1629,17 @@ namespace SiliconCarbideChip_ModbusRTU
         {
             return Task.FromResult(true);
         }
-
+        private float RegsToFloat(ushort r0, ushort r1)
+        {
+            // 寄存器高字节在前；两个寄存器 4 字节按 ByteArrayToSingleArray 的 DCBA 还原
+            byte[] data = new byte[4]
+            {
+                (byte)(r0 >> 8), (byte)(r0 & 0xFF),
+                (byte)(r1 >> 8), (byte)(r1 & 0xFF),
+            };
+            byte[] temp = new byte[4] { data[3], data[2], data[1], data[0] };
+            return BitConverter.ToSingle(temp, 0);
+        }
 
         /// <summary>
         /// ZLanGateway 模式下的连接实现。发送 Modbus 读寄存器命令,若收到合法应答则视为连通。
@@ -2049,7 +2141,79 @@ namespace SiliconCarbideChip_ModbusRTU
             Array.Copy(frame, dataStartIndex, data, 0, dataLen);
             return data;
         }
+        // ============================================================================
+        //  补充方法：SendAndParseUInt16ArrayAsync
+        //  本驱动原本没有"读 ushort 数组"的方法，"获取所有数据"命令需要它。
+        //  把下面这个方法粘进 SiliconCarbideChip_ModbusRTU 类的通信层 #region 里
+        //  （和 SendAndParseSingleArrayAsync 放一起即可）。
+        //
+        //  作用：发一条 0x03 读命令，把应答的数据载荷按"高字节在前"解析成 ushort[]。
+        //  "获取所有数据"拿到这 18 个 ushort 后，温度/压力用 RegsToFloat 拼 float，
+        //  其余 Int 项直接取 (short)regs[n]。
+        // ============================================================================
 
+        /// <summary>
+        /// 读取 Modbus 多个寄存器，并解析为 UInt16 数组（高字节在前）。
+        /// </summary>
+        private async Task<ushort[]> SendAndParseUInt16ArrayAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var slim = GetInstanceLock();
+            await slim.WaitAsync(token).ConfigureAwait(false);
+
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(2)+CRC(2) = 7 字节
+                if (len < 7)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节", len);
+                    return Array.Empty<ushort>();
+                }
+
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}", expectedAddr, recv[0]);
+                    return Array.Empty<ushort>();
+                }
+
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return Array.Empty<ushort>();
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return Array.Empty<ushort>();
+                }
+
+                byte[] data = ExtractPayload(recv);
+                return ByteArrayToUshortArray(data);
+            }
+            finally
+            {
+                slim.Release();
+            }
+        }
+
+        /// <summary>
+        /// 字节数组转 ushort 数组（每 2 字节一个，高字节在前）。
+        /// </summary>
+        private ushort[] ByteArrayToUshortArray(byte[] data)
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data), "输入字节数为空");
+            if (data.Length == 0 || data.Length % 2 != 0)
+                throw new ArgumentException($"输入字节数组长度无效，应为2的倍数。长度：{data.Length}");
+
+            ushort[] result = new ushort[data.Length / 2];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = (ushort)(data[i * 2] << 8 | data[i * 2 + 1]);
+            return result;
+        }
         /// <summary>
         /// 反转字节数组（大小端互转）
         /// </summary>

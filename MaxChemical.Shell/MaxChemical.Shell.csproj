@@ -136,6 +136,8 @@
 	  <None Remove="Resources\Icon\user.png" />
 	  <None Remove="Resources\Icon\Valves.png" />
 	  <None Remove="Resources\Icon\zoom.png" />
+	  <None Remove="Resources\Screens\reactor_dark.png" />
+	  <None Remove="Resources\Screens\scc_tanks.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
 	</ItemGroup>
@@ -427,6 +429,24 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\PredictiveAssessment.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_arrow.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_bg.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_pipe.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_pump.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\reactor_dark.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_tanks.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Translations\en-US.json">
