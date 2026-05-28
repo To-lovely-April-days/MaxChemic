@@ -144,7 +144,7 @@ namespace HighLowTemperature_ModbusTCP
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
-                            outlet = await ConnectionManager.ReadAsync<float>(ComId, "温度SV");
+                            outlet = await ConnectionManager.ReadAsync<short>(ComId, "温度SV");
 
                             InfoLog($"获取ModbusTCP高低温设备温度SV，结果（SV：{outlet}）");
                         }
@@ -211,7 +211,7 @@ namespace HighLowTemperature_ModbusTCP
                             int temp = (int)(outlet * 10);
                             if (temp < 0)
                             {
-                                temp = 65535 - temp;
+                                temp = 65535 + temp;
                             }
                             success = await ConnectionManager.WriteAsync<int>(ComId, "温度SV", temp);
 
@@ -597,7 +597,7 @@ namespace HighLowTemperature_ModbusTCP
                     Variables = new ObservableCollection<ParameterBase>()
                     {
                         new BooleanParameter("FixedOnOff", false,"定值启动/停止",true),
-                        new BooleanParameter("FixedOnOff", false,"刷新停止",true),
+                        new BooleanParameter("FixedOff", false,"刷新停止",true),
                         new BooleanParameter("FixedOn", false,"刷新启动",true),
                         new BooleanParameter("PatternOnOff", false,"程式启动/停止",true),
                         new BooleanParameter("PatternOff", false,"停止",true),
@@ -626,12 +626,12 @@ namespace HighLowTemperature_ModbusTCP
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
                             Task<bool>[] tasks = new Task<bool>[6];
-                            tasks[0] = ConnectionManager.ReadAsync<bool>(ComId, "启动/停止");
-                            tasks[1] = ConnectionManager.ReadAsync<bool>(ComId, "启动界面");
-                            tasks[2] = ConnectionManager.ReadAsync<bool>(ComId, "停止界面");
-                            tasks[3] = ConnectionManager.ReadAsync<bool>(ComId, "程式启动/停止");
-                            tasks[4] = ConnectionManager.ReadAsync<bool>(ComId, "程式启动界面");
-                            tasks[5] = ConnectionManager.ReadAsync<bool>(ComId, "程式停止界面");
+                            tasks[0] = ConnectionManager.ReadAsync<bool>(ComId, "启动/停止");//4
+                            tasks[1] = ConnectionManager.ReadAsync<bool>(ComId, "启动界面");//3
+                            tasks[2] = ConnectionManager.ReadAsync<bool>(ComId, "停止界面");//5
+                            tasks[3] = ConnectionManager.ReadAsync<bool>(ComId, "程式启动/停止");//7
+                            tasks[4] = ConnectionManager.ReadAsync<bool>(ComId, "程式启动界面");//6
+                            tasks[5] = ConnectionManager.ReadAsync<bool>(ComId, "程式停止界面");//8
 
                             await Task.WhenAll(tasks);
 
@@ -652,11 +652,11 @@ namespace HighLowTemperature_ModbusTCP
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new BooleanParameter("FixedOnOff", result[0],"定值启动/停止",true),
-                                new BooleanParameter("FixedOnOff", result[2],"刷新停止",true),
                                 new BooleanParameter("FixedOn", result[1],"刷新启动",true),
+                                new BooleanParameter("FixedOff", result[2],"刷新停止",true),
                                 new BooleanParameter("PatternOnOff", result[3],"程式启动/停止",true),
-                                new BooleanParameter("PatternOff", result[5],"停止",true),
-                                new BooleanParameter("PatternOn", result[4],"启动",true)
+                                new BooleanParameter("PatternOn", result[4],"启动",true),
+                                new BooleanParameter("PatternOff", result[5],"停止",true)
                             }
                         };
                     }

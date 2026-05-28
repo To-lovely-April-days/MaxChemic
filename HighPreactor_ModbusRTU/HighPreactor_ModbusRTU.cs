@@ -2664,9 +2664,9 @@ namespace HighPreactor_ModbusRTU
             try
             {
                 InfoLog("通过 ZLAN 网关测试连接");
-                byte[] sendCmd = BuildReadCmd(register: 29, count: 1);
+                byte[] sendCmd = BuildReadCmd(register: 251, count: 1);
                 var pressure = await SendAndReceiveWrapperAsync(sendCmd, CancellationToken.None, SendAndParseInt16Async);
-                InfoLog($"网关连接成功,当前报警状态 {pressure}");
+                InfoLog($"网关连接成功,当前搅拌速度 PV {pressure}");
                 return true;
             }
             catch (TimeoutException)
@@ -2817,7 +2817,7 @@ namespace HighPreactor_ModbusRTU
                 (byte)(register >> 8),(byte)(register & 0xFF),
                 0x00, 0x02,
                 0x04,
-                bytes[2], bytes[3], bytes[0], bytes[1]
+                bytes[0], bytes[1], bytes[2], bytes[3]
             };
 
             return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
@@ -3045,15 +3045,13 @@ namespace HighPreactor_ModbusRTU
                     return 0;
                 }
 
-                // 提取数据载荷 (CDAB)
+                // 提取数据载荷 (ABCD)
                 byte[] data = ExtractPayload(recv);
-                // 将获取到的数据转换成大端序
-                byte[] abcd = { data[2], data[3], data[0], data[1] };
                 if (BitConverter.IsLittleEndian)
                 {
-                    ReverseArray(abcd);
+                    ReverseArray(data);
                 }
-                return BitConverter.ToInt32(abcd, 0);
+                return BitConverter.ToInt32(data, 0);
             }
             finally
             {
@@ -3151,15 +3149,15 @@ namespace HighPreactor_ModbusRTU
             byte[] temp = new byte[4];
             for (int i = 0; i < result.Length; i++)
             {
-                temp[3] = data[4 * i + 2]; // A
-                temp[2] = data[4 * i + 3]; // B
-                temp[1] = data[4 * i];     // C
-                temp[0] = data[4 * i + 1]; // D
-                if (!BitConverter.IsLittleEndian)
+                temp[3] = data[4 * i + 3];
+                temp[2] = data[4 * i + 2];
+                temp[1] = data[4 * i + 1];
+                temp[0] = data[4 * i];
+                if (BitConverter.IsLittleEndian)
                 {
                     ReverseArray(temp);
                 }
-                result[i] = BitConverter.ToSingle(temp, 0);
+                result[i] = BitConverter.ToInt32(temp, 0);
             }
             return result;
         }
