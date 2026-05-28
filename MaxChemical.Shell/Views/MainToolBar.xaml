@@ -257,7 +257,7 @@
                 </Button>
 
                 <Button Style="{StaticResource ToolBarButtonStyle}" 
-                        Command="{Binding SettingsCommand}"
+                        Command="{Binding ShowLogViewCommand}"
                         ToolTip="{Binding TooltipLog}">
                     <Image Source="pack://siteoforigin:,,,/Resources/Icon/Historicalrecords.png" 
                            Width="20" Height="20"
