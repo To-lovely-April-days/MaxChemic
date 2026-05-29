@@ -188,6 +188,9 @@ public partial class App : PrismApplication
         {
             //  应用退出时才关闭Python环境
             //PythonEnvironmentManager.Instance.Dispose();
+
+            // 清理日志记录缓存
+            LogMessageCache.Instance.Clear();
         }
         catch (Exception ex)
         {

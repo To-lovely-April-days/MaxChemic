@@ -42,12 +42,12 @@
 
         <Style TargetType="ListBox">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <!--<Setter Property="OverridesDefaultStyle" Value="True"/>-->
-            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Margin" Value="4"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBox">
-                        <ScrollViewer VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Visible" CanContentScroll="True">
+                        <ScrollViewer CanContentScroll="True">
                             <StackPanel IsItemsHost="True"/>
                         </ScrollViewer>
                     </ControlTemplate>
@@ -60,7 +60,7 @@
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Margin" Value="0,2"/>
-            <Setter Property="Height" Value="24"/>
+            <Setter Property="MinHeight" Value="24"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -112,7 +112,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ScrollBar">
                         <Grid Background="{TemplateBinding Background}">
-                            <Track x:Name="PART_Track" Width="8" Margin="4,0" IsDirectionReversed="True">
+                            <Track x:Name="PART_Track" Width="8" Margin="4,0,0,0" IsDirectionReversed="True">
                                 <Track.Thumb>
                                     <Thumb x:Name="Thumb" Style="{StaticResource ScrollBarThumbStyle}"/>
                                 </Track.Thumb>
@@ -139,7 +139,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ScrollBar}">
                         <Grid Background="{TemplateBinding Background}">
-                            <Track x:Name="PART_Track" Height="8" Margin="0,4">
+                            <Track x:Name="PART_Track" Height="8" Margin="0,4,0,0">
                                 <Track.Thumb>
                                     <Thumb Style="{StaticResource ScrollBarThumbStyle}"/>
                                 </Track.Thumb>
@@ -161,6 +161,8 @@
         <Style TargetType="ScrollViewer">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ScrollViewer">
@@ -243,7 +245,8 @@
                         <RowDefinition/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <ListBox VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                    <ListBox VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
                              ItemsSource="{Binding LogMessages}"
                              ItemTemplate="{StaticResource LogMessageTemplate}"/>
                     

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Timers;
 using System.Windows.Threading;
 
@@ -44,6 +45,12 @@ namespace MaxChemical.Core
             _timer.Start();
         }
 
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Timer_Elapsed(object? sender, EventArgs e)
         {
             if (_receiveHandler is null)
@@ -111,17 +118,17 @@ namespace MaxChemical.Core
 
         #region 添加日志记录的相关公共方法
 
-        public void AddTrace(string source, string content) => AddLogMessage(LogMessageLevel.Trace, source, content);
+        public void AddTrace(string templateMessage, params object[] args) => AddLogMessage(LogMessageLevel.Trace, templateMessage, args);
 
-        public void AddDebug(string source, string content) => AddLogMessage(LogMessageLevel.Debug, source, content);
+        public void AddDebug(string templateMessage, params object[] args) => AddLogMessage(LogMessageLevel.Debug, templateMessage, args);
 
-        public void AddInfo(string source, string content) => AddLogMessage(LogMessageLevel.Info, source, content);
+        public void AddInfo(string templateMessage, params object[] args) => AddLogMessage(LogMessageLevel.Info, templateMessage, args);
 
-        public void AddWarn(string source, string content) => AddLogMessage(LogMessageLevel.Warn, source, content);
+        public void AddWarn(string templateMessage, params object[] args) => AddLogMessage(LogMessageLevel.Warn, templateMessage, args);
 
-        public void AddError(string source, string content) => AddLogMessage(LogMessageLevel.Err, source, content);
+        public void AddError(string templateMessage, params object[] args) => AddLogMessage(LogMessageLevel.Err, templateMessage, args);
 
-        public void AddCritical(string source, string content) => AddLogMessage(LogMessageLevel.Crit, source, content);
+        public void AddCritical(string templateMessage, params object[] args) => AddLogMessage(LogMessageLevel.Crit, templateMessage, args);
 
         #endregion
 
@@ -136,22 +143,21 @@ namespace MaxChemical.Core
                 _logMessages.Clear();
             }
 
-            //_timer.Stop();
-            //_timer.Dispose();
+            _timer.Stop();
+            _timer.Dispose();
         }
 
         /// <summary>
         /// 添加日志消息对象到队列(线程安全+自动移除旧日志)
         /// </summary>
         /// <param name="msg"></param>
-        private void AddLogMessage(LogMessageLevel level, string source, string content)
+        private void AddLogMessage(LogMessageLevel level, string templateMessage, params object[] args)
         {
             var msg = new LogMessage
             {
                 Timestamp = DateTime.Now.ToString("HH:mm:ss"),
                 Level = level.ToString(),
-                Source = source ?? string.Empty,
-                Content = content ?? string.Empty
+                Content = ParseMessageTemplate(templateMessage, args)
             };
 
             lock (_msgLock)
@@ -165,6 +171,38 @@ namespace MaxChemical.Core
             }
         }
 
+        /// <summary>
+        /// 解析模板化的字符串
+        /// </summary>
+        /// <param name="templateMessage"></param>
+        /// <param name="args"></param>
+        /// <returns></returns>
+        private string ParseMessageTemplate(string templateMessage, params object[] args)
+        {
+            if (string.IsNullOrWhiteSpace(templateMessage))
+            {
+                return "";
+            }
+
+            if (args == null || args.Length == 0)
+            {
+                return templateMessage;
+            }
+
+            int index = 0;
+
+            // 使用正则表达式替换 {任意文本} 字符串
+            var msg = Regex.Replace(templateMessage, "\\{[^{}]*\\}", match =>
+            {
+                if (index < args.Length)
+                {
+                    return string.Format("{0}", args[index++]);
+                }
+                return match.Value;
+            });
+
+            return msg;
+        }
     }
 
     /// <summary>

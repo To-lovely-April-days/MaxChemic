@@ -136,8 +136,11 @@
 	  <None Remove="Resources\Icon\user.png" />
 	  <None Remove="Resources\Icon\Valves.png" />
 	  <None Remove="Resources\Icon\zoom.png" />
+	  <None Remove="Resources\Screens\pressure_reset.png" />
 	  <None Remove="Resources\Screens\reactor_dark.png" />
 	  <None Remove="Resources\Screens\scc_tanks.png" />
+	  <None Remove="Resources\Screens\sips_body.png" />
+	  <None Remove="Resources\Screens\sips_bottom.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
 	</ItemGroup>
@@ -431,6 +434,9 @@
 	  <EmbeddedResource Include="Resources\Icon\PredictiveAssessment.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\pressure_reset.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\scc_arrow.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -447,6 +453,12 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\scc_tanks.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_body.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_bottom.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Translations\en-US.json">

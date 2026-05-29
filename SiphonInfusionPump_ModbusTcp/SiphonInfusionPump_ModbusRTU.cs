@@ -9,7 +9,7 @@ using System.Diagnostics;
 namespace SiphonInfusionPump_ModbusTcp
 {
     [Export(typeof(IDevice))]
-    public class SiphonInfusionPump_ModbusRTU : Device, IFlowLifecycleAware
+    public class SiphonInfusionPump_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
         private readonly ILogService _logger;
 
@@ -88,14 +88,21 @@ namespace SiphonInfusionPump_ModbusTcp
             InitializeCommands();
         }
 
+
         /// <summary>
         /// 声明本驱动支持通过 ZLAN 网关通信。
         /// </summary>
         public override bool SupportsZLanGateway => true;
 
+        /// <summary>
+        /// 
+        /// </summary>
+        public string ScreenKey => "SiphonInfusionPump";
+
+
         private void InitializeCommands()
         {
-            // 停止
+            // 停止 0x07
             Commands.Add(new DeviceCommand()
             {
                 Name = "停止泵",
@@ -149,7 +156,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 启动
+            // 启动 0x05
             Commands.Add(new DeviceCommand()
             {
                 Name = "启动泵",
@@ -202,7 +209,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 冲洗
+            // 冲洗 0x06
             Commands.Add(new DeviceCommand()
             {
                 Name = "冲洗",
@@ -255,7 +262,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 重置压力
+            // 重置压力 0x08
             Commands.Add(new DeviceCommand()
             {
                 Name = "重置压力",
@@ -278,8 +285,8 @@ namespace SiphonInfusionPump_ModbusTcp
 
                         if (IsSimulationMode)
                         {
-                            await Task.Delay(2000);
-                            success = true;
+                            await Task.Delay(1000);
+                            success = new Random().Next(0, 2) == 1 ? true : false;
                             InfoLog("模拟模式平流输液泵重置压力");
                         }
                         else
@@ -550,7 +557,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 获取实时压力
+            // 获取实时压力 0x04
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取实时压力",
@@ -597,7 +604,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 获取压力上限
+            // 获取压力上限 0x02
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取压力上限",
@@ -644,7 +651,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 获取压力下限
+            // 获取压力下限 0x03
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取压力下限",
@@ -691,7 +698,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 获取流量
+            // 获取流量 0x00
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取流量",
@@ -738,7 +745,7 @@ namespace SiphonInfusionPump_ModbusTcp
                 })
             });
 
-            // 获取流量2
+            // 获取流量2 0x01
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取流量2",
@@ -780,6 +787,73 @@ namespace SiphonInfusionPump_ModbusTcp
                     catch (Exception e)
                     {
                         ErrorLog($"获取平流输液泵流量2失败:{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取所有数据，可视化见面轮询用
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取所有数据",
+                HelpText = "获取平流输液泵所有数据",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("Flow", -10000, 100000, 0,"平流输液泵当前流量", true, "Ml/Min"),
+                        new NumberParameter("Pressure", -10000, 100000, 0,"平流输液泵当前流量2", true, "Ml/Min"),
+                        new NumberParameter("Run", -10000, 100000, 0,"平流输液泵是否启动", true),
+                        new NumberParameter("Stop", -10000, 100000, 0,"平流输液泵是否停止", true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取所有数据", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        short flow = 0;
+                        short pressure = 0;
+                        short run = 0;
+                        short stop = 0;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            flow = (short)new Random().Next(0, 100);
+                            pressure = (short)new Random().Next(0, 100);
+                            run = (short)new Random().Next(0, 2);
+                            stop = (short)(run == 1 ? 0 : 1);
+                        }
+                        else
+                        {
+                            byte[] frame = BuildReadCmd(register: 0x0000, count: 0x0008);
+                            short[] result = await SendAndParseInt16ArrayAsync(frame, CancellationToken.None);
+                            if (result?.Length == 8)
+                            {
+                                flow = result[0];    // 寄存器地址 0
+                                pressure = result[4];// 寄存器地址 4
+                                run = result[5];     // 寄存器地址 5
+                                stop = result[7];    // 寄存器地址 7
+                            }
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("Flow", -10000, 100000, flow/10.0,"平流输液泵当前流量", true, "Ml/Min"),
+                                new NumberParameter("Pressure", -10000, 100000, pressure/10.0,"平流输液泵当前流量2", true, "Ml/Min"),
+                                new NumberParameter("Run", -10000, 100000, run,"平流输液泵是否启动", true),
+                                new NumberParameter("Stop", -10000, 100000, stop,"平流输液泵是否停止", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取平流输液泵所有数据失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1233,6 +1307,87 @@ namespace SiphonInfusionPump_ModbusTcp
             }
         }
 
+        private async Task<short[]> SendAndParseInt16ArrayAsync(byte[] sendCmd, CancellationToken token)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    return await SendAndParseInt16ArrayOnceAsync(sendCmd, token).ConfigureAwait(false);
+                }
+                catch (TimeoutException ex)
+                {
+                    lastException = ex;
+                    if (attempt < MaxRetries)
+                    {
+                        _logger?.LogWarning("Modbus 读取超时 (第 {Attempt}/{Total} 次),{Delay}ms 后重试",
+                            attempt, MaxRetries, RetryDelayMs);
+                        await Task.Delay(RetryDelayMs, token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 非超时异常(协议错、CRC 错、字节流非法)不重试,直接抛
+                    _logger?.LogError(ex, "Modbus 读取失败(非超时,不重试)");
+                    throw;
+                }
+            }
+
+            throw new TimeoutException(
+                $"Modbus 读取失败,{MaxRetries} 次尝试后仍超时", lastException);
+        }
+
+        private async Task<short[]> SendAndParseInt16ArrayOnceAsync(byte[] sendCmd, CancellationToken token)
+        {
+            var sem = GetInstanceLock();
+            await sem.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                byte[] recv = new byte[256];
+                using var transport = await GetTransportAsync().ConfigureAwait(false);
+                int len = await transport.SendAndReceiveAsync(sendCmd, recv, 3000, token).ConfigureAwait(false);
+
+                // 应答最短:站号(1)+功能码(1)+长度(1)+数据(2)+CRC(2) = 7 字节
+                if (len < 7)
+                {
+                    _logger?.LogWarning("应答帧长度不足:{Len} 字节,需要至少 7 字节", len);
+                    return Array.Empty<short>();
+                }
+
+                // 校验站号
+                byte expectedAddr = GetSlaveAddress();
+                if (recv[0] != expectedAddr)
+                {
+                    _logger?.LogWarning("站号不匹配:期望 0x{Expected:X2},实际 0x{Actual:X2}",
+                        expectedAddr, recv[0]);
+                    return Array.Empty<short>();
+                }
+
+                // 校验功能码(异常码 0x83 单独识别)
+                if ((recv[1] & 0x80) != 0)
+                {
+                    _logger?.LogWarning("Modbus 异常应答,异常码 0x{Code:X2}", recv[2]);
+                    return Array.Empty<short>();
+                }
+                if (recv[1] != 0x03)
+                {
+                    _logger?.LogWarning("功能码不匹配:期望 0x03,实际 0x{Actual:X2}", recv[1]);
+                    return Array.Empty<short>();
+                }
+
+                // 提取数据载荷
+                byte[] data = ExtractPayload(recv);
+                
+                return ByteArrayToShortArray(data);
+            }
+            finally
+            {
+                sem.Release();
+            }
+        }
+
         /// <summary>
         /// 通过基类的 CreateTransportAsync 获取 Transport。
         /// </summary>
@@ -1254,6 +1409,21 @@ namespace SiphonInfusionPump_ModbusTcp
         #endregion
 
         #region Modbus 工具
+
+        /// <summary>
+        /// 字节数组转 ushort 数组（每 2 字节一个，高字节在前）。
+        /// </summary>
+        private short[] ByteArrayToShortArray(byte[] data)
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data), "输入字节数为空");
+            if (data.Length == 0 || data.Length % 2 != 0)
+                throw new ArgumentException($"输入字节数组长度无效，应为2的倍数。长度：{data.Length}");
+
+            short[] result = new short[data.Length / 2];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = (short)(data[i * 2] << 8 | data[i * 2 + 1]);
+            return result;
+        }
 
         /// <summary>
         /// 从 Modbus RTU 应答帧中提取数据载荷(去掉地址、功能码、长度、CRC)。

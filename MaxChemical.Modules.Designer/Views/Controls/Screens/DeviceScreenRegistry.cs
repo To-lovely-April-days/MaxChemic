@@ -68,7 +68,12 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Factory = () => new SiliconCarbideChipScreen(),
                     Resolution = new Size(1240, 620),
                 });
-             
+                Register("SiphonInfusionPump", new ScreenRegistration
+                {
+                    Factory = () => new SiphonInfusionPumpScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
                 _initialized = true;

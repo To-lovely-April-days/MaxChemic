@@ -3,16 +3,20 @@ using MaxChemical.Data.Services;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
+using MaxChemical.Modules.Designer.Event;
+using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.GatewayConfig.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
-using MaxChemical.Modules.GatewayConfig.Services;
 
 namespace MaxChemical.Shell.ViewModels;
 
@@ -25,6 +29,12 @@ public class MainMenuBarViewModel : BindableBase
     private readonly IExcelExportService _excelExportService;
     private readonly ILogService _logger;
     private readonly IGatewayConfigWindowService _gatewayConfigWindowService;
+    private readonly IProjectNameDialogProvider _projectNameDialogProvider;
+    private readonly IProjectDataService _projectDataService;
+    private readonly ICanvasDataService _canvasDataService;
+    private readonly ICanvasStateService _canvasStateService;
+    private readonly IDialogService _dialogService;
+
     private bool _isToolbarVisible = true;
     private bool _isStatusBarVisible = true;
     private bool _isPropertyPanelVisible = true;
@@ -55,16 +65,31 @@ public class MainMenuBarViewModel : BindableBase
     private string _menuCheckUpdate = string.Empty;
     private string _menuAbout = string.Empty;
 
-    public MainMenuBarViewModel(IEventAggregator eventAggregator, ILocalizationService localizationService,
-         IExperimentDataRepository experimentRepository, IExcelExportService excelExportService, ILogService logger,
-         IGatewayConfigWindowService gatewayConfigWindowService)
+    public MainMenuBarViewModel(
+        IEventAggregator eventAggregator,
+        ILocalizationService localizationService,
+        IExperimentDataRepository experimentRepository,
+        IExcelExportService excelExportService,
+        ILogService logger,
+        IGatewayConfigWindowService gatewayConfigWindowService,
+        ICanvasDataService canvasDataService,
+        ICanvasStateService canvasStateService,
+        IProjectNameDialogProvider projectNameDialogProvider,
+        IProjectDataService projectDataService,
+        IDialogService dialogService)
     {
         _eventAggregator = eventAggregator;
         _localizationService = localizationService;
         _experimentRepository = experimentRepository ?? throw new ArgumentNullException(nameof(experimentRepository));
         _excelExportService = excelExportService ?? throw new ArgumentNullException(nameof(excelExportService));
-        _logger=logger.ForContext<MainMenuBarViewModel>();
+        _logger = logger.ForContext<MainMenuBarViewModel>();
         _gatewayConfigWindowService = gatewayConfigWindowService;  //  新增
+        _projectNameDialogProvider = projectNameDialogProvider ?? throw new ArgumentNullException(nameof(projectNameDialogProvider));
+        _projectDataService = projectDataService ?? throw new ArgumentNullException(nameof(projectDataService));
+        _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
+        _canvasStateService = canvasStateService ?? throw new ArgumentNullException(nameof(canvasStateService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+
         InitializeCommands();
         LoadLocalizedStrings();
         LoadRecentFiles();
@@ -443,15 +468,325 @@ public class MainMenuBarViewModel : BindableBase
     #region Command Implementations
 
     // 文件命令实现
-    private void ExecuteNewProject() => MessageBox.Show(_localizationService.GetString("Message_NewProject"), _localizationService.GetString("Message_Info"));
-
-    private void ExecuteOpenProject()
+    private void ExecuteNewProject()
     {
-        MessageBox.Show(_localizationService.GetString("Message_OpenProject"), _localizationService.GetString("Message_Info"));
+        try
+        {
+            if (_canvasStateService.HasUnsavedChanges)
+            {
+                var result = _dialogService.ShowConfirmation(
+                    "当前项目有未保存的修改，是否先保存？",
+                    "新建项目");
+
+                if (result)
+                {
+                    ExecuteSave();
+                    if (_canvasStateService.HasUnsavedChanges)
+                    {
+                        return;
+                    }
+                }
+            }
+            // 使用项目名称对话框服务
+            _projectNameDialogProvider.ShowDialog(
+                defaultName: $"新建项目_{DateTime.Now:yyyyMMdd_HHmmss}",
+                onCompleted: (projectName) =>
+                {
+                    if (!string.IsNullOrEmpty(projectName))
+                    {
+                        CreateNewProjectWithName(projectName);
+                    }
+                    // 如果projectName为null，表示用户取消了操作
+                });
+
+
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"创建新项目失败: {ex.Message}", "错误");
+        }
     }
 
-    private void ExecuteSave() => MessageBox.Show(_localizationService.GetString("Message_Save"), _localizationService.GetString("Message_Info"));
-    private void ExecuteSaveAs() => MessageBox.Show(_localizationService.GetString("Message_SaveAs"), _localizationService.GetString("Message_Info"));
+    private (double, double) GetCurrentCanvasSize()
+    {
+        double width = 1200, height = 800;
+
+        try
+        {
+            var resetEvent = new ManualResetEventSlim(false);
+
+            _eventAggregator?.GetEvent<GetCanvasSizeRequestEvent>()?.Publish((w, h) =>
+            {
+                width = w;
+                height = h;
+                resetEvent.Set();
+            });
+
+            if (!resetEvent.Wait(TimeSpan.FromSeconds(1)))
+            {
+                // 超时处理
+            }
+        }
+        catch (Exception ex)
+        {
+            // 异常处理
+        }
+
+        return (width, height);
+    }
+
+    private void CreateNewProjectWithName(string projectName)
+    {
+        try
+        {
+            // 获取当前画布尺寸
+            var (canvasWidth, canvasHeight) = GetCurrentCanvasSize();
+
+            // 创建新的画布数据
+            var newCanvas = _canvasDataService.CreateNewCanvas(canvasWidth, canvasHeight);
+
+            // 设置当前区域布局
+            //CurrentRegionLayout = newCanvas.RegionLayout;
+
+            // 使用用户输入的项目名称创建新项目
+            var newProject = CreateNewProjectWithCustomName(projectName, canvasWidth, canvasHeight, newCanvas);
+
+            // 重置状态
+            _canvasStateService.Reset();
+
+            _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
+
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // 发布新项目名称
+                _eventAggregator?.GetEvent<ProjectNameUpdatedEvent>()?.Publish(projectName);
+
+                _eventAggregator?.GetEvent<NewProjectCreatedEvent>()?.Publish(newProject);
+                _eventAggregator?.GetEvent<RegionLayoutUpdatedEvent>()?.Publish(newCanvas.RegionLayout);
+                _eventAggregator?.GetEvent<NewCanvasCreatedEvent>()?.Publish(newCanvas);
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"新建项目 '{projectName}' 创建成功");
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"创建项目失败: {ex.Message}", "错误");
+        }
+    }
+
+    private ProjectDocument CreateNewProjectWithCustomName(string projectName, double canvasWidth, double canvasHeight, CanvasDocument newCanvas)
+    {
+        var newProject = new ProjectDocument
+        {
+            Name = projectName, // 使用用户输入的名称
+            Description = $"项目创建于 {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+            CanvasDesign = new CanvasDesignData
+            {
+                Id = newCanvas.Id,
+                Name = newCanvas.Name,
+                CreatedTime = newCanvas.CreatedTime,
+                LastModifiedTime = newCanvas.LastModifiedTime,
+                RegionLayout = newCanvas.RegionLayout,
+                Devices = newCanvas.Devices,
+                Connections = newCanvas.Connections,
+                CanvasWidth = canvasWidth,
+                CanvasHeight = canvasHeight
+            },
+            FlowDesign = new FlowDesignData
+            {
+                Name = "流程设计",
+                CanvasWidth = Math.Max(canvasWidth, 1200),
+                CanvasHeight = Math.Max(canvasHeight, 800),
+                StartNodeX = (Math.Max(canvasWidth, 1200) - 231) / 2,
+                StartNodeY = 20
+            }
+        };
+
+        return newProject;
+    }
+
+    /// <summary>
+    /// 统一的打开功能
+    /// </summary>
+    private void ExecuteOpenProject()
+    {
+        try
+        {
+            // 检查当前是否有未保存的修改
+            if (_canvasStateService.HasUnsavedChanges)
+            {
+                var result = _dialogService.ShowConfirmation(
+                    "当前项目有未保存的修改，是否先保存？",
+                    "打开项目");
+
+                if (result)
+                {
+                    ExecuteSave();
+                    if (_canvasStateService.HasUnsavedChanges)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            // 显示打开文件对话框
+            var fileName = _dialogService.ShowOpenFileDialog(
+                "MaxChemical 项目文件|*.mcp|JSON 文件|*.json|所有文件|*.*");
+
+            if (string.IsNullOrEmpty(fileName))
+                return;
+
+            // 根据文件扩展名判断文件类型
+            var extension = System.IO.Path.GetExtension(fileName).ToLower();
+
+            if (extension == ".mcp")
+            {
+                // 加载项目文件
+                LoadProjectFile(fileName);
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"打开文件失败: {ex.Message}", "打开失败");
+        }
+    }
+
+    /// <summary>
+    /// 加载项目文件
+    /// </summary>
+    private void LoadProjectFile(string fileName)
+    {
+        // 加载项目文档
+        var projectDocument = _projectDataService.LoadProject(fileName);
+
+        if (projectDocument == null)
+        {
+            _dialogService.ShowError("无法加载项目文件，文件可能已损坏", "打开失败");
+            return;
+        }
+
+        // 设置当前文件路径
+        _canvasStateService.SetCurrentFile(fileName);
+
+        // *** 新增：获取文件名并发布事件 ***
+        var projectName = System.IO.Path.GetFileNameWithoutExtension(fileName);
+
+        // 清空当前内容并加载新项目
+        _eventAggregator?.GetEvent<ClearProjectRequestEvent>()?.Publish();
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                // *** 新增：发布项目名称更新事件 ***
+                _eventAggregator?.GetEvent<ProjectNameUpdatedEvent>()?.Publish(projectName);
+
+                _eventAggregator?.GetEvent<LoadProjectRequestEvent>()?.Publish(projectDocument);
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"项目加载成功: {System.IO.Path.GetFileName(fileName)}");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"加载项目内容失败: {ex.Message}", "加载失败");
+            }
+        }), System.Windows.Threading.DispatcherPriority.Normal);
+    }
+
+    /// <summary>
+    /// 保存项目到文件
+    /// </summary>
+    private void SaveProjectToFile(ProjectDocument projectData, string fileName)
+    {
+        Debug.WriteLine($"开始保存项目到: {fileName}");
+
+        // 设置项目名称
+        projectData.Name = System.IO.Path.GetFileNameWithoutExtension(fileName);
+
+        bool success = _projectDataService.SaveProject(projectData, fileName);
+
+        if (success)
+        {
+            // 标记为已保存
+            _canvasStateService.MarkAsSaved();
+
+            _eventAggregator?.GetEvent<Modules.Designer.Event.ProjectSavedEvent>()?.Publish(fileName);
+            _eventAggregator?.GetEvent<FileSavedEvent>()?.Publish(fileName);
+            _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish($"项目已保存到: {System.IO.Path.GetFileName(fileName)}");
+
+            Debug.WriteLine($"项目保存成功: {fileName}");
+            _dialogService.ShowInfo("项目保存成功", "保存");
+        }
+        else
+        {
+            _dialogService.ShowError("项目保存失败", "保存");
+        }
+    }
+
+    private void ExecuteSave()
+    {
+        try
+        {
+            Debug.WriteLine("执行统一保存命令");
+            Debug.WriteLine($"当前文件路径: {_canvasStateService.CurrentFilePath ?? "无"}");
+
+            // 获取当前完整项目数据
+            var currentProjectData = _projectDataService.GetCurrentProjectData();
+            if (currentProjectData == null)
+            {
+                _dialogService.ShowError("无法获取当前项目数据", "保存失败");
+                return;
+            }
+
+            // 如果有当前文件路径，直接保存；否则执行另存为
+            if (!string.IsNullOrEmpty(_canvasStateService.CurrentFilePath))
+            {
+                SaveProjectToFile(currentProjectData, _canvasStateService.CurrentFilePath);
+            }
+            else
+            {
+                ExecuteSaveAs();
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"保存失败: {ex.Message}", "保存失败");
+        }
+    }
+
+    /// <summary>
+    /// 统一的另存为功能
+    /// </summary>
+    private void ExecuteSaveAs()
+    {
+        try
+        {
+            Debug.WriteLine("执行统一另存为命令");
+
+            var fileName = _dialogService.ShowSaveFileDialog(
+                "MaxChemical 项目文件|*.mcp|JSON 文件|*.json|所有文件|*.*",
+                ".mcp");
+
+            if (string.IsNullOrEmpty(fileName))
+            {
+                Debug.WriteLine("用户取消了另存为操作");
+                return;
+            }
+
+            var currentProjectData = _projectDataService.GetCurrentProjectData();
+            if (currentProjectData == null)
+            {
+                _dialogService.ShowError("无法获取当前项目数据", "另存为失败");
+                return;
+            }
+
+            SaveProjectToFile(currentProjectData, fileName);
+            _canvasStateService.SetCurrentFile(fileName);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"另存为失败: {ex.Message}", "另存为失败");
+        }
+    }
 
     private void ExecuteOpenRecent(string? filePath)
     {
