@@ -153,9 +153,9 @@
                         <Grid Margin="28,18,28,18">
 
                             <!-- ══════════════════════════════
-                                 Step 1: 因子定义{Binding IsStep1Visible, Converter={StaticResource BoolToVis}}
+                                 Step 1: 因子定义
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="Collapsed">
+                            <StackPanel Visibility="{Binding IsStep1Visible, Converter={StaticResource BoolToVis}}">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 1" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
@@ -296,9 +296,9 @@
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 2: 设计方法（纯卡片点选，无 RadioButton 圆圈）{Binding IsStep2Visible, Converter={StaticResource BoolToVis}}
+                                 Step 2: 设计方法（纯卡片点选，无 RadioButton 圆圈）
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="Collapsed">
+                            <StackPanel Visibility="{Binding IsStep2Visible, Converter={StaticResource BoolToVis}}">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 2" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
@@ -474,9 +474,9 @@
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 3: 矩阵预览{Binding IsStep3Visible, Converter={StaticResource BoolToVis}}
+                                 Step 3: 矩阵预览
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="Collapsed">
+                            <StackPanel Visibility="{Binding IsStep3Visible, Converter={StaticResource BoolToVis}}">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 3" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
@@ -513,9 +513,9 @@
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 4: 响应与条件{Binding IsStep4Visible, Converter={StaticResource BoolToVis}}
+                                 Step 4: 响应与条件
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="Collapsed">
+                            <StackPanel Visibility="{Binding IsStep4Visible, Converter={StaticResource BoolToVis}}">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 4" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
@@ -606,9 +606,9 @@
                             </StackPanel>
 
                             <!-- ══════════════════════════════
-                                 Step 5: 确认保存{Binding IsStep5Visible, Converter={StaticResource BoolToVis}}
+                                 Step 5: 确认保存
                                  ══════════════════════════════ -->
-                            <StackPanel Visibility="Collapsed">
+                            <StackPanel Visibility="{Binding IsStep5Visible, Converter={StaticResource BoolToVis}}">
                                 <Border Background="{StaticResource WzPrimaryLight}" CornerRadius="4" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,8">
                                     <TextBlock Text="STEP 5" Style="{StaticResource WzStepBadge}"/>
                                 </Border>
