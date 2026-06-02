@@ -36,7 +36,8 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
 
             // 更新流量值
             double flow = output.GetValue<double>("Flow");
-            TbFlow.Text = flow.ToString();
+            if (!TbFlow.IsKeyboardFocusWithin)
+                TbFlow.Text = flow.ToString();
 
             // 更新运行按钮状态
             ushort run = output.GetValue<ushort>("Run");
@@ -102,6 +103,27 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
             {
                 TbPressure.Text = "0.00";
             }
+        }
+
+        private async void TbFlow_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter)
+            {
+                return;
+            }
+            if (!float.TryParse(TbFlow.Text, out float value))
+            {
+                TbFlow.Text = "";
+                return;
+            }
+            var input = new Dictionary<string, object>()
+            {
+                ["TargetFlow"] = value
+            };
+            await ExecuteCommandAsync("设置流量", input);
+
+            // 清除文本框焦点
+            Keyboard.ClearFocus();
         }
     }
 }

@@ -30,6 +30,20 @@
             </Setter>
         </Style>
 
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#33000000"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3EFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="60"/>
+        </Style>
     </base:DeviceScreenBase.Resources>
     <Canvas>
         <Canvas.Background>
@@ -59,7 +73,8 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="流量" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="Ml/Min" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <TextBlock Name="TbFlow" Grid.Row="1" Grid.ColumnSpan="2" Text="0.0" Foreground="White" FontSize="40" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBox Name="TbFlow" Grid.Row="1" Grid.ColumnSpan="2" Text="0.0" Foreground="White" FontSize="40" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         KeyDown="TbFlow_KeyDown"/>
             </Grid>
         </Border>
 

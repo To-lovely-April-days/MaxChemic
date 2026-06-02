@@ -343,7 +343,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         bool success = false;
-                        short upperLimit = parameter.GetValue<short>("PressureUpperLimit");
+                        float upperLimit = parameter.GetValue<float>("PressureUpperLimit");
 
                         if (IsSimulationMode)
                         {
@@ -402,7 +402,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
                         bool success = false;
-                        short lowerLimit = parameter.GetValue<short>("PressureLowerLimit");
+                        float lowerLimit = parameter.GetValue<float>("PressureLowerLimit");
 
                         if (IsSimulationMode)
                         {
@@ -461,7 +461,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
                         bool success = false;
-                        short target = parameters.GetValue<short>("TargetFlow");
+                        float target = parameters.GetValue<float>("TargetFlow");
 
                         if (IsSimulationMode)
                         {
@@ -523,7 +523,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     {
                         ComId = parameters.GetValue<string>("DeviceId");
                         bool success = false;
-                        short target = parameters.GetValue<short>("TargetFlow2");
+                        float target = parameters.GetValue<float>("TargetFlow2");
 
                         if (IsSimulationMode)
                         {
@@ -844,7 +844,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("Flow", -10000, 100000, flow/10.0,"平流输液泵当前流量", true, "Ml/Min"),
+                                new NumberParameter("Flow", -10000, 100000, flow/100.0,"平流输液泵当前流量", true, "Ml/Min"),
                                 new NumberParameter("Pressure", -10000, 100000, pressure/10.0,"平流输液泵当前流量2", true, "Ml/Min"),
                                 new NumberParameter("Run", -10000, 100000, run,"平流输液泵是否启动", true),
                                 new NumberParameter("Stop", -10000, 100000, stop,"平流输液泵是否停止", true)
