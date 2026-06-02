@@ -10,7 +10,7 @@ using System.IO.Ports;
 namespace HighPreactor_ModbusRTU
 {
     [Export(typeof(IDevice))]
-    public class HighPreactor_ModbusRTU : Device, IFlowLifecycleAware
+    public class HighPreactor_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
         private readonly ILogService _logger;
 
@@ -94,6 +94,8 @@ namespace HighPreactor_ModbusRTU
         /// </summary>
         public override bool SupportsZLanGateway => true;
 
+        public string ScreenKey => "HighPreactorScreen";
+
 
         /// <summary>
         /// 初始化设备命令
@@ -119,7 +121,6 @@ namespace HighPreactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         float temperature = 0;
 
                         if (IsSimulationMode)
@@ -226,7 +227,6 @@ namespace HighPreactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         int temperature = 0;
 
                         if (IsSimulationMode)
@@ -279,7 +279,6 @@ namespace HighPreactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         int temperature = 0;
 
                         if (IsSimulationMode)
@@ -332,7 +331,6 @@ namespace HighPreactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         int temperature = 0;
 
                         if (IsSimulationMode)
@@ -450,7 +448,6 @@ namespace HighPreactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         int temperature = 0;
 
                         if (IsSimulationMode)
@@ -2648,6 +2645,90 @@ namespace HighPreactor_ModbusRTU
                     catch (Exception e)
                     {
                         ErrorLog($"设置微型反应釜ST8失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取可视化界面参数
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取可视化界面参数",
+                HelpText = "获取微型反应釜可视化界面参数数据",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("BathTemperatureSv",-1000, 10000, 0, "反应釜温度 SV", true, "℃"),
+                        new NumberParameter("BathTemperaturePv",-1000, 10000, 0, "反应釜温度 PV", true, "℃"),
+                        new NumberParameter("FurnacePv",-1000, 10000, 0, "反应釜炉温 PV", true, "℃"),
+                        new NumberParameter("SpeedSv",-1000, 10000, 0, "反应釜搅拌速度 SV", true, "RPM"),
+                        new NumberParameter("SpeedPv",-1000, 10000, 0, "反应釜搅拌速度 PV", true, "RPM"),
+                        new NumberParameter("Pressure",-1000, 10000, 0, "反应釜压力", true, "Mpa")
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取可视化界面参数", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        float tempSv = 0;
+                        float tempPv = 0;
+                        float pressure = 0;
+                        float speedSv = 0;
+                        float speedPv = 0;
+                        float furPv = 0;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            tempPv = new Random().Next(0, 100);
+                            tempSv= new Random().Next(0, 100);
+                            pressure = new Random().Next(0, 100);
+                            speedPv = new Random().Next(0, 100);
+                            speedSv = new Random().Next(0, 100);
+                            furPv = new Random().Next(0, 100);
+                        }
+                        else
+                        {
+                            // 釜温 PV
+                            byte[] frame = BuildReadCmd(0, 2);
+                            tempPv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            // 釜温 SV
+                            frame = BuildReadCmd(0x0032, 2);
+                            tempSv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            // 压力
+                            frame = BuildReadCmd(0x0106, 1);
+                            pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 搅拌速度 PV
+                            frame = BuildReadCmd(0x00FB, 1);
+                            speedPv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 搅拌速度 SV
+                            frame = BuildReadCmd(0x00FC, 1);
+                            speedSv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 炉温 PV
+                            frame = BuildReadCmd(4, 2);
+                            furPv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("BathTemperatureSv",-1000, 10000, tempSv/100.0, "反应釜温度 SV", true, "℃"),
+                                new NumberParameter("BathTemperaturePv",-1000, 10000, tempPv/100.0, "反应釜温度 PV", true, "℃"),
+                                new NumberParameter("FurnacePv",-1000, 10000, furPv/100.0, "反应釜炉温 PV", true, "℃"),
+                                new NumberParameter("SpeedSv",-1000, 10000, speedSv, "反应釜搅拌速度 SV", true, "RPM"),
+                                new NumberParameter("SpeedPv",-1000, 10000, speedPv, "反应釜搅拌速度 PV", true, "RPM"),
+                                new NumberParameter("Pressure",-1000, 10000, pressure/100.0, "反应釜压力", true, "Mpa")
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"微反应釜可视化界面参数获取失败：{e.Message}");
                         throw;
                     }
                 })

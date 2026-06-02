@@ -163,6 +163,8 @@
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
             <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="CanContentScroll" Value="True"/>
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ScrollViewer">
@@ -208,11 +210,10 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Margin="4,0" Text="{Binding Timestamp}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <TextBlock Margin="4,0" Grid.Column="1" Text="{Binding Level}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <TextBlock Margin="4,0" Grid.Column="3" Text="{Binding Content}" VerticalAlignment="Center"/>
+                <TextBlock Margin="4,0" Text="{Binding Timestamp}" VerticalAlignment="Center"/>
+                <TextBlock Margin="4,0" Grid.Column="1" Text="{Binding Level}" VerticalAlignment="Center"/>
+                <TextBlock Margin="4,0" Grid.Column="2" Text="{Binding Content}" VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
         

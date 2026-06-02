@@ -8,7 +8,7 @@ using System.Diagnostics;
 namespace HighLowTemperature_ModbusTCP
 {
     [Export(typeof(IDevice))]
-    public class HighLowTemperature_ModbusTCP : Device
+    public class HighLowTemperature_ModbusTCP : Device, IDeviceScreen
     {
         //
         private readonly ILogService _logger;
@@ -34,7 +34,7 @@ namespace HighLowTemperature_ModbusTCP
                 RegionType.PostProcess
             };
 
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/DynamicTubularReactor_CY.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/highlowtemperature.png";
 
             Parameters.Variables.Add(new StringParameter("DeviceId", "HLT0001")
             {
@@ -203,7 +203,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(-1, 1));
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式设置高低温设备温度SV，结果（SV：{outlet}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -263,7 +263,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(-1, 1));
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式设置高低温设备定值刷新画面启动，结果（Success：{success}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -320,7 +320,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(-1, 1));
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式设置高低温设备定值刷新画面停止，结果（Success：{success}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -377,7 +377,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(-1, 1));
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式设置高低温设备程式刷新画面启动，结果（Success：{success}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -434,7 +434,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(-1, 1));
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式设置高低温设备程式刷新画面停止，结果（Success：{success}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -501,7 +501,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(-1, 1));
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式设置高低温设备运行模式，结果（On/Off：{mode}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -556,7 +556,7 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            outlet = Convert.ToBoolean(new Random().Next(-1, 1));
+                            outlet = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式获取高低温设备运行模式，结果（On/Off：{outlet}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -615,12 +615,12 @@ namespace HighLowTemperature_ModbusTCP
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            result[0] = Convert.ToBoolean(new Random().Next(-1, 1));
-                            result[1] = Convert.ToBoolean(new Random().Next(-1, 1));
-                            result[2] = Convert.ToBoolean(new Random().Next(-1, 1));
-                            result[3] = Convert.ToBoolean(new Random().Next(-1, 1));
-                            result[4] = Convert.ToBoolean(new Random().Next(-1, 1));
-                            result[5] = Convert.ToBoolean(new Random().Next(-1, 1));
+                            result[0] = Convert.ToBoolean(new Random().Next(0, 2));
+                            result[1] = Convert.ToBoolean(new Random().Next(0, 2));
+                            result[2] = Convert.ToBoolean(new Random().Next(0, 2));
+                            result[3] = Convert.ToBoolean(new Random().Next(0, 2));
+                            result[4] = Convert.ToBoolean(new Random().Next(0, 2));
+                            result[5] = Convert.ToBoolean(new Random().Next(0, 2));
                             InfoLog($"模拟模式获取高低温设备画面启动、停止状态，结果（{string.Join(", ", result)}）");
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
@@ -667,7 +667,222 @@ namespace HighLowTemperature_ModbusTCP
                     }
                 })
             });
+
+            // 获取可视化界面数据（设备属性界面）
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取可视化数据",
+                HelpText = "",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("OutletTemperature",-1000,10000,0,"出口温度",true,"℃"),
+                        new NumberParameter("MaterialTemperature",-1000,10000,0,"物料温度",true,"℃"),
+                        new NumberParameter("BackTemperature",-1000,10000,0,"回口温度",true,"℃"),
+                        new NumberParameter("SV", -1000, 10000, 0, "温度设定值SV", true, "℃"),
+                        new BooleanParameter("Run", false, "定值启动", true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("获取可视化数据", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        float outlet = 0;
+                        float material = 0;
+                        float back = 0;
+                        float sv = 0;
+                        bool on = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            outlet = new Random().Next(0, 100);
+                            material = new Random().Next(0, 100);
+                            back = new Random().Next(0, 100);
+                            sv = new Random().Next(0, 100);
+                            on = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式获取可视化界面数据，结果（出口温度：{outlet}，物料温度：{material}，回口温度：{back}，温度设定值SV：{sv}）");
+                        }
+                        else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            Task<short>[] tasks = new Task<short>[4];
+                            tasks[0] = ConnectionManager.ReadAsync<short>(ComId, "出口温度");
+                            tasks[1] = ConnectionManager.ReadAsync<short>(ComId, "物料温度");
+                            tasks[2] = ConnectionManager.ReadAsync<short>(ComId, "回口温度");
+                            tasks[3] = ConnectionManager.ReadAsync<short>(ComId, "温度SV");
+
+                            await Task.WhenAll(tasks);
+                            on = await ConnectionManager.ReadAsync<bool>(ComId, "启动/停止");
+
+                            outlet = await tasks[0];
+                            material = await tasks[1];
+                            back = await tasks[2];
+                            sv = await tasks[3];
+
+                            InfoLog($"获取ModbusTCP高低温设备可视化界面数据，结果（出口温度：{outlet}，物料温度：{material}，回口温度：{back}，温度设定值SV：{sv}）");
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("OutletTemperature",-1000,10000,outlet/100,"出口温度",true,"℃"),
+                                new NumberParameter("MaterialTemperature",-1000,10000,material/100,"物料温度",true,"℃"),
+                                new NumberParameter("BackTemperature",-1000,10000,back/100,"回口温度",true,"℃"),
+                                new NumberParameter("SV", -1000, 10000, sv/10, "温度设定值SV", true, "℃"),
+                                new BooleanParameter("Run", on, "定值启动", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取可视化界面数据失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 定值启动
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "定值启动/停止",
+                HelpText = "",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("TargetValue",false,"定值启动停止",true)
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success",false,"启动成功",true),
+                        new BooleanParameter("SetValue",false,"定值启动停止设定值",true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("定值启动/停止", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        bool mode = parameter.GetValue<bool>("TargetValue");
+                        bool success = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式设置高低温设备定值启动/停止，结果（On/Off：{mode}）");
+                        }
+                        else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            success = await ConnectionManager.WriteAsync(ComId, "启动/停止", mode);
+
+                            InfoLog($"设置ModbusTCP高低温设备定值启动/停止，结果（Success:{success}, On/Off：{mode}）");
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success", success, "启动成功", true),
+                                new BooleanParameter("SetValue",mode,"定值启动/停止设定值",true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"高低温设备定值启动/停止失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 程式启动
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "程式启动/停止",
+                HelpText = "",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("TargetValue",false,"程式启动停止",true)
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success",false,"启动成功",true),
+                        new BooleanParameter("SetValue",false,"程式启动停止设定值",true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("程式启动/停止", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        bool mode = parameter.GetValue<bool>("TargetValue");
+                        bool success = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式设置高低温设备程式启动/停止，结果（On/Off：{mode}）");
+                        }
+                        else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
+                        {
+                            success = await ConnectionManager.WriteAsync(ComId, "程式启动/停止", mode);
+
+                            InfoLog($"设置ModbusTCP高低温设备程式启动/停止，结果（Success:{success}, On/Off：{mode}）");
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("设备未配置为ModbusTCP模式且非模拟模式");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success", success, "启动成功", true),
+                                new BooleanParameter("SetValue",mode,"程式启动/停止设定值",true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"高低温设备程式启动/停止失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
         }
+
+
+        public string ScreenKey => "HighLowTemperatureScreen";
 
 
         #region Device 虚方法实现

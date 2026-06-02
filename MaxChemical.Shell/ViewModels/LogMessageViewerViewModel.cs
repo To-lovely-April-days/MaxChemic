@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,11 +17,9 @@ namespace MaxChemical.Shell.ViewModels
     {
         // 内部字段
         private int _maxCount = 1000;
-        private int _oldMaxCount = 1000;
         private ObservableCollection<LogMessage> _logMessages = new ObservableCollection<LogMessage>();
 
         private readonly SemaphoreSlim _slim = new SemaphoreSlim(1, 1);
-
 
         public LogMessageViewerViewModel()
         {
@@ -39,9 +38,8 @@ namespace MaxChemical.Shell.ViewModels
             {
                 if (value != _maxCount)
                 {
-                    _oldMaxCount = _maxCount;
                     SetProperty(ref _maxCount, value);
-                    _ = MaxCountChangedHandler();
+                    MaxCountChangedHandler();
                 }
             }
         }
@@ -72,14 +70,17 @@ namespace MaxChemical.Shell.ViewModels
         /// <param name="e"></param>
         private void Instance_LogMessageReceived(object? sender, List<LogMessage> e)
         {
-            Application.Current.Dispatcher.BeginInvoke(async () =>
+            if (e == null || e.Count == 0)
+            {
+                return;
+            }
+
+            Application.Current.Dispatcher.BeginInvoke( () =>
             {
                 for (int i = 0; i < e.Count; i++)
                 {
                     try
                     {
-                        await _slim.WaitAsync(3000);
-
                         // 超出设定，删除旧记录
                         if (_logMessages.Count >= _maxCount)
                         {
@@ -87,37 +88,38 @@ namespace MaxChemical.Shell.ViewModels
                         }
                         _logMessages.Add(e[i]);
                     }
-                    catch { }
-                    finally
+                    catch(Exception ex)
                     {
-                        _slim.Release();
+                        Debug.WriteLine($"日志记录添加失败：{ex.Message}");
                     }
                 }
-            }, DispatcherPriority.ApplicationIdle);
+            }, DispatcherPriority.Background);
         }
 
-
-        private async Task MaxCountChangedHandler()
+        /// <summary>
+        /// 处理缓存数量的更改
+        /// </summary>
+        private void MaxCountChangedHandler()
         {
-            try
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                await _slim.WaitAsync(3000);
-
-                // 如果最多显示条数发生更改，由大->小，且当前显示的大于设定的，则批量删除
-                if (_oldMaxCount > _maxCount && _logMessages.Count > _maxCount)
+                try
                 {
-                    int del = _logMessages.Count - _maxCount;
-                    for (int j = 0; j < del; j++)
+                    // 如果最多显示条数发生更改，且当前显示的大于设定的，则批量删除
+                    if (_logMessages.Count > _maxCount)
                     {
-                        _logMessages.RemoveAt(j);
+                        int del = _logMessages.Count - _maxCount;
+                        for (int j = 0; j < del; j++)
+                        {
+                            _logMessages.RemoveAt(0);
+                        }
                     }
                 }
-            }
-            catch { }
-            finally
-            {
-                _slim.Release();
-            }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"响应缓存数量更改，移除旧记录失败：{ex.Message}");
+                }
+            },DispatcherPriority.Normal);
         }
     }
 }

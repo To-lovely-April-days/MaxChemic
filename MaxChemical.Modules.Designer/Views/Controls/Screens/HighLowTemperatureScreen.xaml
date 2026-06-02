@@ -1,0 +1,146 @@
+﻿<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.HighLowTemperature"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls.Screens"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d" 
+             Height="620" Width="1200">
+    <base:DeviceScreenBase.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#33000000"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3EFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="60"/>
+        </Style>
+    </base:DeviceScreenBase.Resources>
+    <Canvas>
+        <Canvas.Background>
+            <RadialGradientBrush GradientOrigin="0.16,0.14" Center="0.16,0.14" RadiusX="0.95" RadiusY="0.95">
+                <GradientStop Color="#6E1B1B" Offset="0"/>
+                <GradientStop Color="#2A1212" Offset="0.4"/>
+                <GradientStop Color="#08090C" Offset="0.82"/>
+            </RadialGradientBrush>
+        </Canvas.Background>
+        <!--主题背景图-->
+        <Image Source="pack://siteoforigin:,,,/Resources/Screens/highlowtemperature.png" Canvas.Left="460" Canvas.Top="130" Height="360" Width="280"/>
+        
+        <!--出口温度-->
+        <Border Canvas.Left="819" Canvas.Top="234" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
+            <Grid Margin="16,9">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="24"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="20"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="出口温度" FontSize="16" Foreground="White"/>
+                <TextBlock Grid.Column="1" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock Name="TbOutlet" Grid.Row="1" Grid.ColumnSpan="2" Text="0.00" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--回口温度-->
+        <Border Canvas.Left="819" Canvas.Top="367" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
+            <Grid Margin="16,9">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="24"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="20"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="回口温度" FontSize="16" Foreground="White"/>
+                <TextBlock Grid.Column="1" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock Name="TbBack" Grid.Row="1" Grid.ColumnSpan="2" Text="0.00" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--物料温度-->
+        <Border Canvas.Left="250" Canvas.Top="115" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
+            <Grid Margin="16,9">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="24"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="20"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="物料温度" FontSize="16" Foreground="White"/>
+                <TextBlock Grid.Column="1" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock Name="TbMaterial" Grid.Row="1" Grid.ColumnSpan="2" Text="0.00" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--设定温度SV-->
+        <Border Canvas.Left="819" Canvas.Top="103" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Grid Margin="16,9">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="24"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="20"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="设定温度" FontSize="16" Foreground="White"/>
+                <TextBlock Grid.Column="1" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBox Name="TbSetSv" Grid.Row="1" Grid.ColumnSpan="2" Text="9999.00" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"
+                         KeyDown="TbSetSv_KeyDown"/>
+            </Grid>
+        </Border>
+
+        <!--运行/停止按钮-->
+        <Button Name="BtnRunStop"
+        Width="160"
+        Height="68"
+        Canvas.Left="224"
+        Canvas.Top="276"
+        Content="运行"
+        Cursor="Hand"
+        Click="BtnRunStop_Click" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="SnapsToDevicePixels" Value="True"/>
+                    <Setter Property="OverridesDefaultStyle" Value="True"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" CornerRadius="8" Background="LimeGreen">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Path x:Name="path" Data="M 1,1 L 15,11 1,21 Z" Fill="White" Stroke="White" Margin="8" StrokeThickness="6" StrokeLineJoin="Round" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="runstop" Text="{Binding RelativeSource={RelativeSource Mode=TemplatedParent},Path=Content}" FontSize="28" Foreground="White"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=runstop,Path=Text}" Value="运行">
+                                        <Setter Property="Data" Value="M 1,1 L 15,11 1,21 Z" TargetName="path"/>
+                                        <Setter Property="Background" Value="LimeGreen" TargetName="border"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=runstop,Path=Text}" Value="停止">
+                                        <Setter Property="Data" Value="M 1,1 L 21,1 21,21 1,21 Z" TargetName="path"/>
+                                        <Setter Property="Background" Value="Red" TargetName="border"/>
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Style>
+        </Button>
+    </Canvas>
+</base:DeviceScreenBase>

@@ -83,6 +83,7 @@
 	  <None Remove="Resources\DeviceIcon\DynamicTubularReactor_CY.jpg" />
 	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
 	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
+	  <None Remove="Resources\DeviceIcon\highLowtemperature.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
 	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
@@ -136,10 +137,13 @@
 	  <None Remove="Resources\Icon\user.png" />
 	  <None Remove="Resources\Icon\Valves.png" />
 	  <None Remove="Resources\Icon\zoom.png" />
+	  <None Remove="Resources\Screens\highLowtemperature.png" />
+	  <None Remove="Resources\Screens\highpreactor_body.png" />
 	  <None Remove="Resources\Screens\pressure_reset.png" />
 	  <None Remove="Resources\Screens\reactor_dark.png" />
 	  <None Remove="Resources\Screens\scc_tanks.png" />
 	  <None Remove="Resources\Screens\sips_body.png" />
+	  <None Remove="Resources\Screens\sips_body1.png" />
 	  <None Remove="Resources\Screens\sips_bottom.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
@@ -249,6 +253,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\HeatExchanger.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\highLowtemperature.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\MicroReactor.png">
@@ -434,6 +441,12 @@
 	  <EmbeddedResource Include="Resources\Icon\PredictiveAssessment.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highLowtemperature.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_body.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\pressure_reset.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -456,6 +469,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\sips_body.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_body1.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\sips_bottom.png">

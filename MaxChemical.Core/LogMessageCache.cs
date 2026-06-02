@@ -47,12 +47,13 @@ namespace MaxChemical.Core
 
 
         /// <summary>
-        /// 
+        /// 定时器执行方法，批量更显UI显示的日志记录
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void Timer_Elapsed(object? sender, EventArgs e)
         {
+            // 事件未注册
             if (_receiveHandler is null)
             {
                 return;
@@ -64,8 +65,11 @@ namespace MaxChemical.Core
                 lists = _logMessages.ToList();
                 _logMessages.Clear();
             }
-
-            _receiveHandler.Invoke(this, lists);
+            // 更新界面显示
+            if (lists != null)
+            {
+                _receiveHandler.Invoke(this, lists);
+            }
         }
 
 
@@ -153,22 +157,26 @@ namespace MaxChemical.Core
         /// <param name="msg"></param>
         private void AddLogMessage(LogMessageLevel level, string templateMessage, params object[] args)
         {
-            var msg = new LogMessage
+            // Task 包装，避免阻塞调用线程
+            Task.Run(() =>
             {
-                Timestamp = DateTime.Now.ToString("HH:mm:ss"),
-                Level = level.ToString(),
-                Content = ParseMessageTemplate(templateMessage, args)
-            };
-
-            lock (_msgLock)
-            {
-                // 达到最大数量，移除最早记录
-                if (_logMessages.Count >= _maxLogCount)
+                var msg = new LogMessage
                 {
-                    _logMessages.RemoveAt(0);
+                    Timestamp = DateTime.Now.ToString("HH:mm:ss"),
+                    Level = string.Format("{0}", level),
+                    Content = ParseMessageTemplate(templateMessage, args)
+                };
+
+                lock (_msgLock)
+                {
+                    // 达到最大数量，移除最早记录
+                    if (_logMessages.Count >= _maxLogCount)
+                    {
+                        _logMessages.RemoveAt(0);
+                    }
+                    _logMessages.Add(msg);
                 }
-                _logMessages.Add(msg);
-            }
+            });
         }
 
         /// <summary>
@@ -189,19 +197,26 @@ namespace MaxChemical.Core
                 return templateMessage;
             }
 
-            int index = 0;
-
-            // 使用正则表达式替换 {任意文本} 字符串
-            var msg = Regex.Replace(templateMessage, "\\{[^{}]*\\}", match =>
+            try
             {
-                if (index < args.Length)
-                {
-                    return string.Format("{0}", args[index++]);
-                }
-                return match.Value;
-            });
+                int index = 0;
 
-            return msg;
+                // 使用正则表达式替换 {任意文本} 字符串
+                var msg = Regex.Replace(templateMessage, "\\{[^{}]*\\}", match =>
+                {
+                    if (index < args.Length)
+                    {
+                        return string.Format("{0}", args[index++]);
+                    }
+                    return match.Value;
+                });
+
+                return msg;
+            }
+            catch (Exception)
+            {
+                return templateMessage;
+            }
         }
     }
 

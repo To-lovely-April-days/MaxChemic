@@ -1,0 +1,137 @@
+﻿<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.HighPreactorScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls.Screens"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d" 
+             Width="1200" Height="600">
+    <base:DeviceScreenBase.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#33000000"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3EFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="60"/>
+        </Style>
+    </base:DeviceScreenBase.Resources>
+    <Canvas>
+        <Canvas.Background>
+            <RadialGradientBrush GradientOrigin="0.16,0.14" Center="0.16,0.14" RadiusX="0.95" RadiusY="0.95">
+                <GradientStop Color="#6E1B1B" Offset="0"/>
+                <GradientStop Color="#2A1212" Offset="0.4"/>
+                <GradientStop Color="#08090C" Offset="0.82"/>
+            </RadialGradientBrush>
+        </Canvas.Background>
+
+        <!--主体背景图-->
+        <Image Source="pack://siteoforigin:,,,/Resources/Screens/highpreactor_body.png" Canvas.Left="350" Canvas.Top="50" Width="500" Height="500"/>
+
+        <!--釜温-->
+        <Border CornerRadius="8" Background="#7F442F2F" BorderBrush="Gray" BorderThickness="1" Canvas.Left="88" Canvas.Top="82">
+            <Grid Margin="16,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="釜温" Foreground="White" VerticalAlignment="Center" FontSize="20"/>
+                <!--SV-->
+                <TextBlock Grid.Row="1" Text="SV" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBox Name="TbBathSv" Grid.Row="1" Grid.Column="1" Text="0.00" Margin="4,0,8,0" VerticalAlignment="Center" KeyDown="TbBathSv_KeyDown"/>
+                <TextBlock Grid.Row="1" Text="℃" Grid.Column="2" Foreground="White" VerticalAlignment="Center"/>
+                <!--PV-->
+                <TextBlock Grid.Row="2" Text="PV" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Name="TbBathPv" Grid.Row="2" Grid.Column="1" Margin="4,0,8,0" Text="0.00" FontSize="16" Foreground="Red" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="2" Grid.Column="1" Height="2" Fill="White" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="℃" Foreground="White" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--搅拌-->
+        <Border CornerRadius="8" Background="#7F2B1616" BorderBrush="Gray" BorderThickness="1" Canvas.Left="88" Canvas.Top="338" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <Grid Margin="16,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="搅拌" Foreground="White" FontSize="20"/>
+                <!--SV-->
+                <TextBlock Grid.Row="1" Text="SV" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBox Name="TbSpeedSv" Grid.Row="1" Grid.Column="1" Text="0.00" Margin="4,0,8,0" VerticalAlignment="Center" KeyDown="TbSpeedSv_KeyDown"/>
+                <TextBlock Grid.Row="1" Text="RPM" Grid.Column="2" Foreground="White" VerticalAlignment="Center"/>
+                <!--PV-->
+                <TextBlock Grid.Row="2" Text="PV" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Name="TbSpeedPv" Grid.Row="2" Grid.Column="1" Margin="4,0,8,0" Text="0.00" FontSize="16" Foreground="Red" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="2" Grid.Column="1" Height="2" Fill="White" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="RPM" Foreground="White" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--压力-->
+        <Border CornerRadius="8" Background="#7F262222" BorderBrush="Gray" BorderThickness="1" Canvas.Left="923" Canvas.Top="82" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <Grid Margin="16,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="压力" Foreground="White" FontSize="20"/>
+
+                <TextBlock Name="TbPressure" Grid.Row="1" Grid.Column="1" Margin="4,0,8,0" Text="0.00" FontSize="16" Foreground="Red" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="Mpa" Foreground="White" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="1" Grid.Column="1" Height="2" Fill="White" VerticalAlignment="Bottom"/>
+            </Grid>
+        </Border>
+
+        <!--炉温-->
+        <Border CornerRadius="8" Background="#7F292727" BorderBrush="Gray" BorderThickness="1" Canvas.Left="937" Canvas.Top="370" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <Grid Margin="16,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="炉温" Foreground="White" FontSize="20"/>
+
+                <TextBlock Grid.Row="1" Text="PV" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Name="TbFurnacePv" Grid.Row="1" Grid.Column="1" Margin="4,0,8,0" FontSize="16" Text="0.00" Foreground="Red" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="1" Grid.Column="1" Height="2" Fill="White" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="℃" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--运行时间-->
+    </Canvas>
+</base:DeviceScreenBase>

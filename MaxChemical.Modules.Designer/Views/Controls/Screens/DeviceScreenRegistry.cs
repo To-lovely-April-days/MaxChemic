@@ -73,6 +73,16 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Factory = () => new SiphonInfusionPumpScreen(),
                     Resolution = new Size(1240, 620),
                 });
+                Register("HighPreactorScreen", new ScreenRegistration
+                {
+                    Factory = () => new HighPreactorScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+                Register("HighLowTemperatureScreen", new ScreenRegistration
+                {
+                    Factory = () => new HighLowTemperature(),
+                    Resolution = new Size(1240, 620),
+                });
 
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
