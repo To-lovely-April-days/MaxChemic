@@ -1,4 +1,5 @@
 ﻿using MaxChemical.Core;
+using MaxChemical.Shell.Utils;
 using Prism.Mvvm;
 using System;
 using System.Collections.Concurrent;
@@ -13,18 +14,27 @@ using System.Windows.Threading;
 
 namespace MaxChemical.Shell.ViewModels
 {
-    public class LogMessageViewerViewModel : BindableBase
+    public class LogMessageViewerViewModel : BindableBase, IDisposable
     {
         // 内部字段
+        private bool _disposed;
+        private bool _isEnbable = true;
         private int _maxCount = 1000;
         private ObservableCollection<LogMessage> _logMessages = new ObservableCollection<LogMessage>();
-
+        // 
         private readonly SemaphoreSlim _slim = new SemaphoreSlim(1, 1);
+        // 批量删除计时器
+        private readonly DispatcherTimer _timer;
 
         public LogMessageViewerViewModel()
         {
             // 注册日志记录接收事件
             LogMessageCache.Instance.LogMessageReceived += Instance_LogMessageReceived;
+
+            // 初始化批量删除计时器
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromMilliseconds(60);
+            _timer.Tick += new EventHandler(MaxCountChanged_Tick);
         }
 
 
@@ -36,12 +46,21 @@ namespace MaxChemical.Shell.ViewModels
             get => _maxCount;
             set
             {
-                if (value != _maxCount)
+                if (value != _maxCount && value > 0)
                 {
                     SetProperty(ref _maxCount, value);
                     MaxCountChangedHandler();
                 }
             }
+        }
+
+        /// <summary>
+        /// 是否启用下拉列表
+        /// </summary>
+        public bool IsEnable
+        {
+            get => _isEnbable;
+            set => SetProperty(ref _isEnbable, value);
         }
 
         /// <summary>
@@ -58,8 +77,17 @@ namespace MaxChemical.Shell.ViewModels
         /// </summary>
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             // 取消日志记录接收事件的注册
             LogMessageCache.Instance.LogMessageReceived -= Instance_LogMessageReceived;
+            // 停止批量删除
+            _timer.Stop();
+
+            _disposed = true;
         }
 
 
@@ -75,20 +103,21 @@ namespace MaxChemical.Shell.ViewModels
                 return;
             }
 
-            Application.Current.Dispatcher.BeginInvoke( () =>
+            var logs = new List<LogMessage>(e);
+
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                for (int i = 0; i < e.Count; i++)
+                foreach (var item in logs)
                 {
                     try
                     {
-                        // 超出设定，删除旧记录
                         if (_logMessages.Count >= _maxCount)
                         {
                             _logMessages.RemoveAt(0);
                         }
-                        _logMessages.Add(e[i]);
+                        _logMessages.Add(item);
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         Debug.WriteLine($"日志记录添加失败：{ex.Message}");
                     }
@@ -101,25 +130,52 @@ namespace MaxChemical.Shell.ViewModels
         /// </summary>
         private void MaxCountChangedHandler()
         {
-            Application.Current.Dispatcher.BeginInvoke(() =>
+            // 是否需要删除
+            if (_logMessages.Count > _maxCount && !_timer.IsEnabled)
             {
-                try
+                IsEnable = false;
+                _timer.Start();
+            }
+        }
+
+        private void MaxCountChanged_Tick(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_disposed)
                 {
-                    // 如果最多显示条数发生更改，且当前显示的大于设定的，则批量删除
-                    if (_logMessages.Count > _maxCount)
-                    {
-                        int del = _logMessages.Count - _maxCount;
-                        for (int j = 0; j < del; j++)
-                        {
-                            _logMessages.RemoveAt(0);
-                        }
-                    }
+                    return;
                 }
-                catch (Exception ex)
+
+                _slim.Wait();
+
+                // 删除完成，启用下拉列表，停止批量删除计时器
+                if (_logMessages.Count <= _maxCount)
                 {
-                    Debug.WriteLine($"响应缓存数量更改，移除旧记录失败：{ex.Message}");
+                    IsEnable = true;
+                    _timer.Stop();
+                    return;
                 }
-            },DispatcherPriority.Normal);
+
+                // 获取批量删除的数量
+                int delCount = _logMessages.Count - _maxCount;
+                // 每次最多删除10条，避免UI长时间阻塞
+                delCount = Math.Min(delCount, 10);
+
+                for (int i = 0; i < delCount; i++)
+                {
+                    LogMessages.RemoveAt(0);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"响应缓存数量更改，移除旧记录失败：{ex.Message}");
+            }
+            finally
+            {
+                // 释放信号，允许计时器下一次轮询处理
+                _slim.Release();
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -41,36 +42,53 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
         private static void OnGatewayChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is GatewayBodyControl ctl) ctl.Rebuild();
+            if (d is GatewayBodyControl ctl)
+            {
+                ctl.Rebuild();
+            }
         }
        
         private void Rebuild()
         {
             if (Gateway == null) return;
-            for (int i = 0; i < 4; i++)
+
+            TbTitle.Text = string.Format("SERIAL GATEWAY · {0}-PORT", Gateway.Channels.Count);
+
+            var db9s = new List<ContentControl>();
+            var rs485s = new List<ContentControl>();
+            int i = 0;
+            foreach (var channel in Gateway.Channels)
             {
-                var ch = i < Gateway.Channels.Count ? Gateway.Channels[i] : null;
-                BuildDb9(GetDb9Slot(i), ch, i);
-                BuildRs485(GetRs485Slot(i), ch, i);
+                ContentControl db9 = new ContentControl();
+                BuildDb9(db9, channel, i);
+                db9s.Add(db9);
+
+                ContentControl rs485 = new ContentControl();
+                BuildRs485(rs485, channel, i);
+                rs485s.Add(rs485);
+                i++;
             }
+
+            DB9.ItemsSource = new ObservableCollection<ContentControl>(db9s);
+            Rs485.ItemsSource = new ObservableCollection<ContentControl>(rs485s);
         }
 
-        private ContentControl GetDb9Slot(int i) => i switch
-        {
-            0 => Db9_1,
-            1 => Db9_2,
-            2 => Db9_3,
-            3 => Db9_4,
-            _ => null
-        };
-        private ContentControl GetRs485Slot(int i) => i switch
-        {
-            0 => Rs485_1,
-            1 => Rs485_2,
-            2 => Rs485_3,
-            3 => Rs485_4,
-            _ => null
-        };
+        //private ContentControl GetDb9Slot(int i) => i switch
+        //{
+        //    0 => Db9_1,
+        //    1 => Db9_2,
+        //    2 => Db9_3,
+        //    3 => Db9_4,
+        //    _ => null
+        //};
+        //private ContentControl GetRs485Slot(int i) => i switch
+        //{
+        //    0 => Rs485_1,
+        //    1 => Rs485_2,
+        //    2 => Rs485_3,
+        //    3 => Rs485_4,
+        //    _ => null
+        //};
 
         /// <summary>根据通道状态选颜色:已绑定→品牌红,可用→黑色,未启用→灰色虚线</summary>
         private static SolidColorBrush PickStroke(ChannelModel ch)
@@ -242,7 +260,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 Fill = Brushes.Transparent,
             };
             if (dash != null) box.StrokeDashArray = dash;
-            Canvas.SetLeft(box, 0); Canvas.SetTop(box, 6);
+            Canvas.SetLeft(box, 0); Canvas.SetTop(box, 14);
             canvas.Children.Add(box);
 
             if (available)
@@ -258,7 +276,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                         StrokeThickness = 0.5,
                         Fill = Brushes.Transparent,
                     };
-                    Canvas.SetLeft(c, x - 3.5); Canvas.SetTop(c, 13.5);
+                    Canvas.SetLeft(c, x - 3.5); Canvas.SetTop(c, 21.5);
                     canvas.Children.Add(c);
                 }
             }
@@ -271,7 +289,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 FontWeight = FontWeights.Medium,
                 Foreground = stroke,
             };
-            Canvas.SetLeft(tag, 0); Canvas.SetTop(tag, -8);
+            Canvas.SetLeft(tag, 0); Canvas.SetTop(tag, 3);
             canvas.Children.Add(tag);
 
             // ★ 绑定的设备名
@@ -287,7 +305,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                     FontWeight = FontWeights.SemiBold,
                     Foreground = BrandRedBrush,
                 };
-                Canvas.SetLeft(deviceText, 0); Canvas.SetTop(deviceText, 34);
+                Canvas.SetLeft(deviceText, 0); Canvas.SetTop(deviceText, 40);
                 canvas.Children.Add(deviceText);
             }
 

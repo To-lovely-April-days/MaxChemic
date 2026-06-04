@@ -183,38 +183,45 @@ namespace MaxChemical.Modules.GatewayConfig.Services
         {
             var groups = snaps.GroupBy(GroupKey).ToList();
 
-            var result = new List<GatewayModel>();
+            // 网关设备集合
+            var gateways = new List<GatewayModel>();
+
             foreach (var g in groups)
             {
-                var ordered = g.OrderBy(s =>
-                {
-                    var ip = s.Ip ?? "";
-                    var lastDot = ip.LastIndexOf('.');
-                    if (lastDot > 0 && int.TryParse(ip.Substring(lastDot + 1), out var n)) return n;
-                    return int.MaxValue;
-                }).ToList();
+               // 先按照网关设备名称排序，在根据网关硬件版本分组
+                var query = g.OrderBy(snap => snap.DeviceName).GroupBy(snap => snap.FirmwareVersion);
 
-                var first = ordered[0];
-                // 虚拟总网关:身份信息只是为了卡片上展示,无任何可配置参数
-                var gw = new GatewayModel
+                foreach (var items in query)
                 {
-                    DisplayName = string.IsNullOrEmpty(first.DeviceName) ? $"GW-{first.Ip}" : first.DeviceName,
-                    Mac = FormatMacFromDeviceId(first.DeviceId),
-                    Ip = first.Ip,
-                    FirmwareVersion = first.FirmwareVersion,
-                    IsOnline = true,
-                };
+                    // 将第一个添加为网关设备
+                    DeviceSnapshot first = items.FirstOrDefault();
+                    GatewayModel gateway = new GatewayModel()
+                    {
+                        DisplayName = string.IsNullOrEmpty(first.DeviceName) ? $"GW-{first.Ip}" : first.DeviceName,
+                        Mac = FormatMacFromDeviceId(first.DeviceId),
+                        Ip = first.Ip,
+                        FirmwareVersion = first.FirmwareVersion,
+                        IsOnline = true,
+                    };
 
-                for (int i = 0; i < 4; i++)
-                {
-                    var snap = i < ordered.Count ? ordered[i] : null;
-                    var ch = new ChannelModel { Index = i, IsAvailable = snap != null };
-                    if (snap != null) ApplySnapshotToChannel(ch, snap);
-                    gw.Channels.Add(ch);
+                    // 向网关设备添加通道（实际为网关端口）
+                    int i = 0;
+                    foreach (var item in items)
+                    {
+                        var ch = new ChannelModel()
+                        {
+                            Index = i++,
+                            IsAvailable = item != null
+                        };
+
+                        if (item != null) ApplySnapshotToChannel(ch, item);
+
+                        gateway.Channels.Add(ch);
+                    }
+                    gateways.Add(gateway);
                 }
-                result.Add(gw);
             }
-            return result;
+            return gateways;
         }
 
         private static string GroupKey(DeviceSnapshot s)
