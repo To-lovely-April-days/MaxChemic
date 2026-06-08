@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls.Screens"
              xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
-             mc:Ignorable="d" Height="680" Width="1200">
+             mc:Ignorable="d" Height="620" Width="1200">
     <base:DeviceScreenBase.Resources>
 
         <Style x:Key="ResetButtonStyle" TargetType="Button">
@@ -55,64 +55,86 @@
         </Canvas.Background>
 
         <!--平流泵主体背景图-->
-        <Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_body1.png" Canvas.Left="338" Canvas.Top="200" Height="280" Width="480"/>
-
-        <!--平流泵底座背景图-->
-        <!--<Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_bottom.png" Canvas.Left="228" Canvas.Top="264"/>-->
+        <Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_body1.png" Canvas.Left="391" Canvas.Top="115" Height="280" Width="450"/>
 
         <!--流量卡片-->
-        <Border Canvas.Left="117" Canvas.Top="202" Width="200" Height="120" CornerRadius="8" Background="#7F363636" BorderBrush="Gray" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Top">
-            <Grid>
+        <Border Canvas.Left="86" Canvas.Top="72" Width="240" Height="180" CornerRadius="8" Background="#7F363636"
+                BorderBrush="Gray" BorderThickness="1">
+            <Grid Margin="16">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition/>
-                    <RowDefinition Height="2*"/>
+                    <RowDefinition/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="流量" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="Ml/Min" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <TextBox Name="TbFlow" Grid.Row="1" Grid.ColumnSpan="2" Text="0.0" Foreground="White" FontSize="40" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+
+                <Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_flow.png" Width="24"/>
+
+                <TextBlock Grid.Column="1" Margin="8,0" Text="流量" Foreground="White" FontSize="18" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Ml/Min" Foreground="White" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="1" Text="PV" Foreground="White" FontSize="18" VerticalAlignment="Center"/>
+                <TextBox Name="TbFlow" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="00.00"
+                         Foreground="White" FontSize="36" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
                          KeyDown="TbFlow_KeyDown"/>
+
+                <TextBlock Grid.Row="2" Text="SV" Foreground="White" FontSize="18" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="00.00" Foreground="White"
+                           FontSize="36" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
         <!--压力卡片-->
-        <Border Canvas.Left="117" Canvas.Top="388" Width="200" Height="120" CornerRadius="8" Background="#7F221B1B" BorderBrush="Gray" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Top">
-            <Grid>
+        <Border Canvas.Left="86" Canvas.Top="324" Width="240" Height="180" CornerRadius="8" Background="#7F221B1B"
+                BorderBrush="Gray" BorderThickness="1">
+            <Grid Margin="16">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition/>
-                    <RowDefinition Height="2*"/>
+                    <RowDefinition/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="压力" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="Mpa" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <DockPanel Grid.Row="1" Grid.ColumnSpan="2" Width="160" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Button DockPanel.Dock="Right"
-                            Padding="4"
-                            Width="32"
-                            Height="32"
-                            Click="ResetPressure_Click"
-                            Style="{StaticResource ResetButtonStyle}">
-                        <Image Source="pack://siteoforigin:,,,/Resources/Screens/pressure_reset.png"/>
-                    </Button>
-                    <Border>
-                        <TextBlock Name="TbPressure" Text="0.0" Foreground="White" FontSize="40" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    </Border>
-                </DockPanel>
+
+                <Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_flow.png" Width="24"/>
+
+                <TextBlock Grid.Column="1" Margin="8,0" Text="压力" Foreground="White" FontSize="18"
+                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Margin="8,0" Text="Mpa" Foreground="White" FontSize="14"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Padding="4" Width="32" Height="32"
+                        Click="ResetPressure_Click"
+                        Style="{StaticResource ResetButtonStyle}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Screens/pressure_reset.png"/>
+                </Button>
+
+                <TextBlock Grid.Row="2" Text="SV" Foreground="White" FontSize="18"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBox Name="TbPressure" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="00.00"
+                         Foreground="White" FontSize="36" FontWeight="Bold" HorizontalAlignment="Center"/>
+
+                <TextBlock Grid.Row="1" Text="PV" Foreground="White" FontSize="18"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="00.00"
+                           Foreground="White" FontWeight="Bold" FontSize="36"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
         <!--运行/停止按钮-->
         <Button Name="BtnRunStop"
-                Width="160"
+                Width="200"
                 Height="68"
-                Canvas.Left="849"
-                Canvas.Top="406"
+                Canvas.Left="904"
+                Canvas.Top="436"
                 Content="运行"
                 Cursor="Hand"
                 Click="BtnRunStop_Click">
@@ -146,5 +168,84 @@
                 </Style>
             </Button.Style>
         </Button>
+
+        <!--累计体积-->
+        <Border Width="200" Height="120" CornerRadius="8" Background="#7F221B1B" BorderBrush="Gray"
+                BorderThickness="1" Canvas.Left="904" Canvas.Top="72">
+            <Grid Margin="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_v.png" Width="24"/>
+
+                <TextBlock Grid.Column="1" Margin="8,0" Text="累计体积" Foreground="White" FontSize="18"
+                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Padding="4" Width="32" Height="32"
+                        Click="ResetPressure_Click"
+                        Style="{StaticResource ResetButtonStyle}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Screens/pressure_reset.png"/>
+                </Button>
+                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="00.00" Foreground="White"
+                           FontWeight="Bold" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--累计时间-->
+        <Border Width="200" Height="120" CornerRadius="8" Background="#7F221B1B" BorderBrush="Gray" BorderThickness="1"
+                Canvas.Left="904" Canvas.Top="257">
+            <Grid Margin="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image Source="pack://siteoforigin:,,,/Resources/Screens/sips_time.png" Width="24"/>
+
+                <TextBlock Grid.Column="1" Margin="8,0" Text="累计时间" Foreground="White" FontSize="18"
+                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Padding="4" Width="32" Height="32"
+                        Click="ResetPressure_Click"
+                        Style="{StaticResource ResetButtonStyle}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Screens/pressure_reset.png"/>
+                </Button>
+                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="00:00:00" Foreground="White"
+                           FontWeight="Bold" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!--报警状态-->
+        <Border Width="450" Height="68" CornerRadius="8" Background="#7F221B1B" BorderBrush="Gray" BorderThickness="1" Canvas.Left="391" Canvas.Top="436" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <DockPanel Margin="24,8">
+                <TextBlock Text="报警状态：" FontSize="18" Foreground="White" VerticalAlignment="Center"/>
+                <TextBlock Text="正常" Foreground="LimeGreen" FontSize="18" VerticalAlignment="Center"/>
+                <Button Width="120" 
+                        Height="40" 
+                        Cursor="Hand"
+                        HorizontalAlignment="Right">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border CornerRadius="4" BorderBrush="Red" BorderThickness="1">
+                                <Grid>
+                                    <Image Width="20" Source="pack://siteoforigin:,,,/Resources/Screens/sips_clear.png"
+                                           HorizontalAlignment="Left" Margin="8,0"/>
+                                    <TextBlock Text="报警清除" FontSize="18" Foreground="Red" Margin="8,0" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </DockPanel>
+        </Border>
     </Canvas>
 </base:DeviceScreenBase>

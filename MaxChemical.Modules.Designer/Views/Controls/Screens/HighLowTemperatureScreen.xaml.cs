@@ -179,5 +179,17 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
             _storyboard.Children.Add(circleAnimation);
             _storyboard.Children.Add(ellipseAnimation);
         }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            if (BtnOnOff.Content.ToString() == "ON")
+            {
+                
+            }
+            else
+            {
+                
+            }
+        }
     }
 }

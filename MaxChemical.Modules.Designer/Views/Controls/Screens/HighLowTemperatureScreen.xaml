@@ -22,6 +22,39 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="MinWidth" Value="60"/>
         </Style>
+
+        <Style x:Key="SwitchButtonStyle" TargetType="Button">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="MinWidth" Value="90"/>
+            <Setter Property="Width" Value="100"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Rectangle x:Name="Rect" RadiusX="20" RadiusY="20" Height="40" Fill="LimeGreen"/>
+                            <Ellipse x:Name="Ellipse" Height="32" Width="32" Fill="White" HorizontalAlignment="Left" Margin="4"/>
+                            <ContentPresenter x:Name="Content" Margin="16,0" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Content" Value="ON">
+                                <Setter Property="Fill" Value="LimeGreen" TargetName="Rect"/>
+                                <Setter Property="HorizontalAlignment" Value="Left" TargetName="Ellipse"/>
+                                <Setter Property="HorizontalAlignment" Value="Right" TargetName="Content"/>
+                            </Trigger>
+                            <Trigger Property="Content" Value="OFF">
+                                <Setter Property="Fill" Value="Red" TargetName="Rect"/>
+                                <Setter Property="HorizontalAlignment" Value="Right" TargetName="Ellipse"/>
+                                <Setter Property="HorizontalAlignment" Value="Left" TargetName="Content"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </base:DeviceScreenBase.Resources>
     <Canvas>
         <Canvas.Background>
@@ -122,7 +155,7 @@
             <TextBlock Text="100" Foreground="LightGray" Canvas.Left="163" Canvas.Top="91"/>
 
             <Border Canvas.Left="64" Canvas.Top="62" Width="84">
-                <TextBlock Name="TbHeat" Text="0.0%" FontSize="18" Foreground="Red" HorizontalAlignment="Center"/>
+                <TextBlock Name="TbHeat" Text="100.0%" FontSize="18" Foreground="Red" HorizontalAlignment="Center"/>
             </Border>
             <TextBlock Text="加热" Foreground="Red" Canvas.Left="94" Canvas.Top="91"/>
         </Canvas>
@@ -299,9 +332,11 @@
         </Path>
 
         <!--物料温度-->
-        <Border Canvas.Left="900" Canvas.Top="230" Width="180" Height="224"  BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Top">
+        <Border Canvas.Left="900" Canvas.Top="209" Width="180" Height="240"  BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Top">
             <Grid Margin="8">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition/>
                     <RowDefinition Height="Auto"/>
@@ -312,15 +347,20 @@
                     <ColumnDefinition/>
                     <ColumnDefinition Width="40"/>
                 </Grid.ColumnDefinitions>
-                <!--物料温度-->
+
                 <Image Source="pack://siteoforigin:,,,/Resources/Screens/highlow_temp.png" Margin="4,0"/>
-                <TextBlock Grid.Column="1" Text="物料温度" FontSize="16" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="设定温度" FontSize="16" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="2" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <TextBlock Name="TbMaterial" Grid.Row="1" Grid.ColumnSpan="3" Text="0.00" FontSize="28" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <!--回口温度-->
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="回口温度" FontSize="16" Foreground="White" Margin="8,0,0,0"  VerticalAlignment="Center"/>
+                <TextBox Name="TbSetSv" Grid.Row="1" Grid.ColumnSpan="3" Text="9999.00" FontSize="28" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"
+                         KeyDown="TbSetSv_KeyDown"/>
+                <!--物料温度-->
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="物料温度" FontSize="16" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
                 <TextBlock Grid.Row="2" Grid.Column="2" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <TextBlock Name="TbBack" Grid.Row="3" Grid.ColumnSpan="3" Text="0.00" FontSize="28" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock Name="TbMaterial" Grid.Row="3" Grid.ColumnSpan="3" Text="0.00" FontSize="28" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <!--回口温度-->
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="回口温度" FontSize="16" Foreground="White" Margin="8,0,0,0"  VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock Name="TbBack" Grid.Row="5" Grid.ColumnSpan="3" Text="0.00" FontSize="28" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -340,8 +380,8 @@
             <TextBlock Grid.Row="1" Text="出口温度" FontSize="16" Foreground="White" Margin="4" HorizontalAlignment="Center"/>
         </Grid>
 
-        <!--设定温度SV-->
-        <Border Canvas.Left="900" Canvas.Top="64" Width="180" Height="120" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
+        <!--加液排空-->
+        <Border Canvas.Left="900" Canvas.Top="64" Width="180" Height="100" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
             <Grid Margin="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -350,13 +390,13 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="40"/>
                 </Grid.ColumnDefinitions>
-                <Image Source="pack://siteoforigin:,,,/Resources/Screens/highlow_temp.png" Margin="4,0"/>
-                <TextBlock Grid.Column="1" Text="设定温度" FontSize="16" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="2" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <TextBox Name="TbSetSv" Grid.Row="1" Grid.ColumnSpan="3" Text="9999.00" FontSize="28" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"
-                         KeyDown="TbSetSv_KeyDown"/>
+                <TextBlock Grid.Column="1" Text="加液排空" FontSize="16" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <Button Name="BtnOnOff" Grid.Row="1" Grid.Column="1"
+                        Cursor="Hand"
+                        Content="ON" 
+                        Style="{StaticResource SwitchButtonStyle}"
+                        Click="Button_Click"/>
             </Grid>
         </Border>
 

@@ -139,13 +139,21 @@
 	  <None Remove="Resources\Icon\zoom.png" />
 	  <None Remove="Resources\Screens\highLowtemperature.png" />
 	  <None Remove="Resources\Screens\highlow_temp.png" />
+	  <None Remove="Resources\Screens\highpreactor_bath.png" />
 	  <None Remove="Resources\Screens\highpreactor_body.png" />
+	  <None Remove="Resources\Screens\highpreactor_furnace.png" />
+	  <None Remove="Resources\Screens\highpreactor_pressure.png" />
+	  <None Remove="Resources\Screens\highpreactor_speed.png" />
 	  <None Remove="Resources\Screens\pressure_reset.png" />
 	  <None Remove="Resources\Screens\reactor_dark.png" />
 	  <None Remove="Resources\Screens\scc_tanks.png" />
 	  <None Remove="Resources\Screens\sips_body.png" />
 	  <None Remove="Resources\Screens\sips_body1.png" />
 	  <None Remove="Resources\Screens\sips_bottom.png" />
+	  <None Remove="Resources\Screens\sips_clear.png" />
+	  <None Remove="Resources\Screens\sips_flow.png" />
+	  <None Remove="Resources\Screens\sips_time.png" />
+	  <None Remove="Resources\Screens\sips_v.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
 	</ItemGroup>
@@ -448,7 +456,19 @@
 	  <EmbeddedResource Include="Resources\Screens\highlow_temp.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_bath.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\highpreactor_body.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_furnace.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_pressure.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_speed.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\pressure_reset.png">
@@ -479,6 +499,18 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\sips_bottom.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_clear.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_flow.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_time.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_v.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Translations\en-US.json">
