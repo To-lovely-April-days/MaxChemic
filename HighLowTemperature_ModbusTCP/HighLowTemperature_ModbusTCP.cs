@@ -86,9 +86,9 @@ namespace HighLowTemperature_ModbusTCP
                         }
                         else if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp && ConnectionManager != null)
                         {
-                            outlet = await ConnectionManager.ReadAsync<float>(ComId, "出口温度");
-                            material = await ConnectionManager.ReadAsync<float>(ComId, "物料温度");
-                            back = await ConnectionManager.ReadAsync<float>(ComId, "回口温度");
+                            outlet = await ConnectionManager.ReadAsync<short>(ComId, "出口温度");
+                            material = await ConnectionManager.ReadAsync<short>(ComId, "物料温度");
+                            back = await ConnectionManager.ReadAsync<short>(ComId, "回口温度");
 
                             InfoLog($"获取ModbusTCP高低温设备温度数据，结果（出口温度：{outlet}，物料温度：{material}，回口温度：{back}）");
                         }
@@ -213,7 +213,7 @@ namespace HighLowTemperature_ModbusTCP
                             {
                                 temp = 65535 + temp;
                             }
-                            success = await ConnectionManager.WriteAsync<int>(ComId, "温度SV", temp);
+                            success = await ConnectionManager.WriteAsync(ComId, "温度SV", (ushort)temp);
 
                             InfoLog($"设置ModbusTCP高低温设备温度SV，结果（Success:{success}, SV：{outlet}）");
                         }
@@ -734,9 +734,9 @@ namespace HighLowTemperature_ModbusTCP
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("OutletTemperature",-1000,10000,outlet/100,"出口温度",true,"℃"),
-                                new NumberParameter("MaterialTemperature",-1000,10000,material/100,"物料温度",true,"℃"),
-                                new NumberParameter("BackTemperature",-1000,10000,back/100,"回口温度",true,"℃"),
+                                new NumberParameter("OutletTemperature",-1000,10000,outlet/10,"出口温度",true,"℃"),
+                                new NumberParameter("MaterialTemperature",-1000,10000,material/10,"物料温度",true,"℃"),
+                                new NumberParameter("BackTemperature",-1000,10000,back/10,"回口温度",true,"℃"),
                                 new NumberParameter("SV", -1000, 10000, sv/10, "温度设定值SV", true, "℃"),
                                 new BooleanParameter("Run", on, "定值启动", true)
                             }

@@ -10,6 +10,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
@@ -21,9 +22,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
     /// </summary>
     public partial class HighLowTemperature : DeviceScreenBase
     {
+        private bool _animationRuning;
+        private readonly Storyboard _storyboard;
+
         public HighLowTemperature()
         {
             InitializeComponent();
+
+            _storyboard = new Storyboard();
+            ApplyRunAnimation();
         }
 
         protected override string PollCommandName => "获取可视化数据";
@@ -50,10 +57,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
             if (run.HasValue && run.Value)
             {
                 BtnRunStop.Content = "停止";
+                if (!_animationRuning)
+                {
+                    _storyboard.Begin(this, true);
+                    _animationRuning = true;
+                }
             }
             else
             {
                 BtnRunStop.Content = "运行";
+
+                _storyboard.Remove(this);
+                CircleRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+                EllipseRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+                _animationRuning = false;
             }
         }
 
@@ -97,7 +114,7 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
 
         private async void BtnRunStop_Click(object sender, RoutedEventArgs e)
         {
-            if (BtnRunStop.Content == "运行")
+            if (BtnRunStop.Content.ToString() == "运行")
             {
                 var input = new Dictionary<string, object>()
                 {
@@ -106,12 +123,15 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                 if (await ExecuteCommandAsync("定值启动/停止", input))
                 {
                     BtnRunStop.Content = "停止";
+
+                    _storyboard.Begin(this, true);
+                    _animationRuning = true;
                 }
                 return;
             }
 
 
-            if (BtnRunStop.Content == "停止")
+            if (BtnRunStop.Content.ToString() == "停止")
             {
                 var input = new Dictionary<string, object>()
                 {
@@ -120,8 +140,44 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                 if (await ExecuteCommandAsync("定值启动/停止", input))
                 {
                     BtnRunStop.Content = "运行";
+                    _storyboard.Remove(this);
+                    CircleRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+                    EllipseRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+                    _animationRuning = false;
                 }
             }
+        }
+
+        private void ApplyRunAnimation()
+        {
+            this.RegisterName("CircleRotate", CircleRotate);
+            this.RegisterName("EllipseRotate", EllipseRotate);
+
+            DoubleAnimationUsingKeyFrames circleAnimation = new DoubleAnimationUsingKeyFrames();
+            circleAnimation.KeyFrames.Add(new EasingDoubleKeyFrame()
+            {
+                Value = 360,
+                KeyTime = TimeSpan.FromSeconds(2)
+            });
+            circleAnimation.RepeatBehavior = RepeatBehavior.Forever;
+
+            DoubleAnimationUsingKeyFrames ellipseAnimation = new DoubleAnimationUsingKeyFrames();
+            ellipseAnimation.KeyFrames.Add(new EasingDoubleKeyFrame()
+            {
+                Value = 390,
+                KeyTime = TimeSpan.FromSeconds(2)
+            });
+            ellipseAnimation.RepeatBehavior = RepeatBehavior.Forever;
+
+
+            Storyboard.SetTargetName(circleAnimation, "CircleRotate");
+            Storyboard.SetTargetProperty(circleAnimation, new PropertyPath("Angle"));
+
+            Storyboard.SetTargetName(ellipseAnimation, "EllipseRotate");
+            Storyboard.SetTargetProperty(ellipseAnimation, new PropertyPath("Angle"));
+
+            _storyboard.Children.Add(circleAnimation);
+            _storyboard.Children.Add(ellipseAnimation);
         }
     }
 }

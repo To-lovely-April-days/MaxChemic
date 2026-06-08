@@ -138,6 +138,7 @@
 	  <None Remove="Resources\Icon\Valves.png" />
 	  <None Remove="Resources\Icon\zoom.png" />
 	  <None Remove="Resources\Screens\highLowtemperature.png" />
+	  <None Remove="Resources\Screens\highlow_temp.png" />
 	  <None Remove="Resources\Screens\highpreactor_body.png" />
 	  <None Remove="Resources\Screens\pressure_reset.png" />
 	  <None Remove="Resources\Screens\reactor_dark.png" />
@@ -442,6 +443,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\highLowtemperature.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highlow_temp.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Screens\highpreactor_body.png">
