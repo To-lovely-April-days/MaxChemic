@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <UseWindowsForms>false</UseWindowsForms>
+    <UseWPF>false</UseWPF>
+    <PlatformTarget>x86</PlatformTarget>
+    <Prefer32Bit>true</Prefer32Bit>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <AssemblyName>MaxChemical.GatewayConfig.Proxy</AssemblyName>
+    <RootNamespace>MaxChemical.GatewayConfig.Proxy</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="lib\ZLDevManage.dll" Condition="Exists('lib\ZLDevManage.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>ZLDevManage.dll</Link>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\MaxChemical.Modules.GatewayConfig\Ipc\IpcProtocol.cs">
+      <Link>Ipc\IpcProtocol.cs</Link>
+    </Compile>
+  </ItemGroup>
+</Project>

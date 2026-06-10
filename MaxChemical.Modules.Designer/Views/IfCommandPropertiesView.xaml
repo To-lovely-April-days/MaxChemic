@@ -1,0 +1,305 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.IfCommandPropertiesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#757575"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+
+        <Style x:Key="FieldInputStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="9,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#FAFAFA"/>
+            <Setter Property="Foreground" Value="#212121"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#2196F3"/>
+                                <Setter Property="Background" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="VarButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#616161"/>
+            <Setter Property="Background" Value="#F5F5F5"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E3F2FD"/>
+                                <Setter Property="BorderBrush" Value="#2196F3"/>
+                                <Setter Property="Foreground" Value="#1565C0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 比较符 RadioButton pill 样式 -->
+        <Style x:Key="OpPillStyle" TargetType="RadioButton">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#757575"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5"
+                                HorizontalAlignment="Stretch">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#90CAF9"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1"/>
+                                <Setter Property="Foreground" Value="#1565C0"/>
+                                <Setter Property="FontWeight" Value="Medium"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E3F2FD"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+
+    <Border Background="#F5F5F5">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="10">
+
+                <!-- ① Header -->
+                <Border Padding="14,12"
+                        Background="#F5F5F5"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="0,0,0,1"
+                        Margin="0,0,0,10">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <!-- 图标 -->
+                            <Border Width="38" Height="38" CornerRadius="10"
+                                    Background="White" Margin="0,0,10,0">
+                                <Image Source="pack://siteoforigin:,,,/Resources/CommadIcon/Bezel-lessIF.png"
+                                       Width="24" Height="24" Stretch="Uniform"/>
+                            </Border>
+                            <TextBlock Name="NodeTitle" Text="逻辑判断"
+                                       FontSize="15" FontWeight="Medium"
+                                       Foreground="#212121"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <!-- 标签行 -->
+                        <StackPanel Orientation="Horizontal">
+                            <Border CornerRadius="10" Padding="6,2"
+                                    BorderBrush="#E0E0E0" BorderThickness="1"
+                                    Background="White" Margin="0,0,6,0">
+                                <TextBlock Text="If" FontSize="11" Foreground="#757575"/>
+                            </Border>
+                            <Border CornerRadius="10" Padding="6,2"
+                                    BorderBrush="#E0E0E0" BorderThickness="1"
+                                    Background="White">
+                                <TextBlock Text="条件分支" FontSize="11" Foreground="#757575"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ② 操作数卡片 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3"
+                                    Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="OperatorTitle" Text="操作数"
+                                       FontSize="11" FontWeight="Medium"
+                                       Foreground="#757575"/>
+                        </StackPanel>
+
+                        <TextBlock Name="LeftOpLabel" Text="左操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="LeftOperandBox"
+                                     Style="{StaticResource FieldInputStyle}"
+                                     Text="{Binding LogicCommand.Properties[LeftOperand], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     TextChanged="OnValueChanged"
+                                     ToolTip="输入变量名或常量值"/>
+                            <Button Name="LeftButton" Grid.Column="1" Content="+ 变量"
+                                    Style="{StaticResource VarButtonStyle}"
+                                    Margin="6,0,0,0"
+                                    Click="SelectLeftVariable_Click"/>
+                        </Grid>
+
+                        <TextBlock Name="RightOpLabel" Text="右操作数" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="RightOperandBox"
+                                     Style="{StaticResource FieldInputStyle}"
+                                     Text="{Binding LogicCommand.Properties[RightOperand], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     TextChanged="OnValueChanged"
+                                     ToolTip="输入比较值、常量或变量名"/>
+                            <Button Name="RightButton" Grid.Column="1" Content="+ 变量"
+                                    Style="{StaticResource VarButtonStyle}"
+                                    Margin="6,0,0,0"
+                                    Click="SelectRightVariable_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ③ 比较符卡片 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3"
+                                    Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="OperatorLabel" Text="比较符"
+                                       FontSize="11" FontWeight="Medium"
+                                       Foreground="#757575"/>
+                        </StackPanel>
+                        <!-- 自适应均分的分段选择器 -->
+                        <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
+                            <UniformGrid Rows="1">
+                                <RadioButton x:Name="OpEqual"
+                                             Content="=" GroupName="IfOp"
+                                             Style="{StaticResource OpPillStyle}"
+                                             Tag="Equal" Checked="Operator_Checked"/>
+                                <RadioButton x:Name="OpNotEqual"
+                                             Content="≠" GroupName="IfOp"
+                                             Style="{StaticResource OpPillStyle}"
+                                             Tag="NotEqual" Checked="Operator_Checked"/>
+                                <RadioButton x:Name="OpGt"
+                                             Content="&gt;" GroupName="IfOp"
+                                             Style="{StaticResource OpPillStyle}"
+                                             Tag="GreaterThan" Checked="Operator_Checked"/>
+                                <RadioButton x:Name="OpLt"
+                                             Content="&lt;" GroupName="IfOp"
+                                             Style="{StaticResource OpPillStyle}"
+                                             Tag="LessThan" Checked="Operator_Checked"/>
+                                <RadioButton x:Name="OpGte"
+                                             Content="≥" GroupName="IfOp"
+                                             Style="{StaticResource OpPillStyle}"
+                                             Tag="GreaterThanOrEqual" Checked="Operator_Checked"/>
+                                <RadioButton x:Name="OpLte"
+                                             Content="≤" GroupName="IfOp"
+                                             Style="{StaticResource OpPillStyle}"
+                                             Tag="LessThanOrEqual" Checked="Operator_Checked"/>
+                            </UniformGrid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ④ 条件预览卡片 -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3"
+                                    Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="PreviewLabel" Text="条件预览"
+                                       FontSize="11" FontWeight="Medium"
+                                       Foreground="#757575"/>
+                        </StackPanel>
+                        <Border Background="#FAFAFA"
+                                BorderBrush="#E0E0E0" BorderThickness="1"
+                                CornerRadius="6" Padding="10,8">
+                            <TextBlock x:Name="ConditionPreview"
+                                       FontFamily="Consolas" FontSize="12"
+                                       Foreground="#424242"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ⑤ 提示卡片 -->
+                <Border Background="#E3F2FD"
+                        BorderBrush="#BBDEFB" BorderThickness="1"
+                        CornerRadius="8" Padding="12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="3" Height="13" CornerRadius="2"
+                                    Background="#2196F3"
+                                    Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="UseDescLabel" Text="变量引用说明"
+                                       FontSize="11" FontWeight="Medium"
+                                       Foreground="#1565C0"/>
+                        </StackPanel>
+                        <TextBlock FontSize="11" Foreground="#1976D2"
+                                   LineHeight="20" TextWrapping="Wrap">
+                            <Run Name="Desc1" Text="• 点击「+ 变量」按钮从列表中选择已定义变量"/>
+                            <LineBreak/>
+                            <Run Name="Desc2" Text="• 字符串常量请用引号包围：'文本'"/>
+                            <LineBreak/>
+                            <Run Name="Desc3" Text="• 数字常量直接输入：123 或 45.67"/>
+                            <LineBreak/>
+                            <Run Name="Desc4" Text="• 布尔值：true 或 false"/>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

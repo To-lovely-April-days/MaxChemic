@@ -1,0 +1,444 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.PistonPumpControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="500" 
+             d:DesignWidth="470"
+             Width="470" Height="500"
+             Background="Transparent"
+             Cursor="SizeAll"
+             ClipToBounds="False"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             RenderOptions.EdgeMode="Unspecified"
+             RenderOptions.CachingHint="Cache">
+
+    <UserControl.CacheMode>
+        <BitmapCache RenderAtScale="1.0" 
+                     SnapsToDevicePixels="True" 
+                     EnableClearType="False"/>
+    </UserControl.CacheMode>
+
+    <UserControl.Resources>
+        <!-- 停止状态外壳渐变(蓝灰) -->
+        <LinearGradientBrush x:Key="StoppedShellGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#8A98A8" Offset="0"/>
+            <GradientStop Color="#96A4B2" Offset="0.15"/>
+            <GradientStop Color="#A2B0BE" Offset="0.35"/>
+            <GradientStop Color="#AEBCC8" Offset="0.5"/>
+            <GradientStop Color="#A2B0BE" Offset="0.65"/>
+            <GradientStop Color="#96A4B2" Offset="0.85"/>
+            <GradientStop Color="#8A98A8" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 运行状态外壳渐变(蓝绿) -->
+        <LinearGradientBrush x:Key="RunningShellGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#7FB89D" Offset="0"/>
+            <GradientStop Color="#9AC9B3" Offset="0.15"/>
+            <GradientStop Color="#B5D9C8" Offset="0.35"/>
+            <GradientStop Color="#CFE8DC" Offset="0.5"/>
+            <GradientStop Color="#B5D9C8" Offset="0.65"/>
+            <GradientStop Color="#9AC9B3" Offset="0.85"/>
+            <GradientStop Color="#7FB89D" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- LCD背光渐变 -->
+        <LinearGradientBrush x:Key="LcdGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#2848A0" Offset="0"/>
+            <GradientStop Color="#1A3078" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 金属光泽覆盖 -->
+        <LinearGradientBrush x:Key="MetalBrush" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#59020202" Offset="0"/>
+            <GradientStop Color="#1F020202" Offset="0.026"/>
+            <GradientStop Color="#1FFFFFFF" Offset="0.116"/>
+            <GradientStop Color="#3DFFFFFF" Offset="0.498"/>
+            <GradientStop Color="#1FFFFFFF" Offset="0.888"/>
+            <GradientStop Color="#1F020202" Offset="0.966"/>
+            <GradientStop Color="#59020202" Offset="1"/>
+        </LinearGradientBrush>
+    </UserControl.Resources>
+
+    <Canvas Background="Transparent">
+
+        <!-- 可拖拽区域 -->
+        <Rectangle x:Name="DraggableArea"
+                   Canvas.Left="0" Canvas.Top="0"
+                   Width="470" Height="500"
+                   Fill="Transparent"
+                   Panel.ZIndex="0"
+                   Cursor="SizeAll"
+                   MouseDown="OnDraggableAreaMouseDown"
+                   MouseMove="OnDraggableAreaMouseMove"
+                   MouseUp="OnDraggableAreaMouseUp"
+                   MouseLeave="OnDraggableAreaMouseLeave"/>
+
+        <!-- 提手 -->
+        <Path Stroke="#B0ACA4" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+              Fill="Transparent" Panel.ZIndex="1">
+            <Path.Data>
+                <PathGeometry Figures="M 195,10 Q 195,-10 235,-10 Q 275,-10 275,10"/>
+            </Path.Data>
+        </Path>
+
+        <!-- 顶面 -->
+        <Path Fill="#A8B4C0" Stroke="#8090A0" StrokeThickness="0.6" Panel.ZIndex="2">
+            <Path.Data>
+                <PathGeometry Figures="M 52,10 L 413,10 L 447,51 L 23,51 Z"/>
+            </Path.Data>
+        </Path>
+        <Path Fill="White" Opacity="0.15" IsHitTestVisible="False" Panel.ZIndex="2">
+            <Path.Data>
+                <PathGeometry Figures="M 57,14 L 232,14 L 212,47 L 27,47 Z"/>
+            </Path.Data>
+        </Path>
+        <Line X1="52" Y1="10" X2="23" Y2="51" Stroke="#8090A0" StrokeThickness="0.4" Opacity="0.4" Panel.ZIndex="2"/>
+        <Line X1="413" Y1="10" X2="447" Y2="51" Stroke="#8090A0" StrokeThickness="0.4" Opacity="0.4" Panel.ZIndex="2"/>
+        <Line X1="52" Y1="10" X2="413" Y2="10" Stroke="#8090A0" StrokeThickness="0.4" Opacity="0.25" Panel.ZIndex="2"/>
+
+        <!-- 机身 -->
+        <Canvas x:Name="MainBodyGroup" Panel.ZIndex="3">
+            <Canvas.RenderTransform>
+                <TranslateTransform x:Name="ShellShakeTransform" X="0" Y="0"/>
+            </Canvas.RenderTransform>
+
+            <Path x:Name="PumpShell" Fill="{StaticResource StoppedShellGradient}" 
+                  Stroke="#6A7A8A" StrokeThickness="0.7" Panel.ZIndex="3">
+                <Path.Data>
+                    <PathGeometry Figures="M 23,51 L 447,51 L 460,450 Q 462,475 440,475 L 30,475 Q 8,475 10,450 Z"/>
+                </Path.Data>
+                <Path.Effect>
+                    <DropShadowEffect x:Name="ShellGlow" 
+                                      Color="Transparent" Opacity="0.8" BlurRadius="0" ShadowDepth="0"
+                                      RenderingBias="Performance"/>
+                </Path.Effect>
+            </Path>
+
+            <!-- 金属覆盖 -->
+            <Path Fill="{StaticResource MetalBrush}" Panel.ZIndex="3">
+                <Path.Data>
+                    <PathGeometry Figures="M 23,51 L 447,51 L 460,450 Q 462,475 440,475 L 30,475 Q 8,475 10,450 Z"/>
+                </Path.Data>
+            </Path>
+
+            <!-- 左高光 -->
+            <Path Fill="White" Opacity="0.1" IsHitTestVisible="False" Panel.ZIndex="3">
+                <Path.Data>
+                    <PathGeometry Figures="M 25,53 L 12,448 Q 10,473 32,473 L 48,473 L 43,53 Z"/>
+                </Path.Data>
+            </Path>
+            <!-- 右暗影 -->
+            <Path Fill="#384858" Opacity="0.06" IsHitTestVisible="False" Panel.ZIndex="3">
+                <Path.Data>
+                    <PathGeometry Figures="M 445,53 L 458,448 Q 460,473 442,473 L 434,473 L 437,53 Z"/>
+                </Path.Data>
+            </Path>
+
+            <!-- 不锈钢边框 -->
+            <Rectangle Canvas.Left="35" Canvas.Top="60" Width="399" Height="410" 
+                       RadiusX="6" RadiusY="6"
+                       Fill="Transparent" Stroke="#728292" StrokeThickness="1" Opacity="0.35" Panel.ZIndex="4"/>
+
+            <!-- 品牌区 -->
+            <Rectangle Canvas.Left="44" Canvas.Top="69" Width="382" Height="27" 
+                       RadiusX="3" RadiusY="3" Fill="#A0B0BE" Panel.ZIndex="4"/>
+            <TextBlock Canvas.Left="62" Canvas.Top="74" 
+                       Text="LongerPump®" FontFamily="Arial" FontSize="11" FontWeight="Bold"
+                       Foreground="#E0E8F0" Opacity="0.8" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="355" Canvas.Top="74"
+                       Text="BT100-1L" FontFamily="Arial" FontSize="12" FontWeight="Bold"
+                       Foreground="#D0D8E0" Opacity="0.6" Panel.ZIndex="5"/>
+
+            <!-- LCD大屏 -->
+            <Rectangle Canvas.Left="52" Canvas.Top="105" Width="246" Height="141"
+                       RadiusX="6" RadiusY="6"
+                       Fill="#1A1E28" Stroke="#0A0E18" StrokeThickness="0.7" Panel.ZIndex="5"/>
+            <Rectangle Canvas.Left="60" Canvas.Top="113" Width="230" Height="125"
+                       RadiusX="5" RadiusY="5"
+                       Fill="{StaticResource LcdGradient}" Panel.ZIndex="5"/>
+            <Path Fill="White" Opacity="0.06" IsHitTestVisible="False" Panel.ZIndex="6">
+                <Path.Data>
+                    <PathGeometry Figures="M 60,113 L 180,113 L 130,175 L 60,175 Z"/>
+                </Path.Data>
+            </Path>
+
+            <TextBlock Canvas.Left="82" Canvas.Top="130"
+                       Text="Speed" FontFamily="Arial" FontSize="13"
+                       Foreground="#E0F0FF" Opacity="0.7" Panel.ZIndex="6"/>
+            <TextBlock x:Name="SpeedDisplay" Canvas.Left="60" Canvas.Top="140" Width="224" Height="50"
+                       Text="{Binding PumpSpeed, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       FontFamily="Consolas" FontSize="44" FontWeight="Bold"
+                       Foreground="#E8F4FF" TextAlignment="Right" Padding="0,0,8,0"
+                       Panel.ZIndex="6"/>
+            <TextBlock Canvas.Left="270" Canvas.Top="132"
+                       Text="rpm" FontFamily="Times New Roman" FontSize="14"
+                       Foreground="#C0D8F0" Panel.ZIndex="6"/>
+            <TextBlock Canvas.Left="82" Canvas.Top="206"
+                       Text="Flow: 25.4 mL/min" FontFamily="Arial" FontSize="11"
+                       Foreground="#90B8D8" Panel.ZIndex="6"/>
+
+            <!-- 旋钮 -->
+            <Ellipse Canvas.Left="337" Canvas.Top="117" Width="68" Height="68"
+                     Fill="#90A0AE" Stroke="#6A7A8A" StrokeThickness="0.5" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="348" Canvas.Top="128" Width="46" Height="46"
+                     Fill="#8494A4" Stroke="#5A6A7A" StrokeThickness="0.4" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="366" Canvas.Top="146" Width="10" Height="10"
+                     Fill="#3A4A5A" Panel.ZIndex="5"/>
+            <Line X1="371" Y1="122" X2="371" Y2="136"
+                  Stroke="#2A3A4A" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="347" Canvas.Top="131" Width="3" Height="3" Fill="#6A7A8A" Opacity="0.4" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="353" Canvas.Top="122" Width="3" Height="3" Fill="#6A7A8A" Opacity="0.4" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="363" Canvas.Top="118" Width="3" Height="3" Fill="#6A7A8A" Opacity="0.4" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="376" Canvas.Top="118" Width="3" Height="3" Fill="#6A7A8A" Opacity="0.4" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="386" Canvas.Top="122" Width="3" Height="3" Fill="#6A7A8A" Opacity="0.4" Panel.ZIndex="5"/>
+            <Ellipse Canvas.Left="392" Canvas.Top="131" Width="3" Height="3" Fill="#6A7A8A" Opacity="0.4" Panel.ZIndex="5"/>
+
+            <!-- RUN按钮 -->
+            <Rectangle Canvas.Left="333" Canvas.Top="210" Width="81" Height="30"
+                       RadiusX="6" RadiusY="6"
+                       Fill="#1A3050" Stroke="#0E2040" StrokeThickness="0.5" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="333" Canvas.Top="215" Width="81" Height="30"
+                       Text="RUN" FontFamily="Arial" FontSize="13" FontWeight="Bold"
+                       Foreground="#B0D0E0" TextAlignment="Center" Panel.ZIndex="6"/>
+            <Button Canvas.Left="333" Canvas.Top="210" Width="81" Height="30"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnRunButtonClick"/>
+
+            <!-- STOP按钮 -->
+            <Rectangle Canvas.Left="333" Canvas.Top="246" Width="81" Height="30"
+                       RadiusX="6" RadiusY="6"
+                       Stroke="#0E2040" StrokeThickness="0.4" Panel.ZIndex="5">
+                <Rectangle.Fill>
+                    <SolidColorBrush Color="#1A3050" Opacity="0.75"/>
+                </Rectangle.Fill>
+            </Rectangle>
+            <TextBlock Canvas.Left="333" Canvas.Top="251" Width="81" Height="30"
+                       Text="STOP" FontFamily="Arial" FontSize="13" FontWeight="Bold"
+                       Foreground="#90B8C8" TextAlignment="Center" Panel.ZIndex="6"/>
+            <Button Canvas.Left="333" Canvas.Top="246" Width="81" Height="30"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnStopButtonClick"/>
+
+            <!-- ▲▼ 速度调节 -->
+            <Ellipse Canvas.Left="340" Canvas.Top="290" Width="30" Height="30"
+                     Fill="#90A0AE" Stroke="#6A7A8A" StrokeThickness="0.4" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="340" Canvas.Top="293" Width="30" Height="30"
+                       Text="▲" FontFamily="Arial" FontSize="11" FontWeight="Bold"
+                       Foreground="#2A3A4A" TextAlignment="Center" Panel.ZIndex="6"/>
+            <Button Canvas.Left="340" Canvas.Top="290" Width="30" Height="30"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnIncreaseButtonClick"/>
+
+            <Ellipse Canvas.Left="384" Canvas.Top="290" Width="30" Height="30"
+                     Fill="#90A0AE" Stroke="#6A7A8A" StrokeThickness="0.4" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="384" Canvas.Top="293" Width="30" Height="30"
+                       Text="▼" FontFamily="Arial" FontSize="11" FontWeight="Bold"
+                       Foreground="#2A3A4A" TextAlignment="Center" Panel.ZIndex="6"/>
+            <Button Canvas.Left="384" Canvas.Top="290" Width="30" Height="30"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnDecreaseButtonClick"/>
+
+            <!-- DIR/SET -->
+            <Rectangle Canvas.Left="333" Canvas.Top="328" Width="81" Height="23"
+                       RadiusX="6" RadiusY="6"
+                       Fill="#90A0AE" Stroke="#6A7A8A" StrokeThickness="0.3" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="333" Canvas.Top="331" Width="81" Height="23"
+                       Text="DIR" FontFamily="Arial" FontSize="11" FontWeight="SemiBold"
+                       Foreground="#2A3A4A" TextAlignment="Center" Panel.ZIndex="6"/>
+
+            <Rectangle Canvas.Left="333" Canvas.Top="357" Width="81" Height="23"
+                       RadiusX="6" RadiusY="6"
+                       Fill="#90A0AE" Stroke="#6A7A8A" StrokeThickness="0.3" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="333" Canvas.Top="360" Width="81" Height="23"
+                       Text="SET" FontFamily="Arial" FontSize="11" FontWeight="SemiBold"
+                       Foreground="#2A3A4A" TextAlignment="Center" Panel.ZIndex="6"/>
+
+            <!-- I/O电源开关 -->
+            <Rectangle Canvas.Left="341" Canvas.Top="400" Width="59" Height="23"
+                       RadiusX="4" RadiusY="4"
+                       Fill="#2A2A28" Stroke="#1A1A18" StrokeThickness="0.4" Panel.ZIndex="5"/>
+            <TextBlock Canvas.Left="341" Canvas.Top="403" Width="59" Height="23"
+                       Text="I/O" FontFamily="Arial" FontSize="11" FontWeight="Bold"
+                       Foreground="#A0A098" TextAlignment="Center" Panel.ZIndex="6"/>
+            <Button Canvas.Left="341" Canvas.Top="400" Width="59" Height="23"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Panel.ZIndex="99" Cursor="Hand" Click="OnPowerButtonClick"/>
+            <!-- 电源指示灯 -->
+            <Ellipse x:Name="PowerLed" Canvas.Left="334" Canvas.Top="406" Width="8" Height="8"
+                     Fill="#1A5A28" Opacity="0.8" Panel.ZIndex="6"/>
+            <Ellipse x:Name="PowerLedGlow" Canvas.Left="336" Canvas.Top="408" Width="4" Height="4"
+                     Fill="#40E050" Opacity="0.6" Panel.ZIndex="6"/>
+
+            <!-- 驱动轴出口 -->
+            <Ellipse Canvas.Left="100" Canvas.Top="348" Width="38" Height="34"
+                     Fill="#3A3A38" Stroke="#2A2A28" StrokeThickness="0.5" Panel.ZIndex="4"/>
+            <Ellipse Canvas.Left="113" Canvas.Top="356" Width="24" Height="22"
+                     Fill="#2A2A28" Panel.ZIndex="4"/>
+            <Ellipse Canvas.Left="120" Canvas.Top="362" Width="10" Height="9"
+                     Fill="#4A4A48" Panel.ZIndex="4"/>
+
+            <!-- ====== 3D泵头 ====== -->
+
+            <!-- 泵头阴影 -->
+            <Rectangle Canvas.Left="40" Canvas.Top="278" Width="170" Height="195"
+                       RadiusX="8" RadiusY="8"
+                       Fill="Black" Opacity="0.06" Panel.ZIndex="4"/>
+
+            <!-- 泵头侧面(右) -->
+            <Path Fill="#222222" Stroke="#1A1A1A" StrokeThickness="0.4" Panel.ZIndex="5">
+                <Path.Data>
+                    <PathGeometry Figures="M 201,269 L 218,260 L 218,483 L 201,492 Z"/>
+                </Path.Data>
+            </Path>
+            <!-- 泵头侧面(顶) -->
+            <Path Fill="#383838" Stroke="#2A2A2A" StrokeThickness="0.4" Panel.ZIndex="5">
+                <Path.Data>
+                    <PathGeometry Figures="M 40,269 L 57,260 L 218,260 L 201,269 Z"/>
+                </Path.Data>
+            </Path>
+            <!-- 泵头正面 -->
+            <Rectangle Canvas.Left="40" Canvas.Top="269" Width="161" Height="223"
+                       RadiusX="8" RadiusY="8"
+                       Fill="#2E2E2E" Stroke="#1E1E1E" StrokeThickness="0.8" Panel.ZIndex="6"/>
+            <!-- 正面高光 -->
+            <Path Fill="White" Opacity="0.04" IsHitTestVisible="False" Panel.ZIndex="6">
+                <Path.Data>
+                    <PathGeometry Figures="M 42,271 L 42,489 Q 42,491 44,491 L 55,491 L 55,271 Z"/>
+                </Path.Data>
+            </Path>
+
+            <!-- 泵头品牌 -->
+            <TextBlock Canvas.Left="80" Canvas.Top="280" 
+                       Text="LongerPump®" FontFamily="Arial" FontSize="9" FontWeight="SemiBold"
+                       Foreground="#888888" TextAlignment="Center" Panel.ZIndex="7"/>
+
+            <!-- 型号标签 -->
+            <Rectangle Canvas.Left="52" Canvas.Top="296" Width="55" Height="16"
+                       RadiusX="3" RadiusY="3"
+                       Fill="#1A3A6A" Opacity="0.85" Panel.ZIndex="7"/>
+            <TextBlock Canvas.Left="52" Canvas.Top="298" Width="55" Height="16"
+                       Text="DG15" FontFamily="Arial" FontSize="9" FontWeight="Bold"
+                       Foreground="#B0D0F0" TextAlignment="Center" Panel.ZIndex="7"/>
+            <Rectangle Canvas.Left="112" Canvas.Top="296" Width="50" Height="16"
+                       RadiusX="3" RadiusY="3" Fill="#404040" Panel.ZIndex="7"/>
+            <TextBlock Canvas.Left="112" Canvas.Top="299" Width="50" Height="16"
+                       Text="1 CH" FontFamily="Arial" FontSize="8"
+                       Foreground="#999999" TextAlignment="Center" Panel.ZIndex="7"/>
+
+            <!-- 泵腔 -->
+            <Rectangle Canvas.Left="52" Canvas.Top="320" Width="140" Height="157"
+                       RadiusX="6" RadiusY="6"
+                       Fill="#1A1A1A" Stroke="#0E0E0E" StrokeThickness="0.6" Panel.ZIndex="7"/>
+
+            <!-- 压盖 -->
+            <Path Fill="#404040" Stroke="#555555" StrokeThickness="0.5" Panel.ZIndex="7">
+                <Path.Data>
+                    <PathGeometry Figures="M 57,323 L 187,323 L 187,334 Q 187,337 184,337 L 60,337 Q 57,337 57,334 Z"/>
+                </Path.Data>
+            </Path>
+            <!-- 卡扣 -->
+            <Rectangle Canvas.Left="105" Canvas.Top="319" Width="32" Height="11"
+                       RadiusX="3" RadiusY="3"
+                       Fill="#505050" Stroke="#666666" StrokeThickness="0.4" Panel.ZIndex="8"/>
+            <Line X1="114" Y1="321" X2="114" Y2="328" Stroke="#666" StrokeThickness="0.4" Opacity="0.5" Panel.ZIndex="8"/>
+            <Line X1="121" Y1="321" X2="121" Y2="328" Stroke="#666" StrokeThickness="0.4" Opacity="0.5" Panel.ZIndex="8"/>
+            <Line X1="128" Y1="321" X2="128" Y2="328" Stroke="#666" StrokeThickness="0.4" Opacity="0.5" Panel.ZIndex="8"/>
+
+            <!-- 内腔 -->
+            <Ellipse Canvas.Left="78" Canvas.Top="357" Width="86" Height="86"
+                     Fill="#111111" Panel.ZIndex="7"/>
+
+            <!-- 软管 -->
+            <Path Stroke="#E8E4DC" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  Fill="Transparent" Opacity="0.9" Panel.ZIndex="8">
+                <Path.Data>
+                    <PathGeometry Figures="M 88,348 Q 84,400 96,436 Q 108,460 121,460 Q 134,460 146,436 Q 158,400 154,348"/>
+                </Path.Data>
+            </Path>
+            <!-- 软管高光 -->
+            <Path Stroke="White" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  Fill="Transparent" Opacity="0.1" Panel.ZIndex="8">
+                <Path.Data>
+                    <PathGeometry Figures="M 90,352 Q 88,396 98,428 Q 106,448 116,454"/>
+                </Path.Data>
+            </Path>
+
+            <!-- 3滚轮 -->
+            <Ellipse Canvas.Left="113" Canvas.Top="356" Width="18" Height="18"
+                     Fill="#707070" Stroke="#505050" StrokeThickness="0.6" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="118" Canvas.Top="361" Width="8" Height="8"
+                     Fill="#404040" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="85" Canvas.Top="416" Width="18" Height="18"
+                     Fill="#707070" Stroke="#505050" StrokeThickness="0.6" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="90" Canvas.Top="421" Width="8" Height="8"
+                     Fill="#404040" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="141" Canvas.Top="416" Width="18" Height="18"
+                     Fill="#707070" Stroke="#505050" StrokeThickness="0.6" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="146" Canvas.Top="421" Width="8" Height="8"
+                     Fill="#404040" Panel.ZIndex="9"/>
+
+            <!-- 滚轮高光 -->
+            <Ellipse Canvas.Left="116" Canvas.Top="358" Width="6" Height="6" Fill="White" Opacity="0.06" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="88" Canvas.Top="418" Width="6" Height="6" Fill="White" Opacity="0.06" Panel.ZIndex="9"/>
+            <Ellipse Canvas.Left="144" Canvas.Top="418" Width="6" Height="6" Fill="White" Opacity="0.06" Panel.ZIndex="9"/>
+
+            <!-- 转子中心 -->
+            <Ellipse Canvas.Left="110" Canvas.Top="389" Width="22" Height="22"
+                     Fill="#585858" Stroke="#404040" StrokeThickness="0.6" Panel.ZIndex="8"/>
+            <Ellipse Canvas.Left="117" Canvas.Top="396" Width="8" Height="8"
+                     Fill="#383838" Panel.ZIndex="8"/>
+            <Ellipse Canvas.Left="118" Canvas.Top="397" Width="4" Height="4" 
+                     Fill="White" Opacity="0.05" Panel.ZIndex="8"/>
+
+            <!-- 软管进出口 -->
+            <Rectangle Canvas.Left="26" Canvas.Top="366" Width="22" Height="16"
+                       RadiusX="4" RadiusY="4"
+                       Fill="#3A3A3A" Stroke="#2A2A2A" StrokeThickness="0.4" Panel.ZIndex="7"/>
+            <Line X1="2" Y1="374" X2="30" Y2="374"
+                  Stroke="#E0DCD4" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.85" Panel.ZIndex="7"/>
+
+            <Rectangle Canvas.Left="26" Canvas.Top="418" Width="22" Height="16"
+                       RadiusX="4" RadiusY="4"
+                       Fill="#3A3A3A" Stroke="#2A2A2A" StrokeThickness="0.4" Panel.ZIndex="7"/>
+            <Line X1="2" Y1="426" X2="30" Y2="426"
+                  Stroke="#E0DCD4" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.85" Panel.ZIndex="7"/>
+            <Path Stroke="#E0DCD4" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  Fill="Transparent" Opacity="0.65" Panel.ZIndex="7">
+                <Path.Data>
+                    <PathGeometry Figures="M -10,442 Q -10,426 2,426"/>
+                </Path.Data>
+            </Path>
+
+            <!-- IN/OUT标签 -->
+            <TextBlock Canvas.Left="6" Canvas.Top="354"
+                       Text="IN" FontFamily="Arial" FontSize="11" FontWeight="SemiBold"
+                       Foreground="#AAA49C" Panel.ZIndex="7"/>
+            <TextBlock Canvas.Left="2" Canvas.Top="448"
+                       Text="OUT" FontFamily="Arial" FontSize="11" FontWeight="SemiBold"
+                       Foreground="#AAA49C" Panel.ZIndex="7"/>
+
+        </Canvas>
+
+        <!-- 品牌底部文字 -->
+        <TextBlock Canvas.Left="160" Canvas.Top="483"
+                   Text="PERISTALTIC PUMP — BT100 Series" 
+                   FontFamily="Times New Roman" FontSize="10" FontStyle="Italic"
+                   Foreground="#8A8680" Opacity="0.5"
+                   IsHitTestVisible="False" Panel.ZIndex="2"/>
+
+        <!-- 选择边框 -->
+        <!-- 选中描边：贴合主控制台（不锈钢边框），圆角细线无光晕 -->
+        <Rectangle x:Name="SelectionBorder"
+                   Canvas.Left="35" Canvas.Top="60"
+                   Width="399" Height="410"
+                   Stroke="#378ADD" StrokeThickness="1.25"
+                   Fill="Transparent"
+                   RadiusX="8" RadiusY="8"
+                   Visibility="Collapsed" Panel.ZIndex="200" IsHitTestVisible="False"/>
+
+    </Canvas>
+</UserControl>

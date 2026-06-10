@@ -1,0 +1,109 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.ConicalFlaskControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="120" d:DesignWidth="80"
+             Width="80" Height="120"
+             Background="Transparent" Cursor="SizeAll" ClipToBounds="False"
+             SnapsToDevicePixels="True" UseLayoutRounding="True">
+    <UserControl.Resources>
+        <Storyboard x:Key="WaveAnimation" RepeatBehavior="Forever">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="MeniscusWave"
+                                           Storyboard.TargetProperty="(Canvas.Top)" Timeline.DesiredFrameRate="24">
+                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="-1.5">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <SineEase EasingMode="EaseInOut"/>
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+                <EasingDoubleKeyFrame KeyTime="0:0:4" Value="0">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <SineEase EasingMode="EaseInOut"/>
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="MeniscusWave"
+                                           Storyboard.TargetProperty="Opacity" Timeline.DesiredFrameRate="24">
+                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0.1"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0.25"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:4" Value="0.1"/>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+    </UserControl.Resources>
+    <Canvas x:Name="FlaskCanvas" Background="Transparent" ClipToBounds="False">
+        <Path x:Name="GlassBody" Panel.ZIndex="1"/>
+        <Path x:Name="LeftEdgeShadow" Opacity="0.08" Panel.ZIndex="2">
+            <Path.Fill>
+                <SolidColorBrush Color="#605850"/>
+            </Path.Fill>
+        </Path>
+        <Path x:Name="RightEdgeShadow" Opacity="0.06" Panel.ZIndex="2">
+            <Path.Fill>
+                <SolidColorBrush Color="#605850"/>
+            </Path.Fill>
+        </Path>
+        <Path x:Name="LeftHighlight" Opacity="0.50" Panel.ZIndex="3">
+            <Path.Fill>
+                <SolidColorBrush Color="White"/>
+            </Path.Fill>
+        </Path>
+        <Line x:Name="SecondaryHighlight" Stroke="White" StrokeThickness="0.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.18" Panel.ZIndex="3"/>
+        <Rectangle x:Name="FlaskNeck" Panel.ZIndex="3"/>
+        <Rectangle x:Name="NeckLeftShadow" Opacity="0.05" Panel.ZIndex="3">
+            <Rectangle.Fill>
+                <SolidColorBrush Color="#605850"/>
+            </Rectangle.Fill>
+        </Rectangle>
+        <Rectangle x:Name="NeckRightShadow" Opacity="0.04" Panel.ZIndex="3">
+            <Rectangle.Fill>
+                <SolidColorBrush Color="#605850"/>
+            </Rectangle.Fill>
+        </Rectangle>
+        <Rectangle x:Name="NeckHighlight" Fill="White" Opacity="0.25" RadiusX="1.5" RadiusY="1.5" Panel.ZIndex="3"/>
+        <Rectangle x:Name="RimCap" RadiusX="2" RadiusY="2" Panel.ZIndex="4"/>
+        <Rectangle x:Name="RimCapHighlight" Fill="White" Opacity="0.18" RadiusX="1" RadiusY="1" Panel.ZIndex="5"/>
+        <Canvas x:Name="JointHatchContainer" Panel.ZIndex="3"/>
+        <Line x:Name="OutlineLeft" Stroke="#4A5A64" StrokeThickness="0.8" Opacity="0.55" Panel.ZIndex="4"/>
+        <Line x:Name="OutlineRight" Stroke="#4A5A64" StrokeThickness="0.8" Opacity="0.55" Panel.ZIndex="4"/>
+        <Line x:Name="InnerWallLeft" Stroke="#8A9AA0" StrokeThickness="0.4" Opacity="0.2" Panel.ZIndex="4"/>
+        <Line x:Name="InnerWallRight" Stroke="#8A9AA0" StrokeThickness="0.4" Opacity="0.2" Panel.ZIndex="4"/>
+        <Path x:Name="LiquidFill" Visibility="Collapsed" Panel.ZIndex="2"/>
+        <Path x:Name="LiquidLeftEdge" Visibility="Collapsed" Opacity="0.05" Panel.ZIndex="2">
+            <Path.Fill>
+                <SolidColorBrush Color="#084858"/>
+            </Path.Fill>
+        </Path>
+        <Path x:Name="LiquidRightEdge" Visibility="Collapsed" Opacity="0.04" Panel.ZIndex="2">
+            <Path.Fill>
+                <SolidColorBrush Color="#084858"/>
+            </Path.Fill>
+        </Path>
+        <Path x:Name="BottomArcFill" Panel.ZIndex="2"/>
+        <Path x:Name="BottomArcStroke" Fill="Transparent" StrokeThickness="0.6" Panel.ZIndex="4"/>
+        <Ellipse x:Name="LiquidSurface" Visibility="Collapsed" Panel.ZIndex="5"/>
+        <Ellipse x:Name="SurfaceHighlight" Visibility="Collapsed" Fill="White" Opacity="0.12" Panel.ZIndex="6"/>
+        <Ellipse x:Name="MeniscusWave" Visibility="Collapsed" Opacity="0.15" Panel.ZIndex="5"/>
+        <Line x:Name="LabelLine" Stroke="#C05040" StrokeThickness="0.5" StrokeDashArray="2,1.5" Opacity="0.6" Visibility="Collapsed" Panel.ZIndex="8"/>
+        <TextBlock x:Name="LabelText" Foreground="#C05040" FontSize="9" FontStyle="Italic" FontFamily="Times New Roman" Opacity="0.7" Visibility="Collapsed" Panel.ZIndex="8"/>
+        <Line x:Name="MajorTick1" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MajorTick2" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MajorTick3" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MajorTick4" Stroke="#2C3E50" StrokeThickness="0.7" Opacity="0.75" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick1" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick2" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick3" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <Line x:Name="MinorTick4" Stroke="#2C3E50" StrokeThickness="0.4" Opacity="0.55" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText1" Text="25" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText2" Text="50" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText3" Text="75" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="ScaleText4" Text="100" FontSize="8" Foreground="#2C3E50" FontFamily="Times New Roman" Opacity="0.8" Panel.ZIndex="6"/>
+        <TextBlock x:Name="UnitLabel" Text="mL" FontSize="7" Foreground="#2C3E50" FontFamily="Times New Roman" FontStyle="Italic" Opacity="0.55" Panel.ZIndex="6"/>
+        <Rectangle x:Name="SelectionBorder" Stroke="#FF9500" StrokeThickness="2" StrokeDashArray="4,2" Fill="Transparent" RadiusX="3" RadiusY="3" Visibility="Collapsed" Panel.ZIndex="10"/>
+        <Ellipse x:Name="TopAnchor" Width="10" Height="10" Fill="#4ECDC4" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeNS" Panel.ZIndex="11"/>
+        <Ellipse x:Name="BottomAnchor" Width="10" Height="10" Fill="#4ECDC4" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeNS" Panel.ZIndex="11"/>
+        <Ellipse x:Name="LeftAnchor" Width="10" Height="10" Fill="#FF6B6B" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeWE" Panel.ZIndex="11"/>
+        <Ellipse x:Name="RightAnchor" Width="10" Height="10" Fill="#FF6B6B" Stroke="White" StrokeThickness="1.5" Opacity="0" Cursor="SizeWE" Panel.ZIndex="11"/>
+    </Canvas>
+</UserControl>

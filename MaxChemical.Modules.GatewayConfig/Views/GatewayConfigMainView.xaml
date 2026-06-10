@@ -1,0 +1,365 @@
+<Window x:Class="MaxChemical.Modules.GatewayConfig.Views.GatewayConfigMainView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:prism="http://prismlibrary.com/"
+        xmlns:views="clr-namespace:MaxChemical.Modules.GatewayConfig.Views"
+        Background="White"
+        Title="网关配置"
+        Width="1080" Height="720"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MaxChemical.Shell;component/Resources/ThemeColors.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/MaxChemical.Shell;component/Resources/SharedStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 顶栏次要按钮 -->
+            <Style x:Key="ToolbarSecondaryStyle" TargetType="Button">
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="Foreground" Value="#333333"/>
+                <Setter Property="Height" Value="28"/>
+                <Setter Property="Padding" Value="14,0"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="#D4D4D4" BorderThickness="1" CornerRadius="3">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#A41626"/>
+                                    <Setter Property="Foreground" Value="#A41626"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 网关列表卡片 -->
+            <Style x:Key="GatewayCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="BorderBrush" Value="#EAEAEA"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="Padding" Value="12,10"/>
+                <Setter Property="Margin" Value="0,0,0,8"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="BorderBrush" Value="#A41626"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- 链接按钮 -->
+            <Style x:Key="LinkButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="Transparent" Padding="12,10" CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#FDF0F2"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <!-- ★ 最外层容器:第一个子元素是原内容,第二个是 Loading 遮罩(渲染在上层) -->
+    <Grid>
+
+        <!-- ═════ 原有内容 ═════ -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="26"/>
+            </Grid.RowDefinitions>
+
+            <!-- ═════ 顶栏 ═════ -->
+            <Border Grid.Row="0" Background="White" BorderBrush="#EAEAEA"
+                    BorderThickness="0,0,0,1" Padding="20,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Command="{Binding RefreshCommand}"
+            Background="#A41626" Foreground="White"
+            BorderThickness="0" Height="30" MinWidth="92"
+            Padding="14,0" FontSize="12" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#7A0E1E"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Canvas Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,6,0">
+                                <Path Stroke="White" StrokeThickness="1.4" Fill="Transparent"
+                      Data="M 1,6 A 5,5 0 1 1 6,11 M 1,6 L 1,2 M 1,6 L 5,6"/>
+                            </Canvas>
+                            <TextBlock Text="刷新" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Grid.Column="1" Text="{Binding SummaryText}"
+                               FontSize="13" Foreground="#3F3F3F" FontWeight="Medium"
+                               VerticalAlignment="Center" Margin="16,0,0,0"/>
+                </Grid>
+            </Border>
+
+            <!-- ═════ 主体 ═════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ═════ 左侧:网关列表 ═════ -->
+                <Border Grid.Column="0" Background="#FAFAF8"
+                        BorderBrush="#EAEAEA" BorderThickness="0,0,1,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 列表标题 -->
+                        <Border Grid.Row="0" Padding="16,14,16,10"
+                                BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="网关" Foreground="#3F3F3F"
+                                           FontSize="12" FontWeight="SemiBold"/>
+                                <Border Background="#EAEAEA" CornerRadius="8"
+                                        Padding="6,1" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding Gateways.Count}"
+                                               FontSize="10" Foreground="#5F5F5F"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 网关卡片列表 -->
+                        <ScrollViewer Grid.Row="1" Padding="12,12,12,4" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Gateways}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource GatewayCardStyle}"
+                                                MouseLeftButtonDown="GatewayCard_MouseLeftButtonDown"
+                                                Tag="{Binding}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                                             Margin="0,0,8,0">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="#0F6E56"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsOnline}" Value="False">
+                                                                        <Setter Property="Fill" Value="#B4B2A9"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
+                                                    <TextBlock Text="{Binding DisplayName}" FontSize="13"
+                                                               Foreground="#1A1A1A" FontWeight="SemiBold"/>
+                                                </StackPanel>
+
+                                                <TextBlock Margin="0,6,0,0" FontSize="11"
+                                                           Foreground="#757575" FontFamily="Consolas"
+                                                           Text="{Binding Ip}"/>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <Border Background="#FEF1F3" CornerRadius="2"
+                                                            Padding="6,1" Margin="0,0,4,0">
+                                                        <TextBlock FontSize="10" Foreground="#A41626">
+                                                            <Run Text="{Binding Channels.Count, Mode=OneWay}"/><Run Text=" 通道"/>
+                                                        </TextBlock>
+                                                    </Border>
+                                                    <Border Background="#E1F5EE" CornerRadius="2" Padding="6,1">
+                                                        <TextBlock FontSize="10" Foreground="#0F6E56">
+                                                            <Run Text="{Binding OnlineChannelCount, Mode=OneWay}"/><Run Text=" 在线"/>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- ═════ 右侧:网关详情 ═════ -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="40,28,40,20">
+                    <ContentControl Content="{Binding SelectedGateway}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <!-- 网关身份信息卡 -->
+                                    <Border Background="#FAFAF8" BorderBrush="#EAEAEA" BorderThickness="1"
+                                            CornerRadius="4" Padding="18,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               FontSize="16" FontWeight="SemiBold"
+                                                               Foreground="#1A1A1A"/>
+                                                    <Border Background="#E1F5EE" CornerRadius="2"
+                                                            Padding="6,1" Margin="10,0,0,0"
+                                                            VerticalAlignment="Center">
+                                                        <TextBlock FontSize="10" Foreground="#0F6E56">
+                                                            <Run Text="{Binding OnlineChannelCount, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding Channels.Count, Mode=OneWay}"/><Run Text=" 通道在线"/>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                    <TextBlock Text="IP" FontSize="11" Foreground="#888780"
+                                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding Ip}" FontSize="12"
+                                                               FontFamily="Consolas" Foreground="#3F3F3F"
+                                                               VerticalAlignment="Center"/>
+                                                    <Rectangle Width="1" Height="12" Fill="#D4D4D4" Margin="14,0"/>
+                                                    <TextBlock Text="MAC" FontSize="11" Foreground="#888780"
+                                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding Mac}" FontSize="12"
+                                                               FontFamily="Consolas" Foreground="#3F3F3F"
+                                                               VerticalAlignment="Center"/>
+                                                    <Rectangle Width="1" Height="12" Fill="#D4D4D4" Margin="14,0"/>
+                                                    <TextBlock Text="固件" FontSize="11" Foreground="#888780"
+                                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding FirmwareVersion}" FontSize="12"
+                                                               FontFamily="Consolas" Foreground="#3F3F3F"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- 网关本体图 -->
+                                    <Border Margin="0,24,0,0" HorizontalAlignment="Center">
+                                        <views:GatewayBodyControl Gateway="{Binding}"/>
+                                    </Border>
+
+                                    <!-- 提示文本 -->
+                                    <Border Margin="0,16,0,0" Padding="14,10"
+                                            Background="#FAFAF8" BorderBrush="#EAEAEA" BorderThickness="1"
+                                            CornerRadius="4" HorizontalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Canvas Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <Ellipse Width="14" Height="14" Stroke="#A41626" StrokeThickness="1" Fill="Transparent"/>
+                                                <Rectangle Canvas.Left="6.5" Canvas.Top="3" Width="1" Height="1" Fill="#A41626"/>
+                                                <Rectangle Canvas.Left="6.5" Canvas.Top="5.5" Width="1" Height="5" Fill="#A41626"/>
+                                            </Canvas>
+                                            <TextBlock Text="点击网关本体上的 DB9 或端子排,进入对应通道参数配置"
+                                                       FontSize="12" Foreground="#5F5F5F"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ═════ 状态栏 ═════ -->
+            <Border Grid.Row="2" Background="#007ACC">
+                <TextBlock Foreground="White" FontSize="12" VerticalAlignment="Center"
+                           Margin="14,0,0,0" x:Name="StatusBarText" Text="就绪"/>
+            </Border>
+        </Grid>
+
+        <!-- ═════ Loading 遮罩(同一可视化树,天然跟随窗口最小化/层级)═════ -->
+        <Grid x:Name="LoadingOverlay"
+              Background="#8C1A1A1A"
+              Visibility="Collapsed">
+            <Border Background="White" CornerRadius="12"
+                    Padding="34,28" Width="300"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" Opacity="0.18"
+                                      BlurRadius="28" ShadowDepth="6" Direction="270"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- 旋转环 -->
+                    <Canvas Width="44" Height="44" HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <!-- 底环:整圈浅灰 -->
+                        <Ellipse Width="40.5" Height="40.5" Canvas.Left="1.75" Canvas.Top="1.75"
+             Stroke="#EFEFEF" StrokeThickness="3.5"/>
+                        <!-- 红色圆弧:1/4 圈,绕圆心 (22,22) 自转 -->
+                        <Path Stroke="#A41626" StrokeThickness="3.5" StrokeStartLineCap="Round"
+          Data="M 22,1.75 A 20.25,20.25 0 0 1 42.25,22">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="SpinnerRotate" CenterX="22" CenterY="22"/>
+                            </Path.RenderTransform>
+                        </Path>
+                    </Canvas>
+
+                    <TextBlock x:Name="LoadingMessage"
+                               Text="正在搜索网关…"
+                               HorizontalAlignment="Center"
+                               FontSize="14" FontWeight="Medium"
+                               Foreground="#1A1A1A" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="LoadingSubText"
+                               Text="请耐心等待,最长约需 30 秒"
+                               HorizontalAlignment="Center"
+                               FontSize="11" Foreground="#999999"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 旋转动画 -->
+            <Grid.Triggers>
+                <EventTrigger RoutedEvent="Grid.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                Storyboard.TargetName="SpinnerRotate"
+                                Storyboard.TargetProperty="Angle"
+                                From="0" To="360" Duration="0:0:0.9"
+                                RepeatBehavior="Forever"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Grid.Triggers>
+        </Grid>
+    </Grid>
+</Window>

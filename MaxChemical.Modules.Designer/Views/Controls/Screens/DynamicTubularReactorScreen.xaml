@@ -1,0 +1,116 @@
+<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.DynamicTubularReactorScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             Width="1240" Height="620">
+
+    <!--
+      100mL 动态管式反应釜 嵌入式屏幕（按 HTML 定稿翻译）
+      - 中央：reactor_dark.png 设备底图
+      - 左上：搅拌面板（SV 可编辑 / PV 只读 / ON-OFF 开关）
+      - 右上：压力（可编辑设定）
+      - 管体下方：釜温
+      - 轮询"获取所有数据"，开关反逻辑（0运行1停止）
+      - 数据：搅拌SV/PV、釜温、压力、搅拌开关（严格按驱动）
+    -->
+
+    <base:DeviceScreenBase.Resources>
+        <SolidColorBrush x:Key="Label" Color="#C4CDD5"/>
+        <SolidColorBrush x:Key="Cyan"  Color="#34C6F0"/>
+        <SolidColorBrush x:Key="Amber" Color="#F2C200"/>
+        <SolidColorBrush x:Key="Purple" Color="#D957FF"/>
+
+        <Style x:Key="EditBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#40000000"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#40FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="3,0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="56"/>
+        </Style>
+    </base:DeviceScreenBase.Resources>
+
+    <!-- 屏幕背景：深蓝灰科技底 -->
+    <Border ClipToBounds="True">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0.6,1">
+                <GradientStop Color="#1A2230" Offset="0"/>
+                <GradientStop Color="#141A24" Offset="0.45"/>
+                <GradientStop Color="#0E131B" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+
+        <Grid>
+            <!-- 中央设备底图：放项目资源 Resources/Screens/reactor_dark.png -->
+            <Image Source="pack://siteoforigin:,,,/Resources/Screens/reactor_dark.png"
+                   Stretch="Uniform" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+            <!-- ===== 左上：搅拌面板 ===== -->
+            <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,40,0,0"
+                    Background="#990E141C" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="7" Padding="14,11">
+                <StackPanel MinWidth="150">
+                    <!-- 装饰刻度 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <Rectangle Width="11" Height="4" Fill="#73969FB2" Margin="0,0,4,0"/>
+                        <Rectangle Width="11" Height="4" Fill="#73969FB2" Margin="0,0,4,0"/>
+                        <Rectangle Width="11" Height="4" Fill="#73969FB2" Margin="0,0,4,0"/>
+                        <Rectangle Width="11" Height="4" Fill="#73969FB2" Margin="0,0,4,0"/>
+                        <Rectangle Width="11" Height="4" Fill="#73969FB2"/>
+                    </StackPanel>
+                    <!-- SV 可编辑 -->
+                    <Grid Margin="0,0,0,5">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="SV" Foreground="{StaticResource Label}" FontSize="15" VerticalAlignment="Center"/>
+                        <TextBox x:Name="StirSv" Grid.Column="1" Text="--" Style="{StaticResource EditBox}" Foreground="{StaticResource Purple}" FontSize="16"
+                                 TextAlignment="Right" KeyDown="StirSv_KeyDown" GotKeyboardFocus="Sv_SelectAll"/>
+                        <TextBlock Grid.Column="2" Text="RPM" Foreground="{StaticResource Label}" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </Grid>
+                    <!-- PV 只读 -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="PV" Foreground="{StaticResource Label}" FontSize="15" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StirPv" Grid.Column="1" Text="--" Foreground="White" FontSize="16" FontWeight="Bold" FontFamily="Consolas" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="2" Text="RPM" Foreground="{StaticResource Label}" FontSize="13" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </Grid>
+                    <!-- 搅拌开关 -->
+                    <Grid x:Name="StirSwitch" Width="92" Height="30" HorizontalAlignment="Left" Background="Transparent"
+                          Cursor="Hand" MouseLeftButtonDown="StirSwitch_Click">
+                        <Border x:Name="StirTrack" CornerRadius="15" Background="#3A444D"/>
+                        <TextBlock x:Name="StirText" Text="OFF" Foreground="#AEBCCA" FontSize="13" FontWeight="Bold"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="14,0,0,0"/>
+                        <Border x:Name="StirKnob" Width="22" Height="22" CornerRadius="11" Background="White"
+                                VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,4,0"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 右上：压力（可编辑设定）===== -->
+            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,90,18,0"
+                    Background="#990E141C" BorderBrush="#59788C9B" BorderThickness="1" CornerRadius="6" Padding="11,6">
+                <StackPanel Orientation="Horizontal">
+                    <Border BorderBrush="{StaticResource Cyan}" BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,8,0">
+                        <TextBlock Text="压力" Foreground="{StaticResource Cyan}" FontSize="13" FontWeight="SemiBold"/>
+                    </Border>
+                    <TextBox x:Name="Press" Text="--" Style="{StaticResource EditBox}" Foreground="{StaticResource Cyan}" FontSize="17"
+                             TextAlignment="Right" KeyDown="Press_KeyDown" GotKeyboardFocus="Sv_SelectAll"/>
+                    <TextBlock Text="MPa" Foreground="#9FB0BD" FontSize="14" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 管体下方：釜温（可编辑设定）===== -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,70" Orientation="Vertical">
+                <Border Background="{StaticResource Amber}" CornerRadius="3" Padding="8,1" HorizontalAlignment="Center">
+                    <TextBlock Text="釜温" Foreground="#1A1500" FontSize="12" FontWeight="Bold"/>
+                </Border>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                    <TextBox x:Name="Temp" Text="--" Style="{StaticResource EditBox}" Foreground="{StaticResource Amber}" FontSize="20"
+                             TextAlignment="Right" KeyDown="Temp_KeyDown" GotKeyboardFocus="Sv_SelectAll"/>
+                    <TextBlock Text="℃" Foreground="{StaticResource Amber}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</base:DeviceScreenBase>

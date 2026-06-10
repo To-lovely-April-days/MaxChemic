@@ -1,0 +1,363 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ══════════════════════════════════════════════════
+         MaxChemical 全局共享样式 — 靛蓝极简控件库
+         
+         提取自 DOEStyles.xaml，供所有模块共用
+         在 App.xaml 中合并引用:
+         <ResourceDictionary Source="Styles/SharedStyles.xaml"/>
+         ══════════════════════════════════════════════════ -->
+
+    <!-- ═══ 色彩令牌 ═══ -->
+    <Color x:Key="IndigoPrimary">#2D3A8C</Color>
+    <Color x:Key="IndigoPrimaryDark">#1E2A6E</Color>
+    <Color x:Key="IndigoPrimaryLight">#E8EAF6</Color>
+    <Color x:Key="IndigoAccent">#3B5BDB</Color>
+
+    <Color x:Key="IndigoText">#1A1F36</Color>
+    <Color x:Key="IndigoTextSec">#374151</Color>
+    <Color x:Key="IndigoTextMuted">#6B7280</Color>
+    <Color x:Key="IndigoTextHint">#9CA3AF</Color>
+
+    <Color x:Key="IndigoBorder">#E2E5EB</Color>
+    <Color x:Key="IndigoBorderHover">#C7CCD4</Color>
+    <Color x:Key="IndigoBorderFocus">#2D3A8C</Color>
+
+    <Color x:Key="IndigoSurface">#F8F9FB</Color>
+    <Color x:Key="IndigoSidebar">#FAFBFC</Color>
+    <Color x:Key="IndigoDivider">#E8EAED</Color>
+
+    <Color x:Key="IndigoDanger">#DC2626</Color>
+    <Color x:Key="IndigoDangerLight">#FEF2F2</Color>
+    <Color x:Key="IndigoSuccess">#059669</Color>
+    <Color x:Key="IndigoSuccessLight">#ECFDF5</Color>
+
+    <SolidColorBrush x:Key="SharedPrimary" Color="{StaticResource IndigoPrimary}"/>
+    <SolidColorBrush x:Key="SharedPrimaryDark" Color="{StaticResource IndigoPrimaryDark}"/>
+    <SolidColorBrush x:Key="SharedPrimaryLight" Color="{StaticResource IndigoPrimaryLight}"/>
+    <SolidColorBrush x:Key="SharedAccent" Color="{StaticResource IndigoAccent}"/>
+    <SolidColorBrush x:Key="SharedText" Color="{StaticResource IndigoText}"/>
+    <SolidColorBrush x:Key="SharedTextSec" Color="{StaticResource IndigoTextSec}"/>
+    <SolidColorBrush x:Key="SharedTextMuted" Color="{StaticResource IndigoTextMuted}"/>
+    <SolidColorBrush x:Key="SharedTextHint" Color="{StaticResource IndigoTextHint}"/>
+    <SolidColorBrush x:Key="SharedBorder" Color="{StaticResource IndigoBorder}"/>
+    <SolidColorBrush x:Key="SharedBorderHover" Color="{StaticResource IndigoBorderHover}"/>
+    <SolidColorBrush x:Key="SharedSurface" Color="{StaticResource IndigoSurface}"/>
+    <SolidColorBrush x:Key="SharedDivider" Color="{StaticResource IndigoDivider}"/>
+    <SolidColorBrush x:Key="SharedDanger" Color="{StaticResource IndigoDanger}"/>
+    <SolidColorBrush x:Key="SharedSuccess" Color="{StaticResource IndigoSuccess}"/>
+
+    <!-- 兼容别名: DOEStyles.xaml 中用 Wz 前缀, 这里也提供同名 key -->
+    <SolidColorBrush x:Key="WzPrimary" Color="{StaticResource IndigoPrimary}"/>
+    <SolidColorBrush x:Key="WzPrimaryDark" Color="{StaticResource IndigoPrimaryDark}"/>
+    <SolidColorBrush x:Key="WzPrimaryLight" Color="{StaticResource IndigoPrimaryLight}"/>
+    <SolidColorBrush x:Key="WzAccent" Color="{StaticResource IndigoAccent}"/>
+    <SolidColorBrush x:Key="WzText" Color="{StaticResource IndigoText}"/>
+    <SolidColorBrush x:Key="WzTextSec" Color="{StaticResource IndigoTextSec}"/>
+    <SolidColorBrush x:Key="WzTextMuted" Color="{StaticResource IndigoTextMuted}"/>
+    <SolidColorBrush x:Key="WzTextHint" Color="{StaticResource IndigoTextHint}"/>
+    <SolidColorBrush x:Key="WzBorder" Color="{StaticResource IndigoBorder}"/>
+    <SolidColorBrush x:Key="WzBorderHover" Color="{StaticResource IndigoBorderHover}"/>
+    <SolidColorBrush x:Key="WzSurface" Color="{StaticResource IndigoSurface}"/>
+    <SolidColorBrush x:Key="WzDivider" Color="{StaticResource IndigoDivider}"/>
+    <SolidColorBrush x:Key="WzDanger" Color="{StaticResource IndigoDanger}"/>
+    <SolidColorBrush x:Key="WzSuccess" Color="{StaticResource IndigoSuccess}"/>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ScrollBar 极简风格 — 细轨道 + 圆角滑块 + hover 加深
+         ═══════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="SharedScrollThumbV" TargetType="Thumb">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbBd" Background="#C7CCD4" CornerRadius="3"
+                            Width="6" Margin="0,1" SnapsToDevicePixels="True"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBd" Property="Background" Value="#9CA3AF"/>
+                            <Setter TargetName="ThumbBd" Property="Width" Value="8"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbBd" Property="Background" Value="#6B7280"/>
+                            <Setter TargetName="ThumbBd" Property="Width" Value="8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SharedScrollThumbH" TargetType="Thumb">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbBd" Background="#C7CCD4" CornerRadius="3"
+                            Height="6" Margin="1,0" SnapsToDevicePixels="True"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBd" Property="Background" Value="#9CA3AF"/>
+                            <Setter TargetName="ThumbBd" Property="Height" Value="8"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbBd" Property="Background" Value="#6B7280"/>
+                            <Setter TargetName="ThumbBd" Property="Height" Value="8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SharedScrollPageBtn" TargetType="RepeatButton">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SharedScrollBarV" TargetType="ScrollBar">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="MinWidth" Value="10"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Border Background="Transparent" Width="10" Padding="1,0">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource SharedScrollPageBtn}" Command="ScrollBar.PageUpCommand"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource SharedScrollThumbV}" MinHeight="20"/>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource SharedScrollPageBtn}" Command="ScrollBar.PageDownCommand"/>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SharedScrollBarH" TargetType="ScrollBar">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="MinHeight" Value="10"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Border Background="Transparent" Height="10" Padding="0,1">
+                        <Track x:Name="PART_Track" IsDirectionReversed="False">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource SharedScrollPageBtn}" Command="ScrollBar.PageLeftCommand"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource SharedScrollThumbH}" MinWidth="20"/>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource SharedScrollPageBtn}" Command="ScrollBar.PageRightCommand"/>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ═══ SharedScrollViewer ═══ -->
+    <Style x:Key="SharedScrollViewer" TargetType="ScrollViewer">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollViewer">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ScrollContentPresenter Grid.Row="0" Grid.Column="0"
+                                                CanContentScroll="{TemplateBinding CanContentScroll}"/>
+                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                   Grid.Row="0" Grid.Column="1"
+                                   Style="{StaticResource SharedScrollBarV}"
+                                   Orientation="Vertical"
+                                   Value="{TemplateBinding VerticalOffset}"
+                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                        <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                   Grid.Row="1" Grid.Column="0"
+                                   Style="{StaticResource SharedScrollBarH}"
+                                   Orientation="Horizontal"
+                                   Value="{TemplateBinding HorizontalOffset}"
+                                   Maximum="{TemplateBinding ScrollableWidth}"
+                                   ViewportSize="{TemplateBinding ViewportWidth}"
+                                   Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Wz 别名（兼容 DOEStyles.xaml 已有引用） -->
+    <Style x:Key="WzScrollThumbV" TargetType="Thumb" BasedOn="{StaticResource SharedScrollThumbV}"/>
+    <Style x:Key="WzScrollThumbH" TargetType="Thumb" BasedOn="{StaticResource SharedScrollThumbH}"/>
+    <Style x:Key="WzScrollPageBtn" TargetType="RepeatButton" BasedOn="{StaticResource SharedScrollPageBtn}"/>
+    <Style x:Key="WzScrollBarV" TargetType="ScrollBar" BasedOn="{StaticResource SharedScrollBarV}"/>
+    <Style x:Key="WzScrollBarH" TargetType="ScrollBar" BasedOn="{StaticResource SharedScrollBarH}"/>
+    <Style x:Key="WzScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource SharedScrollViewer}"/>
+
+    <!-- ═══ 全局 ComboBox 紧凑样式 ═══ -->
+    <Style x:Key="FieldComboStyle" TargetType="ComboBox">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#1A1F36"/>
+        <Setter Property="Background" Value="#FAFBFC"/>
+        <Setter Property="BorderBrush" Value="#E2E5EB"/>
+        <Setter Property="BorderThickness" Value="0.5"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Style.Resources>
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FAFBFC"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E8EAF6"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#2D3A8C"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E8EAF6"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#2D3A8C"/>
+        </Style.Resources>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="#C7CCD4"/>
+            </Trigger>
+            <Trigger Property="IsDropDownOpen" Value="True">
+                <Setter Property="BorderBrush" Value="#2D3A8C"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <!-- ══ 输入框 (跟 FieldComboStyle 配套) ══ -->
+    <Style x:Key="FieldTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="9,0"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="#212121"/>
+        <Setter Property="BorderBrush" Value="#E0E0E0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Background" Value="#FAFAFA"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="6"
+                        SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                  Margin="{TemplateBinding Padding}"
+                                  VerticalAlignment="Center"
+                                  Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Hidden"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#BDBDBD"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
+                            <Setter TargetName="Bd" Property="BorderThickness" Value="1.5"/>
+                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ 等宽字体输入框 (IP / 端口 / MAC 等技术字段) ══ -->
+    <Style x:Key="FieldMonoTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource FieldTextBoxStyle}">
+        <Setter Property="FontFamily" Value="Consolas, Microsoft YaHei"/>
+    </Style>
+
+    <!-- ══ 字段标签 ══ -->
+    <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#5F5F5F"/>
+        <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+
+    <!-- ══ 版块标题 (带左侧红色色块) ══ -->
+    <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="#1A1A1A"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ══ 卡片容器 ══ -->
+    <Style x:Key="GroupCardStyle" TargetType="Border">
+        <Setter Property="BorderBrush" Value="#E5E7EB"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="16,12,16,14"/>
+        <Setter Property="Background" Value="White"/>
+    </Style>
+
+    <!-- ══ 主操作按钮 (品牌红实色) — 改大尺寸的实用变体 ══ -->
+    <Style x:Key="DialogPrimaryButtonStyleLg" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="84"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+
+    <!-- ══ 警示按钮 (红描边白底,用于"恢复默认"等带警告意味的操作) ══ -->
+    <Style x:Key="DialogWarnButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonBaseStyle}">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource Brand.PrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Brand.PrimaryBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="84"/>
+        <Setter Property="Margin" Value="0"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#FEF1F3"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="#FBD7DD"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ══ 次按钮 (灰色) — 改大尺寸的实用变体 ══ -->
+    <Style x:Key="DialogSecondaryButtonStyleLg" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="84"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+    <!-- ═══ BooleanToVisibilityConverter 全局可用 ═══ -->
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+</ResourceDictionary>

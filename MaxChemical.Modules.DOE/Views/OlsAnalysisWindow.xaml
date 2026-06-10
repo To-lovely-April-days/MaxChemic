@@ -1,0 +1,868 @@
+﻿<Window x:Class="MaxChemical.Modules.DOE.Views.OlsAnalysisWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:oxy="http://oxyplot.org/wpf"
+        xmlns:doe="clr-namespace:MaxChemical.Modules.DOE.Views"
+        xmlns:h="http://helix-toolkit.org/wpf"
+        xmlns:converters="clr-namespace:MaxChemical.Modules.DOE.Converters"
+   
+        Title="OLS 回归分析"
+        Width="1200" Height="800"
+        MinWidth="1100" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="OlsAnalysisStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+            <converters:StringNotEmptyToVisibilityConverter x:Key="StringToVis"/>
+
+            <converters:BindingProxy x:Key="BindingProxy" Data="{Binding}"/>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border CornerRadius="12" Background="{StaticResource OlsBg}"
+            BorderBrush="{StaticResource OlsBorder}" BorderThickness="0.5" ClipToBounds="True">
+        <Border.Effect>
+            <DropShadowEffect Color="#000" Direction="270" ShadowDepth="4" BlurRadius="20" Opacity="0.10"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ═══ 标题栏 ═══ -->
+            <Border Grid.Row="0" Style="{StaticResource OlsTitleBar}" CornerRadius="12,12,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseDown">
+                <Grid Margin="18,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding TitleTxt}" FontSize="14" FontWeight="Medium"
+                               Foreground="{StaticResource OlsText}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0"
+                               FontSize="11" Foreground="{StaticResource OlsTextHint}">
+                        <Run Text="{Binding SelectedOlsBatch.BatchName, Mode=OneWay}"/>
+                        <Run Text=" · "/>
+                        <Run Text="{Binding SelectedOlsBatch.CompletedCount, Mode=OneWay}"/>
+                        <Run Text=" obs"/>
+                    </TextBlock>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="—" FontSize="12" Width="36" Height="28"
+                                Style="{StaticResource OlsToolBtn}" Click="MinimizeBtn_Click" Margin="0,0,4,0"/>
+                        <Button Content="✕" FontSize="11" Width="36" Height="28"
+                                Style="{StaticResource OlsToolBtn}" Click="CloseBtn_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ═══ 工具栏 ═══ -->
+            <Border Grid.Row="1" Background="{StaticResource OlsBg}"
+        BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1" Padding="16,5">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding CbResponseTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Style="{StaticResource OlsCombo}" Width="100"
+                  ItemsSource="{Binding ResponseNames}"
+                  SelectedItem="{Binding SelectedResponseName}"/>
+
+                    <!-- ★ 模型中包含项的阶数 -->
+                    <StackPanel Orientation="Horizontal" Margin="12,0,0,0"
+                    Visibility="{Binding ShowModelOrderSelector, Converter={StaticResource BoolToVis}}">
+                        <Rectangle Width="1" Height="16" Fill="{StaticResource OlsBorderLight}" Margin="0,0,12,0"/>
+                        <TextBlock Text="{Binding CbDegreeTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                       VerticalAlignment="Center" Margin="0,0,6,0"
+                       ToolTip="{Binding CbDegreeTipTxt}"/>
+                        <ComboBox Style="{StaticResource OlsCombo}" Width="52"
+                      ItemsSource="{Binding AvailableModelOrders}"
+                      SelectedItem="{Binding SelectedModelOrder, Mode=TwoWay}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="16" Fill="{StaticResource OlsBorderLight}" Margin="12,0"/>
+                    <TextBlock Text="{Binding CbEquationTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource OlsToolBtn}" Margin="0,0,4,0"
+                Command="{Binding ToggleEquationCodingCommand}">
+                        <TextBlock Text="{Binding EquationModeText}" FontSize="10"/>
+                    </Button>
+                    <Border Width="1" HorizontalAlignment="Stretch"/>
+                    <Button Content="{Binding ExportReportTxt}" Style="{StaticResource OlsToolBtn}"
+                Command="{Binding ExportReportCommand}" Margin="8,0,0,0"/>
+                    <Button Content="{Binding ReAnalysisTxt}" Style="{StaticResource OlsPrimaryBtn}"
+                Command="{Binding RefreshAllCommand}" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ 主体：左右两栏 ═══ -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ═══ 左侧面板 ═══ -->
+                <Border Grid.Column="0" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 模型摘要 -->
+                        <StackPanel Grid.Row="0">
+                            <Border Style="{StaticResource OlsSectionHeader}">
+                                <DockPanel>
+                                    <TextBlock Text="{Binding ModelAbstractTxt}" FontSize="10" FontWeight="Medium"
+                                               Foreground="{StaticResource OlsTextHint}" VerticalAlignment="Center"/>
+                                    <Border Style="{StaticResource OlsBadge}" DockPanel.Dock="Right">
+                                        <TextBlock FontSize="9" FontWeight="Medium" Foreground="{StaticResource Indigo}">
+                                            <Run Text="R² "/>
+                                            <Run Text="{Binding OlsResult.ModelSummary.RSquared, Mode=OneWay, StringFormat=F4}"/>
+                                        </TextBlock>
+                                    </Border>
+                                </DockPanel>
+                            </Border>
+                            <UniformGrid Columns="3">
+                                <Border Padding="10,6" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,1">
+                                    <StackPanel>
+                                        <TextBlock Text="R²" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding OlsResult.ModelSummary.RSquared, StringFormat=F4}" Style="{StaticResource OlsKpiValue}"
+                                                   Foreground="{StaticResource IndigoAcc}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="10,6" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,1">
+                                    <StackPanel>
+                                        <TextBlock Text="R² adj" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding OlsResult.ModelSummary.RSquaredAdj, StringFormat=F4}" Style="{StaticResource OlsKpiValue}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="10,6" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
+                                    <StackPanel>
+                                        <TextBlock Text="R² pred" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding OlsResult.ModelSummary.RSquaredPred, StringFormat=F4}" Style="{StaticResource OlsKpiValue}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="10,6" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,0">
+                                    <StackPanel>
+                                        <TextBlock Text="RMSE" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding OlsResult.ModelSummary.RMSE, StringFormat=F4}" Style="{StaticResource OlsKpiValue}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="10,6" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,0">
+                                    <StackPanel>
+                                        <TextBlock Text="PRESS" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding OlsResult.ModelSummary.PRESS, StringFormat=F2}" Style="{StaticResource OlsKpiValue}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="10,6">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding ModelPTxt}" Style="{StaticResource OlsKpiLabel}"/>
+                                        <TextBlock Text="{Binding OlsResult.ModelSummary.ModelP, StringFormat=F4}" Style="{StaticResource OlsKpiValue}"
+                                                   Foreground="{StaticResource RedSig}"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+                        </StackPanel>
+
+                        <!-- Pareto 标题 -->
+                        <Border Grid.Row="1" Style="{StaticResource OlsSectionHeader}">
+                            <DockPanel>
+                                <TextBlock Text="{Binding ParetoTxt}" FontSize="10" FontWeight="Medium"
+                                           Foreground="{StaticResource OlsTextHint}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ClickRemoveTxt}" FontSize="9" Foreground="{StaticResource OlsTextHint}"
+                                           DockPanel.Dock="Right" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Pareto OxyPlot -->
+                        <oxy:PlotView Grid.Row="2" Model="{Binding OlsParetoPlot}"
+                                      Background="White" PreviewMouseDown="OlsPareto_MouseDown" Margin="0"/>
+
+                        <!-- 底部操作栏 -->
+                        <Border Grid.Row="3" Background="{StaticResource OlsSurface}"
+                                BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0" Padding="10,7">
+                            <DockPanel>
+                                <CheckBox Content="{Binding CheckRemainTxt}" IsChecked="{Binding KeepCtPtInRefit}"
+                                          FontSize="10" Foreground="{StaticResource OlsTextSec}"
+                                          VerticalAlignment="Center" Style="{StaticResource OlsCheckBox}"/>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="{Binding ResumeCompleteTxt}" Style="{StaticResource OlsFooterBtn}"
+                                            Command="{Binding RestoreFullModelCommand}" Margin="0,0,6,0"/>
+                                    <Button Content="{Binding FitTxt}" Style="{StaticResource OlsFooterPrimaryBtn}"
+                                            Command="{Binding RefitReducedModelCommand}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ═══ 右侧面板 ═══ -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Tab 栏 -->
+                    <Border Grid.Row="0" Background="{StaticResource OlsBg}"
+                            BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
+                        <StackPanel Orientation="Horizontal" Margin="6,0">
+                            <RadioButton Content="{Binding ResidualPlotTxt}" Style="{StaticResource OlsTab}" IsChecked="True"
+                                         GroupName="OlsTabs" x:Name="TabResidual"/>
+                            <RadioButton Content="{Binding CurvedSurfaceTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabSurface"/>
+                            <RadioButton Content="{Binding CarverTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabProfiler"
+                                         Checked="TabProfiler_Checked"/>
+                            <RadioButton Content="{Binding EffectDiagramTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabEffects"/>
+                            <RadioButton Content="ANOVA" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabAnova"/>
+                            <RadioButton Content="{Binding CoefficientTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabCoeff"/>
+                            <RadioButton Content="{Binding EquationTxt}" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabEquation"/>
+                            <RadioButton Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabOutlier">
+                                <TextBlock Text="{Binding OutliersTxt}"/>
+                            </RadioButton>
+                            <RadioButton Content="Tukey" Style="{StaticResource OlsTab}" GroupName="OlsTabs" x:Name="TabTukey"
+                                         Visibility="{Binding HasTukeyResult, Converter={StaticResource BoolToVis}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Tab 内容区 -->
+                    <Grid Grid.Row="1" Background="{StaticResource OlsSurface}" Margin="5">
+
+                        <!-- 残差四合一 -->
+                        <UniformGrid Rows="2" Columns="2"
+                                     Visibility="{Binding IsChecked, ElementName=TabResidual, Converter={StaticResource BoolToVis}}">
+                            <Border Style="{StaticResource OlsChartCard}" Margin="0,0,2,2">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding NormalPlotTxt}" Style="{StaticResource OlsChartTitle}"/>
+                                    <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
+                                        <oxy:PlotView Model="{Binding NormalProbPlot}" Background="White" Margin="4"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource OlsChartCard}" Margin="2,0,0,2">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding ResidualFitTxt}" Style="{StaticResource OlsChartTitle}"/>
+                                    <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
+                                        <oxy:PlotView Model="{Binding ResidVsFittedPlot}" Background="White" Margin="4"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource OlsChartCard}" Margin="0,2,2,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding ResidualhistogramTxt}" Style="{StaticResource OlsChartTitle}"/>
+                                    <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
+                                        <oxy:PlotView Model="{Binding ResidHistogramPlot}" Background="White" Margin="4"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource OlsChartCard}" Margin="2,2,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding ResidualOrderTxt}" Style="{StaticResource OlsChartTitle}"/>
+                                    <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
+                                        <oxy:PlotView Model="{Binding ResidVsOrderPlot}" Background="White" Margin="4"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- 曲面 -->
+                        <Grid Visibility="{Binding IsChecked, ElementName=TabSurface, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 左侧：曲面设置面板 -->
+                            <Border Grid.Column="0" Background="{StaticResource OlsSurface}"
+                                    BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,1,0">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding CurvedSettingTxt}" FontSize="10" FontWeight="Medium"
+                                                   Foreground="{StaticResource OlsTextHint}" Margin="0,0,0,10"/>
+
+                                        <!-- 因子 X 选择 -->
+                                        <TextBlock Text="{Binding FactorXTxt}" FontSize="11" Foreground="{StaticResource OlsTextSec}" Margin="0,0,0,4"/>
+                                        <ComboBox Style="{StaticResource OlsCombo}" Margin="0,0,0,10"
+                                                  ItemsSource="{Binding OlsContinuousFactors}"
+                                                  SelectedItem="{Binding OlsSurfaceFactor1}"/>
+
+                                        <!-- 因子 Y 选择 -->
+                                        <TextBlock Text="{Binding FactorYTxt}" FontSize="11" Foreground="{StaticResource OlsTextSec}" Margin="0,0,0,4"/>
+                                        <ComboBox Style="{StaticResource OlsCombo}" Margin="0,0,0,14"
+                                                  ItemsSource="{Binding OlsContinuousFactors}"
+                                                  SelectedItem="{Binding OlsSurfaceFactor2}"/>
+
+                                        <!-- 生成按钮 -->
+                                        <Button Content="{Binding GenerateTxt}" Style="{StaticResource OlsPrimaryBtn}"
+                                                HorizontalAlignment="Stretch" Margin="0,0,0,16"
+                                                Command="{Binding GenerateOlsSurfaceCommand}"/>
+
+                                        <!-- 固定因子区域（>2个连续因子时显示） -->
+                                        <Border BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0"
+                                                Padding="0,12,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SurfaceFixedFactors.Count}" Value="0">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding FixedFactorTxt}" FontSize="10" FontWeight="Medium"
+                                                           Foreground="{StaticResource OlsTextHint}" Margin="0,0,0,4"/>
+                                                <TextBlock Text="{Binding CurvedTipTxt}"
+                                                           FontSize="9" Foreground="{StaticResource OlsTextHint}"
+                                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                                                <ItemsControl ItemsSource="{Binding SurfaceFixedFactors}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Margin="0,0,0,12">
+                                                                <DockPanel>
+                                                                    <TextBlock Text="{Binding Name}" FontSize="11"
+                                                                               FontWeight="Medium" Foreground="#374151" DockPanel.Dock="Left"/>
+                                                                    <TextBlock Text="{Binding Value, StringFormat=F2}" FontFamily="Consolas"
+                                                                               FontSize="11" FontWeight="Medium" Foreground="#2D3A8C"
+                                                                               DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+                                                                </DockPanel>
+                                                                <Slider Minimum="{Binding Min}" Maximum="{Binding Max}"
+                                                                        Value="{Binding Value, Delay=50}"
+                                                                        SmallChange="{Binding TickFreq}"
+                                                                        LargeChange="{Binding TickFreq}"
+                                                                        Style="{StaticResource OlsSlider}" Margin="0,6,0,0"/>
+                                                                <DockPanel Margin="0,2,0,0">
+                                                                    <TextBlock Text="{Binding Min, StringFormat=F1}" FontSize="8"
+                                                                               Foreground="#9CA3AF" DockPanel.Dock="Left"/>
+                                                                    <TextBlock Text="{Binding Max, StringFormat=F1}" FontSize="8"
+                                                                               Foreground="#9CA3AF" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+                                                                </DockPanel>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- 右侧：3D + 等高线 -->
+                            <Grid Grid.Column="1" Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.6*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 3D 响应曲面（HelixToolkit） -->
+                                <Border Grid.Column="0" Style="{StaticResource OlsChartCard}" Margin="0,0,2,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="{Binding ResponseCurvedTxt}" Style="{StaticResource OlsChartTitle}"/>
+                                        <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
+                                            <doe:ResponseSurface3DView 
+                                                SurfaceData="{Binding OlsSurface3DData}"
+                                                XLabel="{Binding OlsSurfaceFactor1}"
+                                                YLabel="{Binding OlsSurfaceFactor2}"
+                                                ZLabel="{Binding SelectedResponseName}"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <!-- 等高线图（OxyPlot） -->
+                                <Border Grid.Column="1" Style="{StaticResource OlsChartCard}" Margin="2,0,0,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="{Binding ContourTxt}" Style="{StaticResource OlsChartTitle}"/>
+                                        <Border Grid.Row="1" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,1,0,0">
+                                            <oxy:PlotView Model="{Binding OlsContourPlot}" Background="White" Margin="4"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+
+                        <!-- 刻画器 -->
+                        <!-- 刻画器 -->
+                        <Grid Visibility="{Binding IsChecked, ElementName=TabProfiler, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- 顶栏 (不变) -->
+                            <Border Grid.Row="0" Background="{StaticResource OlsBg}" Padding="14,8"
+            BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
+                                <DockPanel>
+                                    <TextBlock Text="{Binding CarverTitleTxt}" FontSize="12" FontWeight="Medium"
+                       Foreground="{StaticResource OlsText}" VerticalAlignment="Center"/>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="{Binding MaxTxt}" Style="{StaticResource OlsToolBtn}"
+                        Command="{Binding FindOptimalMaxCommand}" Margin="0,0,4,0"/>
+                                        <Button Content="{Binding MinTxt}" Style="{StaticResource OlsToolBtn}"
+                        Command="{Binding FindOptimalMinCommand}" Margin="0,0,4,0"/>
+                                        <Border CornerRadius="4" Cursor="Hand" BorderThickness="1"
+                        MouseLeftButtonDown="DesirabilityDropdown_Click">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="White"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource OlsBorder}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDesirabilityVisible}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource IndigoLt}"/>
+                                                            <Setter Property="BorderBrush" Value="{StaticResource IndigoAcc}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Function}" FontSize="10" Padding="8,4,4,4" VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource OlsTextSec}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsDesirabilityVisible}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{StaticResource Indigo}"/>
+                                                                    <Setter Property="FontWeight" Value="Medium"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="▾" FontSize="8" Padding="0,4,8,4" VerticalAlignment="Center"
+                                   Foreground="{StaticResource OlsTextHint}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- 内容 -->
+                            <Grid Grid.Row="1">
+
+                                <!-- 已加载 -->
+                                <Grid Visibility="{Binding IsProfilerLoaded, Converter={StaticResource BoolToVis}}" Margin="6">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Row 0: 预测值 -->
+                                    <Border Grid.Row="0" Background="{StaticResource OlsSurface}" CornerRadius="4" Padding="10,6"
+                    Margin="0,0,0,4" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="1">
+                                        <TextBlock Text="{Binding ProfilerCurrentPredicted}" FontSize="10"
+                           FontFamily="Consolas" Foreground="{StaticResource OlsText}"/>
+                                    </Border>
+
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                                        <StackPanel>
+
+                                            <!-- 刻画器行 -->
+                                            <ItemsControl ItemsSource="{Binding ProfilerRows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,0,2">
+                                                            <TextBlock Text="{Binding ResponseLabel}" 
+                                   FontSize="9" FontFamily="Consolas"
+                                   Foreground="#C62828" FontWeight="Medium"
+                                   Margin="14,2,0,0"/>
+                                                            <ItemsControl ItemsSource="{Binding Plots}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border BorderBrush="#E8EAED" BorderThickness="0.5" Margin="1,0">
+                                                                            <oxy:PlotView Model="{Binding}" 
+    Width="180" Height="180"
+    Background="White"
+    PreviewMouseDown="Profiler_MouseDown"
+    PreviewMouseMove="Profiler_MouseMove"
+    PreviewMouseUp="Profiler_MouseUp"/>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <!-- 分隔线 -->
+                                            <Border Height="1" Background="#E2E5EB" Margin="14,4,14,2"
+                Visibility="{Binding IsDesirabilityVisible, Converter={StaticResource BoolToVis}}"/>
+
+                                            <!-- 意愿行 -->
+                                            <!-- 意愿行 -->
+                                            <ItemsControl ItemsSource="{Binding DesirabilityRows}" Margin="0,0,0,0"
+              Visibility="{Binding IsDesirabilityVisible, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,0,2">
+                                                            <TextBlock Text="{Binding ResponseLabel}" 
+                           FontSize="9" FontFamily="Consolas"
+                           Foreground="#E8A540" FontWeight="Medium"
+                           Margin="14,2,0,0"/>
+                                                            <ItemsControl ItemsSource="{Binding Plots}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border BorderBrush="#E8EAED" BorderThickness="0.5" Margin="1,0">
+                                                                            <oxy:PlotView Model="{Binding}" 
+                                    Width="180" Height="140"
+                                    Background="White"
+                                    PreviewMouseDown="DesirabilityProfiler_MouseDown"
+                                    PreviewMouseMove="DesirabilityProfiler_MouseMove"
+                                    PreviewMouseUp="DesirabilityProfiler_MouseUp"/>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                    <!-- Row 2: 优化结果 -->
+                                    <Border Grid.Row="2" Background="{StaticResource OlsSurface}" CornerRadius="4" Padding="10,6"
+                    Margin="0,4,0,0" BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="1"
+                    Visibility="{Binding OptimalResultText, Converter={StaticResource StringToVis}, FallbackValue=Collapsed}">
+                                        <TextBlock Text="{Binding OptimalResultText}" FontSize="10" FontFamily="Consolas"
+                           Foreground="{StaticResource OlsText}" TextWrapping="Wrap" LineHeight="18"/>
+                                    </Border>
+                                </Grid>
+
+                                <!-- 未加载提示 -->
+                                <TextBlock Text="{Binding CarverLoadingTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Visibility="{Binding IsProfilerLoaded, Converter={StaticResource InverseBoolToVis}, FallbackValue=Visible}"/>
+                            </Grid>
+                        </Grid>
+
+                        <!-- 效应图 -->
+                        <doe:EffectsNormalPlotView
+                            Visibility="{Binding IsChecked, ElementName=TabEffects, Converter={StaticResource BoolToVis}}"
+                            NormalPlotData="{Binding NormalPlotData}"
+                            HalfNormalPlotData="{Binding HalfNormalPlotData}"/>
+
+                        <!-- ANOVA -->
+                        <DataGrid Style="{StaticResource OlsDataGrid}"
+                                  Visibility="{Binding IsChecked, ElementName=TabAnova, Converter={StaticResource BoolToVis}}"
+                                  ItemsSource="{Binding OlsResult.AnovaTable}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{Binding Data.AnovaHeaderSourceTxt,Source={StaticResource BindingProxy}}" Binding="{Binding Source}" Width="140">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="DF" Binding="{Binding DF}" Width="55">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Seq SS" Binding="{Binding SS, StringFormat=F4}" Width="*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Adj MS" Binding="{Binding MS, StringFormat=F4}" Width="*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="{Binding Data.FValueHeaderTxt,Source={StaticResource BindingProxy}}" Binding="{Binding FValue, StringFormat=F2}" Width="90">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="{Binding Data.PValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding PValue, StringFormat=F4}" Width="90">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsPValueCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- 方程 -->
+                        <ScrollViewer Visibility="{Binding IsChecked, ElementName=TabEquation, Converter={StaticResource BoolToVis}}"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="20">
+                                <TextBlock FontSize="13" FontWeight="Medium" Foreground="{StaticResource OlsText}" Margin="0,0,0,4">
+                                    <Run Text="{Binding FinalEquationTxt}"/>
+                                    <Run Text="{Binding EquationModeText, Mode=OneWay}"/>
+                                    <Run Text="）"/>
+                                </TextBlock>
+
+                                <!-- 普通方程（无类别因子时） -->
+                                <Border Background="{StaticResource OlsSurface}" CornerRadius="8" Padding="16,12"
+                                        BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="1"
+                                        Visibility="{Binding HasCategoricalEquations, Converter={StaticResource InverseBoolToVis}}">
+                                    <TextBlock Text="{Binding CurrentEquationText}" FontFamily="Consolas" FontSize="13"
+                                               Foreground="{StaticResource OlsText}" TextWrapping="Wrap" LineHeight="22"/>
+                                </Border>
+
+                                <!-- 分类别方程（有类别因子时） -->
+                                <StackPanel Visibility="{Binding HasCategoricalEquations, Converter={StaticResource BoolToVis}}"
+                                            Margin="0,0,0,0">
+                                    <Border Background="{StaticResource OlsSurface}" CornerRadius="8" Padding="16,12"
+                                            BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="1" Margin="0,0,0,12">
+                                        <TextBlock Text="{Binding CurrentEquationText}" FontFamily="Consolas" FontSize="13"
+                                                   Foreground="{StaticResource OlsText}" TextWrapping="Wrap" LineHeight="22"/>
+                                    </Border>
+                                    <TextBlock FontSize="12" FontWeight="Medium" Foreground="{StaticResource OlsText}" Margin="0,0,0,8">
+                                        <Run Text="{Binding CategoryTxt}"/>
+                                        <Run Text="{Binding CategoricalFactorName, Mode=OneWay}"/>
+                                        <Run Text="{Binding ExpandTxt}"/>
+                                    </TextBlock>
+                                    <ItemsControl ItemsSource="{Binding CategoryEquations}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{StaticResource OlsSurface}" CornerRadius="8" Padding="14,10"
+                                                        BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="1" Margin="0,0,0,6">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding LevelName}" FontSize="11" FontWeight="Medium"
+                                                                   Foreground="{StaticResource IndigoAcc}" Margin="0,0,0,4"/>
+                                                        <TextBlock Text="{Binding Equation}" FontFamily="Consolas" FontSize="12"
+                                                                   Foreground="{StaticResource OlsText}" TextWrapping="Wrap" LineHeight="20"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- 系数 -->
+                        <DataGrid Style="{StaticResource OlsDataGrid}"
+                                  Visibility="{Binding IsChecked, ElementName=TabCoeff, Converter={StaticResource BoolToVis}}"
+                                  ItemsSource="{Binding DisplayCoefficients}" CanUserSortColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{Binding Data.CoefficientItemTxt,Source={StaticResource BindingProxy}}" Binding="{Binding Term}" Width="160">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="{Binding Data.EffectTxt,Source={StaticResource BindingProxy}}" Binding="{Binding Effect, StringFormat=F4}" Width="100">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="{Binding Data.CoefficientHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Coefficient, StringFormat=F6}" Width="*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="SE" Binding="{Binding StdError, StringFormat=F6}" Width="*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="{Binding Data.TValueHeade,Source={StaticResource BindingProxy}}" Binding="{Binding TValue, StringFormat=F3}" Width="90">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="{Binding Data.PValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding PValue, StringFormat=F4}" Width="90">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsPValueCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="VIF" Binding="{Binding VIF, StringFormat=F2}" Width="80">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- 异常点 -->
+                        <Grid Visibility="{Binding IsChecked, ElementName=TabOutlier, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" Background="{StaticResource OlsSurface}" Padding="10,6"
+                                    BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
+                                <TextBlock Text="{Binding OutlierSummaryText}" FontSize="10"
+                                           Foreground="{StaticResource OlsTextHint}"/>
+                            </Border>
+                            <DataGrid Grid.Row="1" Style="{StaticResource OlsDataGrid}"
+                                      ItemsSource="{Binding OutlierItems}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="45">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.ObserveValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Actual, StringFormat=F4}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.FitValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Predicted, StringFormat=F4}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.ResidualHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Residual, StringFormat=F4}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.StandardHeader,Source={StaticResource BindingProxy}}" Binding="{Binding StdResidual, StringFormat=F3}" Width="90">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.LeverHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Leverage, StringFormat=F4}" Width="90">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.DistHeader,Source={StaticResource BindingProxy}}" Binding="{Binding CooksD, StringFormat=F4}" Width="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.ReasonHeader,Source={StaticResource BindingProxy}}" Binding="{Binding Reasons}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+
+                        <!-- Tukey -->
+                        <Grid Visibility="{Binding IsChecked, ElementName=TabTukey, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" Background="{StaticResource OlsSurface}" Padding="10,6"
+                                    BorderBrush="{StaticResource OlsBorderLight}" BorderThickness="0,0,0,1">
+                                <TextBlock FontSize="11" Foreground="{StaticResource OlsText}">
+                                    <Run Text="{Binding ComparisonTxt}"/>
+                                    <Run Text="{Binding TukeyFactorName, Mode=OneWay}" FontWeight="Medium"
+                                         Foreground="{StaticResource Indigo}"/>
+                                </TextBlock>
+                            </Border>
+                            <DataGrid Grid.Row="1" Style="{StaticResource OlsDataGrid}"
+                                      ItemsSource="{Binding TukeyComparisons}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{Binding Data.CompareHeader,Source={StaticResource BindingProxy}}" Binding="{Binding ComparisonText}" Width="160">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsTermCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.DiffHeader,Source={StaticResource BindingProxy}}" Binding="{Binding DiffText}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.PValueHeader,Source={StaticResource BindingProxy}}" Binding="{Binding PValueText}" Width="90">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsPValueCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="95% CI" Binding="{Binding CIText}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OlsNumCell}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="{Binding Data.RemarkableHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SignificanceMarker}" Width="55">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#B71C1C"/>
+                                                <Setter Property="FontWeight" Value="Medium"/>
+                                                <Setter Property="TextAlignment" Value="Center"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- ═══ 状态栏 ═══ -->
+            <Border Grid.Row="3" Style="{StaticResource OlsStatusBar}" CornerRadius="0,0,12,12">
+                <StackPanel Orientation="Horizontal" Margin="14,0">
+                    <TextBlock Text="{Binding OlsStatusText}" FontSize="9" FontFamily="Consolas"
+                               Foreground="{StaticResource OlsTextHint}" VerticalAlignment="Center"/>
+                    <TextBlock Text=" | " Foreground="{StaticResource OlsBorderLight}" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Text="{Binding IncludedTermsText}" FontSize="9" FontFamily="Consolas"
+                               Foreground="{StaticResource OlsTextHint}" VerticalAlignment="Center"/>
+                    <Border Width="1" HorizontalAlignment="Stretch"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock FontSize="9" FontFamily="Consolas" Foreground="{StaticResource OlsTextHint}">
+                            <Run Text="R²="/><Run Text="{Binding OlsResult.ModelSummary.RSquared, Mode=OneWay, StringFormat=F4}" FontWeight="Medium" Foreground="{StaticResource OlsText}"/>
+                        </TextBlock>
+                        <TextBlock Text=" | " Foreground="{StaticResource OlsBorderLight}" Margin="8,0"/>
+                        <TextBlock FontSize="9" FontFamily="Consolas" Foreground="{StaticResource OlsTextHint}">
+                            <Run Text="R²adj="/><Run Text="{Binding OlsResult.ModelSummary.RSquaredAdj, Mode=OneWay, StringFormat=F4}" FontWeight="Medium" Foreground="{StaticResource OlsText}"/>
+                        </TextBlock>
+                        <TextBlock Text=" | " Foreground="{StaticResource OlsBorderLight}" Margin="8,0"/>
+                        <TextBlock FontSize="9" FontFamily="Consolas" Foreground="{StaticResource OlsTextHint}">
+                            <Run Text="R²pred="/><Run Text="{Binding OlsResult.ModelSummary.RSquaredPred, Mode=OneWay, StringFormat=F4}" FontWeight="Medium" Foreground="{StaticResource OlsText}"/>
+                        </TextBlock>
+                        <TextBlock Text=" | " Foreground="{StaticResource OlsBorderLight}" Margin="8,0"/>
+                        <TextBlock FontSize="9" FontFamily="Consolas" Foreground="{StaticResource OlsTextHint}">
+                            <Run Text="S="/><Run Text="{Binding OlsResult.ModelSummary.RMSE, Mode=OneWay, StringFormat=F3}" FontWeight="Medium" Foreground="{StaticResource OlsText}"/>
+                        </TextBlock>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+        </Grid>
+    </Border>
+</Window>

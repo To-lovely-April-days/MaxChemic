@@ -1,0 +1,240 @@
+<UserControl x:Class="MaxChemical.Modules.Designer.Views.DateRangePicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root" Focusable="True">
+
+    <UserControl.Resources>
+        <!-- 日历日期按钮 -->
+        <Style x:Key="CalDayBtn" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="{TemplateBinding Tag}" Width="32" Height="32">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F8F9FB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 导航箭头按钮 -->
+        <Style x:Key="CalNavBtn" TargetType="Button">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="6"
+                                Width="26" Height="26" BorderBrush="#E2E5EB" BorderThickness="0.5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F8F9FB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 快捷天数按钮 -->
+        <Style x:Key="QuickBtn" TargetType="Button">
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}"
+                                BorderBrush="#C7CCD4" BorderThickness="0.5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F8F9FB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 快捷天数选中态 -->
+        <Style x:Key="QuickBtnActive" TargetType="Button">
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#2D3A8C"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="#E8EAF6" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}"
+                                BorderBrush="#C7CBE9" BorderThickness="0.5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- ═══ 触发输入框 ═══ -->
+        <Border x:Name="TriggerBorder" CornerRadius="6" Height="30" Cursor="Hand"
+                BorderBrush="#E2E5EB" BorderThickness="0.5" Background="White"
+                MouseLeftButtonUp="Trigger_Click">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="BorderBrush" Value="#C7CCD4"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 日历图标 -->
+                <Path Grid.Column="0" Margin="10,0,6,0" VerticalAlignment="Center"
+                      Data="M3,4 L3,2 M9,4 L9,2 M1,6 L11,6 M1,4 C1,3 1.5,2.5 2.5,2.5 L9.5,2.5 C10.5,2.5 11,3 11,4 L11,11 C11,12 10.5,12.5 9.5,12.5 L2.5,12.5 C1.5,12.5 1,12 1,11 Z"
+                      Stroke="#9CA3AF" StrokeThickness="0.9" Fill="Transparent"
+                      Width="12" Height="13" Stretch="Uniform"/>
+
+                <!-- 开始日期 -->
+                <TextBlock x:Name="StartDateText" Grid.Column="1" VerticalAlignment="Center"
+                           FontSize="11" FontFamily="Consolas" Foreground="#1A1F36"
+                           Text="--"/>
+
+                <!-- 箭头分隔 -->
+                <TextBlock Grid.Column="2" Text="→" Foreground="#C7CCD4" Margin="8,0"
+                           FontSize="10" VerticalAlignment="Center"/>
+
+                <!-- 结束日期 -->
+                <TextBlock x:Name="EndDateText" Grid.Column="3" VerticalAlignment="Center"
+                           FontSize="11" FontFamily="Consolas" Foreground="#1A1F36"
+                           Text="--" Margin="0,0,10,0"/>
+
+                <!-- 下拉箭头 -->
+                <Path Grid.Column="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                      Data="M0,0 L3.5,3.5 L7,0" Stroke="#9CA3AF" StrokeThickness="1.2"
+                      Fill="Transparent" Width="7" Height="4" Stretch="Uniform"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 弹出面板 ═══ -->
+        <Popup x:Name="CalendarPopup" PlacementTarget="{Binding ElementName=TriggerBorder}"
+               Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+               PopupAnimation="Fade" Closed="Popup_Closed">
+            <Border Margin="0,4,8,8" CornerRadius="10" Background="White"
+                    BorderBrush="#E2E5EB" BorderThickness="0.5" ClipToBounds="True"
+                    Width="310">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000" BlurRadius="16" ShadowDepth="4" Opacity="0.08"/>
+                </Border.Effect>
+
+                <StackPanel Margin="14">
+                    <!-- 月份导航 -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="‹" Style="{StaticResource CalNavBtn}"
+                                Click="PrevMonth_Click"/>
+                        <TextBlock x:Name="MonthYearText" Grid.Column="1"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="12" FontWeight="Medium" Foreground="#1A1F36"/>
+                        <Button Grid.Column="2" Content="›" Style="{StaticResource CalNavBtn}"
+                                Click="NextMonth_Click"/>
+                    </Grid>
+
+                    <!-- 星期头 -->
+                    <UniformGrid Columns="7" Margin="0,0,0,4">
+                        <TextBlock Name="SundayLabel" Text="日" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="MonDayLabel" Text="一" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="TuesdayLabel" Text="二" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="WednesdayLabel" Text="三" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="ThursdayLabel" Text="四" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="FridayLabel" Text="五" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                        <TextBlock Name="SaturdayLabel" Text="六" HorizontalAlignment="Center" FontSize="9" Foreground="#9CA3AF" FontWeight="Medium"/>
+                    </UniformGrid>
+
+                    <!-- 日期网格 -->
+                    <UniformGrid x:Name="DayGrid" Columns="7"/>
+
+                    <!-- 底部快捷操作 -->
+                    <Border Margin="0,10,0,0" Padding="0,10,0,0"
+                            BorderBrush="#E8EAED" BorderThickness="0,0.5,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <Button x:Name="Btn7" Content="7 天" Style="{StaticResource QuickBtn}"
+                                        Click="Quick7_Click" Margin="0,0,4,0"/>
+                                <Button x:Name="Btn30" Content="30 天" Style="{StaticResource QuickBtnActive}"
+                                        Click="Quick30_Click" Margin="0,0,4,0"/>
+                                <Button x:Name="Btn90" Content="90 天" Style="{StaticResource QuickBtn}"
+                                        Click="Quick90_Click"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnClear" Content="清除" Click="Clear_Click" Margin="0,0,6,0"
+                                        FontSize="9" Foreground="#9CA3AF" Cursor="Hand"
+                                        Background="Transparent" BorderThickness="0" Padding="6,4">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <Button Name="BtnConfirm" Content="确定" Click="Confirm_Click"
+                                        FontSize="9" FontWeight="Medium" Foreground="#2D3A8C" Cursor="Hand"
+                                        Background="Transparent" BorderThickness="0" Padding="6,4">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

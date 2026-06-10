@@ -1,0 +1,189 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.ProjectNameInputDialogControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="450">
+    <UserControl.Resources>
+        <!-- 阴影效果 -->
+        <DropShadowEffect x:Key="DropShadowEffect" 
+                          ShadowDepth="8" 
+                          BlurRadius="16" 
+                          Opacity="0.3" 
+                          Direction="270"/>
+
+      
+
+     
+        <!-- 样式定义 -->
+        <Style x:Key="ErrorTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Red"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,5,0,0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasError}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Foreground" Value="#333333"/>
+        </Style>
+
+        <Style x:Key="TextBoxStyle" TargetType="TextBox">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="Height" Value="36"/>
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="#007ACC"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding HasError}" Value="True">
+                    <Setter Property="BorderBrush" Value="Red"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="1" 
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=Tag}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=Tag}"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#F0F0F0"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#D0D0D0"/>
+                                <Setter Property="Foreground" Value="#A0A0A0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+      
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <!-- 主对话框 -->
+    <Border Background="White" 
+            CornerRadius="8" 
+            BorderBrush="#CCCCCC" 
+            BorderThickness="1"
+            Effect="{StaticResource DropShadowEffect}">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <!-- 标题栏，使用您定义的高度 -->
+                <RowDefinition Height="*"/>
+                <!-- 内容区 -->
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Border Grid.Row="0" 
+                    Style="{StaticResource TitleBarStyle}" 
+                    x:Name="DragTitleArea">
+                <Grid>
+                    <TextBlock Text="{Binding NewProjTitle}" 
+                               VerticalAlignment="Center" 
+                               HorizontalAlignment="Left"
+                               Margin="16,0,0,0"
+                               Foreground="White" 
+                               FontSize="12"
+                               FontWeight="SemiBold"/>
+                    <Button Style="{StaticResource CloseButtonStyle}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Command="{Binding CancelCommand}"/>
+                </Grid>
+            </Border>
+
+            <!-- 内容区 -->
+            <Grid Grid.Row="1" Margin="24">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 说明文字 -->
+                <TextBlock Grid.Row="0" 
+                           Text="{Binding PleaseTipText}" 
+                           FontSize="13" 
+                           Margin="0,0,0,20"
+                           Foreground="#666666"
+                           TextWrapping="Wrap"/>
+
+                <!-- 项目名称标签 -->
+                <TextBlock Grid.Row="1" 
+                           Text="{Binding ProjNameLabel}" 
+                           Style="{StaticResource LabelStyle}"/>
+
+                <!-- 项目名称输入框 -->
+                <TextBox Grid.Row="2" 
+                         x:Name="ProjectNameTextBox"
+                         Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}" 
+                         Style="{StaticResource TextBoxStyle}"/>
+
+                <!-- 错误信息 -->
+                <TextBlock Grid.Row="3" 
+                           Text="{Binding ErrorMessage}" 
+                           Style="{StaticResource ErrorTextStyle}"/>
+
+                <!-- 说明文字 -->
+                <TextBlock Grid.Row="4" 
+                           Text="{Binding ProjNameDesc}" 
+                           FontSize="12" 
+                           Margin="0,8,0,0"
+                           Foreground="#666666"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Top"/>
+
+                <!-- 按钮区域 -->
+                <StackPanel Grid.Row="5" 
+                            Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            Margin="0,20,0,0">
+                    <Button Content="{Binding CancelText}" 
+                            Command="{Binding CancelCommand}"
+                            Style="{StaticResource DialogSecondaryButtonStyle}"/>
+                    <Button Content="{Binding OkText}" 
+                            Command="{Binding ConfirmCommand}"
+                            Style="{StaticResource DialogPrimaryButtonStyle}"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

@@ -1,0 +1,212 @@
+﻿<!-- MaxChemical.Modules.Designer/Views/ExperimentStatisticsView.xaml -->
+<UserControl x:Class="MaxChemical.Modules.Designer.Views.ExperimentStatisticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:prism="http://prismlibrary.com/"
+             xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters"
+             xmlns:views="clr-namespace:MaxChemical.Modules.Designer.Views"
+             prism:ViewModelLocator.AutoWireViewModel="True"
+             mc:Ignorable="d"
+             d:DesignHeight="800" d:DesignWidth="1200">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:SecondsToTimeSpanConverter x:Key="SecondsToTimeSpanConverter"/>
+        <converters:PercentageConverter x:Key="PercentageConverter"/>
+        <converters:MillisecondsToTimeSpanConverter x:Key="MillisecondsToTimeSpanConverter"/>
+        <views:BindingProxy x:Key="BindingProxy" Data="{Binding}"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 控制面板 -->
+        <Border Grid.Row="0" Background="#F8F9FA" BorderBrush="#DEE2E6" BorderThickness="0,0,0,1" Padding="15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="{Binding ViewTitle}" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding RangeLabel,StringFormat='{}{0}:'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <DatePicker SelectedDate="{Binding StartDate}" Width="120" Margin="0,0,10,0"/>
+                        <TextBlock Text="{Binding ToLabel}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <DatePicker SelectedDate="{Binding EndDate}" Width="120" Margin="0,0,20,0"/>
+
+                        <TextBlock Text="{Binding DurationLabel,StringFormat='{}{0}:'}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ComboBox ItemsSource="{Binding Intervals}" SelectedItem="{Binding SelectedInterval}" Width="80" Margin="0,0,20,0"/>
+
+                        <Button Content="{Binding RefreshLabel}" Command="{Binding RefreshCommand}" Width="60" Margin="0,0,10,0"/>
+                        <Button Content="{Binding LastSevenLabel}" Command="{Binding Last7DaysCommand}" Width="70" Margin="0,0,10,0"/>
+                        <Button Content="{Binding LastThirtyLabel}" Command="{Binding Last30DaysCommand}" Width="80" Margin="0,0,10,0"/>
+                        <Button Content="{Binding LastNinetyLabel}" Command="{Binding Last90DaysCommand}" Width="80"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Bottom">
+                    <Button Content="{Binding ExportReportLabel}" Command="{Binding ExportCommand}" Width="100" 
+                            Background="#007BFF" Foreground="White"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 统计内容 -->
+        <TabControl Grid.Row="1">
+            <!-- 概览统计 -->
+            <TabItem Header="{Binding OverviewLabel}">
+                <ScrollViewer>
+                    <StackPanel Margin="20">
+                        <!-- 基础统计卡片 -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 总实验数 -->
+                            <Border Grid.Column="0" Background="#E3F2FD" BorderBrush="#2196F3" BorderThickness="1" 
+                                    CornerRadius="5" Padding="15" Margin="0,0,10,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding TotalLabel}" FontSize="14" Foreground="#1976D2" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding Statistics.TotalExperiments}" FontSize="24" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 成功率 -->
+                            <Border Grid.Column="1" Background="#E8F5E8" BorderBrush="#4CAF50" BorderThickness="1" 
+                                    CornerRadius="5" Padding="15" Margin="0,0,10,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SuccessRateLabel}" FontSize="14" Foreground="#388E3C" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding Statistics.SuccessRate, StringFormat={}{0:F1}%}" FontSize="24" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 平均持续时间 -->
+                            <Border Grid.Column="2" Background="#FFF3E0" BorderBrush="#FF9800" BorderThickness="1" 
+                                    CornerRadius="5" Padding="15" Margin="0,0,10,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding AvgDurationLabel}" FontSize="14" Foreground="#F57C00" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding Statistics.AverageDuration, StringFormat=hh\\:mm\\:ss}" FontSize="18" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 仿真实验数 -->
+                            <Border Grid.Column="3" Background="#F3E5F5" BorderBrush="#9C27B0" BorderThickness="1" 
+                                    CornerRadius="5" Padding="15">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SimulationTotalLabel}" FontSize="14" Foreground="#7B1FA2" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding Statistics.SimulationExperiments}" FontSize="24" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- 详细统计表格 -->
+                        <GroupBox Header="{Binding DetailsGroupLabel}" Margin="0,0,0,20">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="10">
+                                    <TextBlock Text="{Binding ExecStatistic}" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding SuccessTotal}" MinWidth="120" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Statistics.SuccessfulExperiments}" Foreground="Green"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding FailTotal}" MinWidth="120" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Statistics.FailedExperiments}" Foreground="Red"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding ActualTotal}" MinWidth="120" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Statistics.RealExperiments}"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Margin="10">
+                                    <TextBlock Text="{Binding TimeStatistic}" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding LongDuration}" MinWidth="120" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Statistics.MaxDurationSeconds, Converter={StaticResource SecondsToTimeSpanConverter}}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding SortDuration}" MinWidth="120" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Statistics.MinDurationSeconds, Converter={StaticResource SecondsToTimeSpanConverter}}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding TimeRange}" MinWidth="120" FontWeight="Bold"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Statistics.StartDate, StringFormat=yyyy-MM-dd}"/>
+                                            <TextBlock Text="{Binding ToLabel,StringFormat='{} {0} '}"/>
+                                            <TextBlock Text="{Binding Statistics.EndDate, StringFormat=yyyy-MM-dd}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 趋势分析 -->
+            <TabItem Header="{Binding AnalysisLabel}">
+                <DataGrid ItemsSource="{Binding TrendData}" AutoGenerateColumns="False" 
+                          IsReadOnly="True" GridLinesVisibility="Horizontal"
+                          AlternatingRowBackground="#F8F9FA" Margin="10">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{Binding Data.TimeHeader,Source={StaticResource BindingProxy}}" Binding="{Binding TimeLabel}" Width="120"/>
+                        <DataGridTextColumn Header="{Binding Data.ExprimentTotalHeader,Source={StaticResource BindingProxy}}" Binding="{Binding TotalCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.SuccessTotalHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SuccessCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.FailureTotalHeader,Source={StaticResource BindingProxy}}" Binding="{Binding FailedCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.RateHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SuccessRate, StringFormat={}{0:F1}}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.SimulationTotalHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SimulationCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.ActaulTotalHeader,Source={StaticResource BindingProxy}}" Binding="{Binding RealCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.AvgDurationHeader,Source={StaticResource BindingProxy}}" Binding="{Binding AverageDuration, Converter={StaticResource SecondsToTimeSpanConverter}}" Width="140"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- 设备使用统计 -->
+            <TabItem Header="{Binding StatisticalLabel}">
+                <DataGrid ItemsSource="{Binding DeviceStats}" AutoGenerateColumns="False" 
+                          IsReadOnly="True" GridLinesVisibility="Horizontal"
+                          AlternatingRowBackground="#F8F9FA" Margin="10">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{Binding Data.IdentityHeader,Source={StaticResource BindingProxy}}" Binding="{Binding DeviceId}" Width="120"/>
+                        <DataGridTextColumn Header="{Binding Data.Nameheader,Source={StaticResource BindingProxy}}" Binding="{Binding DeviceName}" Width="150"/>
+                        <DataGridTextColumn Header="{Binding Data.UseTotalHeader,Source={StaticResource BindingProxy}}" Binding="{Binding UsageCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.SuccessNumberHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SuccessCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.FailureNumberHeader,Source={StaticResource BindingProxy}}" Binding="{Binding FailedCount}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.RateHeader,Source={StaticResource BindingProxy}}" Binding="{Binding SuccessRate, StringFormat={}{0:F1}}" Width="80"/>
+                        <DataGridTextColumn Header="{Binding Data.AvgExecTimeHeader,Source={StaticResource BindingProxy}}" Binding="{Binding AverageDurationMs, Converter={StaticResource MillisecondsToTimeSpanConverter}}" Width="140"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0">
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <ProgressBar Width="20" Height="20" IsIndeterminate="{Binding IsLoading}" 
+                                 Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                 Margin="0,0,10,0"/>
+                    <TextBlock Text="{Binding StatusMessage}"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

@@ -1,0 +1,69 @@
+﻿<Window x:Class="MaxChemical.Modules.DOE.Views.OlsLoadingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Width="280" Height="140" Topmost="True" ShowInTaskbar="False">
+
+    <Border CornerRadius="12" Background="White" BorderBrush="#D1D5DB" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#000" BlurRadius="20" ShadowDepth="4" Opacity="0.12"/>
+        </Border.Effect>
+
+        <Grid Margin="24,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="16"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                <!-- 旋转的靛蓝圆环 -->
+                <Grid Width="22" Height="22" Margin="0,0,10,0">
+                    <Ellipse Width="22" Height="22" Stroke="#E5E7EB" StrokeThickness="2.5"/>
+                    <Ellipse x:Name="Spinner" Width="22" Height="22"
+                             Stroke="#2D3A8C" StrokeThickness="2.5"
+                             StrokeDashArray="4 6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform x:Name="SpinAngle" Angle="0"/>
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                </Grid>
+                <TextBlock Name="TbOlsTitle" Text="OLS 分析" FontSize="14" FontWeight="SemiBold"
+                           Foreground="#1F2937" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- 进度条 -->
+            <Border Grid.Row="2" Height="4" CornerRadius="2" Background="#F3F4F6">
+                <Border x:Name="ProgressFill" Height="4" CornerRadius="2"
+                        Background="#2D3A8C" HorizontalAlignment="Left" Width="0">
+                    <Border.RenderTransform>
+                        <ScaleTransform ScaleX="1"/>
+                    </Border.RenderTransform>
+                </Border>
+            </Border>
+
+            <!-- 状态文字 -->
+            <TextBlock Grid.Row="4" x:Name="StatusText" Text="正在加载..."
+                       FontSize="11" Foreground="#6B7280" HorizontalAlignment="Center"/>
+        </Grid>
+    </Border>
+
+    <!-- 旋转动画 -->
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="SpinAngle"
+                                     Storyboard.TargetProperty="Angle"
+                                     From="0" To="360" Duration="0:0:0.8"
+                                     RepeatBehavior="Forever"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+</Window>

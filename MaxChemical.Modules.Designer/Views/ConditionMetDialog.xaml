@@ -1,0 +1,120 @@
+﻿<Window x:Class="MaxChemical.Modules.Designer.Views.ConditionMetDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="条件等待"
+        Width="340" Height="300"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True">
+
+    <Window.Resources>
+        <ControlTemplate x:Key="BtnTpl" TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8"
+                    Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template" Value="{StaticResource BtnTpl}"/>
+        </Style>
+    </Window.Resources>
+
+    <Border CornerRadius="14" Background="White" BorderBrush="#E8E8E8" BorderThickness="1"
+            MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="3" Direction="270" BlurRadius="18" Color="#000000" Opacity="0.15"/>
+        </Border.Effect>
+
+        <Grid Margin="24,16,24,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Row 0: 仪表盘 -->
+            <Canvas x:Name="GaugeCanvas" Grid.Row="0"
+                    Width="160" Height="86" HorizontalAlignment="Center">
+                <Path x:Name="GaugeBgArc" Data="M 15 80 A 65 65 0 0 1 145 80"
+                      Stroke="#F0F0F0" StrokeThickness="10"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                <Path x:Name="GaugeValueArc" Data="M 15 80 A 65 65 0 0 1 145 80"
+                      Stroke="#4CAF50" StrokeThickness="10"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                <Line x:Name="ThresholdTick" Stroke="#EF5350" StrokeThickness="2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/>
+                <TextBlock x:Name="ThresholdLabel" FontSize="9" Foreground="#EF5350" Visibility="Collapsed"/>
+                <TextBlock x:Name="GaugeCenterValue" Text="PASS" FontSize="26" FontWeight="SemiBold"
+                           Foreground="#2E7D32" FontFamily="Consolas" Canvas.Left="80" Canvas.Top="38">
+                    <TextBlock.RenderTransform>
+                        <TranslateTransform x:Name="CenterValueTranslate"/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock x:Name="GaugeCenterUnit" Text="" FontSize="11" Foreground="#9E9E9E"
+                           Canvas.Left="80" Canvas.Top="66">
+                    <TextBlock.RenderTransform>
+                        <TranslateTransform x:Name="CenterUnitTranslate"/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock x:Name="GaugeMinLabel" Text="0" FontSize="9" Foreground="#BDBDBD" Canvas.Left="10" Canvas.Top="82"/>
+                <TextBlock x:Name="GaugeMaxLabel" Text="200" FontSize="9" Foreground="#BDBDBD" Canvas.Left="132" Canvas.Top="82"/>
+            </Canvas>
+
+            <!-- Row 1: 标题+副标题+条件（居中撑满） -->
+            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock x:Name="TitleText" Text="条件已满足" FontSize="14" FontWeight="SemiBold"
+                           Foreground="#2E7D32" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                <TextBlock x:Name="ExecutionModeText" Text="同步执行模式" FontSize="10" Foreground="#9E9E9E"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Row 2: 条件卡片 -->
+            <Border x:Name="ConditionCard" Grid.Row="2"
+                    Background="#FAFAFA" BorderBrush="#F0F0F0" BorderThickness="1"
+                    CornerRadius="7" Padding="10,6" Margin="0,8,0,12">
+                <TextBlock x:Name="ConditionText" Text="条件表达式" FontFamily="Consolas" FontSize="11"
+                           FontWeight="Medium" Foreground="#2E7D32" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+            </Border>
+
+            <!-- Row 3: 按钮 -->
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="StopButton" Grid.Column="0" Content="停止流程"
+                        Background="White" Foreground="#EF5350" BorderBrush="#FFCDD2" BorderThickness="1"
+                        Style="{StaticResource ButtonStyle}" Click="StopButton_Click"/>
+                <Button x:Name="ContinueButton" Grid.Column="2" Content="继续执行"
+                        Background="#2E7D32" Foreground="White" BorderThickness="0"
+                        Style="{StaticResource ButtonStyle}" Click="ContinueButton_Click"/>
+            </Grid>
+
+            <!-- 隐藏兼容元素 -->
+            <TextBlock x:Name="HelpText" Visibility="Collapsed" Grid.Row="3"/>
+            <Border x:Name="CurrentValuePanel" Visibility="Collapsed" Grid.Row="3">
+                <TextBlock x:Name="CurrentValueText"/>
+            </Border>
+        </Grid>
+
+    </Border>
+</Window>

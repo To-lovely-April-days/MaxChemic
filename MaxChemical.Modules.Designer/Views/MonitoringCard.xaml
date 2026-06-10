@@ -1,0 +1,229 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.MonitoringCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Width="Auto"
+             Height="Auto">
+
+    <UserControl.Resources>
+        <!-- 参数项 hover 效果 -->
+        <Style x:Key="ParameterItemStyle" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FAFAF6"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 设备名称(深红)兼拖动手柄 -->
+        <Style x:Key="DragHandleStyle" TargetType="Border">
+            <Setter Property="Background" Value="#A41626"/>
+            <Setter Property="Cursor" Value="SizeAll"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#8E121F"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 弹窗内的子标题 -->
+        <Style x:Key="PopupSubtitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#888"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style x:Key="PopupValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#1A1A1A"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- ═══════════════════════════════════════
+             主卡片:横向数字带 (U 设计)
+             ═══════════════════════════════════════ -->
+        <Border x:Name="CardContainer"
+        Background="#FFFFFF"
+        BorderBrush="#EAEAEA"
+        BorderThickness="0.8"
+        CornerRadius="4"
+        SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.05" BlurRadius="2" 
+                          ShadowDepth="0.8" Direction="270"
+                          RenderingBias="Performance"/>
+            </Border.Effect>
+
+            <StackPanel Orientation="Horizontal">
+
+                <!-- 左侧:深红设备名 = 拖动手柄 -->
+                <Border x:Name="DragHandle"
+                Style="{StaticResource DragHandleStyle}"
+                CornerRadius="3,0,0,3"
+                Padding="6,3"
+                MouseLeftButtonDown="DragHandle_MouseLeftButtonDown"
+                MouseMove="DragHandle_MouseMove"
+                MouseLeftButtonUp="DragHandle_MouseLeftButtonUp"
+                MouseLeave="DragHandle_MouseLeave">
+                    <TextBlock x:Name="DeviceNameText"
+                      Text=""
+                      FontSize="9"
+                      FontWeight="Medium"
+                      Foreground="#FFFFFF"
+                      VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- 右侧:参数列表(横向) -->
+                <ItemsControl x:Name="ParametersItemsControl">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource ParameterItemStyle}"
+                            BorderBrush="#EAEAEA"
+                            BorderThickness="0.8,0,0,0"
+                            Padding="6,3"
+                            MouseLeftButtonDown="ParameterItem_MouseLeftButtonDown"
+                            Tag="{Binding}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}"
+                                       FontSize="8"
+                                       Foreground="#888"
+                                       FontWeight="Medium"/>
+                                    <TextBlock Text="{Binding Value}"
+                                       FontSize="11"
+                                       FontWeight="Medium"
+                                       Foreground="#1A1A1A"
+                                       Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ═══════════════════════════════════════
+             参数详情弹窗 (保留原有功能)
+             ═══════════════════════════════════════ -->
+        <Popup x:Name="DetailPopup"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=CardContainer}"
+               StaysOpen="True"
+               AllowsTransparency="True"
+               PopupAnimation="Fade"
+               HorizontalOffset="0"
+               VerticalOffset="6">
+
+            <Border Background="#FFFFFF"
+                    BorderBrush="#EAEAEA"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Width="380"
+                    Height="280"
+                    MouseLeftButtonDown="Popup_MouseLeftButtonDown">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" Opacity="0.15" BlurRadius="12" 
+                                      ShadowDepth="3" Direction="270"/>
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 弹窗标题栏 -->
+                    <Border Grid.Row="0"
+                            Background="#A41626"
+                            CornerRadius="7,7,0,0"
+                            Padding="14,8"
+                            MouseLeftButtonDown="PopupTitle_MouseLeftButtonDown">
+                        <Grid>
+                            <TextBlock x:Name="PopupTitleText"
+                                       Text="参数详情"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       Foreground="#FFFFFF"
+                                       VerticalAlignment="Center"/>
+                            <Button x:Name="PopupCloseButton"
+                                    Content="✕"
+                                    HorizontalAlignment="Right"
+                                    Width="20" Height="20"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="#FFFFFF"
+                                    FontSize="12"
+                                    Cursor="Hand"
+                                    Click="PopupCloseButton_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- 统计区:当前/最大/最小/平均 -->
+                    <Border Grid.Row="1"
+                            Background="#FAFAF6"
+                            BorderBrush="#EAEAEA"
+                            BorderThickness="0,0,0,1"
+                            Padding="14,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Name="TbCurrentLabel" Text="当前" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock x:Name="PopupCurrentValue"
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Name="TbMaxLabel" Text="最大" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock x:Name="PopupMaxValue"
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Name="TbMinLabel" Text="最小" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock x:Name="PopupMinValue"
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Name="TbAvgLabel" Text="平均" Style="{StaticResource PopupSubtitleStyle}"/>
+                                <TextBlock x:Name="PopupAvgValue"
+                                          Text="--"
+                                          Style="{StaticResource PopupValueStyle}"
+                                          Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 历史曲线图 -->
+                    <Canvas Grid.Row="2"
+                            x:Name="ChartCanvas"
+                            Background="#FFFFFF"
+                            Margin="6"
+                            SizeChanged="ChartCanvas_SizeChanged"/>
+                    
+                    <!-- 无数据提示文本 -->
+                    <TextBlock Name="TbNoneDataLabel" Grid.Row="2" Text="暂无足够数据" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

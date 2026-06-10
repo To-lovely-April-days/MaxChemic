@@ -1,0 +1,622 @@
+﻿<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.MassFlowMeterControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="500" 
+             d:DesignWidth="400"
+             Width="400" Height="500"
+             Background="Transparent"
+             Cursor="SizeAll"
+             ClipToBounds="False"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             RenderOptions.EdgeMode="Unspecified">
+
+    <UserControl.CacheMode>
+        <BitmapCache RenderAtScale="1.0" 
+                     SnapsToDevicePixels="True" 
+                     EnableClearType="False"/>
+    </UserControl.CacheMode>
+
+    <UserControl.Resources>
+        <!-- ===========================================================
+             F. 深灰 Bronkhorst 1:1 还原 配色
+             =========================================================== -->
+
+        <!-- 停止状态: 深灰 -->
+        <LinearGradientBrush x:Key="StoppedShellGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#929298" Offset="0"/>
+            <GradientStop Color="#787880" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 运行状态: 蓝绿色 -->
+        <LinearGradientBrush x:Key="RunningShellGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#6EA888" Offset="0"/>
+            <GradientStop Color="#4E8866" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 顶面 -->
+        <LinearGradientBrush x:Key="TopFaceGradient" StartPoint="0,1" EndPoint="0,0">
+            <GradientStop Color="#9898A0" Offset="0"/>
+            <GradientStop Color="#AAAAB2" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 右侧面 -->
+        <LinearGradientBrush x:Key="RightFaceGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#6A6A72" Offset="0"/>
+            <GradientStop Color="#585860" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- LCD蓝色渐变 -->
+        <LinearGradientBrush x:Key="LcdGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#2848A0" Offset="0"/>
+            <GradientStop Color="#1A3078" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 垂直管道圆管渐变 -->
+        <LinearGradientBrush x:Key="PipeGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#EEECEA" Offset="0"/>
+            <GradientStop Color="#DEDBD6" Offset="0.2"/>
+            <GradientStop Color="#C4C0B8" Offset="0.5"/>
+            <GradientStop Color="#A4A098" Offset="0.8"/>
+            <GradientStop Color="#8A8680" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- 水平管道 -->
+        <LinearGradientBrush x:Key="PipeHorizGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#8A8680" Offset="0"/>
+            <GradientStop Color="#A4A098" Offset="0.15"/>
+            <GradientStop Color="#C4C0B8" Offset="0.35"/>
+            <GradientStop Color="#EEECEA" Offset="0.5"/>
+            <GradientStop Color="#C4C0B8" Offset="0.65"/>
+            <GradientStop Color="#A4A098" Offset="0.85"/>
+            <GradientStop Color="#8A8680" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- ===========================================================
+             统一深灰工业风按钮样式
+             深灰渐变 + 金属描边 + 凸起高光
+             =========================================================== -->
+
+        <!-- 上/下箭头按钮 (绿色/红色图标 + 深灰底) -->
+        <Style x:Key="SmallButtonStyle" TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="ButtonBg" CornerRadius="4">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#7A7A82" Offset="0"/>
+                                        <GradientStop Color="#5A5A62" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#000000" Opacity="0.4" BlurRadius="3" 
+                                                      ShadowDepth="1.5" Direction="315"
+                                                      RenderingBias="Performance"/>
+                                </Border.Effect>
+                            </Border>
+                            <Border CornerRadius="4" BorderBrush="#3A3A42" BorderThickness="0.8" Margin="0"/>
+                            <!-- 顶部凸起高光(贴顶部1/3,用VerticalAlignment实现) -->
+                            <Border CornerRadius="3" Margin="2,2,2,0" Height="6" VerticalAlignment="Top" 
+                                    Background="White" Opacity="0.15"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBg" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#8A8A92" Offset="0"/>
+                                            <GradientStop Color="#6A6A72" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBg" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#4A4A52" Offset="0"/>
+                                            <GradientStop Color="#3A3A42" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- SET 按钮 (深蓝LCD风格凸起) -->
+        <Style x:Key="SetButtonStyle" TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="ButtonBg" CornerRadius="5">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#2A4A80" Offset="0"/>
+                                        <GradientStop Color="#1A3060" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#000000" Opacity="0.5" BlurRadius="4" 
+                                                      ShadowDepth="2" Direction="315"
+                                                      RenderingBias="Performance"/>
+                                </Border.Effect>
+                            </Border>
+                            <Border CornerRadius="5" BorderBrush="#0E2040" BorderThickness="1" Margin="0"/>
+                            <!-- 顶部高光 -->
+                            <Border CornerRadius="4" Margin="2,2,2,0" Height="12" VerticalAlignment="Top" 
+                                    Background="White" Opacity="0.12"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBg" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#3A5A90" Offset="0"/>
+                                            <GradientStop Color="#2A4070" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBg" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#152040" Offset="0"/>
+                                            <GradientStop Color="#0A1530" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Canvas Background="Transparent">
+
+        <!-- 地面阴影 -->
+        <Ellipse Canvas.Left="100" Canvas.Top="490" Width="200" Height="8" Opacity="0.18" Panel.ZIndex="0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#000000" Offset="0"/>
+                    <GradientStop Color="#000000" Offset="0.5"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+            <Ellipse.Effect>
+                <BlurEffect Radius="6" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- 可拖拽区域 -->
+        <Rectangle x:Name="DraggableArea"
+                   Canvas.Left="0" Canvas.Top="0"
+                   Width="400" Height="500"
+                   Fill="Transparent" Panel.ZIndex="1"
+                   Cursor="SizeAll"
+                   MouseLeftButtonDown="OnOverlayMouseDown"
+                   MouseLeftButtonUp="OnOverlayMouseUp"
+                   MouseMove="OnOverlayMouseMove"/>
+
+        <!-- ==========================================================
+             管道出口 (壳体底部: y=14+400=414 → 管从y=428开始)
+             整体下移到画布最底部
+             ========================================================== -->
+
+      
+        <!-- ==========================================================
+             主壳体  (y=14 到 y=424, 高410)
+             ========================================================== -->
+        <Canvas x:Name="MainBodyGroup" Panel.ZIndex="10">
+
+            <Polygon Points="372,24  396,14  396,418  372,428"
+                     Fill="{StaticResource RightFaceGradient}" 
+                     Stroke="#484850" StrokeThickness="0.8"
+                     Panel.ZIndex="1"
+                     RenderOptions.CachingHint="Cache"/>
+
+            <Polygon Points="14,24  38,14  396,14  372,24"
+                     Fill="{StaticResource TopFaceGradient}"
+                     Stroke="#888890" StrokeThickness="0.8"
+                     Panel.ZIndex="1"
+                     RenderOptions.CachingHint="Cache"/>
+            <Polygon Points="14,24  38,14  210,14  186,24"
+                     Fill="White" Opacity="0.10" Panel.ZIndex="2"
+                     RenderOptions.CachingHint="Cache"/>
+
+            <Rectangle x:Name="MeterShell"
+                       Canvas.Left="14" Canvas.Top="24" Width="372" Height="400"
+                       RadiusX="12" RadiusY="12"
+                       Fill="{StaticResource StoppedShellGradient}"
+                       Stroke="#606068" StrokeThickness="1.4"
+                       Panel.ZIndex="3"
+                       RenderOptions.CachingHint="Cache">
+                <Rectangle.Effect>
+                    <DropShadowEffect Color="#000000" Opacity="0.22" BlurRadius="6" 
+                                      ShadowDepth="3" Direction="315"
+                                      RenderingBias="Performance"/>
+                </Rectangle.Effect>
+            </Rectangle>
+
+            <Rectangle Canvas.Left="18" Canvas.Top="30" Width="18" Height="390"
+                       RadiusX="6" RadiusY="6"
+                       Fill="White" Opacity="0.07"
+                       Panel.ZIndex="4"
+                       RenderOptions.CachingHint="Cache"/>
+        </Canvas>
+
+        <!-- ==========================================================
+             顶部两个数字连接器
+             ========================================================== -->
+        <Rectangle Canvas.Left="252" Canvas.Top="19" Width="48" Height="24"
+                   RadiusX="3" RadiusY="3"
+                   Fill="#2A2A28" Stroke="#1A1A18" StrokeThickness="0.8"
+                   Panel.ZIndex="15"
+                   RenderOptions.CachingHint="Cache"/>
+        <Rectangle Canvas.Left="257" Canvas.Top="23" Width="38" Height="16"
+                   RadiusX="2" RadiusY="2" Fill="#1A1A18"
+                   Panel.ZIndex="16"
+                   RenderOptions.CachingHint="Cache"/>
+        <Rectangle Canvas.Left="261" Canvas.Top="28" Width="12" Height="7"
+                   RadiusX="1" RadiusY="1"
+                   Fill="#404040" Stroke="#303030" StrokeThickness="0.5"
+                   Panel.ZIndex="17"/>
+        <Rectangle Canvas.Left="278" Canvas.Top="28" Width="12" Height="7"
+                   RadiusX="1" RadiusY="1"
+                   Fill="#404040" Stroke="#303030" StrokeThickness="0.5"
+                   Panel.ZIndex="17"/>
+        <Rectangle Canvas.Left="309" Canvas.Top="19" Width="48" Height="24"
+                   RadiusX="3" RadiusY="3"
+                   Fill="#2A2A28" Stroke="#1A1A18" StrokeThickness="0.8"
+                   Panel.ZIndex="15"
+                   RenderOptions.CachingHint="Cache"/>
+        <Rectangle Canvas.Left="314" Canvas.Top="23" Width="38" Height="16"
+                   RadiusX="2" RadiusY="2" Fill="#1A1A18"
+                   Panel.ZIndex="16"
+                   RenderOptions.CachingHint="Cache"/>
+        <Rectangle Canvas.Left="318" Canvas.Top="28" Width="12" Height="7"
+                   RadiusX="1" RadiusY="1"
+                   Fill="#404040" Stroke="#303030" StrokeThickness="0.5"
+                   Panel.ZIndex="17"/>
+        <Rectangle Canvas.Left="335" Canvas.Top="28" Width="12" Height="7"
+                   RadiusX="1" RadiusY="1"
+                   Fill="#404040" Stroke="#303030" StrokeThickness="0.5"
+                   Panel.ZIndex="17"/>
+
+        <!-- ==========================================================
+             四角十字螺丝
+             ========================================================== -->
+        <Ellipse Canvas.Left="28" Canvas.Top="57" Width="18" Height="18"
+                 Fill="#C8C8D0" Stroke="#8A8A92" StrokeThickness="1"
+                 Panel.ZIndex="20"
+                 RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.4" BlurRadius="2.5" ShadowDepth="1"
+                                  RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="31" Y1="66" X2="43" Y2="66" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+        <Line X1="37" Y1="60" X2="37" Y2="72" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+
+        <Ellipse Canvas.Left="354" Canvas.Top="57" Width="18" Height="18"
+                 Fill="#C8C8D0" Stroke="#8A8A92" StrokeThickness="1"
+                 Panel.ZIndex="20"
+                 RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.4" BlurRadius="2.5" ShadowDepth="1"
+                                  RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="357" Y1="66" X2="369" Y2="66" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+        <Line X1="363" Y1="60" X2="363" Y2="72" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+
+        <Ellipse Canvas.Left="28" Canvas.Top="381" Width="18" Height="18"
+                 Fill="#C8C8D0" Stroke="#8A8A92" StrokeThickness="1"
+                 Panel.ZIndex="20"
+                 RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.4" BlurRadius="2.5" ShadowDepth="1"
+                                  RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="31" Y1="390" X2="43" Y2="390" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+        <Line X1="37" Y1="384" X2="37" Y2="396" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+
+        <Ellipse Canvas.Left="354" Canvas.Top="381" Width="18" Height="18"
+                 Fill="#C8C8D0" Stroke="#8A8A92" StrokeThickness="1"
+                 Panel.ZIndex="20"
+                 RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.4" BlurRadius="2.5" ShadowDepth="1"
+                                  RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Line X1="357" Y1="390" X2="369" Y2="390" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+        <Line X1="363" Y1="384" X2="363" Y2="396" Stroke="#4A4A52" StrokeThickness="1.6" Panel.ZIndex="21"/>
+
+        <!-- ==========================================================
+             黑色标签贴纸 (紧凑): y=81 → y=263 (高182)
+             ========================================================== -->
+        <Rectangle Canvas.Left="43" Canvas.Top="81" Width="324" Height="182"
+                   RadiusX="7" RadiusY="7"
+                   Fill="#1E1E1E" Stroke="#0A0A0A" StrokeThickness="0.8"
+                   Panel.ZIndex="25"
+                   RenderOptions.CachingHint="Cache">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.35" BlurRadius="3" ShadowDepth="1"
+                                  RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <!-- 品牌行 -->
+        <TextBlock Canvas.Left="63" Canvas.Top="92" Text="mini" 
+                   FontSize="22" FontWeight="Bold" Foreground="#E83030" 
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="26"/>
+        <TextBlock Canvas.Left="117" Canvas.Top="90" Text="CORI-FLOW" 
+                   FontSize="24" FontWeight="ExtraBold" Foreground="#F0F0F0" 
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="26"/>
+        <TextBlock Canvas.Left="283" Canvas.Top="89" Text="™" 
+                   FontSize="12" Foreground="#F0F0F0" 
+                   FontFamily="Arial" Panel.ZIndex="26"/>
+
+        <TextBlock Canvas.Left="63" Canvas.Top="120" Text="Digital Mass Flow Meter" 
+                   FontSize="12" Foreground="#C0C0C0" 
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="26"/>
+
+        <!-- 菱形棋盘格 (压缩到4行) -->
+        <Canvas Canvas.Left="135" Canvas.Top="145" Panel.ZIndex="26" Opacity="0.88">
+            <Rectangle Canvas.Left="0"  Canvas.Top="0" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="12" Canvas.Top="0" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="24" Canvas.Top="0" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="36" Canvas.Top="0" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="48" Canvas.Top="0" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="60" Canvas.Top="0" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="72" Canvas.Top="0" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="84" Canvas.Top="0" Width="12" Height="12" Fill="#1E1E1E"/>
+
+            <Rectangle Canvas.Left="6"   Canvas.Top="12" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="18"  Canvas.Top="12" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="30"  Canvas.Top="12" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="42"  Canvas.Top="12" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="54"  Canvas.Top="12" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="66"  Canvas.Top="12" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="78"  Canvas.Top="12" Width="12" Height="12" Fill="#1E1E1E"/>
+
+            <Rectangle Canvas.Left="12" Canvas.Top="24" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="24" Canvas.Top="24" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="36" Canvas.Top="24" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="48" Canvas.Top="24" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="60" Canvas.Top="24" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="72" Canvas.Top="24" Width="12" Height="12" Fill="#1E1E1E"/>
+
+            <Rectangle Canvas.Left="18"  Canvas.Top="36" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="30"  Canvas.Top="36" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="42"  Canvas.Top="36" Width="12" Height="12" Fill="#1E1E1E"/>
+            <Rectangle Canvas.Left="54"  Canvas.Top="36" Width="12" Height="12" Fill="#E0E0E0"/>
+            <Rectangle Canvas.Left="66"  Canvas.Top="36" Width="12" Height="12" Fill="#1E1E1E"/>
+        </Canvas>
+
+        <!-- FOR LIQUIDS AND GASES -->
+        <TextBlock Canvas.Left="63" Canvas.Top="204" Text="FOR LIQUIDS AND GASES" 
+                   FontSize="12" FontWeight="Bold" Foreground="#C83030" 
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="26"/>
+
+        <!-- FlowTech Logo -->
+        <Rectangle Canvas.Left="125" Canvas.Top="225" Width="14" Height="14"
+                   Fill="#C83030" Panel.ZIndex="26"
+                   RenderOptions.CachingHint="Cache">
+            <Rectangle.RenderTransform>
+                <RotateTransform Angle="45" CenterX="7" CenterY="7"/>
+            </Rectangle.RenderTransform>
+        </Rectangle>
+        <TextBlock Canvas.Left="113" Canvas.Top="244" Text="FlowTech" 
+                   FontSize="20" FontWeight="ExtraBold" Foreground="#F0F0F0" 
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="26"/>
+        <TextBlock Canvas.Left="227" Canvas.Top="243" Text="®" 
+                   FontSize="11" Foreground="#F0F0F0" 
+                   FontFamily="Arial" Panel.ZIndex="26"/>
+
+        <!-- FLOW 箭头 -->
+        <Border Canvas.Left="253" Canvas.Top="227" Width="80" Height="22"
+                CornerRadius="4" BorderBrush="#C0C0C0" BorderThickness="1.2"
+                Background="Transparent" Panel.ZIndex="26">
+            <Grid>
+                <TextBlock Text="FLOW" FontSize="12" FontWeight="Bold" Foreground="#E0E0E0" 
+                           FontFamily="Arial, Segoe UI"
+                           HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <Path Data="M0,0 L7,4.5 L0,9 Z" Fill="#E0E0E0"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            </Grid>
+        </Border>
+
+        <!-- CE -->
+        <TextBlock Canvas.Left="347" Canvas.Top="258" Text="CE" 
+                   FontSize="9" Foreground="#808088" Opacity="0.5"
+                   FontFamily="Arial" Panel.ZIndex="26"/>
+
+        <!-- ==========================================================
+             统一深色LCD显示区 (y=275 → y=370, 高95)
+             集成: Target (SET POINT) + Current Flow 两个读数
+             全部蓝色LCD风格
+             ========================================================== -->
+
+        <!-- LCD 外框(凹陷效果) -->
+        <Rectangle Canvas.Left="55" Canvas.Top="278" Width="300" Height="90"
+                   RadiusX="6" RadiusY="6"
+                   Fill="#0A0E14" Stroke="#060A10" StrokeThickness="1.2"
+                   Panel.ZIndex="29"
+                   RenderOptions.CachingHint="Cache">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#000000" Opacity="0.5" BlurRadius="4" ShadowDepth="0"
+                                  RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+        <Rectangle Canvas.Left="56" Canvas.Top="279" Width="298" Height="5"
+                   RadiusX="2" RadiusY="2" Fill="#000000" Opacity="0.35"
+                   Panel.ZIndex="30"/>
+
+        <!-- LCD 蓝色屏幕 -->
+        <Rectangle Canvas.Left="59" Canvas.Top="282" Width="292" Height="82"
+                   RadiusX="4" RadiusY="4"
+                   Fill="{StaticResource LcdGradient}"
+                   Panel.ZIndex="30"
+                   RenderOptions.CachingHint="Cache"/>
+        <Rectangle Canvas.Left="59" Canvas.Top="282" Width="292" Height="10"
+                   RadiusX="2" RadiusY="2"
+                   Fill="White" Opacity="0.06"
+                   Panel.ZIndex="31"/>
+
+        <!-- === 分区1: SET POINT (左半, 带上下调节按钮) === -->
+        <TextBlock Canvas.Left="69" Canvas.Top="288" Text="SET POINT" 
+                   FontSize="9" FontWeight="Bold" Foreground="#8FB8E8" Opacity="0.85"
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="33"/>
+        <!-- Target数值(大字) -->
+        <TextBlock x:Name="TargetValueText" Canvas.Left="69" Canvas.Top="300" 
+                   Width="100" TextAlignment="Left"
+                   Text="20.0" 
+                   FontSize="26" FontWeight="Bold" Foreground="#E8F4FF" 
+                   FontFamily="Consolas, monospace" Panel.ZIndex="33"/>
+        <!-- 单位 -->
+        <TextBlock Canvas.Left="69" Canvas.Top="340" Text="g/min" 
+                   FontSize="9" Foreground="#90B8D8"
+                   FontFamily="Times New Roman" FontStyle="Italic" 
+                   Panel.ZIndex="33"/>
+
+        <!-- 上下调节按钮 (竖排, 深灰工业风) -->
+        <Button Canvas.Left="145" Canvas.Top="299" Width="26" Height="18"
+                Style="{StaticResource SmallButtonStyle}" 
+                Cursor="Hand" Click="OnIncreaseButtonClick"
+                Panel.ZIndex="34">
+            <Path Data="M0,6 L5,0 L10,6 Z" Fill="#27D070" Width="10" Height="6"/>
+        </Button>
+        <Button Canvas.Left="145" Canvas.Top="320" Width="26" Height="18"
+                Style="{StaticResource SmallButtonStyle}" 
+                Cursor="Hand" Click="OnDecreaseButtonClick"
+                Panel.ZIndex="34">
+            <Path Data="M0,0 L5,6 L10,0 Z" Fill="#E84040" Width="10" Height="6"/>
+        </Button>
+
+        <!-- === 分隔竖线 === -->
+        <Line X1="189" Y1="292" X2="189" Y2="354" Stroke="#4070A0" StrokeThickness="0.8" 
+              Opacity="0.4" Panel.ZIndex="33"/>
+
+        <!-- === 分区2: CURRENT FLOW (右半, 只读) === -->
+        <TextBlock Canvas.Left="199" Canvas.Top="288" Text="CURRENT" 
+                   FontSize="9" FontWeight="Bold" Foreground="#8FB8E8" Opacity="0.85"
+                   FontFamily="Arial, Segoe UI" Panel.ZIndex="33"/>
+        <!-- Current数值(大字) -->
+        <TextBlock x:Name="CurrentValueText" Canvas.Left="199" Canvas.Top="300" 
+                   Width="110" TextAlignment="Left"
+                   Text="0.0" 
+                   FontSize="26" FontWeight="Bold" Foreground="#E8F4FF" 
+                   FontFamily="Consolas, monospace" Panel.ZIndex="33"/>
+        <TextBlock Canvas.Left="199" Canvas.Top="340" Text="g/min" 
+                   FontSize="9" Foreground="#90B8D8"
+                   FontFamily="Times New Roman" FontStyle="Italic" 
+                   Panel.ZIndex="33"/>
+
+        <!-- SET 按钮 (屏右侧内嵌) -->
+        <Button Canvas.Left="315" Canvas.Top="310" Width="32" Height="36"
+                Style="{StaticResource SetButtonStyle}" 
+                Cursor="Hand" Click="OnSetButtonClick"
+                Panel.ZIndex="34">
+            <TextBlock Text="SET" FontSize="12" FontWeight="Bold" Foreground="#FFD860"/>
+        </Button>
+
+        <!-- 运行状态LED指示(屏右上角) -->
+        <Ellipse Canvas.Left="337" Canvas.Top="290" Width="6" Height="6" 
+                 Fill="#40E060" Opacity="0.9" Panel.ZIndex="33">
+            <Ellipse.Effect>
+                <BlurEffect Radius="2" RenderingBias="Performance"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Ellipse Canvas.Left="337" Canvas.Top="290" Width="6" Height="6" 
+                 Fill="#60FF80" Panel.ZIndex="34"/>
+
+        <!-- ==========================================================
+             兼容性隐藏元素 (保留 CurrentPointer/PointerRotation/DialInnerCircle)
+             ========================================================== -->
+        <Canvas Canvas.Left="-100" Canvas.Top="-100" Width="1" Height="1"
+                Opacity="0" IsHitTestVisible="False" Panel.ZIndex="-10">
+            <Path x:Name="CurrentPointer" Fill="#E74C3C"
+                  Data="M 0,0 L 0,1 L 1,1 L 1,0 Z">
+                <Path.RenderTransform>
+                    <RotateTransform x:Name="PointerRotation" Angle="0" CenterX="0" CenterY="0"/>
+                </Path.RenderTransform>
+            </Path>
+            <Ellipse x:Name="DialInnerCircle" Width="1" Height="1" Fill="Transparent"/>
+        </Canvas>
+
+        <!-- ==========================================================
+             选中边框 + 旋转锚点
+             ========================================================== -->
+        <Rectangle x:Name="SelectionBorder" 
+                   Canvas.Left="-2" Canvas.Top="-2" Width="404" Height="504"
+                   Stroke="#FF9500" StrokeThickness="2.5" StrokeDashArray="4,2" 
+                   Fill="Transparent" RadiusX="3" RadiusY="3" 
+                   Visibility="Collapsed" Panel.ZIndex="200"
+                   IsHitTestVisible="False">
+            <Rectangle.Effect>
+                <DropShadowEffect Color="#FF9500" BlurRadius="8" ShadowDepth="0" Opacity="0.5"
+                                  RenderingBias="Performance"/>
+            </Rectangle.Effect>
+        </Rectangle>
+
+        <Ellipse x:Name="RotateAnchor"
+                 Canvas.Left="184" Canvas.Top="-50"
+                 Width="32" Height="32"
+                 Fill="#9B59B6" Stroke="White" StrokeThickness="3"
+                 Opacity="0" Cursor="Hand" Panel.ZIndex="210"
+                 RenderOptions.CachingHint="Cache">
+            <Ellipse.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="5" Opacity="0.6"
+                                  RenderingBias="Performance"/>
+            </Ellipse.Effect>
+            <Ellipse.ToolTip>
+                <ToolTip Content="拖动旋转流量计 (按住Shift=15度步进)" 
+                         FontSize="16" FontWeight="Bold"
+                         Background="#E4E4E8" Foreground="#2A2A32"/>
+            </Ellipse.ToolTip>
+        </Ellipse>
+
+        <Line x:Name="RotateAnchorLine"
+              X1="200" Y1="0" X2="200" Y2="-42"
+              Stroke="#9B59B6" StrokeThickness="3" StrokeDashArray="4,3"
+              Opacity="0" Panel.ZIndex="209"
+              IsHitTestVisible="False"/>
+
+        <Border x:Name="RotationLabel"
+                Canvas.Left="155" Canvas.Top="-85"
+                Background="#E62A2A32" CornerRadius="8" Padding="20,12"
+                Visibility="Collapsed" Panel.ZIndex="211"
+                IsHitTestVisible="False">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="5" Opacity="0.7"
+                                  RenderingBias="Performance"/>
+            </Border.Effect>
+            <TextBlock x:Name="RotationText"
+                       Foreground="White" FontSize="26" FontWeight="Bold"
+                       Text="0°" FontFamily="Segoe UI, Arial">
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="1" Opacity="0.9"
+                                      RenderingBias="Performance"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Border>
+
+    </Canvas>
+</UserControl>

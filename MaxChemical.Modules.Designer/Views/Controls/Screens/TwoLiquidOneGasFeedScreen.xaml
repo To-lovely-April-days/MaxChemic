@@ -1,0 +1,488 @@
+<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.TwoLiquidOneGasFeedScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             Width="1240" Height="620">
+
+    <!--
+      两液一气进料系统嵌入式屏幕（高保真版）
+      - 三行：气相MFC / 液相1泵1 / 液相2泵2，各自主题色（红/蓝/绿）
+      - 每行底层 Canvas 画：连续管路 Path（液相含直角弯）+ 流动光带 Path + 液瓶
+      - 上层 Grid：六边形主题标签 / 开关 / 设备机身 / 数据面板 / 阀门出口
+      - F-SV 可编辑回车下发；开关 ON 时光带沿管路流动
+      - 不显示 Add-SV（按驱动）
+    -->
+
+    <base:DeviceScreenBase.Resources>
+        <SolidColorBrush x:Key="LabelBrush" Color="#D7DCE3"/>
+        <SolidColorBrush x:Key="UnitBrush"  Color="#8B929C"/>
+        <SolidColorBrush x:Key="PipeBody"   Color="#3A4048"/>
+        <SolidColorBrush x:Key="PipeHi"     Color="#CFD6DD"/>
+
+        <!-- 数据值（只读） -->
+        <Style x:Key="ValStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="KeyStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="UnitStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource UnitBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="14,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- 可编辑 F-SV -->
+        <Style x:Key="EditValStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#33000000"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3EFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="60"/>
+        </Style>
+        <!-- 进口/出口标牌 -->
+        <Style x:Key="IOTag" TargetType="Border">
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#3A4048" Offset="0"/>
+                        <GradientStop Color="#23282F" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </base:DeviceScreenBase.Resources>
+
+    <!-- 屏幕背景：深色 + 左上红光 -->
+    <Border ClipToBounds="True">
+        <Border.Background>
+            <RadialGradientBrush GradientOrigin="0.16,0.14" Center="0.16,0.14" RadiusX="0.95" RadiusY="0.95">
+                <GradientStop Color="#6E1B1B" Offset="0"/>
+                <GradientStop Color="#2A1212" Offset="0.4"/>
+                <GradientStop Color="#08090C" Offset="0.82"/>
+            </RadialGradientBrush>
+        </Border.Background>
+
+        <Grid Margin="20,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ==================== 行1：气相 MFC ==================== -->
+            <Grid Grid.Row="0">
+                <!-- 底层：管路系统 Canvas（坐标系 1200×190，会随 Grid 拉伸） -->
+                <Viewbox Stretch="Fill">
+                    <Canvas Width="1200" Height="190">
+                        <!-- 连续管路：进口 → 横贯出口（气相直线） -->
+                        <Path Stroke="{StaticResource PipeBody}" StrokeThickness="9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 250 95 H 1150"/>
+                        <Path Stroke="{StaticResource PipeHi}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Opacity="0.8" Data="M 250 93 H 1150"/>
+                        <!-- 流动光带（默认隐藏，开关 ON 时 StrokeDashOffset 动画） -->
+                        <Path x:Name="FlowMfc" Stroke="#E2433A" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Opacity="0" StrokeDashArray="2 22" Data="M 250 95 H 1150"/>
+                    </Canvas>
+                </Viewbox>
+
+                <!-- 上层：功能块 -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="158"/>
+                        <!-- 六边形标签 -->
+                        <ColumnDefinition Width="86"/>
+                        <!-- 进口 -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- 开关 -->
+                        <ColumnDefinition Width="120"/>
+                        <!-- 设备 -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- 面板 -->
+                        <ColumnDefinition Width="*"/>
+                        <!-- 出口 -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 六边形主题标签：气相红 -->
+                    <Grid Grid.Column="0" Height="64" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <Path Fill="#28E2433A" Stroke="#8CE2433A" StrokeThickness="1"
+                              Data="M 0 0 L 130 0 L 150 32 L 130 64 L 0 64 Z"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                            <Path Width="30" Height="30" Stretch="Uniform" Fill="#EAFFFFFF" Margin="0,0,10,0"
+                                  Data="M7 18a4 4 0 010-8 5 5 0 019.6-1.5A3.5 3.5 0 0118 18H7z"/>
+                            <StackPanel>
+                                <TextBlock Text="气相" Foreground="White" FontSize="19" FontWeight="Bold"/>
+                                <TextBlock Text="GAS" Foreground="#E2433A" FontSize="10" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 进口标牌 -->
+                    <Border Grid.Column="1" Style="{StaticResource IOTag}" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel>
+                            <TextBlock Text="进口" Foreground="#CFD5DB" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="INLET" Foreground="#8B929C" FontSize="9" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 开关 -->
+                    <Grid x:Name="MfcSwitch" Grid.Column="2" Width="92" Height="44" Margin="14,0" Background="Transparent"
+                          VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonDown="MfcSwitch_Click">
+                        <Border x:Name="MfcSwitchTrack" CornerRadius="22" Background="#CF392F"/>
+                        <TextBlock x:Name="MfcSwitchText" Text="OFF" Foreground="White" FontSize="15" FontWeight="Bold"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="15,0,0,0"/>
+                        <Border x:Name="MfcSwitchKnob" Width="34" Height="34" CornerRadius="17" Background="White"
+                                VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,5,0"/>
+                    </Grid>
+
+                    <!-- 设备：MFC -->
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid Width="66" Height="96">
+                            <Border Width="50" Height="54" CornerRadius="8,8,4,4" VerticalAlignment="Top" HorizontalAlignment="Center">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.4">
+                                        <GradientStop Color="#F2F5F8" Offset="0"/>
+                                        <GradientStop Color="#C2CAD3" Offset="0.45"/>
+                                        <GradientStop Color="#7C858F" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Border Width="66" Height="46" CornerRadius="5" VerticalAlignment="Bottom">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.4">
+                                        <GradientStop Color="#C2CAD3" Offset="0"/>
+                                        <GradientStop Color="#7C858F" Offset="0.5"/>
+                                        <GradientStop Color="#5A626C" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                        <Border Margin="0,6,0,0" Padding="14,3" CornerRadius="6" Background="#B3141E1E" BorderBrush="#8CE2433A" BorderThickness="1">
+                            <TextBlock Text="MFC" Foreground="#EEF1F4" FontSize="14" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 数据面板：红框 -->
+                    <Border Grid.Column="4" Background="#B814161C" CornerRadius="12" Padding="20,12" Margin="16,0,0,0"
+                            BorderBrush="#8CE2433A" BorderThickness="1.5" VerticalAlignment="Center">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="F-SV" Style="{StaticResource KeyStyle}"/>
+                            <TextBox x:Name="MfcFsv" Grid.Row="0" Grid.Column="1" Text="--" Style="{StaticResource EditValStyle}" Foreground="#E2433A"
+                                     KeyDown="MfcFsv_KeyDown" GotKeyboardFocus="Fsv_SelectAll"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="mL/min" Style="{StaticResource UnitStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="FLOW" Style="{StaticResource KeyStyle}"/>
+                            <TextBlock x:Name="MfcFlow" Grid.Row="1" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#E2433A"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="mL/min" Style="{StaticResource UnitStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Add" Style="{StaticResource KeyStyle}" Margin="0,4,0,0"/>
+                            <TextBlock x:Name="MfcAdd" Grid.Row="2" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#E2433A" Margin="0,4,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="L" Style="{StaticResource UnitStyle}" Margin="14,4,0,0"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- 出口 -->
+                    <Border Grid.Column="5" Style="{StaticResource IOTag}" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <StackPanel>
+                            <TextBlock Text="出口" Foreground="#CFD5DB" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="OUTLET" Foreground="#8B929C" FontSize="9" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ==================== 行2：液相1 泵1 ==================== -->
+            <Grid Grid.Row="1">
+                <Viewbox Stretch="Fill">
+                    <Canvas Width="1200" Height="190">
+                        <!-- 瓶子（画在 Canvas，坐标与竖管严丝合缝） -->
+                        <Path Fill="#7F8893" Data="M 178 116 h 16 v 12 h -16 Z"/>
+                        <!-- 瓶颈 -->
+                        <Border Canvas.Left="170" Canvas.Top="128" Width="32" Height="42" CornerRadius="4,4,7,7">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#DCE4EC" Offset="0"/>
+                                    <GradientStop Color="#96A5B9" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border VerticalAlignment="Bottom" Height="22" CornerRadius="0,0,7,7" Background="#D33F74B8"/>
+                        </Border>
+                        <!-- 连续弯管：瓶口(186,116) ↑ → 直角 → 横贯出口 -->
+                        <Path Stroke="{StaticResource PipeBody}" StrokeThickness="9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M 186 116 V 101 Q 186 95 192 95 H 1150"/>
+                        <Path Stroke="{StaticResource PipeHi}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Opacity="0.8" Data="M 186 114 V 101 Q 186 93 192 93 H 1150"/>
+                        <Path x:Name="FlowP1" Stroke="#3B9EFF" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Opacity="0" StrokeDashArray="2 22" Data="M 186 116 V 101 Q 186 95 192 95 H 1150"/>
+                    </Canvas>
+                </Viewbox>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="158"/>
+                        <ColumnDefinition Width="86"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 六边形：液相1 蓝 -->
+                    <Grid Grid.Column="0" Height="64" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <Path Fill="#283B9EFF" Stroke="#8C3B9EFF" StrokeThickness="1"
+                              Data="M 0 0 L 130 0 L 150 32 L 130 64 L 0 64 Z"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                            <Path Width="28" Height="28" Stretch="Uniform" Fill="#EAFFFFFF" Margin="2,0,10,0"
+                                  Data="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z"/>
+                            <StackPanel>
+                                <TextBlock Text="液相1" Foreground="White" FontSize="19" FontWeight="Bold"/>
+                                <TextBlock Text="LIQUID 1" Foreground="#3B9EFF" FontSize="10" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 第2列空出来给瓶子（瓶子已在 Canvas 画） -->
+
+                    <Grid x:Name="Pump1Switch" Grid.Column="2" Width="92" Height="44" Margin="14,0" Background="Transparent"
+                          VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonDown="Pump1Switch_Click">
+                        <Border x:Name="Pump1SwitchTrack" CornerRadius="22" Background="#CF392F"/>
+                        <TextBlock x:Name="Pump1SwitchText" Text="OFF" Foreground="White" FontSize="15" FontWeight="Bold"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="15,0,0,0"/>
+                        <Border x:Name="Pump1SwitchKnob" Width="34" Height="34" CornerRadius="17" Background="White"
+                                VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,5,0"/>
+                    </Grid>
+
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid Width="104" Height="74">
+                            <Border CornerRadius="7">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.5">
+                                        <GradientStop Color="#F2F5F8" Offset="0"/>
+                                        <GradientStop Color="#C2CAD3" Offset="0.42"/>
+                                        <GradientStop Color="#7C858F" Offset="0.78"/>
+                                        <GradientStop Color="#5A626C" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Border Width="34" Height="26" CornerRadius="3" Background="#0B0D10" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,16,12,0"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,20,0,0">
+                                <Ellipse Width="11" Height="11" Margin="0,0,6,0">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="#D4DAE0" Offset="0"/>
+                                            <GradientStop Color="#6B747F" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <Ellipse Width="11" Height="11">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="#D4DAE0" Offset="0"/>
+                                            <GradientStop Color="#6B747F" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                            </StackPanel>
+                        </Grid>
+                        <Border Margin="0,6,0,0" Padding="14,3" CornerRadius="6" Background="#B3141E1E" BorderBrush="#8C3B9EFF" BorderThickness="1">
+                            <TextBlock Text="泵 1" Foreground="#EEF1F4" FontSize="14" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 数据面板：蓝框 -->
+                    <Border Grid.Column="4" Background="#B814161C" CornerRadius="12" Padding="20,12" Margin="16,0,0,0"
+                            BorderBrush="#8C3B9EFF" BorderThickness="1.5" VerticalAlignment="Center">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="F-SV" Style="{StaticResource KeyStyle}"/>
+                            <TextBox x:Name="Pump1Fsv" Grid.Row="0" Grid.Column="1" Text="--" Style="{StaticResource EditValStyle}" Foreground="#3B9EFF"
+                                     KeyDown="Pump1Fsv_KeyDown" GotKeyboardFocus="Fsv_SelectAll"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="mL/min" Style="{StaticResource UnitStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="FLOW" Style="{StaticResource KeyStyle}"/>
+                            <TextBlock x:Name="Pump1Flow" Grid.Row="1" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#3B9EFF"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="mL/min" Style="{StaticResource UnitStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Add" Style="{StaticResource KeyStyle}" Margin="0,4,0,0"/>
+                            <TextBlock x:Name="Pump1Add" Grid.Row="2" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#3B9EFF" Margin="0,4,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="mL" Style="{StaticResource UnitStyle}" Margin="14,4,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="P" Style="{StaticResource KeyStyle}"/>
+                            <TextBlock x:Name="Pump1P" Grid.Row="3" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#3B9EFF"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="MPa" Style="{StaticResource UnitStyle}"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="5" Style="{StaticResource IOTag}" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <StackPanel>
+                            <TextBlock Text="出口" Foreground="#CFD5DB" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="OUTLET" Foreground="#8B929C" FontSize="9" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ==================== 行3：液相2 泵2 ==================== -->
+            <Grid Grid.Row="2">
+                <Viewbox Stretch="Fill">
+                    <Canvas Width="1200" Height="190">
+                        <Path Fill="#7F8893" Data="M 178 116 h 16 v 12 h -16 Z"/>
+                        <Border Canvas.Left="170" Canvas.Top="128" Width="32" Height="42" CornerRadius="4,4,7,7">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#DCE4EC" Offset="0"/>
+                                    <GradientStop Color="#96A5B9" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border VerticalAlignment="Bottom" Height="22" CornerRadius="0,0,7,7" Background="#D33F74B8"/>
+                        </Border>
+                        <Path Stroke="{StaticResource PipeBody}" StrokeThickness="9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M 186 116 V 101 Q 186 95 192 95 H 1150"/>
+                        <Path Stroke="{StaticResource PipeHi}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Opacity="0.8" Data="M 186 114 V 101 Q 186 93 192 93 H 1150"/>
+                        <Path x:Name="FlowP2" Stroke="#28C46B" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Opacity="0" StrokeDashArray="2 22" Data="M 186 116 V 101 Q 186 95 192 95 H 1150"/>
+                    </Canvas>
+                </Viewbox>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="158"/>
+                        <ColumnDefinition Width="86"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Height="64" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <Path Fill="#2828C46B" Stroke="#8C28C46B" StrokeThickness="1"
+                              Data="M 0 0 L 130 0 L 150 32 L 130 64 L 0 64 Z"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                            <Path Width="28" Height="28" Stretch="Uniform" Fill="#EAFFFFFF" Margin="2,0,10,0"
+                                  Data="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z"/>
+                            <StackPanel>
+                                <TextBlock Text="液相2" Foreground="White" FontSize="19" FontWeight="Bold"/>
+                                <TextBlock Text="LIQUID 2" Foreground="#28C46B" FontSize="10" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid x:Name="Pump2Switch" Grid.Column="2" Width="92" Height="44" Margin="14,0" Background="Transparent"
+                          VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonDown="Pump2Switch_Click">
+                        <Border x:Name="Pump2SwitchTrack" CornerRadius="22" Background="#CF392F"/>
+                        <TextBlock x:Name="Pump2SwitchText" Text="OFF" Foreground="White" FontSize="15" FontWeight="Bold"
+                                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="15,0,0,0"/>
+                        <Border x:Name="Pump2SwitchKnob" Width="34" Height="34" CornerRadius="17" Background="White"
+                                VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,5,0"/>
+                    </Grid>
+
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid Width="104" Height="74">
+                            <Border CornerRadius="7">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.5">
+                                        <GradientStop Color="#F2F5F8" Offset="0"/>
+                                        <GradientStop Color="#C2CAD3" Offset="0.42"/>
+                                        <GradientStop Color="#7C858F" Offset="0.78"/>
+                                        <GradientStop Color="#5A626C" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Border Width="34" Height="26" CornerRadius="3" Background="#0B0D10" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,16,12,0"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,20,0,0">
+                                <Ellipse Width="11" Height="11" Margin="0,0,6,0">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="#D4DAE0" Offset="0"/>
+                                            <GradientStop Color="#6B747F" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <Ellipse Width="11" Height="11">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="#D4DAE0" Offset="0"/>
+                                            <GradientStop Color="#6B747F" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                            </StackPanel>
+                        </Grid>
+                        <Border Margin="0,6,0,0" Padding="14,3" CornerRadius="6" Background="#B3141E1E" BorderBrush="#8C28C46B" BorderThickness="1">
+                            <TextBlock Text="泵 2" Foreground="#EEF1F4" FontSize="14" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+
+                    <Border Grid.Column="4" Background="#B814161C" CornerRadius="12" Padding="20,12" Margin="16,0,0,0"
+                            BorderBrush="#8C28C46B" BorderThickness="1.5" VerticalAlignment="Center">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="F-SV" Style="{StaticResource KeyStyle}"/>
+                            <TextBox x:Name="Pump2Fsv" Grid.Row="0" Grid.Column="1" Text="--" Style="{StaticResource EditValStyle}" Foreground="#28C46B"
+                                     KeyDown="Pump2Fsv_KeyDown" GotKeyboardFocus="Fsv_SelectAll"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="mL/min" Style="{StaticResource UnitStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="FLOW" Style="{StaticResource KeyStyle}"/>
+                            <TextBlock x:Name="Pump2Flow" Grid.Row="1" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#28C46B"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="mL/min" Style="{StaticResource UnitStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Add" Style="{StaticResource KeyStyle}" Margin="0,4,0,0"/>
+                            <TextBlock x:Name="Pump2Add" Grid.Row="2" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#28C46B" Margin="0,4,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="mL" Style="{StaticResource UnitStyle}" Margin="14,4,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="P" Style="{StaticResource KeyStyle}"/>
+                            <TextBlock x:Name="Pump2P" Grid.Row="3" Grid.Column="1" Text="--" Style="{StaticResource ValStyle}" Foreground="#28C46B"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="MPa" Style="{StaticResource UnitStyle}"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="5" Style="{StaticResource IOTag}" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <StackPanel>
+                            <TextBlock Text="出口" Foreground="#CFD5DB" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="OUTLET" Foreground="#8B929C" FontSize="9" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</base:DeviceScreenBase>

@@ -1,0 +1,552 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+		<AssemblyTitle>MaxChemical Control System</AssemblyTitle>
+		<AssemblyDescription>MaxChemical Process Control System</AssemblyDescription>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.0</FileVersion>
+		<ApplicationIcon>Resources\Icon\app.ico</ApplicationIcon>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="edge-tts-net" Version="1.0.2" />
+		<PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.38.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+		<PackageReference Include="NAudio" Version="2.2.1" />
+		<PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.20" />
+		<PackageReference Include="Prism.Unity" Version="8.1.97" />
+		<PackageReference Include="Prism.Wpf" Version="8.1.97" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.77" />
+		<PackageReference Include="System.Speech" Version="7.0.0" />
+		<PackageReference Include="Whisper.net" Version="1.4.7" />
+		<PackageReference Include="Whisper.net.Runtime" Version="1.4.7" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\MaxChemical.Infrastructure\MaxChemical.Infrastructure.csproj" />
+		<ProjectReference Include="..\MaxChemical.Core\MaxChemical.Core.csproj" />
+		<ProjectReference Include="..\MaxChemical.Logging\MaxChemical.Logging.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.Designer\MaxChemical.Modules.Designer.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.Data\MaxChemical.Modules.Data.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.Device\MaxChemical.Modules.Device.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.DOE\MaxChemical.Modules.DOE.csproj" />
+		<ProjectReference Include="..\MaxChemical.Modules.GatewayConfig\MaxChemical.Modules.GatewayConfig.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Resource Include="Assets\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="CustomTitleBar\**" />
+	  <EmbeddedResource Remove="CustomTitleBar\**" />
+	  <None Remove="CustomTitleBar\**" />
+	  <Page Remove="CustomTitleBar\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Remove="appsettings.json" />
+	  <None Remove="Resources\CommadIcon\all_data.png" />
+	  <None Remove="Resources\CommadIcon\Bezel-lessDelay.png" />
+	  <None Remove="Resources\CommadIcon\Bezel-lessIF.png" />
+	  <None Remove="Resources\CommadIcon\Bezel-lessLoop.png" />
+	  <None Remove="Resources\CommadIcon\Bezel-lessParallel.png" />
+	  <None Remove="Resources\CommadIcon\circulation_start.png" />
+	  <None Remove="Resources\CommadIcon\close_all.png" />
+	  <None Remove="Resources\CommadIcon\control.png" />
+	  <None Remove="Resources\CommadIcon\cooling_start.png" />
+	  <None Remove="Resources\CommadIcon\Cumulative.png" />
+	  <None Remove="Resources\CommadIcon\flowrate.png" />
+	  <None Remove="Resources\CommadIcon\heating_start.png" />
+	  <None Remove="Resources\CommadIcon\heat_exchanger_data.png" />
+	  <None Remove="Resources\CommadIcon\loop.png" />
+	  <None Remove="Resources\CommadIcon\Parallel.png" />
+	  <None Remove="Resources\CommadIcon\pressure.png" />
+	  <None Remove="Resources\CommadIcon\pressure_read.png" />
+	  <None Remove="Resources\CommadIcon\scale_all.png" />
+	  <None Remove="Resources\CommadIcon\setvariables.png" />
+	  <None Remove="Resources\CommadIcon\speed.png" />
+	  <None Remove="Resources\CommadIcon\speed_set.png" />
+	  <None Remove="Resources\CommadIcon\status.png" />
+	  <None Remove="Resources\CommadIcon\temp_set.png" />
+	  <None Remove="Resources\CommadIcon\wait.png" />
+	  <None Remove="Resources\CommadIcon\waitif.png" />
+	  <None Remove="Resources\CommadIcon\weight.png" />
+	  <None Remove="Resources\DeviceIcon\Default.png" />
+	  <None Remove="Resources\DeviceIcon\DynamicTubularReactor_CY.jpg" />
+	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
+	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
+	  <None Remove="Resources\DeviceIcon\highLowtemperature.png" />
+	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
+	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
+	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
+	  <None Remove="Resources\DeviceIcon\ProportionalReliefValve.png" />
+	  <None Remove="Resources\DeviceIcon\RoboticArm.png" />
+	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
+	  <None Remove="Resources\DeviceIcon\SiliconCarbideChip_CY.png" />
+	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
+	  <None Remove="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png" />
+	  <None Remove="Resources\Icon\app.ico" />
+	  <None Remove="Resources\Icon\Canvasscaling.png" />
+	  <None Remove="Resources\Icon\close.png" />
+	  <None Remove="Resources\Icon\closeWhite.png" />
+	  <None Remove="Resources\Icon\dataanalysis.png" />
+	  <None Remove="Resources\Icon\delete.png" />
+	  <None Remove="Resources\Icon\device.png" />
+	  <None Remove="Resources\Icon\DeviceLibrary.png" />
+	  <None Remove="Resources\Icon\ElectronicScales.png" />
+	  <None Remove="Resources\Icon\Exportexperimentaldata.png" />
+	  <None Remove="Resources\Icon\Filter.png" />
+	  <None Remove="Resources\Icon\Flowmeter.png" />
+	  <None Remove="Resources\Icon\HeatExchanger.png" />
+	  <None Remove="Resources\Icon\Historicalrecords.png" />
+	  <None Remove="Resources\Icon\info.png" />
+	  <None Remove="Resources\Icon\InlineDetection.png" />
+	  <None Remove="Resources\Icon\Language.png" />
+	  <None Remove="Resources\Icon\LevelGauge.png" />
+	  <None Remove="Resources\Icon\LiquidAccumulator.png" />
+	  <None Remove="Resources\Icon\logo.png" />
+	  <None Remove="Resources\Icon\maximize.png" />
+	  <None Remove="Resources\Icon\Menu.png" />
+	  <None Remove="Resources\Icon\minimize.png" />
+	  <None Remove="Resources\Icon\newfile.png" />
+	  <None Remove="Resources\Icon\off.png" />
+	  <None Remove="Resources\Icon\open.png" />
+	  <None Remove="Resources\Icon\openfile.png" />
+	  <None Remove="Resources\Icon\partition.png" />
+	  <None Remove="Resources\Icon\play.png" />
+	  <None Remove="Resources\Icon\play_disabled.png" />
+	  <None Remove="Resources\Icon\PressureGauge.png" />
+	  <None Remove="Resources\Icon\PulicWorker.png" />
+	  <None Remove="Resources\Icon\Pumps.png" />
+	  <None Remove="Resources\Icon\Reactors.png" />
+	  <None Remove="Resources\Icon\redo.png" />
+	  <None Remove="Resources\Icon\reduce.png" />
+	  <None Remove="Resources\Icon\saveas.png" />
+	  <None Remove="Resources\Icon\savefile.png" />
+	  <None Remove="Resources\Icon\Sensors.png" />
+	  <None Remove="Resources\Icon\setting.png" />
+	  <None Remove="Resources\Icon\stop.png" />
+	  <None Remove="Resources\Icon\user.png" />
+	  <None Remove="Resources\Icon\Valves.png" />
+	  <None Remove="Resources\Icon\zoom.png" />
+	  <None Remove="Resources\Screens\highLowtemperature.png" />
+	  <None Remove="Resources\Screens\highlow_temp.png" />
+	  <None Remove="Resources\Screens\highpreactor_bath.png" />
+	  <None Remove="Resources\Screens\highpreactor_body.png" />
+	  <None Remove="Resources\Screens\highpreactor_furnace.png" />
+	  <None Remove="Resources\Screens\highpreactor_pressure.png" />
+	  <None Remove="Resources\Screens\highpreactor_speed.png" />
+	  <None Remove="Resources\Screens\pressure_reset.png" />
+	  <None Remove="Resources\Screens\reactor_dark.png" />
+	  <None Remove="Resources\Screens\scc_tanks.png" />
+	  <None Remove="Resources\Screens\sips_body.png" />
+	  <None Remove="Resources\Screens\sips_body1.png" />
+	  <None Remove="Resources\Screens\sips_bottom.png" />
+	  <None Remove="Resources\Screens\sips_clear.png" />
+	  <None Remove="Resources\Screens\sips_flow.png" />
+	  <None Remove="Resources\Screens\sips_time.png" />
+	  <None Remove="Resources\Screens\sips_v.png" />
+	  <None Remove="Resources\Translations\en-US.json" />
+	  <None Remove="Resources\Translations\zh-CN.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="appsettings.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\all_data.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessDelay.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessIF.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessLoop.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\Bezel-lessParallel.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\circulation_start.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\close_all.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\control.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\cooling_start.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\cumulative.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\flowrate.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\heating_start.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\heat_exchanger_data.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\if.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\loop.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\Parallel.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\pressure.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\pressure_read.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\scale_all.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\temp_read.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\setvariables.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\speed.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\speed_set.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\status.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\temperature.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\temp_set.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\wait.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\waitif.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\weight.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\Default.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\DynamicTubularReactor_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\ErlenmeyerFlasks.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\HeatExchanger.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\highLowtemperature.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\MicroReactor.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\PeristalticPumps_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\Pistonpumps.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\PressureReducingValve.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\ProportionalReliefValve.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\RoboticArm.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SampleReactor.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\Scale.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SiliconCarbideChip_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SiphoninfusionPump_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\TemperatureCirculator.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\app.ico">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\Icon\Canvasscaling.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\close.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\closeWhite.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\dataanalysis.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\delete.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\device.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\DeviceLibrary.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\ElectronicScales.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Exportexperimentaldata.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Filter.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Flowmeter.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\HeatExchanger.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Historicalrecords.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\info.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\InlineDetection.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Language.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\LevelGauge.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\LiquidAccumulator.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\maximize.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Menu.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\minimize.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\Icon\logo.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\newfile.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\CommadIcon\open.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\openfile.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\partition.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\play.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\play_disabled.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\PressureGauge.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\PublicWorks.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Pumps.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Reactors.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\redo.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\reduce.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\saveas.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\savefile.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Sensors.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\setting.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\stop.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\user.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\undo.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Valves.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\zoom.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\Search.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\PredictiveAssessment.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highLowtemperature.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highlow_temp.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_bath.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_body.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_furnace.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_pressure.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\highpreactor_speed.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\pressure_reset.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_arrow.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_bg.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_pipe.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_pump.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\reactor_dark.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\scc_tanks.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_body.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_body1.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_bottom.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_clear.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_flow.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_time.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Screens\sips_v.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Translations\en-US.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Translations\zh-CN.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\CommadIcon\off.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="Resources\CommadIcon\temp_set.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\plotly.js">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+<!-- 把 32 位网关代理拷贝到 Shell 输出目录的 GatewayConfigProxy 子文件夹 -->
+<Target Name="CopyGatewayProxyToShell" AfterTargets="Build">
+    <PropertyGroup>
+        <GwProxyOutDir>$(OutputPath)GatewayConfigProxy\</GwProxyOutDir>
+        <GwProxyBuildDir>$(MSBuildThisFileDirectory)..\MaxChemical.GatewayConfig.Proxy\bin\$(Configuration)\net8.0-windows\</GwProxyBuildDir>
+    </PropertyGroup>
+    <ItemGroup>
+        <GwProxyFiles Include="$(GwProxyBuildDir)**\*.*" />
+    </ItemGroup>
+    <MakeDir Directories="$(GwProxyOutDir)" Condition="!Exists('$(GwProxyOutDir)')" />
+    <Copy SourceFiles="@(GwProxyFiles)" DestinationFolder="$(GwProxyOutDir)%(RecursiveDir)" SkipUnchangedFiles="true" Condition="Exists('$(GwProxyBuildDir)')" />
+    <Message Text="[Shell] 网关代理已拷贝到 $(GwProxyOutDir)" Importance="high" Condition="Exists('$(GwProxyBuildDir)')" />
+    <Warning Text="[Shell] 找不到网关代理 $(GwProxyBuildDir),请先构建 MaxChemical.GatewayConfig.Proxy" Condition="!Exists('$(GwProxyBuildDir)')" />
+</Target>
+</Project>

@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.ComponentModel.Composition" Version="8.0.0" />
+		<PackageReference Include="System.IO.Ports" Version="8.0.0" />
+		<PackageReference Include="S7netplus" Version="0.20.0" />
+		<PackageReference Include="NModbus" Version="3.0.83" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\MaxChemical.Core\MaxChemical.Core.csproj" />
+	  <ProjectReference Include="..\MaxChemical.Logging\MaxChemical.Logging.csproj" />
+	</ItemGroup>
+
+</Project>

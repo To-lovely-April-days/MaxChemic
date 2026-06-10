@@ -1,0 +1,188 @@
+﻿<Window x:Class="MaxChemical.Shell.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:prism="http://prismlibrary.com/"
+        xmlns:controls="clr-namespace:MaxChemical.Shell.Views"
+        xmlns:infrastructure="clr-namespace:MaxChemical.Infrastructure.Constants;assembly=MaxChemical.Infrastructure"
+        xmlns:converters="clr-namespace:MaxChemical.Infrastructure.Converters;assembly=MaxChemical.Infrastructure"
+        prism:ViewModelLocator.AutoWireViewModel="True"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="White"
+        Title="MaxChemical Control System">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter"/>
+
+        <!-- 透明按钮样式 -->
+        <Style x:Key="TransparentButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" 
+                                BorderBrush="Transparent" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 悬停放大样式 -->
+        <Style x:Key="HoverScaleStyle" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                 To="1.2" Duration="0:0:0.15"/>
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 To="1.2" Duration="0:0:0.15"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                 To="1.0" Duration="0:0:0.15"/>
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 To="1.0" Duration="0:0:0.15"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="White" 
+            BorderBrush="#CCCCCC" 
+            BorderThickness="1">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="237*"/>
+                <ColumnDefinition Width="362*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <!-- Row 0: 自定义标题栏 -->
+                <RowDefinition Height="28"/>
+                <!-- Row 1: 分割线 -->
+                <RowDefinition Height="1"/>
+                <!-- Row 2: 菜单栏 -->
+                <RowDefinition Height="42"/>
+                <!-- Row 3: 工具栏 -->
+                <RowDefinition Height="44"/>
+                <!-- Row 4: 间隔区域 -->
+                <RowDefinition Height="5"/>
+                <!-- Row 5: 主内容区（包含标签页和内容） -->
+                <RowDefinition Height="*"/>
+               
+            </Grid.RowDefinitions>
+
+            <!-- 自定义标题栏 -->
+            <controls:CustomTitleBar Grid.Row="0" Grid.ColumnSpan="2" />
+
+            <!-- 分割线 -->
+            <Border Grid.Row="1" Grid.ColumnSpan="2" 
+        Background="{StaticResource Border.DefaultBrush}" 
+        Height="1"/>
+            <!-- 菜单栏 -->
+            <controls:MainMenuBar Grid.Row="2" Grid.ColumnSpan="2"  />
+
+            <!-- 工具栏 -->
+            <controls:MainToolBar Grid.Row="3" Grid.ColumnSpan="2"/>
+
+            <!-- 间隔区域 -->
+            <Border Grid.Row="4" Grid.ColumnSpan="2" 
+        Background="{StaticResource Bg.HoverBrush}"/>
+
+            <!-- 主内容区 -->
+            <Grid Grid.Row="5" Grid.ColumnSpan="2">
+                <Grid.ColumnDefinitions>
+                    <!-- 左侧面板列 - 根据可见性动态调整宽度 -->
+                    <ColumnDefinition Width="{Binding IsLeftPanelVisible, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=300}"/>
+                    <!-- 分隔器列 - 根据可见性动态调整宽度 -->
+                    <ColumnDefinition Width="{Binding IsLeftPanelVisible, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter=5}"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧设备库面板 -->
+                <Border Grid.Column="0" 
+                        Background="#FFFFFF" 
+                        BorderBrush="#F4F3EF" 
+                        BorderThickness="0,0,5,0"
+                        Visibility="{Binding IsLeftPanelVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid>
+                        <!-- 设备库区域 -->
+                        <ContentControl prism:RegionManager.RegionName="{x:Static infrastructure:RegionNames.DeviceLibraryRegion}"
+                                        Visibility="{Binding IsDeviceLibraryVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <!-- 命令库区域 -->
+                        <ContentControl prism:RegionManager.RegionName="{x:Static infrastructure:RegionNames.CommadLibraryRegion}"
+                                        Visibility="{Binding IsCommadVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </Grid>
+                </Border>
+
+                <!-- 右侧主工作区 -->
+                <controls:MainTabControl Grid.Column="2" 
+                                         Margin="14,17,0,0" />
+
+                <!-- 浮动的展开按钮 - 只在左侧面板隐藏时显示 -->
+                <Button Grid.Column="2"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,0"
+                        Width="32"
+                        Height="32"
+                        Style="{StaticResource TransparentButtonStyle}"
+                        Command="{Binding ToggleLeftPanelCommand}"
+                        Visibility="{Binding IsLeftPanelVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                        ToolTip="展开设备库">
+
+                    <Border Background="#F0F0F0"
+                            BorderBrush="#CCCCCC"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Width="28"
+                            Height="28">
+                        <!-- 使用双箭头展开图标 -->
+                        <Canvas Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Style="{StaticResource HoverScaleStyle}">
+                            <Canvas.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1"/>
+                            </Canvas.RenderTransform>
+
+                            <!-- 第一个箭头 -->
+                            <Path Canvas.Left="2" Canvas.Top="4"
+                                  Data="M0,0 L4,4 L0,8"
+                                  Stroke="#666666"
+                                  StrokeThickness="1.5"
+                                  Fill="Transparent"/>
+
+                            <!-- 第二个箭头 -->
+                            <Path Canvas.Left="7" Canvas.Top="4"
+                                  Data="M0,0 L4,4 L0,8"
+                                  Stroke="#666666"
+                                  StrokeThickness="1.5"
+                                  Fill="Transparent"/>
+                        </Canvas>
+                    </Border>
+                </Button>
+            </Grid>
+
+            <!-- 状态栏 -->
+            <!--<controls:MainStatusBar Grid.Row="6" 
+                                    Visibility="{Binding IsStatusBarVisible, Converter={StaticResource BoolToVisibilityConverter}}" 
+                                    Grid.ColumnSpan="2"/>-->
+          
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,94 @@
+<UserControl x:Class="MaxChemical.Modules.GatewayConfig.Views.GatewayBodyControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Width="640" Height="380">
+    <Canvas Width="640" Height="380">
+        <!--<Rectangle Canvas.Left="20" Canvas.Top="20" Width="600" Height="340"
+                   Fill="White" Stroke="#1A1A1A" StrokeThickness="1.2"/>-->
+        <Border Canvas.Left="20" Canvas.Top="20" Width="600" Height="340" Background="White" BorderBrush="#1A1A1A" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="36"/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*"/>
+                    <ColumnDefinition Width="6*"/>
+                </Grid.ColumnDefinitions>
+                
+                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#1A1A1A" VerticalAlignment="Bottom"/>
+                
+                <TextBlock Name="TbTitle" Grid.ColumnSpan="2"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontFamily="Arial"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Foreground="#1A1A1A"
+                           Text="SERIAL GATEWAY"/>
+                
+                <!-- 中间分隔虚线 -->
+                <Rectangle Grid.Row="1" Margin="0,16"
+                           Stroke="#1A1A1A"
+                           StrokeThickness="0.8"
+                           StrokeDashArray="2,3"
+                           HorizontalAlignment="Right"/>
+                
+                <!-- 左侧 DB9 -->
+                <Border Grid.Row="1" Padding="4">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl Name="DB9">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="Control">
+                                    <Setter Property="Margin" Value="4"/>
+                                    <Setter Property="VerticalAlignment" Value="Top"/>
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- 右侧端子排-->
+                <Border Grid.Row="1" Grid.Column="1" Padding="4">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl Name="Rs485">
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="Control">
+                                    <Setter Property="Margin" Value="4"/>
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Border>
+        
+        <!--<Line X1="20" Y1="50" X2="620" Y2="50" Stroke="#1A1A1A" StrokeThickness="0.8"/>
+
+        <TextBlock Canvas.Left="0" Canvas.Top="32" Width="640" TextAlignment="Center"
+                   FontFamily="Arial" FontSize="11" FontWeight="SemiBold" Foreground="#1A1A1A"
+                   Text="SERIAL GATEWAY · 4-PORT"/>-->
+
+        <!-- 左侧 4 个 DB9 -->
+        <!--<ContentControl x:Name="Db9_1" Canvas.Left="56"  Canvas.Top="84"  Tag="0"/>
+        <ContentControl x:Name="Db9_2" Canvas.Left="176" Canvas.Top="84"  Tag="1"/>
+        <ContentControl x:Name="Db9_3" Canvas.Left="56"  Canvas.Top="200" Tag="2"/>
+        <ContentControl x:Name="Db9_4" Canvas.Left="176" Canvas.Top="200" Tag="3"/>-->
+
+        <!-- 中间分隔虚线 -->
+        <!--<Line X1="300" Y1="76" X2="300" Y2="350" Stroke="#1A1A1A"
+              StrokeThickness="0.4" StrokeDashArray="2,3"/>-->
+
+        <!-- 右侧 4 个端子排,间距加大到 64 -->
+        <!--<ContentControl x:Name="Rs485_1" Canvas.Left="330" Canvas.Top="84"  Tag="0"/>
+        <ContentControl x:Name="Rs485_2" Canvas.Left="330" Canvas.Top="148" Tag="1"/>
+        <ContentControl x:Name="Rs485_3" Canvas.Left="330" Canvas.Top="212" Tag="2"/>
+        <ContentControl x:Name="Rs485_4" Canvas.Left="330" Canvas.Top="276" Tag="3"/>-->
+    </Canvas>
+</UserControl>

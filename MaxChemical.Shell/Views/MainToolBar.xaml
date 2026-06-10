@@ -1,0 +1,529 @@
+﻿<UserControl x:Class="MaxChemical.Shell.Views.MainToolBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prism="http://prismlibrary.com/"
+             prism:ViewModelLocator.AutoWireViewModel="True"
+             Height="44">
+
+    <UserControl.Resources>
+        <!-- ToolTip 样式 -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+        </Style>
+
+        <!-- 工具栏按钮样式 -->
+        <Style x:Key="ToolBarButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="6,3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RenderTransformOrigin="0.5,0.5">
+                                <ContentPresenter.RenderTransform>
+                                    <ScaleTransform x:Name="ButtonScale" ScaleX="1" ScaleY="1"/>
+                                </ContentPresenter.RenderTransform>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonScale"
+                                                           Storyboard.TargetProperty="ScaleX"
+                                                           To="1.1"
+                                                           Duration="0:0:0.1"/>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonScale"
+                                                           Storyboard.TargetProperty="ScaleY"
+                                                           To="1.1"
+                                                           Duration="0:0:0.1"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonScale"
+                                                           Storyboard.TargetProperty="ScaleX"
+                                                           To="1"
+                                                           Duration="0:0:0.1"/>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonScale"
+                                                           Storyboard.TargetProperty="ScaleY"
+                                                           To="1"
+                                                           Duration="0:0:0.1"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 播放控制按钮样式 -->
+        <Style x:Key="PlayControlButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="2,7,2,0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter Margin="0" 
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Opacity" Value="0.8"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsPressed" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 分隔线样式 -->
+        <Style x:Key="ToolBarSeparatorStyle" TargetType="Rectangle">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
+            <Setter Property="Margin" Value="9,5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- 工具栏背景 -->
+    <Border Background="{StaticResource Bg.PrimaryBrush}" Cursor="Hand">
+        <Grid Height="43">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧工具按钮组 -->
+            <StackPanel Grid.Column="0" 
+                        Orientation="Horizontal" 
+                        Margin="14,0,0,0" 
+                        VerticalAlignment="Center">
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding OpenFolderCommand}"
+                        ToolTip="{Binding TooltipOpenFolder}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/openfile.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding NewDocumentCommand}"
+                        ToolTip="{Binding TooltipNewDocument}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/newfile.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding SaveCommand}"
+                        ToolTip="{Binding TooltipSave}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/savefile.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding SaveAsCommand}"
+                        ToolTip="{Binding TooltipSaveAs}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/saveas.png" 
+                           Width="22" Height="22"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Rectangle Style="{StaticResource ToolBarSeparatorStyle}"/>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding GoBackCommand}"
+                        ToolTip="{Binding TooltipUndo}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/undo.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding GoForwardCommand}"
+                        ToolTip="{Binding TooltipRedo}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/redo.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding DeleteCommand}"
+                        ToolTip="{Binding TooltipDelete}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/delete.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding RedoCommand}"
+                        ToolTip="{Binding TooltipZoomIn}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/zoom.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding UndoCommand}"
+                        ToolTip="{Binding TooltipZoomOut}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/reduce.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding FitToViewCommand}"
+                        ToolTip="{Binding TooltipFitCanvas}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/Canvasscaling.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding SettingsCommand}"
+                        ToolTip="{Binding TooltipCanvasSettings}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/setting.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Rectangle Style="{StaticResource ToolBarSeparatorStyle}"/>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding SettingsChartCommand}"
+                        ToolTip="{Binding TooltipDataAnalysis}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/dataanalysis.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding ShowLogViewCommand}"
+                        ToolTip="{Binding TooltipLog}">
+                    <Image Source="pack://siteoforigin:,,,/Resources/Icon/Historicalrecords.png" 
+                           Width="20" Height="20"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Stretch="Uniform"/>
+                </Button>
+
+                <!-- DOE 按钮(用品牌色) -->
+                <Button Style="{StaticResource ToolBarButtonStyle}" 
+                        Command="{Binding DOECommand}" 
+                        ToolTip="DOE 实验设计与优化">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="DOE" 
+                                   FontWeight="SemiBold" 
+                                   FontSize="12"
+                                   Foreground="{StaticResource Brand.PrimaryBrush}" 
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- 右侧播放控制组 -->
+            <StackPanel Grid.Column="1" 
+                        Orientation="Horizontal" 
+                        Margin="0,0,12,0" 
+                        VerticalAlignment="Top">
+
+                <!-- ═══ 开启按钮(深森绿,功能 = 运行)═══ -->
+                <Button Style="{StaticResource PlayControlButtonStyle}" 
+                        Command="{Binding StartCommand}"
+                        ToolTip="{Binding TooltipStart}">
+                    <Border Background="Transparent" 
+                            BorderThickness="1"
+                            CornerRadius="10" 
+                            Width="78" 
+                            Height="32">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{StaticResource Status.SuccessBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                        <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" 
+                                    HorizontalAlignment="Center" 
+                                    VerticalAlignment="Center">
+                            <Grid Width="24" Height="24" Margin="7,0,0,0">
+                                <Ellipse Width="24" Height="23">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource Status.SuccessBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                    <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <Path Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
+                                      Fill="White" 
+                                      Width="12" Height="12"
+                                      Margin="2,0,0,0"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Stretch="Uniform"/>
+                            </Grid>
+                            <TextBlock Text="{Binding ButtonStart}" 
+                                       FontSize="12" 
+                                       FontWeight="Normal"
+                                       VerticalAlignment="Center" 
+                                       Margin="7,0,12,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- ═══ 暂停按钮(琥珀色,功能 = 暂停)═══ -->
+                <Button Style="{StaticResource PlayControlButtonStyle}" 
+                        Command="{Binding PauseCommand}"
+                        ToolTip="{Binding TooltipPause}">
+                    <Border Background="Transparent" 
+                            BorderThickness="1"
+                            CornerRadius="10" 
+                            Width="78" 
+                            Height="32">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{StaticResource Status.WarningBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                        <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" 
+                                    HorizontalAlignment="Center" 
+                                    VerticalAlignment="Center">
+                            <Grid Width="24" Height="24" Margin="7,0,0,0">
+                                <Ellipse Width="24" Height="23">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource Status.WarningBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                    <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Rectangle Width="2" Height="12" Fill="White" Margin="-6,0,0,0"/>
+                                    <Rectangle Width="2" Height="12" Fill="White" Margin="6,0,0,0"/>
+                                </Grid>
+                            </Grid>
+                            <TextBlock Text="{Binding ButtonPause}" 
+                                       FontSize="12" 
+                                       FontWeight="Normal"
+                                       VerticalAlignment="Center" 
+                                       Margin="7,0,12,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- ═══ 停止按钮(品牌深红,功能 = 危险动作)═══ -->
+                <Button Style="{StaticResource PlayControlButtonStyle}" 
+                        Command="{Binding StopCommand}"
+                        ToolTip="{Binding TooltipStop}">
+                    <Border Background="Transparent" 
+                            BorderThickness="1"
+                            CornerRadius="10" 
+                            Width="78" 
+                            Height="32">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{StaticResource Brand.PrimaryBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                        <Setter Property="BorderBrush" Value="{StaticResource Border.StrongBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" 
+                                    HorizontalAlignment="Center" 
+                                    VerticalAlignment="Center">
+                            <Grid Width="24" Height="24" Margin="7,0,0,0">
+                                <Ellipse Width="24" Height="23">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource Brand.PrimaryBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                    <Setter Property="Fill" Value="{StaticResource Border.StrongBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <Rectangle Width="10" Height="10" 
+                                           Fill="White" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock Text="{Binding ButtonStop}" 
+                                       FontSize="12" 
+                                       FontWeight="Normal"
+                                       VerticalAlignment="Center" 
+                                       Margin="7,0,12,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=IsEnabled}" Value="False">
+                                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- 状态按钮组(模拟模式开关)-->
+                <StackPanel Orientation="Horizontal" 
+                            VerticalAlignment="Center" 
+                            Margin="10,7,2,0">
+                    <Button Style="{StaticResource PlayControlButtonStyle}" 
+                            Command="{Binding StatusCommand}"
+                            ToolTip="{Binding TooltipSimulationMode}"
+                            Width="47" Height="23" Margin="0">
+                        <Border Background="{Binding SwitchBackgroundColor}" 
+                                BorderBrush="{Binding SwitchBorderColor}" 
+                                BorderThickness="1"
+                                CornerRadius="12" 
+                                Width="47" Height="23">
+                            <Ellipse Width="19" Height="19" 
+                                     Fill="White" 
+                                     VerticalAlignment="Center"
+                                     HorizontalAlignment="Left">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform X="2"/>
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSimulationMode}" Value="True">
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation 
+                                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
+                                                                To="26" Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation 
+                                                                Storyboard.TargetProperty="(Ellipse.RenderTransform).(TranslateTransform.X)"
+                                                                To="2" Duration="0:0:0.2"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                        </Border>
+                    </Button>
+                    <TextBlock Text="{Binding TextSimulationMode}" 
+                               Foreground="{StaticResource Text.PrimaryBrush}" 
+                               FontSize="13" 
+                               FontWeight="Normal"
+                               VerticalAlignment="Center" 
+                               Margin="8,0,0,0"/>
+                </StackPanel>
+
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

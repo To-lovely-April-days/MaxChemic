@@ -1,0 +1,530 @@
+﻿<UserControl x:Class="MaxChemical.Shell.Views.MainMenuBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prism="http://prismlibrary.com/"
+             prism:ViewModelLocator.AutoWireViewModel="True"
+             Height="42">
+
+    <UserControl.Resources>
+        <!-- 顶级菜单项样式 -->
+        <Style x:Key="TopLevelMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Margin" Value="38,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderThickness="0"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="4,4,0,0">
+                            <Grid>
+                                <ContentPresenter x:Name="HeaderHost" 
+                                                ContentSource="Header" 
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center"/>
+                                <Popup x:Name="PART_Popup" 
+                                       Placement="Bottom" 
+                                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" 
+                                       AllowsTransparency="True" 
+                                       Focusable="False"
+                                       PopupAnimation="Fade"
+                                       VerticalOffset="-1"
+                                       HorizontalOffset="-17">
+                                    <Grid>
+                                        <Border Background="#20000000" 
+                                                CornerRadius="0,0,6,6"
+                                                Margin="2,0,6,6"/>
+                                        <Border x:Name="SubmenuBorder" 
+                                                Background="{StaticResource Bg.PrimaryBrush}" 
+                                                BorderBrush="{StaticResource Border.DefaultBrush}" 
+                                                BorderThickness="1,0,1,1"
+                                                CornerRadius="0,0,4,4"
+                                                MinWidth="240">
+                                            <Grid>
+                                                <Border Height="1" 
+                                                        Background="{StaticResource Bg.PrimaryBrush}" 
+                                                        VerticalAlignment="Top"
+                                                        Margin="0"/>
+                                                <StackPanel IsItemsHost="True" 
+                                                           KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                           Margin="4,4,4,4"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                <Setter Property="Background" Value="{StaticResource Bg.HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
+                                <Setter TargetName="Border" Property="BorderThickness" Value="1,1,1,0"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource Border.DefaultBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 第一个菜单项样式 - 4px左边距 -->
+        <Style x:Key="FirstMenuItemStyle" TargetType="MenuItem" BasedOn="{StaticResource TopLevelMenuItemStyle}">
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderThickness="0"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="4,4,0,0">
+                            <Grid>
+                                <ContentPresenter x:Name="HeaderHost" 
+                                                ContentSource="Header" 
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center"/>
+                                <Popup x:Name="PART_Popup" 
+                                       Placement="Bottom" 
+                                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" 
+                                       AllowsTransparency="True" 
+                                       Focusable="False"
+                                       PopupAnimation="Fade"
+                                       VerticalOffset="-1"
+                                       HorizontalOffset="-17">
+                                    <Grid>
+                                        <Border Background="#20000000" 
+                                                CornerRadius="0,0,6,6"
+                                                Margin="2,0,6,6"/>
+                                        <Border x:Name="SubmenuBorder" 
+                                                Background="{StaticResource Bg.PrimaryBrush}" 
+                                                BorderBrush="{StaticResource Border.DefaultBrush}" 
+                                                BorderThickness="1,0,1,1"
+                                                CornerRadius="0,0,4,4"
+                                                MinWidth="240">
+                                            <Grid>
+                                                <Border Height="1" 
+                                                        Background="{StaticResource Bg.PrimaryBrush}" 
+                                                        VerticalAlignment="Top"
+                                                        Margin="0"/>
+                                                <StackPanel IsItemsHost="True" 
+                                                           KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                           Margin="4,4,4,4"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                <Setter Property="Background" Value="{StaticResource Bg.HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+                                <Setter Property="Background" Value="{StaticResource Bg.PrimaryBrush}"/>
+                                <Setter TargetName="Border" Property="BorderThickness" Value="1,1,1,0"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource Border.DefaultBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 子菜单项样式 -->
+        <Style x:Key="SubMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="{StaticResource Text.PrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="240"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Border" 
+                        Background="{TemplateBinding Background}" 
+                        BorderThickness="0"
+                        CornerRadius="2"
+                        Margin="2,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="16"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" 
+                                Width="20" 
+                                Height="20" 
+                                Margin="8,0,0,0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center">
+                                    <ContentPresenter x:Name="IconHost" 
+                                            ContentSource="Icon" 
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center"/>
+                                </Border>
+
+                                <ContentPresenter x:Name="HeaderHost" 
+                                        Grid.Column="1"
+                                        ContentSource="Header" 
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Left"
+                                        Margin="4,0,8,0"/>
+
+                                <TextBlock x:Name="InputGestureText"
+                                 Grid.Column="2"
+                                 Text="{TemplateBinding InputGestureText}"
+                                 VerticalAlignment="Center"
+                                 HorizontalAlignment="Right"
+                                 FontSize="12"
+                                 Foreground="{StaticResource Text.TertiaryBrush}"
+                                 Margin="8,0,8,0"/>
+
+                                <Path x:Name="ArrowPath"
+                              Grid.Column="3"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center"
+                              Fill="{StaticResource Text.SecondaryBrush}"
+                              Data="M0,0 L0,8 L4,4 z"
+                              Visibility="Collapsed"/>
+
+                                <!-- 嵌套子菜单 -->
+                                <Popup x:Name="PART_Popup" 
+                               Placement="Right" 
+                               IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" 
+                               AllowsTransparency="True" 
+                               Focusable="False"
+                               PopupAnimation="Fade"
+                               HorizontalOffset="5"
+                               VerticalOffset="-7">
+                                    <Grid>
+                                        <Border Background="#20000000" 
+                                        CornerRadius="0,6,6,6"
+                                        Margin="0,2,6,6"/>
+                                        <Border Background="{StaticResource Bg.PrimaryBrush}" 
+                                        BorderBrush="{StaticResource Border.DefaultBrush}" 
+                                        BorderThickness="1"
+                                        CornerRadius="4">
+                                            <StackPanel IsItemsHost="True" 
+                                               KeyboardNavigation.DirectionalNavigation="Cycle"
+                                               Margin="4"/>
+                                        </Border>
+                                    </Grid>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brand.PrimaryLightBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="InputGestureText" Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="ArrowPath" Property="Fill" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="ArrowPath" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brand.PrimaryLightBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="InputGestureText" Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="ArrowPath" Property="Fill" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 分隔线样式 -->
+        <Style x:Key="MenuSeparatorStyle" TargetType="Separator">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{StaticResource Border.DefaultBrush}"/>
+            <Setter Property="Margin" Value="16,4,8,4"/>
+        </Style>
+
+        <!-- 嵌套子菜单项样式 -->
+        <Style x:Key="NestedSubMenuItemStyle" TargetType="MenuItem" BasedOn="{StaticResource SubMenuItemStyle}">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Width" Value="Auto"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Border" 
+                        Background="{TemplateBinding Background}" 
+                        BorderThickness="0"
+                        CornerRadius="2"
+                        Margin="2,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="32"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="16"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" 
+                                Width="20" 
+                                Height="20" 
+                                Margin="6,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                                    <ContentPresenter x:Name="IconHost" 
+                                            ContentSource="Icon" 
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center"/>
+                                </Border>
+
+                                <ContentPresenter x:Name="HeaderHost" 
+                                        Grid.Column="1"
+                                        ContentSource="Header" 
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,0,8,0"/>
+
+                                <TextBlock x:Name="InputGestureText"
+                                 Grid.Column="2"
+                                 Text="{TemplateBinding InputGestureText}"
+                                 VerticalAlignment="Center"
+                                 HorizontalAlignment="Right"
+                                 FontSize="12"
+                                 Foreground="{StaticResource Text.TertiaryBrush}"
+                                 Margin="0,0,8,0"/>
+
+                                <Path x:Name="ArrowPath"
+                              Grid.Column="3"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center"
+                              Fill="{StaticResource Text.SecondaryBrush}"
+                              Data="M0,0 L0,8 L4,4 z"
+                              Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brand.PrimaryLightBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="InputGestureText" Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="ArrowPath" Property="Fill" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="ArrowPath" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brand.PrimaryLightBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="InputGestureText" Property="Foreground" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                <Setter TargetName="ArrowPath" Property="Fill" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- 菜单栏背景:纯白(配合上面深红标题栏) -->
+    <Border Background="{StaticResource Bg.PrimaryBrush}" 
+            BorderBrush="{StaticResource Border.DefaultBrush}"
+            BorderThickness="0,0,0,1">
+        <Menu Background="{StaticResource Bg.PrimaryBrush}" 
+              FontFamily="Microsoft YaHei UI" 
+              FontSize="16" 
+              Height="42"
+              BorderThickness="0">
+
+            <!-- 文件菜单 -->
+            <MenuItem Header="{Binding MenuFile}" Style="{StaticResource FirstMenuItemStyle}">
+                <MenuItem Header="{Binding MenuNewProject}" 
+                          Command="{Binding NewProjectCommand}" 
+                          InputGestureText="Ctrl+N" 
+                          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Width="16" Height="16">
+                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/newfile.png"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <MenuItem Header="{Binding MenuOpenProject}" 
+                          Command="{Binding OpenProjectCommand}" 
+                          InputGestureText="Ctrl+O" 
+                          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Width="16" Height="16">
+                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/openfile.png"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <Separator Style="{StaticResource MenuSeparatorStyle}"/>
+
+                <MenuItem Header="{Binding MenuSave}" 
+                          Command="{Binding SaveCommand}" 
+                          InputGestureText="Ctrl+S" 
+                          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Width="16" Height="16">
+                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/savefile.png"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <MenuItem Header="{Binding MenuSaveAs}" 
+                          Command="{Binding SaveAsCommand}" 
+                          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Width="16" Height="16">
+                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/saveas.png"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <Separator Style="{StaticResource MenuSeparatorStyle}"/>
+
+                <MenuItem Header="{Binding MenuRecentFiles}" Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.ItemsSource>
+                        <Binding Path="RecentFiles"/>
+                    </MenuItem.ItemsSource>
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem" BasedOn="{StaticResource NestedSubMenuItemStyle}">
+                            <Setter Property="Header" Value="{Binding DisplayName}"/>
+                            <Setter Property="Command" Value="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=Menu}}"/>
+                            <Setter Property="CommandParameter" Value="{Binding FilePath}"/>
+                            <Setter Property="ToolTip" Value="{Binding FilePath}"/>
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+            </MenuItem>
+
+            <!-- 历史实验菜单 -->
+            <MenuItem Header="{Binding MenuHistory}" Style="{StaticResource TopLevelMenuItemStyle}">
+                <MenuItem Header="{Binding MenuViewHistory}" 
+                          Command="{Binding ViewHistoryCommand}" 
+                          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Width="22" Height="22">
+                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/Historicalrecords.png"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{Binding MenuExportData}" 
+                          Command="{Binding ExportDataCommand}" 
+                          Style="{StaticResource SubMenuItemStyle}"/>
+                <MenuItem Header="{Binding MenuExperimentStats}" 
+                          Command="{Binding ExperimentStatsCommand}" 
+                          Style="{StaticResource SubMenuItemStyle}"/>
+                <Separator Style="{StaticResource MenuSeparatorStyle}"/>
+                <MenuItem Header="{Binding MenuGenerateReport}" 
+                          Command="{Binding GenerateReportCommand}" 
+                          Style="{StaticResource SubMenuItemStyle}"/>
+            </MenuItem>
+
+            <!-- 窗口菜单 -->
+            <MenuItem Header="{Binding MenuWindow}" Style="{StaticResource TopLevelMenuItemStyle}">
+                <MenuItem Header="{Binding MenuToolbar}" 
+                          IsCheckable="True" 
+                          IsChecked="{Binding IsToolbarVisible}" 
+                          Style="{StaticResource SubMenuItemStyle}"/>
+            </MenuItem>
+
+            <!-- 工具菜单 -->
+            <MenuItem Header="{Binding MenuTools}" Style="{StaticResource TopLevelMenuItemStyle}">
+                <!-- ★ 新增网关配置菜单项,放在"语言"上面 -->
+                <MenuItem Header="网关配置"
+              Command="{Binding GatewayConfigCommand}"
+              Style="{StaticResource SubMenuItemStyle}"/>
+                <Separator Style="{StaticResource MenuSeparatorStyle}"/>
+
+                <MenuItem Header="{Binding MenuLanguage}" Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Width="22" Height="22">
+                            <Image Source="pack://siteoforigin:,,,/Resources/Icon/Language.png"/>
+                        </Border>
+                    </MenuItem.Icon>
+                    <MenuItem Header="{Binding MenuLanguageChinese}" 
+                              Command="{Binding SwitchToChineseCommand}" 
+                              Style="{StaticResource NestedSubMenuItemStyle}"/>
+                    <MenuItem Header="{Binding MenuLanguageEnglish}" 
+                              Command="{Binding SwitchToEnglishCommand}" 
+                              Style="{StaticResource NestedSubMenuItemStyle}"/>
+                </MenuItem>
+            </MenuItem>
+
+            <!-- 帮助菜单(图标统一为品牌深红浅底)-->
+            <MenuItem Header="{Binding MenuHelp}" Style="{StaticResource TopLevelMenuItemStyle}">
+                <MenuItem Header="{Binding MenuUserManual}" 
+                          Command="{Binding UserManualCommand}" 
+                          InputGestureText="F1" 
+                          Style="{StaticResource SubMenuItemStyle}"/>
+                <MenuItem Header="{Binding MenuVideoTutorial}" 
+          Command="{Binding VideoTutorialCommand}" 
+          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
+                            <Path Width="11" Height="11" Stretch="Uniform"
+                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                  Data="M8,5.14V19.14L19,12.14L8,5.14Z"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator Style="{StaticResource MenuSeparatorStyle}"/>
+                <MenuItem Header="{Binding MenuTechSupport}" 
+          Command="{Binding TechSupportCommand}" 
+          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
+                            <Path Width="11" Height="11" Stretch="Uniform"
+                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                  Data="M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator Style="{StaticResource MenuSeparatorStyle}"/>
+                <MenuItem Header="{Binding MenuCheckUpdate}" 
+          Command="{Binding CheckUpdateCommand}" 
+          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
+                            <Path Width="11" Height="11" Stretch="Uniform"
+                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                  Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="{Binding MenuAbout}" 
+          Command="{Binding AboutCommand}" 
+          Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
+                            <Path Width="11" Height="11" Stretch="Uniform"
+                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                  Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+                        </Border>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+        </Menu>
+    </Border>
+</UserControl>
