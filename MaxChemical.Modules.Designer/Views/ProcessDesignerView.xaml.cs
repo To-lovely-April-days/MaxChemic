@@ -5363,7 +5363,7 @@ namespace MaxChemical.Modules.Designer.Views
                     case "DynamicTubularReactor_ModbusRTU":
                         return new Size(240, 216);
                     case "HighLowTemperature_ModbusTCP":
-                        return new Size(160, 240);
+                        return new Size(120, 200);
                     case "HighPreactor_ModbusRTU":
                         return new Size(180, 270);
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
