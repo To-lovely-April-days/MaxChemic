@@ -155,11 +155,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
-                        <Border x:Name="Border" 
-                        Background="{TemplateBinding Background}" 
-                        BorderThickness="0"
-                        CornerRadius="2"
-                        Margin="2,1">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="2"
+                                Margin="2,1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="40"/>
@@ -168,12 +167,22 @@
                                     <ColumnDefinition Width="16"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0" 
-                                Width="20" 
-                                Height="20" 
-                                Margin="8,0,0,0"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Center">
+                                <Path Name="Hook" Data="M 1,7 L 7,13 19,1"
+                                      Stroke="Gray"
+                                      StrokeThickness="2"
+                                      StrokeLineJoin="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Visibility="Collapsed"/>
+
+                                <Border x:Name="IconBorder" Grid.Column="0"
+                                        Width="20"
+                                        Height="20"
+                                        Margin="8,0,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center">
                                     <ContentPresenter x:Name="IconHost" 
                                             ContentSource="Icon" 
                                             VerticalAlignment="Center"
@@ -188,42 +197,38 @@
                                         Margin="4,0,8,0"/>
 
                                 <TextBlock x:Name="InputGestureText"
-                                 Grid.Column="2"
-                                 Text="{TemplateBinding InputGestureText}"
-                                 VerticalAlignment="Center"
-                                 HorizontalAlignment="Right"
-                                 FontSize="12"
-                                 Foreground="{StaticResource Text.TertiaryBrush}"
-                                 Margin="8,0,8,0"/>
+                                           Grid.Column="2"
+                                           Text="{TemplateBinding InputGestureText}"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           FontSize="12"
+                                           Foreground="{StaticResource Text.TertiaryBrush}"
+                                           Margin="8,0,8,0"/>
 
                                 <Path x:Name="ArrowPath"
-                              Grid.Column="3"
-                              VerticalAlignment="Center"
-                              HorizontalAlignment="Center"
-                              Fill="{StaticResource Text.SecondaryBrush}"
-                              Data="M0,0 L0,8 L4,4 z"
-                              Visibility="Collapsed"/>
+                                      Grid.Column="3"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center"
+                                      Fill="{StaticResource Text.SecondaryBrush}"
+                                      Data="M0,0 L0,8 L4,4 z"
+                                      Visibility="Collapsed"/>
 
                                 <!-- 嵌套子菜单 -->
-                                <Popup x:Name="PART_Popup" 
-                               Placement="Right" 
-                               IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" 
-                               AllowsTransparency="True" 
-                               Focusable="False"
-                               PopupAnimation="Fade"
-                               HorizontalOffset="5"
-                               VerticalOffset="-7">
+                                <Popup x:Name="PART_Popup"
+                                       Placement="Right"
+                                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                       AllowsTransparency="True"
+                                       Focusable="False"
+                                       PopupAnimation="Fade"
+                                       HorizontalOffset="5"
+                                       VerticalOffset="-7">
                                     <Grid>
-                                        <Border Background="#20000000" 
-                                        CornerRadius="0,6,6,6"
-                                        Margin="0,2,6,6"/>
-                                        <Border Background="{StaticResource Bg.PrimaryBrush}" 
-                                        BorderBrush="{StaticResource Border.DefaultBrush}" 
-                                        BorderThickness="1"
-                                        CornerRadius="4">
-                                            <StackPanel IsItemsHost="True" 
-                                               KeyboardNavigation.DirectionalNavigation="Cycle"
-                                               Margin="4"/>
+                                        <Border Background="#20000000" CornerRadius="0,6,6,6" Margin="0,2,6,6"/>
+                                        <Border Background="{StaticResource Bg.PrimaryBrush}"
+                                                BorderBrush="{StaticResource Border.DefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4">
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" Margin="4"/>
                                         </Border>
                                     </Grid>
                                 </Popup>
@@ -248,6 +253,16 @@
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="{StaticResource Text.TertiaryBrush}"/>
                             </Trigger>
+                            <Trigger Property="IsCheckable" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" TargetName="IconBorder"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsCheckable" Value="True"/>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" TargetName="Hook"/>
+                            </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -344,10 +359,8 @@
         </Style>
     </UserControl.Resources>
 
-    <!-- 菜单栏背景:纯白(配合上面深红标题栏) -->
-    <Border Background="{StaticResource Bg.PrimaryBrush}" 
-            BorderBrush="{StaticResource Border.DefaultBrush}"
-            BorderThickness="0,0,0,1">
+    <!-- 菜单栏背景:纯白(配合上面深红标题栏)"-->
+    <Border Background="{StaticResource Bg.PrimaryBrush}" BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="0,0,0,1">
         <Menu Background="{StaticResource Bg.PrimaryBrush}" 
               FontFamily="Microsoft YaHei UI" 
               FontSize="16" 
@@ -444,8 +457,9 @@
             <!-- 窗口菜单 -->
             <MenuItem Header="{Binding MenuWindow}" Style="{StaticResource TopLevelMenuItemStyle}">
                 <MenuItem Header="{Binding MenuToolbar}" 
-                          IsCheckable="True" 
-                          IsChecked="{Binding IsToolbarVisible}" 
+                          IsCheckable="True"
+                          IsChecked="{Binding IsToolbarVisible}"
+                          Command="{Binding ShowToolBarCommand}"
                           Style="{StaticResource SubMenuItemStyle}"/>
             </MenuItem>
 

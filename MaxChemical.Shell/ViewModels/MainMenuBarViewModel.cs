@@ -295,6 +295,9 @@ public class MainMenuBarViewModel : BindableBase
     public DelegateCommand CompareExperimentsCommand { get; private set; } = null!;
     public DelegateCommand ClearHistoryCommand { get; private set; } = null!;
 
+    // 窗口命令
+    public DelegateCommand ShowToolBarCommand { get; private set; } = null!;
+
     // 视图命令
     public DelegateCommand ZoomInCommand { get; private set; } = null!;
     public DelegateCommand ZoomOutCommand { get; private set; } = null!;
@@ -348,6 +351,9 @@ public class MainMenuBarViewModel : BindableBase
         GenerateReportCommand = new DelegateCommand(ExecuteGenerateReport);
         CompareExperimentsCommand = new DelegateCommand(ExecuteCompareExperiments);
         ClearHistoryCommand = new DelegateCommand(ExecuteClearHistory);
+
+        // 窗口命令
+        ShowToolBarCommand = new DelegateCommand(ExecuteShowToolbar);
 
         // 视图命令
         ZoomInCommand = new DelegateCommand(ExecuteZoomIn);
@@ -415,11 +421,10 @@ public class MainMenuBarViewModel : BindableBase
     private void SubscribeEvents()
     {
         _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChanged);
-
+        // 订阅最近打开文件集合改变事件
         _eventAggregator.GetEvent<RecentFilesChangedEvent>()?.Subscribe(collection =>
         {
             RecentFiles.Clear();
-
             if (collection != null && collection.Count > 0)
             {
                 RecentFiles.AddRange(collection);
@@ -1008,6 +1013,16 @@ public class MainMenuBarViewModel : BindableBase
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    /// <summary>
+    /// 执行工具栏可见性切换命令
+    /// </summary>
+    private void ExecuteShowToolbar()
+    {
+        // 发布事件
+        _eventAggregator.GetEvent<ToolBarVisibleEvent>()?.Publish(IsToolbarVisible);
+    }
+
     #endregion
 }
 

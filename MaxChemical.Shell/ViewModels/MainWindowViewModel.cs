@@ -7,6 +7,7 @@ using Prism.Regions;
 using System;
 using System.Diagnostics;
 using System.Windows.Input;
+using MaxChemical.Shell.Events;
 
 namespace MaxChemical.Shell.ViewModels
 {
@@ -19,6 +20,7 @@ namespace MaxChemical.Shell.ViewModels
         private bool _isStatusBarVisible = true;
         private bool _isDeviceLibraryVisible = true;  // 默认显示设备库
         private bool _isCommadVisible = false;
+        private bool _isToolbarVisible = true;
 
         public MainWindowViewModel(IEventAggregator eventAggregator, IRegionManager regionManager)
         {
@@ -58,6 +60,18 @@ namespace MaxChemical.Shell.ViewModels
             set => SetProperty(ref _isCommadVisible, value);
         }
 
+        public bool IsToolbarVisible
+        {
+            get
+            {
+                return _isToolbarVisible;
+            }
+            set
+            {
+                SetProperty(ref _isToolbarVisible, value);
+            }
+        }
+
         #endregion
 
         #region Commands
@@ -74,6 +88,8 @@ namespace MaxChemical.Shell.ViewModels
 
             // 订阅面板可见性切换事件
             _eventAggregator.GetEvent<PanelVisibilityEvent>().Subscribe(OnPanelVisibilityChanged);
+            //订阅工具栏可见性切换事件
+            _eventAggregator.GetEvent<ToolBarVisibleEvent>().Subscribe(OnToolbarVisibilityChanged);
         }
 
         private void ToggleLeftPanel()
@@ -86,6 +102,12 @@ namespace MaxChemical.Shell.ViewModels
         {
             IsLeftPanelVisible = isVisible;
             Debug.WriteLine($"[MainWindow] 接收到面板可见性事件: {(isVisible ? "显示" : "隐藏")}");
+        }
+
+        private void OnToolbarVisibilityChanged(bool visible)
+        {
+            IsToolbarVisible = visible;
+            Debug.WriteLine($"[MainWindow] 接收到工具栏可见性事件: {(visible ? "显示" : "隐藏")}");
         }
 
         private void InitializeDefaultView()
