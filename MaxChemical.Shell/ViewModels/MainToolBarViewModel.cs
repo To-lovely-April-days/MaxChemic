@@ -11,6 +11,7 @@ using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Modules.DOE.ViewModels;
 using MaxChemical.Modules.DOE.Views;
+using MaxChemical.Shell.Services;
 using MaxChemical.Shell.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Prism.Commands;
@@ -48,6 +49,7 @@ namespace MaxChemical.Shell.ViewModels
         private readonly ICanvasDataService _canvasDataService; // 新增
         private readonly IDialogService _dialogService; // 新增
         private readonly ICanvasStateService _canvasStateService; // 新增
+        private readonly IRecentFileService _recentFileService;
 
         private readonly IProjectDataService _projectDataService; // 替换为项目数据服务
         private readonly ProjectCoordinator _projectCoordinator; // 添加项目协调器
@@ -96,7 +98,8 @@ namespace MaxChemical.Shell.ViewModels
           ICommandHistory commandHistory,
           IFlowExecutionEngine flowExecutionEngine,
           ProjectCoordinator projectCoordinator,
-          IProjectNameDialogProvider projectNameDialogProvider) // 新增参数
+          IProjectNameDialogProvider projectNameDialogProvider,
+          IRecentFileService recentFileService) // 新增参数
         {
             _container = container ?? throw new ArgumentNullException(nameof(container));
             _logger = new LogService().ForContext<MainToolBarViewModel>();
@@ -109,9 +112,11 @@ namespace MaxChemical.Shell.ViewModels
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _flowExecutionEngine = flowExecutionEngine ?? throw new ArgumentNullException(nameof(flowExecutionEngine));
             _projectCoordinator = projectCoordinator ?? throw new ArgumentNullException(nameof(projectCoordinator));
-            _canvasDataService= canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
+            _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
             _projectNameDialogProvider = projectNameDialogProvider ?? throw new ArgumentNullException(nameof(projectNameDialogProvider));
-            _parameterMonitoringService= _container.Resolve<IParameterMonitoringService>();
+            _parameterMonitoringService = _container.Resolve<IParameterMonitoringService>();
+            _recentFileService = recentFileService ?? throw new ArgumentNullException(nameof(recentFileService));
+
             InitializeCommands();
             LoadLocalizedStrings();
             SubscribeEvents();
@@ -711,6 +716,8 @@ namespace MaxChemical.Shell.ViewModels
 
             if (success)
             {
+                _recentFileService.Add(fileName);
+
                 // 标记为已保存
                 _canvasStateService.MarkAsSaved();
 
@@ -811,6 +818,8 @@ namespace MaxChemical.Shell.ViewModels
                 _dialogService.ShowError("无法加载项目文件，文件可能已损坏", "打开失败");
                 return;
             }
+
+            _recentFileService.Add(fileName);
 
             // 设置当前文件路径
             _canvasStateService.SetCurrentFile(fileName);

@@ -84,6 +84,7 @@
 	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
 	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
 	  <None Remove="Resources\DeviceIcon\highLowtemperature.png" />
+	  <None Remove="Resources\DeviceIcon\highpreactor.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
 	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
@@ -265,6 +266,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\highLowtemperature.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\highpreactor.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\MicroReactor.png">

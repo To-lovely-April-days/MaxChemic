@@ -30,7 +30,7 @@ namespace HighPreactor_ModbusRTU
             DeviceId = "HP0001";
             Name = "微型反应釜";
             Manufacturer = "ModbusRTU 微型反应釜";
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumps_CY.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/highpreactor.png";
             Category = DeviceCategories.Reactors;
             ComId = "HP0001"; // 默认设备ID
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();

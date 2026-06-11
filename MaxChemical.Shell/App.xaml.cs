@@ -92,6 +92,7 @@ public partial class App : PrismApplication
     protected override void RegisterTypes(IContainerRegistry containerRegistry)
     {
         // ========== 基础服务 ==========
+        containerRegistry.RegisterSingleton<IRecentFileService, RecentFileService>();
         containerRegistry.RegisterSingleton<ILocalizationService, LocalizationService>();
         containerRegistry.RegisterSingleton<IDialogService, DialogService>();
         containerRegistry.RegisterSingleton<IProjectService, ProjectService>();

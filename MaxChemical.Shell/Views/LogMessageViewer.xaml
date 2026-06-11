@@ -84,7 +84,12 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
-                        <Rectangle RadiusX="4" RadiusY="4" Fill="Gray"/>
+                        <Rectangle x:Name="Rect" RadiusX="4" RadiusY="4" Fill="Gray"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Fill" Value="#FF959595" TargetName="Rect"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

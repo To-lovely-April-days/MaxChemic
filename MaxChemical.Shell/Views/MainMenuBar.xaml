@@ -403,10 +403,10 @@
 
                 <Separator Style="{StaticResource MenuSeparatorStyle}"/>
 
-                <MenuItem Header="{Binding MenuRecentFiles}" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.ItemsSource>
-                        <Binding Path="RecentFiles"/>
-                    </MenuItem.ItemsSource>
+                <!--最近打开文件-->
+                <MenuItem Header="{Binding MenuRecentFiles}"
+                          ItemsSource="{Binding RecentFiles}"
+                          Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.ItemContainerStyle>
                         <Style TargetType="MenuItem" BasedOn="{StaticResource NestedSubMenuItemStyle}">
                             <Setter Property="Header" Value="{Binding DisplayName}"/>
@@ -429,7 +429,7 @@
                         </Border>
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="{Binding MenuExportData}" 
+                <!--<MenuItem Header="{Binding MenuExportData}" 
                           Command="{Binding ExportDataCommand}" 
                           Style="{StaticResource SubMenuItemStyle}"/>
                 <MenuItem Header="{Binding MenuExperimentStats}" 
@@ -438,7 +438,7 @@
                 <Separator Style="{StaticResource MenuSeparatorStyle}"/>
                 <MenuItem Header="{Binding MenuGenerateReport}" 
                           Command="{Binding GenerateReportCommand}" 
-                          Style="{StaticResource SubMenuItemStyle}"/>
+                          Style="{StaticResource SubMenuItemStyle}"/>-->
             </MenuItem>
 
             <!-- 窗口菜单 -->
@@ -478,49 +478,48 @@
                           Command="{Binding UserManualCommand}" 
                           InputGestureText="F1" 
                           Style="{StaticResource SubMenuItemStyle}"/>
-                <MenuItem Header="{Binding MenuVideoTutorial}" 
-          Command="{Binding VideoTutorialCommand}" 
-          Style="{StaticResource SubMenuItemStyle}">
+                <!--<MenuItem Header="{Binding MenuVideoTutorial}"
+                          Command="{Binding VideoTutorialCommand}"
+                          Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
                         <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
-                            <Path Width="11" Height="11" Stretch="Uniform"
-                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
-                  Data="M8,5.14V19.14L19,12.14L8,5.14Z"/>
+                            <Path Width="11" Height="11" Stretch="Uniform" Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                                  Data="M8,5.14V19.14L19,12.14L8,5.14Z"/>
                         </Border>
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator Style="{StaticResource MenuSeparatorStyle}"/>
-                <MenuItem Header="{Binding MenuTechSupport}" 
-          Command="{Binding TechSupportCommand}" 
-          Style="{StaticResource SubMenuItemStyle}">
+                <MenuItem Header="{Binding MenuTechSupport}"
+                          Command="{Binding TechSupportCommand}"
+                          Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
                         <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
                             <Path Width="11" Height="11" Stretch="Uniform"
-                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
-                  Data="M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"/>
+                                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                                  Data="M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"/>
                         </Border>
                     </MenuItem.Icon>
-                </MenuItem>
+                </MenuItem>-->
                 <Separator Style="{StaticResource MenuSeparatorStyle}"/>
-                <MenuItem Header="{Binding MenuCheckUpdate}" 
-          Command="{Binding CheckUpdateCommand}" 
-          Style="{StaticResource SubMenuItemStyle}">
+                <MenuItem Header="{Binding MenuCheckUpdate}"
+                          Command="{Binding CheckUpdateCommand}"
+                          Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
                         <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
                             <Path Width="11" Height="11" Stretch="Uniform"
-                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
-                  Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                                  Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
                         </Border>
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="{Binding MenuAbout}" 
-          Command="{Binding AboutCommand}" 
-          Style="{StaticResource SubMenuItemStyle}">
+                <MenuItem Header="{Binding MenuAbout}"
+                          Command="{Binding AboutCommand}"
+                          Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
                         <Border Background="{StaticResource Brand.PrimaryLightBrush}" CornerRadius="3" Width="20" Height="20">
                             <Path Width="11" Height="11" Stretch="Uniform"
-                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
-                  Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+                                  Fill="{StaticResource Brand.PrimaryDarkBrush}"
+                                  Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
                         </Border>
                     </MenuItem.Icon>
                 </MenuItem>
