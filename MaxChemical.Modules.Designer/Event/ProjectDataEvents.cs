@@ -48,6 +48,12 @@ namespace MaxChemical.Modules.Designer.Event
     {
     }
     /// <summary>
+    /// 「上云」请求事件:标题栏项目名旁的按钮点击后发出,工艺设计器订阅并执行导出+上传。
+    /// </summary>
+    public class CloudUploadRequestedEvent : PubSubEvent
+    {
+    }
+    /// <summary>
     /// 项目保存事件
     /// </summary>
     public class ProjectSavedEvent : PubSubEvent<string>

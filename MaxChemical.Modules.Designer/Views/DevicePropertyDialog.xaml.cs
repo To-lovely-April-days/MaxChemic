@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 
 namespace MaxChemical.Modules.Designer.Views
@@ -409,6 +410,34 @@ namespace MaxChemical.Modules.Designer.Views
 
                 ExecuteButton.IsEnabled = false;
             }
+        }
+
+        /// <summary>
+        /// 显示“连接中”遮罩并启动旋转动画
+        /// </summary>
+        private void ShowLoading(string text = "正在连接…", string subText = "正在建立通信链路")
+        {
+            LoadingText.Text = text;
+            LoadingSubText.Text = subText;
+            LoadingOverlay.Visibility = Visibility.Visible;
+
+            var spin = new DoubleAnimation
+            {
+                From = 0,
+                To = 360,
+                Duration = TimeSpan.FromSeconds(0.9),
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            SpinnerRotate.BeginAnimation(RotateTransform.AngleProperty, spin);
+        }
+
+        /// <summary>
+        /// 隐藏“连接中”遮罩并停止动画
+        /// </summary>
+        private void HideLoading()
+        {
+            SpinnerRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+            LoadingOverlay.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
@@ -1926,13 +1955,37 @@ namespace MaxChemical.Modules.Designer.Views
 
                 Debug.WriteLine($"设备 {_canvasDevice.Device.Name} 当前模拟模式状态: {(_canvasDevice.Device.IsSimulationMode ? "模拟模式" : "实际模式")}");
 
-                if (_canvasDevice.Device.ConnectionStatus == DeviceConnectionStatus.Disconnected)
+                // 显示“连接中”遮罩（远程模式首次建链可能耗时一两秒）
+                ConnectButton.IsEnabled = false;
+                ShowLoading();
+
+                try
                 {
-                    _isDeviceConnected = await _canvasDevice.Device.ConnectAsync();
+                    // 只有"已真正连接"才直接返回 true。
+                    // 修复历史 bug:此前判断 == Disconnected,首次连接失败后状态变为 Error,
+                    // 第二次点击落到 else 直接置 true,造成"假连接成功"(并未真正重连),
+                    // 因此表现为"第一次失败、第二次就成功"(且与通信方式无关)。
+                    if (_canvasDevice.Device.ConnectionStatus == DeviceConnectionStatus.Connected)
+                    {
+                        _isDeviceConnected = true;
+                    }
+                    else
+                    {
+                        _isDeviceConnected = await _canvasDevice.Device.ConnectAsync();
+
+                        // 首次连接偶发失败(端口/链路/握手需要预热),自动重试一次,
+                        // 把"第二次才成功"收敛到一次点击里。
+                        if (!_isDeviceConnected)
+                        {
+                            LoadingSubText.Text = "首次连接未成功，正在重试…";
+                            await Task.Delay(300);
+                            _isDeviceConnected = await _canvasDevice.Device.ConnectAsync();
+                        }
+                    }
                 }
-                else
+                finally
                 {
-                    _isDeviceConnected = true;
+                    HideLoading();
                 }
 
                 UpdateConnectionUI();
