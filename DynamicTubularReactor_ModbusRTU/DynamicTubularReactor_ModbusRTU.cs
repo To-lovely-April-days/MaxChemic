@@ -27,6 +27,7 @@ namespace DynamicTubularReactor_ModbusRTU
         private const int RetryDelayMs = 100;   // 重试间隔 100ms
 
         public string ScreenKey => "DynamicTubularReactor";
+        //4A 9B连接线
         public DynamicTubularReactor_ModbusRTU()
         {
             _logger = LogManager.GetLogger<DynamicTubularReactor_ModbusRTU>();
@@ -80,11 +81,14 @@ namespace DynamicTubularReactor_ModbusRTU
             // 通信方式
             Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
             {
-                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway", "RemoteServer" }
             });
 
             // Modbus 从机站号 (1~254)
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
+            // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HT8HTPA666ES", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
             // 32位浮点字节序 (Modbus 协议不规定，由设备决定，需现场确认)
             Parameters.Variables.Add(new StringParameter("浮点字节序", "ABCD", "32位浮点字节序：ABCD=大端, CDAB=字交换, BADC=字节交换, DCBA=小端")
             {

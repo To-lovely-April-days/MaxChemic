@@ -1,4 +1,5 @@
 ﻿using MaxChemical.Infrastructure.Constants;
+using MaxChemical.Modules.Designer.Service.Cloud;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.Designer.Views;
 using Prism.Ioc;
@@ -14,6 +15,9 @@ public class DesignerModule : IModule
         // 在标签页区域注册视图
         regionManager.RegisterViewWithRegion(RegionNames.ProcessDesignerRegion, typeof(ProcessDesignerView));
         regionManager.RegisterViewWithRegion(RegionNames.FlowDesignerRegion, typeof(FlowDesignerView));
+
+        // 启动「上云」推送中枢(实时监控 / DOE 联动 / 远程填结果)。单例惰性创建,这里 Resolve 一次以开始订阅事件。
+        containerProvider.Resolve<CloudPushService>();
     }
 
     public void RegisterTypes(IContainerRegistry containerRegistry)
@@ -31,5 +35,8 @@ public class DesignerModule : IModule
         containerRegistry.Register<ExperimentStatisticsViewModel>();
         containerRegistry.RegisterSingleton<ExperimentDetailWindow>();
         containerRegistry.Register<ExperimentDetailWindowViewModel>();
+
+        // 上云推送中枢(单例)
+        containerRegistry.RegisterSingleton<CloudPushService>();
     }
 }

@@ -125,6 +125,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand ImportCommand { get; private set; } = null!;
         public DelegateCommand AddNewCommand { get; private set; } = null!;
         public DelegateCommand ViewVariableManagementCommand { get; private set; } = null!; // 新增
+        public DelegateCommand CloudUploadCommand { get; private set; } = null!;            // 上云
 
         #endregion
 
@@ -136,8 +137,16 @@ namespace MaxChemical.Shell.ViewModels
             ImportCommand = new DelegateCommand(OnImport);
             AddNewCommand = new DelegateCommand(OnAddNew);
             ViewVariableManagementCommand = new DelegateCommand(OnViewVariableManagement); // 新增
+            CloudUploadCommand = new DelegateCommand(OnCloudUpload);                        // 上云
 
             Debug.WriteLine("Commands 初始化完成");
+        }
+
+        // 「上云」:发请求事件,工艺设计器订阅后导出当前组态并上传云端
+        private void OnCloudUpload()
+        {
+            _eventAggregator?.GetEvent<CloudUploadRequestedEvent>()?.Publish();
+            _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("正在上云…");
         }
 
         // 新增方法

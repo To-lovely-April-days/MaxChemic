@@ -78,11 +78,14 @@ namespace HighPreactor_ModbusRTU
             // 通信方式
             Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
             {
-                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway", "RemoteServer" }
             });
 
             // Modbus 从机站号 (1~254)
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
+            // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTXA8Q956DAD", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
 
             // 初始化命令
             InitializeCommands();
@@ -284,7 +287,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 15)*100;
+                            temperature = new Random().Next(-1, 15) * 100;
                             InfoLog($"模拟模式获取微型反应釜搅拌速度，结果（{temperature} RPM）");
                         }
                         else
@@ -1429,7 +1432,7 @@ namespace HighPreactor_ModbusRTU
                             short[] result = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16ArrayAsync);
                             if (result.Length == 3)
                             {
-                                section= result[0];
+                                section = result[0];
                                 duration = result[1];
                                 total = result[2];
                             }
@@ -2757,7 +2760,7 @@ namespace HighPreactor_ModbusRTU
                         {
                             await Task.Delay(1000);
                             tempPv = new Random().Next(0, 100);
-                            tempSv= new Random().Next(0, 100);
+                            tempSv = new Random().Next(0, 100);
                             pressure = new Random().Next(0, 100);
                             speedPv = new Random().Next(0, 100);
                             speedSv = new Random().Next(0, 100);

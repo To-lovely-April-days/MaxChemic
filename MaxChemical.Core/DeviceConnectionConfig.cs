@@ -1,4 +1,4 @@
-﻿// DeviceConnectionConfig.cs
+// DeviceConnectionConfig.cs
 using System;
 using System.Collections.Generic;
 
@@ -20,6 +20,11 @@ namespace MaxChemical.Core
         /// ModbusTcp连接设置
         /// </summary>
         public static ModbusTcpConnectionSettings ModbusTcpSettings { get; set; } = new ModbusTcpConnectionSettings();
+
+        /// <summary>
+        /// 自建云服务器（DTU 网关）连接设置
+        /// </summary>
+        public static RemoteServerSettings RemoteServerSettings { get; set; } = new RemoteServerSettings();
 
         /// <summary>
         /// 是否使用PLC模式（向后兼容）
@@ -53,6 +58,34 @@ namespace MaxChemical.Core
         ModbusTcp = 2,
 
         ZLanGateway,    // 透过 ZLAN 网关的 TCP 连接模式
+
+        /// <summary>
+        /// 自建云服务器模式：DTU 连到云服务器，本程序经 SignalR 隧道把 Modbus 字节
+        /// 转发到云端 DTU 网关，按设备序列号路由。原始 Modbus 字节透传。
+        /// </summary>
+        RemoteServer,
+    }
+
+    /// <summary>
+    /// 自建云服务器（DTU 网关）连接设置。
+    /// 本程序作为 SignalR 客户端连到云服务器，把设备的 Modbus 字节经云中转到 DTU。
+    /// </summary>
+    public class RemoteServerSettings
+    {
+        /// <summary>
+        /// 服务器 SignalR Hub 地址，例如 http://your-server:5000/dtuhub
+        /// </summary>
+        public string ServerUrl { get; set; } = "http://139.224.67.86:9080/dtuhub";//
+
+        /// <summary>
+        /// 接入令牌（与服务器配置一致；服务器据此鉴权，防止他人控制设备）。
+        /// </summary>
+        public string AccessToken { get; set; } = "change-me-please";
+
+        /// <summary>
+        /// 单次设备读写（经云）的超时（毫秒）。
+        /// </summary>
+        public int RequestTimeoutMs { get; set; } = 8000;
     }
 
     /// <summary>
