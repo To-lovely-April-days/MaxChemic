@@ -646,7 +646,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void DeviceNode_DeleteClick(object sender, RoutedEventArgs e)
         {
             _logger.LogDebug("设备节点删除点击");
-
+            
             try
             {
                 if (sender is Border border && border.Tag is CommandNode nodeToDelete)
