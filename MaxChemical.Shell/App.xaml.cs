@@ -24,6 +24,7 @@ using MaxChemical.Core;
 using MaxChemical.Shell.Services;
 using MaxChemical.Modules.DOE;
 using MaxChemical.Infrastructure.DOE;
+using System.Diagnostics;
 
 namespace MaxChemical.Shell;
 

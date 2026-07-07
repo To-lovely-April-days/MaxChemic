@@ -10,57 +10,6 @@
              RenderOptions.BitmapScalingMode="HighQuality"
              RenderOptions.EdgeMode="Unspecified">
 
-    <!--  样式资源 -->
-    <UserControl.Resources>
-        <!--  优化：高性能 ScrollViewer 样式 -->
-        <Style x:Key="ThinScrollViewerStyle" TargetType="ScrollViewer">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ScrollViewer">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <!-- 内容区域 -->
-                            <ScrollContentPresenter Grid.Column="0" Grid.Row="0"
-                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
-                                                    Content="{TemplateBinding Content}"
-                                                    ContentTemplate="{TemplateBinding ContentTemplate}"/>
-
-                            <!-- 垂直滚动条 -->
-                            <ScrollBar Grid.Column="1" Grid.Row="0"
-                                       Name="PART_VerticalScrollBar"
-                                       Orientation="Vertical"
-                                       Value="{TemplateBinding VerticalOffset}"
-                                       Maximum="{TemplateBinding ScrollableHeight}"
-                                       ViewportSize="{TemplateBinding ViewportHeight}"
-                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                                       Width="8"
-                                       Opacity="0.6"/>
-
-                            <!-- 水平滚动条 -->
-                            <ScrollBar Grid.Column="0" Grid.Row="1"
-                                       Name="PART_HorizontalScrollBar"
-                                       Orientation="Horizontal"
-                                       Value="{TemplateBinding HorizontalOffset}"
-                                       Maximum="{TemplateBinding ScrollableWidth}"
-                                       ViewportSize="{TemplateBinding ViewportWidth}"
-                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
-                                       Height="8"
-                                       Opacity="0.6"/>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </UserControl.Resources>
-
     <Border Background="White" BorderBrush="#E0E0E0">
         <Grid>
             <!--  管道工具箱（最高层级，不缓存） -->
