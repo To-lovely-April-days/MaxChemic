@@ -500,8 +500,9 @@ namespace MaxChemical.Modules.DOE.ViewModels
             if (round == null) return;
 
             var path = _dialogService.ShowSaveFileDialog(
-                $"DOE报告_{round.BatchName}_{DateTime.Now:yyyyMMdd}.xlsx",
-                "Excel 文件|*.xlsx");
+                "Excel 文件|*.xlsx",
+                "Excel 文件|*.xlsx",
+                $"DOE报告_{round.BatchName}_{DateTime.Now:yyyyMMdd}.xlsx");
             if (string.IsNullOrEmpty(path)) return;
 
             try
