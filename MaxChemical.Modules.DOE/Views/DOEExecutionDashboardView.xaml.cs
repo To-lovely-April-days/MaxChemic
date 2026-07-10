@@ -56,7 +56,7 @@ namespace MaxChemical.Modules.DOE.Views
                     break;
 
                 case "耗时":
-                    col.Width = new DataGridLength(58);
+                    col.Width = new DataGridLength(64);
                     col.ElementStyle = CreateCellStyle(
                         hAlign: HorizontalAlignment.Right,
                         foreground: "#9CA3AF",

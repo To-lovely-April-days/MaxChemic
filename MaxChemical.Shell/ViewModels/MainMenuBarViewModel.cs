@@ -691,6 +691,8 @@ public class MainMenuBarViewModel : BindableBase
         if (projectDocument == null)
         {
             _dialogService.ShowError("无法加载项目文件，文件可能已损坏", "打开失败");
+            // 从最近打开文件列表中移除
+            _recentFileService.Remove(fileName);
             return;
         }
 

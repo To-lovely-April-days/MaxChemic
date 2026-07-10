@@ -115,12 +115,12 @@ namespace MaxChemical.Shell.Services
 
             try
             {
-                if (!File.Exists(path))
+                // 移除匹配项
+                int count = _collection.RemoveAll(item => item.FilePath.Equals(path, StringComparison.OrdinalIgnoreCase));
+                if (count < 1)
                 {
                     return;
                 }
-                // 移除匹配项
-                _collection.RemoveAll(item => item.FilePath.Equals(path, StringComparison.OrdinalIgnoreCase));
 
                 // 发布集合改变事件
                 _aggregator.GetEvent<RecentFilesChangedEvent>()?.Publish(_collection.ToList());

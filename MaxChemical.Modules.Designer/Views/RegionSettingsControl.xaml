@@ -7,7 +7,7 @@
              xmlns:vm="clr-namespace:MaxChemical.Modules.Designer.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="652" d:DesignWidth="1140"
-             Background="Transparent">
+             Background="White">
 
     <UserControl.Resources>
      
@@ -129,7 +129,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Border BorderBrush="#D4D4D4" 
+    <Border BorderBrush="#D4D4D4"
             BorderThickness="1" 
             CornerRadius="8" 
             Background="White">
@@ -174,15 +174,29 @@
                    VerticalAlignment="Center" 
                    FontSize="14" 
                    Margin="35,0,5,0"/>
-                    <TextBox Text="{Binding Rows, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource InputTextBoxStyle}"/>
+                    <TextBox Style="{StaticResource InputTextBoxStyle}">
+                        <TextBox.Text>
+                            <Binding Path="Rows" UpdateSourceTrigger="PropertyChanged">
+                                <Binding.ValidationRules>
+                                    <local:MaxRowsColsValidationRule/>
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                    </TextBox>
 
                     <TextBlock Text="{Binding ColLabel,StringFormat='{}{0}：'}" 
                    VerticalAlignment="Center" 
                    FontSize="14" 
                    Margin="20,0,5,0"/>
-                    <TextBox Text="{Binding Cols, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource InputTextBoxStyle}"/>
+                    <TextBox Style="{StaticResource InputTextBoxStyle}">
+                        <TextBox.Text>
+                            <Binding Path="Cols" UpdateSourceTrigger="PropertyChanged">
+                                <Binding.ValidationRules>
+                                    <local:MaxRowsColsValidationRule/>
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                    </TextBox>
 
                     <Button Content="{Binding GenerateLayout}" 
                 Command="{Binding GenerateGridCommand}"
@@ -206,14 +220,11 @@
             </Grid>
 
             <!-- 网格区域 -->
-            <Border Grid.Row="2" 
-        
-        BorderThickness="0" 
-        CornerRadius="5"
-        Margin="50,20,50,15">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" 
-                  VerticalScrollBarVisibility="Auto"
-                  Background="White">
+            <Border Grid.Row="2" BorderThickness="0" CornerRadius="5" Margin="16,0">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              Background="White"
+                              Style="{StaticResource SharedScrollViewer}">
                     <ItemsControl ItemsSource="{Binding GridCells}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -222,25 +233,24 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{Binding Background}"
-                            Style="{StaticResource GridCellStyle}"
-                            MinHeight="120"
-                            MinWidth="150">
+                                <Border Background="{Binding Background}" Style="{StaticResource GridCellStyle}"
+                                        MinHeight="120"
+                                        MinWidth="150">
 
                                     <!-- 右键菜单 - 通过数据绑定 -->
                                     <Border.ContextMenu>
                                         <ContextMenu Style="{StaticResource ContextMenuStyle}"
-                                       ItemsSource="{Binding ContextMenuItems}"
-                                       ItemContainerStyle="{StaticResource ContextMenuItemStyle}"/>
+                                                     ItemsSource="{Binding ContextMenuItems}"
+                                                     ItemContainerStyle="{StaticResource ContextMenuItemStyle}"/>
                                     </Border.ContextMenu>
 
                                     <!-- 显示区域类型文本 -->
                                     <TextBlock Text="{Binding DisplayName}"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontSize="16"
-                                 FontWeight="Normal"
-                                 Foreground="#333333"/>
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               FontSize="16"
+                                               FontWeight="Normal"
+                                               Foreground="#333333"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -250,8 +260,9 @@
 
             <!-- 底部按钮 -->
             <StackPanel Grid.Row="3" 
-                        Orientation="Horizontal" 
-                        Margin="879,0,15,21">
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="16">
                 <Button Content="{Binding OkLabel}" 
                         Command="{Binding ConfirmCommand}"
                         Style="{StaticResource DialogPrimaryButtonStyle}"/>
