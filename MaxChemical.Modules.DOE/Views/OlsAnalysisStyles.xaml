@@ -272,7 +272,7 @@
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Border x:Name="Bd" CornerRadius="6" Background="{StaticResource OlsBg}"
                                             BorderBrush="{StaticResource OlsBorder}" BorderThickness="1"
-                                            Padding="8,0,28,0" SnapsToDevicePixels="True">
+                                            Padding="8,0" SnapsToDevicePixels="True">
                                         <Grid>
                                             <ContentPresenter/>
                                             <Path x:Name="Arrow" Data="M0,0 L4,4 L8,0" Stroke="{StaticResource OlsTextHint}"

@@ -121,16 +121,16 @@ namespace MaxChemical.Modules.DOE.Views
                 LoadingOverlay.Visibility = Visibility.Visible;
 
                 // ── Step 1: Python 运行时 ──
-                UpdateLoadingStep(0);
-                await Task.Run(() =>
-                {
-                    try
-                    {
-                        var env = MaxChemical.Modules.Designer.Services.PythonEnvironmentManager.Instance;
-                        if (!env.IsInitialized) env.Initialize();
-                    }
-                    catch { }
-                });
+                //UpdateLoadingStep(0);
+                //await Task.Run(() =>
+                //{
+                //    try
+                //    {
+                //        var env = MaxChemical.Modules.Designer.Services.PythonEnvironmentManager.Instance;
+                //        if (!env.IsInitialized) env.Initialize();
+                //    }
+                //    catch { }
+                //});
 
                 // ── Step 2: 统计分析引擎 ──
                 UpdateLoadingStep(1);

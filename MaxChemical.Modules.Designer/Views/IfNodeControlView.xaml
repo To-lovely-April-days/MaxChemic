@@ -22,18 +22,7 @@
     </UserControl.Resources>
 
     <Canvas x:Name="RootCanvas">
-
-        <Border x:Name="MainStepCard"
-                Canvas.Left="0"
-                Width="231" Height="66"
-                CornerRadius="10"
-                Background="{Binding ExecutionStatus, Converter={StaticResource StatusToCardBgConverter}}"
-                BorderBrush="{Binding ExecutionStatus, Converter={StaticResource StatusToCardBorderConverter}}"
-                BorderThickness="1"
-                Cursor="Hand"
-                PreviewMouseLeftButtonDown="Node_Click"
-                UseLayoutRounding="True"
-                SnapsToDevicePixels="True">
+        <Border Name="ShadowBorder" Canvas.Left="0" Width="235" Height="70" CornerRadius="10">
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>
@@ -49,6 +38,19 @@
                     </Style.Triggers>
                 </Style>
             </Border.Style>
+        </Border>
+        <Border x:Name="MainStepCard"
+                Canvas.Left="0"
+                Width="231" Height="66"
+                CornerRadius="10"
+                Background="{Binding ExecutionStatus, Converter={StaticResource StatusToCardBgConverter}}"
+                BorderBrush="{Binding ExecutionStatus, Converter={StaticResource StatusToCardBorderConverter}}"
+                BorderThickness="1"
+                Cursor="Hand"
+                PreviewMouseLeftButtonDown="Node_Click"
+                UseLayoutRounding="True"
+                SnapsToDevicePixels="True">
+            
             <Grid>
                 <Border Height="2" VerticalAlignment="Bottom" HorizontalAlignment="Left"
                             CornerRadius="0,0,10,10"

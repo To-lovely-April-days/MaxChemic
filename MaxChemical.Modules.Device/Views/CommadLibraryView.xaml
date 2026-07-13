@@ -271,7 +271,7 @@
         <ScrollViewer Grid.Row="1" 
                       VerticalScrollBarVisibility="Auto" 
                       HorizontalScrollBarVisibility="Disabled"
-                      Margin="0,0,0,0">
+                       Style="{StaticResource ThinScrollViewerStyle}">
             <Border Margin="20,1,5,0">
                 <StackPanel>
                     <!-- 设备命令标题行 -->

@@ -83,6 +83,11 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Factory = () => new HighLowTemperature(),
                     Resolution = new Size(1240, 620),
                 });
+                Register("HighTempFurnaceScreen", new ScreenRegistration
+                {
+                    Factory = () => new HighTempFurnaceScreen(),
+                    Resolution = new Size(1240, 620),
+                });
 
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 

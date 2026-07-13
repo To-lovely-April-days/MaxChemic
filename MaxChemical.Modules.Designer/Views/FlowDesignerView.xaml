@@ -29,6 +29,7 @@
         <converters:StatusToProgressVisibilityConverter x:Key="StatusToProgressVisConverter"/>
         <converters:StatusToProgressBrushConverter x:Key="StatusToProgressBrushConverter"/>
         <converters:StatusToDurationForegroundConverter x:Key="StatusToDurFgConverter"/>
+        <converters:PathToBitmapSourceConverter x:Key="PathToBitmapConverter"/>
 
         <!-- 自定义按钮样式 -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
@@ -106,7 +107,7 @@
                         </Border>
 
                         <!-- ② 主体区域 -->
-                        <Border Margin="12,0,10,0"
+                        <Border CornerRadius="10" Padding="12,0,10,0"
                             Background="Transparent"
                             Cursor="Hand"
                             MouseLeftButtonDown="DeviceNode_SelectClick">
@@ -129,7 +130,7 @@
                                     BorderThickness="1">
                                     <Grid>
                                         <!-- 有自定义图标时显示 -->
-                                        <Image Source="{Binding DisplayImageLocation}"
+                                        <Image Source="{Binding DisplayImageLocation,Converter={StaticResource PathToBitmapConverter},Mode=OneWay}"
                                            Stretch="Uniform" Width="20" Height="20"
                                            HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Image.Style>

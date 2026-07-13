@@ -10,13 +10,12 @@
         <ResourceDictionary Source="DOEStyles.xaml"/>
     </Window.Resources>
 
-    <Border CornerRadius="12" Background="White" BorderBrush="#D8DCE3" BorderThickness="1" Margin="8"
-       >
+    <Border CornerRadius="12" Background="White" BorderBrush="#D8DCE3" BorderThickness="1" Margin="8">
         <Border.Effect>
             <DropShadowEffect Color="#000" Direction="270" ShadowDepth="4" BlurRadius="20" Opacity="0.10"/>
         </Border.Effect>
 
-        <Grid>
+        <Grid Margin="0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300"/>
                 <ColumnDefinition Width="*"/>

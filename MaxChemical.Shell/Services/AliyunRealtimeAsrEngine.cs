@@ -44,7 +44,7 @@ namespace MaxChemical.Shell.Services
 
             _accessKeyId = _configuration["AliyunCloud:AccessKeyId"] == null ? "" : _configuration["AliyunCloud:AccessKeyId"];
             _accessKeySecret = _configuration["AliyunCloud:AccessKeySecret"] == null ? "" : _configuration["AliyunCloud:AccessKeySecret"];
-            _appKey = _configuration["AliyunCloud:AppKey"] == null ? "2N4jwL056W5ZvuHc" : _configuration["AliyunCloud:AppKey"];
+            _appKey = _configuration["AliyunCloud:AppKey"] == null ? "" : _configuration["AliyunCloud:AppKey"];
 
             if (string.IsNullOrEmpty(_accessKeyId) ||
                 string.IsNullOrEmpty(_accessKeySecret) ||

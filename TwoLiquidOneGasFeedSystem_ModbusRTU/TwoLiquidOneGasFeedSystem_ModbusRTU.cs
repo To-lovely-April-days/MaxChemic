@@ -53,6 +53,7 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
     ///     46  报警复位          AL_Reset
     ///     47  报警消音          AL_Silence
     ///     48  报警状态          AL_Status
+    ///      //4A 9B连接线
     /// </summary>
     [Export(typeof(IDevice))]
     public class TwoLiquidOneGasFeedSystem_ModbusRTU : Device, IFlowLifecycleAware,IDeviceScreen
@@ -116,12 +117,17 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
                 Options = new ObservableCollection<string>() { "None", "One", "Two", "OnePointFive" }
             });
 
+            // 通信方式
             Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
             {
-                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway", "RemoteServer" }
             });
 
+            // Modbus 从机站号 (1~254)
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
+            // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTRWEGE9VWQ9", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
 
             InitializeCommands();
         }

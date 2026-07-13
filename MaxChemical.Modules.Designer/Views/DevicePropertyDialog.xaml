@@ -570,6 +570,37 @@
                 </Grid>
             </Border>
 
+            <!-- ═══ 连接中遮罩层（默认隐藏，点“连接”时显示 spinner） ═══ -->
+            <Border x:Name="LoadingOverlay" Grid.Row="0" Grid.RowSpan="2"
+                    CornerRadius="12" Visibility="Collapsed" Panel.ZIndex="100">
+                <Border.Background>
+                    <SolidColorBrush Color="#0D1B2A" Opacity="0.45"/>
+                </Border.Background>
+                <Border Background="White" CornerRadius="14" Padding="34,28"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        MinWidth="200">
+                    <Border.Effect>
+                        <DropShadowEffect ShadowDepth="0" BlurRadius="28" Color="#000000" Opacity="0.18"/>
+                    </Border.Effect>
+                    <StackPanel HorizontalAlignment="Center">
+                        <!-- 旋转 spinner：270° 圆弧 + 圆角端点 -->
+                        <Grid Width="46" Height="46" HorizontalAlignment="Center">
+                            <Ellipse Width="46" Height="46" Stroke="#EEF2F7" StrokeThickness="4"/>
+                            <Path Stroke="#1565C0" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 23,4 A 19,19 0 1 1 4,23">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="SpinnerRotate" CenterX="23" CenterY="23" Angle="0"/>
+                                </Path.RenderTransform>
+                            </Path>
+                        </Grid>
+                        <TextBlock x:Name="LoadingText" Text="正在连接…" FontSize="13" FontWeight="Medium"
+                                   Foreground="#37474F" Margin="0,16,0,0" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="LoadingSubText" Text="正在建立通信链路" FontSize="11"
+                                   Foreground="#90A4AE" Margin="0,4,0,0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Border>
+
         </Grid>
     </Border>
 </UserControl>

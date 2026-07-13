@@ -315,12 +315,18 @@ namespace MaxChemical.Shell.ViewModels
 
             if (_isWindowMinimized)
             {
-                window.WindowState = WindowState.Maximized;
+                //window.WindowState = WindowState.Maximized;
 
-                if (window.Content is FrameworkElement rootElement)
-                {
-                    rootElement.Margin = new Thickness(0, 6, 0, 0);
-                }
+                // 最大化时铺满工作区
+                window.Top = 0;
+                window.Left = 0;
+                window.Width = SystemParameters.WorkArea.Width;
+                window.Height = SystemParameters.WorkArea.Height;
+
+                //if (window.Content is FrameworkElement rootElement)
+                //{
+                //    rootElement.Margin = new Thickness(0, 6, 0, 0);
+                //}
 
                 _isWindowMinimized = false;
                 _isWindowMaximized = true;
@@ -336,10 +342,10 @@ namespace MaxChemical.Shell.ViewModels
                 window.Left = (screenWidth - window.Width) / 2;
                 window.Top = (screenHeight - window.Height) / 2;
 
-                if (window.Content is FrameworkElement rootElement)
-                {
-                    rootElement.Margin = new Thickness(0);
-                }
+                //if (window.Content is FrameworkElement rootElement)
+                //{
+                //    rootElement.Margin = new Thickness(0);
+                //}
 
                 _isWindowMinimized = true;
                 _isWindowMaximized = false;

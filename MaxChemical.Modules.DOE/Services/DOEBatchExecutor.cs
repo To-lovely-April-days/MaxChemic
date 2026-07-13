@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using MaxChemical.Infrastructure.Cloud;
 using MaxChemical.Infrastructure.DOE;
 using MaxChemical.Logging;
 using MaxChemical.Modules.DOE.Data;
@@ -153,6 +154,7 @@ namespace MaxChemical.Modules.DOE.Services
                 BatchState = DOEBatchStatus.Running;
                 await _repository.UpdateBatchStatusAsync(batchId, DOEBatchStatus.Running);
                 _eventAggregator.GetEvent<DOEBatchStartedEvent>().Publish(batchId);
+                PublishCloudDoeSnapshot(null);   // ★ 上云: 推初始运行表(全部待执行)
 
                 _logger.LogInformation("DOE 批次开始: {BatchId}, {Count} 组待执行", batchId, _runs.Count);
 
@@ -317,6 +319,7 @@ namespace MaxChemical.Modules.DOE.Services
                             StatusMessage = $"正在执行第 {executedOffset + i + 1}/{totalActiveRuns} 组实验...",
                             CurrentFactorValuesJson = run.FactorValuesJson
                         });
+                        PublishCloudDoeSnapshot(null);   // ★ 上云: 该组进入执行中,刷新运行表高亮
                         _logger.LogInformation("第 {Index} 组: 调用 ExecuteCurrentFlowAsync...", executedOffset + i + 1);
                         var flowResult = await _flowExecution.ExecuteCurrentFlowAsync(_cts.Token);
                         _logger.LogInformation("第 {Index} 组: 流程返回 Success={Success}", executedOffset + i + 1, flowResult.IsSuccessful);
@@ -343,9 +346,10 @@ namespace MaxChemical.Modules.DOE.Services
                         await _repository.UpdateRunAsync(run);
                         NotifyProgress(i, _runs.Count, $"第 {executedOffset + i + 1} 组流程完成，等待输入结果...");
 
-                        _logger.LogInformation("第 {Index} 组: 弹框等待用户输入...", executedOffset + i + 1);
+                        _logger.LogInformation("第 {Index} 组: 等待填结果(桌面弹框 / 云端远程,先到者生效)...", executedOffset + i + 1);
                         // ★ 修复: executedOffset + i = 0-based全局序号，totalActiveRuns = 总组数
-                        var responseValues = CollectResponseFromDialog(executedOffset + i, totalActiveRuns, factorValuesRaw);
+                        // ★ 上云: 本地弹框与网页远程填结果二选一,谁先填谁生效
+                        var responseValues = CollectResponse(executedOffset + i, totalActiveRuns, factorValuesRaw, run);
                         _logger.LogInformation("第 {Index} 组: 用户输入完成，响应值数量={Count}", executedOffset + i + 1, responseValues.Count);
 
                         if (responseValues.Count == 0)
@@ -379,6 +383,7 @@ namespace MaxChemical.Modules.DOE.Services
                             ResponseValues = responseValues,
                             IsSuccessful = true
                         });
+                        PublishCloudDoeSnapshot(null);   // ★ 上云: 该组已完成(结果写回),刷新运行表
 
                         // ── Step 4.5: 多响应 GPR 训练（加超时保护）──
                         _logger.LogInformation("第 {Index} 组: 开始多响应 GPR 训练...", executedOffset + i + 1);
@@ -632,6 +637,118 @@ namespace MaxChemical.Modules.DOE.Services
             return result;
         }
 
+        /// <summary>
+        /// ★ 上云: 采集某组的响应值 —— 本地弹框 与 网页远程填结果 二选一,谁先填谁生效。
+        /// 发布带 waiting 的云端快照(网页据此弹远程表单),并订阅 <see cref="CloudDoeRemoteResponseEvent"/>;
+        /// 远程先到则自动关闭本地弹框。云端未接入时行为等同原来的纯本地弹框。
+        /// </summary>
+        private Dictionary<string, double> CollectResponse(
+            int globalIdx, int totalRuns, Dictionary<string, object> factorValues, DOERunRecord run)
+        {
+            // 1) 推送带 waiting 的快照 → 网页弹远程填结果表单
+            _currentRunIndex = run.RunIndex;
+            var waiting = new CloudDoeWaiting
+            {
+                RunIndex = run.RunIndex,
+                Factors = factorValues,
+                Responses = _responses.Select(r => new CloudDoeResponseDef { Name = r.ResponseName, Unit = r.Unit ?? "" }).ToList()
+            };
+            PublishCloudDoeSnapshot(waiting);
+
+            // 2) 远程结果等待器
+            Dictionary<string, double>? remote = null;
+            using var remoteReady = new ManualResetEventSlim(false);
+            void OnRemote(CloudDoeRemoteResponse p)
+            {
+                if (p != null && p.BatchId == _currentBatchId && p.RunIndex == run.RunIndex
+                    && p.Values != null && p.Values.Count > 0)
+                {
+                    remote = p.Values;
+                    remoteReady.Set();
+                }
+            }
+            var token = _eventAggregator.GetEvent<CloudDoeRemoteResponseEvent>()
+                .Subscribe(OnRemote, ThreadOption.BackgroundThread, true);
+
+            Dictionary<string, double> local = new();
+            DOEResponseCollectionDialog? dlgRef = null;
+
+            // 3) 后台: 远程先到 → 关闭本地弹框
+            var closer = System.Threading.Tasks.Task.Run(() =>
+            {
+                try { remoteReady.Wait(_cts?.Token ?? CancellationToken.None); } catch { }
+                try
+                {
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        if (dlgRef != null && dlgRef.IsLoaded) dlgRef.Close();
+                    });
+                }
+                catch { }
+            });
+
+            // 4) UI 线程: 弹本地弹框(远程已到则跳过)
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (remoteReady.IsSet) return;
+                var responseDefs = _responses.Select(r => (r.ResponseName, r.Unit)).ToList();
+                var dialog = new DOEResponseCollectionDialog(globalIdx, totalRuns, factorValues, responseDefs);
+                dlgRef = dialog;
+                dialog.Owner = Application.Current.MainWindow;
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                var ok = dialog.ShowDialog();
+                if (ok == true && dialog.CollectedValues != null) local = dialog.CollectedValues;
+            });
+
+            // 5) 收尾
+            _eventAggregator.GetEvent<CloudDoeRemoteResponseEvent>().Unsubscribe(token);
+            remoteReady.Set();                 // 释放 closer(本地先填时)
+            try { closer.Wait(500); } catch { }
+
+            if (local.Count > 0) return local; // 本地先填 → 用本地
+            return remote ?? new Dictionary<string, double>();  // 否则用远程(网页)
+        }
+
+        /// <summary>★ 上云: 把当前批次运行表打包成云端快照并发布,由 Designer 的 CloudPushService POST 到云端。</summary>
+        private void PublishCloudDoeSnapshot(CloudDoeWaiting? waiting)
+        {
+            try
+            {
+                if (_currentBatch == null) return;
+                var snap = new CloudDoeSnapshot
+                {
+                    BatchId = _currentBatchId,
+                    BatchName = _currentBatch.BatchName ?? "",
+                    Status = BatchState.ToString(),
+                    CurrentRunIndex = _currentRunIndex,
+                    Factors = _currentBatch.Factors?.Select(f => f.FactorName).ToList() ?? new List<string>(),
+                    Responses = _responses.Select(r => new CloudDoeResponseDef { Name = r.ResponseName, Unit = r.Unit ?? "" }).ToList(),
+                    Runs = _currentBatch.Runs.OrderBy(r => r.RunIndex).Select(BuildCloudRun).ToList(),
+                    Waiting = waiting
+                };
+                _eventAggregator.GetEvent<CloudDoeSnapshotEvent>().Publish(snap);
+            }
+            catch (Exception ex) { _logger.LogWarning("发布云端 DOE 快照失败: {Message}", ex.Message); }
+        }
+
+        private static CloudDoeRun BuildCloudRun(DOERunRecord r)
+        {
+            var run = new CloudDoeRun { RunIndex = r.RunIndex, Status = r.Status.ToString() };
+            try
+            {
+                if (!string.IsNullOrEmpty(r.FactorValuesJson))
+                    run.Factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(r.FactorValuesJson) ?? new();
+            }
+            catch { }
+            try
+            {
+                if (!string.IsNullOrEmpty(r.ResponseValuesJson))
+                    run.Responses = JsonConvert.DeserializeObject<Dictionary<string, double>>(r.ResponseValuesJson!) ?? new();
+            }
+            catch { }
+            return run;
+        }
+
         // ══════════════ 停止条件（内部） ══════════════
 
         private StopEvaluationResult EvaluateThresholdConditions(Dictionary<string, double> responseValues)
@@ -789,6 +906,9 @@ namespace MaxChemical.Modules.DOE.Services
             { BatchId = _currentBatchId, FinalStatus = status, TotalRuns = _runs.Count, CompletedRuns = completed, StopReason = reason });
             _eventAggregator.GetEvent<DOEBatchCompletedEvent>().Publish(new DOEBatchCompletedPayload
             { BatchId = _currentBatchId, FinalStatus = status, CompletedRuns = completed, StopReason = reason });
+
+            _currentRunIndex = -1;           // ★ 上云: 结束后不高亮任何组
+            PublishCloudDoeSnapshot(null);   // ★ 上云: 推送最终运行表与状态
         }
 
         private class StopEvaluationResult { public bool ShouldStop { get; set; } public string Reason { get; set; } = ""; }

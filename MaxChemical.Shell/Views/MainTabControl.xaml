@@ -168,19 +168,50 @@
 
             </StackPanel>
 
-            <!-- 中间:项目名称 -->
-            <TextBlock Grid.Column="1"
-                       Text="{Binding ProjectName}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontSize="14"
-                       FontWeight="Medium"
-                       Foreground="{StaticResource Text.PrimaryBrush}"
-                       TextTrimming="CharacterEllipsis"
-                       MaxWidth="400"
-                       ToolTip="{Binding ProjectName}"
-                       Visibility="{Binding IsProjectNameVisible, 
-                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <!-- 中间:项目名称 + 上云按钮 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="{Binding ProjectName}"
+                           VerticalAlignment="Center"
+                           FontSize="14"
+                           FontWeight="Medium"
+                           Foreground="{StaticResource Text.PrimaryBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="400"
+                           ToolTip="{Binding ProjectName}"
+                           Visibility="{Binding IsProjectNameVisible,
+                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- 上云:导出当前组态并同步到云端 -->
+                <Button Command="{Binding CloudUploadCommand}"
+                        Margin="12,0,0,0" Cursor="Hand" Padding="0"
+                        BorderThickness="0" Background="Transparent"
+                        VerticalAlignment="Center"
+                        ToolTip="导出当前组态并同步到云端(Ctrl+U)"
+                        Visibility="{Binding IsProjectNameVisible,
+                                     Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bd" CornerRadius="7"
+                                    Background="{StaticResource Brand.PrimaryBrush}" Padding="11,5">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="17" Height="14" Stretch="Uniform"
+                                          Stroke="White" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Data="M6 16 A4 4 0 0 1 5.5 8.03 A5.5 5.5 0 0 1 16 6.5 A4.5 4.5 0 0 1 18.5 15.5 M12 8 L12 14 M9.5 10.5 L12 8 L14.5 10.5"/>
+                                    <TextBlock Text="上云" Foreground="White" FontSize="12.5"
+                                               FontWeight="SemiBold" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
 
             <!-- 右侧:查看变量管理 -->
             <StackPanel Grid.Column="2"

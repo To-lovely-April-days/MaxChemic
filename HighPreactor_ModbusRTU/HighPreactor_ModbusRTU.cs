@@ -30,7 +30,7 @@ namespace HighPreactor_ModbusRTU
             DeviceId = "HP0001";
             Name = "微型反应釜";
             Manufacturer = "ModbusRTU 微型反应釜";
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumps_CY.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/highpreactor.png";
             Category = DeviceCategories.Reactors;
             ComId = "HP0001"; // 默认设备ID
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
@@ -78,11 +78,14 @@ namespace HighPreactor_ModbusRTU
             // 通信方式
             Parameters.Variables.Add(new StringParameter("通信方式", "Direct", "通信方式")
             {
-                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway" }
+                Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway", "RemoteServer" }
             });
 
             // Modbus 从机站号 (1~254)
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
+
+            // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTXA8Q956DAD", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
 
             // 初始化命令
             InitializeCommands();
@@ -284,13 +287,13 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 15)*100;
+                            temperature = new Random().Next(-1, 15) * 100;
                             InfoLog($"模拟模式获取微型反应釜搅拌速度，结果（{temperature} RPM）");
                         }
                         else
                         {
                             //byte[] frame = { slaveId, 0x03, 0x00, 0xFB, 0x00, 0x01 };
-                            byte[] frame = BuildReadCmd(0x00FB, 1);
+                            byte[] frame = BuildReadCmd(251, 1);
                             temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
 
                             InfoLog($"获取微型反应釜搅拌速度，结果（{temperature} RPM）");
@@ -459,7 +462,7 @@ namespace HighPreactor_ModbusRTU
                         else
                         {
                             //byte[] frame = { slaveId, 0x03, 0x00, 0xFC, 0x00, 0x01 };
-                            byte[] frame = BuildReadCmd(0x00FC, 1);
+                            byte[] frame = BuildReadCmd(252, 1);
                             temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
 
                             InfoLog($"获取微型反应釜搅拌速度 SV，结果（{temperature} RPM）");
@@ -522,8 +525,8 @@ namespace HighPreactor_ModbusRTU
                         {
                             // 创建指令
                             //byte[] frame = { slaveId, 0x06, 0x00, 0xFC, data[0], data[1] };
-                            byte[] frame = BuildWriteCmd(0x00FC, temperature);
-
+                            byte[] frame = BuildWriteCmd(252, temperature);
+                            DebugLog($"设置搅拌速度SV的请求报文：[{BitConverter.ToString(frame)}]");
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜设定温度，结果（成功：{success}，设定值：{temperature} RPM）");
@@ -878,6 +881,7 @@ namespace HighPreactor_ModbusRTU
                             // 创建指令
                             //byte[] frame = { slaveId, 0x06, 0x01, 0x12, data[0], data[1] };
                             byte[] frame = BuildWriteCmd(0x0112, (ushort)(temperature * 100));
+                            DebugLog($"设置压力上限的求情报文：[{BitConverter.ToString(frame)}]");
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -998,6 +1002,7 @@ namespace HighPreactor_ModbusRTU
                             // 创建指令
                             //byte[] frame = { slaveId, 0x06, 0x00, 0x7F, data[0], data[1] };
                             byte[] frame = BuildWriteCmd(0x007F, (ushort)(temperature * 100));
+                            DebugLog($"设置转换拟合阈值的求情报文：[{BitConverter.ToString(frame)}]");
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -1118,6 +1123,7 @@ namespace HighPreactor_ModbusRTU
                             // 创建指令
                             //byte[] frame = { slaveId, 0x06, 0x00, 0x81, data[0], data[1] };
                             byte[] frame = BuildWriteCmd(0x0081, (ushort)(temperature * 100));
+                            DebugLog($"设置升温斜率的求情报文：[{BitConverter.ToString(frame)}]");
 
                             // 写入指令
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
@@ -1260,55 +1266,129 @@ namespace HighPreactor_ModbusRTU
                 })
             });
 
-            // 获取当前运行段
+            // 设置当前运行段
             Commands.Add(new DeviceCommand()
             {
-                Name = "获取当前运行段",
-                HelpText = "获取微型反应釜的当前运行段",
+                Name = "设置当前运行段",
+                HelpText = "设置微型反应釜的当前运行段",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("TargetValue", 0, 8, 0, "当前运行段目标值", true)
+                    }
+                },
 
                 OutputParameters = new DeviceParameters()
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
-                        new NumberParameter("RunningSection", 0, 8,0,"反应釜当前运行段",true)
+                        new NumberParameter("SetTargetValue", 0, 8,0,"反应釜当前运行段的设定值",true),
+                        new BooleanParameter("Success", false, "设置当前运行段是否成功", true)
                     }
                 },
 
-                Action = WrapAction("获取当前运行段", async parameter =>
+                AsyncAction = AsyncWrapAction("设置当前运行段", async parameter =>
                 {
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
-                        int temperature = 0;
+                        ushort temperature = parameter.GetValue<ushort>("TargetValue");
+                        bool success = false;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 8);
-                            InfoLog($"模拟模式获取微型反应釜当前运行段，结果（{temperature} ）");
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式设置微型反应釜当前运行段，结果（TargetValue：{temperature}，Success：{success}）");
                         }
                         else
                         {
                             //byte[] frame = { slaveId, 0x03, 0x01, 0xF5, 0x00, 0x01 };
-                            byte[] frame = BuildReadCmd(0x01F5, 1);
+                            byte[] frame = BuildWriteCmd(0x01F5, temperature);
 
-                            temperature = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
 
-                            InfoLog($"获取微型反应釜当前运行段，结果（{temperature} ）");
+                            InfoLog($"设置微型反应釜当前运行段，结果（TargetValue：{temperature}，Success：{success}）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new NumberParameter("RunningSection", 0, 8,temperature,"反应釜当前运行段",true)
+                                new NumberParameter("SetTargetValue", 0, 8,temperature,"反应釜当前运行段",true),
+                                new BooleanParameter("Success", success, "设置当前运行段是否成功", true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
-                        ErrorLog($"获取微型反应釜的当前运行段失败：{e.Message}");
+                        ErrorLog($"设置微型反应釜的当前运行段失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 设置当前段运行时间
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "设置当前段运行时间",
+                HelpText = "设置微型反应釜的当前段运行时间",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("TargetValue", 0, 8, 0, "当前段运行时间目标值", true)
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("SetTargetValue", 0, 8,0,"反应釜当前段运行时间的设定值",true),
+                        new BooleanParameter("Success", false, "设置当前段运行时间是否成功", true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("设置当前段运行时间", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        ushort temperature = parameter.GetValue<ushort>("TargetValue");
+                        bool success = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式设置微型反应釜当前段运行时间，结果（TargetValue：{temperature}，Success：{success}）");
+                        }
+                        else
+                        {
+                            //byte[] frame = { slaveId, 0x03, 0x01, 0xF5, 0x00, 0x01 };
+                            byte[] frame = BuildWriteCmd(502, temperature);
+
+                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
+
+                            InfoLog($"设置微型反应釜当前段运行时间，结果（TargetValue：{temperature}，Success：{success}）");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("SetTargetValue", 0, 8,temperature,"反应釜当前段运行时间的设定值",true),
+                                new BooleanParameter("Success", success, "设置当前段运行时间是否成功", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"设置微型反应釜的当前段运行时间失败：{e.Message}");
                         throw;
                     }
                 })
@@ -1324,6 +1404,7 @@ namespace HighPreactor_ModbusRTU
                 {
                     Variables = new ObservableCollection<ParameterBase>()
                     {
+                        new NumberParameter("RunningSection", 0, 8,0,"反应釜当前运行段",true),
                         new NumberParameter("SectionRunTime", 0, 3200,0,"当前段运行时间",true,"MIN"),
                         new NumberParameter("SectionRunTotal", 0, 3200,0,"当前段运行总时间",true,"MIN")
                     }
@@ -1334,34 +1415,36 @@ namespace HighPreactor_ModbusRTU
                     try
                     {
                         ComId = Parameters.GetValue<string>("DeviceId");
-                        byte slaveId = Parameters.GetValue<byte>("SlaveId");
                         int duration = 0;
                         int total = 0;
+                        int section = 0;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            InfoLog($"模拟模式获取微型反应釜当前段运行时间数据，结果（Run:{duration}，Total:{total} MIN）");
+                            InfoLog($"模拟模式获取微型反应釜当前段运行时间数据，结果（Section:{section}, Run:{duration}，Total:{total} MIN）");
                         }
                         else
                         {
                             //byte[] frame = { slaveId, 0x03, 0x01, 0xF6, 0x00, 0x02 };
-                            byte[] frame = BuildReadCmd(0x01F6, 2);
+                            byte[] frame = BuildReadCmd(0x01F5, 3);
 
                             short[] result = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16ArrayAsync);
-                            if (result.Length == 2)
+                            if (result.Length == 3)
                             {
-                                duration = result[0];
-                                total = result[1];
+                                section = result[0];
+                                duration = result[1];
+                                total = result[2];
                             }
 
-                            InfoLog($"获取微型反应釜当前段运行时间数据，结果（Run:{duration / 10.0}，Total:{total / 10.0} MIN）");
+                            InfoLog($"获取微型反应釜当前段运行时间数据，结果（Section:{section}, Run:{duration / 10.0}，Total:{total / 10.0} MIN）");
                         }
 
                         return new DeviceParameters()
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
+                                new NumberParameter("RunningSection", 0, 8, section, "反应釜当前运行段", true),
                                 new NumberParameter("SectionRunTime", 0, 3200,duration/10.0,"当前段运行时间",true,"MIN"),
                                 new NumberParameter("SectionRunTotal", 0, 3200,total/10.0,"当前段运行总时间",true,"MIN")
                             }
@@ -2012,7 +2095,7 @@ namespace HighPreactor_ModbusRTU
                 })
             });
 
-            // 获取时间设定值
+            // 获取时间设定值 ST1、ST2、ST3、ST4、ST5、ST6、ST7、ST8
             Commands.Add(new DeviceCommand()
             {
                 Name = "获取时间设定值",
@@ -2135,16 +2218,12 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x4A, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
-
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x4A, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x024A, (ushort)(st * 10));
+                            DebugLog($"设置ST1的求情报文：[{BitConverter.ToString(frame)}]");
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
+
                             InfoLog($"设置微型反应釜ST1，结果（成功：{success}，设定值：{st} MIN）");
                         }
 
@@ -2205,14 +2284,10 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x4B, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x4B, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x024B, (ushort)(st * 10));
+                            DebugLog($"设置ST2的求情报文：[{BitConverter.ToString(frame)}]");
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST2，结果（成功：{success}，设定值：{st} MIN）");
@@ -2275,14 +2350,10 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x4C, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x4C, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x024C, (ushort)(st * 10));
+                            DebugLog($"设置ST3的求情报文：[{BitConverter.ToString(frame)}]");
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST3，结果（成功：{success}，设定值：{st} MIN）");
@@ -2345,14 +2416,10 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x4D, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x4D, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x024D, (ushort)(st * 10));
+                            DebugLog($"设置ST4的求情报文：[{BitConverter.ToString(frame)}]");
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST4，结果（成功：{success}，设定值：{st} MIN）");
@@ -2415,14 +2482,10 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x4E, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x4E, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x024E, (ushort)(st * 10));
+                            DebugLog($"设置ST5的求情报文：[{BitConverter.ToString(frame)}]");
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST5，结果（成功：{success}，设定值：{st} MIN）");
@@ -2485,14 +2548,10 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x4F, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x4F, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x024F, (ushort)(st * 10));
+                            DebugLog($"设置ST6的求情报文：[{BitConverter.ToString(frame)}]");
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST6，结果（成功：{success}，设定值：{st} MIN）");
@@ -2555,14 +2614,10 @@ namespace HighPreactor_ModbusRTU
                         }
                         else
                         {
-                            byte[] data = BitConverter.GetBytes((short)(st * 10));
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                ReverseArray(data);
-                            }
                             // 创建指令
-                            byte[] frame = { slaveId, 0x06, 0x02, 0x50, data[0], data[1] };
-                            frame = Crc16Modbus.AppendCrc(frame, 0, frame.Length);
+                            //byte[] frame = { slaveId, 0x06, 0x02, 0x50, data[0], data[1] };
+                            byte[] frame = BuildWriteCmd(0x0250, (ushort)(st * 10));
+                            DebugLog($"设置ST7的求情报文：[{BitConverter.ToString(frame)}]");
 
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST7，结果（成功：{success}，设定值：{st} MIN）");
@@ -2628,7 +2683,7 @@ namespace HighPreactor_ModbusRTU
                             // 创建指令
                             //byte[] frame = { slaveId, 0x06, 0x02, 0x51, data[0], data[1] };
                             byte[] frame = BuildWriteCmd(0x0251, (ushort)(st * 10));
-
+                            DebugLog($"设置ST8的求情报文：[{BitConverter.ToString(frame)}]");
                             success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
                             InfoLog($"设置微型反应釜ST8，结果（成功：{success}，设定值：{st} MIN）");
                         }
@@ -2665,7 +2720,17 @@ namespace HighPreactor_ModbusRTU
                         new NumberParameter("FurnacePv",-1000, 10000, 0, "反应釜炉温 PV", true, "℃"),
                         new NumberParameter("SpeedSv",-1000, 10000, 0, "反应釜搅拌速度 SV", true, "RPM"),
                         new NumberParameter("SpeedPv",-1000, 10000, 0, "反应釜搅拌速度 PV", true, "RPM"),
-                        new NumberParameter("Pressure",-1000, 10000, 0, "反应釜压力", true, "Mpa")
+                        new NumberParameter("Pressure",-1000, 10000, 0, "反应釜压力", true, "Mpa"),
+                        new NumberParameter("CtrlMode", 0, 7, 0, "当前控制模式", true),
+                        new BooleanParameter("Start/Stop", false,"启动或停止搅拌", true),
+                        new NumberParameter("Slope", 0.01, 10, 0,"反应釜升温斜率",true,"℃"),
+                        new NumberParameter("Threshold", 0.1, 30, 0,"反应釜转换拟合阈值",true,"℃"),
+                        new NumberParameter("RunTime", 0, 9999,0,"反应釜已运行时间",true,"MIN"),
+                        new NumberParameter("RunningSection", 0, 8,0,"反应釜当前运行段",true),
+                        new NumberParameter("SectionRunTime", 0, 3200,0,"当前段运行时间",true,"MIN"),
+                        new NumberParameter("SectionRunTotal", 0, 3200,0,"当前段运行总时间",true,"MIN"),
+                        new BooleanParameter("Open/Close", false,"加热开或关", true),
+                        new NumberParameter("StatusCode", 0, 100,0,"电机运行状态码",true)
                     }
                 },
 
@@ -2680,12 +2745,22 @@ namespace HighPreactor_ModbusRTU
                         float speedSv = 0;
                         float speedPv = 0;
                         float furPv = 0;
+                        int mode = 0;
+                        int start = 0;
+                        int slope = 0;
+                        int threshold = 0;
+                        int runTime = 0;
+                        int duration = 0;
+                        int total = 0;
+                        int section = 0;
+                        int heat = 0;
+                        int status = 0;
 
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
                             tempPv = new Random().Next(0, 100);
-                            tempSv= new Random().Next(0, 100);
+                            tempSv = new Random().Next(0, 100);
                             pressure = new Random().Next(0, 100);
                             speedPv = new Random().Next(0, 100);
                             speedSv = new Random().Next(0, 100);
@@ -2703,14 +2778,44 @@ namespace HighPreactor_ModbusRTU
                             frame = BuildReadCmd(0x0106, 1);
                             pressure = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                             // 搅拌速度 PV
-                            frame = BuildReadCmd(0x00FB, 1);
+                            frame = BuildReadCmd(251, 1);
                             speedPv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                             // 搅拌速度 SV
-                            frame = BuildReadCmd(0x00FC, 1);
+                            frame = BuildReadCmd(252, 1);
                             speedSv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                             // 炉温 PV
                             frame = BuildReadCmd(4, 2);
                             furPv = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt32Async);
+                            // 设备当前控制模式
+                            frame = BuildReadCmd(56, 1);
+                            mode = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 搅拌是启动还是停止
+                            frame = BuildReadCmd(253, 1);
+                            start = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 升温斜率
+                            frame = BuildReadCmd(0x0081, 1);
+                            slope = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 转换拟合阈值
+                            frame = BuildReadCmd(0x007F, 1);
+                            threshold = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 运行时间
+                            frame = BuildReadCmd(0x0104, 1);
+                            runTime = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 当前段时间数据
+                            frame = BuildReadCmd(0x01F5, 3);
+                            short[] result = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16ArrayAsync);
+                            if (result.Length == 3)
+                            {
+                                section = result[0];
+                                duration = result[1];
+                                total = result[2];
+                            }
+                            //加热启动 / 停止
+                            frame = BuildReadCmd(54, 1);
+                            heat = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            // 电机运行状态
+                            frame = BuildReadCmd(250, 1);
+                            status = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
                         }
 
                         return new DeviceParameters()
@@ -2722,13 +2827,196 @@ namespace HighPreactor_ModbusRTU
                                 new NumberParameter("FurnacePv",-1000, 10000, furPv/100.0, "反应釜炉温 PV", true, "℃"),
                                 new NumberParameter("SpeedSv",-1000, 10000, speedSv, "反应釜搅拌速度 SV", true, "RPM"),
                                 new NumberParameter("SpeedPv",-1000, 10000, speedPv, "反应釜搅拌速度 PV", true, "RPM"),
-                                new NumberParameter("Pressure",-1000, 10000, pressure/100.0, "反应釜压力", true, "Mpa")
+                                new NumberParameter("Pressure",-1000, 10000, pressure/100.0, "反应釜压力", true, "Mpa"),
+                                new NumberParameter("CtrlMode", 0, 7, mode, "当前控制模式", true),
+                                new BooleanParameter("Start/Stop", start == 1,"启动或停止搅拌", true),
+                                new NumberParameter("Slope", 0.01, 10, slope/100.0,"反应釜升温斜率",true,"℃"),
+                                new NumberParameter("Threshold", 0.1, 30, threshold/100.0,"反应釜转换拟合阈值",true,"℃"),
+                                new NumberParameter("RunTime", 0, 9999,runTime,"反应釜已运行时间",true,"MIN"),
+                                new NumberParameter("RunningSection", 0, 8, section,"反应釜当前运行段",true),
+                                new NumberParameter("SectionRunTime", 0, 3200, duration/10.0,"当前段运行时间",true,"MIN"),
+                                new NumberParameter("SectionRunTotal", 0, 3200, total/10.0,"当前段运行总时间",true,"MIN"),
+                                new BooleanParameter("Open/Close", heat == 1,"加热开或关", true),
+                                new NumberParameter("StatusCode", 0, 100, status,"当前段运行总时间",true)
                             }
                         };
                     }
                     catch (Exception e)
                     {
                         ErrorLog($"微反应釜可视化界面参数获取失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 搅拌启动(0：停止，1：启动)
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "搅拌启动/停止",
+                HelpText = "微反应釜搅拌启动或停止",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("Start/Stop", 0, 1, 0,"启动或停止搅拌", true)
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success", false, "成功启动或停止搅拌", true),
+                        new NumberParameter("SetValue", 0, 1, 0, "启动/停止搅拌", true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("搅拌启动/停止", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        ushort value = parameter.GetValue<ushort>("Start/Stop");
+                        bool success = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式启动或停止搅拌，结果（Success：{success}，SetValue：{value}）");
+                        }
+                        else
+                        {
+                            byte[] frame = BuildWriteCmd(253, value);
+                            DebugLog($"启动或停止搅拌的求情报文：[{BitConverter.ToString(frame)}]");
+                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
+                            InfoLog($"启动或停止微反应器搅拌，结果（Success：{success}，SetValue：{value}）");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success", success, "成功启动或停止搅拌", true),
+                                new NumberParameter("SetValue", 0, 1, value, "启动/停止搅拌", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"微反应釜搅拌启动或停止失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 获取设备当前控制模式
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "获取当前控制模式",
+                HelpText = "获取微反应器设备的控制模式",
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                   {
+                       new NumberParameter("CtrlMode", 0, 7, 0, "当前控制模式", true)
+                   }
+                },
+
+                AsyncAction = AsyncWrapAction("获取当前控制模式", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        int mode = 0;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            mode = new Random().Next(0, 8);
+                            InfoLog($"模拟模式获取设备当前控制模式，结果（Mode：{mode}）");
+                        }
+                        else
+                        {
+                            byte[] frame = BuildReadCmd(56, 1);
+                            mode = await SendAndReceiveWrapperAsync(frame, CancellationToken.None, SendAndParseInt16Async);
+                            InfoLog($"获取微反应器设备当前控制模式，结果（Mode：{mode}）");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new NumberParameter("CtrlMode", 0, 7, mode, "当前控制模式", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"获取微反应器当前控制模式失败：{e.Message}");
+                        throw;
+                    }
+                })
+            });
+
+            // 加热开/关
+            Commands.Add(new DeviceCommand()
+            {
+                Name = "加热开/关",
+                HelpText = "微反应釜搅拌启动或停止",
+
+                InputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new NumberParameter("Heat", 0, 1, 0,"加热", true)
+                    }
+                },
+
+                OutputParameters = new DeviceParameters()
+                {
+                    Variables = new ObservableCollection<ParameterBase>()
+                    {
+                        new BooleanParameter("Success", false, "加热开/关成功", true),
+                        new NumberParameter("SetValue", 0, 1, 0, "是否加热", true)
+                    }
+                },
+
+                AsyncAction = AsyncWrapAction("加热开/关", async parameter =>
+                {
+                    try
+                    {
+                        ComId = Parameters.GetValue<string>("DeviceId");
+                        ushort value = parameter.GetValue<ushort>("Heat");
+                        bool success = false;
+
+                        if (IsSimulationMode)
+                        {
+                            await Task.Delay(1000);
+                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            InfoLog($"模拟模式启动加热或停止加热，结果（Success：{success}，SetValue：{value}）");
+                        }
+                        else
+                        {
+                            byte[] frame = BuildWriteCmd(54, value);
+                            success = await WriteAsync(frame, 0, frame.Length, CancellationToken.None);
+                            InfoLog($"启动或停止微反应器加热，结果（Success：{success}，SetValue：{value}）");
+                        }
+
+                        return new DeviceParameters()
+                        {
+                            Variables = new ObservableCollection<ParameterBase>()
+                            {
+                                new BooleanParameter("Success", success, "加热开/关成功", true),
+                                new NumberParameter("SetValue", 0, 1, value, "是否加热", true)
+                            }
+                        };
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorLog($"微反应釜加热启动或停止失败：{e.Message}");
                         throw;
                     }
                 })
@@ -2865,13 +3153,22 @@ namespace HighPreactor_ModbusRTU
         /// </summary>
         private byte[] BuildWriteCmd(ushort register, ushort value)
         {
-            byte[] frame = new byte[]
-            {
+            //byte[] frame = new byte[]
+            //{
+            //    GetSlaveAddress(),
+            //    0x06,
+            //    (byte)(register >> 8), (byte)(register & 0xFF),
+            //    (byte)(value >> 8),    (byte)(value & 0xFF),
+            //};
+            byte[] frame =
+            [
                 GetSlaveAddress(),
-                0x06,
+                0x10,
                 (byte)(register >> 8), (byte)(register & 0xFF),
+                0x00, 0x01,
+                0x02,
                 (byte)(value >> 8),    (byte)(value & 0xFF),
-            };
+            ];
             return Crc16Modbus.AppendCrc(frame, 0, frame.Length);
         }
 

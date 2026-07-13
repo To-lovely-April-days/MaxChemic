@@ -39,6 +39,17 @@ namespace MaxChemical.Modules.Designer.Views
         private readonly IEventAggregator _eventAggregator;
         private readonly IDragDropService _dragDropService;
         private readonly IRegionOverlayService _regionOverlayService;
+        // ★ 上云: 当前项目名(随 ProjectNameUpdatedEvent 更新),Ctrl+U 上传时带上,云端按名归档
+        private string _currentProjectName = "";
+        // ★ 上云: 地址/密钥(与云端一致)+ 实时值推送(节流)
+        private const string CloudBaseUrl = "http://139.224.67.86:9080";
+        private const string CloudUploadKey = "";   // 云端若设了 Process:UploadKey,填成同值
+        private readonly System.Net.Http.HttpClient _cloudHttp = new() { Timeout = TimeSpan.FromSeconds(10) };
+        private System.Windows.Threading.DispatcherTimer _cloudTelemetryTimer;
+        private volatile bool _cloudTelemetryDirty;
+        // ★ 上云: 实时曲线批次——每次监控更新攒一帧样本(时间+值),1s 批量发,不丢数据。
+        //   与 OnMonitoringCardUpdate/定时器同在 UI 线程,无需加锁。
+        private readonly System.Collections.Generic.List<object> _seriesBatch = new();
         private readonly ICanvasDataService _canvasDataService;
         private readonly ICommandHistory _commandHistory;
         private ProcessDesignerViewModel _viewModel;
@@ -258,6 +269,12 @@ namespace MaxChemical.Modules.Designer.Views
         {
             // 依赖注入验证
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
+            // ★ 上云: 订阅项目名,供上传与云端归档
+            _eventAggregator.GetEvent<ProjectNameUpdatedEvent>().Subscribe(
+                n => { if (!string.IsNullOrWhiteSpace(n)) _currentProjectName = n.Trim(); });
+            // ★ 上云: 订阅标题栏「上云」按钮的请求(UI 线程,才能弹 loading 遮罩)
+            _eventAggregator.GetEvent<CloudUploadRequestedEvent>().Subscribe(
+                TriggerCloudUpload, Prism.Events.ThreadOption.UIThread);
             _regionOverlayService = regionOverlayService ?? throw new ArgumentNullException(nameof(regionOverlayService));
             _dragDropService = dragDropService ?? throw new ArgumentNullException(nameof(dragDropService));
             _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
@@ -268,8 +285,50 @@ namespace MaxChemical.Modules.Designer.Views
 
             // 初始化界面组件
             InitializeComponent();
+
+            // ==========【临时】导出工艺画布为 SVG:Ctrl+Shift+E ==========
+            // 用于把当前画布(设备+管路,渲染结果)导出成矢量 SVG,发给云端还原。
+            // 验证/对接完成后可删除这段。
+            this.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.E && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+                {
+                    try
+                    {
+                        DesignCanvas.UpdateLayout();
+                        string svg = CanvasSvgExporter.ExportToSvg(
+                            DesignCanvas, DesignCanvas.ActualWidth, DesignCanvas.ActualHeight,
+                            CanvasSvgExporter.TryResolveDeviceId);
+                        string outPath = System.IO.Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "process.svg");
+                        System.IO.File.WriteAllText(outPath, svg);
+                        MessageBox.Show("已导出:" + outPath);
+                    }
+                    catch (Exception ex) { MessageBox.Show("导出失败:" + ex.Message); }
+                }
+            };
+
+            // ==========【上云】导出并直接上传到云端:Ctrl+U(与工具栏「上云」按钮同一逻辑)==========
+            // 无需手动导出文件:导出当前画布 → POST 到云端 → 网页 process.html 立即展示。
+            this.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.U && Keyboard.Modifiers == ModifierKeys.Control)
+                    TriggerCloudUpload();
+            };
+
             //  新增：初始化布局更新定时器
             InitializeLayoutUpdateTimer();
+
+            // ★ 上云: 实时值推送定时器(1s 节流,监控值有更新才推全量快照)
+            _cloudTelemetryTimer = new System.Windows.Threading.DispatcherTimer
+            { Interval = TimeSpan.FromSeconds(1) };
+            _cloudTelemetryTimer.Tick += (s, e) =>
+            {
+                if (_cloudTelemetryDirty) { _cloudTelemetryDirty = false; _ = PushTelemetryAsync(); }
+                FlushSeriesBatch();   // ★ 曲线:把这一秒攒的样本批量发出去
+            };
+            _cloudTelemetryTimer.Start();
+
             Debug.WriteLine("ProcessDesignerView 构造函数被调用");
 
             // 配置拖放功能
@@ -1092,6 +1151,8 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     // 更新卡片参数值
                     card.UpdateParameterValues(e.OutputParameters);
+                    _cloudTelemetryDirty = true;   // ★ 上云: 标记有更新,定时器下一拍推全量快照
+                    AppendSeriesSample(card);      // ★ 曲线: 攒一帧样本(此刻该卡片各指标值)
                     Debug.WriteLine($"更新监控卡片数据: 设备 {e.DeviceId}, 命令 {e.CommandName}");
                 }
             }
@@ -1099,6 +1160,114 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"更新监控卡片数据失败: {ex.Message}");
             }
+        }
+
+        // ══════════════ 上云(标题栏「上云」按钮 / Ctrl+U 共用)══════════════
+
+        private bool _cloudUploading;
+
+        /// <summary>触发一次上云:显示 loading 遮罩 → 导出并上传 → 收起。标题栏按钮与 Ctrl+U 都走这里。</summary>
+        private async void TriggerCloudUpload()
+        {
+            if (_cloudUploading) return;   // 防重入(loading 期间再次点击/按键)
+            _cloudUploading = true;
+            if (UploadingOverlay != null) UploadingOverlay.Visibility = Visibility.Visible;
+            try
+            {
+                await UploadToCloudAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("上云失败:" + ex.Message);
+            }
+            finally
+            {
+                if (UploadingOverlay != null) UploadingOverlay.Visibility = Visibility.Collapsed;
+                _cloudUploading = false;
+            }
+        }
+
+        /// <summary>导出当前画布 SVG 上传 + 顺带即时推一版实时值(点一次就刷新一次云端)。</summary>
+        private async Task UploadToCloudAsync()
+        {
+            DesignCanvas.UpdateLayout();
+            string svg = CanvasSvgExporter.ExportToSvg(
+                DesignCanvas, DesignCanvas.ActualWidth, DesignCanvas.ActualHeight,
+                CanvasSvgExporter.TryResolveDeviceId);
+            await PostCloudAsync("/ingest/process/svg", new { name = _currentProjectName ?? "", svg });
+            await PushTelemetryAsync();   // 即时把当前监控值也推上去
+        }
+
+        /// <summary>把所有监控卡片的当前值拼成 {设备名|指标:值} 全量快照,推给云端实时展示。</summary>
+        private async Task PushTelemetryAsync()
+        {
+            try
+            {
+                var values = new Dictionary<string, object>();
+                foreach (var kv in _monitoringCards)
+                {
+                    var card = kv.Value;
+                    var name = card?.DeviceName;
+                    if (card?.Parameters == null || string.IsNullOrEmpty(name)) continue;
+                    foreach (var p in card.Parameters)
+                    {
+                        if (p == null || string.IsNullOrEmpty(p.Name)) continue;
+                        var key = name + "|" + p.Name;
+                        if (double.TryParse(p.Value, out var d)) values[key] = d;
+                        else if (!string.IsNullOrEmpty(p.Value)) values[key] = p.Value;
+                    }
+                }
+                if (values.Count == 0) return;
+                await PostCloudAsync("/ingest/process/telemetry", new { name = _currentProjectName ?? "", values });
+            }
+            catch (Exception ex) { Debug.WriteLine("推送实时值失败: " + ex.Message); }
+        }
+
+        /// <summary>攒一帧曲线样本:此刻某卡片各指标的数值(带时间戳)。不丢中间值。</summary>
+        private void AppendSeriesSample(MonitoringCard card)
+        {
+            try
+            {
+                var name = card?.DeviceName;
+                if (card?.Parameters == null || string.IsNullOrEmpty(name)) return;
+                var values = new Dictionary<string, double>();
+                foreach (var p in card.Parameters)
+                {
+                    if (p == null || string.IsNullOrEmpty(p.Name)) continue;
+                    if (double.TryParse(p.Value, out var d)) values[name + "|" + p.Name] = d;   // 曲线只收数值
+                }
+                if (values.Count == 0) return;
+                _seriesBatch.Add(new { t = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), values });
+                if (_seriesBatch.Count > 3000) _seriesBatch.RemoveRange(0, _seriesBatch.Count - 3000); // 背压保护
+            }
+            catch (Exception ex) { Debug.WriteLine("攒曲线样本失败: " + ex.Message); }
+        }
+
+        /// <summary>把这一秒攒的曲线样本批量发到云端(每个样本都发,不丢数据)。</summary>
+        private void FlushSeriesBatch()
+        {
+            if (_seriesBatch.Count == 0) return;
+            var frames = _seriesBatch.ToArray();
+            _seriesBatch.Clear();
+            _ = SafePostAsync("/ingest/process/series", new { name = _currentProjectName ?? "", frames });
+        }
+
+        /// <summary>后台 POST:静默吞异常(云端未启动/未登录时不打扰桌面)。</summary>
+        private async Task SafePostAsync(string path, object payload)
+        {
+            try { await PostCloudAsync(path, payload); } catch (Exception ex) { Debug.WriteLine($"上云后台 POST {path} 失败: {ex.Message}"); }
+        }
+
+        /// <summary>统一的云端 POST(带可选 X-Upload-Key)。</summary>
+        private async Task PostCloudAsync(string path, object payload)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            using var req = new System.Net.Http.HttpRequestMessage(
+                System.Net.Http.HttpMethod.Post, CloudBaseUrl + path);
+            req.Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            if (!string.IsNullOrEmpty(CloudUploadKey)) req.Headers.Add("X-Upload-Key", CloudUploadKey);
+            using var resp = await _cloudHttp.SendAsync(req);
+            resp.EnsureSuccessStatusCode();
         }
         /*
         private Storyboard CreatePulseStoryboard(Border element)
@@ -5362,6 +5531,13 @@ namespace MaxChemical.Modules.Designer.Views
                         return new Size(200, 170);
                     case "DynamicTubularReactor_ModbusRTU":
                         return new Size(240, 216);
+                    case "HighPreactor_ModbusRTU":
+                        return new Size(200, 300);
+                    case "HighTempFurnace_ModbusRTU":
+                        return new Size(198, 120);
+                    case "HighLowTemperature_ModbusTCP":
+                        return new Size(144, 200);
+
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }
 

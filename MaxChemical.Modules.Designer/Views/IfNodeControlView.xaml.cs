@@ -1091,8 +1091,10 @@ namespace MaxChemical.Modules.Designer.Views
                 FalseBranchWrapper.Width = falseW;
 
                 // 主卡片
-                Canvas.SetLeft(MainStepCard, 0);
-                Canvas.SetTop(MainStepCard, cardTopFinal);
+                Canvas.SetLeft(MainStepCard, 2);
+                Canvas.SetTop(MainStepCard, cardTopFinal+2);
+                Canvas.SetLeft(ShadowBorder, 0);
+                Canvas.SetTop(ShadowBorder, cardTopFinal);
 
                 // 连线
                 double forkX = CARD_WIDTH + BRANCH_OFFSET_X / 2.0;

@@ -1581,6 +1581,13 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     CommandNodes?.Count ?? 0,
                     Connections?.Count ?? 0,
                     CanvasDevices?.Count ?? 0);
+                // 清除泳道相关
+                FlowStartTime = null;
+                _timelineRefreshTimer?.Stop();       // ← 加这行
+                IsCurrentTimeLineVisible = false;    // ← 加这行
+                SwimlaneRows.Clear();
+                DeviceLegends.Clear();
+                TimelineTicks.Clear();           // ← 加这行
 
                 _logger.LogDebug("========== 流程清空完成 ==========");
             }
@@ -1631,6 +1638,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 // 恢复命令节点
                 RestoreCommandNodes(flowDocument.CommandNodes);
+
+                // 添加泳道
+                SyncSwimlaneRows();
 
                 // 延迟恢复连接确保节点已创建
                 System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>

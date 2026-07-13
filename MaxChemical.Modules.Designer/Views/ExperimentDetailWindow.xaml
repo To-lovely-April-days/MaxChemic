@@ -308,6 +308,25 @@
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E8EAF6"/>
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#1A1F36"/>
                             </DataGrid.Resources>
+                            <DataGrid.Template>
+                                <ControlTemplate TargetType="{x:Type DataGrid}">
+                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            SnapsToDevicePixels="True">
+                                        <ScrollViewer Style="{StaticResource SharedScrollViewer}">
+                                            <ScrollViewer.CanContentScroll>True</ScrollViewer.CanContentScroll>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <DataGridColumnHeadersPresenter />
+                                                <ItemsPresenter Grid.Row="1" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                            </Grid>
+                                        </ScrollViewer>
+                                    </Border>
+                                </ControlTemplate>
+                            </DataGrid.Template>
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#FAFBFC"/>
@@ -428,6 +447,24 @@
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E8EAF6"/>
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#1A1F36"/>
                             </DataGrid.Resources>
+                            <DataGrid.Template>
+                                <ControlTemplate TargetType="{x:Type DataGrid}">
+                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                                        <ScrollViewer Style="{StaticResource SharedScrollViewer}">
+                                            <ScrollViewer.CanContentScroll>True</ScrollViewer.CanContentScroll>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <DataGridColumnHeadersPresenter />
+                                                <ItemsPresenter Grid.Row="1" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                            </Grid>
+                                        </ScrollViewer>
+                                    </Border>
+                                </ControlTemplate>
+                            </DataGrid.Template>
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#FAFBFC"/>

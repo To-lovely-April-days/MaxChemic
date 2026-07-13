@@ -63,7 +63,7 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="White" 
+    <Border Background="White"
             BorderBrush="#CCCCCC" 
             BorderThickness="1">
         <Grid>
@@ -79,7 +79,7 @@
                 <!-- Row 2: 菜单栏 -->
                 <RowDefinition Height="42"/>
                 <!-- Row 3: 工具栏 -->
-                <RowDefinition Height="44"/>
+                <RowDefinition Height="Auto"/>
                 <!-- Row 4: 间隔区域 -->
                 <RowDefinition Height="5"/>
                 <!-- Row 5: 主内容区（包含标签页和内容） -->
@@ -98,7 +98,7 @@
             <controls:MainMenuBar Grid.Row="2" Grid.ColumnSpan="2"  />
 
             <!-- 工具栏 -->
-            <controls:MainToolBar Grid.Row="3" Grid.ColumnSpan="2"/>
+            <controls:MainToolBar Grid.Row="3" Grid.ColumnSpan="2" Visibility="{Binding DataContext.IsToolbarVisible,RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!-- 间隔区域 -->
             <Border Grid.Row="4" Grid.ColumnSpan="2" 

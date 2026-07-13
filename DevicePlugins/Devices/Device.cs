@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DevicePlugins.Devices.Remote;
 using MaxChemical.Core;
 using MaxChemical.Logging;
 
@@ -300,6 +301,35 @@ namespace DevicePlugins.Devices
                         }
                         break;
 
+                    case CommunicationMode.RemoteServer:
+                        if (IsSimulationMode)
+                        {
+                            result = await OnConnectSimulationAsync();
+                            break;
+                        }
+                        // 1) 预热云隧道:把首次建连(SignalR negotiate+握手)开销挪到"连接"动作里,首条数据命令就不再慢
+                        var tunnelOk = await RemoteGatewayClient.Instance.ConnectAsync();
+                        if (!tunnelOk)
+                        {
+                            WarnLog("RemoteServer 连接失败:云隧道未连通");
+                            result = false;
+                            break;
+                        }
+                        // 2) 校验本设备的 DTU 是否真的在线(否则填错序列号也会"连上")
+                        var dtuSerial = Parameters?.GetValue<string>("DTU序列号");
+                        if (string.IsNullOrWhiteSpace(dtuSerial))
+                        {
+                            WarnLog("RemoteServer 连接失败:未配置「DTU序列号」");
+                            result = false;
+                            break;
+                        }
+                        result = await RemoteGatewayClient.Instance.IsSerialOnlineAsync(dtuSerial);
+                        if (!result)
+                            WarnLog($"RemoteServer 连接失败:DTU[{dtuSerial}] 未在线(序列号是否填错?或 DTU 未上线)");
+                        else
+                            InfoLog($"RemoteServer 连接成功:隧道OK 且 DTU[{dtuSerial}] 在线");
+                        break;
+
                     case CommunicationMode.Direct:
                     default:
                         result = IsSimulationMode
@@ -405,6 +435,21 @@ namespace DevicePlugins.Devices
 
                     case CommunicationMode.ZLanGateway:
                         isAlive = await OnCheckConnectionViaGatewayAsync();
+                        break;
+
+                    case CommunicationMode.RemoteServer:
+                        // 心跳:隧道断 → 必然够不到设备;隧道通 → 再确认本设备 DTU 仍在线
+                        // (DTU 掉线时设备应转为未连接,以触发安全 HOLD/告警)
+                        if (!RemoteGatewayClient.Instance.IsConnected)
+                        {
+                            isAlive = false;
+                        }
+                        else
+                        {
+                            var hbSerial = Parameters?.GetValue<string>("DTU序列号");
+                            isAlive = !string.IsNullOrWhiteSpace(hbSerial)
+                                && await RemoteGatewayClient.Instance.IsSerialOnlineAsync(hbSerial);
+                        }
                         break;
 
                     case CommunicationMode.Direct:
@@ -574,12 +619,25 @@ namespace DevicePlugins.Devices
         /// <param name="serialConfig">Direct 模式时使用的串口配置</param>
         protected async Task<IDeviceTransport> CreateTransportAsync(SerialPortConfig serialConfig)
         {
+            var mode = GetDeviceCommunicationMode();
+
+            // 集中化:自建云服务器(RemoteServer)模式 —— 所有字节级驱动统一经此走云透传，
+            // 无需各驱动自行处理。设备只需配置"通信方式=RemoteServer"+"DTU序列号"。
+            if (mode == CommunicationMode.RemoteServer)
+            {
+                var serialNo = Parameters?.GetValue<string>("DTU序列号");
+                if (string.IsNullOrWhiteSpace(serialNo))
+                {
+                    throw new InvalidOperationException("RemoteServer 模式下必须配置「DTU序列号」(=DTU 的登录包)");
+                }
+                return new RemoteGatewayTransport(serialNo);
+            }
+
             var factory = DeviceServices.TransportFactory
                 ?? throw new InvalidOperationException(
                     "IDeviceTransportFactory 未注册。请确保 Shell 在启动时设置 DeviceServices.TransportFactory。");
 
             var deviceInstanceId = Parameters?.GetValue<string>("DeviceId") ?? DeviceId;
-            var mode = GetDeviceCommunicationMode();
 
             return await factory.CreateTransportAsync(
                 this.GetType().Name,

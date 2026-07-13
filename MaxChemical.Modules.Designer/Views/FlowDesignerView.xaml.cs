@@ -646,7 +646,7 @@ namespace MaxChemical.Modules.Designer.Views
         private void DeviceNode_DeleteClick(object sender, RoutedEventArgs e)
         {
             _logger.LogDebug("设备节点删除点击");
-
+            
             try
             {
                 if (sender is Border border && border.Tag is CommandNode nodeToDelete)
@@ -683,15 +683,16 @@ namespace MaxChemical.Modules.Designer.Views
                 {
                     _logger.LogTrace("逻辑节点: {NodeName}", node.DisplayName);
 
-                    if (IsClickFromNestedNode(e.OriginalSource, node))
-                    {
-                        _logger.LogTrace("点击来自嵌套节点，跳过处理");
-                        return;
-                    }
 
                     if (IsClickOnLogicNodeInteractiveElement(e))
                     {
                         _logger.LogTrace("点击在逻辑节点的交互元素上，跳过选择");
+                        return;
+                    }
+
+                    if (IsClickFromNestedNode(e.OriginalSource, node))
+                    {
+                        _logger.LogTrace("点击来自嵌套节点，跳过处理");
                         return;
                     }
 
@@ -741,6 +742,10 @@ namespace MaxChemical.Modules.Designer.Views
                         {
                             _logger.LogTrace("发现嵌套节点: {NestedNode} (父节点: {ParentNode})",
                                 tagNode.DisplayName, parentNode.DisplayName);
+                            if (tagNode.IsLogicCommand)
+                            {
+                                HandleNodeSelection(tagNode);
+                            }
                             return true;
                         }
                     }

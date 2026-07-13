@@ -29,10 +29,10 @@
         <Style TargetType="Button">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="Background" Value="#FFFAEAEA"/>
+            <Setter Property="Background" Value="LightGray"/>
             <Setter Property="Width" Value="100"/>
             <Setter Property="Height" Value="40"/>
-            <Setter Property="Foreground" Value="#FF3AB000"/>
+            <Setter Property="Foreground" Value="Red"/>
             <Setter Property="FontSize" Value="18"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -148,6 +148,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="32"/>
                     <RowDefinition Height="36"/>
+                    <RowDefinition Height="36"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
@@ -156,22 +157,26 @@
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
 
-                <Image Grid.RowSpan="2" Source="pack://siteoforigin:,,,/Resources/Screens/highpreactor_furnace.png"/>
+                <Image Grid.RowSpan="3" Source="pack://siteoforigin:,,,/Resources/Screens/highpreactor_bath.png"/>
 
                 <TextBlock Text="炉温" Grid.Column="1" Foreground="White" FontSize="20"/>
+                <!--SV-->
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="SV" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBox Name="TbFurnaceSv" Grid.Row="1" Grid.Column="2" Text="0.00" VerticalAlignment="Center" KeyDown="TbBathSv_KeyDown"/>
+                <TextBlock Grid.Row="1" Text="℃" Grid.Column="3" Foreground="White" VerticalAlignment="Center"/>
 
-                <TextBlock Grid.Row="1" Text="PV" Grid.Column="1" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <TextBlock Name="TbFurnacePv" Grid.Row="1" Grid.Column="2" Margin="4,0,8,0" FontSize="16" Text="0.00" Foreground="Red" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                <Rectangle Grid.Row="1" Grid.Column="2" Height="2" Fill="White" VerticalAlignment="Bottom"/>
-                <TextBlock Grid.Row="1" Grid.Column="3" Text="℃" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="2" Text="PV" Grid.Column="1" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Name="TbFurnacePv" Grid.Row="2" Grid.Column="2" Margin="4,0,8,0" FontSize="16" Text="0.00" Foreground="Red" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Rectangle Grid.Row="2" Grid.Column="2" Height="2" Fill="White" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Row="2" Grid.Column="3" Text="℃" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
-        <Button Content="加热" Canvas.Left="68" Canvas.Top="515" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-        <Button Content="搅拌" Canvas.Left="208" Canvas.Top="515" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+        <Button Name="BtnHeat" Content="加热" Canvas.Left="68" Canvas.Top="515" Click="BtnHeat_Click"/>
+        <Button Name="BtnSpeed" Content="搅拌" Canvas.Left="208" Canvas.Top="515" Click="BtnSpeed_Click"/>
 
         <!--斜率控制-->
-        <Grid Canvas.Left="391" Canvas.Top="526" Width="500" Visibility="Collapsed">
+        <Grid Name="GridSlopeCtrl" Canvas.Left="391" Canvas.Top="526" Width="500" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition/>
@@ -182,15 +187,15 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="升温斜率：" Foreground="White" FontSize="16"/>
-            <TextBox Grid.Column="1" Text="0" Foreground="White" FontSize="18" TextAlignment="Center"/>
+            <TextBox Name="TbSlope" Grid.Column="1" Text="0" Foreground="White" FontSize="18" TextAlignment="Center" KeyDown="TbSlope_KeyDown"/>
             <TextBlock Grid.Column="2" Text="℃/MIN" Foreground="White" FontSize="16"/>
             <TextBlock Grid.Column="4" Text="转换拟合阈值：" Foreground="White" FontSize="16"/>
-            <TextBox Grid.Column="5" Text="0" Foreground="White" FontSize="18" TextAlignment="Center"/>
+            <TextBox Name="TbThreshold" Grid.Column="5" Text="0" Foreground="White" FontSize="18" TextAlignment="Center" KeyDown="TbThreshold_KeyDown"/>
             <TextBlock Grid.Column="6" Text="℃" Foreground="White" FontSize="16"/>
         </Grid>
 
         <!--程序控制-->
-        <Grid Canvas.Left="391" Canvas.Top="526" Width="520" Visibility="Collapsed">
+        <Grid Name="GridProgramCtrl" Canvas.Left="391" Canvas.Top="526" Width="520" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition/>
@@ -201,34 +206,28 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="当前段：" Foreground="White" FontSize="16"/>
-            <TextBlock Grid.Column="1" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Name="TbSection" Grid.Column="1" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <Rectangle Grid.Column="1" Height="2" Fill="White" VerticalAlignment="Bottom"/>
             <TextBlock Grid.Column="2" Text="段运行时间：" Foreground="White" FontSize="16"/>
-            <TextBlock Grid.Column="3" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            <Rectangle Grid.Column="3" Height="2" Fill="White" VerticalAlignment="Bottom"/>
+            <TextBlock Name="TbSectionRunTime" Grid.Column="3" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="3" Text="/" Foreground="White" FontSize="16" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="5" Text="0" Foreground="Red" FontSize="18" TextAlignment="Center"/>
+            <TextBlock Name="TbTotalTime" Grid.Column="5" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="6" Text="MIN" Foreground="White" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Rectangle Grid.Column="3" Grid.ColumnSpan="3" Height="2" Fill="White" VerticalAlignment="Bottom"/>
         </Grid>
 
         <!--釜温/炉温控制-->
-        <Grid Canvas.Left="391" Canvas.Top="526" Width="500" Visibility="Visible">
+        <Grid Name="GridTempCtrl" Canvas.Left="521" Canvas.Top="524" Width="240" Visibility="Visible">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="保温计时：" Foreground="White" FontSize="16" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Text="运行时间：" Foreground="White" FontSize="16" VerticalAlignment="Center"/>
+            <TextBlock Name="TbRunTime" Grid.Column="1" Text="0" Foreground="Red" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <Rectangle Grid.Column="1" Height="2" Fill="White" VerticalAlignment="Bottom"/>
             <TextBlock Grid.Column="2" Text="MIN" Foreground="White" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="4" Text="设定时间：" Foreground="White" FontSize="18" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="5" Text="0" Foreground="White" FontSize="18" TextAlignment="Center"/>
-            <TextBlock Grid.Column="6" Text="MIN" Foreground="White" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
         </Grid>
 
         <!--当前设备控制模式-->

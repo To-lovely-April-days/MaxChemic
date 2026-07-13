@@ -8,14 +8,20 @@ using MaxChemical.Modules.Designer.Models;
 using MaxChemical.Modules.Designer.Service;
 using MaxChemical.Modules.Designer.ViewModels;
 using MaxChemical.Modules.GatewayConfig.Services;
+using MaxChemical.Shell.Events;
+using MaxChemical.Shell.Models;
+using MaxChemical.Shell.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Text.Json;
 using System.Windows;
 
 namespace MaxChemical.Shell.ViewModels;
@@ -34,6 +40,7 @@ public class MainMenuBarViewModel : BindableBase
     private readonly ICanvasDataService _canvasDataService;
     private readonly ICanvasStateService _canvasStateService;
     private readonly IDialogService _dialogService;
+    private readonly IRecentFileService _recentFileService;
 
     private bool _isToolbarVisible = true;
     private bool _isStatusBarVisible = true;
@@ -76,7 +83,8 @@ public class MainMenuBarViewModel : BindableBase
         ICanvasStateService canvasStateService,
         IProjectNameDialogProvider projectNameDialogProvider,
         IProjectDataService projectDataService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IRecentFileService recentFileService)
     {
         _eventAggregator = eventAggregator;
         _localizationService = localizationService;
@@ -89,11 +97,12 @@ public class MainMenuBarViewModel : BindableBase
         _canvasDataService = canvasDataService ?? throw new ArgumentNullException(nameof(canvasDataService));
         _canvasStateService = canvasStateService ?? throw new ArgumentNullException(nameof(canvasStateService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _recentFileService = recentFileService ?? throw new ArgumentNullException(nameof(recentFileService));
 
         InitializeCommands();
         LoadLocalizedStrings();
-        LoadRecentFiles();
         SubscribeEvents();
+        LoadRecentFiles();
     }
 
     #region Localized Properties
@@ -286,6 +295,9 @@ public class MainMenuBarViewModel : BindableBase
     public DelegateCommand CompareExperimentsCommand { get; private set; } = null!;
     public DelegateCommand ClearHistoryCommand { get; private set; } = null!;
 
+    // 窗口命令
+    public DelegateCommand ShowToolBarCommand { get; private set; } = null!;
+
     // 视图命令
     public DelegateCommand ZoomInCommand { get; private set; } = null!;
     public DelegateCommand ZoomOutCommand { get; private set; } = null!;
@@ -339,6 +351,9 @@ public class MainMenuBarViewModel : BindableBase
         GenerateReportCommand = new DelegateCommand(ExecuteGenerateReport);
         CompareExperimentsCommand = new DelegateCommand(ExecuteCompareExperiments);
         ClearHistoryCommand = new DelegateCommand(ExecuteClearHistory);
+
+        // 窗口命令
+        ShowToolBarCommand = new DelegateCommand(ExecuteShowToolbar);
 
         // 视图命令
         ZoomInCommand = new DelegateCommand(ExecuteZoomIn);
@@ -406,6 +421,15 @@ public class MainMenuBarViewModel : BindableBase
     private void SubscribeEvents()
     {
         _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChanged);
+        // 订阅最近打开文件集合改变事件
+        _eventAggregator.GetEvent<RecentFilesChangedEvent>()?.Subscribe(collection =>
+        {
+            RecentFiles.Clear();
+            if (collection != null && collection.Count > 0)
+            {
+                RecentFiles.AddRange(collection);
+            }
+        });
     }
 
     private void OnLanguageChanged(string cultureName)
@@ -416,15 +440,19 @@ public class MainMenuBarViewModel : BindableBase
     // 新增：加载最近文件列表
     private void LoadRecentFiles()
     {
-        var recentFiles = GetRecentFilesFromStorage();
+        _recentFileService.LoadAsync();
 
-        RecentFiles.Clear();
-        foreach (var file in recentFiles)
-        {
-            RecentFiles.Add(file);
-        }
+        //RecentFiles.Clear();
+        //foreach (var file in recentFiles)
+        //{
+        //    RecentFiles.Add(file);
+        //}
     }
 
+    /// <summary>
+    /// 从配置文件中获取最近打开文件的信息
+    /// </summary>
+    /// <returns>最近打开文件信息列表</returns>
     private List<RecentFileItem> GetRecentFilesFromStorage()
     {
         return new List<RecentFileItem>
@@ -462,7 +490,7 @@ public class MainMenuBarViewModel : BindableBase
 
     private void SaveRecentFilesToStorage()
     {
-        // 保存到配置文件或数据库
+        
     }
 
     #region Command Implementations
@@ -663,8 +691,12 @@ public class MainMenuBarViewModel : BindableBase
         if (projectDocument == null)
         {
             _dialogService.ShowError("无法加载项目文件，文件可能已损坏", "打开失败");
+            // 从最近打开文件列表中移除
+            _recentFileService.Remove(fileName);
             return;
         }
+
+        _recentFileService.Add(fileName);
 
         // 设置当前文件路径
         _canvasStateService.SetCurrentFile(fileName);
@@ -708,6 +740,8 @@ public class MainMenuBarViewModel : BindableBase
         {
             // 标记为已保存
             _canvasStateService.MarkAsSaved();
+
+            _recentFileService.Add(fileName);
 
             _eventAggregator?.GetEvent<Modules.Designer.Event.ProjectSavedEvent>()?.Publish(fileName);
             _eventAggregator?.GetEvent<FileSavedEvent>()?.Publish(fileName);
@@ -788,20 +822,51 @@ public class MainMenuBarViewModel : BindableBase
         }
     }
 
+    /// <summary>
+    /// 从最近打开文件列表打开项目文件
+    /// </summary>
+    /// <param name="filePath"></param>
     private void ExecuteOpenRecent(string? filePath)
     {
         if (!string.IsNullOrEmpty(filePath))
         {
-            var message = string.Format(_localizationService.GetString("Message_OpenRecentFile"), filePath);
-            MessageBox.Show(message, _localizationService.GetString("Message_Info"));
+            //var message = string.Format(_localizationService.GetString("Message_OpenRecentFile"), filePath);
+            //MessageBox.Show(message, _localizationService.GetString("Message_Info"));
 
-            var recentFile = RecentFiles.FirstOrDefault(f => f.FilePath == filePath);
-            if (recentFile != null)
+            //var recentFile = RecentFiles.FirstOrDefault(f => f.FilePath == filePath);
+            //if (recentFile != null)
+            //{
+            //    RecentFiles.Remove(recentFile);
+            //    recentFile.LastAccessed = DateTime.Now;
+            //    RecentFiles.Insert(0, recentFile);
+            //    SaveRecentFilesToStorage();
+            //}
+
+            try
             {
-                RecentFiles.Remove(recentFile);
-                recentFile.LastAccessed = DateTime.Now;
-                RecentFiles.Insert(0, recentFile);
-                SaveRecentFilesToStorage();
+                // 检查当前是否有未保存的修改
+                if (_canvasStateService.HasUnsavedChanges)
+                {
+                    var result = _dialogService.ShowConfirmation(
+                        "当前项目有未保存的修改，是否先保存？",
+                        "打开项目");
+
+                    if (result)
+                    {
+                        ExecuteSave();
+                        if (_canvasStateService.HasUnsavedChanges)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                // 加载项目文件
+                LoadProjectFile(filePath);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"打开文件失败: {ex.Message}", "打开失败");
             }
         }
     }
@@ -950,13 +1015,23 @@ public class MainMenuBarViewModel : BindableBase
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    /// <summary>
+    /// 执行工具栏可见性切换命令
+    /// </summary>
+    private void ExecuteShowToolbar()
+    {
+        // 发布事件
+        _eventAggregator.GetEvent<ToolBarVisibleEvent>()?.Publish(IsToolbarVisible);
+    }
+
     #endregion
 }
 
-public class RecentFileItem
-{
-    public string FileName { get; set; } = string.Empty;
-    public string FilePath { get; set; } = string.Empty;
-    public DateTime LastAccessed { get; set; }
-    public string DisplayName => System.IO.Path.GetFileName(FileName);
-}
+//public class RecentFileItem
+//{
+//    public string FileName { get; set; } = string.Empty;
+//    public string FilePath { get; set; } = string.Empty;
+//    public DateTime LastAccessed { get; set; }
+//    public string DisplayName => System.IO.Path.GetFileName(FileName);
+//}

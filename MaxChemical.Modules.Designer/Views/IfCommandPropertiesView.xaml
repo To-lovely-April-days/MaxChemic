@@ -120,7 +120,7 @@
     </UserControl.Resources>
 
     <Border Background="#F5F5F5">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource ThinScrollViewerStyle}">
             <StackPanel Margin="10">
 
                 <!-- ① Header -->

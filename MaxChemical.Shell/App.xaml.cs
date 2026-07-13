@@ -24,6 +24,7 @@ using MaxChemical.Core;
 using MaxChemical.Shell.Services;
 using MaxChemical.Modules.DOE;
 using MaxChemical.Infrastructure.DOE;
+using System.Diagnostics;
 
 namespace MaxChemical.Shell;
 
@@ -92,6 +93,7 @@ public partial class App : PrismApplication
     protected override void RegisterTypes(IContainerRegistry containerRegistry)
     {
         // ========== 基础服务 ==========
+        containerRegistry.RegisterSingleton<IRecentFileService, RecentFileService>();
         containerRegistry.RegisterSingleton<ILocalizationService, LocalizationService>();
         containerRegistry.RegisterSingleton<IDialogService, DialogService>();
         containerRegistry.RegisterSingleton<IProjectService, ProjectService>();
@@ -172,6 +174,8 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IExperimentDataCollectionService, ExperimentDataCollectionService>();
         containerRegistry.RegisterSingleton<IExcelExportService, ExcelExportService>();
         containerRegistry.RegisterSingleton<IExperimentDataAdapter, ExperimentDataAdapter>();
+        // 云链路安全监护(断线 HOLD 流程 + 告警)
+        containerRegistry.RegisterSingleton<RemoteLinkSafetyMonitor>();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -245,7 +249,12 @@ public partial class App : PrismApplication
             var persistenceService = Container.Resolve<IVariablePersistenceBackgroundService>();
             persistenceService.StartListening();
 
+            // 启动云链路安全监护(订阅链路健康，断线自动 HOLD 流程并告警)
+            Container.Resolve<RemoteLinkSafetyMonitor>();
+
             _logger?.LogInformation("应用程序初始化完成");
+
+          
         }
         catch (Exception ex)
         {

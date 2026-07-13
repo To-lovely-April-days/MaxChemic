@@ -98,6 +98,7 @@
                                        Foreground="#888"
                                        FontWeight="Medium"/>
                                     <TextBlock Text="{Binding Value}"
+                                       Tag="mc-value"
                                        FontSize="11"
                                        FontWeight="Medium"
                                        Foreground="#1A1A1A"
