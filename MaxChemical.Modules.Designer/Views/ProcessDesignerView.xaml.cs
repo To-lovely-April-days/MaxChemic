@@ -42,7 +42,7 @@ namespace MaxChemical.Modules.Designer.Views
         // ★ 上云: 当前项目名(随 ProjectNameUpdatedEvent 更新),Ctrl+U 上传时带上,云端按名归档
         private string _currentProjectName = "";
         // ★ 上云: 地址/密钥(与云端一致)+ 实时值推送(节流)
-        private const string CloudBaseUrl = "http://localhost:9080";
+        private const string CloudBaseUrl = "http://139.224.67.86:9080";
         private const string CloudUploadKey = "";   // 云端若设了 Process:UploadKey,填成同值
         private readonly System.Net.Http.HttpClient _cloudHttp = new() { Timeout = TimeSpan.FromSeconds(10) };
         private System.Windows.Threading.DispatcherTimer _cloudTelemetryTimer;
@@ -5531,6 +5531,13 @@ namespace MaxChemical.Modules.Designer.Views
                         return new Size(200, 170);
                     case "DynamicTubularReactor_ModbusRTU":
                         return new Size(240, 216);
+                    case "HighPreactor_ModbusRTU":
+                        return new Size(200, 300);
+                    case "HighTempFurnace_ModbusRTU":
+                        return new Size(198, 120);
+                    case "HighLowTemperature_ModbusTCP":
+                        return new Size(144, 200);
+
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }
 

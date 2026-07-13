@@ -1,0 +1,291 @@
+<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.HighTempFurnaceScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views.Controls.Screens"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d"
+             Height="620" Width="1240">
+    <base:DeviceScreenBase.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#33000000"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3EFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="60"/>
+        </Style>
+    </base:DeviceScreenBase.Resources>
+
+    <Canvas>
+        <Canvas.Background>
+            <RadialGradientBrush GradientOrigin="0.16,0.14" Center="0.16,0.14" RadiusX="0.95" RadiusY="0.95">
+                <GradientStop Color="#6E1B1B" Offset="0"/>
+                <GradientStop Color="#2A1212" Offset="0.4"/>
+                <GradientStop Color="#08090C" Offset="0.82"/>
+            </RadialGradientBrush>
+        </Canvas.Background>
+
+        <!-- 标题 -->
+        <StackPanel Canvas.Left="40" Canvas.Top="28">
+            <TextBlock Name="TbTitle" Text="高温炉" FontSize="26" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Name="TbMeta" Text="管式高温炉 · Modbus RTU" FontSize="13" Foreground="#8FFFFFFF" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- PV 半圆表盘(0~1300℃) -->
+        <Canvas Width="212" Height="106" Canvas.Left="96" Canvas.Top="150" ClipToBounds="True">
+            <!-- 表盘背景 -->
+            <Path Stroke="LightGray" StrokeThickness="12">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathGeometry.Figures>
+                            <PathFigure StartPoint="6,106">
+                                <ArcSegment Size="100,100" Point="206,106" SweepDirection="Clockwise"/>
+                            </PathFigure>
+                        </PathGeometry.Figures>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
+            <!-- 表盘进度(代码里旋转 -180°→0° 对应 0→1300℃) -->
+            <Path Stroke="#FFFF5A2A" StrokeThickness="12" RenderTransformOrigin="0.5,1">
+                <Path.RenderTransform>
+                    <RotateTransform x:Name="ArcProgress" Angle="-180"/>
+                </Path.RenderTransform>
+                <Path.Data>
+                    <PathGeometry>
+                        <PathGeometry.Figures>
+                            <PathFigure StartPoint="6,106">
+                                <ArcSegment Size="100,100" Point="206,106" SweepDirection="Clockwise"/>
+                            </PathFigure>
+                        </PathGeometry.Figures>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
+            <!-- 大刻度 -->
+            <Path Stroke="LightGray" StrokeThickness="2">
+                <Path.Data>
+                    <GeometryGroup>
+                        <LineGeometry StartPoint="13,105" EndPoint="23,105"/>
+                        <LineGeometry StartPoint="13,105" EndPoint="23,105">
+                            <LineGeometry.Transform>
+                                <RotateTransform Angle="45" CenterX="106" CenterY="105"/>
+                            </LineGeometry.Transform>
+                        </LineGeometry>
+                        <LineGeometry StartPoint="106,13" EndPoint="106,23"/>
+                        <LineGeometry StartPoint="106,13" EndPoint="106,23">
+                            <LineGeometry.Transform>
+                                <RotateTransform Angle="45" CenterX="106" CenterY="105"/>
+                            </LineGeometry.Transform>
+                        </LineGeometry>
+                        <LineGeometry StartPoint="189,105" EndPoint="199,105"/>
+                    </GeometryGroup>
+                </Path.Data>
+            </Path>
+            <TextBlock Text="0" Foreground="LightGray" Canvas.Left="29" Canvas.Top="91"/>
+            <TextBlock Text="650" Foreground="LightGray" Canvas.Left="93" Canvas.Top="24"/>
+            <TextBlock Text="1300" Foreground="LightGray" Canvas.Left="158" Canvas.Top="91"/>
+            <Border Canvas.Left="64" Canvas.Top="60" Width="84">
+                <TextBlock Name="TbPvSmall" Text="--" FontSize="18" Foreground="#FFFF5A2A" HorizontalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="炉膛 PV" Foreground="#FFFF5A2A" Canvas.Left="86" Canvas.Top="91"/>
+        </Canvas>
+
+        <!-- SV 半圆表盘(灰,显示设定占比) -->
+        <Canvas Width="212" Height="106" Canvas.Left="96" Canvas.Top="360" ClipToBounds="True">
+            <Path Stroke="LightGray" StrokeThickness="12">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathGeometry.Figures>
+                            <PathFigure StartPoint="6,106">
+                                <ArcSegment Size="100,100" Point="206,106" SweepDirection="Clockwise"/>
+                            </PathFigure>
+                        </PathGeometry.Figures>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
+            <Path Stroke="#FFE8B31A" StrokeThickness="12" RenderTransformOrigin="0.5,1">
+                <Path.RenderTransform>
+                    <RotateTransform x:Name="ArcSv" Angle="-180"/>
+                </Path.RenderTransform>
+                <Path.Data>
+                    <PathGeometry>
+                        <PathGeometry.Figures>
+                            <PathFigure StartPoint="6,106">
+                                <ArcSegment Size="100,100" Point="206,106" SweepDirection="Clockwise"/>
+                            </PathFigure>
+                        </PathGeometry.Figures>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
+            <TextBlock Text="0" Foreground="LightGray" Canvas.Left="29" Canvas.Top="91"/>
+            <TextBlock Text="650" Foreground="LightGray" Canvas.Left="93" Canvas.Top="24"/>
+            <TextBlock Text="1300" Foreground="LightGray" Canvas.Left="158" Canvas.Top="91"/>
+            <Border Canvas.Left="64" Canvas.Top="60" Width="84">
+                <TextBlock Name="TbSvSmall" Text="--" FontSize="18" Foreground="#FFE8B31A" HorizontalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="设定 SV" Foreground="#FFE8B31A" Canvas.Left="86" Canvas.Top="91"/>
+        </Canvas>
+
+        <!-- 炉体示意(白色开启式炉体 + 贯穿钢管 + 发热腔) -->
+        <Canvas Canvas.Left="420" Canvas.Top="130" Width="420" Height="340">
+            <!-- 贯穿钢管 -->
+            <Rectangle Canvas.Left="-40" Canvas.Top="128" Width="500" Height="24" RadiusX="12" RadiusY="12">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#FFE8EBEE" Offset="0"/>
+                        <GradientStop Color="#FF9AA2AA" Offset="0.5"/>
+                        <GradientStop Color="#FF5E666E" Offset="1"/>
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <!-- 两端法兰 -->
+            <Rectangle Canvas.Left="-52" Canvas.Top="118" Width="18" Height="44" RadiusX="4" RadiusY="4" Fill="#FFB9C2CB"/>
+            <Rectangle Canvas.Left="454" Canvas.Top="118" Width="18" Height="44" RadiusX="4" RadiusY="4" Fill="#FFB9C2CB"/>
+
+            <!-- 炉体 -->
+            <Border Canvas.Left="60" Canvas.Top="30" Width="300" Height="220" CornerRadius="14" BorderBrush="#55FFFFFF" BorderThickness="1">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#FFF2F3F2" Offset="0"/>
+                        <GradientStop Color="#FFD9DCDD" Offset="0.55"/>
+                        <GradientStop Color="#FFB9BEC2" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- 开合缝 -->
+            <Rectangle Canvas.Left="60" Canvas.Top="138" Width="300" Height="4" Fill="#FF7D858E"/>
+            <!-- 搭扣 ×2 -->
+            <Rectangle Canvas.Left="130" Canvas.Top="120" Width="18" Height="40" RadiusX="3" RadiusY="3" Fill="#FF3A4046"/>
+            <Rectangle Canvas.Left="272" Canvas.Top="120" Width="18" Height="40" RadiusX="3" RadiusY="3" Fill="#FF3A4046"/>
+
+            <!-- 发热腔(运行时呼吸发光) -->
+            <Ellipse x:Name="HeatGlow" Canvas.Left="110" Canvas.Top="96" Width="200" Height="88" Opacity="0.12">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#FFFFD24A" Offset="0"/>
+                        <GradientStop Color="#FFFF6A1E" Offset="0.55"/>
+                        <GradientStop Color="#00FF3B00" Offset="1"/>
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+
+            <!-- 黑色控制机座 + 酒红面板 -->
+            <Border Canvas.Left="40" Canvas.Top="252" Width="340" Height="64" CornerRadius="6" Background="#FF17191C"/>
+            <Border Canvas.Left="64" Canvas.Top="264" Width="130" Height="40" CornerRadius="4" Background="#FF8F262E">
+                <TextBlock Name="TbPanelPv" Text="--" FontFamily="Consolas" FontSize="22" FontWeight="Bold"
+                           Foreground="#FF7CFFB0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <Ellipse Name="RunLed" Canvas.Left="330" Canvas.Top="274" Width="20" Height="20" Fill="#FF555B61"/>
+            <TextBlock Canvas.Left="216" Canvas.Top="274" Text="POWER" FontSize="12" Foreground="#66FFFFFF"/>
+        </Canvas>
+
+        <!-- PV 大数字 -->
+        <Grid Canvas.Left="480" Canvas.Top="480" Width="300" Height="90">
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Name="TbPv" Text="--" FontSize="44" FontWeight="Bold" Foreground="White"/>
+                <TextBlock Margin="6,10" Text="℃" Foreground="White" VerticalAlignment="Bottom" FontSize="18"/>
+            </StackPanel>
+            <TextBlock Grid.Row="1" Text="炉膛实时温度" FontSize="15" Foreground="#B0FFFFFF" HorizontalAlignment="Center"/>
+        </Grid>
+
+        <!-- 右侧:设定 + 状态 + 启停 -->
+        <Border Canvas.Left="920" Canvas.Top="120" Width="220" Height="250" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
+            <Grid Margin="14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="40"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="设定温度(回车下发)" FontSize="15" Foreground="White" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="℃" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBox Name="TbSetSv" Grid.Row="1" Grid.ColumnSpan="2" Text="--" FontSize="30" FontWeight="Bold"
+                         VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="140"
+                         KeyDown="TbSetSv_KeyDown"/>
+
+                <TextBlock Grid.Row="2" Text="运行状态" FontSize="15" Foreground="White" VerticalAlignment="Center" Margin="0,6,0,0"/>
+                <Border Grid.Row="3" Grid.ColumnSpan="2" CornerRadius="14" Height="34" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="18,0">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#33556066"/>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Name="TbState" Text="待机" FontSize="17" FontWeight="Bold" Foreground="#FFB9C2CB" VerticalAlignment="Center"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 运行/停止按钮 -->
+        <Button Name="BtnRunStop"
+                Width="220" Height="56"
+                Canvas.Left="920" Canvas.Top="400"
+                Content="运行" Cursor="Hand"
+                Click="BtnRunStop_Click">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="SnapsToDevicePixels" Value="True"/>
+                    <Setter Property="OverridesDefaultStyle" Value="True"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" CornerRadius="8" Background="LimeGreen">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Path x:Name="path" Data="M 1,1 L 15,11 1,21 Z" Fill="White" Stroke="White"
+                                              Margin="8" StrokeThickness="6" StrokeLineJoin="Round"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="runstop"
+                                                   Text="{Binding RelativeSource={RelativeSource Mode=TemplatedParent},Path=Content}"
+                                                   FontSize="24" Foreground="White"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=runstop,Path=Text}" Value="运行">
+                                        <Setter Property="Data" Value="M 1,1 L 15,11 1,21 Z" TargetName="path"/>
+                                        <Setter Property="Background" Value="LimeGreen" TargetName="border"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ElementName=runstop,Path=Text}" Value="停止">
+                                        <Setter Property="Data" Value="M 1,1 L 21,1 21,21 1,21 Z" TargetName="path"/>
+                                        <Setter Property="Background" Value="Red" TargetName="border"/>
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Style>
+        </Button>
+
+        <!-- 底部信息条 -->
+        <Border Canvas.Left="420" Canvas.Top="24" Width="720" Height="60" BorderBrush="#4D788C9B" BorderThickness="1" CornerRadius="8">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="设定温度 SV:" FontSize="15" Foreground="#B0FFFFFF" VerticalAlignment="Center"/>
+                <TextBlock Name="TbSv" Text="--" FontSize="20" FontWeight="Bold" Foreground="#FFE8B31A" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                <TextBlock Text="℃" FontSize="13" Foreground="#B0FFFFFF" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                <Rectangle Margin="34,0" Width="1" Height="26" Fill="#33FFFFFF"/>
+                <TextBlock Text="实时温度 PV:" FontSize="15" Foreground="#B0FFFFFF" VerticalAlignment="Center"/>
+                <TextBlock Name="TbPvBar" Text="--" FontSize="20" FontWeight="Bold" Foreground="#FFFF5A2A" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                <TextBlock Text="℃" FontSize="13" Foreground="#B0FFFFFF" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                <Rectangle Margin="34,0" Width="1" Height="26" Fill="#33FFFFFF"/>
+                <TextBlock Name="TbComm" Text="通讯:--" FontSize="15" Foreground="#B0FFFFFF" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Canvas>
+</base:DeviceScreenBase>

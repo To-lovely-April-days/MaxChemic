@@ -1,10 +1,12 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using MaxChemical.Modules.Designer.Views;
 using MaxChemical.Modules.Designer.Views.Controls.Service;
@@ -123,6 +125,10 @@ namespace MaxChemical.Modules.Designer.Service
             string stroke = BrushToSvg(s.Stroke, "stroke", defs, ref gid, s.Opacity);
             string sw = s.StrokeThickness > 0 && s.Stroke != null ? $" stroke-width=\"{F(s.StrokeThickness)}\"" : "";
             string dash = DashAttr(s.StrokeDashArray);
+            // 默认流动样式(赛博流光)用 CyberMainStream/CyberParticleStream/CyberSparkStream 这几条描边虚线 Path 表现流动;
+            // 桌面的 Storyboard 不随 SVG 导出,这里给它们打 data-flow-stroke(带流向),云端补 stroke-dashoffset 动画。
+            string streamAttr = (!string.IsNullOrEmpty(s.Name) && s.Name.Contains("Cyber") && s.Name.Contains("Stream"))
+                ? $" data-flow-stroke=\"{Esc(flowDir ?? "")}\"" : "";
 
             switch (s)
             {
@@ -155,9 +161,9 @@ namespace MaxChemical.Modules.Designer.Service
                     body.Append("<polyline points=\"").Append(Points(pl.Points)).Append('"')
                         .Append(fill).Append(stroke).Append(sw).Append(dash).Append(tf).Append("/>");
                     break;
-                case Path p when p.Data != null:
+                case System.Windows.Shapes.Path p when p.Data != null:
                     body.Append("<path d=\"").Append(GeometryToPath(p.Data)).Append('"')
-                        .Append(fill).Append(stroke).Append(sw).Append(dash)
+                        .Append(streamAttr).Append(fill).Append(stroke).Append(sw).Append(dash)
                         .Append(" stroke-linejoin=\"round\" stroke-linecap=\"round\"").Append(tf).Append("/>");
                     break;
             }
@@ -221,10 +227,52 @@ namespace MaxChemical.Modules.Designer.Service
 
         private static void EmitImage(Image img, Visual root, StringBuilder body)
         {
-            // 组态里一般没有位图;保留占位(如需可扩展为 data-uri)
-            var m = MatrixToRoot(img, root);
-            body.Append("<rect x=\"0\" y=\"0\" width=\"").Append(F(img.ActualWidth)).Append("\" height=\"")
-                .Append(F(img.ActualHeight)).Append("\" fill=\"#eee\"").Append(MatrixAttr(m)).Append("/>");
+            // 把图片编码成 base64 data-URI 内联进 SVG,云端 <image> 直接显示(不再是灰色占位)。
+            double w = img.ActualWidth > 0 ? img.ActualWidth : img.Width;
+            double h = img.ActualHeight > 0 ? img.ActualHeight : img.Height;
+            if (w <= 0 || h <= 0) return;
+            string tf = MatrixAttr(MatrixToRoot(img, root));
+            string? dataUri = TryEncodeImage(img, w, h);
+            if (dataUri != null)
+            {
+                body.Append("<image x=\"0\" y=\"0\" width=\"").Append(F(w)).Append("\" height=\"").Append(F(h))
+                    .Append("\" preserveAspectRatio=\"none\" href=\"").Append(dataUri).Append('"')
+                    .Append(tf).Append("/>");
+            }
+            else
+            {
+                // 编码失败兜底:灰色占位,至少保留位置与尺寸
+                body.Append("<rect x=\"0\" y=\"0\" width=\"").Append(F(w)).Append("\" height=\"")
+                    .Append(F(h)).Append("\" fill=\"#eee\"").Append(tf).Append("/>");
+            }
+        }
+
+        /// <summary>把 Image 的内容编码成 PNG base64 data-URI。位图源直接编码;其它源(矢量/DrawingImage)渲染成位图。</summary>
+        private static string? TryEncodeImage(Image img, double w, double h)
+        {
+            try
+            {
+                BitmapSource? bmp = img.Source as BitmapSource;
+                if (bmp == null)
+                {
+                    if (img.Source == null) return null;
+                    // 非位图源:按当前布局渲染成位图(不改动 img 的布局)
+                    int pw = Math.Max(1, (int)Math.Ceiling(w));
+                    int ph = Math.Max(1, (int)Math.Ceiling(h));
+                    var rtb = new RenderTargetBitmap(pw, ph, 96, 96, PixelFormats.Pbgra32);
+                    rtb.Render(img);
+                    bmp = rtb;
+                }
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bmp));
+                using var ms = new MemoryStream();
+                encoder.Save(ms);
+                return "data:image/png;base64," + Convert.ToBase64String(ms.ToArray());
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // ── 画刷 → SVG(纯色 / 线性 / 径向渐变)──
