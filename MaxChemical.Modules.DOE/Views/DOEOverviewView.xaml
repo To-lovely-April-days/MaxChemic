@@ -95,9 +95,9 @@
                     <MenuItem Header="{Binding PlacementTarget.Tag.ViewDetails,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ViewProjectDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
-                    <MenuItem Header="{Binding PlacementTarget.Tag.ViewAnalysis,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
+                    <!--<MenuItem Header="{Binding PlacementTarget.Tag.ViewAnalysis,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ViewProjectAnalysisCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                              CommandParameter="{Binding ProjectId}"/>
+                              CommandParameter="{Binding ProjectId}"/>-->
                     <MenuItem Header="{Binding PlacementTarget.Tag.ViewHistory,RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                               Command="{Binding PlacementTarget.Tag.ViewProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding ProjectId}"/>
@@ -259,7 +259,7 @@
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                        <Button Cursor="Hand"
+                        <Button Cursor="Hand" Visibility="Collapsed"
                                 Command="{Binding DataContext.ViewProjectAnalysisCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding ProjectId}">
                             <Button.Template>
@@ -471,9 +471,9 @@
                                             <MenuItem Header="{Binding PlacementTarget.Tag.ViewDetails, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ViewProjectDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>
-                                            <MenuItem Header="{Binding PlacementTarget.Tag.ViewAnalysis, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
+                                            <!--<MenuItem Header="{Binding PlacementTarget.Tag.ViewAnalysis, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ViewProjectAnalysisCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                      CommandParameter="{Binding ProjectId}"/>
+                                                      CommandParameter="{Binding ProjectId}"/>-->
                                             <MenuItem Header="{Binding PlacementTarget.Tag.ViewHistory, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Style="{StaticResource DOEMenuItem}"
                                                       Command="{Binding PlacementTarget.Tag.ViewProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding ProjectId}"/>

@@ -30,8 +30,8 @@ namespace MaxChemical.Modules.DOE.Views
         public AutoPilotReportDialog(AutoPilotReport report)
         {
             Report = report;
-            DataContext = this;
             InitializeComponent();
+            DataContext = this;
 
             _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
 

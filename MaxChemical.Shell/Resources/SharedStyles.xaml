@@ -141,7 +141,7 @@
                                 <RepeatButton Style="{StaticResource SharedScrollPageBtn}" Command="ScrollBar.PageUpCommand"/>
                             </Track.DecreaseRepeatButton>
                             <Track.Thumb>
-                                <Thumb Style="{StaticResource SharedScrollThumbV}" MinHeight="20"/>
+                                <Thumb Style="{StaticResource SharedScrollThumbV}"/>
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
                                 <RepeatButton Style="{StaticResource SharedScrollPageBtn}" Command="ScrollBar.PageDownCommand"/>

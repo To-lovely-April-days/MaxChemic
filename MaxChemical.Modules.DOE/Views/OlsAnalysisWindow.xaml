@@ -74,7 +74,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="{Binding CbResponseTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
                    VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <ComboBox Style="{StaticResource OlsCombo}" Width="100"
+                    <ComboBox Style="{StaticResource OlsCombo}" Width="120"
                   ItemsSource="{Binding ResponseNames}"
                   SelectedItem="{Binding SelectedResponseName}"/>
 
@@ -85,7 +85,7 @@
                         <TextBlock Text="{Binding CbDegreeTxt}" FontSize="11" Foreground="{StaticResource OlsTextHint}"
                        VerticalAlignment="Center" Margin="0,0,6,0"
                        ToolTip="{Binding CbDegreeTipTxt}"/>
-                        <ComboBox Style="{StaticResource OlsCombo}" Width="52"
+                        <ComboBox Style="{StaticResource OlsCombo}" Width="64"
                       ItemsSource="{Binding AvailableModelOrders}"
                       SelectedItem="{Binding SelectedModelOrder, Mode=TwoWay}"/>
                     </StackPanel>

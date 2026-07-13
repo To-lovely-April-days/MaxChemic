@@ -90,7 +90,7 @@
     </UserControl.Resources>
 
     <Border Background="#F5F5F5">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Style="{StaticResource ThinScrollViewerStyle}">
             <StackPanel Margin="10">
 
                 <!-- Header -->
@@ -130,7 +130,7 @@
                         </StackPanel>
 
                         <!-- 隐藏的 ComboBox 保持原有数据绑定 -->
-                        <ComboBox Visibility="Collapsed"
+                        <!--<ComboBox Visibility="Collapsed"
                                   SelectedValuePath="Content"
                                   SelectedValue="{Binding LogicCommand.Properties[WaitStrategy],
                                       Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -138,7 +138,7 @@
                             <ComboBoxItem Content="NoWait"/>
                             <ComboBoxItem Content="WaitAll"/>
                             <ComboBoxItem Content="WaitAny"/>
-                        </ComboBox>
+                        </ComboBox>-->
 
                         <!-- 分段选择器 -->
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3">

@@ -63,7 +63,7 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="White" 
+    <Border Background="White"
             BorderBrush="#CCCCCC" 
             BorderThickness="1">
         <Grid>
