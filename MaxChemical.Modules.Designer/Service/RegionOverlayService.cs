@@ -288,7 +288,7 @@ namespace MaxChemical.Modules.Designer.Service
             // 重新绘制区域内容
             DrawRegionContent(layout, currentScale);
         }
-
+        // 严格限制左右相邻和上下相邻的区域公用一个拖拽矩形
         private void AddSmartDragAreas(double canvasWidth, double canvasHeight, RegionLayout layout)
         {
             double dragAreaWidth = 8;
@@ -303,7 +303,7 @@ namespace MaxChemical.Modules.Designer.Service
             foreach (var region in layout.IndependentRegions)
             {
                 // 左边界
-                string leftKey = $"V_{region.Left:F1}";
+                string leftKey = $"V_{region.Left:F1}_{region.Top:F1}_{region.Bottom:F1}";
                 if (!addedBoundaries.Contains(leftKey))
                 {
                     AddIndependentRegionDragArea(
@@ -313,7 +313,7 @@ namespace MaxChemical.Modules.Designer.Service
                 }
 
                 // 右边界
-                string rightKey = $"V_{region.Right:F1}";
+                string rightKey = $"V_{region.Right:F1}_{region.Top:F1}_{region.Bottom:F1}";
                 if (!addedBoundaries.Contains(rightKey))
                 {
                     AddIndependentRegionDragArea(
@@ -323,7 +323,7 @@ namespace MaxChemical.Modules.Designer.Service
                 }
 
                 // 上边界
-                string topKey = $"H_{region.Top:F1}";
+                string topKey = $"H_{region.Top:F1}_{region.Left:F1}_{region.Right:F1}";
                 if (!addedBoundaries.Contains(topKey))
                 {
                     AddIndependentRegionDragArea(
@@ -333,7 +333,7 @@ namespace MaxChemical.Modules.Designer.Service
                 }
 
                 // 下边界
-                string bottomKey = $"H_{region.Bottom:F1}";
+                string bottomKey = $"H_{region.Bottom:F1}_{region.Left:F1}_{region.Right:F1}";
                 if (!addedBoundaries.Contains(bottomKey))
                 {
                     AddIndependentRegionDragArea(

@@ -678,7 +678,7 @@ namespace MaxChemical.Core
                 case RegionBoundary.Left:
                     {
                         double oldLeft = Left;
-                        Left = Math.Min(Left + delta, Right - minSize);
+                        Left = Math.Max(0, Math.Min(Left + delta, Right - minSize));
                         double actualDelta = Left - oldLeft;
 
                         // 同步左侧相邻区域的右边界
@@ -716,7 +716,7 @@ namespace MaxChemical.Core
                 case RegionBoundary.Top:
                     {
                         double oldTop = Top;
-                        Top = Math.Min(Top + delta, Bottom - minSize);
+                        Top = Math.Max(0, Math.Min(Top + delta, Bottom - minSize));
                         double actualDelta = Top - oldTop;
 
                         // 🔥 关键修复：同步上方相邻区域的下边界
