@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 18
-VisualStudioVersion = 18.5.11716.220 stable
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Shell", "MaxChemical.Shell\MaxChemical.Shell.csproj", "{F96DA0CA-79A7-4387-AAAF-6DD47577BFA7}"
 EndProject
@@ -76,6 +76,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwoLiquidOneGasFeedSystem_ModbusRTU", "TwoLiquidOneGasFeedSystem_ModbusRTU\TwoLiquidOneGasFeedSystem_ModbusRTU.csproj", "{3EED879B-F7E2-44E8-BB70-C449684E88BA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighLowTemperature_ModbusTCP", "HighLowTemperature_ModbusTCP\HighLowTemperature_ModbusTCP.csproj", "{ED6D443E-62AA-4E61-A7F2-4E67F224E4A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighTempFurnace_ModbusRTU", "HighTempFurnace_ModbusRTU\HighTempFurnace_ModbusRTU.csproj", "{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -227,6 +229,10 @@ Global
 		{ED6D443E-62AA-4E61-A7F2-4E67F224E4A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED6D443E-62AA-4E61-A7F2-4E67F224E4A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ED6D443E-62AA-4E61-A7F2-4E67F224E4A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -254,6 +260,7 @@ Global
 		{7263C943-D92F-4BD3-9BAC-00DB9A01A7EF} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{3EED879B-F7E2-44E8-BB70-C449684E88BA} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{ED6D443E-62AA-4E61-A7F2-4E67F224E4A3} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {72D8DB25-9C37-4F38-B4CF-213BB0AEEFF7}
