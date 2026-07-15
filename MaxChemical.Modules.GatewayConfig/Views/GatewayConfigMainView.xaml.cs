@@ -1,4 +1,5 @@
 using MaxChemical.Data.Repositories;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Modules.GatewayConfig.Models;
 using MaxChemical.Modules.GatewayConfig.Services;
 using MaxChemical.Modules.GatewayConfig.ViewModels;
@@ -6,6 +7,7 @@ using MaxChemical.Modules.GatewayConfig.Views.Dialogs;
 using Prism.Events;
 using Prism.Ioc;
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +23,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
         private readonly IEventAggregator _eventAggregator;
         private readonly IGatewayBindingRepository _bindingRepository;
         private readonly IChannelProbeService _probeService;
+        private readonly ILocalizationService _localization;
 
         // ★ 事件订阅 token,窗口关闭时取消,避免已关闭实例继续响应事件
         private SubscriptionToken _openChannelToken;
@@ -41,6 +44,9 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             _eventAggregator = c.Resolve<IEventAggregator>();
             _bindingRepository = c.Resolve<IGatewayBindingRepository>();
             _probeService = c.Resolve<IChannelProbeService>();
+            _localization = c.Resolve<ILocalizationService>();
+
+            StatusBarText.Text = _localization.GetString("Gateway_StatusMsg_Ready", "就绪");
 
             // ★ 每个 Subscribe 都接住 token,关闭时统一取消
             _openChannelToken = _eventAggregator.GetEvent<OpenChannelDialogEvent>()
@@ -85,10 +91,10 @@ namespace MaxChemical.Modules.GatewayConfig.Views
             if (!(DataContext is GatewayConfigMainViewModel vm)) return;
 
             await vm.InitializeAsync();
-
+            
             // ★ 显示内嵌遮罩
-            ShowLoading("正在搜索网关…");
-
+            ShowLoading(_localization.GetString("Gateway_Loading", "正在搜索网关…"));
+            
             var deadline = DateTime.UtcNow.AddSeconds(60);
             int attempt = 0;
             bool found = false;
@@ -98,7 +104,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 while (DateTime.UtcNow < deadline)
                 {
                     attempt++;
-                    UpdateLoading($"正在搜索网关… 第 {attempt} 次");
+                    UpdateLoading(string.Format(_localization.GetString("Gateway_Updateloading", "正在搜索网关… 第 {0} 次"),attempt));
                     try
                     {
                         var list = await vm.AutoSearchOnceAsync();
