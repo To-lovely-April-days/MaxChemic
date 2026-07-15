@@ -152,8 +152,8 @@
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.IpMode, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:IpMode.Static}">静态 IP</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:IpMode.Dhcp}">DHCP 动态</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding StaticIpTxt}" Tag="{x:Static models:IpMode.Static}"/>
+                                    <ComboBoxItem Content="{Binding DhcpTxt}" Tag="{x:Static models:IpMode.Dhcp}"/>
                                 </ComboBox>
                             </StackPanel>
 
@@ -202,7 +202,7 @@
                                     <ComboBoxItem Tag="{x:Static models:WorkMode.TcpServer}">TCP Server</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:WorkMode.TcpClient}">TCP Client</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:WorkMode.Udp}">UDP</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:WorkMode.UdpMulti}">UDP 组播</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding UdpMultTxt}" Tag="{x:Static models:WorkMode.UdpMulti}"/>
                                 </ComboBox>
                             </StackPanel>
 
@@ -282,10 +282,10 @@
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.DataBits, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_8}">8 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_7}">7 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_6}">6 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_5}">5 位</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_8}">8</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_7}">7</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_6}">6</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_5}">5</ComboBoxItem>
                                 </ComboBox>
                             </StackPanel>
 
@@ -295,11 +295,11 @@
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.Parity, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:Parity.None}">无校验</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Odd}">奇校验</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Even}">偶校验</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Mark}">标记</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Space}">空格</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding ParityNoneTxt}" Tag="{x:Static models:Parity.None}"/>
+                                    <ComboBoxItem Content="{Binding ParityOddTxt}" Tag="{x:Static models:Parity.Odd}"/>
+                                    <ComboBoxItem Content="{Binding ParityEvenTxt}" Tag="{x:Static models:Parity.Even}"/>
+                                    <ComboBoxItem Content="{Binding ParityMarkTxt}" Tag="{x:Static models:Parity.Mark}"/>
+                                    <ComboBoxItem Content="{Binding ParitySpaceTxt}" Tag="{x:Static models:Parity.Space}"/>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="2">
@@ -307,8 +307,8 @@
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.StopBit, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_1}">1 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_2}">2 位</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_1}">1</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_2}">2</ComboBoxItem>
                                 </ComboBox>
                             </StackPanel>
 
@@ -318,7 +318,7 @@
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.FlowControl, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:FlowControl.None}">无流控</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding NoneFlowCtrlTxt}" Tag="{x:Static models:FlowControl.None}"/>
                                     <ComboBoxItem Tag="{x:Static models:FlowControl.RtsCts}">CTS/RTS</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:FlowControl.DtrDsr}">DTR/DSR</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:FlowControl.XonXoff}">XON/XOFF</ComboBoxItem>

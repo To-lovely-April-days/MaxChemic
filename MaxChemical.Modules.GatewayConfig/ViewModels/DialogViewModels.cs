@@ -168,6 +168,16 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
         public string RestoreDefaultTxt { get { return _restoreDefaultTxt; } set { SetProperty(ref _restoreDefaultTxt, value); } }
         public string SaveTxt { get { return _saveTxt; } set { SetProperty(ref _saveTxt, value); } }
 
+        public string StaticIpTxt { get; set; }
+        public string DhcpTxt { get; set; }
+        public string UdpMultTxt { get; set; }
+        public string ParityNoneTxt { get; set; }
+        public string ParityOddTxt { get; set; }
+        public string ParityEvenTxt { get; set; }
+        public string ParityMarkTxt { get; set; }
+        public string ParitySpaceTxt { get; set; }
+        public string NoneFlowCtrlTxt { get; set; }
+
         private void LoadLocalizationTxt(string culture)
         {
             _devIdTxt = _localizationService.GetString("Gateway_Dialog_ID", "设备 ID");
@@ -203,6 +213,15 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             _rereadTxt = _localizationService.GetString("Gateway_Read", "重新读取");
             _restoreDefaultTxt = _localizationService.GetString("Gateway_Restore", "恢复默认");
             _saveTxt = _localizationService.GetString("Gateway_SaveModify", "保存修改");
+            StaticIpTxt = _localizationService.GetString("Gateway_IpMode_Static", "静态 IP");
+            DhcpTxt = _localizationService.GetString("Gateway_IpMode_Dhc", "DHCP 动态");
+            UdpMultTxt = _localizationService.GetString("Gateway_WorkMode_Udp", "UDP 组播");
+            ParityNoneTxt = _localizationService.GetString("Gateway_Parity_None", "无校验");
+            ParityOddTxt = _localizationService.GetString("Gateway_Parity_Odd", "奇校验");
+            ParityEvenTxt = _localizationService.GetString("Gateway_Parity_Even", "偶校验");
+            ParityMarkTxt = _localizationService.GetString("Gateway_Parity_Mark", "标记");
+            ParitySpaceTxt = _localizationService.GetString("Gateway_Parity_Space", "空格");
+            NoneFlowCtrlTxt = _localizationService.GetString("Gateway_FlowCtrl_None", "无流控");
         }
 
         #endregion

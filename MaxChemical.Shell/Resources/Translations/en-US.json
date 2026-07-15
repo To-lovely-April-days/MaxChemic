@@ -1114,5 +1114,14 @@
   "Gateway_Test_ConnFailed":"✗ Device connection failed\n  Device: {0} · {1}\n  Channel: {2}:{3}\n  Please check the log for detailed reasons Common causes：\n  · TCP link is connected but the device does not respond (wiring/dip switch/terminal number)\n  · Gateway is unreachable\n  · This device is not bound to any channel",
   "Gateway_Test_Failed":"✗ Test failed",
   "Gateway_Start":"The equipment is restarting...",
-  "Gateway_Starting":"The equipment is restarting... Attempt {0} of the detection"
+  "Gateway_Starting":"The equipment is restarting... Attempt {0} of the detection",
+  "Gateway_IpMode_Static":"Static IP",
+  "Gateway_IpMode_Dhc":"DHCP Dynamic",
+  "Gateway_WorkMode_Udp":"UDP Multicast",
+  "Gateway_Parity_None":"None",
+  "Gateway_Parity_Odd":"Odd",
+  "Gateway_Parity_Even":"Even",
+  "Gateway_Parity_Mark":"Mark",
+  "Gateway_Parity_Space":"Space",
+  "Gateway_FlowCtrl_None":"None"
 }

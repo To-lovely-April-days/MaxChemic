@@ -1100,5 +1100,14 @@
   "Gateway_Test_ConnFailed":"✗ 设备连接失败\n  设备：{0} · {1}\n  通道：{2}:{3}\n  请查看日志了解详细原因\n  常见原因：\n  · TCP 链路通但设备无应答（接线/拨码/站号）\n  · 网关不可达\n  · 该设备未绑定到任何通道",
   "Gateway_Test_Failed":"✗ 测试失败",
   "Gateway_Start":"设备正在重启...",
-  "Gateway_Starting":"设备重启中...第 {0} 次探测"
+  "Gateway_Starting":"设备重启中...第 {0} 次探测",
+  "Gateway_IpMode_Static":"静态 IP",
+  "Gateway_IpMode_Dhc":"DHCP 动态",
+  "Gateway_WorkMode_Udp":"UDP 组播",
+  "Gateway_Parity_None":"无校验",
+  "Gateway_Parity_Odd":"奇校验",
+  "Gateway_Parity_Even":"偶校验",
+  "Gateway_Parity_Mark":"标记",
+  "Gateway_Parity_Space":"空格",
+  "Gateway_FlowCtrl_None":"无流控"
 }
