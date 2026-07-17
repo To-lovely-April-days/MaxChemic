@@ -371,7 +371,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 .OfType<Window>()
                 .FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
 
-            var loading = new LoadingOverlayWindow("正在加载实验详情...", owner);
+            var loading = new LoadingOverlayWindow(_localizationService.GetString("Experiment_Detail_StateMsg_LoadDetail", "正在加载实验详情..."), owner);
             loading.Show();
 
             try
@@ -388,7 +388,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     return;
                 }
 
-                loading.UpdateMessage("正在渲染界面...");
+                loading.UpdateMessage(_localizationService.GetString("Experiment_Detail_RenderView", "正在渲染界面..."));
 
                 // 创建详情窗口
                 var detailWindow = new Views.ExperimentDetailWindow(vm, owner);

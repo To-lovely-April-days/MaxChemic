@@ -16,6 +16,7 @@ using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
 using MaxChemical.Modules.Designer.Models;
+using MaxChemical.Infrastructure.Services;
 
 namespace MaxChemical.Modules.Designer.ViewModels
 {
@@ -51,6 +52,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private readonly IExperimentDataRepository _repository;
         private readonly IExcelExportService _excelExportService;
         private readonly ILogService _logger;
+        private readonly ILocalizationService _localization;
 
         private ExperimentRecord? _experiment;
         private ObservableCollection<ParameterChangeRecord> _parameterChanges = new();
@@ -58,7 +60,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
         private ObservableCollection<ChartLegendItem> _chartLegendItems = new();
         private ObservableCollection<ParameterToggleItem> _availableParameters = new();
         private bool _isLoading;
-        private string _statusMessage = "正在加载...";
+        private string _statusMessage;
         private int _nodeCount;
 
         // 预定义颜色（靛蓝主题色系）
@@ -85,17 +87,67 @@ namespace MaxChemical.Modules.Designer.ViewModels
         };
 
         public ExperimentDetailWindowViewModel(IExperimentDataRepository repository,
-            IExcelExportService excelExportService, ILogService logger)
+            IExcelExportService excelExportService, ILogService logger, ILocalizationService localization)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _excelExportService = excelExportService ?? throw new ArgumentNullException(nameof(excelExportService));
             _logger = logger?.ForContext<ExperimentDetailWindowViewModel>() ?? throw new ArgumentNullException(nameof(logger));
+            _localization = localization ?? throw new ArgumentNullException(nameof(localization));
 
             InitializeCommands();
             InitializeChart();
+            _statusMessage = _localization.GetString("Experiment_Detail_StateMsg_Loading", "正在加载...");
+            InitialLocalizationTxt();
         }
 
-       
+        #region 本地化属性
+
+        public string ElapsedTxt { get; set; }
+        public string ParamTrendTxt { get; set; }
+        public string NodeRecordTxt { get; set; }
+        public string NodeNameTxt { get; set; }
+        public string DevTxt { get; set; }
+        public string CommandTxt { get; set; }
+        public string StartTxt { get; set; }
+        public string StateTxt { get; set; }
+        public string ErrMsgTxt { get; set; }
+        public string ParamTxt { get; set; }
+        public string ValueTxt { get; set; }
+        public string PreValueTxt { get; set; }
+        public string UnitTxt { get; set; }
+        public string TimeTxt { get; set; }
+        public string NodeTxt { get; set; }
+        public string NumberTxt { get; set; }
+        public string TypeTxt { get; set; }
+        public string ExportTxt { get; set; }
+        public string CloseTxt { get; set; }
+        public string ParamChangedTxt { get; set; }
+
+        private void InitialLocalizationTxt()
+        {
+            ElapsedTxt = _localization.GetString("Experiment_Detail_Elapsed", "耗时");
+            ParamTrendTxt = _localization.GetString("Experiment_Detail_ParamTrend", "参数趋势图");
+            NodeRecordTxt = _localization.GetString("Experiment_Detail_NodeRecord", "节点执行记录");
+            NodeNameTxt = _localization.GetString("Experiment_Detail_NodeName", "节点名称");
+            DevTxt = _localization.GetString("Experiment_Detail_Device", "设备");
+            CommandTxt = _localization.GetString("Experiment_Detail_Command", "命令");
+            StartTxt = _localization.GetString("Experiment_Detail_Start", "开始");
+            StateTxt = _localization.GetString("Experiment_Detail_Status", "状态");
+            ErrMsgTxt = _localization.GetString("Experiment_Detail_ErrMsg", "错误信息");
+            ParamTxt = _localization.GetString("Experiment_Detail_Param", "参数");
+            ValueTxt = _localization.GetString("Experiment_Detail_Value", "值");
+            PreValueTxt = _localization.GetString("Experiment_Detail_PreValue", "前值");
+            UnitTxt = _localization.GetString("Experiment_Detail_Unit", "单位");
+            TimeTxt = _localization.GetString("Experiment_Detail_Time", "时间");
+            NodeTxt = _localization.GetString("Experiment_Detail_Node", "节点");
+            NumberTxt = _localization.GetString("Experiment_Detail_Number", "序号");
+            TypeTxt = _localization.GetString("Experiment_Detail_Type", "类型");
+            ExportTxt = _localization.GetString("Experiment_Detail_Export", "导出详情");
+            CloseTxt = _localization.GetString("Experiment_Detail_Close", "关闭");
+            ParamChangedTxt = _localization.GetString("Experiment_Detial_ParamRecord", "参数变化记录");
+        }
+
+        #endregion
 
         #region Properties
 
@@ -202,7 +254,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             try
             {
                 IsLoading = true;
-                StatusMessage = "正在加载实验详情...";
+                StatusMessage = _localization.GetString("Experiment_Detail_StateMsg_LoadDetail", "正在加载实验详情...");
 
                 InitializeChart();
 
@@ -214,34 +266,36 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 if (experiment == null)
                 {
-                    StatusMessage = "未找到实验记录";
+                    StatusMessage = _localization.GetString("Experiment_Detail_StateMsg_NofoundRecord", "未找到实验记录");
                     return; // Experiment 保持 null，调用方会检查
                 }
 
                 Experiment = experiment;
                 NodeCount = experiment.NodeRecords?.Count ?? 0;
 
-                loading?.UpdateMessage("正在加载参数变化记录...");
+                loading?.UpdateMessage(_localization.GetString("Experiment_Detail_LoadParamChange", "正在加载参数变化记录..."));
                 _logger.LogInformation("正在加载参数变化记录...");
 
                 var parameterChanges = await _repository.GetParameterChangesForExportAsync(experimentId);
 
                 _logger.LogInformation("参数变化记录: {Count} 条", parameterChanges?.Count ?? 0);
 
-                loading?.UpdateMessage("正在构建趋势图...");
+                loading?.UpdateMessage(_localization.GetString("Experiment_Detail_CreateTrend", "正在构建趋势图..."));
 
                 var chartData = await Task.Run(() => PrepareChartData(parameterChanges));
 
                 ParameterChanges = new ObservableCollection<ParameterChangeRecord>(parameterChanges);
                 ApplyChartData(chartData);
 
-                StatusMessage = $"加载完成 — 节点 {NodeCount} · 参数变化 {ParameterChanges.Count}";
+                StatusMessage = string.Format(
+                    _localization.GetString("Experiment_Detail_LoadNode", "加载完成 — 节点 {0} · 参数变化 {1}"),
+                    NodeCount, ParameterChanges.Count);
                 _logger.LogInformation("加载实验详情成功: {ExperimentId}", experimentId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "加载实验详情失败: {ExperimentId}", experimentId);
-                StatusMessage = "加载失败";
+                StatusMessage = _localization.GetString("Experiment_Detail_LoadFailed", "加载失败");
                 throw;
             }
             finally
@@ -531,12 +585,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (saveDialog.ShowDialog() == true)
                 {
                     IsLoading = true;
-                    StatusMessage = "正在导出实验详情...";
+                    StatusMessage = _localization.GetString("Experiment_Detail_Exporting", "正在导出实验详情...");
 
                     await _excelExportService.ExportExperimentWithParameterChangesAsync(
                         Experiment.ExperimentId, saveDialog.FileName);
 
-                    StatusMessage = "导出完成";
+                    StatusMessage = _localization.GetString("Experiment_Detail_ExportComplate", "导出完成");
                     MessageBox.Show($"导出完成！\n文件位置: {saveDialog.FileName}",
                         "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -546,7 +600,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             catch (Exception ex)
             {
                 _logger.LogError(ex, "导出实验详情失败");
-                StatusMessage = "导出失败";
+                StatusMessage = _localization.GetString("Experiment_Detail_ExportFailed", "导出失败");
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
