@@ -2712,7 +2712,7 @@ namespace MaxChemical.Modules.Designer.Views
             var allowedRegions = device.AllowedRegions;
             if (allowedRegions == null || !allowedRegions.Any())
                 return true;
-
+            // 检查输入的位置是否在特定的区域内
             var targetRegion = FindRegionAtPosition(position);
             if (targetRegion == null)
                 return false;
@@ -13280,5 +13280,31 @@ namespace MaxChemical.Modules.Designer.Views
 
 
         #endregion
+
+        private void DesignCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (e.NewSize == e.PreviousSize)
+            {
+                return;
+            }
+
+            var canvas = e.Source as Canvas;
+            if (canvas == null || !canvas.Equals(DesignCanvas))
+            {
+                return;
+            }
+
+            if (e.WidthChanged)
+            {
+                DesignCanvas.Width = Math.Max(e.NewSize.Width, CanvasScrollViewer.ActualWidth);
+            }
+
+            if (e.HeightChanged)
+            {
+                DesignCanvas.Height = Math.Max(e.NewSize.Height, CanvasScrollViewer.ActualHeight);
+            }
+
+            e.Handled = true;
+        }
     }
 }

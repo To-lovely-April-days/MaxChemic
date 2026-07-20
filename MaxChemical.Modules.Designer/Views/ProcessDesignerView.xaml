@@ -34,14 +34,15 @@
                           RenderOptions.EdgeMode="Unspecified">
 
              
-                <!--  设计画布(核心优化,不使用 BitmapCache,避免拖拽抖动) -->
-                <Canvas x:Name="DesignCanvas"
-        Background="White"
-        ClipToBounds="True"
-        SnapsToDevicePixels="True"
-        UseLayoutRounding="True"
-        RenderOptions.BitmapScalingMode="HighQuality"
-        RenderOptions.EdgeMode="Unspecified"/>
+                <!--  设计画布(核心优化,不使用 BitmapCache,避免拖拽抖动) 设置初始大小，触发SizeChanged事件-->
+                <Canvas x:Name="DesignCanvas" Width="1" Height="1"
+                        Background="Transparent"
+                        ClipToBounds="True"
+                        SnapsToDevicePixels="True"
+                        UseLayoutRounding="True"
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        RenderOptions.EdgeMode="Unspecified"
+                        SizeChanged="DesignCanvas_SizeChanged" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
             </ScrollViewer>
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -678,7 +679,7 @@ namespace MaxChemical.Core
                 case RegionBoundary.Left:
                     {
                         double oldLeft = Left;
-                        Left = Math.Min(Left + delta, Right - minSize);
+                        var left = Math.Max(0, Math.Min(Left + delta, Right - minSize));
                         double actualDelta = Left - oldLeft;
 
                         // 同步左侧相邻区域的右边界
@@ -687,17 +688,22 @@ namespace MaxChemical.Core
                             if (region != this && Math.Abs(region.Right - oldLeft) < tolerance &&
                                 IsVerticallyAligned(region)) // 🔥 使用更严格的对齐检查
                             {
-                                region.Right = Left;
-                             
+                                if (region.Left + minSize < left)
+                                {
+                                    region.Right = left;
+                                    Left = left;
+                                }
+                                return;
                             }
                         }
+                        Left = left;
                     }
                     break;
 
                 case RegionBoundary.Right:
                     {
                         double oldRight = Right;
-                        Right = Math.Max(Right + delta, Left + minSize);
+                        var right = Math.Max(Right + delta, Left + minSize);
                         double actualDelta = Right - oldRight;
 
                         // 同步右侧相邻区域的左边界
@@ -706,17 +712,26 @@ namespace MaxChemical.Core
                             if (region != this && Math.Abs(region.Left - oldRight) < tolerance &&
                                 IsVerticallyAligned(region)) // 🔥 使用更严格的对齐检查
                             {
-                                region.Left = Right;
-                           
+                                if (region.Right - minSize > right)
+                                {
+                                    region.Left = right;
+                                    Right = right;
+                                }
+
+                                Debug.WriteLine("相邻区域赋值完成，立马返回");
+                                return;
                             }
                         }
+                        Debug.WriteLine("没有相邻区域");
+                        // 没有相邻区域
+                        Right = right;
                     }
                     break;
 
                 case RegionBoundary.Top:
                     {
                         double oldTop = Top;
-                        Top = Math.Min(Top + delta, Bottom - minSize);
+                        var top = Math.Max(0, Math.Min(Top + delta, Bottom - minSize));
                         double actualDelta = Top - oldTop;
 
                         // 🔥 关键修复：同步上方相邻区域的下边界
@@ -725,17 +740,22 @@ namespace MaxChemical.Core
                             if (region != this && Math.Abs(region.Bottom - oldTop) < tolerance &&
                                 IsHorizontallyAligned(region)) // 🔥 使用更严格的对齐检查
                             {
-                                region.Bottom = Top;
-                              
+                                if (region.Top + minSize < top)
+                                {
+                                    region.Bottom = top;
+                                    Top = top;
+                                }
+                                return;
                             }
                         }
+                        Top = top;
                     }
                     break;
 
                 case RegionBoundary.Bottom:
                     {
                         double oldBottom = Bottom;
-                        Bottom = Math.Max(Bottom + delta, Top + minSize);
+                        var bottom = Math.Max(Bottom + delta, Top + minSize);
                         double actualDelta = Bottom - oldBottom;
 
                         // 🔥 关键修复：同步下方相邻区域的上边界
@@ -744,10 +764,16 @@ namespace MaxChemical.Core
                             if (region != this && Math.Abs(region.Top - oldBottom) < tolerance &&
                                 IsHorizontallyAligned(region)) // 🔥 使用更严格的对齐检查
                             {
-                                region.Top = Bottom;
-                              
+                                if (region.Bottom - minSize > bottom)
+                                {
+                                    region.Top = bottom;
+                                    Bottom = bottom;
+                                }
+                                return;
                             }
                         }
+
+                        Bottom = bottom;
                     }
                     break;
             }

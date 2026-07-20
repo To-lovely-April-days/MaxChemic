@@ -14,6 +14,8 @@ using MaxChemical.Modules.GatewayConfig.Services;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using Prism.Ioc;
+using MaxChemical.Infrastructure.Events;
 
 namespace MaxChemical.Modules.GatewayConfig.ViewModels
 {
@@ -30,6 +32,7 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
         private readonly IDeviceManager _deviceManager;
         private readonly IGatewayBindingRepository _bindingRepository;
         private readonly IDeviceTransportFactory _transportFactory;
+        private readonly ILocalizationService _localizationService;
         private ChannelModel _original;
 
         public ChannelModel Working { get; }
@@ -65,6 +68,9 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             _deviceManager = deviceManager;
             _bindingRepository = bindingRepository;
             _transportFactory = transportFactory;
+
+            _localizationService = ContainerLocator.Container.Resolve<ILocalizationService>();
+
             Gateway = gateway;
             _original = Clone(channel);
             Working = Clone(channel);
@@ -88,11 +94,142 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                 .ObservesProperty(() => HasBinding);
 
             _ = LoadDeviceCandidatesAsync();
+            //
+            LoadLocalizationTxt("");
         }
 
+        #region 本地化相关属性
+
+        private string _devIdTxt;
+        private string _firmwareTxt;
+        private string _restartTipTxt;
+        private string _networkSettingTxt;
+        private string _devNameTxt;
+        private string _modeTxt;
+        private string _localIpTxt;
+        private string _localPortTxt;
+        private string _subnetMaskTxt;
+        private string _gatewayTxt;
+        private string _dnsTxt;
+        private string _webTxt;
+        private string _workModeTxt;
+        private string _destIpTxt;
+        private string _destPortTxt;
+        private string _reconnTxt;
+        private string _aliveTxt;
+        private string _serialTxt;
+        private string _baudRateTxt;
+        private string _dataBitsTxt;
+        private string _stopBitsTxt;
+        private string _parityTxt;
+        private string _flowCtrlTxt;
+        private string _bindDevTxt;
+        private string _bindTipTxt;
+        private string _bindTxt;
+        private string _testConnTxt;
+        private string _unbindTxt;
+        private string _bindChannelTxt;
+        private string _cancelTxt;
+        private string _rereadTxt;
+        private string _restoreDefaultTxt;
+        private string _saveTxt;
+
+        public string DevIdTxt { get { return _devIdTxt; } set { SetProperty(ref _devIdTxt, value); } }
+        public string FirmwareTxt { get { return _firmwareTxt; } set { SetProperty(ref _firmwareTxt, value); } }
+        public string RestartTipTxt { get { return _restartTipTxt; } set { SetProperty(ref _restartTipTxt, value); } }
+        public string NetworkSettingTxt { get { return _networkSettingTxt; } set { SetProperty(ref _networkSettingTxt, value); } }
+        public string DevNameTxt { get { return _devNameTxt; } set { SetProperty(ref _devNameTxt, value); } }
+        public string ModeTxt { get { return _modeTxt; } set { SetProperty(ref _modeTxt, value); } }
+        public string LocalIpTxt { get { return _localIpTxt; } set { SetProperty(ref _localIpTxt, value); } }
+        public string LocalPortTxt { get { return _localPortTxt; } set { SetProperty(ref _localPortTxt, value); } }
+        public string SubnetMaskTxt { get { return _subnetMaskTxt; }set { SetProperty(ref _subnetMaskTxt, value); } }
+        public string GatewayTxt { get { return _gatewayTxt; } set { SetProperty(ref _gatewayTxt, value); } }
+        public string DnsServerTxt { get { return _dnsTxt; } set { SetProperty(ref _dnsTxt, value); } }
+        public string WebPortTxt { get { return _webTxt; } set { SetProperty(ref _webTxt, value); } }
+        public string WorkPatternTxt { get { return _workModeTxt; } set { SetProperty(ref _workModeTxt, value); } }
+        public string DestIpTxt { get { return _destIpTxt; } set { SetProperty(ref _destIpTxt, value); } }
+        public string DestPortTxt { get { return _destPortTxt; } set { SetProperty(ref _destPortTxt, value); } }
+        public string ReconnTxt { get { return _reconnTxt; } set { SetProperty(ref _reconnTxt, value); } }
+        public string AliveTxt { get { return _aliveTxt; } set { SetProperty(ref _aliveTxt, value); } }
+        public string SerialParamTxt { get { return _serialTxt; } set { SetProperty(ref _serialTxt, value); } }
+        public string BaudRateTxt { get { return _baudRateTxt; } set { SetProperty(ref _baudRateTxt, value); } }
+        public string DataBitsTxt { get { return _dataBitsTxt; } set { SetProperty(ref _dataBitsTxt, value); } }
+        public string StopBitsTxt { get { return _stopBitsTxt; } set { SetProperty(ref _stopBitsTxt, value); } }
+        public string ParityTxt { get { return _parityTxt; } set { SetProperty(ref _parityTxt, value); } }
+        public string FlowCtrlTxt { get { return _flowCtrlTxt; } set { SetProperty(ref _flowCtrlTxt, value); } }
+        public string BindDevTxt { get { return _bindDevTxt; } set { SetProperty(ref _bindDevTxt, value); } }
+        public string BindTipTxt { get { return _bindTipTxt; } set { SetProperty(ref _bindTipTxt, value); } }
+        public string BindTxt { get { return _bindTxt; } set { SetProperty(ref _bindTxt, value); } }
+        public string TestConnTxt { get { return _testConnTxt; } set { SetProperty(ref _testConnTxt, value); } }
+        public string UnbindTxt { get { return _unbindTxt; } set { SetProperty(ref _unbindTxt, value); } }
+        public string BindChannelTxt { get { return _bindChannelTxt; } set { SetProperty(ref _bindChannelTxt, value); } }
+        public string CancelTxt { get { return _cancelTxt; } set { SetProperty(ref _cancelTxt, value); } }
+        public string RereadTxt { get { return _rereadTxt; } set { SetProperty(ref _rereadTxt, value); } }
+        public string RestoreDefaultTxt { get { return _restoreDefaultTxt; } set { SetProperty(ref _restoreDefaultTxt, value); } }
+        public string SaveTxt { get { return _saveTxt; } set { SetProperty(ref _saveTxt, value); } }
+
+        public string StaticIpTxt { get; set; }
+        public string DhcpTxt { get; set; }
+        public string UdpMultTxt { get; set; }
+        public string ParityNoneTxt { get; set; }
+        public string ParityOddTxt { get; set; }
+        public string ParityEvenTxt { get; set; }
+        public string ParityMarkTxt { get; set; }
+        public string ParitySpaceTxt { get; set; }
+        public string NoneFlowCtrlTxt { get; set; }
+
+        private void LoadLocalizationTxt(string culture)
+        {
+            _devIdTxt = _localizationService.GetString("Gateway_Dialog_ID", "设备 ID");
+            _firmwareTxt = _localizationService.GetString("Gateway_Firmware", "固件");
+            _restartTipTxt = _localizationService.GetString("Gateway_Dialog_RestartTip", "修改后设备会自动重启");
+            _networkSettingTxt = _localizationService.GetString("Gateway_SettingLabel", "网络设置");
+            _devNameTxt = _localizationService.GetString("Gateway_Name", "设备名称");
+            _modeTxt = _localizationService.GetString("Gateway_Mode", "IP 模式");
+            _localIpTxt = _localizationService.GetString("Gateway_LocalIp", "本地 IP");
+            _localPortTxt = _localizationService.GetString("Gateway_LocalPort", "本地端口");
+            _subnetMaskTxt = _localizationService.GetString("Gateway_mask", "子网掩码");
+            _gatewayTxt = _localizationService.GetString("Gateway_List_Title", "网关");
+            _dnsTxt = _localizationService.GetString("Gateway_DNS", "DNS 服务器");
+            _webTxt = _localizationService.GetString("Gateway_Web", "Web 端口");
+            _workModeTxt = _localizationService.GetString("Gateway_WorkingMode", "工作模式");
+            _destIpTxt = _localizationService.GetString("Gateway_TargetIp", "目的 IP / 域名");
+            _destPortTxt = _localizationService.GetString("Gateway_TargetPort", "目的端口");
+            _reconnTxt = _localizationService.GetString("Gateway_Reconn", "断线重连（秒，0~2555）");
+            _aliveTxt = _localizationService.GetString("Gateway_KeepAlive", "保活时间（秒，0~255）");
+            _serialTxt = _localizationService.GetString("Gateway_Serial_Param", "串口参数");
+            _baudRateTxt = _localizationService.GetString("Gateway_BaudRate", "波特率");
+            _dataBitsTxt = _localizationService.GetString("Gateway_DataBits", "数据位");
+            _stopBitsTxt = _localizationService.GetString("Gateway_StopBits", "停止位");
+            _parityTxt = _localizationService.GetString("Gateway_Parity", "校验位");
+            _flowCtrlTxt = _localizationService.GetString("Gateway_FlowCtrl", "流控");
+            _bindDevTxt = _localizationService.GetString("Gateway_Bind", "绑定设备");
+            _bindTipTxt = _localizationService.GetString("Gateway_Bind_Tip", "绑定后，该设备的所有命令通过此通道收发");
+            _bindTxt = _localizationService.GetString("Gateway_Bind_Already", "已绑定：");
+            _testConnTxt = _localizationService.GetString("Gateway_TestConn", "测试连接");
+            _unbindTxt = _localizationService.GetString("Gateway_Unbind", "解绑");
+            _bindChannelTxt = _localizationService.GetString("Gateway_BindToChannel", "绑定到此通道");
+            _cancelTxt = _localizationService.GetString("Gateway_Cancel", "取消");
+            _rereadTxt = _localizationService.GetString("Gateway_Read", "重新读取");
+            _restoreDefaultTxt = _localizationService.GetString("Gateway_Restore", "恢复默认");
+            _saveTxt = _localizationService.GetString("Gateway_SaveModify", "保存修改");
+            StaticIpTxt = _localizationService.GetString("Gateway_IpMode_Static", "静态 IP");
+            DhcpTxt = _localizationService.GetString("Gateway_IpMode_Dhc", "DHCP 动态");
+            UdpMultTxt = _localizationService.GetString("Gateway_WorkMode_Udp", "UDP 组播");
+            ParityNoneTxt = _localizationService.GetString("Gateway_Parity_None", "无校验");
+            ParityOddTxt = _localizationService.GetString("Gateway_Parity_Odd", "奇校验");
+            ParityEvenTxt = _localizationService.GetString("Gateway_Parity_Even", "偶校验");
+            ParityMarkTxt = _localizationService.GetString("Gateway_Parity_Mark", "标记");
+            ParitySpaceTxt = _localizationService.GetString("Gateway_Parity_Space", "空格");
+            NoneFlowCtrlTxt = _localizationService.GetString("Gateway_FlowCtrl_None", "无流控");
+        }
+
+        #endregion
+
+
         public string TitleText => string.IsNullOrEmpty(Working.DeviceName)
-            ? $"设备参数编辑 · 通道 {Working.Index + 1}"
-            : $"设备参数编辑 · {Working.DeviceName}";
+            ? string.Format(_localizationService.GetString("Gateway_Setting_Title", "设备参数编辑 · 通道 {0}"), Working.Index + 1)
+            : string.Format(_localizationService.GetString("Gateway_Setting_Title1", "设备参数编辑 · {0}"), Working.DeviceName);
 
         public string DeviceIdHex => Working.DeviceId;
         public string FirmwareText => string.IsNullOrEmpty(Working.FirmwareVersion) ? "—" : Working.FirmwareVersion;
@@ -311,7 +448,7 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             if (string.IsNullOrEmpty(CurrentBoundDeviceText)) return;
 
             IsTesting = true;
-            TestResultText = "正在测试…";
+            TestResultText = _localizationService.GetString("Gateway_Loading_Test", "正在测试...");
 
             try
             {
@@ -319,7 +456,7 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                     NormalizeMac(Gateway.Mac), Working.Index);
                 if (binding == null)
                 {
-                    TestResultText = "✗ 未找到绑定记录";
+                    TestResultText = _localizationService.GetString("Gateway_Not_Found_Bind", "✗ 未找到绑定记录");
                     return;
                 }
 
@@ -327,7 +464,8 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
                     .FirstOrDefault(d => d.GetType().Name == binding.DeviceTypeName);
                 if (device == null)
                 {
-                    TestResultText = $"✗ 找不到设备类型: {binding.DeviceTypeName}";
+                    TestResultText = string.Format(
+                        _localizationService.GetString("Gateway_Not_Found_DevType", "✗ 找不到设备类型: {0}"), binding.DeviceTypeName);
                     return;
                 }
 
@@ -352,26 +490,20 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
 
                     if (connected)
                     {
-                        TestResultText =
-                            $"✓ 连接成功!\n" +
-                            $"  设备: {device.Name} · {binding.DeviceInstanceId}\n" +
-                            // ★ 用 Working.Ip 而不是 Gateway.Ip
-                            $"  通道: {Working.Ip}:{Working.LocalPort}\n" +
-                            $"  路径: ZLAN 网关 TCP 透传\n" +
-                            $"  耗时: {elapsed:F0} ms";
+                        TestResultText = string.Format(
+                            _localizationService.GetString(
+                                "Gateway_Test_Success",
+                                "  设备: {0} · {1}\n  通道: {2}:{3}\n  路径: ZLAN 网关 TCP 透传\n  耗时: {4:F0} ms"),
+                            device.Name, binding.DeviceInstanceId, Working.Ip, Working.LocalPort, elapsed);
                     }
                     else
                     {
-                        TestResultText =
-                            $"✗ 设备连接失败\n" +
-                            $"  设备: {device.Name} · {binding.DeviceInstanceId}\n" +
-                            // ★ 用 Working.Ip 而不是 Gateway.Ip
-                            $"  通道: {Working.Ip}:{Working.LocalPort}\n" +
-                            $"  请查看日志了解详细原因\n" +
-                            $"  常见原因:\n" +
-                            $"   · TCP 链路通但设备无应答 (接线/拨码/站号)\n" +
-                            $"   · 网关不可达\n" +
-                            $"   · 该设备未绑定到任何通道";
+                        TestResultText = string.Format(
+                            _localizationService.GetString(
+                                "Gateway_Test_ConnFailed",
+                                "✗ 设备连接失败\n  设备: {0} · {1}\n  通道: {2}:{3}\n  请查看日志了解详细原因\n  常见原因:\n   · TCP 链路通但设备无应答 (接线/拨码/站号)\n   · 网关不可达\n   · 该设备未绑定到任何通道"),
+                            device.Name, binding.DeviceInstanceId, Working.Ip, Working.LocalPort);
+                            
                     }
                 }
                 finally
@@ -382,7 +514,7 @@ namespace MaxChemical.Modules.GatewayConfig.ViewModels
             }
             catch (Exception ex)
             {
-                TestResultText = $"✗ 测试失败: {ex.Message}";
+                TestResultText = string.Format(_localizationService.GetString("Gateway_Test_Failed", "✗ 测试失败: {0}"),ex.Message);
             }
             finally
             {

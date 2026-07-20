@@ -471,7 +471,7 @@
             <!-- 工具菜单 -->
             <MenuItem Header="{Binding MenuTools}" Style="{StaticResource TopLevelMenuItemStyle}">
                 <!-- ★ 新增网关配置菜单项,放在"语言"上面 -->
-                <MenuItem Header="网关配置"
+                <MenuItem Header="{Binding MenuGateway}"
                           Command="{Binding GatewayConfigCommand}"
                           Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
