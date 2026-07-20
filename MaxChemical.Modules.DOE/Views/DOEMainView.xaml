@@ -4,8 +4,8 @@
         xmlns:views="clr-namespace:MaxChemical.Modules.DOE.Views"
         Title="DOE" Width="960" Height="760"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="None" AllowsTransparency="True"
-        Background="Transparent" ResizeMode="CanResizeWithGrip">
+        WindowStyle="None"
+        Background="White" ResizeMode="CanResizeWithGrip">
 
     <Window.Resources>
         <ResourceDictionary Source="DOEStyles.xaml"/>
@@ -13,10 +13,11 @@
 
     <Grid>
         <!-- ═══ 主内容（大窗口模式） ═══ -->
-        <Border x:Name="MainContent" Margin="10" CornerRadius="12" Background="White" BorderBrush="#D8DCE3" BorderThickness="1">
-            <Border.Effect>
-                <DropShadowEffect Color="#000" Direction="270" ShadowDepth="4" BlurRadius="16" Opacity="0.12"/>
-            </Border.Effect>
+        <!-- 此窗口为不透明窗(AllowsTransparency=False,规避分层透明+顶层阴影导致的全应用卡顿)。
+             不透明窗下 Margin 会露出窗口背景色形成一圈方框,故内容铺满窗口(Margin=0)、
+             窗口背景与内容同为白;窗口外圆角改由 DWM 在 Win11 原生绘制(见代码 ApplyRoundedCorners),
+             Win10 自动降级为直角。 -->
+        <Border x:Name="MainContent" Margin="0" CornerRadius="0" Background="White" BorderThickness="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="38"/>
@@ -25,7 +26,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- ═══ 标题栏 ═══ -->
-                <Border Grid.Row="0" CornerRadius="12,12,0,0" MouseLeftButtonDown="TitleBar_MouseDown">
+                <Border Grid.Row="0" CornerRadius="0" MouseLeftButtonDown="TitleBar_MouseDown">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                             <GradientStop Color="#003A96" Offset="0"/>

@@ -95,10 +95,33 @@ namespace SiphonInfusionPump_ModbusTcp
         public override bool SupportsZLanGateway => true;
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public string ScreenKey => "SiphonInfusionPump";
 
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("Flow", "实际流量", "mL/min", source: "获取所有数据", isKey: true),
+            new CollectableParameter("Pressure", "实际压力", "MPa", source: "获取所有数据"),
+        };
+
+        #region ── 模拟模式:进料状态(驱动电子秤减重) ──
+
+        private readonly object _simPumpLock = new object();
+        private double _simPumpFlow = 0;   // 设定流量(ml/min)
+        private bool _simPumpOn = false;   // 泵启停
+
+        /// <summary>把当前进料流量(运行时=设定流量,否则 0)发布到模拟中枢,电子秤据此减重。</summary>
+        private void SimPublishPumpFeed()
+        {
+            double flow;
+            lock (_simPumpLock) { flow = _simPumpOn ? _simPumpFlow : 0; }
+            SimulationHub.PublishFeedFlow(DeviceId + "_pingliu", flow);
+        }
+
+        #endregion
 
         private void InitializeCommands()
         {
@@ -127,8 +150,10 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            InfoLog("模拟模式停止水平输液泵");
                             success = true;
+                            lock (_simPumpLock) { _simPumpOn = false; }
+                            SimPublishPumpFeed();   // 停泵→进料流量归零
+                            InfoLog("模拟模式停止水平输液泵");
                         }
                         else
                         {
@@ -181,6 +206,8 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             await Task.Delay(2000);
                             success = true;
+                            lock (_simPumpLock) { _simPumpOn = true; }
+                            SimPublishPumpFeed();   // 启泵→按设定流量进料
                             InfoLog("模拟模式启动水平输液泵");
                         }
                         else
@@ -286,7 +313,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = new Random().Next(0, 2) == 1 ? true : false;
+                            success = true;
                             InfoLog("模拟模式平流输液泵重置压力");
                         }
                         else
@@ -467,6 +494,8 @@ namespace SiphonInfusionPump_ModbusTcp
                         {
                             await Task.Delay(2000);
                             success = true;
+                            lock (_simPumpLock) { _simPumpFlow = target; }
+                            SimPublishPumpFeed();   // 更新设定流量→刷新进料
                             InfoLog("模拟模式设置平流输液泵流量");
                         }
                         else
@@ -579,7 +608,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            pressure = new Random().Next(20, 100);
+                            lock (_simPumpLock) { pressure = _simPumpOn ? 20 + SimulationHub.Noise(1) : 0; } // 输出/10→运行时~2.0MPa
                             InfoLog($"模拟模式获取平流输液泵实时压力,结果({pressure})");
                         }
                         else
@@ -626,7 +655,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            pressure = new Random().Next(20, 100);
+                            pressure = 100; // 输出/10→10.0MPa 压力上限
                             InfoLog($"模拟模式获取平流输液泵压力上限,结果({pressure})");
                         }
                         else
@@ -673,7 +702,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            pressure = new Random().Next(20, 100);
+                            pressure = 0; // 压力下限 0.0MPa
                             InfoLog($"模拟模式获取平流输液泵压力下限,结果({pressure})");
                         }
                         else
@@ -720,7 +749,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            flow = new Random().Next(20, 100);
+                            lock (_simPumpLock) { flow = _simPumpOn ? _simPumpFlow * 100 : 0; } // 输出/100→ml/min
                             InfoLog($"模拟模式获取平流输液泵流量,结果({flow})");
                         }
                         else
@@ -767,7 +796,7 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(2000);
-                            flow = new Random().Next(20, 100);
+                            flow = 0; // 流量2(未使用)
                             InfoLog($"模拟模式获取平流输液泵流量2,结果({flow})");
                         }
                         else
@@ -803,7 +832,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     Variables = new ObservableCollection<ParameterBase>()
                     {
                         new NumberParameter("Flow", -10000, 100000, 0,"平流输液泵当前流量", true, "Ml/Min"),
-                        new NumberParameter("Pressure", -10000, 100000, 0,"平流输液泵当前流量2", true, "Ml/Min"),
+                        new NumberParameter("Pressure", -10000, 100000, 0,"平流输液泵当前压力", true, "Mpa"),
                         new NumberParameter("Run", -10000, 100000, 0,"平流输液泵是否启动", true),
                         new NumberParameter("Stop", -10000, 100000, 0,"平流输液泵是否停止", true)
                     }
@@ -822,9 +851,12 @@ namespace SiphonInfusionPump_ModbusTcp
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            flow = (short)new Random().Next(0, 100);
-                            pressure = (short)new Random().Next(0, 100);
-                            run = (short)new Random().Next(0, 2);
+                            lock (_simPumpLock)
+                            {
+                                flow = (short)(_simPumpOn ? _simPumpFlow * 100 : 0); // 输出/100→ml/min
+                                run = (short)(_simPumpOn ? 1 : 0);
+                            }
+                            pressure = 0;                        // 流量2(未使用)
                             stop = (short)(run == 1 ? 0 : 1);
                         }
                         else
@@ -845,7 +877,7 @@ namespace SiphonInfusionPump_ModbusTcp
                             Variables = new ObservableCollection<ParameterBase>()
                             {
                                 new NumberParameter("Flow", -10000, 100000, flow/100.0,"平流输液泵当前流量", true, "Ml/Min"),
-                                new NumberParameter("Pressure", -10000, 100000, pressure/10.0,"平流输液泵当前流量2", true, "Ml/Min"),
+                                new NumberParameter("Pressure", -10000, 100000, pressure/10.0,"平流输液泵当前压力", true, "Mpa"),
                                 new NumberParameter("Run", -10000, 100000, run,"平流输液泵是否启动", true),
                                 new NumberParameter("Stop", -10000, 100000, stop,"平流输液泵是否停止", true)
                             }
@@ -1082,7 +1114,7 @@ namespace SiphonInfusionPump_ModbusTcp
                     if (IsSimulationMode)
                     {
                         await Task.Delay(2000, token);
-                        pressure = rng.Next(20, 100);
+                        lock (_simPumpLock) { pressure = _simPumpOn ? 20 + SimulationHub.Noise(1) : 0; }
                     }
                     else
                     {

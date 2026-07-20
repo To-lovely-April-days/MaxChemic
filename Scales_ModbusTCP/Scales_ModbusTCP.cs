@@ -20,6 +20,9 @@ namespace Scales_ModbusTCP
         private readonly ILogService _logger;
         private readonly object _stateLock = new object();
 
+        // 注意:本驱动的模拟读值路径有副作用(按「约 3 秒一次」的调用间隔假设扣重/累计),
+        // 不能声明 CollectableParameters 提频调用;电子秤自动采集由 DigitalScale_ModbusTCP 承担。
+
         // 天平基础数据缓存
         private readonly Dictionary<string, double> _scaleData = new Dictionary<string, double>();
 

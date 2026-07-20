@@ -15,6 +15,17 @@ namespace TubularReactor_ModbusTCP
     [Export(typeof(IDevice))]
     public class TubularReactor_ModbusTCP : Device, IControllableDevice, IFlowLifecycleAware
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("TT0113_Temperature", "出口温度", "℃", source: "获取出口温度", isKey: true),
+            new CollectableParameter("PT0113_Pressure", "出口压力", "MPa", source: "获取出口压力"),
+        };
+
+        /// <summary>采集间隔(毫秒)。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         private readonly ILogService _logger;
         private readonly object _stateLock = new object();
 

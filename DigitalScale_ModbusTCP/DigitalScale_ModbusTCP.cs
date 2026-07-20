@@ -35,6 +35,14 @@ namespace DigitalScale_ModbusTCP
 
         private readonly ILogService _logger;
 
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("CurrentWeight", "当前重量", "g", source: "获取称重值", isKey: true),
+            new CollectableParameter("TotalWeight", "累计重量", "g", source: "获取称重值"),
+        };
+
         #region ── 基础状态字段 ───────────────────────────────────────
 
         private double _currentWeight = 0.0;
@@ -45,6 +53,11 @@ namespace DigitalScale_ModbusTCP
         private bool _isTared = false;
         private bool _isPoweredOn = false;
         private readonly object _stateLock = new object();
+
+        // ─────────── 模拟模式:持续减重(料瓶被进料泵抽取) ───────────
+        private const double SimInitialWeightG = 5000.0;   // 料瓶初始重量(g)
+        private const double SimDemoDrainGPerMin = 5.0;    // 保底消耗速率(g/min),保证读数"一直减少"
+        private DateTime _lastSimDepleteTime = DateTime.Now;
 
         private readonly List<DeviceActiveState> _activeStates = new List<DeviceActiveState>();
         private readonly List<DeviceActiveState> _pausedStates = new List<DeviceActiveState>();
@@ -596,6 +609,7 @@ namespace DigitalScale_ModbusTCP
                     }
                     else if (IsSimulationMode)
                     {
+                        SimAdvanceWeight();   // 持续减重
                         lock (_stateLock) { w = _currentWeight; total = _totalWeight; }
                     }
 
@@ -1561,6 +1575,33 @@ namespace DigitalScale_ModbusTCP
 
         #region ── 辅助：读重量 / 写泵速 ─────────────────────────────
 
+        /// <summary>
+        /// 模拟模式:按经过时间持续扣减料瓶重量,使电子秤读数"一直减少"。
+        /// 消耗速率 = max(进料泵总流量 mL/min≈g/min, 保底速率)。
+        /// 流量闭环控制(设置目标流速)运行时,扣重由 MPC 环路(ReadWeightAsync)负责,此处跳过以免重复计重。
+        /// 时间锚点始终推进,故控制启停切换时不会产生重量跳变。
+        /// </summary>
+        private void SimAdvanceWeight()
+        {
+            bool fcOn;
+            lock (_flowControlLock) { fcOn = _flowControlEnabled; }
+
+            lock (_stateLock)
+            {
+                if (_currentWeight <= 0) _currentWeight = SimInitialWeightG;   // 初始化/补料
+
+                var now = DateTime.Now;
+                double elapsedMin = (now - _lastSimDepleteTime).TotalMinutes;
+                _lastSimDepleteTime = now;
+                if (fcOn || elapsedMin <= 0) return;
+
+                double rate = Math.Max(SimulationHub.TotalFeedFlowMlPerMin, SimDemoDrainGPerMin);
+                double consumed = rate * elapsedMin;
+                _currentWeight = Math.Max(0.0, _currentWeight - consumed);
+                _totalWeight += consumed;   // 累计发料量随之增加
+            }
+        }
+
         private async Task<double> ReadWeightAsync()
         {
             if (DeviceConnectionConfig.CommunicationMode == CommunicationMode.ModbusTcp
@@ -1879,6 +1920,7 @@ namespace DigitalScale_ModbusTCP
                         }
                         else if (IsSimulationMode)
                         {
+                            SimAdvanceWeight();   // 持续减重
                             lock (_stateLock) { currentWeight = _currentWeight; totalWeight = _totalWeight; }
                         }
                         else throw new InvalidOperationException("设备未连接且非模拟模式");

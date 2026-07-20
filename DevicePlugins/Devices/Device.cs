@@ -171,11 +171,13 @@ namespace DevicePlugins.Devices
                 case DeviceConnectionStatus.Connected:
                     ConnectedTime = DateTime.Now;
                     LastHeartbeatTime = DateTime.Now;
+                    StartAutoCollect();
                     break;
                 case DeviceConnectionStatus.Disconnected:
                 case DeviceConnectionStatus.Error:
                     ConnectedTime = null;
                     LastHeartbeatTime = null;
+                    if (!_flowCollectHold) StopAutoCollect();
                     break;
             }
         }
@@ -644,6 +646,190 @@ namespace DevicePlugins.Devices
                 deviceInstanceId,
                 serialConfig,
                 mode);
+        }
+
+        #endregion
+
+        #region 驱动级自动采集
+
+        // 设备连接后由基类自动启动的后台采集循环。驱动只需通过
+        // CollectableParameters 声明「可监控参数白名单」(键名/显示名/单位/取数命令)，
+        // 定时、取数、过滤、发布、停止全部由基类负责；只有声明过的参数会被
+        // 抽取并经 DeviceSampleHub 上抛，命令输出里的其余杂项在此拦下。
+
+        /// <summary>自动采集样本的统一命令键:监控列表、图表数据键、入库 command_name 都用它。</summary>
+        public const string AutoCollectCommandKey = "自动采集";
+
+        private CancellationTokenSource? _autoCollectCts;
+        private Task? _autoCollectTask;
+        private readonly object _autoCollectLock = new object();
+
+        // 流程运行保持位:流程运行期间即使设备未走「连接」流程也保持采集
+        // (模拟/真实分支由驱动读命令自身处理),流程结束且未连接时停采
+        private volatile bool _flowCollectHold;
+
+        /// <summary>
+        /// 本设备的可监控参数白名单。声明了的参数才出现在监控界面并被自动采集;
+        /// 返回空列表表示本驱动不参与自动采集。
+        /// </summary>
+        public virtual IReadOnlyList<CollectableParameter> CollectableParameters => Array.Empty<CollectableParameter>();
+
+        /// <summary>
+        /// 自动采集允许开关。只有画布创建/恢复流程盖章过的设备实例才置 true；
+        /// 插件目录实例、网关探测/试连等临时连接不盖章，避免在共享实例上
+        /// 发起多余 IO 或发布无画布 ID 的脏样本。
+        /// </summary>
+        public bool AutoCollectAllowed { get; set; }
+
+        /// <summary>相邻两轮采集之间的间隔（毫秒）。子类可按通信负载调整。</summary>
+        public virtual int AutoCollectIntervalMs => 1000;
+
+        /// <summary>
+        /// 流程开始:强制启动自动采集并保持到流程结束(设备未连接也采,
+        /// 保证「开启流程就有数据」;需先由上层盖章 AutoCollectAllowed)。
+        /// </summary>
+        public void NotifyFlowCollectStart()
+        {
+            _flowCollectHold = true;
+            StartAutoCollect();
+        }
+
+        /// <summary>流程结束:解除保持;设备未连接则停采,已连接则继续。</summary>
+        public void NotifyFlowCollectStop()
+        {
+            _flowCollectHold = false;
+            if (!IsConnected) StopAutoCollect();
+        }
+
+        private void StartAutoCollect()
+        {
+            try
+            {
+                if (!AutoCollectAllowed) return;
+                if (CollectableParameters == null || CollectableParameters.Count == 0) return;
+
+                lock (_autoCollectLock)
+                {
+                    if (_autoCollectTask != null && !_autoCollectTask.IsCompleted) return;
+
+                    _autoCollectCts?.Dispose();
+                    _autoCollectCts = new CancellationTokenSource();
+                    var token = _autoCollectCts.Token;
+                    _autoCollectTask = Task.Run(() => AutoCollectLoopAsync(token), token);
+                }
+                InfoLog($"自动采集已启动: {string.Join(", ", CollectableParameters.Select(p => p.DisplayName))}");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("自动采集启动失败", ex);
+            }
+        }
+
+        private void StopAutoCollect()
+        {
+            try
+            {
+                lock (_autoCollectLock)
+                {
+                    if (_autoCollectCts == null) return;
+                    _autoCollectCts.Cancel();
+                    _autoCollectCts.Dispose();
+                    _autoCollectCts = null;
+                    _autoCollectTask = null;
+                }
+                InfoLog("自动采集已停止");
+            }
+            catch (Exception ex)
+            {
+                ErrorLog("自动采集停止异常", ex);
+            }
+        }
+
+        private async Task AutoCollectLoopAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && (IsConnected || _flowCollectHold))
+            {
+                var declared = CollectableParameters;
+                var collected = new List<ParameterBase>();
+
+                // 按声明去重后的来源命令逐条取数,只抽取声明过的参数
+                foreach (var commandName in declared.Select(p => p.SourceCommand).Distinct())
+                {
+                    if (token.IsCancellationRequested || (!IsConnected && !_flowCollectHold)) break;
+
+                    try
+                    {
+                        var cmd = Commands?.FirstOrDefault(c => c.Name == commandName);
+                        if (cmd == null)
+                        {
+                            WarnLog($"自动采集来源命令不存在: {commandName}");
+                            continue;
+                        }
+
+                        var result = await cmd.ExecuteAsync(new DeviceParameters()).ConfigureAwait(false);
+                        if (result?.Success != true || result.OutputParameters?.Variables == null) continue;
+
+                        foreach (var cp in declared)
+                        {
+                            if (cp.SourceCommand != commandName) continue;
+
+                            var src = result.OutputParameters.Variables.FirstOrDefault(v => v.Name == cp.SourceParam);
+                            if (src?.Value == null || !TryConvertToDouble(src.Value, out var value)) continue;
+
+                            collected.Add(new NumberParameter(cp.Name, -1e12, 1e12, value, cp.DisplayName, true, cp.Unit));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // 单条命令失败不终止循环（链路抖动下一轮重试）
+                        DebugLog($"自动采集执行失败: {commandName} - {ex.Message}");
+                    }
+                }
+
+                // 命令执行期间可能已断开/取消(如探测式短连接),不发布过期样本
+                if (!token.IsCancellationRequested && (IsConnected || _flowCollectHold) && collected.Count > 0)
+                {
+                    DeviceSampleHub.Publish(new DeviceSampleEventArgs
+                    {
+                        DeviceId = this.DeviceId,
+                        DeviceName = this.Name,
+                        CommandName = AutoCollectCommandKey,
+                        Output = new DeviceParameters
+                        {
+                            Variables = new System.Collections.ObjectModel.ObservableCollection<ParameterBase>(collected)
+                        },
+                        Timestamp = DateTime.Now
+                    });
+                }
+
+                try
+                {
+                    await Task.Delay(Math.Max(200, AutoCollectIntervalMs), token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        private static bool TryConvertToDouble(object value, out double result)
+        {
+            result = 0;
+            switch (value)
+            {
+                case double d: result = d; return double.IsFinite(d);
+                case float f: result = f; return float.IsFinite(f);
+                case int i: result = i; return true;
+                case long l: result = l; return true;
+                case short s: result = s; return true;
+                case byte b: result = b; return true;
+                case decimal m: result = (double)m; return true;
+                case bool bl: result = bl ? 1.0 : 0.0; return true;
+                default:
+                    return double.TryParse(value.ToString(), System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out result) && double.IsFinite(result);
+            }
         }
 
         #endregion
@@ -1196,6 +1382,7 @@ namespace DevicePlugins.Devices
             {
                 if (disposing)
                 {
+                    StopAutoCollect();
                     StopHeartbeat();
                     DisconnectAsync().Wait();
                 }

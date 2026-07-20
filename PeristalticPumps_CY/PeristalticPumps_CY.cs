@@ -19,6 +19,17 @@ namespace PeristalticPumps_CY
     [Export(typeof(IDevice))]
     public class PeristalticPumps_CY : Device, IControllableDevice, IFlowLifecycleAware
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("FlowRate", "流量", "mL/min", source: "获取流量值", isKey: true),
+            new CollectableParameter("Pressure", "压力", "MPa", source: "获取压力值"),
+        };
+
+        /// <summary>采集间隔(毫秒)。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         private SerialPort _serialPort;
         private readonly ILogService _logger;
         private bool _isRunning = false;

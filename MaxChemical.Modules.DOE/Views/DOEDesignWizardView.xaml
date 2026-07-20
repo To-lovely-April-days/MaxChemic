@@ -497,14 +497,16 @@
                                               AutoGenerateColumns="True" IsReadOnly="True"
                                               FontFamily="Consolas" FontSize="12" RowHeight="30" ColumnHeaderHeight="32" MaxHeight="360">
                                         <DataGrid.ColumnHeaderStyle>
+                                            <!-- 靛蓝浅底 + 靛蓝深字：与主表正文区分但同色系协调 -->
                                             <Style TargetType="DataGridColumnHeader">
-                                                <Setter Property="Background" Value="#FAFBFC"/>
-                                                <Setter Property="Foreground" Value="{StaticResource WzTextMuted}"/>
+                                                <Setter Property="Background" Value="#E8EAF6"/>
+                                                <Setter Property="Foreground" Value="#2D3A8C"/>
                                                 <Setter Property="FontSize" Value="11"/>
                                                 <Setter Property="FontFamily" Value="Segoe UI"/>
                                                 <Setter Property="FontWeight" Value="SemiBold"/>
                                                 <Setter Property="Padding" Value="10,0"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource WzDivider}"/>
+                                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                                <Setter Property="BorderBrush" Value="#C5CAE9"/>
                                                 <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                             </Style>
                                         </DataGrid.ColumnHeaderStyle>

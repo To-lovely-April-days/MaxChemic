@@ -53,6 +53,8 @@ namespace MaxChemical.Modules.Designer.Plugins.Commands
             logicCommand.SetProperty("WaitForStability", properties.WaitForStability);
             logicCommand.SetProperty("StabilityDeviceIds", properties.StabilityDeviceIds);
             logicCommand.SetProperty("StabilityTimeoutSeconds", properties.StabilityTimeoutSeconds);
+            //  新增：停留时间等待节点标记(DOE 稳态保温)
+            logicCommand.SetProperty("IsResidenceTimeWait", properties.IsResidenceTimeWait);
             return new CommandNode(logicCommand);
         }
 

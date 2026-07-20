@@ -19,6 +19,17 @@ namespace FlowMeter_ModbusTCP
     [Export(typeof(IDevice))]
     public class FlowMeter_ModbusTCP : Device, IDeviceUIInteraction,IControllableDevice, IFlowLifecycleAware
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("BaseFlow", "基准质量流量", "g/min", source: "获取基准流量", isKey: true),
+            new CollectableParameter("CurrentDensity", "液体密度", "g/cm³", source: "获取基准流量"),
+        };
+
+        /// <summary>采集间隔(毫秒)。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         private readonly ILogService _logger;
         private double _currentFlow = 0;
         private double _targetFlow = 0; // 基准流量设定值

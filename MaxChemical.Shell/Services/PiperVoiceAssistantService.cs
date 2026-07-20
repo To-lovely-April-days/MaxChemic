@@ -22,7 +22,18 @@ namespace MaxChemical.Shell.Services
         private readonly IConfiguration _configuration;
         private readonly ITtsEngine _ttsEngine;
         private readonly OllamaLlmService _llmService;
-        private readonly AliyunRealtimeAsrEngine _aliyunEngine;  // ← 改为阿里云引擎
+        private readonly Agent.XiaoTongAgent _agent;             // ← DeepSeek 工具调用 Agent(配置了 ApiKey 才启用)
+        private readonly AliyunRealtimeAsrEngine? _aliyunEngine; // ← 百炼 ASR;语音禁用时不创建
+
+        // 语音 Agent 提问的界面通道(AgentChatViewModel.AskFromVoice):
+        // 走它才有 IsBusy 占用与本轮会话锁定;由 AgentBootstrapper 装配时注入,避免 DI 环。
+        private Action<string>? _uiAskHandler;
+
+        /// <summary>装配语音→聊天 ViewModel 的提问通道(未装配时退回直连 Agent 的旧链路)。</summary>
+        public void SetUiAskHandler(Action<string> handler) => _uiAskHandler = handler;
+
+        /// <summary>语音总开关(VoiceSettings:Enabled)。工业现场嘈杂时置 false:不听麦、不播报,文字对话不受影响。</summary>
+        private readonly bool _voiceEnabled;
 
         private bool _isListening;
         private bool _isAwake;
@@ -46,17 +57,41 @@ namespace MaxChemical.Shell.Services
 
         public PiperVoiceAssistantService(
             IEventAggregator eventAggregator,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            Agent.XiaoTongAgent agent)
         {
             _logger = LogManager.GetLogger<PiperVoiceAssistantService>();
             _eventAggregator = eventAggregator;
             _configuration = configuration;
+            _agent = agent;
 
             _llmService = new OllamaLlmService(_logger);
             _ttsEngine = CreateTtsEngine();
-            _aliyunEngine = new AliyunRealtimeAsrEngine(_logger, _configuration);  // ← 改为阿里云引擎
 
-            InitializeAliyunAsr();  // ← 改为阿里云初始化
+            // 语音总开关:配置为 false 时不创建/不初始化 ASR,且默认静音播报
+            _voiceEnabled = !string.Equals(_configuration["VoiceSettings:Enabled"], "false",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (_voiceEnabled)
+            {
+                try
+                {
+                    _aliyunEngine = new AliyunRealtimeAsrEngine(_logger, _configuration);
+                    InitializeAliyunAsr();
+                }
+                catch (Exception ex)
+                {
+                    // Key 未配置等情况不允许拖垮应用启动:仅语音不可用
+                    _logger.LogWarning($"语音识别初始化失败,语音功能不可用: {ex.Message}");
+                    _aliyunEngine = null;
+                }
+            }
+            else
+            {
+                _aliyunEngine = null;
+                _isSpeechEnabled = false;
+                _logger.LogInformation("语音功能已在配置中禁用(VoiceSettings:Enabled=false)");
+            }
         }
 
         private ITtsEngine CreateTtsEngine()
@@ -68,6 +103,7 @@ namespace MaxChemical.Shell.Services
 
             ITtsEngine engine = voiceSettings.TtsProvider.ToLower() switch
             {
+                "bailian" or "dashscope" or "aliyun" => new BailianTtsEngine(_logger, _configuration),
                 "edge" => new EdgeTtsEngine(_logger, voiceSettings.EdgeTts),
                 "azure" => new AzureTtsEngine(_logger, voiceSettings.AzureTts),
                 "piper" => new PiperTtsEngine(_logger, voiceSettings.Piper),
@@ -78,6 +114,14 @@ namespace MaxChemical.Shell.Services
             if (!engine.IsAvailable)
             {
                 _logger.LogWarning($"{engine.EngineName} 不可用，尝试降级方案");
+
+                // 百炼不可用(未配 Key)→ 回退本地 sherpa
+                if (engine is BailianTtsEngine)
+                {
+                    engine.Dispose();
+                    engine = new SherpaOnnxTtsEngine(_logger, voiceSettings.SherpaOnnx);
+                    _logger.LogInformation("已回退到本地 SherpaOnnx TTS");
+                }
 
                 if (voiceSettings.TtsProvider.ToLower() == "edge")
                 {
@@ -107,6 +151,7 @@ namespace MaxChemical.Shell.Services
         // ← 改为阿里云初始化
         private void InitializeAliyunAsr()
         {
+            if (_aliyunEngine == null) return;
             try
             {
                 _aliyunEngine.Initialize();
@@ -131,6 +176,12 @@ namespace MaxChemical.Shell.Services
 
         public void Start()
         {
+            if (!_voiceEnabled || _aliyunEngine == null)
+            {
+                _logger.LogInformation("语音功能已禁用或不可用,忽略启动请求(文字对话不受影响)");
+                return;
+            }
+
             if (_isListening)
             {
                 _logger.LogWarning("语音助手已在运行中");
@@ -142,7 +193,9 @@ namespace MaxChemical.Shell.Services
                 _recognitionCts = new CancellationTokenSource();
 
                 // ← 改为阿里云引擎启动
-                Task.Run(async () => await _aliyunEngine.StartContinuousRecognitionAsync(_recognitionCts.Token));
+                var engine = _aliyunEngine;
+                var token = _recognitionCts.Token;
+                Task.Run(async () => await engine.StartContinuousRecognitionAsync(token));
 
                 _isListening = true;
                 _isAwake = false;
@@ -291,11 +344,46 @@ namespace MaxChemical.Shell.Services
         private async Task HandleCommandAsync(string text)
         {
             _logger.LogInformation($"收到用户指令: {text}");
-            _logger.LogInformation("调用大模型进行意图理解...");
 
             ResetAutoSleepTimer();
             CommandRecognized?.Invoke(this, text);
 
+            // 休眠口令走本地捷径,不进大模型
+            if (text.Contains("休息") || text.Contains("睡觉") || text.Contains("再见"))
+            {
+                HandleSleepIntent();
+                return;
+            }
+
+            // ── Agent 模式:DeepSeek 工具调用(配置了 ApiKey 即启用) ──
+            // 小桐自己决定查什么/做什么;写操作会在对话窗口弹确认卡片。
+            // 一律经聊天 ViewModel 走(AskFromVoice):它会占用 IsBusy、锁定本轮会话路由并播报回复;
+            // 直接调 _agent.AskAsync 会绕过这些护栏,轮次进行中切换会话/发消息会把
+            // 事件与历史落进错误的会话(装配阶段由 AgentBootstrapper 注入委托,避免 DI 环)。
+            if (_agent != null && _agent.IsConfigured)
+            {
+                if (_uiAskHandler != null)
+                {
+                    _uiAskHandler(text);
+                    ResetAutoSleepTimer();
+                    return;
+                }
+                try
+                {
+                    string reply = await _agent.AskAsync(text);
+                    if (!string.IsNullOrWhiteSpace(reply))
+                        SpeakAsync(reply);
+                    ResetAutoSleepTimer();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Agent 处理失败,回退本地意图识别: {ex.Message}");
+                    // 落到下方旧链路兜底
+                }
+            }
+
+            _logger.LogInformation("调用本地意图识别(Ollama 兜底链路)...");
             var intent = await _llmService.UnderstandCommand(text);
 
             if (intent == null || string.IsNullOrEmpty(intent.Action))
