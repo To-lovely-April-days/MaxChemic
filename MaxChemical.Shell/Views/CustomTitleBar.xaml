@@ -179,9 +179,9 @@
                     <Button x:Name="VoiceAssistantButton"
                             Command="{Binding OpenAgentChatCommand}"
                             Style="{StaticResource VoiceAssistantButtonStyle}"
-                            ToolTip="打开小桐对话窗口:问状态、控设备、搭流程、设计实验、分析结果">
+                            ToolTip="{Binding AgentTip}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="小桐助手" FontSize="12" FontWeight="Medium"
+                            <TextBlock Text="{Binding Assistant}" FontSize="12" FontWeight="Medium"
                                        VerticalAlignment="Center"
                                        Foreground="{StaticResource Text.OnPrimaryBrush}"/>
                         </StackPanel>

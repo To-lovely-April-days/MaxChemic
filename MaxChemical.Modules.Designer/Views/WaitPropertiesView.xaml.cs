@@ -87,6 +87,9 @@ namespace MaxChemical.Modules.Designer.Views
             StabDevTb.Text = service.GetString("WaitNode_StabDev");
             StabSecTb.Text = service.GetString("WaitNode_StabSec");
             StabTipTb.Text = service.GetString("WaitNode_StabTip");
+            ResidenceTimeWaitCheckBox.Content = service.GetString("WAitNode_StabWaitNode");
+            TbXiaotongStabTip.Text = service.GetString("WaitNode_StabNodeTip");
+
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)

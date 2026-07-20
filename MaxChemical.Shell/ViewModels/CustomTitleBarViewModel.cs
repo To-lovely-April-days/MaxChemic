@@ -34,6 +34,10 @@ namespace MaxChemical.Shell.ViewModels
         private bool _isMuted = false;
         private bool _isAwake = false;
 
+        //
+        private string _assistant;
+        private string _agentTip;
+
         // 新增：Popup 交互相关属性
         private bool _isVoiceInteractionVisible = false;
         private bool _isListening = false;
@@ -189,6 +193,9 @@ namespace MaxChemical.Shell.ViewModels
             set => SetProperty(ref _assistantReply, value);
         }
 
+        public string Assistant { get => _assistant; set => SetProperty(ref _assistant, value); }
+        public string AgentTip { get => _agentTip; set => SetProperty(ref _agentTip, value); }
+
         #endregion
 
         #region Commands
@@ -263,6 +270,8 @@ namespace MaxChemical.Shell.ViewModels
             ApplicationTitle = _localizationService.GetString("ApplicationTitle");
             MinimizeTooltip = _localizationService.GetString("Minimize_Tooltip");
             CloseTooltip = _localizationService.GetString("Close_Tooltip");
+            Assistant = _localizationService.GetString("Title_OpenAgent", "小桐助手");
+            AgentTip = _localizationService.GetString("ToolTip_Agent", "打开小桐对话窗口:问状态、控设备、搭流程、设计实验、分析结果");
             UpdateMaximizeTooltip();
         }
 

@@ -2,15 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
+using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Shell.Services;
 using MaxChemical.Shell.Services.Agent;
 using Prism.Commands;
+using Prism.Events;
+using Prism.Ioc;
 using Prism.Mvvm;
 
 namespace MaxChemical.Shell.ViewModels
@@ -92,9 +97,15 @@ namespace MaxChemical.Shell.ViewModels
     /// <summary>一个会话:标题、预览、独立的界面条目与模型历史。</summary>
     public class ConversationVm : BindableBase
     {
+        private readonly ILocalizationService _location;
         private string _title = "新对话";
         private string _preview = "";
         private DateTime _lastActiveAt = DateTime.Now;
+
+        public ConversationVm()
+        {
+            _location = ContainerLocator.Container.Resolve<ILocalizationService>();
+        }
 
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
         public DateTime CreatedAt { get; set; } = DateTime.Now;
@@ -126,9 +137,9 @@ namespace MaxChemical.Shell.ViewModels
             {
                 var d = LastActiveAt.Date;
                 var today = DateTime.Today;
-                if (d == today) return "今天";
-                if (d == today.AddDays(-1)) return "昨天";
-                return "更早";
+                if (d == today) return _location.GetString("Agent_Today", "今天");
+                if (d == today.AddDays(-1)) return _location.GetString("Agent_Yesterday", "昨天");
+                return _location.GetString("Agent_Earlier", "更早");
             }
         }
     }
@@ -141,6 +152,8 @@ namespace MaxChemical.Shell.ViewModels
         private readonly MaxChemical.Infrastructure.Services.IDialogService _dialog;
         private readonly ILogService _logger;
         private readonly AgentChatStorage _storage = new();
+        private readonly ILocalizationService _localization;
+        private readonly IEventAggregator _eventAggregator;
 
         private string _inputText = "";
         private string _searchText = "";
@@ -161,12 +174,15 @@ namespace MaxChemical.Shell.ViewModels
         public event Action ShowWindowRequested;
 
         public AgentChatViewModel(XiaoTongAgent agent, IVoiceAssistantService voice,
-            MaxChemical.Infrastructure.Services.IDialogService dialog)
+            MaxChemical.Infrastructure.Services.IDialogService dialog, ILocalizationService localization,
+            IEventAggregator eventAggregator)
         {
             _agent = agent;
             _voice = voice;
             _dialog = dialog;
             _logger = LogManager.GetLogger<AgentChatViewModel>();
+            _localization = localization;
+            _eventAggregator = eventAggregator;
 
             SendCommand = new DelegateCommand(Send, () => !IsBusy && !string.IsNullOrWhiteSpace(InputText))
                 .ObservesProperty(() => InputText)
@@ -190,7 +206,48 @@ namespace MaxChemical.Shell.ViewModels
             LoadPersistedConversations();
             if (Application.Current != null)
                 Application.Current.Exit += (s, e) => SaveConversations(synchronous: true);
+            //
+            OnLanguageChangedEvent("");
+            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChangedEvent);
         }
+
+        #region 本地化相关
+
+        private string _titleTxt;
+        private string _subtitleTxt;
+        private string _newConversation;
+        private string _searchMarkTxt;
+        private string _sendTxt;
+        private string _miniTipTxt;
+        private string _maxiTipTxt;
+        private string _sendTipTxt;
+        private string _expanderTipTxt;
+
+        public string TitleTxt { get => _titleTxt; set => SetProperty(ref _titleTxt, value); }
+        public string SubtitleTxt { get => _subtitleTxt; set => SetProperty(ref _subtitleTxt, value); }
+        public string NewConversation { get => _newConversation; set => SetProperty(ref _newConversation, value); }
+        public string SearchMarkTxt { get => _searchMarkTxt; set => SetProperty(ref _searchMarkTxt, value); }
+        public string SendTxt { get => _sendTxt; set => SetProperty(ref _sendTxt, value); }
+        public string MiniTxt { get => _miniTipTxt; set => SetProperty(ref _miniTipTxt, value); }
+        public string MaxiTxt { get => _maxiTipTxt; set => SetProperty(ref _maxiTipTxt, value); }
+        public string SendTipTxt { get => _sendTipTxt; set => SetProperty(ref _sendTipTxt, value); }
+        public string ExpanderTipTxt { get => _expanderTipTxt; set => SetProperty(ref _expanderTipTxt, value); }
+
+
+        private void OnLanguageChangedEvent(string culture)
+        {
+            TitleTxt = _localization.GetString("Agent_Title", "小桐");
+            SubtitleTxt = _localization.GetString("Agent_Subtitle","实验室智能助手");
+            NewConversation = _localization.GetString("Agent_NewConversation"," + 新建对话");
+            SearchMarkTxt = _localization.GetString("Agent_Search","搜索对话");
+            SendTxt = _localization.GetString("Agent_Send","发送");
+            MiniTxt = _localization.GetString("Agent_Minimized_Tip","收起为右下角小组件");
+            MaxiTxt = _localization.GetString("Agent_Maximized_Tip","关闭（会话保留）");
+            SendTipTxt = _localization.GetString("Agent_Send_Tip","小桐在执行写操作前会逐项与你确认 · 全部操作记录审计日志");
+            ExpanderTipTxt = _localization.GetString("Agent_Expander_Tip", "展开对话窗口");
+        }
+
+        #endregion
 
         public DelegateCommand SendCommand { get; }
         public DelegateCommand NewChatCommand { get; }
@@ -203,7 +260,7 @@ namespace MaxChemical.Shell.ViewModels
         {
             var cts = _turnCts;
             if (cts == null) return;
-            StatusText = "正在停止…";
+            StatusText = _localization.GetString("Agent_StatusMsg_Stoping","正在停止…");
             try { cts.Cancel(); }
             catch (ObjectDisposedException) { /* 恰好在本轮收尾之后点到,无事可停 */ }
         }
@@ -372,7 +429,7 @@ namespace MaxChemical.Shell.ViewModels
             var cts = new System.Threading.CancellationTokenSource();
             _turnCts = cts;
             IsBusy = true;
-            StatusText = "小桐思考中";
+            StatusText = _localization.GetString("Agent_StatusMsg_Think","小桐思考中");
             try
             {
                 string reply = await Task.Run(() => _agent.AskAsync(text, cts.Token));
@@ -401,7 +458,7 @@ namespace MaxChemical.Shell.ViewModels
             {
                 _activeTurnConversation = null;
                 IsBusy = false;
-                StatusText = "就绪";
+                StatusText = _localization.GetString("Agent_StatusMsg_Ready","就绪");
                 _turnCts = null;
                 cts.Dispose();
                 SaveConversations();
@@ -428,7 +485,7 @@ namespace MaxChemical.Shell.ViewModels
             SetProperty(ref _current, conv, nameof(Current));
             _agent.ImportHistory(conv.History);
 
-            StatusText = _agent.IsConfigured ? "就绪" : "未配置 ApiKey";
+            StatusText = _agent.IsConfigured ? _localization.GetString("Agent_StatusMsg_Ready", "就绪") : _localization.GetString("Agent_StatusMsg_NoConfig", "未配置 ApiKey");
             RunOnUi(() => ConversationsView.Refresh());
             RequestScroll();
             SaveConversations();
@@ -473,7 +530,7 @@ namespace MaxChemical.Shell.ViewModels
 
             SetProperty(ref _current, latest, nameof(Current));
             _agent.ImportHistory(latest.History);
-            StatusText = _agent.IsConfigured ? "就绪" : "未配置 ApiKey";
+            StatusText = _agent.IsConfigured ? _localization.GetString("Agent_StatusMsg_Ready", "就绪") : _localization.GetString("Agent_StatusMsg_NoConfig", "未配置 ApiKey");
             RunOnUi(() => ConversationsView.Refresh());
             RequestScroll();
         }

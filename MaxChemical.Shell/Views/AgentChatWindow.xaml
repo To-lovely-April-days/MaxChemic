@@ -477,9 +477,9 @@
 
     <!-- 外框 -->
     <Border Margin="12" CornerRadius="14" Background="{StaticResource Bg.PrimaryBrush}"
-            BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="1" ClipToBounds="True">
+            BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="4" Opacity="0.18" Direction="270"/>
+            <DropShadowEffect Color="#000000" BlurRadius="12" ShadowDepth="4" Opacity="0.5" Direction="270"/>
         </Border.Effect>
 
         <Grid>
@@ -491,7 +491,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- ══════ 左栏:会话列表 ══════ -->
-            <Border Grid.Column="0" Background="{StaticResource Bg.SecondaryBrush}"
+            <Border Grid.Column="0" Background="{StaticResource Bg.SecondaryBrush}" CornerRadius="14,0,0,14"
                     BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="0,0,1,0">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -515,9 +515,9 @@
                                 <Border Background="{DynamicResource XiaoTongAvatarBrush}"/>
                             </Grid>
                             <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="小桐" FontSize="14.5" FontWeight="SemiBold"
+                                    <TextBlock Text="{Binding TitleTxt}" FontSize="14.5" FontWeight="SemiBold"
                                            Foreground="{StaticResource Text.PrimaryBrush}"/>
-                                <TextBlock Text="实验室智能助手" FontSize="10.5"
+                                    <TextBlock Text="{Binding SubtitleTxt}" FontSize="10.5"
                                            Foreground="{StaticResource Text.TertiaryBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
                         </StackPanel>
@@ -528,7 +528,7 @@
                             Command="{Binding NewChatCommand}"
                             Style="{StaticResource ChatOutlineBtn}"
                             HorizontalAlignment="Stretch"
-                            Content="＋ 新建对话"/>
+                            Content="{Binding NewConversation}"/>
 
                     <!-- 搜索 -->
                     <Border Grid.Row="2" Margin="14,0,14,10" CornerRadius="8" Background="{StaticResource Bg.PrimaryBrush}"
@@ -537,7 +537,7 @@
                             <TextBox BorderThickness="0" Background="Transparent" FontSize="11.5"
                                      Padding="10,7" VerticalContentAlignment="Center"
                                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="搜索对话" FontSize="11.5" Foreground="{StaticResource Text.TertiaryBrush}"
+                                <TextBlock Text="{Binding SearchMarkTxt}" FontSize="11.5" Foreground="{StaticResource Text.TertiaryBrush}"
                                        Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -607,7 +607,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- 顶栏 -->
-                <Border Grid.Row="0" Background="{StaticResource Bg.PrimaryBrush}" Padding="20,12"
+                <Border Grid.Row="0" Background="{StaticResource Bg.PrimaryBrush}" Padding="20,12" CornerRadius="0,14,0,0"
                         BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="0,0,0,1"
                         MouseLeftButtonDown="TitleBar_MouseDown">
                     <Grid>
@@ -623,9 +623,9 @@
                             </Border>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="─" Click="Minimize_Click" ToolTip="收起为右下角小组件"
+                                <Button Content="─" Click="Minimize_Click" ToolTip="{Binding MiniTxt}"
                                     Style="{StaticResource ChatGhostBtn}" FontSize="13" Margin="0,0,4,0"/>
-                            <Button Content="✕" Click="Close_Click" ToolTip="关闭(会话保留)"
+                                <Button Content="✕" Click="Close_Click" ToolTip="{Binding MaxiTxt}"
                                     Style="{StaticResource ChatGhostBtn}" FontSize="13"/>
                         </StackPanel>
                     </Grid>
@@ -809,7 +809,7 @@
                 </Grid>
 
                 <!-- 输入区 -->
-                <Border Grid.Row="2" Background="{StaticResource Bg.PrimaryBrush}"
+                <Border Grid.Row="2" Background="{StaticResource Bg.PrimaryBrush}" CornerRadius="0,0,14,0"
                         BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="0,1,0,0" Padding="18,12,18,10">
                     <StackPanel>
                         <Grid>
@@ -831,7 +831,7 @@
                                 </TextBox>
                             </Border>
                             <!-- 忙碌时发送位切换成停止:多专员派工后单轮可能较长,给用户一个不杀进程的刹车 -->
-                            <Button Grid.Column="1" Content="发送" Command="{Binding SendCommand}"
+                                <Button Grid.Column="1" Content="{Binding SendTxt}" Command="{Binding SendCommand}"
                                     Padding="24,9" Margin="10,0,0,0" VerticalAlignment="Stretch">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ChatPrimaryBtn}">
@@ -858,7 +858,7 @@
                                 </Button.Style>
                             </Button>
                         </Grid>
-                        <TextBlock Text="小桐在执行写操作前会逐项与你确认 · 全部操作记录审计日志"
+                            <TextBlock Text="{Binding SendTipTxt}"
                                    FontSize="10" Foreground="{StaticResource Text.TertiaryBrush}"
                                    HorizontalAlignment="Center" Margin="0,8,0,0"/>
                     </StackPanel>
@@ -899,7 +899,7 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Grid Grid.Column="0" Width="40" Height="40" Cursor="Hand"
-                              Background="Transparent" ToolTip="展开对话窗口"
+                              Background="Transparent" ToolTip="{Binding ExpanderTipTxt}"
                               MouseLeftButtonDown="MiniAvatar_MouseDown">
                             <Border CornerRadius="9" Background="{StaticResource Brand.PrimaryBrush}"
                                     Visibility="{DynamicResource XiaoTongFallbackVisibility}">
@@ -917,7 +917,7 @@
                                      Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="InputBox_KeyDown"/>
                         </Border>
-                        <Button Grid.Column="2" Content="发送" Command="{Binding SendCommand}"
+                        <Button Grid.Column="2" Content="{Binding SendTxt}" Command="{Binding SendCommand}"
                                 Style="{StaticResource ChatPrimaryBtn}"
                                 Padding="16,8" Margin="8,0,0,0" VerticalAlignment="Stretch"/>
                     </Grid>

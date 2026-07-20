@@ -422,7 +422,7 @@
                                           Style="{StaticResource FieldCheckBoxStyle}"
                                           Content="停留时间等待节点（DOE 稳态保温）"
                                           Checked="ResidenceTimeWait_Changed" Unchecked="ResidenceTimeWait_Changed"/>
-                                <TextBlock Text="勾选后，小桐的「按停留时间动态等待」只驱动此节点：每组实验按停留时间自动覆盖等待时长，批次结束还原。一个流程只勾一个。"
+                                <TextBlock Name="TbXiaotongStabTip" Text="勾选后，小桐的「按停留时间动态等待」只驱动此节点：每组实验按停留时间自动覆盖等待时长，批次结束还原。一个流程只勾一个。"
                                            FontSize="10" Foreground="#1B7A3D" Margin="24,4,0,0"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
