@@ -266,17 +266,18 @@
                 </Button>
 
                 <!-- DOE 按钮(用品牌色) -->
-                <Button Style="{StaticResource ToolBarButtonStyle}" 
-                        Command="{Binding DOECommand}" 
+                <Button Style="{StaticResource ToolBarButtonStyle}"
+                        Command="{Binding DOECommand}"
                         ToolTip="DOE 实验设计与优化">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="DOE" 
-                                   FontWeight="SemiBold" 
+                        <TextBlock Text="DOE"
+                                   FontWeight="SemiBold"
                                    FontSize="12"
-                                   Foreground="{StaticResource Brand.PrimaryBrush}" 
+                                   Foreground="{StaticResource Brand.PrimaryBrush}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+
             </StackPanel>
 
             <!-- 右侧播放控制组 -->

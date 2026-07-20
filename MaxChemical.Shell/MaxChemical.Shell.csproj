@@ -25,6 +25,7 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.77" />
 		<PackageReference Include="System.Speech" Version="7.0.0" />
+		<PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
 		<PackageReference Include="Whisper.net" Version="1.4.7" />
 		<PackageReference Include="Whisper.net.Runtime" Version="1.4.7" />
 	</ItemGroup>
@@ -157,6 +158,7 @@
 	  <None Remove="Resources\Screens\sips_v.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
+	  <None Remove="Resources\xiaotong.png" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -527,6 +529,9 @@
 
 	<ItemGroup>
 	  <EmbeddedResource Include="Resources\CommadIcon\off.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\xiaotong.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	</ItemGroup>

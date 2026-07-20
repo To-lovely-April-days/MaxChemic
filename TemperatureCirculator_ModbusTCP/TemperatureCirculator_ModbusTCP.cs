@@ -15,6 +15,16 @@ namespace TemperatureCirculator_ModbusTCP
     [Export(typeof(IDevice))]
     public class TemperatureCirculator_ModbusTCP : Device, IDeviceUIInteraction, IControllableDevice, IFlowLifecycleAware
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("ActualTemperature", "实际温度", "℃", source: "获取实际温度", isKey: true),
+        };
+
+        /// <summary>采集间隔(毫秒):控制通信与日志量。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         public event EventHandler<DeviceControlStateChangedEventArgs> ControlStateChanged;
         private readonly ILogService _logger;
 

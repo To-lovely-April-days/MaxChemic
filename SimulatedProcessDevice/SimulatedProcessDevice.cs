@@ -16,6 +16,10 @@ namespace DevicePlugins.Simulated
     [Export(typeof(IDevice))]
     public class SimulatedProcessDevice : Device, IControllableDevice, IFlowLifecycleAware
     {
+        // 注意:本设备的四条「获取」命令按调用次数推进内部曲线步进(_tempStep 等),
+        // 属调用频率敏感的有状态读——空闲连接下自动采集会把演示曲线提前消耗掉,
+        // 故本驱动不声明 CollectableParameters,数据仍由流程节点按设计节奏产生。
+
         private readonly ILogService _logger;
         private readonly object _stateLock = new object();
 

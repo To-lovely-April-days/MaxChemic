@@ -13,6 +13,22 @@ namespace SiliconCarbideChip_ModbusRTU
     [Export(typeof(IDevice))]
     public class SiliconCarbideChip_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("T1", "温度T1", "℃", source: "获取所有数据", isKey: true),
+            new CollectableParameter("T2", "温度T2", "℃", source: "获取所有数据"),
+            new CollectableParameter("T3", "温度T3", "℃", source: "获取所有数据"),
+            new CollectableParameter("T4", "温度T4", "℃", source: "获取所有数据"),
+            new CollectableParameter("T5", "温度T5", "℃", source: "获取所有数据"),
+            new CollectableParameter("T6", "温度T6", "℃", source: "获取所有数据"),
+            new CollectableParameter("Pressure", "背压压力", "Bar", source: "获取所有数据"),
+        };
+
+        /// <summary>采集间隔(毫秒):控制通信与日志量。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         private readonly ILogService _logger;
 
         // 通信层重试参数
@@ -129,7 +145,12 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            //temperature = new Random().Next(0, 100);
+                            // 关键物理耦合：碳化硅芯片温度由高低温载热流体决定。
+                            // 跟随模拟中枢的回路温度(高低温 SV 一阶趋近值)，各测点带微小固定偏差与噪声。
+                            double[] offsets = { 0.0, -1.0, 1.0, -1.5, 1.5, -0.5 };
+                            for (int i = 0; i < 6; i++)
+                                temperature[i] = (float)SimulationHub.GetReactorTemperatureC(offsets[i], 0.3);
+                            InfoLog($"模拟模式获取进料系统集成碳化硅芯片温度，T1~T6 跟随高低温回路温度（{SimulationHub.LoopTemperatureC:F1} ℃）");
                         }
                         else
                         {
@@ -186,7 +207,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            pressure = new Random().Next(0, 100);
+                            pressure = (float)(3.0 + SimulationHub.Noise(0.1));   // 背压阀压力稳定在 ~3 Bar
                             InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀压力P，结果（{pressure} Bar）");
                         }
                         else
@@ -235,7 +256,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            mode = new Random().Next(0, 100);
+                            mode = 4;   // 背压阀模式(固定)
                             InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀模式，结果（{mode}）");
                         }
                         else
@@ -284,7 +305,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            mode = new Random().Next(0, 100);
+                            mode = 50;   // 背压阀开度 SV%
                             InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀SV%，结果（{mode}）");
                         }
                         else
@@ -333,7 +354,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            mode = new Random().Next(0, 100);
+                            mode = 30;   // 背压阀 P SV
                             InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀P SV，结果（{mode}）");
                         }
                         else
@@ -383,7 +404,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            mode = new Random().Next(0, 100);
+                            mode = 0;   // 0:运行
                             InfoLog($"模拟模式获取进料系统集成碳化硅芯片背压阀ON/OFF，结果（{mode}）");
                         }
                         else
@@ -442,13 +463,14 @@ namespace SiliconCarbideChip_ModbusRTU
                     if (IsSimulationMode)
                     {
                         await Task.Delay(200);
-                        var rnd = new Random();
-                        for (int i = 0; i < 6; i++) t[i] = (float)Math.Round(rnd.NextDouble() * 200, 1);
-                        press = (float)Math.Round(rnd.NextDouble() * 10, 2);
-                        mode = rnd.Next(0, 2) == 0 ? 1 : 4;
-                        svp = rnd.Next(0, 100);
-                        psv = rnd.Next(0, 100);
-                        onoff = rnd.Next(0, 2);
+                        // T1~T6 跟随高低温载热流体温度(模拟中枢回路温度)，各测点带微小偏差。
+                        double[] offsets = { 0.0, -1.0, 1.0, -1.5, 1.5, -0.5 };
+                        for (int i = 0; i < 6; i++) t[i] = (float)Math.Round(SimulationHub.GetReactorTemperatureC(offsets[i], 0.3), 1);
+                        press = (float)Math.Round(3.0 + SimulationHub.Noise(0.1), 2);   // 背压阀压力稳定在 ~3 Bar
+                        mode = 4;                                                        // 背压阀模式(固定)
+                        svp = 50;                                                        // 背压阀开度 SV%
+                        psv = 30;                                                        // 背压阀 P SV
+                        onoff = 0;                                                       // 0:运行
                     }
                     else
                     {
@@ -615,7 +637,7 @@ namespace SiliconCarbideChip_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            mode = new Random().Next(-1, 1);
+                            mode = 0;   // 0:无报警
                             InfoLog($"模拟模式获取进料系统集成碳化硅芯片报警状态，结果（{mode == 1}）");
                         }
                         else

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小桐 · 功能清单</title>
+<style>
+  :root{
+    --brand:#003A96; --brand-soft:#e8eef8; --ink:#1c2430; --muted:#66707e;
+    --line:#e3e7ee; --bg:#f6f8fb; --card:#ffffff; --tag:#f0f3f8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    line-height:1.6; font-size:15px;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:32px 20px 64px;}
+  header.doc{
+    background:var(--brand); color:#fff; border-radius:14px;
+    padding:28px 30px; margin-bottom:26px;
+  }
+  header.doc h1{margin:0 0 6px; font-size:24px; letter-spacing:.5px;}
+  header.doc p{margin:0; opacity:.85; font-size:13.5px;}
+  .meta{margin-top:14px; font-size:12.5px; opacity:.8;
+    border-top:1px solid rgba(255,255,255,.2); padding-top:12px;}
+  .legend{
+    display:flex; flex-wrap:wrap; gap:14px; margin:0 0 26px;
+    font-size:12.5px; color:var(--muted);
+  }
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .dot.confirm{background:#d97706;}
+  .dot.auto{background:#0d9488;}
+  .dot.soft{background:#9ca3af;}
+  section.grp{margin-bottom:24px;}
+  .grp-head{
+    display:flex; align-items:baseline; gap:10px; margin:0 0 12px;
+    padding-left:12px; border-left:4px solid var(--brand);
+  }
+  .grp-head h2{margin:0; font-size:17px; color:var(--brand);}
+  .grp-head .cnt{font-size:12px; color:var(--muted);}
+  .grp-note{font-size:12.5px; color:var(--muted); margin:-6px 0 12px 16px;}
+  .feat{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:13px 16px; margin-bottom:9px;
+  }
+  .feat .name{font-weight:600; font-size:14.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .feat .what{color:#3a4250; font-size:13.5px; margin-top:3px;}
+  .feat .trig{color:var(--muted); font-size:12.5px; margin-top:5px;}
+  .feat .trig b{color:#556; font-weight:500;}
+  .pill{
+    font-size:11px; font-weight:500; padding:1px 8px; border-radius:999px;
+    background:var(--tag); color:#556; border:1px solid var(--line); white-space:nowrap;
+  }
+  .pill.confirm{background:#fff7ed; color:#b45309; border-color:#fed7aa;}
+  .pill.auto{background:#f0fdfa; color:#0f766e; border-color:#99f6e4;}
+  .pill.soft{background:#f3f4f6; color:#6b7280; border-color:#e5e7eb;}
+  .arch{
+    background:var(--brand-soft); border:1px solid #d3ddef; border-radius:10px;
+    padding:14px 18px; margin-bottom:10px; font-size:13.5px; color:#26324a;
+  }
+  .arch b{color:var(--brand);}
+  .team{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:9px; margin-top:4px;}
+  .team .m{background:var(--card); border:1px solid var(--line); border-radius:9px; padding:11px 13px;}
+  .team .m .t{font-weight:600; font-size:13.5px; color:var(--brand);}
+  .team .m .d{font-size:12.5px; color:#3a4250; margin-top:3px;}
+  footer.doc{margin-top:28px; font-size:12px; color:var(--muted); text-align:center; line-height:1.7;}
+  @media print{
+    body{background:#fff;} .wrap{max-width:100%; padding:0;}
+    .feat,.team .m{break-inside:avoid;} header.doc{border-radius:0;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc">
+    <h1>小桐 · 功能清单</h1>
+    <p>MaxChemic 工业化学自动化平台内置的 AI 助手 —— 当前真实具备的能力</p>
+    <div class="meta">本清单逐条对照源代码核实(工具注册表、专员配置、值守事件、语音链路),只收录已接线可用的功能。整理日期:2026-07-17</div>
+  </header>
+
+  <div class="legend">
+    <span><i class="dot confirm"></i>需用户确认(写操作会弹确认卡)</span>
+    <span><i class="dot auto"></i>自动 / 后台(无需手动触发)</span>
+    <span><i class="dot soft"></i>软行为(靠调度纪律,非强制代码路径)</span>
+  </div>
+
+  <!-- 架构 -->
+  <section class="grp">
+    <div class="grp-head"><h2>一、小桐是什么</h2><span class="cnt">总控 + 四专员团队</span></div>
+    <div class="arch">
+      用户面对的始终是<b>一个「小桐」</b>。它作为<b>总控</b>只负责听懂意图、拆解任务、把活派给四名领域专员,自己手里只有「派工」和「弹选择卡」两类工具,不直接碰设备和数据库;专员干完把工作汇报交回总控,总控整理后统一回复。不管背后派了几个专员,始终是同一条对话流,专员干活时状态行会标明「某专员·某工具」。
+      <div class="team">
+        <div class="m"><div class="t">设计专员</div><div class="d">实验设计、化学家坐标、阶梯扫描、导入数据、口述搭流程、下一轮预览(12 项工具)</div></div>
+        <div class="m"><div class="t">执行专员</div><div class="d">设备连接/设参/命令、流程启停、DOE 批次执行与进度、联动调参、结果回填(16 项工具)</div></div>
+        <div class="m"><div class="t">分析专员</div><div class="d">统计分析、历史与项目检索、决策解读、预测寻优、实验室记忆、PDF 报告(11 项工具)</div></div>
+        <div class="m"><div class="t">机理专员</div><div class="d">动力学与活化能拟合、机理外推与放大、取样录入、反应网络拟合与仿真(7 项工具)</div></div>
+      </div>
+    </div>
+    <div class="feat">
+      <div class="name">跨专员会诊(互验)<span class="pill soft">软行为</span></div>
+      <div class="what">分析专员给出重要结论、且体系有机理模型时,总控可再派机理专员独立验证,把两边结论并列呈现、一致或分歧都点明。</div>
+      <div class="trig">说明:这靠总控的调度纪律实现(顺序派两个专员再汇总),没有专门的「会诊」代码路径,是否发生取决于模型是否遵循该指令。</div>
+    </div>
+  </section>
+
+  <!-- 设备与流程 -->
+  <section class="grp">
+    <div class="grp-head"><h2>二、设备与流程控制</h2><span class="cnt">11 项</span></div>
+
+    <div class="feat"><div class="name">查看设备列表</div><div class="what">列出画布上全部设备的显示名、类型、连接状态、是否模拟模式。</div><div class="trig"><b>例:</b>有哪些设备 / 设备列表</div></div>
+    <div class="feat"><div class="name">连接设备</div><div class="what">对设备执行真实连接(串口/TCP)并逐台回报;模拟设备与展示型器件(如锥形瓶)自动跳过。可只连一台或全部。</div><div class="trig"><b>例:</b>连接设备 / 检查设备连没连上</div></div>
+    <div class="feat"><div class="name">查看设备状态</div><div class="what">读取单台设备的实时参数值、连接状态,以及它支持的命令清单和各命令的输入参数。</div><div class="trig"><b>例:</b>泵#1 现在什么状态 / 高低温#1 有哪些命令</div></div>
+    <div class="feat"><div class="name">设置设备参数 <span class="pill confirm">需确认</span></div><div class="what">把某台设备的某个参数写入指定值(写入参数表)。要硬件立即动作通常还需再执行对应命令。</div><div class="trig"><b>例:</b>把泵#1 的流速设成 2</div></div>
+    <div class="feat"><div class="name">执行设备命令 <span class="pill confirm">需确认</span></div><div class="what">执行设备命令(启动/停止/设温/设泵速等),真正驱动硬件动作。</div><div class="trig"><b>例:</b>启动泵#1 / 让高低温设到 80 度</div></div>
+    <div class="feat"><div class="name">查看流程状态</div><div class="what">查看当前流程名称与执行状态(空闲/运行中/已暂停/停止中/完成/失败)及参数节点数。</div><div class="trig"><b>例:</b>当前流程什么状态 / 跑到哪了</div></div>
+    <div class="feat"><div class="name">运行当前流程 <span class="pill confirm">需确认</span></div><div class="what">启动当前设计器打开的流程,只跑一遍(不执行 DOE 矩阵);运行前硬性校验设备连接就绪。启动后最多等约 8 秒确认进入运行态,超时会提示稍后用进度查询复查。</div><div class="trig"><b>例:</b>运行流程 / 跑一遍</div></div>
+    <div class="feat"><div class="name">暂停 / 继续 / 停止流程 <span class="pill confirm">继续、停止需确认</span></div><div class="what">暂停(保持当前设备状态,安全动作)、继续(设备接着动作)、停止(不可恢复到断点,需重启)。</div><div class="trig"><b>例:</b>先停一下 / 接着跑 / 结束</div></div>
+    <div class="feat"><div class="name">口述搭建流程到画布 <span class="pill confirm">需确认</span></div><div class="what">按口述的步骤清单(设备命令步/等待步)生成一条顺序流程并铺到画布,不自动运行。生成前逐步校验设备名/命令名/参数名真实存在。<b>注意:会先清空画布现有节点再载入,是整体覆盖而非追加。</b></div><div class="trig"><b>例:</b>帮我搭个流程:先启动泵,等 30 秒,再升温</div></div>
+    <div class="feat"><div class="name">化学家坐标对话直控调参 <span class="pill confirm">需确认</span></div><div class="what">说「把停留时间调到 3 分钟」「当量比改成 1.5」时,保持另一物理量不变、联动解算两泵新流速并一次性批量写入(下次运行生效),写后回读校验;超泵量程会拒绝。</div><div class="trig"><b>例:</b>把停留时间调到 3 分钟 / 当量比改成 1.5</div></div>
+  </section>
+
+  <!-- 实验设计 -->
+  <section class="grp">
+    <div class="grp-head"><h2>三、实验设计</h2><span class="cnt">8 项</span></div>
+
+    <div class="feat"><div class="name">实验矩阵设计与预览入库 <span class="pill confirm">入库需确认</span></div><div class="what">口述因子(名/低高水平)、响应和目标,自动生成完整实验矩阵,先逐组表格展示、确认后才入库建成 DOE 批次(带 [AI] 标签)。方法:筛选(Plackett-Burman)、全因子、响应面(CCD/Box-Behnken)、次数受限(D-最优)。</div><div class="trig"><b>例:</b>帮我设计一个考察温度和浓度的实验 / 做个响应面优化</div></div>
+    <div class="feat"><div class="name">化学家坐标系设计(τ / 当量比 → 泵速反算)</div><div class="what">直接用停留时间 τ 和当量比表达实验,不用自己算泵速。按 τ=V/ΣF、eq=(F₂·C₂)/(F₁·C₁) 反算每组泵流速,预览表并排显示「化学家空间」与「泵速空间」;哪组反算超量程在预览阶段就拦下。物理常数(体积、浓度)必须来自用户确认。执行时自动把 τ/eq 换成泵速注入。</div><div class="trig"><b>例:</b>停留时间从 1 到 5 分钟、当量比 1 到 2 扫一遍</div></div>
+    <div class="feat"><div class="name">多泵停留时间申报</div><div class="what">三台以上泵的流程,除两股变化进料外,其余在跑但流速固定的股(溶剂泵、第三股料)可逐个申报,计入停留时间分母、执行时按固定值注入,避免漏报导致 τ 算错。</div><div class="trig"><b>例:</b>还有一路溶剂泵一直 2mL/min 跑着</div></div>
+    <div class="feat"><div class="name">阶梯扫描(动力学专用设计)</div><div class="what">测动力学/扫 τ-转化率曲线时,同温下停留时间按升序连续走台阶(不随机化)、多温度分层每层只换一次温。必配化学家坐标系,自动启用按 τ 动态等待和延迟录入,挤掉「每组独立稳态」的等待和反复换温浪费。产出批次可直接拿去拟合动力学。</div><div class="trig"><b>例:</b>测一下这个反应的动力学,停留时间扫 1/2/4/8 分钟</div></div>
+    <div class="feat"><div class="name">按 τ 动态稳态等待</div><div class="what">换条件后反应器要冲洗几个停留时间才达新稳态。按每组 τ 折算保温时长(dwell=倍数×τ,默认 3),注入流程里勾了「停留时间等待节点」标记的 Wait 节点,逐组自动覆盖等待时长、批次结束还原,替代「按最长 τ 一刀切」,小 τ 组不白等。可设上下限。</div><div class="trig"><b>例:</b>按停留时间自动等待,别每组都等那么久</div></div>
+    <div class="feat"><div class="name">停留时间等待节点识别</div><div class="what">列出流程里所有固定时长 Wait(保温)节点的 ID、名称、当前时长及是否勾选「停留时间等待节点」标记,供动态等待挑选被驱动的节点;恰有一个标记节点时自动定位。</div><div class="trig"><b>例:</b>流程里哪个是保温节点(或配动态等待时自动调用)</div></div>
+    <div class="feat"><div class="name">开放实验接入 · 读取数据文件</div><div class="what">读取用户自己的 CSV/TXT 数据文件(不传路径会弹文件框),返回列清单、每列类型/范围/空缺统计和前几行预览,提示哪些列名疑似响应。编码自动处理 UTF-8/GBK,引号感知解析,格式坏行报错定位到文件物理行号。</div><div class="trig"><b>例:</b>把我这个 Excel 导出的实验记录导进来</div></div>
+    <div class="feat"><div class="name">开放实验接入 · 导入预览(历史数据 + 自带方案)<span class="pill confirm">入库需确认</span></div><div class="what">按确认的列映射生成导入预览:带响应值的行按「已完成历史数据」导入(直接可分析/预测/拟合),响应全空的行按「待执行」建组(自带方案,绑定参数或走化学家坐标即可在平台接着跑);两种行可混合(做了一半接着做),半填行会被拒绝。</div><div class="trig"><b>例:</b>前两列是因子,收率是响应,导进去</div></div>
+  </section>
+
+  <!-- 执行与值守 -->
+  <section class="grp">
+    <div class="grp-head"><h2>四、执行与主动值守</h2><span class="cnt">8 项</span></div>
+    <div class="grp-note">执行 DOE 批次时,小桐会主动播报进度,无需你反复轮询。</div>
+
+    <div class="feat"><div class="name">执行 DOE 实验批次 <span class="pill confirm">需确认</span></div><div class="what">启动执行已建批次,引擎逐组把因子下发到流程自动运行,弹执行看板小窗实时显示当前组号/参数/进度;需人工录入的响应值每组结束弹录入窗。支持中止续跑、失败组重试/跳过;执行前硬性检查设备就绪。</div><div class="trig"><b>例:</b>开始跑这批实验 / 执行 DOE 批次</div></div>
+    <div class="feat"><div class="name">执行时不弹 DOE 大窗口(隐身代开)<span class="pill auto">自动</span></div><div class="what">经小桐执行批次时,DOE 主窗口在屏幕外隐身完成装配(不闪现/不抢焦点/不进任务栏),批次启动才现身顶部居中的迷你监控岛,岛上实时显示当前组与参数;没能启动则把隐身窗收掉不留幽灵窗。</div><div class="trig"><b>触发:</b>小桐执行批次时自动</div></div>
+    <div class="feat"><div class="name">查询执行进度</div><div class="what">实时进度:执行状态、当前第几组、该组因子设定值、已完成/待执行/失败组数(以执行引擎为准)。</div><div class="trig"><b>例:</b>执行到第几组了 / 进度怎么样</div></div>
+    <div class="feat"><div class="name">延迟录入与结果回填</div><div class="what">离线 HPLC 场景:阶梯扫描批次执行时每阶完成不弹录入窗、直接进下一阶,提示按样品编号取样;事后报出各样品结果,按组号逐组回填。普通批次漏录/补录也可用。</div><div class="trig"><b>例:</b>第 1 组转化率 42%、第 2 组 55%……</div></div>
+    <div class="feat"><div class="name">逐组结果播报 <span class="pill auto">自动</span></div><div class="what">每组完成自动播报「第 N/总 组完成」,带响应值(较上组环比)、因子设定值,并按已用时估算剩余耗时;失败组提示已跳过、可在看板重试。</div><div class="trig"><b>触发:</b>后台订阅执行引擎事件</div></div>
+    <div class="feat"><div class="name">批次收官汇总 <span class="pill auto">自动</span></div><div class="what">跑完自动播报:成功/失败/待录结果组数、总用时、按优化方向判定的最优组(组号/数值/因子),给出下一步建议;会把窗口带到面前并语音播报。</div><div class="trig"><b>触发:</b>批次完成时</div></div>
+    <div class="feat"><div class="name">设备掉线看门狗 <span class="pill auto">自动</span></div><div class="what">批次执行期间每 8 秒巡检真实通讯设备连接,掉线立即弹窗+语音报警并提示可说「暂停实验」,恢复后再通报;模拟模式不巡检。</div><div class="trig"><b>触发:</b>批次执行期间后台巡检</div></div>
+    <div class="feat"><div class="name">先猜后验超差报警 <span class="pill auto">自动</span></div><div class="what">仅托管批次:模型预测与实测偏差超 3σ 时立即弹窗+语音报警把异常推到面前;收官时把校准自检结论并入播报。2σ 内不刷屏。</div><div class="trig"><b>触发:</b>执行中自动</div></div>
+  </section>
+
+  <!-- 分析与预测 -->
+  <section class="grp">
+    <div class="grp-head"><h2>五、数据分析与预测</h2><span class="cnt">8 项</span></div>
+
+    <div class="feat"><div class="name">DOE 单批次统计分析(OLS)</div><div class="what">对有完成数据的批次做完整 OLS:模型摘要(R²/调整 R²/预测 R²/失拟/RMSE/信噪比)、ANOVA、回归系数表(系数/标准误/T/P/VIF)、回归方程,并把三张图直插对话(响应趋势、效应 Pareto、实测 vs 预测)。</div><div class="trig"><b>例:</b>这轮实验结果怎么样 / 哪个因子显著</div></div>
+    <div class="feat"><div class="name">项目多轮对比分析</div><div class="what">一个项目下所有轮次联合分析:逐轮建模、各轮统计对比表、显著因子跨轮稳定性矩阵、各轮最优条件迁移表,并插三张图(最优走势/各轮 R² 对比/全项目散点)。按轮建模再对比,不跨轮硬拟合。</div><div class="trig"><b>例:</b>整个项目分析一下 / 看优化进展</div></div>
+    <div class="feat"><div class="name">What-if 模型预测</div><div class="what">给一组因子条件算响应预测值、95% 置信区间与单次预测区间,自动与实测最优对比。内置硬质量闸门:模型不可靠(调整 R²&lt;0.5 或 P&gt;0.10)拒绝给值并给诊断;超范围 20% 以上拒绝,轻度外推降级警告。</div><div class="trig"><b>例:</b>如果温度 80、浓度 1.2,产率大概多少</div></div>
+    <div class="feat"><div class="name">反向寻优(问条件)</div><div class="what">在建模范围内搜索给出达到目标(最大化/最小化/目标值)的推荐条件、预测值与置信区间;目标不可达时如实报告并给最接近可达值,推荐贴边界时提示真正最优可能在范围外。搜索永不越出建模范围。</div><div class="trig"><b>例:</b>想让产率到 95% 条件怎么配 / 最优条件是什么</div></div>
+    <div class="feat"><div class="name">实验室历史检索(跨项目记忆)</div><div class="what">按关键词(物质名、反应名、因子/响应名、项目名片段)在全部历史项目和独立批次中检索,回答「以前做过某某实验吗」「上次类似反应最优条件」。纯 SQL 检索,查不到就说没有,不凭印象回答。</div><div class="trig"><b>例:</b>以前做过苄胺的实验吗</div></div>
+    <div class="feat"><div class="name">DOE 项目全库检索</div><div class="what">按名字(可模糊)或编号检索优化项目:阶段/状态/累计实验/最优值,及项目下每轮批次的方法/状态/完成失败组数/最优响应。重名返回带编号候选表,用编号精确选择。</div><div class="trig"><b>例:</b>查一下 XX 项目 / 有哪些项目</div></div>
+    <div class="feat"><div class="name">实验历史查询(最近批次)</div><div class="what">查最近的 DOE 批次:名称、设计方法、状态、完成组数、最优响应值、创建时间,可按关键字和天数过滤。</div><div class="trig"><b>例:</b>最近做了哪些实验 / 上周跑了几批</div></div>
+    <div class="feat"><div class="name">一键生成 PDF 项目报告</div><div class="what">为项目(或独立批次)生成正式 PDF:概览、各轮摘要、优化趋势图、逐轮因子与数据明细,保存到文档目录并在资源管理器定位。内容全部来自数据库快照。</div><div class="trig"><b>例:</b>给这个项目出个报告 / 导出 PDF</div></div>
+  </section>
+
+  <!-- 机理 -->
+  <section class="grp">
+    <div class="grp-head"><h2>六、机理与动力学</h2><span class="cnt">5 项</span></div>
+    <div class="grp-note">机理层与经验统计模型互补,可在数据范围外做有依据的外推,结果均标注「未经实验验证」。</div>
+
+    <div class="feat"><div class="name">反应动力学拟合(k 与活化能)</div><div class="what">用(停留时间, 温度, 转化率)数据拟合单反应动力学:各温度速率常数 k,多温度回归 Arrhenius 得活化能 Ea。支持一级/拟一级/二级模板。质量硬分级:R²&lt;0.6 拒绝,0.6~0.85 仅供参考;转化率-τ、Arrhenius 图直插对话。</div><div class="trig"><b>例:</b>拟合一下动力学 / 算这个反应的活化能</div></div>
+    <div class="feat"><div class="name">机理预测与放大换算</div><div class="what">三类计算:正算(给 τ 和温度→转化率)、反解(给目标转化率→所需 τ)、放大(给反应器体积→总流速,再给浓度/分子量→产能 g/h)。外推标注未经验证并建议安排验证实验。</div><div class="trig"><b>例:</b>放大到 500mL 反应器产能多少 / 要到 90% 转化率 τ 要多久</div></div>
+    <div class="feat"><div class="name">录入取样浓度-时间数据</div><div class="what">把某批次某组的浓度-时间取样数据(HPLC/离线)写入数据库,供反应网络拟合;时间 min、浓度 mol/L,支持同组多时间点。</div><div class="trig"><b>例:</b>这组的苯甲醇/苯甲醛浓度随时间是……</div></div>
+    <div class="feat"><div class="name">多步反应网络拟合</div><div class="what">用浓度-时间数据拟合多步反应网络各步速率常数(等温,ODE+最小二乘)。模板:连串 A→B→C、平行、双分子 A+B→C、过反应、可逆 A⇌B。数据可取自取样表或把流动化学各物种出口浓度当响应。R²&lt;0.6 拒绝,实测 vs 模型图直插。</div><div class="trig"><b>例:</b>这是个 A→B→C 连串反应,拟合各步速率</div></div>
+    <div class="feat"><div class="name">反应网络仿真与最优停留时间</div><div class="what">预测任意时刻各物种浓度,扫描给出目标产物峰值浓度和对应最优停留时间——过反应体系里就是「τ 拖太长产物变副产物」的定量答案(还给峰值处选择性)。</div><div class="trig"><b>例:</b>产物什么停留时间浓度最高 / τ 多久开始过反应</div></div>
+  </section>
+
+  <!-- 智能决策 -->
+  <section class="grp">
+    <div class="grp-head"><h2>七、智能决策闭环</h2><span class="cnt">3 项</span></div>
+    <div class="grp-note">决策由规则引擎产出,小桐负责解读与执行;是否推进由用户拍板。</div>
+
+    <div class="feat"><div class="name">查询智能推荐配置</div><div class="what">执行项目批次前查看「智能推荐」全部阈值(显著性、模型合格/优秀 R²、失拟、目标 D 值、验证重复、最大轮次/总组数护栏、边界扩展比例等),用表格给用户确认。</div><div class="trig"><b>例:</b>跑这个项目(执行前自动)</div></div>
+    <div class="feat"><div class="name">对话式决策闭环:读报告 + 生成下一轮 <span class="pill confirm">入库需确认</span></div><div class="what">读取最近一轮引擎决策报告(模型质量、本轮最优、压边界因子、淘汰因子、推荐动作与理由),用户同意后按建议生成下一轮矩阵预览——因子/范围/方法来自引擎因子池,入库即挂既有项目、轮次顺延、阶段推进,化学家坐标跨轮继承并重做泵量程校验。</div><div class="trig"><b>例:</b>下一步该怎么做 / 按建议生成下一轮</div></div>
+    <div class="feat"><div class="name">智能驾驶自动建下一轮 <span class="pill auto">自动</span></div><div class="what">启用智能推荐后,一轮完成自动分析→执行因子淘汰/范围扩展/阶段推进→自动创建下一轮批次(验证轮在最优点重复、爬坡轮按上轮系数、其余按推荐方法),播报新批次 ID 等你安排;化学家坐标跨轮继承,因子被淘汰或反算不可行时中止自动、转人工;触发护栏(连续同建议/超轮次)时暂停等决策。收官后主动解读决策并语音播报。</div><div class="trig"><b>触发:</b>启用智能推荐的项目每轮完成后</div></div>
+  </section>
+
+  <!-- 交互形态 -->
+  <section class="grp">
+    <div class="grp-head"><h2>八、交互形态</h2><span class="cnt">10 项</span></div>
+
+    <div class="feat"><div class="name">对话窗 + 空会话欢迎引导</div><div class="what">新对话按「设计实验/执行与监控/数据分析/预测与机理」四类列出示例问题,点一条把话术填进输入框(含可改的占位符),发出第一条后引导面板消失。</div></div>
+    <div class="feat"><div class="name">迷你悬浮值守小组件 <span class="pill auto">自动</span></div><div class="what">托管执行批次时聊天窗自动收缩成屏幕角落的小组件(头像+输入框+当前播报气泡),常规播报只滚最新一条;点头像或开口发送即展开回大窗,遇报警/收官/确认卡也自动展开。手动最小化也可收成小组件。</div></div>
+    <div class="feat"><div class="name">语音唤醒与语音提问</div><div class="what">说唤醒词(小桐/晓桐等同音兼容)唤醒后应答「我在」,再把说的话当一轮对话处理并语音回复;30 秒无交互自动休眠。需在配置里开启语音并配好实时语音识别 Key。</div><div class="trig"><b>例:</b>先说「小桐」,再说指令</div></div>
+    <div class="feat"><div class="name">语音播报与静音开关</div><div class="what">回复摘要、值守报警/收官提醒用 TTS 读出(播报前剥离 Markdown/表格、超长截断);TTS 支持百炼/Edge/Azure/Piper/本地 Sherpa 多档,不可用自动降级本地。标题栏有语音开关与静音开关(静音只停播报、不影响文字)。开机自启监听。</div></div>
+    <div class="feat"><div class="name">写操作确认卡 <span class="pill confirm">安全</span></div><div class="what">做写操作(设参、启停流程、建/执行批次、录数据)时自动弹确认卡写明要干什么,等你点「执行」或「取消」;2 分钟无响应按取消。取消后不擅自重试。无确认通道时写操作被安全拒绝。</div></div>
+    <div class="feat"><div class="name">选择卡(有限候选点选)</div><div class="what">遇设备重名、批次/项目歧义、方案二选一、多选因子等有限候选时弹选择卡(单选框/复选框,2~8 项),点选而不用打字,结果回传继续本回合;3 分钟没选按取消、改文字沟通。自由文本问题(命名、数值)不走此卡。</div></div>
+    <div class="feat"><div class="name">一轮任务停止刹车</div><div class="what">处理任务(尤其多专员长轮次)时发送按钮切成「停止」,点它取消当前这轮而不杀进程;未决的确认/选择卡一并按取消放行,已确认执行的操作不回滚。</div><div class="trig"><b>触发:</b>点输入区「停止」按钮</div></div>
+    <div class="feat"><div class="name">多会话管理</div><div class="what">左侧会话列表按「今天/昨天/更早」分组、按最近活跃倒序;可新建、点选切换(切换时自动存当前、载入目标会话历史);执行中禁止切换与新建。</div><div class="trig"><b>触发:</b>点「新建对话」或某条会话</div></div>
+    <div class="feat"><div class="name">会话搜索与删除 <span class="pill confirm">删除需确认</span></div><div class="what">顶部搜索框按标题/预览实时过滤;删除某会话前弹确认(不可恢复),删当前会话时自动切到最近一个;执行中不允许删除。</div></div>
+    <div class="feat"><div class="name">历史持久化与重启恢复 <span class="pill auto">自动</span></div><div class="what">全部会话(标题、界面消息、模型历史、确认/选择卡已决状态)自动落盘,程序启动恢复上次会话列表并定位到最近活跃的一个,退出时兜底再存;单会话可视条目超 500 自动从最旧端裁剪(绝不误删未决卡)。</div></div>
+  </section>
+
+  <footer class="doc">
+    共 8 大类 · 60+ 项功能,均对照源代码核实。<br>
+    带「需确认」标记的写操作会在对话里弹确认卡;带「自动」的为后台/主动行为。
+  </footer>
+
+</div>
+</body>
+</html>

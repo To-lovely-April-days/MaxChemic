@@ -81,7 +81,8 @@
                 <!-- 标题 -->
                 <TextBlock Name="TbFixedLabel" Text="固定时间等待"
                            FontSize="14" FontWeight="Medium" Foreground="#212121"
-                           HorizontalAlignment="Center" Margin="0,0,0,3"/>
+                           HorizontalAlignment="Center" Margin="0,0,0,3"
+                           TextWrapping="Wrap" TextAlignment="Center" MaxWidth="220"/>
 
                 <!-- 等待信息 -->
                 <TextBlock x:Name="WaitInfoText"

@@ -58,6 +58,23 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
     [Export(typeof(IDevice))]
     public class TwoLiquidOneGasFeedSystem_ModbusRTU : Device, IFlowLifecycleAware,IDeviceScreen
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("Pump1_FLOW", "泵1瞬时流量", "mL/min", source: "获取所有数据", isKey: true),
+            new CollectableParameter("Pump2_FLOW", "泵2瞬时流量", "mL/min", source: "获取所有数据"),
+            new CollectableParameter("Pump1_P", "泵1压力", "MPa", source: "获取所有数据"),
+            new CollectableParameter("Pump2_P", "泵2压力", "MPa", source: "获取所有数据"),
+            new CollectableParameter("Pump1_Add", "泵1累计量", "mL", source: "获取所有数据"),
+            new CollectableParameter("Pump2_Add", "泵2累计量", "mL", source: "获取所有数据"),
+            new CollectableParameter("MFC_FLOW", "MFC流量", "L/min", source: "获取所有数据"),
+            new CollectableParameter("MFC_Add", "MFC累计量", "L", source: "获取所有数据"),
+        };
+
+        /// <summary>采集间隔(毫秒):控制通信与日志量。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         private readonly ILogService _logger;
 
         // 通信层重试参数
@@ -136,6 +153,115 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
         /// 声明本驱动支持通过 ZLAN 网关通信。
         /// </summary>
         public override bool SupportsZLanGateway => true;
+
+        #region ── 模拟模式:进料状态(驱动电子秤减重 + 连贯读数) ──
+
+        private readonly object _simFeedLock = new object();
+        private double _mfcFsv, _pump1Fsv, _pump2Fsv;      // 各设定流量(MFC:L/min, 泵:mL/min)
+        private bool _mfcOn, _pump1On, _pump2On;           // 各运行状态
+        private double _mfcAdd, _pump1Add, _pump2Add;      // 各累计流量
+        private DateTime _lastFeedTime = DateTime.Now;
+
+        /// <summary>写 Float 时记录设定流量并刷新对模拟中枢的进料流量发布。</summary>
+        private void SimOnWriteFloat(ushort register, float value)
+        {
+            lock (_simFeedLock)
+            {
+                switch (register)
+                {
+                    case 0: _mfcFsv = value; break;   // MFC F_SV
+                    case 6: _pump1Fsv = value; break; // 泵1 F_SV
+                    case 14: _pump2Fsv = value; break; // 泵2 F_SV
+                }
+            }
+            SimPublishFeed();
+        }
+
+        /// <summary>写 Int16 时记录 ON/OFF 并刷新进料流量发布。</summary>
+        private void SimOnWriteInt16(ushort register, short value)
+        {
+            lock (_simFeedLock)
+            {
+                switch (register)
+                {
+                    case 38: _mfcOn = (value == 0); break;   // MFC 0:运行,1:停止
+                    case 39: _pump1On = (value == 1); break; // 泵1 1:运行,0:停止
+                    case 40: _pump2On = (value == 1); break; // 泵2 1:运行,0:停止
+                }
+            }
+            SimPublishFeed();
+        }
+
+        /// <summary>把两台计量泵的液体进料总流量(mL/min)发布到模拟中枢,电子秤据此减重(气体 MFC 不计)。</summary>
+        private void SimPublishFeed()
+        {
+            double flow;
+            lock (_simFeedLock) { flow = (_pump1On ? _pump1Fsv : 0) + (_pump2On ? _pump2Fsv : 0); }
+            SimulationHub.PublishFeedFlow(DeviceId + "_2L1G", flow);
+        }
+
+        /// <summary>按经过时间积分各路累计流量(仅运行的通道累计)。多个读命令调用也不会重复计,因锚点每次推进。</summary>
+        private void SimAdvanceFeed()
+        {
+            lock (_simFeedLock)
+            {
+                var now = DateTime.Now;
+                double dtMin = (now - _lastFeedTime).TotalMinutes;
+                _lastFeedTime = now;
+                if (dtMin <= 0) return;
+                if (_mfcOn) _mfcAdd += _mfcFsv * dtMin;
+                if (_pump1On) _pump1Add += _pump1Fsv * dtMin;
+                if (_pump2On) _pump2Add += _pump2Fsv * dtMin;
+            }
+        }
+
+        /// <summary>各 Float 字段的连贯模拟值(设定/瞬时/累计/压力/配置)。</summary>
+        private double SimFloatValue(string key)
+        {
+            lock (_simFeedLock)
+            {
+                switch (key)
+                {
+                    case "MFC_FSV": return _mfcFsv;
+                    case "MFC_FLOW": return _mfcOn ? _mfcFsv + SimulationHub.Noise(Math.Max(_mfcFsv * 0.01, 0.001)) : 0;
+                    case "MFC_Add": return _mfcAdd;
+                    case "Pump1_FSV": return _pump1Fsv;
+                    case "Pump1_FLOW": return _pump1On ? _pump1Fsv + SimulationHub.Noise(Math.Max(_pump1Fsv * 0.01, 0.001)) : 0;
+                    case "Pump1_Add": return _pump1Add;
+                    case "Pump1_P": return _pump1On ? 0.30 + SimulationHub.Noise(0.01) : 0.0;
+                    case "Pump2_FSV": return _pump2Fsv;
+                    case "Pump2_FLOW": return _pump2On ? _pump2Fsv + SimulationHub.Noise(Math.Max(_pump2Fsv * 0.01, 0.001)) : 0;
+                    case "Pump2_Add": return _pump2Add;
+                    case "Pump2_P": return _pump2On ? 0.30 + SimulationHub.Noise(0.01) : 0.0;
+                    case "MFC_RangeHigh": return 10.0;
+                    case "MFC_RangeLow": return 0.0;
+                    case "MFC_Correction": return 1.0;
+                    case "MFC_Dpt": return 1.0;
+                    case "Pump1_PHigh": return 1.0;
+                    case "Pump1_PLow": return 0.0;
+                    case "Pump2_PHigh": return 1.0;
+                    case "Pump2_PLow": return 0.0;
+                    default: return 0.0;
+                }
+            }
+        }
+
+        /// <summary>各 Int16 字段的连贯模拟值:ON/OFF 反映实际状态,报警/故障恒为 0(健康)。</summary>
+        private short SimInt16Value(string key)
+        {
+            lock (_simFeedLock)
+            {
+                switch (key)
+                {
+                    case "MFC_OnOff": return (short)(_mfcOn ? 0 : 1);   // 0:运行,1:停止
+                    case "Pump1_OnOff": return (short)(_pump1On ? 1 : 0);
+                    case "Pump2_OnOff": return (short)(_pump2On ? 1 : 0);
+                    default: return 0;   // 报警/通信故障全 0
+                }
+            }
+        }
+
+        #endregion
 
         private void InitializeCommands()
         {
@@ -301,10 +427,10 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
                     if (IsSimulationMode)
                     {
                         await Task.Delay(200);
-                        var rand = new Random();
+                        SimAdvanceFeed();
                         foreach (var (key, desc, unit) in floatFields)
                         {
-                            float v = (float)(rand.NextDouble() * 100);
+                            float v = (float)Math.Round(SimFloatValue(key), 3);
                             outputs.Add(new NumberParameter(key, -1000000, 1000000, v, desc, true, unit));
                         }
                         InfoLog($"模拟模式 {name},共 {count} 个 Float");
@@ -362,10 +488,9 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
                     if (IsSimulationMode)
                     {
                         await Task.Delay(200);
-                        var rand = new Random();
                         foreach (var (key, desc, asBool) in intFields)
                         {
-                            short v = (short)rand.Next(0, 2);
+                            short v = SimInt16Value(key);
                             if (asBool)
                                 outputs.Add(new BooleanParameter(key, v == 1, desc, true));
                             else
@@ -464,12 +589,12 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
                     if (IsSimulationMode)
                     {
                         await Task.Delay(200);
-                        var rand = new Random();
+                        SimAdvanceFeed();
                         foreach (var (key, desc, unit) in floats)
-                            outputs.Add(new NumberParameter(key, -1000000, 1000000, (float)(rand.NextDouble() * 100), desc, true, unit));
+                            outputs.Add(new NumberParameter(key, -1000000, 1000000, (float)Math.Round(SimFloatValue(key), 3), desc, true, unit));
                         foreach (var (key, desc, asBool) in ints)
                         {
-                            short v = (short)rand.Next(0, 2);
+                            short v = SimInt16Value(key);
                             if (asBool) outputs.Add(new BooleanParameter(key, v == 1, desc, true));
                             else outputs.Add(new NumberParameter(key, -32768, 32767, v, desc, true));
                         }
@@ -543,6 +668,7 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
                     {
                         await Task.Delay(200);
                         success = true;
+                        SimOnWriteFloat(register, target);   // 记录设定流量并发布进料
                         InfoLog($"模拟模式 {commandName},目标值:{target}");
                     }
                     else
@@ -601,6 +727,7 @@ namespace TwoLiquidOneGasFeedSystem_ModbusRTU
                     {
                         await Task.Delay(200);
                         success = true;
+                        SimOnWriteInt16(register, target);   // 记录 ON/OFF 并发布进料
                         InfoLog($"模拟模式 {commandName},目标值:{target}");
                     }
                     else

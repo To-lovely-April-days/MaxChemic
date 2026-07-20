@@ -172,6 +172,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
         /// <summary>定时器：每秒刷新当前时间线位置</summary>
         private DispatcherTimer _timelineRefreshTimer;
 
+        /// <summary>
+        /// 时间轴当前有效「像素/秒」。短程等于基准 52;运行时间拉长后自动下调,
+        /// 使总宽度不超过 MaxTimelineWidth——否则画布随时间无界变宽,渲染线程分配的
+        /// 合成内存最终会在 MilComposition_SyncFlush 处 OOM(开久了就崩的根因)。
+        /// </summary>
+        private double _pxPerSec = SwimlaneRow.PixelsPerSecond;
+
+        /// <summary>时间轴画布宽度上限(像素):超过时自动压缩像素/秒,整条时间轴始终可见且有界。</summary>
+        private const double MaxTimelineWidth = 20000;
+
         #endregion
 
 
@@ -431,7 +441,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         if (node?.ExecutionStartTime != null)
                         {
                             var startOffset = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
-                            row.BarLeft = startOffset * SwimlaneRow.PixelsPerSecond;
+                            row.BarLeft = startOffset * _pxPerSec;
                             row.BarWidth = 6;
                             row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss");
                             row.EndTimeText = "";
@@ -448,8 +458,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         {
                             var startOff = (cNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
                             var dur = (cNode.ExecutionEndTime.Value - cNode.ExecutionStartTime.Value).TotalSeconds;
-                            row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
-                            row.BarWidth = Math.Max(60, dur * SwimlaneRow.PixelsPerSecond);
+                            row.BarLeft = startOff * _pxPerSec;
+                            row.BarWidth = Math.Max(60, dur * _pxPerSec);
                             row.StartTimeText = cNode.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
                             row.EndTimeText = cNode.ExecutionEndTime.Value.ToString("HH:mm:ss.fff");
                             row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
@@ -467,12 +477,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         if (fNode?.ExecutionStartTime != null)
                         {
                             var startOff = (fNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
-                            row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
+                            row.BarLeft = startOff * _pxPerSec;
                             row.StartTimeText = fNode.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
                             if (fNode.ExecutionEndTime != null)
                             {
                                 var dur = (fNode.ExecutionEndTime.Value - fNode.ExecutionStartTime.Value).TotalSeconds;
-                                row.BarWidth = Math.Max(60, dur * SwimlaneRow.PixelsPerSecond);
+                                row.BarWidth = Math.Max(60, dur * _pxPerSec);
                                 row.EndTimeText = fNode.ExecutionEndTime.Value.ToString("HH:mm:ss.fff");
                                 row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
                                 row.TimeRangeText = $"{row.StartTimeText}  →  {row.EndTimeText}  ·  {row.DurationText}";
@@ -518,7 +528,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _timelineRefreshTimer?.Stop();
             IsCurrentTimeLineVisible = false;
             TimelineTicks.Clear();               // ← 加这行
-          
+            _pxPerSec = SwimlaneRow.PixelsPerSecond;   // 下次运行从基准比例重新开始
         }
         private void RefreshTimelineTicks()
         {
@@ -526,15 +536,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             TimelineTicks.Clear();
 
-            // 计算总时长
+            // 总时长直接由节点时间与当前时刻推导(与像素无关)——不能再拿 BarLeft/BarWidth 反算,
+            // 否则自动缩放改了像素比例后会自我参照出错
             double maxEndSec = 30; // 最少显示30秒
             foreach (var row in SwimlaneRows)
             {
-                if (row.BarLeft + row.BarWidth > 0)
-                {
-                    double endSec = (row.BarLeft + row.BarWidth) / SwimlaneRow.PixelsPerSecond;
-                    maxEndSec = Math.Max(maxEndSec, endSec);
-                }
+                var node = CommandNodes.FirstOrDefault(n => n.NodeId == row.NodeId);
+                if (node?.ExecutionStartTime == null) continue;
+                var endT = node.ExecutionEndTime ?? DateTime.Now;
+                double endSec = (endT - FlowStartTime.Value).TotalSeconds;
+                maxEndSec = Math.Max(maxEndSec, endSec);
             }
 
             // 当前时间偏移
@@ -544,6 +555,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
             // 自动选择刻度间隔
             double tickInterval = ChooseTickInterval(maxEndSec);
 
+            // 自动缩放:像素/秒随总时长下调,使总宽度不超过上限;短程仍是基准 52(与旧行为一致)。
+            double span = maxEndSec + tickInterval;
+            double newScale = Math.Min(SwimlaneRow.PixelsPerSecond, MaxTimelineWidth / Math.Max(span, 1));
+            bool scaleChanged = Math.Abs(newScale - _pxPerSec) > 1e-6;
+            _pxPerSec = newScale;
+
             for (double t = 0; t <= maxEndSec + tickInterval; t += tickInterval)
             {
                 var absTime = FlowStartTime.Value.AddSeconds(t);
@@ -551,7 +568,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 TimelineTicks.Add(new TimelineTick
                 {
-                    X = t * SwimlaneRow.PixelsPerSecond,
+                    X = t * _pxPerSec,
                     AbsoluteTimeText = absTime.ToString("HH:mm:ss"),
                     RelativeTimeText = relSpan.TotalMinutes < 1
                         ? $"{relSpan.TotalSeconds:F0}s"
@@ -559,8 +576,43 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 });
             }
 
-            // 更新时间轴总宽度
-            TimelineCanvasWidth = Math.Max(600, (maxEndSec + tickInterval) * SwimlaneRow.PixelsPerSecond);
+            // 更新时间轴总宽度(上限内)
+            TimelineCanvasWidth = Math.Max(600, span * _pxPerSec);
+
+            // 缩放变了:已画好的条块是按旧比例算的,全部按节点时间重排,当前时间线同步
+            if (scaleChanged)
+            {
+                RelayoutAllBars();
+                CurrentTimeLineX = nowOffsetSec * _pxPerSec;
+            }
+        }
+
+        /// <summary>
+        /// 按当前像素/秒比例,依据节点执行时间重算所有泳道条块的位置与宽度。
+        /// 自动缩放调整比例后调用,让历史条块与新比例一致(否则旧条块仍是放大比例、会溢出画布)。
+        /// </summary>
+        private void RelayoutAllBars()
+        {
+            if (FlowStartTime == null) return;
+            foreach (var row in SwimlaneRows)
+            {
+                var node = CommandNodes.FirstOrDefault(n => n.NodeId == row.NodeId);
+                if (node?.ExecutionStartTime == null) continue;
+
+                var startOff = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
+                row.BarLeft = startOff * _pxPerSec;
+
+                if (row.IsExecuting)
+                {
+                    var elapsed = (DateTime.Now - node.ExecutionStartTime.Value).TotalSeconds;
+                    row.BarWidth = Math.Max(6, elapsed * _pxPerSec);
+                }
+                else if (node.ExecutionEndTime != null)
+                {
+                    var dur = (node.ExecutionEndTime.Value - node.ExecutionStartTime.Value).TotalSeconds;
+                    row.BarWidth = Math.Max(60, dur * _pxPerSec);
+                }
+            }
         }
         /// <summary>
         /// 根据总时长自动选择合适的刻度间隔
@@ -588,7 +640,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
 
             var nowOffset = (DateTime.Now - FlowStartTime.Value).TotalSeconds;
-            CurrentTimeLineX = nowOffset * SwimlaneRow.PixelsPerSecond;
+            CurrentTimeLineX = nowOffset * _pxPerSec;
             CurrentTimeText = DateTime.Now.ToString("HH:mm:ss");
             IsCurrentTimeLineVisible = true;
 
@@ -601,12 +653,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     if (node?.ExecutionStartTime != null)
                     {
                         var elapsed = (DateTime.Now - node.ExecutionStartTime.Value).TotalSeconds;
-                        row.BarWidth = Math.Max(6, elapsed * SwimlaneRow.PixelsPerSecond);
+                        row.BarWidth = Math.Max(6, elapsed * _pxPerSec);
                     }
                 }
             }
 
-            // 检查是否需要扩展时间轴
+            // 检查是否需要扩展时间轴(或触发自动缩放:当前线逼近画布右缘时重算比例)
             if (CurrentTimeLineX > TimelineCanvasWidth - 100)
             {
                 RefreshTimelineTicks();
@@ -3118,6 +3170,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     case Views.SetVariableNodeControlView setVarControl:
                         SubscribeToSetVariableNodeEvents(setVarControl, commandNode);
                         break;
+                    case Views.EndNodeControlView endControl:
+                        SubscribeToEndNodeEvents(endControl, commandNode);
+                        break;
                 }
             }
             catch (Exception ex)
@@ -3273,6 +3328,24 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (e.OriginalSource is CommandNode clickedNode)
                 {
                     _logger.LogDebug("设置变量节点被点击: {NodeName}", clickedNode.DisplayName);
+                    HandleNodeClick(clickedNode);
+                }
+            }));
+        }
+
+        private void SubscribeToEndNodeEvents(Views.EndNodeControlView endControl, CommandNode commandNode)
+        {
+            endControl.NodeDeleteRequested += (s, nodeToDelete) =>
+            {
+                _logger.LogDebug("收到结束节点删除请求: {NodeName}", nodeToDelete.DisplayName);
+                _nodeManagementService.HandleNodeDeleteRequest(nodeToDelete, this);
+            };
+
+            endControl.AddHandler(Views.EndNodeControlView.NodeClickEvent, new RoutedEventHandler((s, e) =>
+            {
+                if (e.OriginalSource is CommandNode clickedNode)
+                {
+                    _logger.LogDebug("结束节点被点击: {NodeName}", clickedNode.DisplayName);
                     HandleNodeClick(clickedNode);
                 }
             }));

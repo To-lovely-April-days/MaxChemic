@@ -12,6 +12,18 @@ namespace DynamicTubularReactor_ModbusRTU
     [Export(typeof(IDevice))]
     public class DynamicTubularReactor_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("Temperature", "釜温", "℃", source: "获取所有数据", isKey: true),
+            new CollectableParameter("Pressure", "压力", "MPa", source: "获取所有数据"),
+            new CollectableParameter("PV", "搅拌转速PV", "RPM", source: "获取所有数据"),
+        };
+
+        /// <summary>采集间隔(毫秒):控制通信与日志量。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         private readonly ILogService _logger;
 
         private Task _dataTask;

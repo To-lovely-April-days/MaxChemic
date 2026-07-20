@@ -16,7 +16,11 @@ namespace MaxChemical.Modules.DOE
     /// </summary>
     public class DOEModule : IModule
     {
-        public void OnInitialized(IContainerProvider containerProvider) { }
+        public void OnInitialized(IContainerProvider containerProvider)
+        {
+            // 先猜后验追踪器:常驻订阅执行事件,每组开跑前预测、实测后验证、收官做校准自检
+            containerProvider.Resolve<PredictVerifyTracker>().Start();
+        }
 
         public void RegisterTypes(IContainerRegistry containerRegistry)
         {
@@ -30,8 +34,9 @@ namespace MaxChemical.Modules.DOE
             containerRegistry.RegisterSingleton<IMultiResponseGPRService, MultiResponseGPRService>();  //  新增
             containerRegistry.RegisterSingleton<IDOEAnalysisService, CSharpOlsAnalysisService>();
             containerRegistry.RegisterSingleton<DOEExportService>();
-            containerRegistry.RegisterSingleton<IDesirabilityService, DesirabilityService>(); 
+            containerRegistry.RegisterSingleton<IDesirabilityService, DesirabilityService>();
             containerRegistry.RegisterSingleton<IModelRouter, ModelRouter>();
+            containerRegistry.RegisterSingleton<PredictVerifyTracker>();
             // ═══ 项目层服务 ═══
             ProjectServiceRegistration.RegisterProjectServices(containerRegistry);
             // ViewModel

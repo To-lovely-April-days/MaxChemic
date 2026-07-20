@@ -147,9 +147,9 @@ namespace ConicalFlask_ModbusTCP
                 HelpText = "锥形瓶设备ID"
             });
 
-            Parameters.Variables.Add(new NumberParameter("Volume", 0, 10000, 250, "容量(mL)")
+            Parameters.Variables.Add(new NumberParameter("Volume", 0, 100, 60, "液位(%)")
             {
-                HelpText = "锥形瓶的容量"
+                HelpText = "锥形瓶液位百分比(0–100)：画布上按此比例显示液面高度"
             });
 
             Parameters.Variables.Add(new StringParameter("Material", "玻璃")

@@ -2822,6 +2822,11 @@ namespace MaxChemical.Modules.Designer.Views
                         deviceIdProperty.SetValue(independentDevice, canvasDeviceId);
                     }
                 }
+                // 画布设备实例允许驱动级自动采集(插件目录/探测用实例不允许)
+                if (independentDevice is DevicePlugins.Devices.Device canvasBaseDevice)
+                {
+                    canvasBaseDevice.AutoCollectAllowed = true;
+                }
                 Debug.WriteLine($"设备视图模型创建完成: ID={canvasDevice.DeviceId}");
 
                 return canvasDevice;
@@ -5526,7 +5531,7 @@ namespace MaxChemical.Modules.Designer.Views
                     case "TwoLiquidOneGasFeedSystem_ModbusRTU":
                         return new Size(200*0.7, 280*0.7); 
                     case "SiliconCarbideChip_ModbusRTU":
-                        return new Size(200,170);
+                        return new Size(400, 340);
                     case "SiphonInfusionPump_ModbusRTU":
                         return new Size(200, 170);
                     case "DynamicTubularReactor_ModbusRTU":
@@ -5536,7 +5541,7 @@ namespace MaxChemical.Modules.Designer.Views
                     case "HighTempFurnace_ModbusRTU":
                         return new Size(198, 120);
                     case "HighLowTemperature_ModbusTCP":
-                        return new Size(144, 200);
+                        return new Size(288, 400);
 
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }
@@ -5836,7 +5841,21 @@ namespace MaxChemical.Modules.Designer.Views
                         flaskControl.SetLiquidColor(96, 176, 224, 180); // 默认蓝
                     }
 
-                    flaskControl.SetLiquidLevel(65, animated: true);
+                    // 液位:读取设备 "Volume" 参数(当作 0–100 充满度),并在其被修改时实时刷新
+                    var volParam = device?.Parameters?.Variables?
+                        .FirstOrDefault(p => p.Name == "Volume");
+                    double initLevel = volParam?.Value != null ? System.Convert.ToDouble(volParam.Value) : 0;
+                    flaskControl.SetLiquidLevel(initLevel, animated: true);
+                    if (volParam != null)
+                    {
+                        EventHandler onVolChanged = (vs, ve) =>
+                            flaskControl.Dispatcher.Invoke(() =>
+                                flaskControl.SetLiquidLevel(
+                                    volParam.Value != null ? System.Convert.ToDouble(volParam.Value) : 0,
+                                    animated: true));
+                        volParam.ValueChanged += onVolChanged;
+                        flaskControl.Unloaded += (_, __) => volParam.ValueChanged -= onVolChanged;
+                    }
 
                     // 读取液体名称
                     var nameParam = device?.Parameters?.Variables?
@@ -7079,6 +7098,11 @@ namespace MaxChemical.Modules.Designer.Views
                 catch (Exception ex)
                 {
                     Debug.WriteLine($" 注入 DeviceId 失败: {ex.Message}");
+                }
+                // 画布设备实例允许驱动级自动采集(插件目录/探测用实例不允许)
+                if (independentDevice is DevicePlugins.Devices.Device restoredBaseDevice)
+                {
+                    restoredBaseDevice.AutoCollectAllowed = true;
                 }
                 // 获取显示名
                 string displayName;

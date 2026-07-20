@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MaxChemical.Infrastructure.Events;
@@ -62,16 +63,80 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
            _eventAggregator.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChangedEvent);
 
+            // 外部(小桐)请求执行某批次:跳到执行看板,由视图串行完成「加载批次 → 程序化启动」。
+            // 必须走看板自己的启动路径(IsMiniMode 才会置位、迷你监控窗才会弹出),
+            // 不能由外部直接调 IDOEExecutionService.StartBatchAsync。
+            // 注意保存 Token 并在 Dispose 退订:否则关闭过的窗口留下的旧 VM 仍会收到事件,
+            // 抢先启动批次,导致可见窗口二次启动失败、迷你窗被回滚。
+            _executeRequestToken = _eventAggregator.GetEvent<Events.DOEExecuteBatchRequestEvent>()?.Subscribe(
+                batchId =>
+                {
+                    if (string.IsNullOrEmpty(batchId)) return;
+                    CurrentBatchId = batchId;
+                    SelectedTabIndex = 1;
+                    if (RequestExecuteExternal != null)
+                    {
+                        _pendingExternalBatchId = null;
+                        RequestExecuteExternal.Invoke(this, batchId);
+                    }
+                    else
+                    {
+                        // 视图初始化尚未完成接线(新开窗口),暂存请求,
+                        // 由视图在 InitAsync 末尾 TakePendingExternalExecuteRequest 取走补跑
+                        _pendingExternalBatchId = batchId;
+                    }
+                },
+                ThreadOption.UIThread, keepSubscriberReferenceAlive: false);
+
+            // 外部(小桐)新建/修改了批次:刷新概览与历史列表,保证即时可见
+            _dataChangedToken = _eventAggregator.GetEvent<Events.DOEDataChangedEvent>()?.Subscribe(
+                () =>
+                {
+                    RequestRefreshOverview?.Invoke(this, EventArgs.Empty);
+                    RequestRefreshHistory?.Invoke(this, EventArgs.Empty);
+                },
+                ThreadOption.UIThread, keepSubscriberReferenceAlive: false);
+
+            // 小桐托管的批次:轮次决策改在对话里完成,原生弹窗跳过(否则双重询问)
+            _agentManagedToken = _eventAggregator.GetEvent<Events.DOEAgentManagedBatchEvent>()?.Subscribe(
+                batchId => { if (!string.IsNullOrEmpty(batchId)) _agentManagedBatches.Add(batchId); },
+                ThreadOption.UIThread, keepSubscriberReferenceAlive: false);
+
             OnLanguageChangedEvent("");
         }
         
         private readonly SubscriptionToken _roundCompletedToken;
+        private SubscriptionToken? _executeRequestToken;
+        private SubscriptionToken? _dataChangedToken;
+        private SubscriptionToken? _agentManagedToken;
+        private readonly HashSet<string> _agentManagedBatches = new();
+        private string? _pendingExternalBatchId;
+        private bool _disposed;
 
-        /// <summary>★ 窗口关闭时调用，取消事件订阅</summary>
+        /// <summary>
+        /// 取走「视图接线完成前到达」的外部执行请求(没有则返回 null)。
+        /// 视图在 InitAsync 完成接线后调用一次,补跑错过的启动。
+        /// </summary>
+        public string? TakePendingExternalExecuteRequest()
+        {
+            var id = _pendingExternalBatchId;
+            _pendingExternalBatchId = null;
+            return id;
+        }
+
+        /// <summary>★ 窗口关闭时调用，取消事件订阅(可重复调用)</summary>
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             _eventAggregator.GetEvent<DOERoundCompletedEvent>().Unsubscribe(_roundCompletedToken);
             _eventAggregator.GetEvent<LanguageChangedEvent>().Unsubscribe(OnLanguageChangedEvent);
+            if (_executeRequestToken != null)
+                _eventAggregator.GetEvent<Events.DOEExecuteBatchRequestEvent>().Unsubscribe(_executeRequestToken);
+            if (_dataChangedToken != null)
+                _eventAggregator.GetEvent<Events.DOEDataChangedEvent>().Unsubscribe(_dataChangedToken);
+            if (_agentManagedToken != null)
+                _eventAggregator.GetEvent<Events.DOEAgentManagedBatchEvent>().Unsubscribe(_agentManagedToken);
         }
 
         // ══════════════ Tab 导航 ══════════════
@@ -121,6 +186,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
         // ══════════════ Events ══════════════
 
         public event EventHandler<string>? RequestLoadExecution;
+
+        /// <summary>外部(小桐)请求执行批次:视图需先 LoadBatchAsync 再 StartFromExternalAsync。</summary>
+        public event EventHandler<string>? RequestExecuteExternal;
+
         public event EventHandler<string>? RequestLoadAnalysis;
         public event EventHandler? RequestRefreshHistory;
         public event EventHandler? RequestRefreshOverview;
@@ -131,10 +200,24 @@ namespace MaxChemical.Modules.DOE.ViewModels
         {
             try
             {
-                var projectName = Microsoft.VisualBasic.Interaction.InputBox(
-                    "请输入项目名称（如：XX产品产率优化）",
-                    "创建优化项目", $"项目_{DateTime.Now:yyyyMMdd}");
-                if (string.IsNullOrWhiteSpace(projectName)) return;
+                // 项目名查重：同名项目会让历史/分析按项目聚合时混淆，重名则提示重新输入
+                string projectName;
+                string defaultName = $"项目_{DateTime.Now:yyyyMMdd}";
+                while (true)
+                {
+                    projectName = Microsoft.VisualBasic.Interaction.InputBox(
+                        "请输入项目名称（如：XX产品产率优化）",
+                        "创建优化项目", defaultName);
+                    if (string.IsNullOrWhiteSpace(projectName)) return;
+
+                    if (!await _repository.ProjectNameExistsAsync(projectName.Trim())) break;
+
+                    System.Windows.MessageBox.Show(
+                        $"已存在同名项目「{projectName.Trim()}」，请换一个名称。",
+                        "项目名重复",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    defaultName = projectName.Trim();
+                }
 
                 var objective = Microsoft.VisualBasic.Interaction.InputBox(
                     "请输入优化目标描述（可选）\n如：最大化产率，约束纯度≥99%",
@@ -182,6 +265,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         private async Task OnRoundCompletedAsync(DOERoundCompletedPayload payload)
         {
+            // 小桐托管的批次:决策解读与下一轮确认在对话里完成,这里不弹原生窗,只刷新列表
+            if (_agentManagedBatches.Contains(payload.BatchId))
+            {
+                _logger.LogInformation("批次由小桐托管,跳过原生决策弹窗: Batch={BatchId}", payload.BatchId);
+                RequestRefreshOverview?.Invoke(this, EventArgs.Empty);
+                RequestRefreshHistory?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
             // ★ 防重入: 同一个批次只弹一次
             if (_lastAnalyzedBatchId == payload.BatchId)
             {

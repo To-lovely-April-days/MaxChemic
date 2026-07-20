@@ -45,6 +45,19 @@ namespace PeristalticPumps_ModbusTCP
         private const string UnitFlow = "mL/min";
         private const string UnitPumpSpeed = "RPM";
 
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("FlowRate", "出口流量", "mL/min", source: "获取出口流量", isKey: true),
+            new CollectableParameter("PumpSpeed", "泵速", "RPM", source: "获取泵速"),
+            new CollectableParameter("Pressure", "出口压力", "MPa", source: "获取出口压力"),
+            new CollectableParameter("Temperature", "出口温度", "℃", source: "获取出口温度"),
+        };
+
+        /// <summary>一轮采 4 条命令，间隔放宽到 2 秒控制通信负载。</summary>
+        public override int AutoCollectIntervalMs => 2000;
+
         #region IControllableDevice Implementation
 
         public List<DeviceActiveState> ActiveStates

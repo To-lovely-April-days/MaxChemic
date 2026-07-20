@@ -12,6 +12,21 @@ namespace HighPreactor_ModbusRTU
     [Export(typeof(IDevice))]
     public class HighPreactor_ModbusRTU : Device, IFlowLifecycleAware, IDeviceScreen
     {
+        /// <summary>可监控参数白名单:声明了的才出现在监控界面并被自动采集,
+        /// 其余输出参数(状态/回显/上下限等)不进入监控体系;取数复用既有读命令。</summary>
+        public override IReadOnlyList<CollectableParameter> CollectableParameters { get; } = new[]
+        {
+            new CollectableParameter("BathTemperaturePv", "釜温PV", "℃", source: "获取可视化界面参数", isKey: true),
+            new CollectableParameter("FurnacePv", "炉温PV", "℃", source: "获取可视化界面参数"),
+            // 该寄存器实际按 Bar 计量(模拟路径 SimPressureBar、「获取压力」命令日志均为 Bar;
+            // 命令输出模板标注的 Mpa 是历史笔误),白名单单位以 Bar 为准
+            new CollectableParameter("Pressure", "反应釜压力", "Bar", source: "获取可视化界面参数"),
+            new CollectableParameter("SpeedPv", "搅拌PV", "RPM", source: "获取可视化界面参数"),
+        };
+
+        /// <summary>采集间隔(毫秒)。</summary>
+        public override int AutoCollectIntervalMs => 3000;
+
         private readonly ILogService _logger;
 
         // 通信层重试参数
@@ -21,6 +36,40 @@ namespace HighPreactor_ModbusRTU
         // 实例级 TCP 互斥锁:同一设备实例的所有 IO 串行化,避免与轮询/心跳撞车
         // 用静态字典按 DeviceId 隔离不同设备实例
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> _instanceLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
+
+        // ─────────── 模拟模式:自加热物理状态 ───────────
+        // 微型反应釜自带加热炉,温度由「自身设定温度 + 加热开关」决定(不由高低温设备控制)。
+        // 釜温从锚点按恒定斜率一阶趋近目标温度;加热关闭时回落到环境温度。
+        private readonly object _simLock = new object();
+        private double _simSetpointC = SimulationHub.AmbientTemperatureC;   // 设定温度 SV(℃)
+        private double _simAnchorC = SimulationHub.AmbientTemperatureC;     // 上次改变目标时的釜温(℃)
+        private DateTime _simAnchorTime = DateTime.Now;                     // 上次改变目标的时刻
+        private double _simStirRpm = 0;                                     // 搅拌速度 SV(RPM)
+        private bool _simStirOn = false;                                    // 搅拌启停
+        private bool _simHeatOn = false;                                    // 加热开关
+        private const double SimRampCPerSec = 0.8;                         // 釜温升降速率(℃/秒)
+
+        // 当前釜温(锁内计算):加热开→趋近设定温度;加热关→趋近环境温度。纯时间函数,读取无副作用。
+        private double SimBathTempNoLock()
+        {
+            double target = _simHeatOn ? _simSetpointC : SimulationHub.AmbientTemperatureC;
+            double elapsed = Math.Max(0.0, (DateTime.Now - _simAnchorTime).TotalSeconds);
+            double diff = target - _simAnchorC;
+            double step = Math.Sign(diff) * Math.Min(Math.Abs(diff), SimRampCPerSec * elapsed);
+            return _simAnchorC + step;
+        }
+
+        // 改变设定温度/加热状态前调用,以当前釜温为新锚点,保持温度曲线连续、无跳变。
+        private void SimReanchorNoLock()
+        {
+            _simAnchorC = SimBathTempNoLock();
+            _simAnchorTime = DateTime.Now;
+        }
+
+        private double SimBathTemperatureC() { lock (_simLock) { return SimBathTempNoLock(); } }
+        private double SimFurnaceTemperatureC() { lock (_simLock) { return SimBathTempNoLock() + 5.0; } } // 炉温略高于釜温
+        // 釜压随温度升高(饱和蒸气压近似):环境 ~1 Bar,每高 1℃ 增 ~0.02 Bar。
+        private double SimPressureBar(double bathC) => 1.0 + Math.Max(0.0, bathC - SimulationHub.AmbientTemperatureC) * 0.02;
 
 
         public HighPreactor_ModbusRTU()
@@ -129,8 +178,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜温度，结果（{temperature} ℃）");
+                            temperature = (float)((SimBathTemperatureC() + SimulationHub.Noise(0.2)) * 100); // 釜温*100(输出/100→℃)
+                            InfoLog($"模拟模式获取微型反应釜温度，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -183,8 +232,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜炉温，结果（{temperature} ℃）");
+                            temperature = (int)((SimFurnaceTemperatureC() + SimulationHub.Noise(0.2)) * 100);
+                            InfoLog($"模拟模式获取微型反应釜炉温，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -235,8 +284,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 160);
-                            InfoLog($"模拟模式获取微型反应釜压力，结果（{temperature} Bar）");
+                            temperature = (int)(SimPressureBar(SimBathTemperatureC()) * 100 + SimulationHub.Noise(5));
+                            InfoLog($"模拟模式获取微型反应釜压力，结果（{temperature / 100.0} Bar）");
                         }
                         else
                         {
@@ -287,7 +336,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 15) * 100;
+                            lock (_simLock) { temperature = (int)(_simStirOn ? _simStirRpm + SimulationHub.Noise(3) : 0); }
                             InfoLog($"模拟模式获取微型反应釜搅拌速度，结果（{temperature} RPM）");
                         }
                         else
@@ -339,8 +388,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜设定温度，结果（{temperature} ℃）");
+                            lock (_simLock) { temperature = (int)(_simSetpointC * 100); }
+                            InfoLog($"模拟模式获取微型反应釜设定温度，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -403,6 +452,8 @@ namespace HighPreactor_ModbusRTU
                         {
                             await Task.Delay(1000);
                             success = true;
+                            // 记录设定温度并启用加热,使釜温朝设定值一阶爬升(演示时"设了就升温")。
+                            lock (_simLock) { SimReanchorNoLock(); _simSetpointC = temperature; _simHeatOn = true; }
                             InfoLog($"模拟模式设置微型反应釜设定温度，结果（成功：{success}，设定值：{temperature} ℃）");
                         }
                         else
@@ -419,7 +470,7 @@ namespace HighPreactor_ModbusRTU
                         {
                             Variables = new ObservableCollection<ParameterBase>()
                             {
-                                new BooleanParameter("Success", false, "设置成功", true),
+                                new BooleanParameter("Success", success, "设置成功", true),
                                 new NumberParameter("SetTargetValue",-200,600,temperature,"设定温度的设定值",true,"℃")
                             }
                         };
@@ -456,7 +507,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 15) * 100;
+                            lock (_simLock) { temperature = (int)_simStirRpm; }
                             InfoLog($"模拟模式获取微型反应釜搅拌速度 SV，结果（{temperature} RPM）");
                         }
                         else
@@ -519,6 +570,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
+                            success = true;
+                            lock (_simLock) { _simStirRpm = temperature; _simStirOn = true; }
                             InfoLog($"模拟模式设置微型反应釜搅拌速度 SV，结果（成功：{success}，设定值：{temperature} RPM）");
                         }
                         else
@@ -574,8 +627,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜温度上限，结果（{temperature} ℃）");
+                            temperature = 30000; // 釜温上限固定 300℃(输出/100)
+                            InfoLog($"模拟模式获取微型反应釜温度上限，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -692,8 +745,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜炉温上限，结果（{temperature} ℃）");
+                            temperature = 30000; // 炉温上限固定 300℃(输出/100)
+                            InfoLog($"模拟模式获取微型反应釜炉温上限，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -810,8 +863,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 160);
-                            InfoLog($"模拟模式获取微型反应釜压力上限，结果（{temperature} Bar）");
+                            temperature = 10000; // 压力上限固定 100Bar(输出/100)
+                            InfoLog($"模拟模式获取微型反应釜压力上限，结果（{temperature / 100.0} Bar）");
                         }
                         else
                         {
@@ -930,8 +983,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 160);
-                            InfoLog($"模拟模式获取微型反应釜转换拟合阈值，结果（{temperature} ℃）");
+                            temperature = 500; // 转换拟合阈值固定 5.0℃(输出/100)
+                            InfoLog($"模拟模式获取微型反应釜转换拟合阈值，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -1051,8 +1104,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 160);
-                            InfoLog($"模拟模式获取微型反应釜升温斜率，结果（{temperature} ℃）");
+                            temperature = 100; // 升温斜率固定 1.0℃(输出/100)
+                            InfoLog($"模拟模式获取微型反应釜升温斜率，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -1172,7 +1225,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-1, 15) * 100;
+                            temperature = 0; // 已运行时间(演示初值)
                             InfoLog($"模拟模式获取微型反应釜已运行时间，结果（{temperature} MIN）");
                         }
                         else
@@ -1300,7 +1353,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            success = true;
                             InfoLog($"模拟模式设置微型反应釜当前运行段，结果（TargetValue：{temperature}，Success：{success}）");
                         }
                         else
@@ -1364,7 +1417,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            success = true;
                             InfoLog($"模拟模式设置微型反应釜当前段运行时间，结果（TargetValue：{temperature}，Success：{success}）");
                         }
                         else
@@ -1483,8 +1536,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            temperature = new Random().Next(-3, 6) * 100; // 模拟 -200 到 600 度
-                            InfoLog($"模拟模式获取微型反应釜实时设定值，结果（{temperature} ℃）");
+                            lock (_simLock) { temperature = (int)(_simSetpointC * 100); } // 实时设定值=当前设定温度
+                            InfoLog($"模拟模式获取微型反应釜实时设定值，结果（{temperature / 100.0} ℃）");
                         }
                         else
                         {
@@ -2759,12 +2812,19 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            tempPv = new Random().Next(0, 100);
-                            tempSv = new Random().Next(0, 100);
-                            pressure = new Random().Next(0, 100);
-                            speedPv = new Random().Next(0, 100);
-                            speedSv = new Random().Next(0, 100);
-                            furPv = new Random().Next(0, 100);
+                            double bath, setp, stir; bool stirOn, heatOn;
+                            lock (_simLock) { bath = SimBathTempNoLock(); setp = _simSetpointC; stir = _simStirRpm; stirOn = _simStirOn; heatOn = _simHeatOn; }
+                            tempPv = (float)((bath + SimulationHub.Noise(0.2)) * 100);       // 釜温 PV *100(输出/100→℃)
+                            tempSv = (float)(setp * 100);                                    // 釜温 SV *100
+                            furPv = (float)((bath + 5.0 + SimulationHub.Noise(0.2)) * 100);  // 炉温略高于釜温
+                            pressure = (float)(SimPressureBar(bath) * 100);                  // 釜压 *100(输出/100→Bar)
+                            speedPv = stirOn ? (float)(stir + SimulationHub.Noise(3)) : 0;   // 搅拌 PV
+                            speedSv = (float)stir;                                           // 搅拌 SV
+                            mode = heatOn ? 1 : 0;                                           // 控制模式
+                            start = stirOn ? 1 : 0;                                          // 搅拌启停
+                            heat = heatOn ? 1 : 0;                                           // 加热开关
+                            slope = 100;                                                     // 升温斜率 1.00℃(输出/100)
+                            threshold = 500;                                                 // 转换拟合阈值 5.00℃(输出/100)
                         }
                         else
                         {
@@ -2837,7 +2897,7 @@ namespace HighPreactor_ModbusRTU
                                 new NumberParameter("SectionRunTime", 0, 3200, duration/10.0,"当前段运行时间",true,"MIN"),
                                 new NumberParameter("SectionRunTotal", 0, 3200, total/10.0,"当前段运行总时间",true,"MIN"),
                                 new BooleanParameter("Open/Close", heat == 1,"加热开或关", true),
-                                new NumberParameter("StatusCode", 0, 100, status,"当前段运行总时间",true)
+                                new NumberParameter("StatusCode", 0, 100, status,"电机运行状态码",true)
                             }
                         };
                     }
@@ -2883,7 +2943,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            success = true;
+                            lock (_simLock) { _simStirOn = (value == 1); }
                             InfoLog($"模拟模式启动或停止搅拌，结果（Success：{success}，SetValue：{value}）");
                         }
                         else
@@ -2935,7 +2996,7 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            mode = new Random().Next(0, 8);
+                            lock (_simLock) { mode = _simHeatOn ? 1 : 0; }
                             InfoLog($"模拟模式获取设备当前控制模式，结果（Mode：{mode}）");
                         }
                         else
@@ -2995,7 +3056,8 @@ namespace HighPreactor_ModbusRTU
                         if (IsSimulationMode)
                         {
                             await Task.Delay(1000);
-                            success = Convert.ToBoolean(new Random().Next(0, 2));
+                            success = true;
+                            lock (_simLock) { SimReanchorNoLock(); _simHeatOn = (value == 1); }
                             InfoLog($"模拟模式启动加热或停止加热，结果（Success：{success}，SetValue：{value}）");
                         }
                         else

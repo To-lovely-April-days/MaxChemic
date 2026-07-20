@@ -38,7 +38,8 @@ namespace MaxChemical.Shell.Services
         public OllamaLlmService(ILogService logger)
         {
             _logger = logger;
-            _httpClient = new HttpClient
+            // localhost 请求绕过系统代理(本机挂代理时,回环地址走代理会连不上 Ollama)
+            _httpClient = new HttpClient(new HttpClientHandler { UseProxy = false, Proxy = null })
             {
                 Timeout = TimeSpan.FromSeconds(10)
             };

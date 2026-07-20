@@ -18,6 +18,7 @@ namespace MaxChemical.Shell.ViewModels
         private readonly ILocalizationService _localizationService;
         private readonly IVoiceAssistantService _voiceAssistant;
         private readonly PiperVoiceAssistantService _piperVoiceService;
+        private readonly Services.Agent.AgentChatWindowService _agentChatWindowService;
         private readonly ILogService _logger;
 
         private string _applicationTitle = string.Empty;
@@ -43,12 +44,14 @@ namespace MaxChemical.Shell.ViewModels
         public CustomTitleBarViewModel(
             IEventAggregator eventAggregator,
             ILocalizationService localizationService,
-            IVoiceAssistantService voiceAssistant)
+            IVoiceAssistantService voiceAssistant,
+            Services.Agent.AgentChatWindowService agentChatWindowService)
         {
             _logger = LogManager.GetLogger<CustomTitleBarViewModel>();
             _eventAggregator = eventAggregator;
             _localizationService = localizationService;
             _voiceAssistant = voiceAssistant;
+            _agentChatWindowService = agentChatWindowService;
 
             _piperVoiceService = voiceAssistant as PiperVoiceAssistantService;
 
@@ -197,6 +200,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand DragMoveCommand { get; private set; } = null!;
         public DelegateCommand MaximizeCommandNoPostion { get; private set; } = null!;
         public DelegateCommand ToggleVoiceAssistantCommand { get; private set; } = null!;
+        public DelegateCommand OpenAgentChatCommand { get; private set; } = null!;
         public DelegateCommand ToggleMuteCommand { get; private set; } = null!;
         public DelegateCommand TestVoiceCommand { get; private set; } = null!;
         public DelegateCommand CloseVoiceInteractionCommand { get; private set; } = null!;
@@ -212,6 +216,7 @@ namespace MaxChemical.Shell.ViewModels
             DragMoveCommand = new DelegateCommand(OnDragMove);
             MaximizeCommandNoPostion = new DelegateCommand(OnMaximizeNoPosition);
             ToggleVoiceAssistantCommand = new DelegateCommand(OnToggleVoiceAssistant);
+            OpenAgentChatCommand = new DelegateCommand(() => _agentChatWindowService?.ShowWindow());
             ToggleMuteCommand = new DelegateCommand(OnToggleMute);
             TestVoiceCommand = new DelegateCommand(OnTestVoice);
             CloseVoiceInteractionCommand = new DelegateCommand(OnCloseVoiceInteraction);

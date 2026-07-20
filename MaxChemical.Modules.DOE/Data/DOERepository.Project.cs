@@ -45,6 +45,28 @@ namespace MaxChemical.Modules.DOE.Data
             return project.ProjectId;
         }
 
+        /// <summary>
+        /// 项目名查重：忽略大小写、首尾空格与 [AI] 标签差异——
+        /// 手动建的「X」与小桐建的「X [AI]」视为同名，避免同一课题出现两个项目。
+        /// </summary>
+        public async Task<bool> ProjectNameExistsAsync(string projectName)
+        {
+            if (string.IsNullOrWhiteSpace(projectName)) return false;
+
+            const string sql = @"
+                SELECT COUNT(*) FROM doe_projects
+                WHERE UPPER(TRIM(REPLACE(project_name, '[AI]', ''))) = @name";
+
+            string normalized = projectName.Replace("[AI]", "").Trim().ToUpperInvariant();
+
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@name", normalized);
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt64(result) > 0;
+        }
+
         public async Task<DOEProject?> GetProjectAsync(string projectId)
         {
             const string sql = "SELECT * FROM doe_projects WHERE project_id=@id";
