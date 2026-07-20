@@ -224,7 +224,7 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Border x:Name="CheckBd" Width="16" Height="16"
                                     BorderBrush="#BDBDBD" BorderThickness="1.5" CornerRadius="4"
-                                    Background="White" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    Background="White" Margin="0,0,8,0" VerticalAlignment="Top">
                                 <Path x:Name="CheckMark" Data="M 2 8 L 6 12 L 14 4"
                                       Stroke="White" StrokeThickness="2"
                                       StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
@@ -421,13 +421,13 @@
                   Content="等待设备稳定后再开始计时"
                   IsChecked="{Binding LogicCommand.Properties[WaitForStability], UpdateSourceTrigger=PropertyChanged}"
                   Checked="WaitForStability_Changed" Unchecked="WaitForStability_Changed"/>
-                                <TextBlock Text="勾选后，节点会先等待选定设备进入稳定状态，再开始倒计时"
+                                <TextBlock x:Name="WaitForSub" Text="勾选后，节点会先等待选定设备进入稳定状态，再开始倒计时"
                    FontSize="10" Foreground="#1565C0" Margin="24,4,0,8"
                    TextWrapping="Wrap"/>
 
                                 <!-- 设备多选区 -->
-                                <StackPanel x:Name="StabilityDevicesPanel" Margin="24,0,0,0" Visibility="Collapsed">
-                                    <TextBlock Text="参与稳定的设备" Style="{StaticResource FieldLabelStyle}" Margin="0,4,0,5"/>
+                                <StackPanel x:Name="StabilityDevicesPanel" Margin="24,0,0,0" Visibility="Visible">
+                                    <TextBlock x:Name="StabDevTb" Text="参与稳定的设备" Style="{StaticResource FieldLabelStyle}" Margin="0,4,0,5"/>
                                     <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" 
                     Background="White" Padding="8" MinHeight="60">
                                         <ItemsControl x:Name="StabilityDevicesList">
@@ -444,12 +444,12 @@
                                         </ItemsControl>
                                     </Border>
 
-                                    <TextBlock Text="稳定超时（秒）" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,5"/>
+                                    <TextBlock x:Name="StabSecTb" Text="稳定超时（秒）" Style="{StaticResource FieldLabelStyle}" Margin="0,8,0,5"/>
                                     <TextBox x:Name="StabilityTimeoutTextBox"
                      Style="{StaticResource FieldInputStyle}"
                      Text="{Binding LogicCommand.Properties[StabilityTimeoutSeconds], UpdateSourceTrigger=PropertyChanged}"
                      TextChanged="OnValueChanged"/>
-                                    <TextBlock Text="超过此时间仍未全部稳定将报错" 
+                                    <TextBlock x:Name="StabTipTb" Text="超过此时间仍未全部稳定将报错" TextWrapping="Wrap"
                        FontSize="10" Foreground="#9E9E9E" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </StackPanel>

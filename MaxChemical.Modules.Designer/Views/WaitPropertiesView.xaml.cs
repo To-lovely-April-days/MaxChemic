@@ -82,6 +82,11 @@ namespace MaxChemical.Modules.Designer.Views
             ExecuteModeTitle.Text = service.GetString("WaitNode_ExecuteMode_Title");
             SynchronousRadio.Content = service.GetString("WaitNode_Sync");
             AsynchronousRadio.Content = service.GetString("WaitNode_Async");
+            WaitForStabilityCheckBox.Content = service.GetString("WaitNode_WaitFor");
+            WaitForSub.Text = service.GetString("WaitNode_WaitForSub");
+            StabDevTb.Text = service.GetString("WaitNode_StabDev");
+            StabSecTb.Text = service.GetString("WaitNode_StabSec");
+            StabTipTb.Text = service.GetString("WaitNode_StabTip");
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
