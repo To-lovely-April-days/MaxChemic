@@ -42,7 +42,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
                     exact = recent.Where(b => string.Equals(DoeBatchFinder.Normalize(b.BatchName), qn, StringComparison.OrdinalIgnoreCase)).ToList();
                 }
                 var fuzzy = exact.Count > 0 ? exact
-                    : recent.Where(b => (b.BatchName?.IndexOf(name, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0).ToList();
+                    : recent.Where(b => DoeBatchFinder.NameContains(b.BatchName, name)).ToList();
                 if (fuzzy.Count == 1) return (fuzzy[0], null);
                 if (fuzzy.Count > 1)
                     return (null, "匹配到多个批次,请让用户指明:" +
@@ -60,7 +60,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
                         var pb = await repo.GetBatchesByProjectAsync(p.ProjectId).ConfigureAwait(false)
                                  ?? new List<DOEBatch>();
                         foreach (var b in pb)
-                            if ((b.BatchName?.IndexOf(name, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0)
+                            if (DoeBatchFinder.NameContains(b.BatchName, name))
                                 projBatchHits.Add((b, p.ProjectName));
                     }
                     catch { }
@@ -72,7 +72,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
 
                 // 再按项目名/项目编号检索,命中则取最近一轮有数据的批次
                 var projHit = projects
-                    .Where(p => (p.ProjectName?.IndexOf(name, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0)
+                    .Where(p => DoeBatchFinder.NameContains(p.ProjectName, name))
                     .ToList();
                 var projById = projects.FirstOrDefault(p =>
                     string.Equals(p.ProjectId, name.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -80,8 +80,9 @@ namespace MaxChemical.Shell.Services.Agent.Tools
                 if (projHit.Count > 1)
                 {
                     // 唯一精确同名者优先,仍歧义则给带编号的候选表(重名项目只能靠编号选)
-                    var exactProj = projHit.Where(p =>
-                        string.Equals(p.ProjectName?.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+                    var exactProj = projHit.Where(p => string.Equals(
+                        DoeBatchFinder.Normalize(p.ProjectName), DoeBatchFinder.Normalize(name),
+                        StringComparison.OrdinalIgnoreCase)).ToList();
                     if (exactProj.Count == 1) projHit = exactProj;
                     else return (null, AmbiguousProjectsError(name, projHit));
                 }
@@ -188,7 +189,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
             }
 
             var hit = projects
-                .Where(p => (p.ProjectName?.IndexOf(name, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0)
+                .Where(p => DoeBatchFinder.NameContains(p.ProjectName, name))
                 .ToList();
             if (hit.Count == 0)
                 return (null, $"没有名字含「{name}」的项目。现有项目:" +
@@ -196,8 +197,9 @@ namespace MaxChemical.Shell.Services.Agent.Tools
             if (hit.Count > 1)
             {
                 // ② 唯一精确同名者优先(「X」不再被「X [AI]」搅成歧义)
-                var exact = hit.Where(p =>
-                    string.Equals(p.ProjectName?.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+                var exact = hit.Where(p => string.Equals(
+                    DoeBatchFinder.Normalize(p.ProjectName), DoeBatchFinder.Normalize(name),
+                    StringComparison.OrdinalIgnoreCase)).ToList();
                 if (exact.Count == 1) return (exact[0], null);
                 return (null, AmbiguousProjectsError(name, hit));
             }
@@ -1016,7 +1018,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
             string keyword = AgentToolContext.GetString(args, "keyword");
             if (!string.IsNullOrWhiteSpace(keyword))
                 recent = recent
-                    .Where(b => (b.BatchName?.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0)
+                    .Where(b => DoeBatchFinder.NameContains(b.BatchName, keyword))
                     .ToList();
 
             double? days = AgentToolContext.GetNumber(args, "days");

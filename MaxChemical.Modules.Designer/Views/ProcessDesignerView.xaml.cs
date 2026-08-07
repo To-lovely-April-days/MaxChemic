@@ -1571,7 +1571,7 @@ namespace MaxChemical.Modules.Designer.Views
         }
 
         #endregion
-
+       
         #region 键盘事件处理
 
         private void OnKeyDown(object sender, KeyEventArgs e)
@@ -2712,7 +2712,7 @@ namespace MaxChemical.Modules.Designer.Views
             var allowedRegions = device.AllowedRegions;
             if (allowedRegions == null || !allowedRegions.Any())
                 return true;
-            // 检查输入的位置是否在特定的区域内
+
             var targetRegion = FindRegionAtPosition(position);
             if (targetRegion == null)
                 return false;
@@ -3696,6 +3696,18 @@ namespace MaxChemical.Modules.Designer.Views
                     {
                         HandleDigitalScaleControlState(scaleControl, e);
                     }
+                    // 新增：处理加热磁力搅拌器状态
+                    var stirrerControl = FindVisualChild<MagneticStirrerControl>(deviceElement);
+                    if (stirrerControl != null)
+                    {
+                        HandleMagneticStirrerControlState(stirrerControl, e);
+                    }
+                    // 新增：处理精睿柱塞泵状态
+                    var jingRuiPumpControl = FindVisualChild<JingRuiPumpControl>(deviceElement);
+                    if (jingRuiPumpControl != null)
+                    {
+                        HandleJingRuiPumpControlState(jingRuiPumpControl, e);
+                    }
                     // 新增：处理高低温循环器状态
                     var circulatorControl = FindVisualChild<TemperatureControlSystemControl>(deviceElement);
                     if (circulatorControl != null)
@@ -4033,6 +4045,186 @@ namespace MaxChemical.Modules.Designer.Views
                         ? e.AdditionalData["ErrorMessage"]?.ToString()
                         : "未知错误";
                     UpdateStatusBar($"{commandName} 异常: {errorMsg}");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 处理加热磁力搅拌器控件状态（设备 → UI）
+        /// </summary>
+        private void HandleMagneticStirrerControlState(
+            MagneticStirrerControl stirrerControl,
+            DeviceControlStateChangedEventArgs e)
+        {
+            switch (e.StateName)
+            {
+                case "ExternalTemperature":
+                    if (e.StateValue is double extTemp)
+                        stirrerControl.Temperature = extTemp;
+                    break;
+
+                case "TemperatureSV":
+                    if (e.StateValue is double tempSv)
+                        stirrerControl.TemperatureSetpoint = tempSv;
+                    break;
+
+                case "SpeedMeasured":
+                    if (e.StateValue is double speed)
+                        stirrerControl.Speed = speed;
+                    break;
+
+                case "SpeedSV":
+                    if (e.StateValue is double speedSv)
+                        stirrerControl.SpeedSetpoint = speedSv;
+                    break;
+
+                case "TemperatureSwitch":
+                    if (e.StateValue is bool heating)
+                        stirrerControl.IsHeating = heating;
+                    break;
+
+                case "SpeedSwitch":
+                    if (e.StateValue is bool stirring)
+                        stirrerControl.IsStirring = stirring;
+                    break;
+
+                case "CommandState_温度控制":
+                case "CommandState_搅拌控制":
+                    HandleMagneticStirrerCommandState(stirrerControl, e);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 处理加热磁力搅拌器命令执行状态
+        /// </summary>
+        private void HandleMagneticStirrerCommandState(
+            MagneticStirrerControl stirrerControl,
+            DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+                return;
+
+            var commandName = e.StateName.Replace("CommandState_", "");
+
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    stirrerControl.ShowLoading();
+                    UpdateStatusBar($" 正在执行 {commandName}...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    stirrerControl.HideLoading();
+                    UpdateStatusBar($" {commandName} 成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                case CommandExecutionState.Error:
+                    stirrerControl.HideLoading();
+                    stirrerControl.ShowOperationFailure();
+                    UpdateStatusBar($"{commandName} 失败");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 处理精睿柱塞泵控件状态（设备 → UI）
+        /// </summary>
+        private void HandleJingRuiPumpControlState(
+            JingRuiPumpControl pumpControl,
+            DeviceControlStateChangedEventArgs e)
+        {
+            switch (e.StateName)
+            {
+                case "Flow":
+                    if (e.StateValue is double flow)
+                        pumpControl.Flow = flow;
+                    break;
+
+                case "FlowSV":
+                    if (e.StateValue is double flowSv)
+                        pumpControl.FlowSetpoint = flowSv;
+                    break;
+
+                case "Pressure":
+                    if (e.StateValue is double pressure)
+                        pumpControl.Pressure = pressure;
+                    break;
+
+                case "PressureMax":
+                    if (e.StateValue is double pressureMax)
+                        pumpControl.PressureLimit = pressureMax;
+                    break;
+
+                // 量程由驱动在首轮采集时推一次,让压力条与液流动画按泵本体的实际规格标定
+                case "FlowRange":
+                    if (e.StateValue is double flowRange && flowRange > 0)
+                        pumpControl.FlowRange = flowRange;
+                    break;
+
+                case "PressureRange":
+                    if (e.StateValue is double pressureRange && pressureRange > 0)
+                        pumpControl.PressureRange = pressureRange;
+                    break;
+
+                case "IsRunning":
+                    if (e.StateValue is bool running)
+                        pumpControl.IsRunning = running;
+                    break;
+
+                case "IsDosing":
+                    if (e.StateValue is bool dosing)
+                        pumpControl.IsDosing = dosing;
+                    break;
+
+                case "FaultCode":
+                    if (e.StateValue is double faultCode)
+                        pumpControl.FaultCode = faultCode;
+                    break;
+
+                case "CommandState_设置流量":
+                case "CommandState_启动泵":
+                case "CommandState_停止泵":
+                case "CommandState_按流量启动":
+                case "CommandState_定量输送":
+                case "CommandState_设置压力上下限":
+                case "CommandState_压力校零":
+                case "CommandState_故障消除":
+                    HandleJingRuiPumpCommandState(pumpControl, e);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 处理精睿柱塞泵命令执行状态
+        /// </summary>
+        private void HandleJingRuiPumpCommandState(
+            JingRuiPumpControl pumpControl,
+            DeviceControlStateChangedEventArgs e)
+        {
+            if (e.StateValue is not CommandExecutionState state)
+                return;
+
+            var commandName = e.StateName.Replace("CommandState_", "");
+
+            switch (state)
+            {
+                case CommandExecutionState.Running:
+                    pumpControl.ShowLoading();
+                    UpdateStatusBar($" 正在执行 {commandName}...");
+                    break;
+
+                case CommandExecutionState.Succeeded:
+                    pumpControl.HideLoading();
+                    UpdateStatusBar($" {commandName} 成功");
+                    break;
+
+                case CommandExecutionState.Failed:
+                case CommandExecutionState.Error:
+                    pumpControl.HideLoading();
+                    pumpControl.ShowOperationFailure();
+                    UpdateStatusBar($"{commandName} 失败");
                     break;
             }
         }
@@ -5542,6 +5734,8 @@ namespace MaxChemical.Modules.Designer.Views
                         return new Size(198, 120);
                     case "HighLowTemperature_ModbusTCP":
                         return new Size(288, 400);
+                    case "JingRuiPump_ModbusRTU":
+                        return new Size(297*0.8, 300 * 0.8);      
 
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }
@@ -5583,6 +5777,15 @@ namespace MaxChemical.Modules.Designer.Views
 
                         case "TubularReactorControl":
                             return new Size(170, 105);        // 横长管式
+
+                        case "MagneticStirrerControl":
+                            // 控件画布已裁到 306×501,这里保持同比例,只调 scale 一个数即可缩放。
+                            // 比例不一致的话 Viewbox 是 Uniform,图会缩在中间、四周留白。
+                            return new Size(306 * 0.62, 501 * 0.62);   // ≈190×311
+
+                        case "JingRuiPumpControl":
+                            // 控件画布 320×250(含机身外的进出液管),同比例缩放
+                            return new Size(320 * 0.55, 250 * 0.55);   // ≈176×138
 
                         default:
                             Debug.WriteLine($"未识别的自定义控件: {controlType}");
@@ -5626,6 +5829,7 @@ namespace MaxChemical.Modules.Designer.Views
 
                         // 承载层 — 平台型,被别的东西放在上面
                         case "DigitalScaleControl":
+                        case "MagneticStirrerControl":
                             return 110;
 
                         // 默认层 — 大多数设备
@@ -5779,6 +5983,12 @@ namespace MaxChemical.Modules.Designer.Views
                         //添加电子秤
                     case "DigitalScaleControl":
                         return CreateDigitalScaleIcon(targetWidth, targetHeight);
+                        //加热磁力搅拌器
+                    case "MagneticStirrerControl":
+                        return CreateMagneticStirrerIcon(targetWidth, targetHeight);
+                        //精睿柱塞泵
+                    case "JingRuiPumpControl":
+                        return CreateJingRuiPumpIcon(targetWidth, targetHeight);
                     case "TemperatureControlSystemControl":
                         return CreateTemperatureCirculatorIcon(targetWidth, targetHeight);
                     default:
@@ -9842,7 +10052,6 @@ namespace MaxChemical.Modules.Designer.Views
 
         #endregion
 
-
         #region 阀门管理
 
         /// <summary>
@@ -11016,6 +11225,7 @@ namespace MaxChemical.Modules.Designer.Views
             }
         }
         #endregion
+
         #region 管式反应器事件处理
         /// <summary>
         /// 订阅管式反应器控件事件
@@ -11496,6 +11706,86 @@ namespace MaxChemical.Modules.Designer.Views
             {
                 Debug.WriteLine($"创建电子秤图标失败: {ex.Message}");
                 return CreateDefaultIcon(targetWidth, targetHeight, "电子秤");
+            }
+        }
+
+        /// <summary>
+        /// 创建加热磁力搅拌器图标容器
+        /// </summary>
+        private UIElement CreateMagneticStirrerIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                // 画布上这个控件只负责"显示"(温度/转速/加热辉光/搅拌动画),交互一律走
+                // 双击 → 设备屏幕。所以整体关掉命中测试:否则控件自带的 DraggableArea
+                // 会把鼠标抢走,设计器自己的选中和拖动就失灵了。
+                var stirrerControl = new MagneticStirrerControl
+                {
+                    IsHitTestVisible = false,
+                    Temperature = 0.0,
+                    Speed = 0.0,
+                    IsHeating = false,
+                    IsStirring = false
+                };
+
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = stirrerControl,
+                    IsHitTestVisible = false
+                };
+
+                Debug.WriteLine($"创建磁力搅拌器图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建磁力搅拌器图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "磁力搅拌器");
+            }
+        }
+
+        /// <summary>
+        /// 创建精睿柱塞泵图标容器
+        /// </summary>
+        private UIElement CreateJingRuiPumpIcon(double targetWidth, double targetHeight)
+        {
+            try
+            {
+                // 与磁力搅拌器同理:画布上这个控件只负责"显示"(流量/压力/状态灯/柱塞与液流动画),
+                // 交互一律走双击 → 设备屏幕。整体关掉命中测试,否则控件自带的 DraggableArea
+                // 会把鼠标抢走,设计器自己的选中和拖动就失灵了。
+                var pumpControl = new JingRuiPumpControl
+                {
+                    IsHitTestVisible = false,
+                    Flow = 0.0,
+                    FlowSetpoint = 0.0,
+                    Pressure = 0.0,
+                    IsRunning = false,
+                    IsDosing = false,
+                    FaultCode = 0.0
+                };
+
+                var viewbox = new System.Windows.Controls.Viewbox
+                {
+                    Width = targetWidth,
+                    Height = targetHeight,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                    Child = pumpControl,
+                    IsHitTestVisible = false
+                };
+
+                Debug.WriteLine($"创建精睿柱塞泵图标容器: {targetWidth}x{targetHeight}");
+                return viewbox;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"创建精睿柱塞泵图标失败: {ex.Message}");
+                return CreateDefaultIcon(targetWidth, targetHeight, "精睿泵");
             }
         }
 

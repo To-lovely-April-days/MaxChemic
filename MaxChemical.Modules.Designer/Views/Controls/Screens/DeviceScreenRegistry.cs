@@ -89,6 +89,19 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Resolution = new Size(1240, 620),
                 });
 
+                Register("MagneticStirrerScreen", new ScreenRegistration
+                {
+                    Factory = () => new MagneticStirrerScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
+                // ── 精睿系列柱塞泵(杭州精进科技,RS485 Modbus) ────
+                Register("JingRuiPumpScreen", new ScreenRegistration
+                {
+                    Factory = () => new JingRuiPumpScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
                 _initialized = true;

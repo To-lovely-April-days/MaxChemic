@@ -881,7 +881,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
                     exact = candidates.Where(b => string.Equals(Normalize(b.BatchName), qn, StringComparison.OrdinalIgnoreCase)).ToList();
                 }
                 var fuzzy = exact.Count > 0 ? exact
-                    : candidates.Where(b => (b.BatchName?.IndexOf(q, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0).ToList();
+                    : candidates.Where(b => NameContains(b.BatchName, q)).ToList();
                 if (fuzzy.Count == 0)
                     return (null, $"没有名为「{q}」的可执行批次。候选批次:" +
                         (candidates.Count > 0 ? string.Join("、", candidates.Take(8).Select(b => b.BatchName)) : "(无)"));
@@ -914,8 +914,19 @@ namespace MaxChemical.Shell.Services.Agent.Tools
                s.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_');
 
         /// <summary>忽略 [AI] 标签与首尾空格的批次名归一。</summary>
+        /// <summary>名称匹配归一化:去掉 [AI] 标签与全部半角/全角空白。
+        /// 库里项目/批次名与用户口述常差一个空格(如「动力学验证[AI]」vs「动力学验证 [AI]」),
+        /// 所有按名字的精确/包含匹配一律先经此归一化。</summary>
         internal static string Normalize(string s)
-            => (s ?? "").Replace("[AI]", "").Trim();
+            => (s ?? "").Replace("[AI]", "").Replace(" ", "").Replace("\u3000", "").Replace("\t", "").Trim();
+
+        /// <summary>归一化后的包含匹配(空白与 [AI] 标签不影响命中)。</summary>
+        internal static bool NameContains(string candidate, string query)
+        {
+            var q = Normalize(query);
+            if (q.Length == 0) return false;
+            return Normalize(candidate).IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
     }
 
     /// <summary>查询批次的智能推荐(智能决策)配置(只读)。执行项目批次前的必经一步。</summary>

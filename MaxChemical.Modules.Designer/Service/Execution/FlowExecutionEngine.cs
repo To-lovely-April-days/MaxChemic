@@ -234,7 +234,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             DeviceConnectionConfig.CommunicationMode = CommunicationMode.ModbusTcp;
             DeviceConnectionConfig.ModbusTcpSettings = new ModbusTcpConnectionSettings
             {
-                IpAddress = "192.168.2.190",//192.168.2.190
+                IpAddress = "192.168.1.66",//192.168.2.190
                 Port = 502,
                 ConnectTimeout = 3000,
                 ReadWriteTimeout = 1000,
