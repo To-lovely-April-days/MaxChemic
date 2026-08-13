@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevicePlugins\DevicePlugins.csproj" />
+  </ItemGroup>
+
+	<!-- 编译后自动拷贝到 Shell 输出的 Plugins 目录(MEF 从那里装载驱动)。
+	     没有这一步的话,重新编译后 Plugins 里仍是旧驱动,新代码不会生效。 -->
+	<Target Name="CopyToPlugins" AfterTargets="Build" Condition="'$(SolutionDir)' != '' AND '$(SolutionDir)' != '*Undefined*'">
+		<MakeDir Directories="$(SolutionDir)MaxChemical.Shell\bin\$(Configuration)\net8.0-windows\Plugins" ContinueOnError="true" />
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SolutionDir)MaxChemical.Shell\bin\$(Configuration)\net8.0-windows\Plugins" ContinueOnError="true" />
+	</Target>
+</Project>

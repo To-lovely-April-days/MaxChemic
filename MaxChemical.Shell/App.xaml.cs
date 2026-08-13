@@ -199,6 +199,15 @@ public partial class App : PrismApplication
     {
         var logger = MaxChemical.Logging.LogManager.GetLogger<App>();
         logger.LogInformation("MaxChemical 应用程序退出");
+        // ↓ 新增
+        try
+        {
+            Container.Resolve<MaxChemical.Shell.Services.Agent.AgentBootstrapper>().ShutdownMcp();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning($"停止外部 MCP 接口时出错(不影响退出): {ex.Message}");
+        }
 
         // 停止Host
         _host?.StopAsync().Wait(TimeSpan.FromSeconds(5));

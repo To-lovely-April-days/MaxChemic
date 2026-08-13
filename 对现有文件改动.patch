@@ -1,0 +1,99 @@
+diff --git a/MaxChemical.Shell/App.xaml.cs b/MaxChemical.Shell/App.xaml.cs
+index 5318dfb..bc9fee5 100644
+--- a/MaxChemical.Shell/App.xaml.cs
++++ b/MaxChemical.Shell/App.xaml.cs
+@@ -200,6 +200,16 @@ public partial class App : PrismApplication
+         var logger = MaxChemical.Logging.LogManager.GetLogger<App>();
+         logger.LogInformation("MaxChemical 应用程序退出");
+ 
++        // 先停外部 MCP 管道监听:此时日志系统还活着,停不掉也留得下痕迹
++        try
++        {
++            Container.Resolve<MaxChemical.Shell.Services.Agent.AgentBootstrapper>().ShutdownMcp();
++        }
++        catch (Exception ex)
++        {
++            logger.LogWarning($"停止外部 MCP 接口时出错(不影响退出): {ex.Message}");
++        }
++
+         // 停止Host
+         _host?.StopAsync().Wait(TimeSpan.FromSeconds(5));
+         _host?.Dispose();
+diff --git a/MaxChemical.Shell/Services/Agent/AgentBootstrapper.cs b/MaxChemical.Shell/Services/Agent/AgentBootstrapper.cs
+index b7c6943..b1e6333 100644
+--- a/MaxChemical.Shell/Services/Agent/AgentBootstrapper.cs
++++ b/MaxChemical.Shell/Services/Agent/AgentBootstrapper.cs
+@@ -18,6 +18,12 @@ namespace MaxChemical.Shell.Services.Agent
+         private readonly ILogService _logger = LogManager.GetLogger<AgentBootstrapper>();
+         private bool _initialized;
+ 
++        /// <summary>外部 MCP 管道服务。由本类持有,随主程序生命周期存活。</summary>
++        private Mcp.McpPipeServer _mcpServer;
++
++        /// <summary>供外部(如退出流程)停止管道监听。</summary>
++        public void ShutdownMcp() => _mcpServer?.Stop();
++
+         public AgentBootstrapper(IContainerProvider container)
+         {
+             _container = container;
+@@ -132,6 +138,20 @@ namespace MaxChemical.Shell.Services.Agent
+                     }
+                 }
+ 
++                // ── 外部 MCP 接口(命名管道 → MaxChemical.Mcp.Bridge.exe)──
++                // 让 WorkBuddy / Codex / Gemini CLI / Claude 等客户端能查询实验室状态。
++                // 默认只读(白名单见 McpToolPolicy);配 MaxChemicalMcp:Mode=disabled 可整体关闭。
++                try
++                {
++                    var policy = new Mcp.McpToolPolicy(config["MaxChemicalMcp:Mode"]);
++                    _mcpServer = new Mcp.McpPipeServer();
++                    _mcpServer.Start(agent, policy, config["MaxChemicalMcp:PipeName"]);
++                }
++                catch (Exception ex)
++                {
++                    _logger.LogWarning($"外部 MCP 接口启动失败(不影响其他功能): {ex.Message}");
++                }
++
+                 _logger.LogInformation(agent.IsConfigured
+                     ? $"小桐 Agent 已就绪:模型 {client.Model},技能 {agent.Tools.Count} 项,专员 {SpecialistTeam.All.Count} 名(总控派工模式)"
+                     : "小桐 Agent 已装配,但未配置 DeepSeek ApiKey(将回退到本地意图识别)");
+diff --git a/MaxChemical.Shell/appsettings.json b/MaxChemical.Shell/appsettings.json
+index 2000cc7..aed20a3 100644
+--- a/MaxChemical.Shell/appsettings.json
++++ b/MaxChemical.Shell/appsettings.json
+@@ -3,6 +3,11 @@
+     "ApiKey": "",
+     "Model": "deepseek-chat"
+   },
++  "MaxChemicalMcp": {
++    "//": "外部 AI 客户端接口(WorkBuddy / Codex / Gemini CLI / Claude)。Mode: readonly(默认,只读白名单) | disabled(关闭)。",
++    "Mode": "readonly",
++    "PipeName": "MaxChemical.Mcp.v1"
++  },
+   "Bailian": {
+     "ApiKey": "",
+     "AsrModel": "paraformer-realtime-v2",
+diff --git a/MaxChemical.sln b/MaxChemical.sln
+index 68d09ce..7ce4f2c 100644
+--- a/MaxChemical.sln
++++ b/MaxChemical.sln
+@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Data", "MaxChem
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Mcp.History", "MaxChemical.Mcp.History\MaxChemical.Mcp.History.csproj", "{7C4A1E93-2F5B-4A08-9D61-A3B5E0C48D12}"
+ EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Mcp.Bridge", "MaxChemical.Mcp.Bridge\MaxChemical.Mcp.Bridge.csproj", "{3D9F6A21-8C74-4E5B-9A02-1F7E64B8D530}"
++EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PeristalticPumps_ModbusTCP", "PeristalticPumps_ModbusTCP\PeristalticPumps_ModbusTCP.csproj", "{B4A30904-93F1-47E7-B764-547D734FCF03}"
+ EndProject
+ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlowMeter_ModbusTCP", "FlowMeter_ModbusTCP\FlowMeter_ModbusTCP.csproj", "{CA73BB0F-C576-4BF9-BC4D-DFADD8EE1D95}"
+@@ -329,6 +331,10 @@ Global
+ 		{7C4A1E93-2F5B-4A08-9D61-A3B5E0C48D12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+ 		{7C4A1E93-2F5B-4A08-9D61-A3B5E0C48D12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+ 		{7C4A1E93-2F5B-4A08-9D61-A3B5E0C48D12}.Release|Any CPU.Build.0 = Release|Any CPU
++		{3D9F6A21-8C74-4E5B-9A02-1F7E64B8D530}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{3D9F6A21-8C74-4E5B-9A02-1F7E64B8D530}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{3D9F6A21-8C74-4E5B-9A02-1F7E64B8D530}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{3D9F6A21-8C74-4E5B-9A02-1F7E64B8D530}.Release|Any CPU.Build.0 = Release|Any CPU
+ 	EndGlobalSection
+ 	GlobalSection(SolutionProperties) = preSolution
+ 		HideSolutionNode = FALSE

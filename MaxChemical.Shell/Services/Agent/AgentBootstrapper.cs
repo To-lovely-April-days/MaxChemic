@@ -17,7 +17,9 @@ namespace MaxChemical.Shell.Services.Agent
         private readonly IContainerProvider _container;
         private readonly ILogService _logger = LogManager.GetLogger<AgentBootstrapper>();
         private bool _initialized;
-
+        // ↓ 新增
+        private Mcp.McpPipeServer _mcpServer;
+        public void ShutdownMcp() => _mcpServer?.Stop();
         public AgentBootstrapper(IContainerProvider container)
         {
             _container = container;
@@ -131,7 +133,18 @@ namespace MaxChemical.Shell.Services.Agent
                         _logger.LogWarning($"主动值守启动失败(不影响其他功能): {ex.Message}");
                     }
                 }
-
+                // ↓↓↓ 新增这一整段 ↓↓↓
+                try
+                {
+                    var policy = new Mcp.McpToolPolicy(config["MaxChemicalMcp:Mode"]);
+                    _mcpServer = new Mcp.McpPipeServer();
+                    _mcpServer.Start(agent, policy, config["MaxChemicalMcp:PipeName"]);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"外部 MCP 接口启动失败(不影响其他功能): {ex.Message}");
+                }
+                // ↑↑↑ 到这里 ↑↑↑
                 _logger.LogInformation(agent.IsConfigured
                     ? $"小桐 Agent 已就绪:模型 {client.Model},技能 {agent.Tools.Count} 项,专员 {SpecialistTeam.All.Count} 名(总控派工模式)"
                     : "小桐 Agent 已装配,但未配置 DeepSeek ApiKey(将回退到本地意图识别)");

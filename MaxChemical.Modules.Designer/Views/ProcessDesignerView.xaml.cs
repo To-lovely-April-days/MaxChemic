@@ -4647,12 +4647,31 @@ namespace MaxChemical.Modules.Designer.Views
             DockPanel.SetDock(nameText, Dock.Bottom);
             mainPanel.Children.Add(nameText);
 
-            // 设备图标
-            var iconElement = CreateDeviceIcon(canvasDevice.Device, adjustedSize.Width - 4, adjustedSize.Height - 24);
+            // 设备图标。
+            // 这里减的是"名称区预留高度",不是名称的实际高度 —— 两者故意不相等:
+            // 各设备在 GetAdjustedDeviceSize 里的固定尺寸都是按"减 24"调出来的,
+            // 改成按实测高度减,名字短的设备图标会突然变大,把已经调好的比例全打乱。
+            // 名字折成两行时会比预留多占几个像素,DockPanel 让图标少几像素,
+            // 图片是 Uniform 居中缩放的,肉眼看不出来。
+            var iconElement = CreateDeviceIcon(canvasDevice.Device, adjustedSize.Width - 4,
+                                               adjustedSize.Height - DeviceNameReservedHeight);
             mainPanel.Children.Add(iconElement);
 
             return mainPanel;
         }
+
+
+        /// <summary>
+        /// 画布设备底部名称区的**预留**高度。各设备的固定尺寸都是按这个数调出来的,
+        /// 改它会让所有设备的图标比例一起变,不要为了单台设备动这里。
+        /// </summary>
+        private const double DeviceNameReservedHeight = 24;
+
+        /// <summary>
+        /// 名称文本自身的高度上限。FontSize 9 时一行约 14px、两行约 26px,
+        /// 给到 30 让两行完整显示,再长就靠 TextTrimming 打省略号。
+        /// </summary>
+        private const double DeviceNameMaxHeight = 30;
 
         /// <summary>
         /// 创建设备名称文本
@@ -4669,12 +4688,19 @@ namespace MaxChemical.Modules.Designer.Views
                 Foreground = Brushes.DarkBlue,
                 Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
                 Padding = new Thickness(2, 1, 2, 1),
-               // Margin = new Thickness(0, 0, 0, 0), //  新增：底部边距 15 像素
+                // Margin = new Thickness(0, 0, 0, 0), //  新增：底部边距 15 像素
                 IsHitTestVisible = false,
-                MaxHeight = 20
+                // 名字长了会折行。原来这里是 20 —— FontSize 9 时一行约 14px、两行约 26px,
+                // 所以但凡折了行,第二行就被从字的中间切掉,像"(Tricontinent"那样只露出半截。
+                // 放到 30 让两行能完整显示。
+                MaxHeight = DeviceNameMaxHeight,
+                // 超过两行的名字用省略号收尾。没有这一条的话超出部分是硬切,
+                // 看上去像渲染坏了;有省略号至少能看出"名字还没说完"。
+                TextTrimming = TextTrimming.CharacterEllipsis
             };
 
         }
+
 
         /// <summary>
         /// 将设备添加到画布

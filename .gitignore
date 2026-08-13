@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Piper TTS 语音数据（体积大，单独分发）
+MaxChemical.Shell/Resources/piper/

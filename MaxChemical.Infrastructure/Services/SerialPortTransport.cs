@@ -46,7 +46,9 @@ namespace MaxChemical.Infrastructure.Services
 
                 await port.BaseStream.WriteAsync(sendBuffer, 0, sendBuffer.Length, ct).ConfigureAwait(false);
 
-                return await ReadModbusFrameAsync(port, recvBuffer, recvTimeoutMs, ct).ConfigureAwait(false);
+                return _config.Framing == SerialFraming.AsciiLine
+                    ? await ReadUntilTerminatorAsync(port, recvBuffer, _config.ReplyTerminator, recvTimeoutMs, ct).ConfigureAwait(false)
+                    : await ReadModbusFrameAsync(port, recvBuffer, recvTimeoutMs, ct).ConfigureAwait(false);
             }
             finally
             {
@@ -134,6 +136,80 @@ namespace MaxChemical.Infrastructure.Services
         }
 
         /// <summary>
+        /// 循环读取直到收到 ASCII 行协议的结束符,或超时。
+        ///
+        /// 与 Modbus 那条路的区别:没有长度字段可推算,只能一边收一边看尾巴是不是结束符。
+        /// 结束符可能是多字节("\r\n"、Tricontinent 的 "\x03\r\n"),所以要按字节序列比,
+        /// 不能逐字符判断 —— 这也是 PyLabware 专门写 stripper() 而不用 str.strip() 的原因。
+        ///
+        /// 超时后若已收到部分字节,按短帧返回交给上层判断,与 Modbus 那条路的处理一致。
+        /// </summary>
+        private static async Task<int> ReadUntilTerminatorAsync(
+            SerialPort port, byte[] recvBuffer, string terminator, int timeoutMs, CancellationToken ct)
+        {
+            byte[] term = System.Text.Encoding.ASCII.GetBytes(
+                string.IsNullOrEmpty(terminator) ? "\r\n" : terminator);
+
+            int offset = 0;
+            var sw = Stopwatch.StartNew();
+
+            while (true)
+            {
+                int remainingTime = timeoutMs - (int)sw.ElapsedMilliseconds;
+                if (remainingTime <= 0)
+                {
+                    if (offset == 0)
+                        throw new TimeoutException($"串口读取超时 ({timeoutMs}ms),设备无响应");
+                    return offset;
+                }
+
+                if (offset >= recvBuffer.Length)
+                {
+                    // 缓冲区满了还没见到结束符,按已收到的返回,避免死循环
+                    return offset;
+                }
+
+                var readTask = port.BaseStream.ReadAsync(recvBuffer, offset, recvBuffer.Length - offset, ct);
+                var timeoutTask = Task.Delay(remainingTime, ct);
+                var finished = await Task.WhenAny(readTask, timeoutTask).ConfigureAwait(false);
+
+                if (finished != readTask)
+                {
+                    if (offset == 0)
+                        throw new TimeoutException($"串口读取超时 ({timeoutMs}ms),设备无响应");
+                    return offset;
+                }
+
+                int n = await readTask.ConfigureAwait(false);
+                if (n <= 0)
+                {
+                    if (offset == 0)
+                        throw new TimeoutException("串口读取返回 0,对端可能已断开");
+                    return offset;
+                }
+
+                offset += n;
+
+                if (EndsWith(recvBuffer, offset, term))
+                {
+                    return offset;
+                }
+            }
+        }
+
+        /// <summary>已收到的 count 个字节,尾部是不是 suffix。</summary>
+        private static bool EndsWith(byte[] buffer, int count, byte[] suffix)
+        {
+            if (count < suffix.Length) return false;
+            int start = count - suffix.Length;
+            for (int i = 0; i < suffix.Length; i++)
+            {
+                if (buffer[start + i] != suffix[i]) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 根据已收到的字节推算 Modbus RTU 应答完整帧长。
         /// 返回 <= 0 表示无法推断。
         /// </summary>
@@ -180,17 +256,23 @@ namespace MaxChemical.Infrastructure.Services
                 port = OpenPort();
                 await port.BaseStream.WriteAsync(buffer, offset, count, ct).ConfigureAwait(false);
 
-                // 写命令也需要等设备的应答回完,否则下一次读会拿到残留字节
-                // 对 Modbus 写应答固定 8 字节,我们尝试把它读掉(不解析,纯丢弃)
-                byte[] dummy = new byte[16];
-                try
+                // ASCII 行协议里,不需要应答的命令(IKA 的 START_4/STOP_4、设定值下发等)是真的一个字节都不回。
+                // 在这里做 drain 会白等满一个 ReadTimeoutMs(默认 3 秒),每次写都卡 3 秒。
+                // 需要应答的 ASCII 命令由驱动改走 SendAndReceiveAsync,不走这条路。
+                if (_config.Framing != SerialFraming.AsciiLine)
                 {
-                    // 用较短的超时,避免单播写卡死
-                    await ReadModbusFrameAsync(port, dummy, _config.ReadTimeoutMs, ct).ConfigureAwait(false);
-                }
-                catch (TimeoutException)
-                {
-                    // 写命令吃掉应答失败不影响写本身的语义
+                    // 写命令也需要等设备的应答回完,否则下一次读会拿到残留字节
+                    // 对 Modbus 写应答固定 8 字节,我们尝试把它读掉(不解析,纯丢弃)
+                    byte[] dummy = new byte[16];
+                    try
+                    {
+                        // 用较短的超时,避免单播写卡死
+                        await ReadModbusFrameAsync(port, dummy, _config.ReadTimeoutMs, ct).ConfigureAwait(false);
+                    }
+                    catch (TimeoutException)
+                    {
+                        // 写命令吃掉应答失败不影响写本身的语义
+                    }
                 }
 
                 return true;

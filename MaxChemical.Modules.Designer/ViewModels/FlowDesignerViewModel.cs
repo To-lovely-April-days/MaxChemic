@@ -1699,6 +1699,20 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 {
                     RestoreConnections(flowDocument.Connections);
                     _eventAggregator?.GetEvent<FlowLoadedEvent>()?.Publish(flowDocument);
+
+                    //  文件里存的 X/Y 不一定可信 —— 存盘时的对齐要么本来就是歪的
+                    //  (逻辑命令那条路以前把 Y 夹了 0),要么换了机器后 DPI/字体不同、
+                    //  并行和循环节点展开后的真实高度跟存盘时不一样。
+                    //  这里在布局跑完之后统一按当前真实高度重排一次,让所有节点的主卡片
+                    //  重新落回启动节点的中心线上。
+                    //  优先级必须比 Loaded 低:Loaded 阶段控件还没测量,ActualHeight 还是 0,
+                    //  这时候重排等于拿估算值算,白算一遍。
+                    System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        RearrangeNodes();
+                        RebuildAllConnections();
+                        UpdateCanvasSize();
+                    }), System.Windows.Threading.DispatcherPriority.ContextIdle);
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
             catch (Exception ex)
@@ -1773,6 +1787,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     {
                         commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
                         SubscribeToNodeControlEvents(commandNode, plugin);
+                        //  和新增节点那两条路保持一致。
+                        //  SubscribeToNodeControlEvents 订阅的是"加分支/删分支"这类业务事件,
+                        //  不含尺寸变化后的重新对齐 —— 漏了它,打开已存流程时并行/循环节点
+                        //  的 Y 就永远停在文件里存的旧值上,和启动节点对不齐。
+                        AttachAutoCenterOnSizeChanged(commandNode);
                     }
                 }
             }
@@ -2880,34 +2899,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (plugin != null)
                 {
                     commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
-                    var capturedNode = commandNode;
-                    commandNode.NodeControl.SizeChanged += (s, e) =>
-                    {
-                        if (!e.HeightChanged && !e.WidthChanged) return;
-                        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            double startNodeCenterY = StartNodeY + 32.0;
-                            double newH = capturedNode.NodeControl.ActualHeight;
-                            if (newH <= 0) return;
-
-                            //  用正确的方式计算 Y
-                            double correctY = CalculateNodeCorrectY(capturedNode, startNodeCenterY);
-
-                            if (Math.Abs(capturedNode.Y - correctY) > 1.0)
-                            {
-                                capturedNode.Y = correctY;
-                            }
-
-                            // 重排后续节点
-                            int idx = CommandNodes.IndexOf(capturedNode);
-                            if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
-
-                            //  确保所有节点可见（如果有负值Y就整体下移）
-                            EnsureAllNodesVisible();
-
-                            RebuildAllConnections();
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    };
+                    AttachAutoCenterOnSizeChanged(commandNode);
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                     //commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
@@ -3001,37 +2993,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (plugin != null)
                 {
                     commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
-                    var capturedNode = commandNode;
-                    commandNode.NodeControl.SizeChanged += (s, e) =>
-                    {
-                        if (!e.HeightChanged && !e.WidthChanged) return;
-                        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            double startNodeCenterY = StartNodeY + 32.0;
-                            double newH = capturedNode.NodeControl.ActualHeight;
-                            if (newH <= 0) return;
-
-                            double correctY;
-                            //  修复：IF 节点用 CardCenterOffsetY 对齐主卡片到中心线，允许负值
-                            if (capturedNode.IsIfNode && capturedNode.NodeControl is Views.IfNodeControlView ifView)
-                            {
-                                correctY = startNodeCenterY - ifView.CardCenterOffsetY;
-                            }
-                            else
-                            {
-                                correctY = startNodeCenterY - newH / 2.0;
-                                correctY = Math.Max(0, correctY);
-                            }
-
-                            if (Math.Abs(capturedNode.Y - correctY) > 1.0)
-                            {
-                                capturedNode.Y = correctY;
-                            }
-                            int idx = CommandNodes.IndexOf(capturedNode);
-                            if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
-                            RebuildAllConnections();
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    };
+                    AttachAutoCenterOnSizeChanged(commandNode);
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                     //commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
@@ -4409,6 +4371,55 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
         #endregion
 
+
+        /// <summary>
+        /// 给节点控件挂上"高度变了就重新对齐到启动节点中心线"的回调。
+        ///
+        /// 为什么要抽成一个方法:这段逻辑原来在两个新增节点的地方各抄了一遍,
+        /// 两份抄歪了 —— 逻辑命令那份多了一句 correctY = Math.Max(0, correctY),
+        /// 把本该是负数的 Y 夹成 0。并行/循环展开分支后有七八百像素高,主卡片在节点竖直中间,
+        /// 要让卡片落在启动节点中心线上,节点顶部本来就得是负的;夹成 0 之后整块往下掉半个节点高,
+        /// 于是"流程启动在左上、并行卡片在右下"。正确做法是让 Y 算成负数,
+        /// 再由 EnsureAllNodesVisible() 把 StartNodeY 整体下移、所有节点重算 ——
+        /// 相对关系不变,整张图一起挪进可视区。
+        ///
+        /// 第三处更要命:从文件恢复节点那条路**根本没挂这个回调**。
+        /// 于是打开一个存好的流程时,节点 Y 完全等于文件里存的旧值,
+        /// 控件渲染完真实高度出来了也没人重算 —— 存的时候歪的,打开还是歪的。
+        /// </summary>
+        private void AttachAutoCenterOnSizeChanged(CommandNode node)
+        {
+            if (node?.NodeControl == null) return;
+
+            var capturedNode = node;
+            capturedNode.NodeControl.SizeChanged += (s, e) =>
+            {
+                if (!e.HeightChanged && !e.WidthChanged) return;
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (capturedNode.NodeControl == null) return;
+                    if (capturedNode.NodeControl.ActualHeight <= 0) return;
+
+                    double startNodeCenterY = StartNodeY + 32.0;
+                    double correctY = CalculateNodeCorrectY(capturedNode, startNodeCenterY);
+
+                    if (Math.Abs(capturedNode.Y - correctY) > 1.0)
+                    {
+                        capturedNode.Y = correctY;
+                    }
+
+                    // 重排后续节点
+                    int idx = CommandNodes.IndexOf(capturedNode);
+                    if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
+
+                    //  RearrangeNodesFromIndex 里明确写了"这里不调用,调用方会在之后调用"
+                    //  —— 负的 Y 就是靠这一步整体下移兜底的,漏了它就只能夹 0,越夹越歪。
+                    EnsureAllNodesVisible();
+
+                    RebuildAllConnections();
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            };
+        }
 
         /// <summary>
         /// 计算节点的正确 Y 坐标（基于当前 StartNodeY）
