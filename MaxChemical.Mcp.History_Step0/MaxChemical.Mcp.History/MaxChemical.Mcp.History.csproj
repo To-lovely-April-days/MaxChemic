@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- 故意用 net8.0 而不是 net8.0-windows:这是个纯控制台程序,不碰任何 Windows/WPF API。
+         这样它能独立部署到任何机器上,不必跟主程序绑在一起。 -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MaxChemical.Mcp.History</AssemblyName>
+    <RootNamespace>MaxChemical.Mcp.History</RootNamespace>
+    <!-- 单文件发布时把配置带上 -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 与 MaxChemical.Data 保持同一版本,避免现场两套 MySQL 驱动行为不一致 -->
+    <PackageReference Include="MySql.Data" Version="8.0.33" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

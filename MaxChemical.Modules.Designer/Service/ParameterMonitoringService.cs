@@ -11,6 +11,8 @@ using MaxChemical.Logging;
 using Prism.Events;
 using MaxChemical.Modules.Designer.Service.Execution;
 using DevicePlugins.Devices;
+// 裸类型名 Device 会与命名空间 MaxChemical.Modules.Device 冲突(CS0118),用别名
+using DeviceBase = DevicePlugins.Devices.Device;
 
 namespace MaxChemical.Modules.Designer.Services
 {
@@ -371,6 +373,34 @@ namespace MaxChemical.Modules.Designer.Services
                             var deviceDisplayName = GetDeviceDisplayNameWithNumber(
                                 deviceViewModel.DeviceId, deviceDisplayNames, device.Name);
 
+                            // ★ 声明了可监控参数白名单的设备:列表只出白名单(驱动规定好的才出现),
+                            //   数据键统一为「自动采集」,与基类采集循环发布的样本键完全一致——
+                            //   勾了必有数,不再依赖流程循环执行特定命令
+                            if (device is DeviceBase declaredDevice && declaredDevice.CollectableParameters.Count > 0)
+                            {
+                                foreach (var cp in declaredDevice.CollectableParameters)
+                                {
+                                    var cpAxis = ParameterAxisClassifier.Classify(cp.Unit);
+                                    availableParams.Add(new AvailableParameter
+                                    {
+                                        DeviceId = deviceViewModel.DeviceId,
+                                        DeviceName = deviceDisplayName,
+                                        CommandName = DeviceBase.AutoCollectCommandKey,
+                                        ParameterName = cp.Name,
+                                        ParameterType = "NumberParameter",
+                                        DisplayName = $"{deviceDisplayName}.{cp.DisplayName}",
+                                        IsNumeric = true,
+                                        Unit = cp.Unit,
+                                        AxisType = cpAxis,
+                                        IsSelectable = cpAxis != AxisType.Unclassified,
+                                        DisableReason = cpAxis == AxisType.Unclassified
+                                            ? $"单位 \"{cp.Unit}\" 不属于温度/压力/流量,不能在当前监控图表中显示"
+                                            : null,
+                                    });
+                                }
+                                continue;
+                            }
+
                             foreach (var command in device.Commands)
                             {
                                 if (command.OutputParameters?.Variables != null)
@@ -482,9 +512,13 @@ namespace MaxChemical.Modules.Designer.Services
 
                 lock (_lockObject)
                 {
+                    // 「自动采集」聚合样本按设备+参数名喂给任何已勾选条目——
+                    // 旧工程按真实命令名保存的勾选(如 获取温度.T1)也能收到数据;
+                    // 真实命令样本(流程循环/手动执行)仍按命令精确匹配
+                    var isAutoCollect = commandName == DeviceBase.AutoCollectCommandKey;
                     var relevantParameters = _monitoredParameters
                         .Where(p => p.DeviceId == deviceId &&
-                                   p.CommandName == commandName &&
+                                   (isAutoCollect || p.CommandName == commandName) &&
                                    p.IsEnabled)
                         .ToList();
 

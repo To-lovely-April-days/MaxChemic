@@ -37,7 +37,7 @@
                 
                 <!-- 左侧 DB9 -->
                 <Border Grid.Row="1" Padding="4">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource SharedScrollViewer}">
                         <ItemsControl Name="DB9">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -56,7 +56,7 @@
 
                 <!-- 右侧端子排-->
                 <Border Grid.Row="1" Grid.Column="1" Padding="4">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource SharedScrollViewer}">
                         <ItemsControl Name="Rs485">
                             <ItemsControl.ItemContainerStyle>
                                 <Style TargetType="Control">

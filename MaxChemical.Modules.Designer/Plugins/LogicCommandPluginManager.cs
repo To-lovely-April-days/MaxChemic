@@ -154,6 +154,7 @@ namespace MaxChemical.Modules.Designer.Plugins
             RegisterPlugin(new LoopCommandPlugin());
             RegisterPlugin(new ParallelCommandPlugin());
             RegisterPlugin(new SetVariableCommandPlugin());
+            RegisterPlugin(new EndCommandPlugin());
         }
     }
 }

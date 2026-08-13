@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- 与 Mcp.History 同样用 net8.0 而不是 net8.0-windows:纯控制台程序,
+         不碰任何 WPF/Windows API。命名管道客户端在 net8.0 下即可用。
+         这样它能单独拷到别处,也不会把 WPF 依赖拖进来。 -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MaxChemical.Mcp.Bridge</AssemblyName>
+    <RootNamespace>MaxChemical.Mcp.Bridge</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- 刻意不引用主程序任何工程:本进程是纯协议转发,
+       工具清单与执行结果全部来自管道对端。编译期零耦合,
+       主程序改工具不需要重新发布 Bridge。 -->
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

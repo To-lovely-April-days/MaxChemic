@@ -144,6 +144,10 @@ namespace MaxChemical.Shell.Services
 
                         _currentPlaybackCts = new CancellationTokenSource();
                         var cts = _currentPlaybackCts;
+                        // ★ 立即捕获 token:CTS 可能被下一次 StopCurrentPlayback Dispose,
+                        //   之后再访问 cts.Token 会抛 ObjectDisposedException(崩溃点);
+                        //   已捕获的 token 结构体在源释放后读取 IsCancellationRequested 是安全的。
+                        var token = cts.Token;
 
                         _currentPlaybackTask = Task.Run(() =>
                         {
@@ -164,16 +168,16 @@ namespace MaxChemical.Shell.Services
                                 }
 
                                 _logger.LogDebug($"音频生成成功，大小: {audioBytes.Length} 字节");
-                                PlayAudioBytesAsync(audioBytes, cts.Token);
+                                PlayAudioBytesAsync(audioBytes, token);
                             }
                             catch (Exception ex)
                             {
-                                if (!cts.Token.IsCancellationRequested)
+                                if (!token.IsCancellationRequested)
                                 {
                                     _logger.LogError($"异步播放失败: {ex.Message}");
                                 }
                             }
-                        }, cts.Token);
+                        }, token);
                     }
                     catch (Exception ex)
                     {

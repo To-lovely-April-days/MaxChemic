@@ -21,6 +21,7 @@ namespace MaxChemical.Modules.Designer.Views
     {
         private readonly ILogService _logger = new LogService().ForContext<LoopCommandPropertiesView>();
         private IEventAggregator _eventAggregator;
+        ILocalizationService _localization;
 
         // 添加变量管理器窗口管理
         private static VariableManagerWindow _sharedVariableWindow;
@@ -30,6 +31,7 @@ namespace MaxChemical.Modules.Designer.Views
         {
             InitializeComponent();
 
+            _localization = ContainerLocator.Container.Resolve<ILocalizationService>();
             _eventAggregator = ContainerLocator.Container.Resolve<IEventAggregator>();
             _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
             OnLanguageChanged("");
@@ -43,37 +45,41 @@ namespace MaxChemical.Modules.Designer.Views
         /// </summary>
         private void OnLanguageChanged(string s)
         {
-            ILocalizationService service = ContainerLocator.Container.Resolve<ILocalizationService>();
-            if (service is null)
-            {
-                return;
-            }
+            NodeTitle.Text = _localization.GetString("Loop_Title");
+            LoopTypeTitle.Text = _localization.GetString("Loop_Type_Title");
+            RbFixed.Content = _localization.GetString("Loop_Type_Fixed");
+            RbConditionLoop.Content = _localization.GetString("Loop_Type_Condition");
+            RbInfiniteLoop.Content = _localization.GetString("Loop_Type_Infinite");
+            LoopParamTitle.Text = _localization.GetString("Loop_Param_Title");
+            LoopParamLabel.Text = _localization.GetString("Loop_Param_Number");
+            LoopCountUnitLabel.Text = _localization.GetString("Loop_Param_Numberunit");
+            LoopConditionTitle.Text = _localization.GetString("Loop_Condition_Title");
+            LoopModeLabel.Text = _localization.GetString("Loop_Condition_Mode");
+            IsDoWhileCheckBox.Content = _localization.GetString("Loop_Condition_Mode_Dowhile");
+            LeftOpLabel.Text = _localization.GetString("Loop_Condition_Leftoperand");
+            OperatorLabel.Text = _localization.GetString("Loop_Condition_Operator");
+            RightOpLabel.Text = _localization.GetString("Loop_Condition_Rightoperand");
+            LeftOperandBox.ToolTip = _localization.GetString("Loop_Condition_Lefttip");
+            RightOperandBox.ToolTip = _localization.GetString("Loop_Condition_Righttip");
+            LeftVarButton.Content = _localization.GetString("Loop_Condition_VarLabel");
+            RightVarButton.Content = _localization.GetString("Loop_Condition_VarLabel");
+            LoopIntervalLabel.Text = _localization.GetString("Loop_Interval_Title");
+            TimeUnitLabel.Text = _localization.GetString("Loop_Interval_Unit");
+            DescriptionLabel.Text = _localization.GetString("Loop_Description");
+            ConditionPreviewLabel.Text = _localization.GetString("Loop_Preview_Title");
+            AbstractLabel.Text = _localization.GetString("Loop_Abstract_Title");
+            AttentionLabel.Text = _localization.GetString("Loop_Attention_Title");
+            AttentionText.Text = _localization.GetString("Loop_Attention_Text");
+            ExecModeTb.Text = _localization.GetString("WaitNode_ExecuteMode_Title");
+            RbExecSync.Content = _localization.GetString("WaitNode_Sync");
+            RbExecAsync.Content = _localization.GetString("WaitNode_Async");
+            AsyncModeTip.Text = _localization.GetString("Loop_AsyncMode_Tip");
+            TbTolerance.Text = _localization.GetString("Loop_Tolerance_set");
+            RbDisable.Content = _localization.GetString("Loop_Tolerance_Disable");
+            RbRela.Content = _localization.GetString("Loop_Tolerance_Relative");
+            RbAbso.Content = _localization.GetString("Loop_Tolerance_Absolute");
 
-            NodeTitle.Text = service.GetString("Loop_Title");
-            LoopTypeTitle.Text = service.GetString("Loop_Type_Title");
-            RbFixed.Content = service.GetString("Loop_Type_Fixed");
-            RbConditionLoop.Content = service.GetString("Loop_Type_Condition");
-            RbInfiniteLoop.Content = service.GetString("Loop_Type_Infinite");
-            LoopParamTitle.Text = service.GetString("Loop_Param_Title");
-            LoopParamLabel.Text = service.GetString("Loop_Param_Number");
-            LoopCountUnitLabel.Text = service.GetString("Loop_Param_Numberunit");
-            LoopConditionTitle.Text = service.GetString("Loop_Condition_Title");
-            LoopModeLabel.Text = service.GetString("Loop_Condition_Mode");
-            IsDoWhileCheckBox.Content = service.GetString("Loop_Condition_Mode_Dowhile");
-            LeftOpLabel.Text = service.GetString("Loop_Condition_Leftoperand");
-            OperatorLabel.Text = service.GetString("Loop_Condition_Operator");
-            RightOpLabel.Text = service.GetString("Loop_Condition_Rightoperand");
-            LeftOperandBox.ToolTip = service.GetString("Loop_Condition_Lefttip");
-            RightOperandBox.ToolTip = service.GetString("Loop_Condition_Righttip");
-            LeftVarButton.Content = service.GetString("Loop_Condition_VarLabel");
-            RightVarButton.Content = service.GetString("Loop_Condition_VarLabel");
-            LoopIntervalLabel.Text = service.GetString("Loop_Interval_Title");
-            TimeUnitLabel.Text = service.GetString("Loop_Interval_Unit");
-            DescriptionLabel.Text = service.GetString("Loop_Description");
-            ConditionPreviewLabel.Text = service.GetString("Loop_Preview_Title");
-            AbstractLabel.Text = service.GetString("Loop_Abstract_Title");
-            AttentionLabel.Text = service.GetString("Loop_Attention_Title");
-            AttentionText.Text = service.GetString("Loop_Attention_Text");
+            UpdateLoopSummaryText();
         }
 
         private CommandNode CurrentNode => DataContext as CommandNode;
@@ -521,16 +527,16 @@ namespace MaxChemical.Modules.Designer.Views
 
         private void UpdateLoopSummaryText()
         {
-            string modeTag = ExecutionModeNormalized == ExecutionMode.Asynchronous ? "[异步] " : "[同步] ";
+            string modeTag = ExecutionModeNormalized == ExecutionMode.Asynchronous ? _localization.GetString("Loop_Async") : _localization.GetString("Loop_Sync");
 
             string summary = LoopTypeNormalized switch
             {
-                LoopType.FixedCount => $"{modeTag}固定循环 {LoopCount} 次，每次间隔 {WaitTime} 毫秒",
+                LoopType.FixedCount => string.Format(_localization.GetString("Loop_Abstract_Fixed"),modeTag,LoopCount,WaitTime),
                 LoopType.Conditional => IsDoWhile
-                    ? $"{modeTag}Do-While 条件循环（先执行后判断），每次间隔 {WaitTime} 毫秒"
-                    : $"{modeTag}While 条件循环（先判断后执行），每次间隔 {WaitTime} 毫秒",
-                LoopType.Infinite => $"{modeTag}无限循环，每次间隔 {WaitTime} 毫秒",
-                _ => $"{modeTag}循环执行，每次间隔 {WaitTime} 毫秒"
+                    ? string.Format(_localization.GetString("Loop_Abstract_Dowhile"),modeTag,WaitTime)
+                    : string.Format(_localization.GetString("Loop_Abstract_While"), modeTag, WaitTime),
+                LoopType.Infinite => string.Format(_localization.GetString("Loop_Abstract_infiLoop"), modeTag, WaitTime),
+                _ => string.Format(_localization.GetString("Loop_Abstract_LoopExec"), modeTag, WaitTime)
             };
 
             LoopSummaryText = summary;

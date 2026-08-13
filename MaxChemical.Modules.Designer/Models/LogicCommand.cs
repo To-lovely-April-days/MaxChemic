@@ -16,6 +16,7 @@ namespace MaxChemical.Modules.Designer.Models
         WaitIf,
         Parallel,
         SetVariable,
+        End,
         Unknown
     }
 
@@ -194,6 +195,10 @@ namespace MaxChemical.Modules.Designer.Models
         public bool WaitForStability { get; set; } = false;
         public List<string> StabilityDeviceIds { get; set; } = new List<string>();
         public double StabilityTimeoutSeconds { get; set; } = 600.0; // 默认10分钟超时
+        // ★ 新增：停留时间等待节点标记(DOE 稳态保温)。
+        //   一个流程可能有多个 Wait(清洗/稳压/取样),按 τ 动态等待只认勾选了此标记的节点,
+        //   语义钉在节点上,不靠人从清单里挑,挑错即整批等待时长全错。
+        public bool IsResidenceTimeWait { get; set; } = false;
     }
 
 

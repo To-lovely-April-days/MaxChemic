@@ -25,6 +25,7 @@ namespace MaxChemical.Modules.Designer.Converters
                     LogicCommandType.Wait => "",
                     LogicCommandType.WaitIf => "⏱",
                     LogicCommandType.SetVariable => "📝",
+                    LogicCommandType.End => "⏹",
                     _ => "⚙"
                 };
             }
@@ -51,7 +52,7 @@ namespace MaxChemical.Modules.Designer.Converters
                     LogicCommandType.Wait => Color.FromRgb(23, 162, 184),   // 青色
                     LogicCommandType.WaitIf => Color.FromRgb(255, 105, 180), // 粉色
                     LogicCommandType.SetVariable => Color.FromRgb(0, 120, 212), // 蓝色
-              
+                    LogicCommandType.End => Color.FromRgb(220, 53, 69),     // 红色
                     _ => Color.FromRgb(108, 117, 125)                       // 灰色
                 };
                 return new SolidColorBrush(color);

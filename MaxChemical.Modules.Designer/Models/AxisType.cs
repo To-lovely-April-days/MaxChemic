@@ -67,6 +67,10 @@ namespace MaxChemical.Modules.Designer.Models
                 return AxisType.Pressure;
 
             // ═══ 流量 ═══
+            // 先排除密度/浓度类(g/cm³ 等):它们含 "m³" 子串但不是流量
+            if (s.Contains("cm3") || s.Contains("cm³"))
+                return AxisType.Unclassified;
+
             // L/min, ml/min, m3/h, kg/h, g/min, sccm, slm, gpm 等
             // 包含斜杠的"x/y"形式,或常见缩写
             if (s.Contains("/min") || s.Contains("/h") || s.Contains("/s") ||

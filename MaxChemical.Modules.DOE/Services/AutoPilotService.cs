@@ -34,13 +34,15 @@ namespace MaxChemical.Modules.DOE.Services
         private readonly IDOERepository _repository;
         private readonly IDOEAnalysisService _analysisService;
         private readonly ILogService _logger;
+        private readonly Prism.Events.IEventAggregator? _events;
 
         public AutoPilotService(
             IProjectDecisionEngine decisionEngine,
             IDOEDesignService designService,
             IDOERepository repository,
             IDOEAnalysisService analysisService,
-            ILogService logger)
+            ILogService logger,
+            Prism.Events.IEventAggregator eventAggregator)
         {
             _decisionEngine = decisionEngine;
             _designService = designService;
@@ -48,6 +50,7 @@ namespace MaxChemical.Modules.DOE.Services
             _analysisService = analysisService;
             _logger = logger?.ForContext<AutoPilotService>()
                       ?? throw new ArgumentNullException(nameof(logger));
+            _events = eventAggregator;
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -157,7 +160,8 @@ namespace MaxChemical.Modules.DOE.Services
         private async Task<string?> ExecuteDecisionAsync(
             string projectId, string batchId,
             DOERoundSummary summary, AutoPilotConfig config,
-            DOEDesignMethod nextMethod, DOEProjectPhase nextPhase)
+            DOEDesignMethod nextMethod, DOEProjectPhase nextPhase,
+            bool autoTriggered = true)
         {
             var project = await _repository.GetProjectWithDetailsAsync(projectId);
             if (project == null) return null;
@@ -175,7 +179,52 @@ namespace MaxChemical.Modules.DOE.Services
             var nextBatchId = await CreateNextRoundBatchAsync(
                 project, summary, nextMethod, nextPhase, config);
 
+            // ── 5. 广播建轮结果 ──
+            // 自动建轮不许静默:值守要接管播报与托管延续,否则小桐(和用户)都不知道新批次的存在
+            if (!string.IsNullOrEmpty(nextBatchId))
+                await PublishNextRoundCreatedAsync(project, batchId, nextBatchId!, summary, nextMethod, autoTriggered);
+
             return nextBatchId;
+        }
+
+        /// <summary>发布下一轮批次创建事件(失败只记日志,不影响建轮主流程)。</summary>
+        private async Task PublishNextRoundCreatedAsync(
+            DOEProject project, string sourceBatchId, string nextBatchId,
+            DOERoundSummary summary, DOEDesignMethod nextMethod, bool autoTriggered)
+        {
+            try
+            {
+                int runCount = 0;
+                try { runCount = (await _repository.GetRunsAsync(nextBatchId)).Count; }
+                catch { }
+
+                _events?.GetEvent<Events.AutoPilotBatchCreatedEvent>().Publish(new Events.AutoPilotBatchCreatedPayload
+                {
+                    ProjectId = project.ProjectId,
+                    ProjectName = project.ProjectName ?? project.ProjectId,
+                    SourceBatchId = sourceBatchId,
+                    NextBatchId = nextBatchId,
+                    NextRoundNumber = summary.RoundNumber + 1,
+                    DesignMethodDisplay = nextMethod switch
+                    {
+                        DOEDesignMethod.PlackettBurman => "Plackett-Burman 筛选",
+                        DOEDesignMethod.FractionalFactorial => "部分因子设计",
+                        DOEDesignMethod.FullFactorial => "全因子设计",
+                        DOEDesignMethod.CCD => "中心复合设计 (CCD)",
+                        DOEDesignMethod.BoxBehnken => "Box-Behnken 设计",
+                        DOEDesignMethod.DOptimal => "D-Optimal 设计",
+                        DOEDesignMethod.SteepestAscent => "最速上升实验",
+                        DOEDesignMethod.ConfirmationRuns => "验证实验",
+                        _ => nextMethod.ToString()
+                    },
+                    RunCount = runCount,
+                    AutoTriggered = autoTriggered
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("AutoPilot 建轮广播失败(不影响建轮): {Msg}", ex.Message);
+            }
         }
 
         /// <summary>
@@ -345,6 +394,44 @@ namespace MaxChemical.Modules.DOE.Services
                 {
                     _logger.LogWarning("AutoPilot: 设计矩阵生成失败");
                     return null;
+                }
+
+                // ── 3.5 化学家坐标系跨轮继承:上一轮带 factorTransform 则必须随批次带到下一轮,
+                //        否则 τ/eq 会被执行器归入"手动操作"静默吞掉(泵速永远不被设置)。
+                //        因子被引擎淘汰或新矩阵反算不可行时,不自动建轮,转人工处理。
+                var transform = FactorTransform.ExtractFromDesignConfig(previousBatch?.DesignConfigJson);
+                if (transform != null)
+                {
+                    var nextNames = nextFactors.Select(f => f.FactorName).ToHashSet();
+                    bool tauOk = nextNames.Contains(transform.TauFactor);
+                    bool eqOk = string.IsNullOrEmpty(transform.EqFactor) || nextNames.Contains(transform.EqFactor);
+                    if (!tauOk || !eqOk)
+                    {
+                        _logger.LogWarning("AutoPilot: 化学家坐标系因子({Tau}/{Eq})已不在下一轮活跃因子中,自动建轮中止,转人工处理",
+                            transform.TauFactor, transform.EqFactor ?? "-");
+                        return null;
+                    }
+
+                    for (int ri = 0; ri < matrix.RunCount; ri++)
+                    {
+                        var vals = new Dictionary<string, double>();
+                        foreach (var fname in matrix.FactorNames)
+                        {
+                            if (!matrix.Rows[ri].TryGetValue(fname, out var v)) continue;
+                            if (v is double d) vals[fname] = d;
+                            else if (v is long l) vals[fname] = l;
+                            else if (double.TryParse(v?.ToString(), out var p)) vals[fname] = p;
+                        }
+                        string terr = FactorTransform.SolveDeviceValues(transform, vals, out _);
+                        if (terr != null)
+                        {
+                            _logger.LogWarning("AutoPilot: 下一轮第 {Row} 组化学家坐标反算不可行({Err}),自动建轮中止,转人工处理",
+                                ri + 1, terr);
+                            return null;
+                        }
+                    }
+
+                    designConfigJson = FactorTransform.MergeIntoDesignConfig(designConfigJson, transform);
                 }
 
                 // ── 4. 创建批次 ──
@@ -648,7 +735,7 @@ namespace MaxChemical.Modules.DOE.Services
             };
 
             return await ExecuteDecisionAsync(
-                projectId, batchId, summary, config, nextMethod, nextPhase);
+                projectId, batchId, summary, config, nextMethod, nextPhase, autoTriggered: false);
         }
 
         /// <summary>
@@ -693,7 +780,7 @@ namespace MaxChemical.Modules.DOE.Services
             // 覆盖 summary 的推荐，然后执行
             summary.Recommendation = userDecision;
             return await ExecuteDecisionAsync(
-                projectId, batchId, summary, config, nextMethod, nextPhase);
+                projectId, batchId, summary, config, nextMethod, nextPhase, autoTriggered: false);
         }
     }
 

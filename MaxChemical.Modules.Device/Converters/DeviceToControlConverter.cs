@@ -232,6 +232,60 @@ namespace MaxChemical.Modules.Device.Converters
 
                             return ScaleViewbox;
 
+                        #region 加热磁力搅拌器控件
+                        case "MagneticStirrerControl":
+                            var stirrerControl = new MagneticStirrerControl
+                            {
+                                IsHitTestVisible = true,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                Temperature = 0.0,
+                                Speed = 0.0,
+                                IsHeating = false,
+                                IsStirring = false
+                            };
+
+                            // 306×501 画布(已裁掉左右空白),按 40 高等比 => 宽约 24
+                            var stirrerViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 24,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = stirrerControl,
+                                IsHitTestVisible = false
+                            };
+
+                            return stirrerViewbox;
+                        #endregion
+
+                        #region 精睿柱塞泵控件
+                        case "JingRuiPumpControl":
+                            var jingRuiPumpControl = new JingRuiPumpControl
+                            {
+                                IsHitTestVisible = true,
+                                Cursor = System.Windows.Input.Cursors.Hand,
+                                Flow = 0.0,
+                                FlowSetpoint = 0.0,
+                                Pressure = 0.0,
+                                IsRunning = false,
+                                IsDosing = false,
+                                FaultCode = 0.0
+                            };
+
+                            // 320×250 画布,按 40 高等比 => 宽约 51
+                            var jingRuiPumpViewbox = new System.Windows.Controls.Viewbox
+                            {
+                                Width = 51,
+                                Height = 40,
+                                Stretch = System.Windows.Media.Stretch.Uniform,
+                                StretchDirection = System.Windows.Controls.StretchDirection.Both,
+                                Child = jingRuiPumpControl,
+                                IsHitTestVisible = false
+                            };
+
+                            return jingRuiPumpViewbox;
+                        #endregion
+
                         case "TemperatureControlSystemControl":
                             var circulatorControl = new TemperatureControlSystemControl
                             {

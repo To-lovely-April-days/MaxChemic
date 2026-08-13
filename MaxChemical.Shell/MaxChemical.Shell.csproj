@@ -25,6 +25,7 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.77" />
 		<PackageReference Include="System.Speech" Version="7.0.0" />
+		<PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
 		<PackageReference Include="Whisper.net" Version="1.4.7" />
 		<PackageReference Include="Whisper.net.Runtime" Version="1.4.7" />
 	</ItemGroup>
@@ -85,14 +86,19 @@
 	  <None Remove="Resources\DeviceIcon\HeatExchanger.png" />
 	  <None Remove="Resources\DeviceIcon\highLowtemperature.png" />
 	  <None Remove="Resources\DeviceIcon\highlowtemperature1.png" />
+	  <None Remove="Resources\DeviceIcon\JingRuiPump.png" />
+	  <None Remove="Resources\DeviceIcon\magneticstirrer.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
 	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
 	  <None Remove="Resources\DeviceIcon\ProportionalReliefValve.png" />
 	  <None Remove="Resources\DeviceIcon\RoboticArm.png" />
+	  <None Remove="Resources\DeviceIcon\RotavapIKA_RV10.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
+	  <None Remove="Resources\DeviceIcon\SelectionValveMXII.png" />
 	  <None Remove="Resources\DeviceIcon\SiliconCarbideChip_CY.png" />
 	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
+	  <None Remove="Resources\DeviceIcon\SyringePumpC3000.png" />
 	  <None Remove="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png" />
 	  <None Remove="Resources\Icon\app.ico" />
 	  <None Remove="Resources\Icon\Canvasscaling.png" />
@@ -157,6 +163,7 @@
 	  <None Remove="Resources\Screens\sips_v.png" />
 	  <None Remove="Resources\Translations\en-US.json" />
 	  <None Remove="Resources\Translations\zh-CN.json" />
+	  <None Remove="Resources\xiaotong.png" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -271,6 +278,12 @@
 	  <EmbeddedResource Include="Resources\DeviceIcon\highlowtemperature1.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\JingRuiPump.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\magneticstirrer.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\MicroReactor.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -289,10 +302,16 @@
 	  <EmbeddedResource Include="Resources\DeviceIcon\RoboticArm.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\RotavapIKA_RV10.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SampleReactor.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\Scale.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SelectionValveMXII.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SiliconCarbideChip_CY.png">
@@ -302,6 +321,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\SyringePumpC3000.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\TemperatureCirculator.png">
@@ -527,6 +549,9 @@
 
 	<ItemGroup>
 	  <EmbeddedResource Include="Resources\CommadIcon\off.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\xiaotong.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	</ItemGroup>

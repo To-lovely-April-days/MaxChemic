@@ -50,10 +50,11 @@ namespace MaxChemical.Modules.Designer.Views
             NodeTitle.Text = service.GetString("SetVar_Title");
             NodeInfoTitle.Text = service.GetString("SetVar_Info_Title");
             NodeNameLabel.Text = service.GetString("SetVar_Info_Name");
-            VarSetTitle.Text = service.GetString("SetVar_Info_Desc");
-            VarNameLabel.Text = service.GetString("SetVar_Set_Title");
-            VarTypeLabel.Text = service.GetString("SetVar_Set_Name");
-            VarValueLabel.Text = service.GetString("SetVar_Set_Type");
+            NodeDesc.Text = service.GetString("SetVar_Info_Desc");
+            VarSetTitle.Text = service.GetString("SetVar_Set_Title");
+            VarNameLabel.Text = service.GetString("SetVar_Set_Name");
+            VarTypeLabel.Text = service.GetString("SetVar_Set_Type");
+            VarValueLabel.Text = service.GetString("SetVar_Set_Value");
             VarSelect.Content = service.GetString("SetVar_Set_Select");
             ValueSelect.Content = service.GetString("SetVar_Set_Select");
             NodePreviewTitle.Text = service.GetString("SetVar_Set_Preview");

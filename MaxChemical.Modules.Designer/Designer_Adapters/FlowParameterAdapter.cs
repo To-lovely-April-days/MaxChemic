@@ -15,7 +15,7 @@ namespace MaxChemical.Modules.Designer.Service
     /// 并在每组实验前向流程注入参数值。
     /// 复用 FlowDesignerViewModel 已订阅的 GetCurrentFlowDesignerRequestEvent。
     /// </summary>
-    public class FlowParameterAdapter : IFlowParameterProvider
+    public class FlowParameterAdapter : IFlowParameterProvider, IFlowWaitNodeProvider
     {
         private readonly IEventAggregator _eventAggregator;
         private readonly ILogService _logger;
@@ -192,6 +192,54 @@ namespace MaxChemical.Modules.Designer.Service
             }
         }
 
+        /// <summary>列出当前流程里的固定时长 Wait 节点(排除条件等待),供动态稳态等待挑选保温节点。</summary>
+        public List<FlowWaitNodeInfo> GetFixedWaitNodes()
+        {
+            var result = new List<FlowWaitNodeInfo>();
+            try
+            {
+                var flowVm = GetFlowViewModel();
+                if (flowVm?.CommandNodes == null) return result;
+                CollectFixedWaitNodes(flowVm.CommandNodes, result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "枚举等待节点失败");
+            }
+            return result;
+        }
+
+        private void CollectFixedWaitNodes(IEnumerable<CommandNode> nodes, List<FlowWaitNodeInfo> acc)
+        {
+            foreach (var node in nodes)
+            {
+                var lc = node.LogicCommand;
+                if (lc != null && lc.CommandType == LogicCommandType.Wait)
+                {
+                    // 条件等待(ConditionLeftVariable 非空)不是固定时长,动态等待驱动不了它,排除
+                    string condVar = lc.GetProperty<string>("ConditionLeftVariable", "") ?? "";
+                    if (string.IsNullOrWhiteSpace(condVar))
+                    {
+                        double waitTime = 5;
+                        try { waitTime = Convert.ToDouble(lc.GetProperty<object>("WaitTime", 5.0) ?? 5.0); } catch { }
+                        acc.Add(new FlowWaitNodeInfo
+                        {
+                            NodeId = node.NodeId,
+                            DisplayName = string.IsNullOrEmpty(node.DisplayName) ? node.NodeId : node.DisplayName,
+                            CurrentWaitTime = waitTime,
+                            TimeUnit = lc.GetProperty<object>("TimeUnit", "Seconds")?.ToString() ?? "Seconds",
+                            WaitForStability = string.Equals(lc.GetProperty<object>("WaitForStability", false)?.ToString(),
+                                "True", StringComparison.OrdinalIgnoreCase),
+                            IsResidenceTimeWait = string.Equals(lc.GetProperty<object>("IsResidenceTimeWait", false)?.ToString(),
+                                "True", StringComparison.OrdinalIgnoreCase)
+                        });
+                    }
+                }
+                if (node.HasChildren)
+                    CollectFixedWaitNodes(node.Children, acc);
+            }
+        }
+
         #region 私有方法
 
         private void CollectFactorCandidatesFromNodes(IEnumerable<CommandNode> nodes, List<FactorCandidate> candidates)
@@ -211,6 +259,12 @@ namespace MaxChemical.Modules.Designer.Service
 
                     foreach (var param in node.DeviceCommand.InputParameters.Variables)
                     {
+                        // ★ 因子候选只收数值量程型参数(NumberParameter)且非只读:
+                        //   枚举/布尔/文本参数(如电子秤的称量单位 Unit)底层值即使是数字索引,
+                        //   也不是可连续扫描的工艺量,不能作 DOE 因子。
+                        if (param is not DevicePlugins.Devices.NumberParameter || param.IsReadOnly)
+                            continue;
+
                         if (IsNumericValue(param.Value))
                         {
                             var overrideValue = node.ParameterOverrides != null
@@ -232,29 +286,9 @@ namespace MaxChemical.Modules.Designer.Service
                     }
                 }
 
-                // 逻辑命令节点的数值属性
-                if (node.LogicCommand?.Properties != null)
-                {
-                    var numericProps = new[] { "LoopCount", "WaitTime", "Interval" };
-                    foreach (var propName in numericProps)
-                    {
-                        if (node.LogicCommand.Properties.TryGetValue(propName, out var propValue)
-                            && IsNumericValue(propValue))
-                        {
-                            candidates.Add(new FactorCandidate
-                            {
-                                ParameterId = $"{node.NodeId}.{propName}",
-                                DisplayName = $"{node.DisplayName} → {propName}",
-                                CurrentValue = propValue,
-                                SourceType = FactorSourceType.LogicParam,
-                                NodeId = node.NodeId,
-                                NodeDisplayName = node.DisplayName,
-                                ParameterName = propName,
-                                DataType = "Double"
-                            });
-                        }
-                    }
-                }
+                // ★ 逻辑指令参数(LoopCount/WaitTime/Interval)不再作为因子候选:
+                //   它们是流程控制量而非工艺量,混进 DOE 绑定下拉与 AI 因子分析会误导实验设计。
+                //   如确需把"保温时间"作因子,应通过设备命令参数或自定义变量表达。
 
                 // 递归子节点
                 if (node.HasChildren)

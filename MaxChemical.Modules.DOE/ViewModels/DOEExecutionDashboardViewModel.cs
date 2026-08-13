@@ -24,7 +24,7 @@ using System.Windows.Input;
 
 namespace MaxChemical.Modules.DOE.ViewModels
 {
-    public class DOEExecutionDashboardViewModel : BindableBase
+    public class DOEExecutionDashboardViewModel : BindableBase, IDisposable
     {
         private readonly IDOEExecutionService _executionService;
         private readonly IDOERepository _repository;
@@ -75,6 +75,12 @@ namespace MaxChemical.Modules.DOE.ViewModels
         // ── 统计（按钮状态用）──
         private int _pendingCount;
         private int _failedCount;
+
+        // ── 先猜后验(Predict-then-Verify) ──
+        private IList<PredictVerifyEntry> _predictVerifyEntries;
+        private string _predictVerifyMessage = "";
+        private bool _predictVerifyAlarm;
+        private bool _hasPredictVerify;
 
         // ──  迷你模式 ──
         private bool _isMiniMode;
@@ -293,6 +299,15 @@ namespace MaxChemical.Modules.DOE.ViewModels
                     return;
                 }
 
+                // 换批次:清掉上一批的先猜后验痕迹
+                if (BatchId != batchId)
+                {
+                    PredictVerifyEntries = null;
+                    PredictVerifyMessage = "";
+                    PredictVerifyAlarm = false;
+                    HasPredictVerify = false;
+                }
+
                 BatchId = batchId;
                 BatchName = batch.BatchName;
                 BatchStatus = batch.Status;
@@ -406,7 +421,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 var factors = JsonConvert.DeserializeObject<Dictionary<string, object>>(run.FactorValuesJson)
                               ?? new Dictionary<string, object>();
                 foreach (var name in _factorNames)
-                    row[name] = factors.TryGetValue(name, out var v) ? v?.ToString() ?? "—" : "—";
+                    row[name] = factors.TryGetValue(name, out var v) ? FormatCellValue(v) : "—";
 
                 var responses = !string.IsNullOrEmpty(run.ResponseValuesJson)
                     ? JsonConvert.DeserializeObject<Dictionary<string, double>>(run.ResponseValuesJson) ?? new()
@@ -434,6 +449,22 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
 
             MatrixTable = dt;
+        }
+
+        /// <summary>
+        /// 矩阵单元格数值格式化：数值型统一四舍五入到两位并去掉多余的零
+        /// （避免 JSON 往返产生的 8.3333333333 / 70.00000001 这类难看的长小数），
+        /// 非数值（类别因子）原样显示。
+        /// </summary>
+        private static string FormatCellValue(object v)
+        {
+            if (v == null) return "—";
+            var s = v.ToString();
+            if (string.IsNullOrWhiteSpace(s)) return "—";
+            if (double.TryParse(s, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var d))
+                return Math.Round(d, 2).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            return s;
         }
 
         // ══════════════ 指标更新 ══════════════
@@ -764,10 +795,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 IsMiniMode = true;
 
-                _executionService.RunCompleted += OnRunCompleted;
-                _executionService.ProgressChanged += OnProgressChanged;
-                _executionService.BatchCompleted += OnBatchCompleted;
-                _executionService.PauseConfirmed += OnPauseConfirmed;
+                SubscribeExecutionEvents();
 
                 await _executionService.StartBatchAsync(BatchId);
             }
@@ -780,6 +808,81 @@ namespace MaxChemical.Modules.DOE.ViewModels
             }
         }
 
+
+        /// <summary>
+        /// 外部程序化启动(小桐 Agent 等):走与点击「开始执行」相同的启动路径——
+        /// 恢复 Suspended 组、置执行状态、切换迷你监控窗、订阅执行事件、启动批次;
+        /// 但不弹任何确认/智能决策对话框(外部入口已完成用户确认)。
+        /// </summary>
+        public async Task StartFromExternalAsync()
+        {
+            if (string.IsNullOrEmpty(BatchId)) return;
+
+            // 已有批次在执行(可能被另一个订阅方/入口抢先启动):
+            // 同一批次则只接管监控——订阅事件并弹出迷你窗;不同批次不能抢占,直接忽略。
+            if (_executionService.BatchState == DOEBatchStatus.Running)
+            {
+                if (string.Equals(_executionService.CurrentBatchId, BatchId, StringComparison.Ordinal))
+                    EnterExecutionMonitor();
+                else
+                    _logger.LogWarning("外部启动被忽略:执行引擎正在执行其他批次 {Running}", _executionService.CurrentBatchId);
+                return;
+            }
+
+            if (IsRunning || PendingCount <= 0) return;
+
+            try
+            {
+                // ── 恢复 Suspended 的 runs(与 ContinueExecutionAsync 一致) ──
+                var batch = await _repository.GetBatchWithDetailsAsync(BatchId);
+                if (batch != null)
+                {
+                    var suspendedRuns = batch.Runs.Where(r => r.Status == DOERunStatus.Suspended).ToList();
+                    foreach (var run in suspendedRuns)
+                    {
+                        run.Status = DOERunStatus.Pending;
+                        await _repository.UpdateRunAsync(run);
+                    }
+                    if (suspendedRuns.Count > 0)
+                        _logger.LogInformation("恢复 {Count} 组 Suspended 为 Pending", suspendedRuns.Count);
+                }
+
+                EnterExecutionMonitor();
+                await _executionService.StartBatchAsync(BatchId);
+            }
+            catch (InvalidOperationException) when (
+                _executionService.BatchState == DOEBatchStatus.Running &&
+                string.Equals(_executionService.CurrentBatchId, BatchId, StringComparison.Ordinal))
+            {
+                // 启动竞争:该批次刚被别的入口启动了,保持监控与迷你窗即可,不回滚
+                _logger.LogInformation("外部启动竞争:批次已在执行,转为接管监控");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "外部启动执行失败");
+                IsRunning = false;
+                IsMiniMode = false;
+            }
+        }
+
+        /// <summary>
+        /// 进入执行监控态:置执行标志、订阅执行事件(先退订防重复)、切换迷你监控窗。
+        /// 既用于本看板启动前的准备,也用于「批次已被其他入口启动」时的接管。
+        /// </summary>
+        private void EnterExecutionMonitor()
+        {
+            IsRunning = true;
+            IsPaused = false;
+            _firstRunStartTime = DateTime.Now;
+            SetStatusMessageLocalizationTxt(
+                "Doe_Exec_StateMsg_ExecRemain",
+                "正在执行... 剩余 {0} 组",
+                PendingCount);
+
+            SubscribeExecutionEvents();
+
+            IsMiniMode = true;
+        }
 
         private void OnPauseConfirmed(object? sender, EventArgs e)
         {
@@ -830,10 +933,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
                 //  切换到迷你模式
                 IsMiniMode = true;
 
-                _executionService.RunCompleted += OnRunCompleted;
-                _executionService.ProgressChanged += OnProgressChanged;
-                _executionService.BatchCompleted += OnBatchCompleted;
-                _executionService.PauseConfirmed += OnPauseConfirmed;
+                SubscribeExecutionEvents();
 
                 await _executionService.StartBatchAsync(BatchId);
             }
@@ -865,11 +965,68 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         // ══════════════ 事件处理 ══════════════
 
+        // ── 先猜后验绑定属性 ──
+        public IList<PredictVerifyEntry> PredictVerifyEntries
+        {
+            get => _predictVerifyEntries;
+            set => SetProperty(ref _predictVerifyEntries, value);
+        }
+        public string PredictVerifyMessage
+        {
+            get => _predictVerifyMessage;
+            set => SetProperty(ref _predictVerifyMessage, value);
+        }
+        public bool PredictVerifyAlarm
+        {
+            get => _predictVerifyAlarm;
+            set => SetProperty(ref _predictVerifyAlarm, value);
+        }
+        public bool HasPredictVerify
+        {
+            get => _hasPredictVerify;
+            set => SetProperty(ref _hasPredictVerify, value);
+        }
+
+        private void OnPredictVerifyChanged(DOEPredictVerifyPayload payload)
+        {
+            if (payload == null || payload.BatchId != BatchId) return;
+            PredictVerifyEntries = payload.Entries;
+            PredictVerifyMessage = payload.Message;
+            PredictVerifyAlarm = payload.IsAlarm;
+            HasPredictVerify = true;
+        }
+
+        // 聚合器订阅令牌:窗口关闭 Dispose 时退订,防止已关窗口的看板 VM 仍被事件攥住不放
+        private SubscriptionToken _runCompletedToken;
+        private SubscriptionToken _progressChangedToken;
+        private SubscriptionToken _predictVerifyToken;
+        private SubscriptionToken _languageChangedToken;
+
         private void SubscribeEvents()
         {
-            _eventAggregator.GetEvent<DOERunCompletedEvent>().Subscribe(OnDOERunNeedsResponse, ThreadOption.UIThread);
-            _eventAggregator.GetEvent<DOEProgressChangedEvent>().Subscribe(OnDOEProgressChanged, ThreadOption.UIThread);
-            _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChangedEvent);
+            _runCompletedToken = _eventAggregator.GetEvent<DOERunCompletedEvent>().Subscribe(OnDOERunNeedsResponse, ThreadOption.UIThread);
+            _progressChangedToken = _eventAggregator.GetEvent<DOEProgressChangedEvent>().Subscribe(OnDOEProgressChanged, ThreadOption.UIThread);
+            _predictVerifyToken = _eventAggregator.GetEvent<DOEPredictVerifyEvent>().Subscribe(OnPredictVerifyChanged, ThreadOption.UIThread);
+            _languageChangedToken = _eventAggregator.GetEvent<LanguageChangedEvent>().Subscribe(OnLanguageChangedEvent);
+        }
+
+        /// <summary>订阅执行引擎事件(先退再订,幂等):防止重复启动/重试叠加多份处理器。</summary>
+        private void SubscribeExecutionEvents()
+        {
+            UnsubscribeExecutionEvents();
+            _executionService.RunCompleted += OnRunCompleted;
+            _executionService.ProgressChanged += OnProgressChanged;
+            _executionService.BatchCompleted += OnBatchCompleted;
+            _executionService.PauseConfirmed += OnPauseConfirmed;
+        }
+
+        /// <summary>退订执行引擎事件(幂等)。执行引擎是单例,不退订会把整棵窗口树永久攥住。</summary>
+        private void UnsubscribeExecutionEvents()
+        {
+            _executionService.RunCompleted -= OnRunCompleted;
+            _executionService.ProgressChanged -= OnProgressChanged;
+            _executionService.BatchCompleted -= OnBatchCompleted;
+            _executionService.PauseConfirmed -= OnPauseConfirmed;
         }
 
         private void OnDOERunNeedsResponse(DOERunCompletedPayload payload)
@@ -926,8 +1083,10 @@ namespace MaxChemical.Modules.DOE.ViewModels
                         UpdateBestResult();
                         RecalculateProgress();
 
-                        //  更新迷你面板的因子参数显示
-                        UpdateCurrentFactors(run);
+                        // 注意:这里绝不能再刷「当前组因子」显示——本回调是异步查库,仿真模式下
+                        // 执行器早已进入下一组、开跑事件(OnDOEProgressChanged)已把新组参数刷上去,
+                        // 迟到的本回调会用刚完成那组的参数覆盖回去,显示永远落后一组。
+                        // 当前组因子显示由组开跑事件独家负责(payload.CurrentFactorValuesJson)。
                     }
                 }
                 catch (Exception ex)
@@ -962,10 +1121,7 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
                 IsMiniMode = false;
 
-                _executionService.RunCompleted -= OnRunCompleted;
-                _executionService.ProgressChanged -= OnProgressChanged;
-                _executionService.BatchCompleted -= OnBatchCompleted;
-                _executionService.PauseConfirmed -= OnPauseConfirmed;
+                UnsubscribeExecutionEvents();
 
                 RecalculateProgress();
 
@@ -1142,17 +1298,19 @@ namespace MaxChemical.Modules.DOE.ViewModels
 
         private void RecalculateProgress()
         {
-            int completed = 0, pending = 0, failed = 0;
+            int completed = 0, pending = 0, failed = 0, waiting = 0;
             foreach (DataRow row in MatrixTable.Rows)
             {
                 var status = row["状态"]?.ToString();
                 if (status == "已完成") completed++;
                 else if (status == "待执行" || status == "已暂停") pending++;
                 else if (status == "失败") failed++;
+                else if (status == "等待输入") waiting++;
             }
 
-            // ★ 修复: 已执行 = 完成 + 失败，不管成功失败都算执行过
-            var executed = completed + failed;
+            // ★ 修复: 已执行 = 完成 + 失败 + 等待输入——延迟录入(阶梯扫描)各组停在等待输入,
+            //   不计入的话整批跑完进度条还停在 0%;即时录入模式下该状态转瞬即逝,计入无副作用
+            var executed = completed + failed + waiting;
             CurrentRun = executed;
             PendingCount = pending;
             FailedCount = failed;
@@ -1230,5 +1388,29 @@ namespace MaxChemical.Modules.DOE.ViewModels
         }
 
         #endregion
+
+        private bool _disposed;
+
+        /// <summary>
+        /// 窗口关闭时由 DOEMainView 调用:退订单例执行引擎与聚合器事件。
+        /// 不退订的话,执行中关窗会让单例引擎经事件链攥住本 VM → 整棵 DOE 窗口可视化树,
+        /// 反复开关持续累积,最终撑到渲染线程 OOM。可重复调用。
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            UnsubscribeExecutionEvents();
+
+            if (_runCompletedToken != null)
+                _eventAggregator.GetEvent<DOERunCompletedEvent>().Unsubscribe(_runCompletedToken);
+            if (_progressChangedToken != null)
+                _eventAggregator.GetEvent<DOEProgressChangedEvent>().Unsubscribe(_progressChangedToken);
+            if (_predictVerifyToken != null)
+                _eventAggregator.GetEvent<DOEPredictVerifyEvent>().Unsubscribe(_predictVerifyToken);
+            if (_languageChangedToken != null)
+                _eventAggregator.GetEvent<LanguageChangedEvent>().Unsubscribe(_languageChangedToken);
+        }
     }
 }

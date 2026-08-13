@@ -82,6 +82,14 @@ namespace MaxChemical.Modules.Designer.Views
             ExecuteModeTitle.Text = service.GetString("WaitNode_ExecuteMode_Title");
             SynchronousRadio.Content = service.GetString("WaitNode_Sync");
             AsynchronousRadio.Content = service.GetString("WaitNode_Async");
+            WaitForStabilityCheckBox.Content = service.GetString("WaitNode_WaitFor");
+            WaitForSub.Text = service.GetString("WaitNode_WaitForSub");
+            StabDevTb.Text = service.GetString("WaitNode_StabDev");
+            StabSecTb.Text = service.GetString("WaitNode_StabSec");
+            StabTipTb.Text = service.GetString("WaitNode_StabTip");
+            ResidenceTimeWaitCheckBox.Content = service.GetString("WAitNode_StabWaitNode");
+            TbXiaotongStabTip.Text = service.GetString("WaitNode_StabNodeTip");
+
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
@@ -146,6 +154,10 @@ namespace MaxChemical.Modules.Designer.Views
 
             if (!logicCommand.Properties.ContainsKey("StabilityTimeoutSeconds"))
                 logicCommand.Properties["StabilityTimeoutSeconds"] = 600.0;
+
+            //  新增：停留时间等待节点标记默认值(老流程无此键,读取处均带默认 false 兜底)
+            if (!logicCommand.Properties.ContainsKey("IsResidenceTimeWait"))
+                logicCommand.Properties["IsResidenceTimeWait"] = false;
         }
 
         private void InitializeFromProperties()
@@ -191,9 +203,23 @@ namespace MaxChemical.Modules.Designer.Views
             WaitForStabilityCheckBox.IsChecked = waitForStability;
             StabilityDevicesPanel.Visibility = waitForStability ? Visibility.Visible : Visibility.Collapsed;
 
+            //  新增：初始化"停留时间等待节点"标记
+            ResidenceTimeWaitCheckBox.IsChecked = Convert.ToBoolean(
+                node.LogicCommand.Properties.GetValueOrDefault("IsResidenceTimeWait", false));
+
             // 加载并刷新设备列表
             LoadStabilityDeviceList();
         }
+        /// <summary>
+        ///  新增：停留时间等待节点标记切换(DOE 稳态保温:小桐的动态等待只认此标记)
+        /// </summary>
+        private void ResidenceTimeWait_Changed(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not CommandNode node) return;
+            if (node.LogicCommand?.Properties == null) return;
+            node.LogicCommand.Properties["IsResidenceTimeWait"] = ResidenceTimeWaitCheckBox.IsChecked == true;
+        }
+
         /// <summary>
         ///  新增：等待稳定开关切换
         /// </summary>

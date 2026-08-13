@@ -20,6 +20,9 @@ namespace MaxChemical.Modules.DOE.Data
         /// <summary>创建项目</summary>
         Task<string> CreateProjectAsync(DOEProject project);
 
+        /// <summary>项目名是否已存在（忽略大小写与 [AI] 标签差异，用于创建前查重）</summary>
+        Task<bool> ProjectNameExistsAsync(string projectName);
+
         /// <summary>获取项目（不含子实体）</summary>
         Task<DOEProject?> GetProjectAsync(string projectId);
 

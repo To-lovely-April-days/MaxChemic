@@ -805,13 +805,15 @@
         <Setter Property="ColumnHeaderHeight" Value="34"/>
         <Setter Property="ColumnHeaderStyle">
             <Setter.Value>
+                <!-- 列头（表头）：靛蓝浅底 + 靛蓝深字，与主表正文(近黑)区分但同色系协调 -->
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#FAFBFC"/>
-                    <Setter Property="Foreground" Value="{StaticResource WzTextHint}"/>
+                    <Setter Property="Background" Value="#E8EAF6"/>
+                    <Setter Property="Foreground" Value="#2D3A8C"/>
                     <Setter Property="FontSize" Value="11"/>
                     <Setter Property="FontWeight" Value="SemiBold"/>
                     <Setter Property="Padding" Value="10,0"/>
-                    <Setter Property="BorderBrush" Value="{StaticResource WzDivider}"/>
+                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                    <Setter Property="BorderBrush" Value="#C5CAE9"/>
                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
                     <Setter Property="SeparatorVisibility" Value="Collapsed"/>
                 </Style>
@@ -824,8 +826,51 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             SnapsToDevicePixels="True" Padding="{TemplateBinding Padding}">
-                        <ScrollViewer x:Name="DG_ScrollViewer" Focusable="False"
-                                      Style="{StaticResource WzScrollViewer}">
+                        <ScrollViewer x:Name="DG_ScrollViewer" Focusable="False">
+                            <!-- 自定义 ScrollViewer 模板：显式包含 DataGridColumnHeadersPresenter，
+                                 否则表头(列标题)不会被渲染。行 0=表头，行 1=内容，行 2=横向滚动条 -->
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter"
+                                                                        Grid.Row="0" Grid.Column="0"
+                                                                        Visibility="{Binding HeadersVisibility,
+                                                                            RelativeSource={RelativeSource AncestorType=DataGrid},
+                                                                            Converter={x:Static DataGrid.HeadersVisibilityConverter},
+                                                                            ConverterParameter={x:Static DataGridHeadersVisibility.Column}}"/>
+
+                                        <ScrollContentPresenter Grid.Row="1" Grid.Column="0"
+                                                                CanContentScroll="{TemplateBinding CanContentScroll}"/>
+
+                                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                                   Grid.Row="1" Grid.Column="1"
+                                                   Style="{StaticResource SharedScrollBarV}"
+                                                   Orientation="Vertical"
+                                                   Value="{TemplateBinding VerticalOffset}"
+                                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                                        <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                                   Grid.Row="2" Grid.Column="0"
+                                                   Style="{StaticResource SharedScrollBarH}"
+                                                   Orientation="Horizontal"
+                                                   Value="{TemplateBinding HorizontalOffset}"
+                                                   Maximum="{TemplateBinding ScrollableWidth}"
+                                                   ViewportSize="{TemplateBinding ViewportWidth}"
+                                                   Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"/>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
                             <ScrollViewer.CanContentScroll>True</ScrollViewer.CanContentScroll>
                             <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
                         </ScrollViewer>

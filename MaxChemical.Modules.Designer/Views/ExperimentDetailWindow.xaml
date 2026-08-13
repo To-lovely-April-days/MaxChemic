@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:oxy="http://oxyplot.org/wpf"
+        xmlns:local="clr-namespace:MaxChemical.Modules.Designer.Views"
         xmlns:converters="clr-namespace:MaxChemical.Modules.Designer.Converters"
         Title="实验详情"
         Width="1060" Height="740"
@@ -9,6 +10,9 @@
         Background="Transparent" ResizeMode="CanResizeWithGrip">
 
     <Window.Resources>
+
+        <local:BindingProxy x:Key="BindProxy" Data="{Binding}"/>
+
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:BooleanToStringConverter x:Key="BooleanToStringConverter"
                                              TrueValue="首次记录"
@@ -157,7 +161,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="参数趋势" FontSize="12" FontWeight="Medium"
+                            <TextBlock Grid.Column="0" Text="{Binding ParamTrendTxt}" FontSize="12" FontWeight="Medium"
                            Foreground="#1A1F36" VerticalAlignment="Center"/>
 
                             <!-- 图例 -->
@@ -282,7 +286,7 @@
                           Fill="Transparent" Width="8" Height="5" Stretch="Uniform"
                           VerticalAlignment="Center" Margin="0,0,6,0"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                <TextBlock Text="节点执行记录" FontSize="11" FontWeight="Medium"
+                                <TextBlock Text="{Binding NodeRecordTxt}" FontSize="11" FontWeight="Medium"
                                Foreground="#2D3A8C" VerticalAlignment="Center"/>
                                 <Border CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
                             Background="#F3F4F6" VerticalAlignment="Center">
@@ -292,18 +296,18 @@
                         </Border>
 
                         <DataGrid Grid.Row="1" x:Name="NodeGrid"
-                      ItemsSource="{Binding Experiment.NodeRecords}"
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F2F3F5"
-                      HeadersVisibility="Column" BorderThickness="0"
-                      Background="White" RowHeight="32" FontSize="10"
-                      SelectionMode="Single" CanUserAddRows="False"
-                      Visibility="Visible"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      EnableRowVirtualization="True"
-                      EnableColumnVirtualization="True"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                  ItemsSource="{Binding Experiment.NodeRecords}"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F2F3F5"
+                                  HeadersVisibility="Column" BorderThickness="0"
+                                  Background="White" RowHeight="32" FontSize="10"
+                                  SelectionMode="Single" CanUserAddRows="False"
+                                  Visibility="Visible"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  EnableRowVirtualization="True"
+                                  EnableColumnVirtualization="True"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <DataGrid.Resources>
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E8EAF6"/>
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#1A1F36"/>
@@ -327,6 +331,29 @@
                                     </Border>
                                 </ControlTemplate>
                             </DataGrid.Template>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border x:Name="Border" Background="Transparent">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </DataGrid.CellStyle>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FFE8EAF6"/>
+                                            <Setter Property="Foreground" Value="#FF1A1F36"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#FAFBFC"/>
@@ -341,10 +368,10 @@
                             </DataGrid.ColumnHeaderStyle>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="#" Binding="{Binding ExecutionOrder}" Width="40"/>
-                                <DataGridTextColumn Header="节点名称" Binding="{Binding NodeName}" Width="120"/>
-                                <DataGridTextColumn Header="设备" Binding="{Binding DeviceName}" Width="100"/>
-                                <DataGridTextColumn Header="命令" Binding="{Binding CommandName}" Width="100"/>
-                                <DataGridTextColumn Header="开始" Binding="{Binding StartTime, StringFormat=HH:mm:ss.fff}" Width="90">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.NodeNameTxt}" Binding="{Binding NodeName}" Width="120"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.DevTxt}" Binding="{Binding DeviceName}" Width="100"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.CommandTxt}" Binding="{Binding CommandName}" Width="100"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.StartTxt}" Binding="{Binding StartTime, StringFormat=HH:mm:ss.fff}" Width="90">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="FontFamily" Value="Consolas"/>
@@ -352,7 +379,7 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="耗时(ms)" Binding="{Binding DurationMs, StringFormat={}{0:F0}}" Width="70">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.ElapsedTxt,StringFormat='{}{0} (ms)'}" Binding="{Binding DurationMs, StringFormat={}{0:F0}}" Width="70">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="FontFamily" Value="Consolas"/>
@@ -361,10 +388,10 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTemplateColumn Header="状态" Width="60">
+                                <DataGridTemplateColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.StateTxt}" Width="60">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border CornerRadius="4" Padding="6,1" HorizontalAlignment="Center">
+                                            <Border CornerRadius="4" Padding="6" HorizontalAlignment="Center">
                                                 <Border.Style>
                                                     <Style TargetType="Border">
                                                         <Setter Property="Background" Value="#ECFDF5"/>
@@ -391,7 +418,7 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="错误信息" Binding="{Binding ErrorMessage}" Width="*">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.ErrMsgTxt}" Binding="{Binding ErrorMessage}" Width="*">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Foreground" Value="#DC2626"/>
@@ -413,15 +440,17 @@
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Padding="0,10" BorderBrush="#E8EAED" BorderThickness="0,0.5,0,0"
-                    Cursor="Hand" MouseLeftButtonUp="ToggleParams_Click">
+                                Cursor="Hand" MouseLeftButtonUp="ToggleParams_Click">
                             <StackPanel Orientation="Horizontal">
                                 <Path x:Name="ParamChevron"
                           Data="M0,0 L4,0 L4,8" Stroke="#6B7280" StrokeThickness="1.3"
                           Fill="Transparent" Width="5" Height="8" Stretch="Uniform"
                           VerticalAlignment="Center" Margin="0,0,6,0"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                <TextBlock Text="参数变化记录" FontSize="11" Foreground="#6B7280"
+                                
+                                <TextBlock Text="{Binding ParamChangedTxt}" FontSize="11" Foreground="#6B7280"
                                VerticalAlignment="Center"/>
+                                
                                 <Border CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
                             Background="#F3F4F6" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding ParameterChanges.Count}" FontSize="9" Foreground="#9CA3AF"/>
@@ -430,19 +459,19 @@
                         </Border>
 
                         <DataGrid Grid.Row="1" x:Name="ParamGrid"
-                      ItemsSource="{Binding ParameterChanges}"
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F2F3F5"
-                      HeadersVisibility="Column" BorderThickness="0"
-                      Background="White" RowHeight="32" FontSize="10"
-                      SelectionMode="Single" CanUserAddRows="False"
-                      Visibility="Collapsed"
-                      MaxHeight="300"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      EnableRowVirtualization="True"
-                      EnableColumnVirtualization="True"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                  ItemsSource="{Binding ParameterChanges}"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F2F3F5"
+                                  HeadersVisibility="Column" BorderThickness="0"
+                                  Background="White" RowHeight="32" FontSize="10"
+                                  SelectionMode="Single" CanUserAddRows="False"
+                                  Visibility="Collapsed"
+                                  MaxHeight="300"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  EnableRowVirtualization="True"
+                                  EnableColumnVirtualization="False"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <DataGrid.Resources>
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E8EAF6"/>
                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#1A1F36"/>
@@ -465,6 +494,29 @@
                                     </Border>
                                 </ControlTemplate>
                             </DataGrid.Template>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border x:Name="Border" Background="Transparent">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </DataGrid.CellStyle>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FFE8EAF6"/>
+                                            <Setter Property="Foreground" Value="#FF1A1F36"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#FAFBFC"/>
@@ -478,9 +530,9 @@
                                 </Style>
                             </DataGrid.ColumnHeaderStyle>
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="设备" Binding="{Binding DeviceName}" Width="100"/>
-                                <DataGridTextColumn Header="参数" Binding="{Binding ParameterName}" Width="100"/>
-                                <DataGridTextColumn Header="值" Binding="{Binding ParameterValue}" Width="80">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.DevTxt}" Binding="{Binding DeviceName}" Width="100"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.ParamTxt}" Binding="{Binding ParameterName}" Width="120"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.ValueTxt}" Binding="{Binding ParameterValue}" Width="80">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="FontFamily" Value="Consolas"/>
@@ -489,7 +541,7 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="前值" Binding="{Binding PreviousValue}" Width="80">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.PreValueTxt}" Binding="{Binding PreviousValue}" Width="80">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="FontFamily" Value="Consolas"/>
@@ -497,8 +549,8 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="单位" Binding="{Binding Unit}" Width="50"/>
-                                <DataGridTextColumn Header="时间" Binding="{Binding Timestamp, StringFormat=HH:mm:ss.fff}" Width="90">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.UnitTxt}" Binding="{Binding Unit}" Width="50"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.TimeTxt}" Binding="{Binding Timestamp, StringFormat=HH:mm:ss.fff}" Width="90">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="FontFamily" Value="Consolas"/>
@@ -506,8 +558,8 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="节点" Binding="{Binding NodeName}" Width="100"/>
-                                <DataGridTextColumn Header="序号" Binding="{Binding ChangeSequence}" Width="50">
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.NodeTxt}" Binding="{Binding NodeName}" Width="100"/>
+                                <DataGridTextColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.NumberTxt}" Binding="{Binding ChangeSequence}" Width="50">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="FontFamily" Value="Consolas"/>
@@ -515,10 +567,10 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTemplateColumn Header="类型" Width="70">
+                                <DataGridTemplateColumn Header="{Binding Source={StaticResource BindProxy},Path=Data.TypeTxt}" Width="70">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border CornerRadius="4" Padding="6,1" HorizontalAlignment="Center">
+                                            <Border CornerRadius="4" Padding="6" HorizontalAlignment="Center">
                                                 <Border.Style>
                                                     <Style TargetType="Border">
                                                         <Setter Property="Background" Value="#ECFDF5"/>
@@ -530,7 +582,7 @@
                                                     </Style>
                                                 </Border.Style>
                                                 <TextBlock Text="{Binding IsFirstRecord, Converter={StaticResource BooleanToStringConverter}}"
-                                               FontSize="9" FontWeight="Medium">
+                                               FontSize="9" FontWeight="Medium" VerticalAlignment="Center">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Foreground" Value="#059669"/>
@@ -570,7 +622,7 @@
 
                     <!-- 按钮 -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button Content="导出详情" Command="{Binding ExportDetailCommand}"
+                        <Button Content="{Binding ExportTxt}" Command="{Binding ExportDetailCommand}"
                                 Cursor="Hand" Margin="0,0,6,0"
                                 FontSize="11" Foreground="#374151">
                             <Button.Template>
@@ -587,7 +639,7 @@
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                        <Button Content="关闭" Click="Close_Click" Cursor="Hand"
+                        <Button Content="{Binding CloseTxt}" Click="Close_Click" Cursor="Hand"
                                 FontSize="11" FontWeight="Medium" Foreground="White">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">

@@ -78,7 +78,7 @@
             <Border Grid.Row="1" BorderBrush="#F0F0F0" BorderThickness="0,0,0,1" Padding="28,14,28,12">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="设备 ID" FontSize="12" Foreground="#3F3F3F" FontWeight="Medium"
+                        <TextBlock Text="{Binding DevIdTxt}" FontSize="12" Foreground="#3F3F3F" FontWeight="Medium"
                                    VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding DeviceIdHex}" FontSize="12" Foreground="#757575"
                                    FontFamily="Consolas, Microsoft YaHei" VerticalAlignment="Center" Margin="6,0,0,0"/>
@@ -88,12 +88,12 @@
                         <TextBlock Text="{Binding MacText}" FontSize="12" Foreground="#757575"
                                    FontFamily="Consolas, Microsoft YaHei" VerticalAlignment="Center" Margin="6,0,0,0"/>
                         <Rectangle Width="1" Height="12" Fill="#D4D4D4" Margin="16,0"/>
-                        <TextBlock Text="固件" FontSize="12" Foreground="#3F3F3F" FontWeight="Medium"
+                        <TextBlock Text="{Binding FirmwareTxt}" FontSize="12" Foreground="#3F3F3F" FontWeight="Medium"
                                    VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding FirmwareText}" FontSize="12" Foreground="#757575"
                                    FontFamily="Consolas, Microsoft YaHei" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </StackPanel>
-                    <TextBlock Text="修改后设备会自动重启" FontSize="11" Foreground="#888780"
+                    <TextBlock Text="{Binding RestartTipTxt}" FontSize="11" Foreground="#888780"
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
             </Border>
@@ -101,7 +101,7 @@
             <!-- ═══════════ 主体:左栏网络设置 + 右栏串口参数 ═══════════ -->
             <Grid Grid.Row="2" Margin="28,16,28,10">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.55*"/>
+                    <ColumnDefinition Width="1.6*"/>
                     <ColumnDefinition Width="14"/>
                     <ColumnDefinition Width="1*"/>
                 </Grid.ColumnDefinitions>
@@ -114,7 +114,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <Border Width="3" Height="13" Background="{DynamicResource Brand.PrimaryBrush}"
                                         CornerRadius="1" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="网络设置"/>
+                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding NetworkSettingTxt}"/>
                             </StackPanel>
                         </Border>
 
@@ -143,89 +143,89 @@
 
                             <!-- 第 1 行:设备名称 / IP 模式 -->
                             <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="设备名称"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding DevNameTxt}"/>
                                 <TextBox Style="{StaticResource FieldTextBoxStyle}"
                                          Text="{Binding Working.DeviceName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="IP 模式"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding ModeTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.IpMode, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:IpMode.Static}">静态 IP</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:IpMode.Dhcp}">DHCP 动态</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding StaticIpTxt}" Tag="{x:Static models:IpMode.Static}"/>
+                                    <ComboBoxItem Content="{Binding DhcpTxt}" Tag="{x:Static models:IpMode.Dhcp}"/>
                                 </ComboBox>
                             </StackPanel>
 
                             <!-- 第 2 行:本地 IP / 本地端口 -->
                             <StackPanel Grid.Row="2" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="本地 IP"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding LocalIpTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.Ip, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="本地端口"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding LocalPortTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.LocalPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
 
                             <!-- 第 3 行:子网掩码 / 网关 -->
                             <StackPanel Grid.Row="4" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="子网掩码"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding SubnetMaskTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.Netmask, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="网关"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding GatewayTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.GatewayAddr, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
 
                             <!-- 第 4 行:DNS / Web 端口 -->
                             <StackPanel Grid.Row="6" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="DNS 服务器"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding DnsServerTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.DnsServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="6" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Web 端口"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding WebPortTxt}"/>
                                 <TextBox Style="{StaticResource FieldTextBoxStyle}"
                                          Text="{Binding Working.WebPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
 
                             <!-- 第 5 行:工作模式 -->
                             <StackPanel Grid.Row="8" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="工作模式"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding WorkPatternTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.WorkMode, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
                                     <ComboBoxItem Tag="{x:Static models:WorkMode.TcpServer}">TCP Server</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:WorkMode.TcpClient}">TCP Client</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:WorkMode.Udp}">UDP</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:WorkMode.UdpMulti}">UDP 组播</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding UdpMultTxt}" Tag="{x:Static models:WorkMode.UdpMulti}"/>
                                 </ComboBox>
                             </StackPanel>
 
                             <!-- 第 6 行:目的 IP / 目的端口 -->
                             <StackPanel Grid.Row="10" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="目的 IP / 域名"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding DestIpTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.DestIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="10" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="目的端口"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding DestPortTxt}"/>
                                 <TextBox Style="{StaticResource FieldMonoTextBoxStyle}"
                                          Text="{Binding Working.DestPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
 
                             <!-- 第 7 行:断线重连 / 保活时间 -->
                             <StackPanel Grid.Row="12" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="断线重连(秒,0~255)"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding ReconnTxt}"/>
                                 <TextBox Style="{StaticResource FieldTextBoxStyle}"
                                          Text="{Binding Working.ReconnectTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Row="12" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="保活时间(秒,0~255)"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding AliveTxt}"/>
                                 <TextBox Style="{StaticResource FieldTextBoxStyle}"
                                          Text="{Binding Working.KeepAliveTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
@@ -241,7 +241,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <Border Width="3" Height="13" Background="{DynamicResource Brand.PrimaryBrush}"
                                         CornerRadius="1" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="串口参数"/>
+                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding SerialParamTxt}"/>
                             </StackPanel>
                         </Border>
 
@@ -261,7 +261,7 @@
 
                             <!-- 波特率 / 数据位 -->
                             <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="波特率"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding BaudRateTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.BaudRate, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
@@ -278,47 +278,47 @@
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="数据位"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding DataBitsTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.DataBits, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_8}">8 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_7}">7 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_6}">6 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_5}">5 位</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_8}">8</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_7}">7</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_6}">6</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:DataBits.Bits_5}">5</ComboBoxItem>
                                 </ComboBox>
                             </StackPanel>
 
                             <!-- 校验位 / 停止位 -->
                             <StackPanel Grid.Row="2" Grid.Column="0">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="校验位"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding ParityTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.Parity, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:Parity.None}">无校验</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Odd}">奇校验</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Even}">偶校验</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Mark}">标记</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:Parity.Space}">空格</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding ParityNoneTxt}" Tag="{x:Static models:Parity.None}"/>
+                                    <ComboBoxItem Content="{Binding ParityOddTxt}" Tag="{x:Static models:Parity.Odd}"/>
+                                    <ComboBoxItem Content="{Binding ParityEvenTxt}" Tag="{x:Static models:Parity.Even}"/>
+                                    <ComboBoxItem Content="{Binding ParityMarkTxt}" Tag="{x:Static models:Parity.Mark}"/>
+                                    <ComboBoxItem Content="{Binding ParitySpaceTxt}" Tag="{x:Static models:Parity.Space}"/>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="停止位"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding StopBitsTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.StopBit, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_1}">1 位</ComboBoxItem>
-                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_2}">2 位</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_1}">1</ComboBoxItem>
+                                    <ComboBoxItem Tag="{x:Static models:StopBit.Stop_2}">2</ComboBoxItem>
                                 </ComboBox>
                             </StackPanel>
 
                             <!-- 流控(独占整行) -->
                             <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="流控"/>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="{Binding FlowCtrlTxt}"/>
                                 <ComboBox Style="{StaticResource FieldComboStyle}"
                                           SelectedValue="{Binding Working.FlowControl, Mode=TwoWay}"
                                           SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="{x:Static models:FlowControl.None}">无流控</ComboBoxItem>
+                                    <ComboBoxItem Content="{Binding NoneFlowCtrlTxt}" Tag="{x:Static models:FlowControl.None}"/>
                                     <ComboBoxItem Tag="{x:Static models:FlowControl.RtsCts}">CTS/RTS</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:FlowControl.DtrDsr}">DTR/DSR</ComboBoxItem>
                                     <ComboBoxItem Tag="{x:Static models:FlowControl.XonXoff}">XON/XOFF</ComboBoxItem>
@@ -338,9 +338,9 @@
                             <StackPanel Orientation="Horizontal">
                                 <Border Width="3" Height="13" Background="{DynamicResource Brand.PrimaryBrush}"
                                         CornerRadius="1" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="绑定设备"/>
+                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding BindDevTxt}"/>
                             </StackPanel>
-                            <TextBlock Text="绑定后,该设备的所有命令通过此通道收发"
+                            <TextBlock Text="{Binding BindTipTxt}"
                                        FontSize="11" Foreground="#888780"
                                        HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
@@ -354,7 +354,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse Width="6" Height="6" Fill="{DynamicResource Brand.PrimaryBrush}"
                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Text="已绑定:" FontSize="12" Foreground="#5F5F5F"
+                                <TextBlock Text="{Binding BindTxt}" FontSize="12" Foreground="#5F5F5F"
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding CurrentBoundDeviceText}"
                                            FontSize="12" FontWeight="Medium"
@@ -364,12 +364,12 @@
                             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                                 <Button Background="Transparent" BorderThickness="0"
                                         Foreground="#0F6E56" FontSize="12"
-                                        Content="测试连接" Cursor="Hand" Padding="10,3"
+                                        Content="{Binding TestConnTxt}" Cursor="Hand" Padding="10,3"
                                         Command="{Binding TestConnectionCommand}"/>
                                 <Rectangle Width="1" Height="14" Fill="#E0E0E0" VerticalAlignment="Center" Margin="4,0"/>
                                 <Button Background="Transparent" BorderThickness="0"
                                         Foreground="{DynamicResource Brand.PrimaryBrush}" FontSize="12"
-                                        Content="解绑" Cursor="Hand" Padding="10,3"
+                                        Content="{Binding UnbindTxt}" Cursor="Hand" Padding="10,3"
                                         Command="{Binding UnbindDeviceCommand}"/>
                             </StackPanel>
                         </Grid>
@@ -415,7 +415,7 @@
                             </ComboBox.ItemContainerStyle>
                         </ComboBox>
 
-                        <Button Grid.Column="2" Content="绑定到此通道"
+                        <Button Grid.Column="2" Content="{Binding BindChannelTxt}"
                                 Command="{Binding BindDeviceCommand}"
                                 Height="46" MinWidth="120" Padding="18,0"
                                 FontSize="13" FontWeight="Medium"
@@ -423,7 +423,7 @@
                                 Foreground="White" BorderThickness="0" Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                                    <Border x:Name="Bd" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" CornerRadius="6">
                                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -450,13 +450,13 @@
             <StackPanel Grid.Row="4" Orientation="Horizontal"
                         HorizontalAlignment="Right" Margin="0,0,28,18">
                 <Button Style="{DynamicResource DialogSecondaryButtonStyleLg}"
-                        Content="取消" Click="OnCancelClick" Margin="0,0,10,0"/>
+                        Content="{Binding CancelTxt}" Click="OnCancelClick" Margin="0,0,10,0"/>
                 <Button Style="{DynamicResource DialogSecondaryButtonStyleLg}"
-                        Content="重新读取" Command="{Binding RefreshCommand}" Margin="0,0,10,0"/>
-                <Button Style="{DynamicResource DialogWarnButtonStyle}"
-                        Content="恢复默认" Command="{Binding ResetToDefaultCommand}" Margin="0,0,10,0"/>
-                <Button Style="{DynamicResource DialogPrimaryButtonStyleLg}"
-                        Content="保存修改" Command="{Binding ApplyCommand}"/>
+                        Content="{Binding RereadTxt}" Command="{Binding RefreshCommand}" Margin="0,0,10,0"/>
+                <Button Style="{DynamicResource DialogWarnButtonStyle}" Padding="16,0"
+                        Content="{Binding RestoreDefaultTxt}" Command="{Binding ResetToDefaultCommand}" Margin="0,0,10,0"/>
+                <Button Style="{DynamicResource DialogPrimaryButtonStyleLg}" Padding="16,0"
+                        Content="{Binding SaveTxt}" Command="{Binding ApplyCommand}"/>
             </StackPanel>
         </Grid>
     </Border>

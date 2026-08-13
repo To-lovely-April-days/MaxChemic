@@ -225,13 +225,15 @@
                                   MaxHeight="520"
                                   AutoGeneratingColumn="OnAutoGeneratingColumn">
                             <DataGrid.ColumnHeaderStyle>
+                                <!-- 深靛蓝实底 + 白字：拍摄展示高对比清晰，与靛蓝主题协调 -->
                                 <Style TargetType="DataGridColumnHeader">
-                                    <Setter Property="Background" Value="#FAFBFC"/>
-                                    <Setter Property="Foreground" Value="{StaticResource WzTextHint}"/>
-                                    <Setter Property="FontSize" Value="11"/>
+                                    <Setter Property="Background" Value="#2D3A8C"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="FontSize" Value="11.5"/>
                                     <Setter Property="FontWeight" Value="SemiBold"/>
                                     <Setter Property="Padding" Value="12,0"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource WzDivider}"/>
+                                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                    <Setter Property="BorderBrush" Value="#1E2A6E"/>
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                     <Setter Property="HorizontalContentAlignment" Value="Right"/>
                                     <Setter Property="SeparatorVisibility" Value="Collapsed"/>
@@ -317,23 +319,34 @@
                     <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="4" Opacity="0.06"/>
                 </Border.Effect>
                 <StackPanel HorizontalAlignment="Center">
+                    <!-- 旋转动画只在遮罩可见(IsPausing)时启动,退出即停——
+                         原先 Loaded 即启动 Forever 时钟,遮罩虽 Collapsed 时钟却常转,
+                         渲染循环被迫全速空转,整个应用被拖卡(与加载遮罩同一类病) -->
                     <Ellipse Width="36" Height="36" StrokeThickness="2.5" StrokeDashArray="8 6"
                              Stroke="{StaticResource WzPrimary}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                              RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Center" Margin="0,0,0,16">
                         <Ellipse.RenderTransform>
                             <RotateTransform x:Name="PauseSpinAngle"/>
                         </Ellipse.RenderTransform>
-                        <Ellipse.Triggers>
-                            <EventTrigger RoutedEvent="Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetName="PauseSpinAngle"
-                                                         Storyboard.TargetProperty="Angle"
-                                                         From="0" To="360" Duration="0:0:0.8"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Ellipse.Triggers>
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPausing}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="PauseSpinSb">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                     From="0" To="360" Duration="0:0:0.8"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="PauseSpinSb"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
                     </Ellipse>
                     <TextBlock Text="{Binding MaskMsgTxt}" FontSize="14" FontWeight="Medium" Foreground="{StaticResource WzText}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding MaskTipTxt}" FontSize="11" Foreground="{StaticResource WzTextHint}" HorizontalAlignment="Center"/>

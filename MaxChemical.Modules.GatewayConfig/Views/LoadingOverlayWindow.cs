@@ -1,3 +1,5 @@
+using MaxChemical.Infrastructure.Services;
+using Prism.Ioc;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -145,7 +147,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(28, 24, 28, 22),
-                Width = 320,
+                MinWidth = 320,  //调整为最小宽度，避免固定宽度截断显示的文本
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 Effect = new System.Windows.Media.Effects.DropShadowEffect
@@ -190,7 +192,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views
 
             var subText = new TextBlock
             {
-                Text = "请耐心等待,最长约需 30 秒",
+                Text = Prism.Ioc.ContainerLocator.Container.Resolve<ILocalizationService>().GetString("Gateway_WaitingMsg", "请耐心等待,最长约需 30 秒"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromRgb(0x75, 0x75, 0x75)),

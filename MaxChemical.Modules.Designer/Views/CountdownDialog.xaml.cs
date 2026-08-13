@@ -32,6 +32,9 @@ namespace MaxChemical.Modules.Designer.Views
         // ★ 新增：倒计时自然走完标志（非模态下不能用 DialogResult，改用此标志）
         private bool _isCompleted = false;
 
+        // ★ 新增：标题文字(优先显示等待节点的"描述")，用于阶段切换时恢复
+        private string _titleText;
+
         public bool IsSkipped => _isSkipped;
         public bool IsStopped => _isStopped;
         public bool IsCompleted => _isCompleted;
@@ -61,7 +64,9 @@ namespace MaxChemical.Modules.Designer.Views
 
             if (!string.IsNullOrEmpty(waitInfo))
             {
-                WaitInfoText.Text = waitInfo;
+                // 把等待节点的"描述"作为标题持久显示；WaitInfoText 会被倒计时进度覆盖，故放到 TbFixedLabel
+                _titleText = waitInfo;
+                TbFixedLabel.Text = waitInfo;
             }
 
             // 初始化圆环
@@ -161,7 +166,9 @@ namespace MaxChemical.Modules.Designer.Views
             }
 
             _isStabilityPhase = false;
-            TbFixedLabel.Text = _localization.GetString("Countdown_Fixed", "固定时间等待");
+            TbFixedLabel.Text = !string.IsNullOrEmpty(_titleText)
+                ? _titleText
+                : _localization.GetString("Countdown_Fixed", "固定时间等待");
 
             // 重置剩余时间并刷新显示，再启动计时器
             _remainingTime = _totalTime;

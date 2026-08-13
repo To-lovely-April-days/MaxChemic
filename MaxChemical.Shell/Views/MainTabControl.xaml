@@ -282,7 +282,7 @@
                 Background="{StaticResource Bg.PrimaryBrush}"
                 BorderBrush="{StaticResource Border.DefaultBrush}">
 
-            <Grid Margin="-2 6 14 16">
+            <Grid Margin="0,8,8,8" Background="AliceBlue">
                 <!-- 工艺设计器内容 -->
                 <Border x:Name="ProcessDesignerBorder" 
                         Background="{StaticResource Bg.PrimaryBrush}">

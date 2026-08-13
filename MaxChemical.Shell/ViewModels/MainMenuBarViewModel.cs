@@ -71,6 +71,7 @@ public class MainMenuBarViewModel : BindableBase
     private string _menuTechSupport = string.Empty;
     private string _menuCheckUpdate = string.Empty;
     private string _menuAbout = string.Empty;
+    private string _menuGateway = string.Empty;
 
     public MainMenuBarViewModel(
         IEventAggregator eventAggregator,
@@ -202,6 +203,8 @@ public class MainMenuBarViewModel : BindableBase
         get => _menuLanguage;
         set => SetProperty(ref _menuLanguage, value);
     }
+
+    public string MenuGateway { get { return _menuGateway; } set { SetProperty(ref _menuGateway, value); } }
 
     public string MenuLanguageChinese
     {
@@ -409,6 +412,7 @@ public class MainMenuBarViewModel : BindableBase
         MenuGenerateReport = _localizationService.GetString("Menu_GenerateReport");
         MenuToolbar = _localizationService.GetString("Menu_Toolbar");
         MenuLanguage = _localizationService.GetString("Menu_Language");
+        MenuGateway = _localizationService.GetString("Menu_Gateway");
         MenuLanguageChinese = _localizationService.GetString("Menu_Language_Chinese");
         MenuLanguageEnglish = _localizationService.GetString("Menu_Language_English");
         MenuUserManual = _localizationService.GetString("Menu_UserManual");

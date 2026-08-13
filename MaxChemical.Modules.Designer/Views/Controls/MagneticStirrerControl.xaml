@@ -1,0 +1,411 @@
+<UserControl x:Class="MaxChemical.Modules.Designer.Views.Controls.MagneticStirrerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="501"
+             d:DesignWidth="306"
+             Background="Transparent"
+             Cursor="SizeAll"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True">
+
+    <!--
+        加热磁力搅拌器 — 1:1 还原正视透视图 SVG(viewBox 0 -95 680 545)。
+
+        画布尺寸 306×501,不是 SVG 的 680×545。原图左右各空了 190(实测图形只占
+        x 190…490,横向利用率 44%),直接照搬会让画布上的设备框比图本身宽一倍多,
+        挤占旁边设备的位置。所以这里裁到内容实际范围再留 ~2 的余量。
+
+        坐标处理:裁剪与 SVG 的负 y 原点(viewBox 从 -95 起)都不去逐个折算
+        (那样每个数都要手算,改一处就容易错),而是把整幅图放进 Scene 这层 Canvas,
+        对它整体做 TranslateTransform(-187, 70)。于是下面每一个坐标都跟 SVG 原文
+        一模一样,对着源文件逐行核对即可。
+        换算:X 187…493 → 0…306,Y -70…431 → 0…501。
+
+        绘制顺序与 SVG 完全一致(WPF 用 Panel.ZIndex 表达):
+          机身 → 加热盘外圈 → 面板文字 → 显示屏 → 触控键 → 陶瓷盘
+          → 线缆 → 支杆 → 夹具 → 瓶口后半 → 探头
+          → [搅拌子 → 液体 → 液面旋涡 → 探头没入段 → 玻璃瓶身] → 两个旋钮
+
+        为什么瓶口要拆成前后两半:探头要"穿过"瓶口 —— 后半弧在探头之前画,
+        前半弧在探头之后画,这样探头看起来才是插进瓶里而不是贴在瓶前面。
+    -->
+
+    <UserControl.Resources>
+        <!-- 加热光晕:陶瓷盘受热时的橙红辉光 -->
+        <RadialGradientBrush x:Key="HeatGlowBrush" GradientOrigin="0.5,0.5" Center="0.5,0.5"
+                             RadiusX="0.5" RadiusY="0.5">
+            <GradientStop Color="#FFB24A2A" Offset="0"/>
+            <GradientStop Color="#88C25A2E" Offset="0.55"/>
+            <GradientStop Color="#00C25A2E" Offset="1"/>
+        </RadialGradientBrush>
+    </UserControl.Resources>
+
+    <Viewbox Stretch="Fill">
+        <Canvas Width="306" Height="501">
+
+            <!-- ══════════════════ 图形层:内部坐标 = SVG 原始坐标 ══════════════════ -->
+            <Canvas x:Name="Scene" Panel.ZIndex="1">
+                <Canvas.RenderTransform>
+                    <TranslateTransform X="-187" Y="70"/>
+                </Canvas.RenderTransform>
+
+                <!-- ═══ 1. 机身梯形(黑色玻璃面板,向后收缩) ═══ -->
+                <Polygon Points="190,400 490,400 457,192 223,192" Fill="#16181A"/>
+                <Polygon Points="223,192 457,192 461,217 219,217" Fill="White" Opacity="0.05"/>
+                <Polygon Points="190,400 490,400 457,192 223,192" Fill="{x:Null}"
+                         Stroke="#565B5F" StrokeThickness="1.4"/>
+
+                <!-- ═══ 2. 底座 ═══ -->
+                <Rectangle Canvas.Left="190" Canvas.Top="400" Width="300" Height="28" Fill="#212325"/>
+                <Rectangle Canvas.Left="190" Canvas.Top="400" Width="300" Height="28"
+                           Fill="{x:Null}" Stroke="#565B5F" StrokeThickness="1.4"/>
+                <Line X1="190" Y1="402.5" X2="490" Y2="402.5" Stroke="#6E7478" StrokeThickness="1.2"/>
+
+                <!-- ═══ 3. 加热盘外圈(SVG 里包在 translate(0,-10) 里) ═══ -->
+                <Canvas>
+                    <Canvas.RenderTransform><TranslateTransform Y="-10"/></Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="246.5" Canvas.Top="211.8" Width="187" Height="83.8"
+                             Fill="{x:Null}" Stroke="#26292C" StrokeThickness="5"/>
+                </Canvas>
+
+                <!-- ═══ 4. 品牌标识与高温警示三角 ═══ -->
+                <!-- SVG 用 matrix(1 0 0 0.62 …) 把字纵向压扁,这里用 ScaleTransform 等效 -->
+                <TextBlock Canvas.Left="221.9" Canvas.Top="295.1"
+                           Text="Magnetic Stirrers"
+                           FontFamily="Georgia" FontSize="18" Foreground="#E6E7E8"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform>
+                        <ScaleTransform ScaleX="1" ScaleY="0.62"/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+                <Path Stroke="#C9CBCC" StrokeThickness="1.6" Fill="{x:Null}" IsHitTestVisible="False">
+                    <Path.Data>
+                        <PathGeometry Figures="M 430,296.62 L 437,306.54 L 423,306.54 Z
+                                               M 448,296.62 L 455,306.54 L 441,306.54 Z"/>
+                    </Path.Data>
+                </Path>
+                <Line X1="221" Y1="311.9" X2="459" Y2="311.9" Stroke="#D6D8D9" StrokeThickness="1.6"/>
+
+                <!-- ═══ 5. 显示屏 ═══ -->
+                <Polygon Points="216,342.9 464,342.9 460.1,314.9 219.9,314.9" Fill="#050D0B"/>
+
+                <TextBlock x:Name="TempValueText"
+                           Canvas.Left="230" Canvas.Top="321.6"
+                           Text="128.4"
+                           FontFamily="Consolas" FontSize="32" Foreground="#EF9F27"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform><ScaleTransform ScaleX="1" ScaleY="0.6"/></TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock Canvas.Left="328" Canvas.Top="328.4"
+                           Text="C" FontFamily="Consolas" FontSize="18" Foreground="#7A6338"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform><ScaleTransform ScaleX="1" ScaleY="0.6"/></TextBlock.RenderTransform>
+                </TextBlock>
+
+                <!-- 转速示值:SVG 是 text-anchor="end" 右对齐到 x=420 -->
+                <TextBlock x:Name="SpeedValueText"
+                           Canvas.Left="300" Canvas.Top="321.6" Width="120"
+                           Text="600" TextAlignment="Right"
+                           FontFamily="Consolas" FontSize="32" Foreground="#5DCAA5"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform><ScaleTransform ScaleX="1" ScaleY="0.6"/></TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock Canvas.Left="426" Canvas.Top="328.4"
+                           Text="rpm" FontFamily="Consolas" FontSize="18" Foreground="#2F6B58"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform><ScaleTransform ScaleX="1" ScaleY="0.6"/></TextBlock.RenderTransform>
+                </TextBlock>
+
+                <!-- 量程丝印 -->
+                <TextBlock Canvas.Left="214.5" Canvas.Top="345.1"
+                           Text="Temp  0-320℃"
+                           FontFamily="Segoe UI, Microsoft YaHei" FontSize="17" Foreground="#D6D8D9"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform><ScaleTransform ScaleX="1" ScaleY="0.62"/></TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock Canvas.Left="265.5" Canvas.Top="345.1" Width="200"
+                           Text="Speed  0-2000rpm" TextAlignment="Right"
+                           FontFamily="Segoe UI, Microsoft YaHei" FontSize="17" Foreground="#D6D8D9"
+                           IsHitTestVisible="False">
+                    <TextBlock.RenderTransform><ScaleTransform ScaleX="1" ScaleY="0.62"/></TextBlock.RenderTransform>
+                </TextBlock>
+
+                <!-- ═══ 6. 三个触控键(加热 / 搅拌 / 定时) ═══ -->
+                <Rectangle Canvas.Left="299.3" Canvas.Top="367.4" Width="23" Height="13"
+                           RadiusX="3" RadiusY="3" Fill="{x:Null}" Stroke="#9EA2A5" StrokeThickness="1.2"/>
+                <Rectangle Canvas.Left="328.5" Canvas.Top="367.4" Width="23" Height="13"
+                           RadiusX="3" RadiusY="3" Fill="{x:Null}" Stroke="#9EA2A5" StrokeThickness="1.2"/>
+                <Rectangle Canvas.Left="357.7" Canvas.Top="367.4" Width="23" Height="13"
+                           RadiusX="3" RadiusY="3" Fill="{x:Null}" Stroke="#9EA2A5" StrokeThickness="1.2"/>
+
+                <!-- 键内图标:SVG 里经 matrix(1 0 0 0.56 0 164.6) 压扁,坐标已折算 -->
+                <Path Stroke="#9EA2A5" StrokeThickness="1.2" Fill="{x:Null}" IsHitTestVisible="False">
+                    <Path.Data><PathGeometry Figures="M 305,376.84 L 313,372.36"/></Path.Data>
+                </Path>
+                <Ellipse Canvas.Left="312" Canvas.Top="369.56" Width="6" Height="3.36"
+                         Fill="{x:Null}" Stroke="#9EA2A5" StrokeThickness="1.2" IsHitTestVisible="False"/>
+                <Ellipse Canvas.Left="334" Canvas.Top="370.68" Width="12" Height="6.72"
+                         Fill="{x:Null}" Stroke="#9EA2A5" StrokeThickness="1.2" IsHitTestVisible="False"/>
+                <Path Stroke="#9EA2A5" StrokeThickness="1.2" Fill="{x:Null}" IsHitTestVisible="False">
+                    <Path.Data><PathGeometry Figures="M 340,374.04 L 340,371.24"/></Path.Data>
+                </Path>
+                <Ellipse Canvas.Left="361.6" Canvas.Top="372.136" Width="6.8" Height="3.808"
+                         Fill="{x:Null}" Stroke="#9EA2A5" StrokeThickness="1.2" IsHitTestVisible="False"/>
+                <Path Stroke="#9EA2A5" StrokeThickness="1.2" Fill="{x:Null}" IsHitTestVisible="False">
+                    <Path.Data>
+                        <PathGeometry Figures="M 368.4,374.04 L 375,374.04 M 373.5,374.04 L 373.5,376.28"/>
+                    </Path.Data>
+                </Path>
+
+                <!-- ═══ 7. 白色陶瓷工作盘(SVG translate(0,-10)) ═══ -->
+                <Canvas>
+                    <Canvas.RenderTransform><TranslateTransform Y="-10"/></Canvas.RenderTransform>
+                    <!-- 盘侧壁阴影 -->
+                    <Ellipse Canvas.Left="254" Canvas.Top="224.7" Width="172" Height="77.2" Fill="#B9B7B0"/>
+                    <!-- 加热辉光:在盘面之下,营造盘体透出的热感(IsHeating 时才显形) -->
+                    <Ellipse x:Name="HeatGlow"
+                             Canvas.Left="254" Canvas.Top="214.7" Width="172" Height="77.2"
+                             Fill="{StaticResource HeatGlowBrush}" Opacity="0" IsHitTestVisible="False"/>
+                    <!-- 盘面 -->
+                    <Ellipse x:Name="CeramicPlate"
+                             Canvas.Left="254" Canvas.Top="214.7" Width="172" Height="77.2"
+                             Fill="#F4F3EE" Stroke="#D2D0C8" StrokeThickness="1.2"/>
+                    <!-- 盘面受热着色 -->
+                    <Ellipse x:Name="PlateHeatTint"
+                             Canvas.Left="254" Canvas.Top="214.7" Width="172" Height="77.2"
+                             Fill="#E8703A" Opacity="0" IsHitTestVisible="False"/>
+                </Canvas>
+
+                <!-- ═══ 8. 探头线缆(先画,后面的支杆会压在它上面) ═══ -->
+                <Path Stroke="#14171A" StrokeThickness="8" Fill="{x:Null}"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False">
+                    <Path.Data>
+                        <PathGeometry Figures="M 342,-52 C 372,-60 408,-64 440,-56
+                                               C 470,-44 478,60 472,132
+                                               C 468,168 458,188 450,193"/>
+                    </Path.Data>
+                </Path>
+                <Path Stroke="#3C4247" StrokeThickness="2.4" Fill="{x:Null}" Opacity="0.85"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False">
+                    <Path.Data>
+                        <PathGeometry Figures="M 340,-55 C 370,-63 406,-67 438,-59
+                                               C 468,-47 476,57 470,129"/>
+                    </Path.Data>
+                </Path>
+
+                <!-- ═══ 9. 后置支杆 ═══ -->
+                <Ellipse Canvas.Left="415" Canvas.Top="204" Width="40" Height="18" Fill="#6B6F72"/>
+                <Ellipse Canvas.Left="415" Canvas.Top="198" Width="40" Height="18"
+                         Fill="#BFC3C6" Stroke="#8A8E91" StrokeThickness="1"/>
+                <Rectangle Canvas.Left="430" Canvas.Top="-45" Width="10" Height="252"
+                           RadiusX="3" RadiusY="3" Fill="#9DA1A4"/>
+                <Rectangle Canvas.Left="436.6" Canvas.Top="-45" Width="3.4" Height="252" Fill="#7E8285"/>
+                <Rectangle Canvas.Left="431.6" Canvas.Top="-41" Width="2.2" Height="244" Fill="#DDE0E2"/>
+                <Rectangle Canvas.Left="426" Canvas.Top="194" Width="18" Height="12"
+                           RadiusX="2" RadiusY="2" Fill="#8E9295"/>
+
+                <!-- ═══ 10. 横臂夹具 ═══ -->
+                <Rectangle Canvas.Left="342" Canvas.Top="-26" Width="90" Height="14"
+                           RadiusX="4" RadiusY="4" Fill="#3A3E41"/>
+                <Rectangle Canvas.Left="342" Canvas.Top="-26" Width="90" Height="4"
+                           RadiusX="2" RadiusY="2" Fill="#565B5F"/>
+                <Rectangle Canvas.Left="424" Canvas.Top="-38" Width="22" Height="38"
+                           RadiusX="5" RadiusY="5" Fill="#26292C"/>
+                <Rectangle Canvas.Left="446" Canvas.Top="-25" Width="9" Height="12"
+                           RadiusX="2" RadiusY="2" Fill="#565B5F"/>
+                <Ellipse Canvas.Left="453" Canvas.Top="-30" Width="22" Height="22" Fill="#1C1F22"/>
+                <Ellipse Canvas.Left="458" Canvas.Top="-25" Width="12" Height="12" Fill="#3A3E41"/>
+
+                <!-- ═══ 11. 瓶口后半弧(先于探头画,探头才穿在它前面) ═══ -->
+                <Path x:Name="FlaskRimBack" Stroke="#93BCCB" StrokeThickness="1.5" Fill="{x:Null}"
+                      IsHitTestVisible="False">
+                    <Path.Data><PathGeometry Figures="M 316,103.3 A 24,10.8 0 0 1 364,103.3"/></Path.Data>
+                </Path>
+
+                <!-- ═══ 12. 温度探头 ═══ -->
+                <Rectangle x:Name="ProbeHead" Canvas.Left="335" Canvas.Top="-60" Width="14" Height="20"
+                           RadiusX="4" RadiusY="4" Fill="#8E9295"/>
+                <Rectangle x:Name="ProbeRod" Canvas.Left="339.2" Canvas.Top="-46" Width="5.6" Height="274"
+                           RadiusX="2.8" RadiusY="2.8" Fill="#9DA1A4"/>
+                <Rectangle x:Name="ProbeHighlight" Canvas.Left="340.2" Canvas.Top="-42" Width="1.6" Height="262"
+                           Fill="#E0E3E5" IsHitTestVisible="False"/>
+                <Rectangle Canvas.Left="330" Canvas.Top="-34" Width="24" Height="30"
+                           RadiusX="5" RadiusY="5" Fill="#3A3E41"/>
+                <Rectangle Canvas.Left="330" Canvas.Top="-34" Width="24" Height="4"
+                           RadiusX="2" RadiusY="2" Fill="#565B5F"/>
+
+                <!-- ═══ 13. 瓶内(搅拌子 / 液体 / 旋涡 / 玻璃),SVG translate(0,-10) ═══ -->
+                <Canvas>
+                    <Canvas.RenderTransform><TranslateTransform Y="-10"/></Canvas.RenderTransform>
+
+                    <!-- 搅拌子下影:自转后再按 0.45 做透视压缩,绕 (340,258.8) -->
+                    <Canvas x:Name="StirBarShadow">
+                        <Canvas.RenderTransform>
+                            <TransformGroup>
+                                <RotateTransform x:Name="StirBarShadowRotate" Angle="14" CenterX="340" CenterY="258.8"/>
+                                <ScaleTransform ScaleX="1" ScaleY="0.45" CenterX="340" CenterY="258.8"/>
+                            </TransformGroup>
+                        </Canvas.RenderTransform>
+                        <Rectangle Canvas.Left="321" Canvas.Top="253.8" Width="38" Height="10"
+                                   RadiusX="5" RadiusY="5" Fill="#9DAEB4"/>
+                    </Canvas>
+
+                    <!-- 搅拌子本体 -->
+                    <Canvas x:Name="StirBar">
+                        <Canvas.RenderTransform>
+                            <TransformGroup>
+                                <RotateTransform x:Name="StirBarRotate" Angle="14" CenterX="340" CenterY="253.3"/>
+                                <ScaleTransform ScaleX="1" ScaleY="0.45" CenterX="340" CenterY="253.3"/>
+                            </TransformGroup>
+                        </Canvas.RenderTransform>
+                        <Rectangle Canvas.Left="321" Canvas.Top="248.3" Width="38" Height="10"
+                                   RadiusX="5" RadiusY="5" Fill="#F7F8F8"/>
+                        <Rectangle Canvas.Left="324.5" Canvas.Top="249.3" Width="31" Height="3.2"
+                                   RadiusX="1.6" RadiusY="1.6" Fill="White" Opacity="0.9"/>
+                    </Canvas>
+
+                    <!-- 液体 -->
+                    <Path x:Name="FlaskLiquid" Fill="#A9D8E4" Opacity="0.78" IsHitTestVisible="False">
+                        <Path.Data>
+                            <PathGeometry Figures="M 298,211.3 L 285.7,245 L 285.7,253.3
+                                                   A 54.3,24.4 0 0 0 394.3,253.3
+                                                   L 394.3,245 L 382,211.3
+                                                   A 42,18.9 0 0 0 298,211.3 Z"/>
+                        </Path.Data>
+                    </Path>
+                    <Ellipse x:Name="FlaskLiquidSurface"
+                             Canvas.Left="298" Canvas.Top="192.4" Width="84" Height="37.8"
+                             Fill="#C6E8F1" Opacity="0.92" IsHitTestVisible="False"/>
+
+                    <!-- 液面旋涡:三段圆弧,画成正圆再压 0.45 成透视椭圆;搅拌停时整层隐藏 -->
+                    <Canvas x:Name="SwirlLayer" Visibility="Collapsed" IsHitTestVisible="False">
+                        <Canvas.RenderTransform>
+                            <TransformGroup>
+                                <RotateTransform x:Name="SwirlRotate" Angle="0"/>
+                                <ScaleTransform ScaleX="1" ScaleY="0.45"/>
+                                <TranslateTransform X="340" Y="211.3"/>
+                            </TransformGroup>
+                        </Canvas.RenderTransform>
+                        <Path Stroke="White" StrokeThickness="2.2" Fill="{x:Null}" Opacity="0.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                            <Path.Data>
+                                <PathGeometry Figures="M 31.95,11.63 A 34,34 0 0 1 -26.05,21.85
+                                                       M -24.43,8.89 A 26,26 0 0 1 4.51,-25.61
+                                                       M 9.00,-15.59 A 18,18 0 0 1 9.00,15.59"/>
+                            </Path.Data>
+                        </Path>
+                    </Canvas>
+
+                    <!-- 探头在液面之上的一段(空气中) -->
+                    <Rectangle Canvas.Left="339.2" Canvas.Top="192" Width="5.6" Height="19.3"
+                               RadiusX="2.8" RadiusY="2.8" Fill="#9DA1A4" IsHitTestVisible="False"/>
+                    <Rectangle Canvas.Left="340.2" Canvas.Top="192" Width="1.6" Height="19.3"
+                               Fill="#E0E3E5" IsHitTestVisible="False"/>
+                    <!-- 没入液面的一段:半透明,隔着水看 -->
+                    <Canvas Opacity="0.55" IsHitTestVisible="False">
+                        <Rectangle Canvas.Left="339.2" Canvas.Top="211.3" Width="5.6" Height="26.7"
+                                   RadiusX="2.8" RadiusY="2.8" Fill="#9DA1A4"/>
+                        <Rectangle Canvas.Left="340.2" Canvas.Top="211.3" Width="1.6" Height="24" Fill="#E0E3E5"/>
+                    </Canvas>
+
+                    <!-- 玻璃瓶身 -->
+                    <Path x:Name="FlaskGlassBody" Fill="#CFE6EE" Opacity="0.34" IsHitTestVisible="False">
+                        <Path.Data>
+                            <PathGeometry Figures="M 285.7,253.3
+                                                   A 54.3,24.4 0 0 0 394.3,253.3
+                                                   L 394.3,245 L 362,158
+                                                   Q 360.2,152.5 360.2,147
+                                                   L 360.2,118 L 364,113.3
+                                                   A 24,10.8 0 0 0 316,113.3
+                                                   L 319.8,118 L 319.8,147
+                                                   Q 319.8,152.5 318,158
+                                                   L 285.7,245 Z"/>
+                        </Path.Data>
+                    </Path>
+                    <Path x:Name="FlaskGlassOutline" Fill="{x:Null}" Stroke="#93BCCB" StrokeThickness="1.5"
+                          IsHitTestVisible="False">
+                        <Path.Data>
+                            <PathGeometry Figures="M 285.7,253.3
+                                                   A 54.3,24.4 0 0 0 394.3,253.3
+                                                   L 394.3,245 L 362,158
+                                                   Q 360.2,152.5 360.2,147
+                                                   L 360.2,118 L 364,113.3
+                                                   M 316,113.3 L 319.8,118 L 319.8,147
+                                                   Q 319.8,152.5 318,158
+                                                   L 285.7,245"/>
+                        </Path.Data>
+                    </Path>
+                    <!-- 瓶口前半弧 -->
+                    <Path x:Name="FlaskRimFront" Fill="{x:Null}" Stroke="#93BCCB" StrokeThickness="1.5"
+                          IsHitTestVisible="False">
+                        <Path.Data><PathGeometry Figures="M 316,113.3 A 24,10.8 0 0 0 364,113.3"/></Path.Data>
+                    </Path>
+                    <!-- 瓶身高光 -->
+                    <Path x:Name="FlaskHighlight" Stroke="White" StrokeThickness="4" Opacity="0.4"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False">
+                        <Path.Data><PathGeometry Figures="M 306,240 L 325,162"/></Path.Data>
+                    </Path>
+                </Canvas>
+
+                <!-- ═══ 14. 两个金属旋钮(温度 / 转速) ═══ -->
+                <Ellipse Canvas.Left="232.1" Canvas.Top="364.5" Width="64.2" Height="35" Fill="#6B6F72"/>
+                <Ellipse Canvas.Left="232.1" Canvas.Top="356.5" Width="64.2" Height="35"
+                         Fill="#BFC3C6" Stroke="#8A8E91" StrokeThickness="1"/>
+                <Line x:Name="LeftKnobPointer" X1="264.2" Y1="374" X2="272" Y2="360"
+                      Stroke="#4E5254" StrokeThickness="2.2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                <Ellipse Canvas.Left="383.7" Canvas.Top="364.5" Width="64.2" Height="35" Fill="#6B6F72"/>
+                <Ellipse Canvas.Left="383.7" Canvas.Top="356.5" Width="64.2" Height="35"
+                         Fill="#BFC3C6" Stroke="#8A8E91" StrokeThickness="1"/>
+                <Line x:Name="RightKnobPointer" X1="415.8" Y1="374" X2="423.6" Y2="360"
+                      Stroke="#4E5254" StrokeThickness="2.2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            </Canvas>
+
+            <!-- ══════ 交互层:坐标是 0~306 / 0~501 的控件空间,即场景坐标 +(-187, 70) ══════ -->
+
+            <!-- 可拖拽区域:盖住整机,按钮的 ZIndex 更高所以点得到 -->
+            <Rectangle x:Name="DraggableArea"
+                       Canvas.Left="0" Canvas.Top="0" Width="306" Height="501"
+                       Fill="Transparent" Panel.ZIndex="100" Cursor="SizeAll"
+                       MouseDown="OnDraggableAreaMouseDown"
+                       MouseMove="OnDraggableAreaMouseMove"
+                       MouseUp="OnDraggableAreaMouseUp"
+                       MouseLeave="OnDraggableAreaMouseLeave"/>
+
+            <!-- 触控键热区:场景 x 297/326/355、y 365 换算而来 -->
+            <Button x:Name="HeatKeyButton" Canvas.Left="110" Canvas.Top="435" Width="28" Height="18"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Cursor="Hand" Panel.ZIndex="101" Click="OnHeatKeyClick"/>
+            <Button x:Name="StirKeyButton" Canvas.Left="139" Canvas.Top="435" Width="28" Height="18"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Cursor="Hand" Panel.ZIndex="101" Click="OnStirKeyClick"/>
+            <Button x:Name="TimerKeyButton" Canvas.Left="168" Canvas.Top="435" Width="28" Height="18"
+                    Background="Transparent" BorderThickness="0" Opacity="0"
+                    Cursor="Hand" Panel.ZIndex="101" Click="OnTimerKeyClick"/>
+
+            <!-- 通信中遮罩:盖住显示屏(场景 216,314.9) -->
+            <Border x:Name="LoadingOverlay"
+                    Canvas.Left="29" Canvas.Top="384.9" Width="248" Height="28"
+                    Background="#85000000" Visibility="Collapsed" Panel.ZIndex="120">
+                <TextBlock Text="-  -  -  -  -" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontSize="16" FontWeight="Bold" Foreground="#EF9F27" FontFamily="Consolas"/>
+            </Border>
+
+            <!-- 选择边框 -->
+            <Rectangle x:Name="SelectionBorder"
+                       Canvas.Left="1" Canvas.Top="1" Width="304" Height="499"
+                       RadiusX="14" RadiusY="14"
+                       Stroke="#2196F3" StrokeThickness="2" StrokeDashArray="5,3"
+                       Visibility="Collapsed" Panel.ZIndex="200" IsHitTestVisible="False">
+                <Rectangle.Effect>
+                    <DropShadowEffect Color="#2196F3" BlurRadius="5" ShadowDepth="0" Opacity="0.3"/>
+                </Rectangle.Effect>
+            </Rectangle>
+
+        </Canvas>
+    </Viewbox>
+</UserControl>

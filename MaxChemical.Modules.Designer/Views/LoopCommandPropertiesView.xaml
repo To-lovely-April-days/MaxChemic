@@ -62,7 +62,7 @@
 
         <Style x:Key="VarButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="32"/>
-            <Setter Property="Width" Value="58"/>
+            <Setter Property="MinWidth" Value="58"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#616161"/>
             <Setter Property="Background" Value="#F5F5F5"/>
@@ -75,7 +75,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6">
+                                CornerRadius="6" Padding="4,0">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -268,7 +268,7 @@
                                     CornerRadius="4"
                                     Background="White"
                                     Margin="0,0,8,0"
-                                    VerticalAlignment="Center">
+                                    VerticalAlignment="Top">
                                 <Path x:Name="CheckMark"
                                       Data="M 2 8 L 6 12 L 14 4"
                                       Stroke="White" StrokeThickness="2"
@@ -389,7 +389,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Border Width="3" Height="13" CornerRadius="2"
                     Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="执行模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                            <TextBlock x:Name="ExecModeTb" Text="执行模式" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                         </StackPanel>
                         <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
                             <UniformGrid Rows="1">
@@ -425,7 +425,7 @@
                             </UniformGrid>
                         </Border>
                         <!-- 异步模式提示 -->
-                        <TextBlock Margin="0,8,0,0"
+                        <TextBlock Name="AsyncModeTip" Margin="0,8,0,0"
            FontSize="11"
            Foreground="#9E9E9E"
            TextWrapping="Wrap"
@@ -642,13 +642,13 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Border Width="3" Height="13" CornerRadius="2"
                                             Background="#2196F3" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="容差设置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
+                                    <TextBlock Name="TbTolerance" Text="容差设置" FontSize="11" FontWeight="Medium" Foreground="#757575"/>
                                 </StackPanel>
 
                                 <!-- 三段药丸：不启用 / 绝对 / 相对 -->
                                 <Border Background="#F3F4F6" CornerRadius="7" Padding="3">
                                     <UniformGrid Rows="1">
-                                        <RadioButton Content="不启用"
+                                        <RadioButton Name="RbDisable" Content="不启用"
                                                      GroupName="ToleranceModeGroup"
                                                      Style="{StaticResource OpPillStyle}"
                                                      IsChecked="{Binding ElementName=Root,
@@ -656,7 +656,7 @@
                                                          Converter={StaticResource TolModeEqConverter},
                                                          ConverterParameter=None,
                                                          Mode=TwoWay}"/>
-                                        <RadioButton Content="绝对容差"
+                                        <RadioButton Name="RbAbso" Content="绝对容差"
                                                      GroupName="ToleranceModeGroup"
                                                      Style="{StaticResource OpPillStyle}"
                                                      IsChecked="{Binding ElementName=Root,
@@ -664,7 +664,7 @@
                                                          Converter={StaticResource TolModeEqConverter},
                                                          ConverterParameter=Absolute,
                                                          Mode=TwoWay}"/>
-                                        <RadioButton Content="相对容差"
+                                        <RadioButton Name="RbRela" Content="相对容差"
                                                      GroupName="ToleranceModeGroup"
                                                      Style="{StaticResource OpPillStyle}"
                                                      IsChecked="{Binding ElementName=Root,

@@ -28,6 +28,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         private readonly ILogService _logger;
         private FlowExecutionState _state = FlowExecutionState.Idle;
         private CancellationTokenSource _cancellationTokenSource;
+        // 是否由[结束]指令主动结束流程：用于把"停止"区分为"正常结束"而非"被用户停止"
+        private volatile bool _endedByCommand = false;
         private readonly ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
 
         // 新增：用户交互暂停事件
@@ -232,7 +234,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
             DeviceConnectionConfig.CommunicationMode = CommunicationMode.ModbusTcp;
             DeviceConnectionConfig.ModbusTcpSettings = new ModbusTcpConnectionSettings
             {
-                IpAddress = "192.168.2.190",//192.168.2.190
+                IpAddress = "192.168.1.66",//192.168.2.190
                 Port = 502,
                 ConnectTimeout = 3000,
                 ReadWriteTimeout = 1000,
@@ -407,6 +409,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 _executionContext.SetVariable(staticVar.VariableName, staticVar.VariableValue);
             }
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _endedByCommand = false;   // 每次执行开始重置[结束]指令标志
 
             // 清空后台任务列表
             lock (_backgroundTasksLock)
@@ -420,6 +423,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                 // *** 新增：更新实验进度 ***
                 await _experimentDataAdapter.UpdateExperimentProgressAsync(_currentExperimentId, 0, totalNodes);
+                _lastProgressDbWriteUtc = DateTime.UtcNow; // 节流基准随本次执行重置
 
                 _currentProgress = new ExecutionProgress
                 {
@@ -573,8 +577,40 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     EndTime = DateTime.Now
                 };
             }
-            catch (OperationCanceledException) when (State == FlowExecutionState.Stopping)
+            catch (OperationCanceledException) when (State == FlowExecutionState.Stopping || _endedByCommand)
             {
+                // 若停止是由[结束]指令主动触发的，视为流程正常结束（成功），而不是"被用户停止"
+                if (_endedByCommand)
+                {
+                    if (!string.IsNullOrEmpty(_currentExperimentId))
+                    {
+                        await _experimentDataAdapter.CompleteExperimentAsync(_currentExperimentId, true, "流程已按[结束]指令正常结束");
+                    }
+
+                    Task[] endTasks;
+                    lock (_backgroundTasksLock) { endTasks = _backgroundTasks.ToArray(); }
+                    if (endTasks.Length > 0)
+                    {
+                        try { await Task.WhenAll(endTasks).WaitAsync(TimeSpan.FromSeconds(3)); }
+                        catch { /* 忽略后台任务收尾异常 */ }
+                    }
+
+                    _statusService.ResetAllExecutionStatus();
+                    State = FlowExecutionState.Completed;
+                    _logger.LogInformation("流程按[结束]指令正常结束，已执行 {Completed}/{Total} 个节点",
+                        _currentProgress?.CompletedNodes ?? 0, _currentProgress?.TotalNodes ?? 0);
+                    State = FlowExecutionState.Idle;
+
+                    return new FlowExecutionResult
+                    {
+                        IsSuccessful = true,
+                        Duration = DateTime.Now - startTime,
+                        TotalNodesExecuted = _currentProgress?.CompletedNodes ?? 0,
+                        StartTime = startTime,
+                        EndTime = DateTime.Now
+                    };
+                }
+
                 // *** 新增：专门处理停止时的取消 ***
                 if (!string.IsNullOrEmpty(_currentExperimentId))
                 {
@@ -1243,8 +1279,40 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         }
 
         #endregion
+        // ── 实验进度写库节流 ──
+        // 进度只是 completed/total 两个数字,但此前每执行一个节点就 await 一次 MySQL 写入
+        // (循环体内还额外重复一次):循环类流程每拍要等 1~2 趟数据库往返,执行节奏被拖慢,
+        // 用户感知为「监控标签更新慢」。这里统一节流为至多每秒一次;流程结束处的最终写入
+        // (不经本方法)保证落库终值准确。
+        private DateTime _lastProgressDbWriteUtc = DateTime.MinValue;
+
+        private async Task WriteExperimentProgressThrottledAsync(string context)
+        {
+            var progress = _currentProgress;
+            if (progress == null || string.IsNullOrEmpty(_currentExperimentId)) return;
+
+            var now = DateTime.UtcNow;
+            if ((now - _lastProgressDbWriteUtc).TotalMilliseconds < 1000) return;
+            _lastProgressDbWriteUtc = now;
+
+            try
+            {
+                await _experimentDataAdapter.UpdateExperimentProgressAsync(
+                    _currentExperimentId, progress.CompletedNodes, progress.TotalNodes).ConfigureAwait(false);
+                _logger.LogDebug("实验进度已更新({Context}): {ExperimentId} - {Completed}/{Total}",
+                    context, _currentExperimentId, progress.CompletedNodes, progress.TotalNodes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "更新实验进度失败({Context})", context);
+            }
+        }
+
         private async Task ExecuteNodeWithProgressAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
         {
+            // [结束]指令已请求结束流程：跳过后续(含 If/Loop/Parallel 内)节点的调度，让各层循环尽快收敛
+            if (State == FlowExecutionState.Stopping) return;
+
             await ExecuteNodeAsync(node, context, cancellationToken);
 
             var currentProgress = _currentProgress; // 获取本地引用
@@ -1253,24 +1321,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 // 更新进度
                 currentProgress.IncrementCompleted();
 
-                // 更新实验进度到数据库
-                if (!string.IsNullOrEmpty(_currentExperimentId))
-                {
-                    try
-                    {
-                        await _experimentDataAdapter.UpdateExperimentProgressAsync(
-                            _currentExperimentId,
-                            currentProgress.CompletedNodes,
-                            currentProgress.TotalNodes);
-
-                        _logger.LogDebug("实验进度已更新: {ExperimentId} - {Completed}/{Total}",
-                            _currentExperimentId, currentProgress.CompletedNodes, currentProgress.TotalNodes);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "更新实验进度失败");
-                    }
-                }
+                // 更新实验进度到数据库(节流:见 WriteExperimentProgressThrottledAsync 注释)
+                await WriteExperimentProgressThrottledAsync("节点完成").ConfigureAwait(false);
 
                 // 发送进度事件
                 try
@@ -1347,7 +1399,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
 
-                context.ExecutionHistory.Add(new NodeExecutionRecord
+                context.AddExecutionHistory(new NodeExecutionRecord
                 {
                     NodeId = node.NodeId,
                     NodeName = node.DisplayName,
@@ -1376,7 +1428,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 }
 
 
-                context.ExecutionHistory.Add(new NodeExecutionRecord
+                context.AddExecutionHistory(new NodeExecutionRecord
                 {
                     NodeId = node.NodeId,
                     NodeName = node.DisplayName,
@@ -1651,10 +1703,32 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                 case LogicCommandType.SetVariable:
                     return await ExecuteSetVariableCommandAsync(node, context, cancellationToken);
 
+                case LogicCommandType.End:
+                    return await ExecuteEndCommandAsync(node, context, cancellationToken);
+
                 default:
                     _logger.LogWarning("未知的逻辑命令类型: {CommandType}", node.LogicCommand.CommandType);
                     return null;
             }
+        }
+
+        /// <summary>
+        /// 执行[结束]指令：把流程状态置为 Stopping，使顶层 foreach 与嵌套循环停止调度后续节点，
+        /// 从而优雅地结束整个流程（走正常完成路径，标记为"成功完成"，而不是"被取消/被停止"）。
+        /// 关键：这里不取消 CancellationToken，避免抛出 OperationCanceledException 被判定为"被取消"。
+        /// </summary>
+        private async Task<object> ExecuteEndCommandAsync(CommandNode node, FlowExecutionContext context, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("执行[结束]指令，请求结束整个流程: {NodeName}", node.DisplayName);
+
+            _endedByCommand = true;   // 标记为"主动正常结束"，据此把停止判为成功而非"被用户停止"
+            if (State == FlowExecutionState.Running)
+            {
+                State = FlowExecutionState.Stopping;
+            }
+
+            await Task.CompletedTask;
+            return new { Ended = true };
         }
 
         private async Task<object> ExecuteIfCommandAsync(CommandNode ifNode, FlowExecutionContext context, CancellationToken cancellationToken)
@@ -1890,23 +1964,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     _pauseEvent.Wait(cancellationToken);
 
                     await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
-
-                    // *** 新增：每个子节点完成后立即更新实验进度 ***
-                    var currentProgress = _currentProgress;
-                    if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
-                    {
-                        try
-                        {
-                            await _experimentDataAdapter.UpdateExperimentProgressAsync(
-                                _currentExperimentId,
-                                currentProgress.CompletedNodes,
-                                currentProgress.TotalNodes);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "循环中更新实验进度失败");
-                        }
-                    }
+                    // 实验进度已在 ExecuteNodeWithProgressAsync 内节流写库,此处原来的
+                    // 「立即更新」是纯重复的 MySQL 往返,循环越快拖得越狠,已移除
                 }
 
                 // 循环间隔等待（最后一次循环不需要等待）
@@ -1974,16 +2033,13 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         _pauseEvent.Wait(cancellationToken);
                         await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
 
-                        // 立即更新实验进度
+                        // 立即更新实验进度(节流,重复写由节流器吸收)
                         var currentProgress = _currentProgress;
                         if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
                         {
                             try
                             {
-                                await _experimentDataAdapter.UpdateExperimentProgressAsync(
-                                    _currentExperimentId,
-                                    currentProgress.CompletedNodes,
-                                    currentProgress.TotalNodes);
+                                await WriteExperimentProgressThrottledAsync("Do-While循环").ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             {
@@ -2055,14 +2111,8 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                         _pauseEvent.Wait(cancellationToken);
                         await ExecuteNodeWithProgressAsync(childNode, context, cancellationToken);
 
-                        // 立即更新实验进度
-                        if (!string.IsNullOrEmpty(_currentExperimentId))
-                        {
-                            await _experimentDataAdapter.UpdateExperimentProgressAsync(
-                                _currentExperimentId,
-                                _currentProgress.CompletedNodes,
-                                _currentProgress.TotalNodes);
-                        }
+                        // 立即更新实验进度(节流,重复写由节流器吸收)
+                        await WriteExperimentProgressThrottledAsync("While循环").ConfigureAwait(false);
                     }
 
                     iteration++;
@@ -2438,16 +2488,13 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
                                 await ExecuteNodeWithProgressAsync(childNode, context, combinedCts.Token).ConfigureAwait(false);
 
-                                // *** 修改：增加异常处理的实验进度更新 ***
+                                // *** 修改：增加异常处理的实验进度更新(节流,重复写由节流器吸收) ***
                                 var currentProgress = _currentProgress; // 获取本地引用
                                 if (!string.IsNullOrEmpty(_currentExperimentId) && currentProgress != null)
                                 {
                                     try
                                     {
-                                        await _experimentDataAdapter.UpdateExperimentProgressAsync(
-                                            _currentExperimentId,
-                                            currentProgress.CompletedNodes,
-                                            currentProgress.TotalNodes);
+                                        await WriteExperimentProgressThrottledAsync("并行分支").ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     {
@@ -2729,8 +2776,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
 
             _logger.LogInformation(">>> 走原倒计时弹框分支（非模态）");
 
+            // 弹窗标题优先用用户为该等待节点设置的"描述"；未自定义(空或仍为默认占位)时回退到"等待 X 单位"
+            var waitDesc = waitNode.LogicCommand?.Properties?.GetValueOrDefault("Description")?.ToString();
+            string waitDialogInfo = (!string.IsNullOrWhiteSpace(waitDesc) && waitDesc != "等待指定时间")
+                ? waitDesc
+                : $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}";
+
             // *** 开始用户交互，暂停其他分支（UI 非模态，用户仍可操作界面） ***
-            BeginUserInteraction(waitNode, "FixedTimeWait", $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}");
+            BeginUserInteraction(waitNode, "FixedTimeWait", waitDialogInfo);
 
             CountdownDialog countdownDialog = null;
             var countdownDone = new TaskCompletionSource<CountdownResult>();
@@ -2743,7 +2796,7 @@ namespace MaxChemical.Modules.Designer.Services.Execution
                     try
                     {
                         var mainWindow = Application.Current.MainWindow;
-                        countdownDialog = new CountdownDialog(waitTimeSpan, $"等待 {waitTime} {GetTimeUnitDisplay(timeUnit)}")
+                        countdownDialog = new CountdownDialog(waitTimeSpan, waitDialogInfo)
                         {
                             Owner = mainWindow
                         };
@@ -3959,8 +4012,14 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         /// </summary>
         private CommandNode FindExecutedNodeWithOutput(FlowExecutionContext context, string deviceId, string commandName)
         {
-            // 从执行历史中反向查找（最新的优先）
-            var records = context.ExecutionHistory.AsEnumerable().Reverse();
+            // 从执行历史中反向查找（最新的优先）。裁剪会在写入侧移除旧元素,
+            // 这里在同一把锁下拍快照再枚举,避免"枚举时集合被修改"异常
+            List<NodeExecutionRecord> snapshot;
+            lock (context.ExecutionHistory)
+            {
+                snapshot = new List<NodeExecutionRecord>(context.ExecutionHistory);
+            }
+            var records = snapshot.AsEnumerable().Reverse();
             foreach (var record in records)
             {
                 if (!string.IsNullOrEmpty(record.NodeId))

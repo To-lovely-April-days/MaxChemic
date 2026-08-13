@@ -43,6 +43,26 @@ namespace MaxChemical.Core
     }
 
     /// <summary>
+    /// 串口应答的分帧方式。
+    ///
+    /// 加这个枚举的原因:原来 SerialPortTransport 把 Modbus RTU 的分帧规则写死在读取逻辑里
+    /// (先读 3 字节定长度,再读到 targetLen)。但实验室里大量仪器走的是 ASCII 行协议
+    /// (IKA 磁力搅拌/旋蒸、Julabo/Huber 循环器、Tricontinent 注射泵、IDEX 选择阀、
+    ///  Vacuubrand 真空泵、梅特勒天平 MT-SICS ……),应答靠结束符分帧而不是长度字段,
+    /// Modbus 那套推算对它们完全不适用。
+    ///
+    /// 默认值是 ModbusRtu,所以既有驱动不设置这一项时行为一字不变。
+    /// </summary>
+    public enum SerialFraming
+    {
+        /// <summary>Modbus RTU:按功能码推算帧长(默认,保持既有行为)。</summary>
+        ModbusRtu = 0,
+
+        /// <summary>ASCII 行协议:读到 ReplyTerminator 为止。</summary>
+        AsciiLine = 1,
+    }
+
+    /// <summary>
     /// 串口配置 — 给 SerialPortTransport 用的。
     /// </summary>
     public class SerialPortConfig
@@ -54,5 +74,15 @@ namespace MaxChemical.Core
         public string StopBits { get; set; } = "One";
         public int ReadTimeoutMs { get; set; } = 3000;
         public int WriteTimeoutMs { get; set; } = 3000;
+
+        /// <summary>应答分帧方式。不设置时按 Modbus RTU 处理,与改动前一致。</summary>
+        public SerialFraming Framing { get; set; } = SerialFraming.ModbusRtu;
+
+        /// <summary>
+        /// ASCII 行协议的应答结束符,仅当 Framing = AsciiLine 时有意义。
+        /// 各家不一样:IKA/Julabo/Huber/Vacuubrand 是 "\r\n",IDEX 是 "\r",
+        /// Tricontinent DT 协议是 "\x03\r\n"。
+        /// </summary>
+        public string ReplyTerminator { get; set; } = "\r\n";
     }
 }

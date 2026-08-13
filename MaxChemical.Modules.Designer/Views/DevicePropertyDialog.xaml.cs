@@ -464,6 +464,10 @@ namespace MaxChemical.Modules.Designer.Views
 
             if (canvasDevice?.Device != null)
             {
+                // 每次打开都重扫本机串口:USB 转 485 常常是程序起来之后才插上的,
+                // 只在驱动构造时取一次会漏。扫不到口时保留原有下拉项,不清空。
+                DevicePlugins.Devices.SerialPortOptions.RefreshDeviceOptions(canvasDevice.Device);
+
                 LoadDeviceInformation(canvasDevice, displayName);
                 LoadDeviceCommands(canvasDevice.Device);
                 LoadDeviceParameters(canvasDevice.Device);
@@ -928,6 +932,9 @@ namespace MaxChemical.Modules.Designer.Views
                         break;
                     case "PistonPumpControl":
                         control = new PistonPumpControl();
+                        break;
+                    case "JingRuiPumpControl":
+                        control = new JingRuiPumpControl();
                         break;
                     // 后续扩展其他控件:
                     // case "ConicalFlaskControl":

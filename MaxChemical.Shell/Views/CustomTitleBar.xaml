@@ -174,33 +174,23 @@
                         Orientation="Horizontal"
                         VerticalAlignment="Center">
 
-                <!-- 语音助手状态和控制 -->
+                <!-- 小桐智能助手入口(原语音开关按钮直开对话窗,语音链路已停用) -->
                 <StackPanel Orientation="Horizontal">
-                    <!-- 语音助手开关按钮 -->
                     <Button x:Name="VoiceAssistantButton"
-                            Command="{Binding ToggleVoiceAssistantCommand}"
+                            Command="{Binding OpenAgentChatCommand}"
                             Style="{StaticResource VoiceAssistantButtonStyle}"
-                            ToolTip="点击切换语音助手开关（说'你好小桐'唤醒）">
+                            ToolTip="{Binding AgentTip}">
                         <StackPanel Orientation="Horizontal">
-                            <!-- 麦克风图标 (SVG) -->
-                            <Image Width="16" Height="16" 
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,6,0">
-                                <Image.Style>
-                                    <Style TargetType="Image">
-                                        <Setter Property="Source" Value="{StaticResource MicrophoneIcon}"/>
-                                        <Setter Property="Opacity" Value="0.6"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsVoiceAssistantActive}" Value="True">
-                                                <Setter Property="Opacity" Value="1.0"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Image.Style>
-                            </Image>
+                            <TextBlock Text="{Binding Assistant}" FontSize="12" FontWeight="Medium"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource Text.OnPrimaryBrush}"/>
+                        </StackPanel>
+                    </Button>
 
-                            <!-- 状态指示点（呼吸灯效果） -->
-                            <Ellipse Width="8" Height="8" 
+                    <!-- 已停用的语音动画模板(保留占位,防止资源引用断裂) -->
+                    <StackPanel Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8"
                                      Margin="0,0,6,0"
                                      VerticalAlignment="Center">
                                 <Ellipse.Style>
@@ -235,13 +225,13 @@
                             </Ellipse>
 
                             <!-- 状态文字 -->
-                            <TextBlock Text="{Binding VoiceAssistantStatus}" 
+                            <TextBlock Text="{Binding VoiceAssistantStatus}"
                                        FontSize="11"
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0"
                                        Foreground="{StaticResource Text.OnPrimaryBrush}"/>
                         </StackPanel>
-                    </Button>
+                    </StackPanel>
 
                     <!-- 语音助手交互 Popup -->
                     <Popup x:Name="VoiceAssistantPopup"
@@ -411,63 +401,6 @@
                         </Border>
                     </Popup>
 
-                    <!-- 静音/取消静音按钮 -->
-                    <Button Command="{Binding ToggleMuteCommand}"
-                            Width="32" Height="28"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Cursor="Hand"
-                            Margin="0,0,4,0">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" 
-                                                    x:Name="MuteBorder"
-                                                    CornerRadius="3">
-                                                <ContentPresenter HorizontalAlignment="Center" 
-                                                                  VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="MuteBorder" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                        <Button.ToolTip>
-                            <TextBlock>
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="点击静音"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsMuted}" Value="True">
-                                                <Setter Property="Text" Value="点击取消静音"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Button.ToolTip>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="&#xE767;"/>
-                                    <Setter Property="Foreground" Value="{StaticResource Text.OnPrimaryBrush}"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsMuted}" Value="True">
-                                            <Setter Property="Text" Value="&#xE74F;"/>
-                                            <Setter Property="Foreground" Value="#FFAA80"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Button>
                 </StackPanel>
 
                 <!-- 分隔线(深红底上用半透明白) -->

@@ -50,6 +50,9 @@ namespace MaxChemical.Modules.DOE.Services
     {
         DOEBatchStatus BatchState { get; }
         int CurrentRunIndex { get; }
+
+        /// <summary>当前(或最近一次)执行的批次 ID;从未执行过时为空字符串。供小桐等外部查询进度用。</summary>
+        string CurrentBatchId { get; }
         Task StartBatchAsync(string batchId, CancellationToken cancellationToken = default);
         void PauseBatch();
         void ResumeBatch();

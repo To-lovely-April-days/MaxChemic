@@ -4,7 +4,7 @@
         xmlns:prism="http://prismlibrary.com/"
         xmlns:views="clr-namespace:MaxChemical.Modules.GatewayConfig.Views"
         Background="White"
-        Title="网关配置"
+        Title="{Binding TitleTxt}"
         Width="1080" Height="720"
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen">
@@ -130,7 +130,7 @@
                                 <Path Stroke="White" StrokeThickness="1.4" Fill="Transparent"
                       Data="M 1,6 A 5,5 0 1 1 6,11 M 1,6 L 1,2 M 1,6 L 5,6"/>
                             </Canvas>
-                            <TextBlock Text="刷新" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RefreshTxt}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <TextBlock Grid.Column="1" Text="{Binding SummaryText}"
@@ -159,7 +159,7 @@
                         <Border Grid.Row="0" Padding="16,14,16,10"
                                 BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="网关" Foreground="#3F3F3F"
+                                <TextBlock Text="{Binding GatewayTxt}" Foreground="#3F3F3F"
                                            FontSize="12" FontWeight="SemiBold"/>
                                 <Border Background="#EAEAEA" CornerRadius="8"
                                         Padding="6,1" Margin="8,0,0,0">
@@ -204,12 +204,16 @@
                                                     <Border Background="#FEF1F3" CornerRadius="2"
                                                             Padding="6,1" Margin="0,0,4,0">
                                                         <TextBlock FontSize="10" Foreground="#A41626">
-                                                            <Run Text="{Binding Channels.Count, Mode=OneWay}"/><Run Text=" 通道"/>
+                                                            <Run Text="{Binding Channels.Count, Mode=OneWay}"/>
+                                                            <Run Text="{Binding RelativeSource={RelativeSource AncestorType=Window},
+                                                                Path=DataContext.ChannelTxt}"/>
                                                         </TextBlock>
                                                     </Border>
                                                     <Border Background="#E1F5EE" CornerRadius="2" Padding="6,1">
                                                         <TextBlock FontSize="10" Foreground="#0F6E56">
-                                                            <Run Text="{Binding OnlineChannelCount, Mode=OneWay}"/><Run Text=" 在线"/>
+                                                            <Run Text="{Binding OnlineChannelCount, Mode=OneWay}"/>
+                                                            <Run Text="{Binding RelativeSource={RelativeSource AncestorType=Window},
+                                                                Path=DataContext.OnlineTxt}"/>
                                                         </TextBlock>
                                                     </Border>
                                                 </StackPanel>
@@ -246,7 +250,9 @@
                                                             Padding="6,1" Margin="10,0,0,0"
                                                             VerticalAlignment="Center">
                                                         <TextBlock FontSize="10" Foreground="#0F6E56">
-                                                            <Run Text="{Binding OnlineChannelCount, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding Channels.Count, Mode=OneWay}"/><Run Text=" 通道在线"/>
+                                                            <Run Text="{Binding OnlineChannelCount, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding Channels.Count, Mode=OneWay}"/>
+                                                            <Run Text="{Binding RelativeSource={RelativeSource AncestorType=Window},
+                                                                Path=DataContext.ChannelOnline}"/>
                                                         </TextBlock>
                                                     </Border>
                                                 </StackPanel>
@@ -264,8 +270,10 @@
                                                                FontFamily="Consolas" Foreground="#3F3F3F"
                                                                VerticalAlignment="Center"/>
                                                     <Rectangle Width="1" Height="12" Fill="#D4D4D4" Margin="14,0"/>
-                                                    <TextBlock Text="固件" FontSize="11" Foreground="#888780"
-                                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock FontSize="11" Foreground="#888780"
+                                                               VerticalAlignment="Center" Margin="0,0,6,0"
+                                                               Text="{Binding RelativeSource={RelativeSource AncestorType=Window},
+                                                               Path=DataContext.FirmwareTxt}"/>
                                                     <TextBlock Text="{Binding FirmwareVersion}" FontSize="12"
                                                                FontFamily="Consolas" Foreground="#3F3F3F"
                                                                VerticalAlignment="Center"/>
@@ -289,7 +297,8 @@
                                                 <Rectangle Canvas.Left="6.5" Canvas.Top="3" Width="1" Height="1" Fill="#A41626"/>
                                                 <Rectangle Canvas.Left="6.5" Canvas.Top="5.5" Width="1" Height="5" Fill="#A41626"/>
                                             </Canvas>
-                                            <TextBlock Text="点击网关本体上的 DB9 或端子排,进入对应通道参数配置"
+                                            <TextBlock Text="{Binding RelativeSource={RelativeSource AncestorType=Window},
+                                                                Path=DataContext.TipTxt}"
                                                        FontSize="12" Foreground="#5F5F5F"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
@@ -313,7 +322,7 @@
               Background="#8C1A1A1A"
               Visibility="Collapsed">
             <Border Background="White" CornerRadius="12"
-                    Padding="34,28" Width="300"
+                    Padding="34,28" MinWidth="320"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Border.Effect>
                     <DropShadowEffect Color="#000000" Opacity="0.18"
@@ -324,10 +333,10 @@
                     <Canvas Width="44" Height="44" HorizontalAlignment="Center" Margin="0,0,0,20">
                         <!-- 底环:整圈浅灰 -->
                         <Ellipse Width="40.5" Height="40.5" Canvas.Left="1.75" Canvas.Top="1.75"
-             Stroke="#EFEFEF" StrokeThickness="3.5"/>
+                                 Stroke="#EFEFEF" StrokeThickness="3.5"/>
                         <!-- 红色圆弧:1/4 圈,绕圆心 (22,22) 自转 -->
                         <Path Stroke="#A41626" StrokeThickness="3.5" StrokeStartLineCap="Round"
-          Data="M 22,1.75 A 20.25,20.25 0 0 1 42.25,22">
+                              Data="M 22,1.75 A 20.25,20.25 0 0 1 42.25,22">
                             <Path.RenderTransform>
                                 <RotateTransform x:Name="SpinnerRotate" CenterX="22" CenterY="22"/>
                             </Path.RenderTransform>
@@ -340,7 +349,7 @@
                                FontSize="14" FontWeight="Medium"
                                Foreground="#1A1A1A" Margin="0,0,0,6"/>
                     <TextBlock x:Name="LoadingSubText"
-                               Text="请耐心等待,最长约需 30 秒"
+                               Text="{Binding WaitTxt}"
                                HorizontalAlignment="Center"
                                FontSize="11" Foreground="#999999"/>
                 </StackPanel>

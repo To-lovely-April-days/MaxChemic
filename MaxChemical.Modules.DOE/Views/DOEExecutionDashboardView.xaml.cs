@@ -105,16 +105,18 @@ namespace MaxChemical.Modules.DOE.Views
         /// </summary>
         private static Style CreateHeaderStyle(HorizontalAlignment hAlign)
         {
+            // 靛蓝浅底 + 靛蓝深字：与主表正文(近黑 #1A1F36)区分但同色系协调，确保表头清晰可见
             var style = new Style(typeof(DataGridColumnHeader));
             style.Setters.Add(new Setter(DataGridColumnHeader.BackgroundProperty,
-                new BrushConverter().ConvertFromString("#FAFBFC") as Brush));
+                new BrushConverter().ConvertFromString("#E8EAF6") as Brush));
             style.Setters.Add(new Setter(DataGridColumnHeader.ForegroundProperty,
-                new BrushConverter().ConvertFromString("#9CA3AF") as Brush));
+                new BrushConverter().ConvertFromString("#2D3A8C") as Brush));
             style.Setters.Add(new Setter(DataGridColumnHeader.FontSizeProperty, 11.0));
             style.Setters.Add(new Setter(DataGridColumnHeader.FontWeightProperty, FontWeights.SemiBold));
             style.Setters.Add(new Setter(DataGridColumnHeader.PaddingProperty, new Thickness(12, 0, 12, 0)));
+            style.Setters.Add(new Setter(DataGridColumnHeader.VerticalContentAlignmentProperty, VerticalAlignment.Center));
             style.Setters.Add(new Setter(DataGridColumnHeader.BorderBrushProperty,
-                new BrushConverter().ConvertFromString("#E8EAED") as Brush));
+                new BrushConverter().ConvertFromString("#C5CAE9") as Brush));
             style.Setters.Add(new Setter(DataGridColumnHeader.BorderThicknessProperty, new Thickness(0, 0, 0, 1)));
             style.Setters.Add(new Setter(DataGridColumnHeader.HorizontalContentAlignmentProperty, hAlign));
             style.Setters.Add(new Setter(DataGridColumnHeader.SeparatorVisibilityProperty, Visibility.Collapsed));

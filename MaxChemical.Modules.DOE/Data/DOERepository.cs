@@ -730,20 +730,30 @@ namespace MaxChemical.Modules.DOE.Data
         }
 
         /// <summary>
-        /// 删除批次及所有子表数据
+        /// 删除批次及所有子表数据。子表对批次无级联外键,且入库回滚路径也走这里——
+        /// 一个事务里连子带批一起删,失败整体回滚,不留删了一半的批次。
         /// </summary>
         public async Task DeleteBatchWithChildrenAsync(string batchId)
         {
             using var conn = CreateConnection();
             await conn.OpenAsync();
-
-            // 按依赖顺序删除子表
-            var tables = new[] { "doe_stop_conditions", "doe_runs", "doe_responses", "doe_factors", "doe_batches" };
-            foreach (var table in tables)
+            using var tx = await conn.BeginTransactionAsync();
+            try
             {
-                using var cmd = new MySqlCommand($"DELETE FROM {table} WHERE batch_id = @batchId", conn);
-                cmd.Parameters.AddWithValue("@batchId", batchId);
-                await cmd.ExecuteNonQueryAsync();
+                // 按依赖顺序删除子表
+                var tables = new[] { "doe_stop_conditions", "doe_runs", "doe_responses", "doe_factors", "doe_batches" };
+                foreach (var table in tables)
+                {
+                    using var cmd = new MySqlCommand($"DELETE FROM {table} WHERE batch_id = @batchId", conn, tx);
+                    cmd.Parameters.AddWithValue("@batchId", batchId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                await tx.CommitAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
             }
 
             _logger.LogInformation("删除 DOE 批次（含子表）: {BatchId}", batchId);

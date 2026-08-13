@@ -23,6 +23,24 @@ namespace MaxChemical.Modules.Designer.Services.Execution
         /// </summary>
         public List<NodeExecutionRecord> ExecutionHistory { get; } = new List<NodeExecutionRecord>();
 
+        /// <summary>执行历史保留上限:循环节点会几小时不停执行,不封顶会无界增长吃内存。</summary>
+        private const int MaxExecutionHistory = 5000;
+
+        /// <summary>
+        /// 追加一条执行历史并保持有界:超过上限时丢弃最旧的记录。
+        /// 消费方(查最近一次节点输出)只反向取最近记录,裁掉旧的安全。
+        /// </summary>
+        public void AddExecutionHistory(NodeExecutionRecord record)
+        {
+            lock (ExecutionHistory)
+            {
+                ExecutionHistory.Add(record);
+                int overflow = ExecutionHistory.Count - MaxExecutionHistory;
+                if (overflow > 0)
+                    ExecutionHistory.RemoveRange(0, overflow);
+            }
+        }
+
         /// <summary>
         /// 并行执行任务跟踪
         /// </summary>

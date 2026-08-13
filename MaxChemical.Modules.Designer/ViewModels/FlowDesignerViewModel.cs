@@ -172,6 +172,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
         /// <summary>定时器：每秒刷新当前时间线位置</summary>
         private DispatcherTimer _timelineRefreshTimer;
 
+        /// <summary>
+        /// 时间轴当前有效「像素/秒」。短程等于基准 52;运行时间拉长后自动下调,
+        /// 使总宽度不超过 MaxTimelineWidth——否则画布随时间无界变宽,渲染线程分配的
+        /// 合成内存最终会在 MilComposition_SyncFlush 处 OOM(开久了就崩的根因)。
+        /// </summary>
+        private double _pxPerSec = SwimlaneRow.PixelsPerSecond;
+
+        /// <summary>时间轴画布宽度上限(像素):超过时自动压缩像素/秒,整条时间轴始终可见且有界。</summary>
+        private const double MaxTimelineWidth = 20000;
+
         #endregion
 
 
@@ -431,7 +441,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         if (node?.ExecutionStartTime != null)
                         {
                             var startOffset = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
-                            row.BarLeft = startOffset * SwimlaneRow.PixelsPerSecond;
+                            row.BarLeft = startOffset * _pxPerSec;
                             row.BarWidth = 6;
                             row.StartTimeText = node.ExecutionStartTime.Value.ToString("HH:mm:ss");
                             row.EndTimeText = "";
@@ -448,8 +458,8 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         {
                             var startOff = (cNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
                             var dur = (cNode.ExecutionEndTime.Value - cNode.ExecutionStartTime.Value).TotalSeconds;
-                            row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
-                            row.BarWidth = Math.Max(60, dur * SwimlaneRow.PixelsPerSecond);
+                            row.BarLeft = startOff * _pxPerSec;
+                            row.BarWidth = Math.Max(60, dur * _pxPerSec);
                             row.StartTimeText = cNode.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
                             row.EndTimeText = cNode.ExecutionEndTime.Value.ToString("HH:mm:ss.fff");
                             row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
@@ -467,12 +477,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         if (fNode?.ExecutionStartTime != null)
                         {
                             var startOff = (fNode.ExecutionStartTime.Value - FlowStartTime!.Value).TotalSeconds;
-                            row.BarLeft = startOff * SwimlaneRow.PixelsPerSecond;
+                            row.BarLeft = startOff * _pxPerSec;
                             row.StartTimeText = fNode.ExecutionStartTime.Value.ToString("HH:mm:ss.fff");
                             if (fNode.ExecutionEndTime != null)
                             {
                                 var dur = (fNode.ExecutionEndTime.Value - fNode.ExecutionStartTime.Value).TotalSeconds;
-                                row.BarWidth = Math.Max(60, dur * SwimlaneRow.PixelsPerSecond);
+                                row.BarWidth = Math.Max(60, dur * _pxPerSec);
                                 row.EndTimeText = fNode.ExecutionEndTime.Value.ToString("HH:mm:ss.fff");
                                 row.DurationText = dur < 1 ? $"{dur * 1000:F0}ms" : $"{dur:F1}s";
                                 row.TimeRangeText = $"{row.StartTimeText}  →  {row.EndTimeText}  ·  {row.DurationText}";
@@ -518,7 +528,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             _timelineRefreshTimer?.Stop();
             IsCurrentTimeLineVisible = false;
             TimelineTicks.Clear();               // ← 加这行
-          
+            _pxPerSec = SwimlaneRow.PixelsPerSecond;   // 下次运行从基准比例重新开始
         }
         private void RefreshTimelineTicks()
         {
@@ -526,15 +536,16 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
             TimelineTicks.Clear();
 
-            // 计算总时长
+            // 总时长直接由节点时间与当前时刻推导(与像素无关)——不能再拿 BarLeft/BarWidth 反算,
+            // 否则自动缩放改了像素比例后会自我参照出错
             double maxEndSec = 30; // 最少显示30秒
             foreach (var row in SwimlaneRows)
             {
-                if (row.BarLeft + row.BarWidth > 0)
-                {
-                    double endSec = (row.BarLeft + row.BarWidth) / SwimlaneRow.PixelsPerSecond;
-                    maxEndSec = Math.Max(maxEndSec, endSec);
-                }
+                var node = CommandNodes.FirstOrDefault(n => n.NodeId == row.NodeId);
+                if (node?.ExecutionStartTime == null) continue;
+                var endT = node.ExecutionEndTime ?? DateTime.Now;
+                double endSec = (endT - FlowStartTime.Value).TotalSeconds;
+                maxEndSec = Math.Max(maxEndSec, endSec);
             }
 
             // 当前时间偏移
@@ -544,6 +555,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
             // 自动选择刻度间隔
             double tickInterval = ChooseTickInterval(maxEndSec);
 
+            // 自动缩放:像素/秒随总时长下调,使总宽度不超过上限;短程仍是基准 52(与旧行为一致)。
+            double span = maxEndSec + tickInterval;
+            double newScale = Math.Min(SwimlaneRow.PixelsPerSecond, MaxTimelineWidth / Math.Max(span, 1));
+            bool scaleChanged = Math.Abs(newScale - _pxPerSec) > 1e-6;
+            _pxPerSec = newScale;
+
             for (double t = 0; t <= maxEndSec + tickInterval; t += tickInterval)
             {
                 var absTime = FlowStartTime.Value.AddSeconds(t);
@@ -551,7 +568,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
 
                 TimelineTicks.Add(new TimelineTick
                 {
-                    X = t * SwimlaneRow.PixelsPerSecond,
+                    X = t * _pxPerSec,
                     AbsoluteTimeText = absTime.ToString("HH:mm:ss"),
                     RelativeTimeText = relSpan.TotalMinutes < 1
                         ? $"{relSpan.TotalSeconds:F0}s"
@@ -559,8 +576,43 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 });
             }
 
-            // 更新时间轴总宽度
-            TimelineCanvasWidth = Math.Max(600, (maxEndSec + tickInterval) * SwimlaneRow.PixelsPerSecond);
+            // 更新时间轴总宽度(上限内)
+            TimelineCanvasWidth = Math.Max(600, span * _pxPerSec);
+
+            // 缩放变了:已画好的条块是按旧比例算的,全部按节点时间重排,当前时间线同步
+            if (scaleChanged)
+            {
+                RelayoutAllBars();
+                CurrentTimeLineX = nowOffsetSec * _pxPerSec;
+            }
+        }
+
+        /// <summary>
+        /// 按当前像素/秒比例,依据节点执行时间重算所有泳道条块的位置与宽度。
+        /// 自动缩放调整比例后调用,让历史条块与新比例一致(否则旧条块仍是放大比例、会溢出画布)。
+        /// </summary>
+        private void RelayoutAllBars()
+        {
+            if (FlowStartTime == null) return;
+            foreach (var row in SwimlaneRows)
+            {
+                var node = CommandNodes.FirstOrDefault(n => n.NodeId == row.NodeId);
+                if (node?.ExecutionStartTime == null) continue;
+
+                var startOff = (node.ExecutionStartTime.Value - FlowStartTime.Value).TotalSeconds;
+                row.BarLeft = startOff * _pxPerSec;
+
+                if (row.IsExecuting)
+                {
+                    var elapsed = (DateTime.Now - node.ExecutionStartTime.Value).TotalSeconds;
+                    row.BarWidth = Math.Max(6, elapsed * _pxPerSec);
+                }
+                else if (node.ExecutionEndTime != null)
+                {
+                    var dur = (node.ExecutionEndTime.Value - node.ExecutionStartTime.Value).TotalSeconds;
+                    row.BarWidth = Math.Max(60, dur * _pxPerSec);
+                }
+            }
         }
         /// <summary>
         /// 根据总时长自动选择合适的刻度间隔
@@ -588,7 +640,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
             }
 
             var nowOffset = (DateTime.Now - FlowStartTime.Value).TotalSeconds;
-            CurrentTimeLineX = nowOffset * SwimlaneRow.PixelsPerSecond;
+            CurrentTimeLineX = nowOffset * _pxPerSec;
             CurrentTimeText = DateTime.Now.ToString("HH:mm:ss");
             IsCurrentTimeLineVisible = true;
 
@@ -601,12 +653,12 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     if (node?.ExecutionStartTime != null)
                     {
                         var elapsed = (DateTime.Now - node.ExecutionStartTime.Value).TotalSeconds;
-                        row.BarWidth = Math.Max(6, elapsed * SwimlaneRow.PixelsPerSecond);
+                        row.BarWidth = Math.Max(6, elapsed * _pxPerSec);
                     }
                 }
             }
 
-            // 检查是否需要扩展时间轴
+            // 检查是否需要扩展时间轴(或触发自动缩放:当前线逼近画布右缘时重算比例)
             if (CurrentTimeLineX > TimelineCanvasWidth - 100)
             {
                 RefreshTimelineTicks();
@@ -1647,6 +1699,20 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 {
                     RestoreConnections(flowDocument.Connections);
                     _eventAggregator?.GetEvent<FlowLoadedEvent>()?.Publish(flowDocument);
+
+                    //  文件里存的 X/Y 不一定可信 —— 存盘时的对齐要么本来就是歪的
+                    //  (逻辑命令那条路以前把 Y 夹了 0),要么换了机器后 DPI/字体不同、
+                    //  并行和循环节点展开后的真实高度跟存盘时不一样。
+                    //  这里在布局跑完之后统一按当前真实高度重排一次,让所有节点的主卡片
+                    //  重新落回启动节点的中心线上。
+                    //  优先级必须比 Loaded 低:Loaded 阶段控件还没测量,ActualHeight 还是 0,
+                    //  这时候重排等于拿估算值算,白算一遍。
+                    System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        RearrangeNodes();
+                        RebuildAllConnections();
+                        UpdateCanvasSize();
+                    }), System.Windows.Threading.DispatcherPriority.ContextIdle);
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
             catch (Exception ex)
@@ -1721,6 +1787,11 @@ namespace MaxChemical.Modules.Designer.ViewModels
                     {
                         commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
                         SubscribeToNodeControlEvents(commandNode, plugin);
+                        //  和新增节点那两条路保持一致。
+                        //  SubscribeToNodeControlEvents 订阅的是"加分支/删分支"这类业务事件,
+                        //  不含尺寸变化后的重新对齐 —— 漏了它,打开已存流程时并行/循环节点
+                        //  的 Y 就永远停在文件里存的旧值上,和启动节点对不齐。
+                        AttachAutoCenterOnSizeChanged(commandNode);
                     }
                 }
             }
@@ -2828,34 +2899,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (plugin != null)
                 {
                     commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
-                    var capturedNode = commandNode;
-                    commandNode.NodeControl.SizeChanged += (s, e) =>
-                    {
-                        if (!e.HeightChanged && !e.WidthChanged) return;
-                        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            double startNodeCenterY = StartNodeY + 32.0;
-                            double newH = capturedNode.NodeControl.ActualHeight;
-                            if (newH <= 0) return;
-
-                            //  用正确的方式计算 Y
-                            double correctY = CalculateNodeCorrectY(capturedNode, startNodeCenterY);
-
-                            if (Math.Abs(capturedNode.Y - correctY) > 1.0)
-                            {
-                                capturedNode.Y = correctY;
-                            }
-
-                            // 重排后续节点
-                            int idx = CommandNodes.IndexOf(capturedNode);
-                            if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
-
-                            //  确保所有节点可见（如果有负值Y就整体下移）
-                            EnsureAllNodesVisible();
-
-                            RebuildAllConnections();
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    };
+                    AttachAutoCenterOnSizeChanged(commandNode);
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                     //commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
@@ -2949,37 +2993,7 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (plugin != null)
                 {
                     commandNode.NodeControl = plugin.CreateNodeControl(commandNode);
-                    var capturedNode = commandNode;
-                    commandNode.NodeControl.SizeChanged += (s, e) =>
-                    {
-                        if (!e.HeightChanged && !e.WidthChanged) return;
-                        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            double startNodeCenterY = StartNodeY + 32.0;
-                            double newH = capturedNode.NodeControl.ActualHeight;
-                            if (newH <= 0) return;
-
-                            double correctY;
-                            //  修复：IF 节点用 CardCenterOffsetY 对齐主卡片到中心线，允许负值
-                            if (capturedNode.IsIfNode && capturedNode.NodeControl is Views.IfNodeControlView ifView)
-                            {
-                                correctY = startNodeCenterY - ifView.CardCenterOffsetY;
-                            }
-                            else
-                            {
-                                correctY = startNodeCenterY - newH / 2.0;
-                                correctY = Math.Max(0, correctY);
-                            }
-
-                            if (Math.Abs(capturedNode.Y - correctY) > 1.0)
-                            {
-                                capturedNode.Y = correctY;
-                            }
-                            int idx = CommandNodes.IndexOf(capturedNode);
-                            if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
-                            RebuildAllConnections();
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    };
+                    AttachAutoCenterOnSizeChanged(commandNode);
                     var estimatedSize = NodeSizeEstimator.EstimateLoopNodeSize(commandNode);
                     //commandNode.NodeControl.Width = estimatedSize.Width;
                     commandNode.NodeControl.MinWidth = estimatedSize.Width;
@@ -3117,6 +3131,9 @@ namespace MaxChemical.Modules.Designer.ViewModels
                         break;
                     case Views.SetVariableNodeControlView setVarControl:
                         SubscribeToSetVariableNodeEvents(setVarControl, commandNode);
+                        break;
+                    case Views.EndNodeControlView endControl:
+                        SubscribeToEndNodeEvents(endControl, commandNode);
                         break;
                 }
             }
@@ -3273,6 +3290,24 @@ namespace MaxChemical.Modules.Designer.ViewModels
                 if (e.OriginalSource is CommandNode clickedNode)
                 {
                     _logger.LogDebug("设置变量节点被点击: {NodeName}", clickedNode.DisplayName);
+                    HandleNodeClick(clickedNode);
+                }
+            }));
+        }
+
+        private void SubscribeToEndNodeEvents(Views.EndNodeControlView endControl, CommandNode commandNode)
+        {
+            endControl.NodeDeleteRequested += (s, nodeToDelete) =>
+            {
+                _logger.LogDebug("收到结束节点删除请求: {NodeName}", nodeToDelete.DisplayName);
+                _nodeManagementService.HandleNodeDeleteRequest(nodeToDelete, this);
+            };
+
+            endControl.AddHandler(Views.EndNodeControlView.NodeClickEvent, new RoutedEventHandler((s, e) =>
+            {
+                if (e.OriginalSource is CommandNode clickedNode)
+                {
+                    _logger.LogDebug("结束节点被点击: {NodeName}", clickedNode.DisplayName);
                     HandleNodeClick(clickedNode);
                 }
             }));
@@ -4336,6 +4371,55 @@ namespace MaxChemical.Modules.Designer.ViewModels
         }
         #endregion
 
+
+        /// <summary>
+        /// 给节点控件挂上"高度变了就重新对齐到启动节点中心线"的回调。
+        ///
+        /// 为什么要抽成一个方法:这段逻辑原来在两个新增节点的地方各抄了一遍,
+        /// 两份抄歪了 —— 逻辑命令那份多了一句 correctY = Math.Max(0, correctY),
+        /// 把本该是负数的 Y 夹成 0。并行/循环展开分支后有七八百像素高,主卡片在节点竖直中间,
+        /// 要让卡片落在启动节点中心线上,节点顶部本来就得是负的;夹成 0 之后整块往下掉半个节点高,
+        /// 于是"流程启动在左上、并行卡片在右下"。正确做法是让 Y 算成负数,
+        /// 再由 EnsureAllNodesVisible() 把 StartNodeY 整体下移、所有节点重算 ——
+        /// 相对关系不变,整张图一起挪进可视区。
+        ///
+        /// 第三处更要命:从文件恢复节点那条路**根本没挂这个回调**。
+        /// 于是打开一个存好的流程时,节点 Y 完全等于文件里存的旧值,
+        /// 控件渲染完真实高度出来了也没人重算 —— 存的时候歪的,打开还是歪的。
+        /// </summary>
+        private void AttachAutoCenterOnSizeChanged(CommandNode node)
+        {
+            if (node?.NodeControl == null) return;
+
+            var capturedNode = node;
+            capturedNode.NodeControl.SizeChanged += (s, e) =>
+            {
+                if (!e.HeightChanged && !e.WidthChanged) return;
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (capturedNode.NodeControl == null) return;
+                    if (capturedNode.NodeControl.ActualHeight <= 0) return;
+
+                    double startNodeCenterY = StartNodeY + 32.0;
+                    double correctY = CalculateNodeCorrectY(capturedNode, startNodeCenterY);
+
+                    if (Math.Abs(capturedNode.Y - correctY) > 1.0)
+                    {
+                        capturedNode.Y = correctY;
+                    }
+
+                    // 重排后续节点
+                    int idx = CommandNodes.IndexOf(capturedNode);
+                    if (idx >= 0) RearrangeNodesFromIndex(idx + 1);
+
+                    //  RearrangeNodesFromIndex 里明确写了"这里不调用,调用方会在之后调用"
+                    //  —— 负的 Y 就是靠这一步整体下移兜底的,漏了它就只能夹 0,越夹越歪。
+                    EnsureAllNodesVisible();
+
+                    RebuildAllConnections();
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            };
+        }
 
         /// <summary>
         /// 计算节点的正确 Y 坐标（基于当前 StartNodeY）

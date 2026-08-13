@@ -18,6 +18,9 @@ public class DesignerModule : IModule
 
         // 启动「上云」推送中枢(实时监控 / DOE 联动 / 远程填结果)。单例惰性创建,这里 Resolve 一次以开始订阅事件。
         containerProvider.Resolve<CloudPushService>();
+
+        // 启动驱动自动采集汇聚服务(设备连上即进内存、流程运行即节流落库)。
+        containerProvider.Resolve<MaxChemical.Modules.Designer.Services.AutoCollectService>();
     }
 
     public void RegisterTypes(IContainerRegistry containerRegistry)
@@ -38,5 +41,8 @@ public class DesignerModule : IModule
 
         // 上云推送中枢(单例)
         containerRegistry.RegisterSingleton<CloudPushService>();
+
+        // 驱动自动采集汇聚中枢(单例)
+        containerRegistry.RegisterSingleton<MaxChemical.Modules.Designer.Services.AutoCollectService>();
     }
 }

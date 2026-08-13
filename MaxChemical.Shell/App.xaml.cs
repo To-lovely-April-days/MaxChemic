@@ -44,6 +44,13 @@ public partial class App : PrismApplication
         _logger = MaxChemical.Logging.LogManager.GetLogger<App>();
         _logger.LogInformation("MaxChemical 应用程序启动");
 
+        // WPF 绑定诊断:换成「已知噪音过滤」监听器——只吞掉系统主题样式在容器回收时
+        // 必然产生的 FindAncestor 报错(见 BindingNoiseFilterListener 注释),其余绑定错误照常输出
+        PresentationTraceSources.Refresh();
+        PresentationTraceSources.DataBindingSource.Listeners.Clear();
+        PresentationTraceSources.DataBindingSource.Listeners.Add(
+            new MaxChemical.Shell.Services.BindingNoiseFilterListener());
+
         // 创建和配置Host
         CreateHost();
 
@@ -119,6 +126,8 @@ public partial class App : PrismApplication
         //     // ========== DOE 解耦接口 ==========
         containerRegistry.RegisterSingleton<IFlowExecutionService, FlowExecutionAdapter>();
         containerRegistry.RegisterSingleton<IFlowParameterProvider, FlowParameterAdapter>();
+        // 等待节点枚举:动态稳态等待挑选保温节点用;适配器无状态,独立实例无副作用
+        containerRegistry.RegisterSingleton<IFlowWaitNodeProvider, FlowParameterAdapter>();
         // ========== Prism日志服务 ==========
         containerRegistry.RegisterSingleton<ILogService>(() => MaxChemical.Logging.LogManager.GetLogger("PrismServices"));
         // 网关配置 — 打开主窗口的服务,必须在 Shell 这层注册
@@ -139,6 +148,14 @@ public partial class App : PrismApplication
                 _logger?.LogError(ex, "从 Host 获取 IConfiguration 失败");
             }
         }
+
+        // ==========  小桐 Agent(DeepSeek 工具调用) ==========
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.DeepSeekClient>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.XiaoTongAgent>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.AgentBootstrapper>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.AgentChatWindowService>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.XiaoTongSentinel>();
+        containerRegistry.RegisterSingleton<ViewModels.AgentChatViewModel>();
 
         // ==========  注册语音助手服务 ==========
         containerRegistry.RegisterSingleton<IVoiceAssistantService, PiperVoiceAssistantService>();
@@ -182,6 +199,15 @@ public partial class App : PrismApplication
     {
         var logger = MaxChemical.Logging.LogManager.GetLogger<App>();
         logger.LogInformation("MaxChemical 应用程序退出");
+        // ↓ 新增
+        try
+        {
+            Container.Resolve<MaxChemical.Shell.Services.Agent.AgentBootstrapper>().ShutdownMcp();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning($"停止外部 MCP 接口时出错(不影响退出): {ex.Message}");
+        }
 
         // 停止Host
         _host?.StopAsync().Wait(TimeSpan.FromSeconds(5));
@@ -251,6 +277,9 @@ public partial class App : PrismApplication
 
             // 启动云链路安全监护(订阅链路健康，断线自动 HOLD 流程并告警)
             Container.Resolve<RemoteLinkSafetyMonitor>();
+
+            // 装配小桐 Agent(注册技能表 + DeepSeek 配置;模块服务此时已就绪)
+            Container.Resolve<MaxChemical.Shell.Services.Agent.AgentBootstrapper>().Initialize();
 
             _logger?.LogInformation("应用程序初始化完成");
 

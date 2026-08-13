@@ -13,6 +13,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
 {
     public partial class ChannelConfigDialog : Window
     {
+        private readonly ILocalizationService _localization;
         private readonly ChannelConfigViewModel _vm;
         private LoadingOverlayWindow _loadingOverlay;
 
@@ -26,6 +27,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
             var deviceManager = c.Resolve<IDeviceManager>();
             var bindingRepo = c.Resolve<IGatewayBindingRepository>();
             var transportFactory = c.Resolve<IDeviceTransportFactory>();
+            _localization = c.Resolve<ILocalizationService>();
 
             _vm = new ChannelConfigViewModel(
                 gateway, channel,
@@ -48,7 +50,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
             };
             _vm.PollAttemptChanged += attempt =>
             {
-                if (_loadingOverlay != null) _loadingOverlay.UpdateMessage($"设备重启中… 第 {attempt} 次探测");
+                if (_loadingOverlay != null) _loadingOverlay.UpdateMessage(string.Format(_localization.GetString("Gateway_Starting", "设备重启中… 第 {0} 次探测"),attempt));
             };
         }
 
@@ -63,7 +65,7 @@ namespace MaxChemical.Modules.GatewayConfig.Views.Dialogs
         private void ShowLoading()
         {
             _loadingOverlay = new LoadingOverlayWindow(this);
-            _loadingOverlay.Show("设备正在重启…");
+            _loadingOverlay.Show(_localization.GetString("Gateway_Start", "设备正在重启..."));
         }
 
         private void HideLoading()
