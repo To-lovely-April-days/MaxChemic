@@ -114,6 +114,7 @@
 	  <None Remove="Resources\Icon\Flowmeter.png" />
 	  <None Remove="Resources\Icon\HeatExchanger.png" />
 	  <None Remove="Resources\Icon\Historicalrecords.png" />
+	  <None Remove="Resources\Icon\htlab-logo.png" />
 	  <None Remove="Resources\Icon\info.png" />
 	  <None Remove="Resources\Icon\InlineDetection.png" />
 	  <None Remove="Resources\Icon\Language.png" />
@@ -375,6 +376,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\Historicalrecords.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\Icon\htlab-logo.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\info.png">

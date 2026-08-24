@@ -1,0 +1,219 @@
+<Window x:Class="MaxChemical.Shell.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MaxChemical"
+        Width="640" Height="420"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <!--
+        窗口比闪屏本体大一圈(640×420 vs 540×320),多出来的边距留给投影。
+        AllowsTransparency 下投影必须画在窗口内部,否则会被硬裁掉。
+    -->
+
+    <Window.Resources>
+        <!-- ══ 配色 —— 与 HTML 设计稿逐值对应 ═══════════════════════ -->
+        <SolidColorBrush x:Key="Paper"    Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="Ink"      Color="#FF0F1214"/>
+        <SolidColorBrush x:Key="Ink3"     Color="#FFA2A9AD"/>
+        <SolidColorBrush x:Key="Rule"     Color="#FFE4E7E9"/>
+        <SolidColorBrush x:Key="Brand"    Color="#FFA41626"/>
+        <SolidColorBrush x:Key="PlateFg"  Color="#FFE9ECED"/>
+        <SolidColorBrush x:Key="PlateFg2" Color="#FF7B8286"/>
+        <SolidColorBrush x:Key="Fail"     Color="#FFC2410C"/>
+
+        <!--
+            字体。设计稿用的 Barlow Semi Condensed 与 IBM Plex Mono 都不是
+            Windows 自带,这里退到形制最接近的系统字体:
+              Bahnschrift SemiCondensed —— DIN 血统的窄体,Win10 1709+ 自带
+              Consolas                  —— 等宽,所有 Windows 都有
+            想 100% 还原设计稿,把两个 ttf 放进 Fonts\ 并按文件末尾的说明改这两行。
+        -->
+        <FontFamily x:Key="DisplayFont">Bahnschrift SemiCondensed, Bahnschrift, Segoe UI Semilight, Segoe UI</FontFamily>
+        <FontFamily x:Key="MonoFont">Consolas, Cascadia Mono, Courier New</FontFamily>
+        <FontFamily x:Key="CjkFont">Microsoft YaHei UI, Microsoft YaHei, Segoe UI</FontFamily>
+
+        <!-- 设计稿里那条 cubic-bezier(.16,1,.3,1),WPF 没有直接等价物,
+             用 CubicEase EaseOut 逼近:同样是快起慢收,收尾更沉。 -->
+        <CubicEase x:Key="EaseOut" EasingMode="EaseOut"/>
+    </Window.Resources>
+
+    <!-- 外层只负责居中和留白 -->
+    <Grid>
+        <Border x:Name="Card"
+                Width="540" Height="320"
+                Background="{StaticResource Paper}"
+                CornerRadius="2"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                RenderTransformOrigin="0.5,0.5"
+                Opacity="0">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="CardScale" ScaleX="0.985" ScaleY="0.985"/>
+            </Border.RenderTransform>
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="60" ShadowDepth="14" Direction="270"
+                                  Color="#000000" Opacity="0.55"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>      <!-- 标识区 -->
+                    <RowDefinition Height="Auto"/>   <!-- 百分比 -->
+                    <RowDefinition Height="2"/>      <!-- 基准线 = 进度条 -->
+                    <RowDefinition Height="52"/>     <!-- 状态行 -->
+                    <RowDefinition Height="42"/>     <!-- 铭牌 -->
+                </Grid.RowDefinitions>
+
+                <!-- ══ 标识区 ═══════════════════════════════════════ -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="34,0,34,0">
+
+                    <!--
+                        公司标识。放一份 240×134 左右的透明底 PNG 到
+                        Assets\htlab-logo.png,Build Action 设 Resource。
+                        文件缺失时这里自动隐藏(见 .cs 的 LoadLogo),不会崩。
+                    -->
+                    <Image x:Name="Logo" Width="46" Stretch="Uniform"
+                           VerticalAlignment="Center" Opacity="0">
+                        <Image.RenderTransform>
+                            <TranslateTransform x:Name="LogoShift" Y="5"/>
+                        </Image.RenderTransform>
+                    </Image>
+
+                    <Rectangle x:Name="Divider" Width="1" Height="30" Margin="15,0"
+                               Fill="{StaticResource Rule}"
+                               VerticalAlignment="Center"
+                               RenderTransformOrigin="0.5,0.5">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="DividerScale" ScaleY="0"/>
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+
+                    <StackPanel VerticalAlignment="Center">
+                        <!-- 标题用 Clip 做从左揭示,对应设计稿的 clip-path 动画 -->
+                        <TextBlock x:Name="TitleText"
+                                   FontFamily="{StaticResource DisplayFont}"
+                                   FontSize="37" LineHeight="37"
+                                   Foreground="{StaticResource Ink}">
+                            <TextBlock.Clip>
+                                <RectangleGeometry x:Name="TitleClip" Rect="0,0,0,48"/>
+                            </TextBlock.Clip>
+                            <Run Text="Max" FontWeight="Light"/><Run Text="Chemical" FontWeight="SemiBold"/>
+                        </TextBlock>
+
+                        <TextBlock x:Name="Subtitle" Margin="0,7,0,0"
+                                   FontFamily="{StaticResource CjkFont}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource Ink3}"
+                                   Opacity="0">
+                            <TextBlock.RenderTransform>
+                                <TranslateTransform x:Name="SubtitleShift" Y="3"/>
+                            </TextBlock.RenderTransform>
+                            <Run Text="智  能  连  续  流  实  验  平  台"/>
+                            <Run Text="  ·  v1.0.0" FontFamily="{StaticResource MonoFont}"/>
+                        </TextBlock>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ══ 百分比 ═══════════════════════════════════════ -->
+                <StackPanel x:Name="Readout" Grid.Row="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" Margin="0,0,34,9"
+                            Opacity="0">
+                    <TextBlock x:Name="PctText" Text="0"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontSize="14" FontWeight="Medium"
+                               Foreground="{StaticResource Ink}"
+                               VerticalAlignment="Bottom"/>
+                    <TextBlock Text="%" Margin="3,0,0,0"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontSize="10"
+                               Foreground="{StaticResource Ink3}"
+                               VerticalAlignment="Bottom"/>
+                </StackPanel>
+
+                <!-- ══ 基准线 = 进度条 ═══════════════════════════════
+                     设计稿把进度条做成一条贯穿的基准线,右端一个竖直游标。
+                     这里用 Canvas 而不是 ProgressBar:系统 ProgressBar 自带
+                     圆角、渐变和不确定态动画,想还原成一条 2px 直线反而更费劲。 -->
+                <Canvas Grid.Row="2" ClipToBounds="True">
+                    <Rectangle x:Name="DatumTrack" Height="1" Width="540"
+                               Fill="{StaticResource Rule}"
+                               RenderTransformOrigin="0,0.5">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="TrackScale" ScaleX="0"/>
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle x:Name="DatumFill" Height="2" Width="0"
+                               Fill="{StaticResource Brand}"/>
+                    <!-- 游标:比进度条高,骑在末端,和设计稿的 ::after 一致 -->
+                    <Rectangle x:Name="DatumCursor" Width="2" Height="8" Canvas.Top="-3"
+                               Fill="{StaticResource Brand}" Visibility="Collapsed"/>
+                </Canvas>
+
+                <!-- ══ 状态行 ═══════════════════════════════════════ -->
+                <Grid x:Name="StatusRow" Grid.Row="3" Margin="34,0" Opacity="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="StageLabel" Grid.Column="0"
+                               Text="正在启动"
+                               FontFamily="{StaticResource CjkFont}"
+                               FontSize="12"
+                               Foreground="{StaticResource Ink}"
+                               VerticalAlignment="Center"/>
+
+                    <!-- 中间那条点线:用 StrokeDashArray 还原 border-bottom:dotted -->
+                    <Line x:Name="Leader" Grid.Column="1"
+                          Margin="12,0" VerticalAlignment="Center"
+                          X1="0" Y1="0" X2="1" Y2="0"
+                          Stretch="Fill"
+                          Stroke="{StaticResource Rule}" StrokeThickness="1"
+                          StrokeDashArray="1 2"/>
+
+                    <TextBlock x:Name="StageDetail" Grid.Column="2"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontSize="10.5"
+                               Foreground="{StaticResource Ink3}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ══ 铭牌 ═════════════════════════════════════════ -->
+                <Border x:Name="Plate" Grid.Row="4" Background="{StaticResource Ink}"
+                        RenderTransformOrigin="0.5,1">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="PlateShift" Y="42"/>
+                    </Border.RenderTransform>
+                    <Grid Margin="34,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="H T L A B"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="10" FontWeight="Medium"
+                                       Foreground="{StaticResource PlateFg}"/>
+                            <TextBlock Text="上海霍桐实验仪器" Margin="10,0,0,0"
+                                       FontFamily="{StaticResource CjkFont}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource PlateFg2}"/>
+                        </StackPanel>
+                        <TextBlock Text="V1.0.0 · 20260824"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="10"
+                                   Foreground="{StaticResource PlateFg2}"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
