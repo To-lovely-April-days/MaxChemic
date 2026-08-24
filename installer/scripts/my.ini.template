@@ -1,0 +1,35 @@
+# ============================================================================
+#  MaxChemical 内置 MySQL 配置模板
+#  占位符 __PORT__ / __BASEDIR__ / __DATADIR__ 由 mysql-setup.bat 替换。
+#  路径用正斜杠(MySQL 在 Windows 上两种都认,正斜杠免去转义烦恼)。
+# ============================================================================
+
+[mysqld]
+port      = __PORT__
+basedir   = __BASEDIR__
+datadir   = __DATADIR__
+
+# 只监听本机回环。这个库是给本机的主程序和 MCP 接口用的,
+# 不该从网络上够得着——少开一个面,就少一类风险。
+bind-address = 127.0.0.1
+
+character-set-server = utf8mb4
+collation-server     = utf8mb4_unicode_ci
+
+# 工控现场单机负载,连接数给够即可,不必调大
+max_connections = 64
+
+# 实验数据写入较频繁但单条不大,用默认 InnoDB 设置即可;
+# 缓冲池给 256M,在 8G 内存的现场机上是安全值
+default-storage-engine = INNODB
+innodb_buffer_pool_size = 256M
+
+# 关掉 named pipe 与共享内存,只走 TCP,行为可预期
+skip-named-pipe
+
+# 错误日志放数据目录下,排障时直接看这个文件
+log-error = __DATADIR__/mysql-error.log
+
+[client]
+port = __PORT__
+default-character-set = utf8mb4

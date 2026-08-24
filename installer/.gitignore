@@ -1,0 +1,10 @@
+# 前置安装包(两个大文件,合计约 280MB,不进版本控制)
+# 下载地址见 README.md 第二节
+redist/*.exe
+redist/*.zip
+redist/*.msi
+
+# 构建中间产物与成品
+stage/
+output/
+*.log

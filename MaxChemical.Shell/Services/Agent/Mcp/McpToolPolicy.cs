@@ -46,6 +46,9 @@ namespace MaxChemical.Shell.Services.Agent.Mcp
             // 设备与流程:纯读状态
             "list_devices",
             "get_device_status",
+            // 实时读数:只执行驱动的只读取数命令(判据见 ReadDeviceMeasurementTool),
+            // 与 execute_device_command 不同,它不能触发任何写/控制类命令
+            "read_device_measurement",
             "get_flow_status",
             "list_flow_wait_nodes",
 

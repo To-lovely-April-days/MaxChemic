@@ -51,6 +51,7 @@ namespace MaxChemical.Shell.Services.Agent
                 agent.RegisterTool(new ListDevicesTool(ctx));
                 agent.RegisterTool(new ConnectDevicesTool(ctx));
                 agent.RegisterTool(new GetDeviceStatusTool(ctx));
+                agent.RegisterTool(new ReadDeviceMeasurementTool(ctx));
                 agent.RegisterTool(new SetDeviceParameterTool(ctx));
                 agent.RegisterTool(new ExecuteDeviceCommandTool(ctx));
                 agent.RegisterTool(new GetFlowStatusTool(ctx));

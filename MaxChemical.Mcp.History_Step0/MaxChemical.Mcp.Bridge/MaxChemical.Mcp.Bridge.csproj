@@ -13,14 +13,17 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
-  <!-- 刻意不引用主程序任何工程:本进程是纯协议转发,
-       工具清单与执行结果全部来自管道对端。编译期零耦合,
-       主程序改工具不需要重新发布 Bridge。 -->
-
+  <!-- 刻意不引用主程序任何工程:实时工具是纯协议转发,清单与执行结果
+       全部来自管道对端,主程序改工具不需要重新发布本程序。
+       History 是例外:它同样是独立于主程序的瘦模块(直连 MySQL 只读),
+       在这里引用是为了「对外一个 Server、对内两条链路」——
+       历史工具在本进程内直接执行,实时工具经管道转发。 -->
   <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="..\MaxChemical.Mcp.History\MaxChemical.Mcp.History.csproj" />
   </ItemGroup>
+
+  <!-- 本工程刻意没有自己的 appsettings.json:配置统一放在 History 工程那份
+       (含 PipeName/ConnectTimeoutMs 两个 Bridge 专用键),经 ProjectReference
+       自动带入发布目录。两个工程各带一份同名文件会在发布时触发 NETSDK1152。 -->
 
 </Project>
