@@ -63,7 +63,30 @@ namespace MaxChemical.Infrastructure.Services
                     {
                         _logger.LogInformation($"正在加载插件: {Path.GetFileName(dll)}");
                         var assemblyCatalog = new AssemblyCatalog(dll);
+
+                        // 这一行不是多余的。AssemblyCatalog 的构造是**惰性**的:
+                        // 真正去加载程序集、反射类型是在后面 ComposeParts 的时候。
+                        // 如果某个插件缺依赖(比如驱动引用了一个没跟着装的 DLL),
+                        // 异常会在 ComposeParts 里抛出来 —— 那已经不在这个 try 里了,
+                        // 结果是**一个坏插件把全部设备一起拖垮**,而日志上只看到一条
+                        // "加载设备插件时发生错误",根本看不出是哪个插件的问题。
+                        //
+                        // 在这里先摸一下 Parts 逼它当场加载,坏的就地丢掉、记名字,
+                        // 其余照常。宁可少一个设备,不能少一整批。
+                        _ = assemblyCatalog.Parts.Count();
+
                         catalog.Catalogs.Add(assemblyCatalog);
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        // 缺依赖时最常见的就是它。把内层异常也打出来 ——
+                        // 外层消息只会说"无法加载一个或多个请求的类型",毫无信息量,
+                        // 内层才会指出到底缺哪个程序集。
+                        var detail = string.Join("; ",
+                            ex.LoaderExceptions.Where(e => e != null).Select(e => e!.Message).Distinct().Take(5));
+                        _logger.LogWarning(
+                            $"加载插件失败 {Path.GetFileName(dll)}: 类型加载失败({detail})。" +
+                            "通常是该驱动的依赖程序集没有随安装包一起部署。");
                     }
                     catch (Exception ex)
                     {

@@ -148,6 +148,23 @@ if exist "%GWPROXY%" (
     echo       [警告] 没有 MaxChemical.GatewayConfig.Proxy 工程,网关配置功能装上去会用不了。
 )
 
+REM  蓝牙代理。笔式酸度-电导率计要用电脑自带蓝牙时由它干活。
+REM
+REM  为什么蓝牙不做在驱动里:调 Windows 原生 BLE 必须用 win10 目标框架,
+REM  程序集就会依赖 WinRT.Runtime.dll 和 Microsoft.Windows.SDK.NET.dll。
+REM  而驱动是被 MEF 从 Plugins\ 里单独扫出来加载的,那目录只放驱动 dll 自己,
+REM  依赖到不了旁边 —— 加载会静默失败,表现是设备库里没有那台设备且不报错。
+REM  实测就是这个结果,所以蓝牙单独做成 exe,由 publish 带着自己的依赖走。
+set "BLEPROXY=%ROOT%\MaxChemical.Ble.Proxy\MaxChemical.Ble.Proxy.csproj"
+if exist "%BLEPROXY%" (
+    echo       蓝牙代理...
+    dotnet publish "%BLEPROXY%" -c Release -o "%STAGE%\app\BleProxy" -p:DebugType=none --nologo -v q
+    if errorlevel 1 goto :fail
+) else (
+    echo       [警告] 没有 MaxChemical.Ble.Proxy 工程,笔式酸度计的蓝牙直连会用不了。
+    echo              该设备仍可改用「透传串口」连接方式。
+)
+
 REM ---- 3. 设备驱动 -------------------------------------------------------
 REM  主程序运行时扫 <程序目录>\Plugins\*.dll 用 MEF 装配设备(见
 REM  DeviceManager.GetPluginPath)。这些驱动工程反过来引用 DevicePlugins,
@@ -360,6 +377,7 @@ if errorlevel 1 (
     set "PLUG_FAIL=!PLUG_FAIL! %~n1"
     goto :eof
 )
+
 set /a PLUG_OK+=1
 echo       [%~n1]
 goto :eof

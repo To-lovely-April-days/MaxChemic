@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaxChemical 安装指南</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   MaxChemical 安装指南 · A4
+
+   视觉沿用 Tesla 设计系统:无阴影、无渐变、无边框、无底纹,
+   单一强调色 Electric Blue #3E6AE1,字重只用 400 与 500。
+   留白不是空白,是让每一页只说一件事的框。
+
+   导出 PDF:Ctrl+P → 另存为 PDF → A4 → 边距「默认」
+            → 勾上「背景图形」→ 关掉「页眉和页脚」
+   ══════════════════════════════════════════════════════════════════ */
+
+@page { size: A4; margin: 24mm 24mm 20mm; }
+
+:root{
+  --blue:    #3E6AE1;   /* 唯一的彩色。只用于步骤号与关键动作,不做装饰 */
+  --carbon:  #171A20;   /* 标题 */
+  --graphite:#393C41;   /* 正文 */
+  --pewter:  #5C5E62;   /* 三级文字 */
+  --fog:     #8E8E8E;   /* 占位、最弱 */
+  --cloud:   #EEEEEE;   /* 分隔线 */
+  --ash:     #F4F4F4;   /* 唯一的替代表面色 */
+
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,
+         "Microsoft YaHei UI","Microsoft YaHei","PingFang SC",sans-serif;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+body{
+  font-family:var(--sans);
+  font-size:11pt;
+  line-height:1.65;
+  font-weight:400;
+  color:var(--graphite);
+  background:#FFFFFF;
+}
+
+.sheet{
+  width:210mm; min-height:297mm;
+  margin:0 auto; padding:24mm 24mm 20mm;
+  background:#FFFFFF;
+  display:flex; flex-direction:column;
+}
+@media screen{
+  body{ background:#F4F4F4; padding:28px 0; }
+  .sheet + .sheet{ margin-top:28px; }
+}
+@media print{
+  .sheet{ width:auto; min-height:0; margin:0; padding:0; }
+  .sheet + .sheet{ break-before:page; }
+  .screen-only{ display:none !important; }
+}
+
+/* ══ 封面 ═══════════════════════════════════════════════════════ */
+.cover{ flex:1; display:flex; flex-direction:column; justify-content:center; }
+.wordmark{
+  font-size:10pt; font-weight:500; letter-spacing:.34em;
+  color:var(--carbon);
+}
+.cover h1{
+  font-size:40pt; font-weight:500; line-height:1.15;
+  color:var(--carbon); margin-top:44mm;
+}
+.cover .sub{
+  font-size:15pt; font-weight:400; color:var(--pewter);
+  margin-top:6mm;
+}
+.cover .meta{
+  margin-top:auto; font-size:10pt; color:var(--pewter);
+  display:flex; gap:14mm;
+}
+
+/* ══ 步骤页 ═════════════════════════════════════════════════════
+   一页一步。页码式的大数字挂在顶部,下面是这一步要做的事。
+   Tesla 的「一屏一信息」放到纸上,就是一页一步。 */
+.step-num{
+  font-size:40pt; font-weight:500; line-height:1;
+  color:var(--blue);
+  letter-spacing:normal;
+}
+.step-num small{
+  display:block; font-size:10pt; font-weight:400;
+  color:var(--pewter); letter-spacing:.2em; margin-bottom:3mm;
+}
+
+h2{
+  font-size:22pt; font-weight:500; line-height:1.3;
+  color:var(--carbon);
+  margin-top:8mm;
+  break-after:avoid;
+}
+
+.lede{
+  font-size:12pt; font-weight:400; color:var(--graphite);
+  margin-top:5mm; max-width:130mm;
+}
+
+p{ margin-top:4mm; }
+p:first-child{ margin-top:0; }
+
+strong{ font-weight:500; color:var(--carbon); }
+
+/* 关键动作 —— 全文唯一会上蓝色的正文元素 */
+em.do{
+  font-style:normal; font-weight:500; color:var(--blue);
+}
+
+/* ══ 截图 ═══════════════════════════════════════════════════════
+   照片承担全部分量。不加边框、不加阴影、不加圆角 —— 截图自己就是内容。 */
+figure{ margin-top:9mm; break-inside:avoid; }
+figure img{ display:none; width:100%; height:auto; }
+figure.has-shot img{ display:block; }
+figure.has-shot .ph{ display:none; }
+
+.ph{
+  background:var(--ash);
+  padding:26mm 10mm;
+  text-align:center;
+}
+.ph .what{ font-size:11pt; color:var(--pewter); }
+.ph .file{ font-size:9.5pt; color:var(--fog); margin-top:2mm; }
+
+figcaption{
+  font-size:9.5pt; color:var(--pewter);
+  margin-top:3mm;
+}
+
+/* ══ 要点列表 ═══════════════════════════════════════════════════ */
+ul{ list-style:none; margin-top:5mm; }
+li{
+  position:relative; padding-left:7mm; margin-top:2.5mm;
+  font-size:11pt;
+}
+li::before{
+  content:""; position:absolute; left:0; top:2.6mm;
+  width:2.5mm; height:1px; background:var(--pewter);
+}
+
+/* ══ 提示 ═══════════════════════════════════════════════════════
+   没有底色块、没有图标、没有左边框。靠一条细线和缩进区分,
+   这已经足够 —— 加底色就破坏了整页的安静。 */
+.note{
+  margin-top:7mm; padding-top:4mm;
+  border-top:1px solid var(--cloud);
+  font-size:10pt; color:var(--pewter);
+  max-width:130mm;
+}
+.note b{ font-weight:500; color:var(--carbon); }
+
+/* ══ 检查页 ═════════════════════════════════════════════════════ */
+.check{ margin-top:9mm; break-inside:avoid; }
+.check + .check{
+  margin-top:9mm; padding-top:9mm; border-top:1px solid var(--cloud);
+}
+.check h3{
+  font-size:13pt; font-weight:500; color:var(--carbon);
+}
+.check p{ margin-top:2.5mm; font-size:11pt; }
+
+/* ══ 结尾 ═══════════════════════════════════════════════════════ */
+.colophon{
+  margin-top:auto; padding-top:6mm;
+  border-top:1px solid var(--cloud);
+  font-size:9.5pt; color:var(--fog);
+  display:flex; justify-content:space-between;
+}
+
+/* ══ 屏幕操作条 ═════════════════════════════════════════════════ */
+.bar{
+  position:fixed; top:0; left:0; right:0; z-index:99;
+  background:#FFFFFF; border-bottom:1px solid var(--cloud);
+  padding:11px 24px; font-size:11pt;
+  display:flex; align-items:center; gap:18px;
+  color:var(--pewter);
+}
+.bar b{ font-weight:500; letter-spacing:.28em; color:var(--carbon); font-size:10pt; }
+.bar button{
+  margin-left:auto;
+  background:var(--blue); color:#FFFFFF; border:3px solid transparent;
+  padding:0 22px; min-height:40px; font-size:11pt; font-weight:500;
+  border-radius:4px; cursor:pointer; font-family:var(--sans);
+  transition:background-color .33s, border-color .33s, color .33s;
+}
+.bar button:hover{ background:#2F55BF; }
+@media screen{ body{ padding-top:76px; } }
+</style>
+</head>
+<body>
+
+<div class="bar screen-only">
+  <b>MAXCHEMICAL</b>
+  <span>安装指南 · 打印时勾上「背景图形」，关掉「页眉和页脚」</span>
+  <button onclick="window.print()">导出 PDF</button>
+</div>
+
+<!-- ══════════════ 封面 ══════════════ -->
+<section class="sheet">
+  <div class="cover">
+    <div class="wordmark">HTLAB　上海霍桐实验仪器</div>
+    <h1>MaxChemical<br>安装指南</h1>
+    <div class="sub">八个步骤，约五分钟</div>
+    <div class="meta">
+      <span>软件版本 v1.0.0</span>
+      <span>2026 年 8 月</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 开始之前 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>开始之前</small></div>
+  <h2>需要准备什么</h2>
+
+  <p class="lede">
+    安装包里已经带好了软件运行需要的一切，这台电脑<strong>不需要提前装任何东西，
+    也不需要连网</strong>。开始前只要确认两件事。
+  </p>
+
+  <ul>
+    <li>这台电脑用的是 <strong>Windows 10 或 Windows 11</strong>，64 位</li>
+    <li>你现在登录的是<strong>管理员账户</strong></li>
+  </ul>
+
+  <div class="note">
+    <b>系统版本太旧的话，安装程序会直接告诉你。</b>
+    它在第一步就会检查，不会让你装到一半才发现问题。
+    如果弹出提示说版本太低，把系统升级到 Windows 10 22H2 即可，升级是免费的。
+  </div>
+
+  <div class="note">
+    <b>整个过程大约二十分钟。</b>
+    其中十分钟左右是电脑自己在装，你不需要守着。
+  </div>
+</section>
+
+<!-- ══════════════ 第 1 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第一步</small>01</div>
+  <h2>用管理员身份打开安装程序</h2>
+
+  <p class="lede">
+    在安装包 <strong>MaxChemical-Setup-1.0.0.exe</strong> 上点右键，
+    选择<em class="do">「以管理员身份运行」</em>。
+  </p>
+  <p>
+    接着电脑会弹出一个确认窗口，问你是否允许此应用对设备进行更改，点<em class="do">「是」</em>。
+  </p>
+
+  <figure>
+    <img src="shots/01.png" alt="">
+    <div class="ph">
+      <div class="what">右键菜单，以及随后弹出的确认窗口</div>
+      <div class="file">shots/01.png</div>
+    </div>
+    <figcaption>这一步一定要点「是」，否则后面会装不上</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>直接双击打开也可以，</b>但有些电脑会因为权限不够而安装失败。
+    用右键的方式最稳妥。
+  </div>
+</section>
+
+<!-- ══════════════ 第 2 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第二步</small>02</div>
+  <h2>选择安装位置</h2>
+
+  <p class="lede">
+    这一页<em class="do">直接点「下一步」</em>就行，用默认位置。
+  </p>
+
+  <figure>
+    <img src="shots/02.png" alt="">
+    <div class="ph">
+      <div class="what">选择安装位置的页面</div>
+      <div class="file">shots/02.png</div>
+    </div>
+    <figcaption>保持默认即可</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>如果要装到别的磁盘，</b>注意选的文件夹路径里<strong>不能有中文</strong>。
+    比如「D:\软件\MaxChemical」就不行，改成「D:\MaxChemical」这样。
+  </div>
+</section>
+
+<!-- ══════════════ 第 3 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第三步</small>03</div>
+  <h2>选择数据库</h2>
+
+  <p class="lede">
+    软件需要一个数据库来存实验数据。这一页有两个选项，
+    <em class="do">选第一个「安装内置数据库」</em>，然后点「下一步」。
+  </p>
+
+  <figure>
+    <img src="shots/03.png" alt="">
+    <div class="ph">
+      <div class="what">数据库选择页面</div>
+      <div class="file">shots/03.png</div>
+    </div>
+    <figcaption>选第一项，这也是默认选中的那一项</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>什么时候才选第二项？</b>
+    只有当这台电脑上已经有数据库、并且由公司 IT 统一管理时才选。
+    那种情况下你还需要向 IT 要一个账号密码。
+    不确定的话就选第一项，它不会影响电脑上已有的任何东西。
+  </div>
+</section>
+
+<!-- ══════════════ 第 4 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第四步</small>04</div>
+  <h2>设置密码</h2>
+
+  <p class="lede">
+    这一页会让你设置两个密码。框里已经填好了默认值，
+    <em class="do">建议改成自己的密码</em>，改完点「下一步」。
+  </p>
+  <p>
+    上面那个端口号<strong>不用动</strong>，保持默认。
+  </p>
+
+  <figure>
+    <img src="shots/04.png" alt="">
+    <div class="ph">
+      <div class="what">密码设置页面</div>
+      <div class="file">shots/04.png</div>
+    </div>
+    <figcaption>两个密码都要填，端口号保持不变</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>把密码记下来。</b>
+    平时使用软件不需要输密码，但以后维护、迁移数据时会用到。
+  </div>
+</section>
+
+<!-- ══════════════ 第 5 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第五步</small>05</div>
+  <h2>等待安装</h2>
+
+  <p class="lede">
+    点「安装」之后，剩下的电脑会自己完成，<em class="do">大约二分钟</em>。
+    这期间不要关窗口，也不要关机。
+  </p>
+  <p>
+    进度条走到「正在部署数据库」时会停留比较久，这是正常的。
+  </p>
+
+  <figure>
+    <img src="shots/05.png" alt="">
+    <div class="ph">
+      <div class="what">安装进度页面</div>
+      <div class="file">shots/05.png</div>
+    </div>
+    <figcaption>停在某一步不动几分钟属于正常现象</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>如果电脑上装了杀毒软件，</b>过程中可能会弹出拦截提示，
+    选择「允许」即可。
+  </div>
+</section>
+
+<!-- ══════════════ 第 6 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第六步</small>06</div>
+  <h2>完成</h2>
+
+  <p class="lede">
+    看到这个页面就装好了，<em class="do">不需要重启电脑</em>。
+    点「完成」，桌面上会出现 MaxChemical 的图标。
+  </p>
+
+  <figure>
+    <img src="shots/06.png" alt="">
+    <div class="ph">
+      <div class="what">安装完成页面</div>
+      <div class="file">shots/06.png</div>
+    </div>
+    <figcaption>点「完成」结束安装</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>如果这里弹出了错误提示，</b>
+    先别急着重装。把提示的内容拍下来，联系我们，
+    多数情况不用重装就能解决。
+  </div>
+</section>
+
+<!-- ══════════════ 第 7 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第七步</small>07</div>
+  <h2>检查是否正常</h2>
+
+  <p class="lede">
+    装完之后花一分钟确认两件事，确认完再交给使用的同事。
+  </p>
+
+  <div class="check">
+    <h3>软件能打开</h3>
+    <p>双击桌面图标，等待启动画面走完，主界面能正常显示。</p>
+  </div>
+
+  <div class="check">
+    <h3>设备库里有设备</h3>
+    <p>
+      打开软件的设备库页面，里面应该能看到各种设备。
+      <strong>这一项一定要看</strong>——如果设备库是空的，软件表面上一切正常，
+      但实际上没法连接任何仪器。
+    </p>
+  </div>
+
+  <figure>
+    <img src="shots/07.png" alt="">
+    <div class="ph">
+      <div class="what">软件的设备库页面，能看到设备列表</div>
+      <div class="file">shots/07.png</div>
+    </div>
+    <figcaption>设备库里有内容，说明安装完整</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════ 第 8 步 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第八步</small>08</div>
+  <h2>连接 WorkBuddy</h2>
+
+  <p class="lede">
+    这一步让 AI 助手能读取软件里的数据。<strong>不做也不影响软件正常使用</strong>，
+    需要用 AI 功能时再做即可。
+  </p>
+
+  <p>
+    打开软件的安装文件夹，找到 <strong>workbuddy-mcp.json</strong> 这个文件，
+    用记事本打开，<em class="do">把里面的全部内容复制下来</em>。
+  </p>
+
+  <figure>
+    <img src="shots/08.png" alt="">
+    <div class="ph">
+      <div class="what">安装文件夹里的 workbuddy-mcp.json</div>
+      <div class="file">shots/08.png</div>
+    </div>
+    <figcaption>文件里的路径和密码已经自动填好，不用修改</figcaption>
+  </figure>
+
+  <p>
+    然后打开 WorkBuddy，进入 MCP 配置界面，
+    <em class="do">把刚才复制的内容粘贴进去</em>，保存。
+  </p>
+
+  <figure>
+    <img src="shots/09.png" alt="">
+    <div class="ph">
+      <div class="what">WorkBuddy 的 MCP 配置界面</div>
+      <div class="file">shots/09.png</div>
+    </div>
+    <figcaption>粘贴后保存即可</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════ 第 8 步 · 续 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>第八步 · 续</small></div>
+  <h2>确认连接成功</h2>
+
+  <p class="lede">
+    在 WorkBuddy 里新建一个对话，应该能看到 <em class="do">30 个工具</em>。
+    看到这个数字就说明连好了。
+  </p>
+
+  <figure>
+    <img src="shots/10.png" alt="">
+    <div class="ph">
+      <div class="what">WorkBuddy 中显示 30 个工具</div>
+      <div class="file">shots/10.png</div>
+    </div>
+    <figcaption>数字是 30 就正常</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>数字不对怎么办。</b>
+    看到 8 个，说明 MaxChemical 软件没有打开——AI 要读实时数据，
+    需要软件处于运行状态。先把软件打开，再新建一个对话试试。
+    其他数字请联系我们。
+  </div>
+
+  <div class="note">
+    <b>AI 只能看，不能操作设备。</b>
+    它可以帮你查数据、算结果、给建议，但不会去改设备参数或者下发指令。
+    这是我们有意设计的，不是功能没做完。
+  </div>
+</section>
+
+<!-- ══════════════ 遇到问题 ══════════════ -->
+<section class="sheet">
+  <div class="step-num"><small>附</small></div>
+  <h2>遇到问题</h2>
+
+  <div class="check">
+    <h3>提示系统版本太低</h3>
+    <p>这台电脑的 Windows 太旧了，装不了。升级到 Windows 10 22H2 即可，升级免费。</p>
+  </div>
+
+  <div class="check">
+    <h3>安装到一半失败了</h3>
+    <p>
+      多数是杀毒软件拦截造成的。暂时关闭杀毒软件的实时防护，
+      重新安装一次。装完之后再把防护打开。
+    </p>
+  </div>
+
+  <div class="check">
+    <h3>软件打开了，但设备库是空的</h3>
+    <p>请联系我们，这种情况现场无法解决，需要重新提供安装包。</p>
+  </div>
+
+  <div class="check">
+    <h3>需要卸载</h3>
+    <p>
+      在 Windows 的「设置 → 应用」里找到 MaxChemical，点卸载即可。
+      <strong>实验数据不会被删除</strong>，仍然保留在安装文件夹里。
+    </p>
+  </div>
+
+  <div class="colophon">
+    <span>HTLAB · 上海霍桐实验仪器</span>
+    <span>MaxChemical v1.0.0</span>
+  </div>
+</section>
+
+<script>
+/* 截图按 shots/ 下的文件名放好即可，会自动顶掉占位块，不用改这个文件。 */
+document.querySelectorAll('figure img').forEach(function(img){
+  img.addEventListener('load', function(){
+    img.closest('figure').classList.add('has-shot');
+  });
+  if (img.complete && img.naturalWidth > 0) {
+    img.closest('figure').classList.add('has-shot');
+  }
+});
+</script>
+</body>
+</html>

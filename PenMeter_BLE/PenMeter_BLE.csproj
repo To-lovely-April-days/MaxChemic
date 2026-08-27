@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    笔式酸度-电导率计(BLE)。
+
+    ── 目标框架必须保持 net8.0-windows,和其它驱动一致 ────────────────
+    别改成 net8.0-windows10.0.19041.0。试过,不行:
+
+    那个目标框架会让程序集依赖 WinRT.Runtime.dll 与 Microsoft.Windows.SDK.NET.dll,
+    而驱动是被 MEF 从 <程序目录>\Plugins\ 扫出来加载的 —— 那个目录只放驱动 dll 自己,
+    依赖到不了旁边,程序集加载**静默失败**:设备库里根本没有这台设备,
+    而且不报任何错,只能靠翻日志才知道发生了什么。
+
+    所以蓝牙不在本进程里做,交给独立的 MaxChemical.Ble.Proxy.exe
+    (见 BleProxyLink.cs 与 MaxChemical.Ble.Proxy 工程)。
+    exe 由 dotnet publish 带着自己的依赖发布,自成一体,与 MEF 的加载完全无关。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevicePlugins\DevicePlugins.csproj" />
+  </ItemGroup>
+
+</Project>

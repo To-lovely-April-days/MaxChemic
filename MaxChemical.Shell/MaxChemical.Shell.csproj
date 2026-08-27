@@ -88,7 +88,9 @@
 	  <None Remove="Resources\DeviceIcon\highlowtemperature1.png" />
 	  <None Remove="Resources\DeviceIcon\JingRuiPump.png" />
 	  <None Remove="Resources\DeviceIcon\magneticstirrer.png" />
+	  <None Remove="Resources\DeviceIcon\PenMeter_BLE.png" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
+	  <None Remove="Resources\DeviceIcon\PhMeter_TouchScreen.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
 	  <None Remove="Resources\DeviceIcon\PressureReducingValve.png" />
 	  <None Remove="Resources\DeviceIcon\ProportionalReliefValve.png" />
@@ -288,7 +290,13 @@
 	  <EmbeddedResource Include="Resources\DeviceIcon\MicroReactor.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\PenMeter_BLE.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\PeristalticPumps_CY.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\PhMeter_TouchScreen.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\Pistonpumps.png">
@@ -605,5 +613,51 @@
     <Copy SourceFiles="@(GwProxyFiles)" DestinationFolder="$(GwProxyOutDir)%(RecursiveDir)" SkipUnchangedFiles="true" Condition="Exists('$(GwProxyBuildDir)')" />
     <Message Text="[Shell] 网关代理已拷贝到 $(GwProxyOutDir)" Importance="high" Condition="Exists('$(GwProxyBuildDir)')" />
     <Warning Text="[Shell] 找不到网关代理 $(GwProxyBuildDir),请先构建 MaxChemical.GatewayConfig.Proxy" Condition="!Exists('$(GwProxyBuildDir)')" />
+</Target>
+
+<!--
+  把蓝牙代理拷贝到 Shell 输出目录的 BleProxy 子文件夹。
+
+  笔式酸度-电导率计走「蓝牙直连」时由这个独立进程干活。它不能做进驱动里:
+  调 Windows 原生 BLE 必须用 win10 目标框架,程序集就会依赖 WinRT.Runtime.dll
+  和 Microsoft.Windows.SDK.NET.dll,而驱动是被 MEF 从 Plugins\ 单独扫出来加载的,
+  依赖到不了旁边 —— 加载会静默失败,设备库里直接没有那台设备且不报错。
+
+  注意源路径的目标框架段和网关代理不一样(那个是 net8.0-windows),
+  本工程是 net8.0-windows10.0.19041.0 —— 就是为了能调 WinRT 的 GATT 接口。
+
+  找不到时只警告不报错:没有蓝牙代理时该设备仍可改用「透传串口」连接方式,
+  不该因此让整个 Shell 编译失败。
+-->
+<Target Name="CopyBleProxyToShell" AfterTargets="Build">
+    <PropertyGroup>
+        <BleProxyOutDir>$(OutputPath)BleProxy\</BleProxyOutDir>
+        <BleProxyProj>$(MSBuildThisFileDirectory)..\MaxChemical.Ble.Proxy\MaxChemical.Ble.Proxy.csproj</BleProxyProj>
+        <BleProxyBuildDir>$(MSBuildThisFileDirectory)..\MaxChemical.Ble.Proxy\bin\$(Configuration)\net8.0-windows10.0.19041.0\</BleProxyBuildDir>
+    </PropertyGroup>
+
+    <!--
+      还没编过就先把它编出来。Shell 并不引用这个工程,单独生成 Shell 时
+      它可能一次都没被编过,那样下面的拷贝会扑空。
+
+      用 MSBuild 任务而不是加 ProjectReference:后者会引入目标框架兼容性检查 ——
+      Shell 是 net8.0-windows,代理是 net8.0-windows10.0.19041.0,
+      低平台版本引用高平台版本会直接报错。这里只要构建顺序,不要引用关系。
+
+      ContinueOnError:代理编不出来不该让整个 Shell 生成失败,
+      那台设备退到「透传串口」照样能用。
+    -->
+    <MSBuild Projects="$(BleProxyProj)" Targets="Build" Properties="Configuration=$(Configuration)" ContinueOnError="true" Condition="Exists('$(BleProxyProj)') And !Exists('$(BleProxyBuildDir)MaxChemical.Ble.Proxy.exe')" />
+
+    <!-- ItemGroup 放在 MSBuild 任务之后:Target 内的 ItemGroup 是按顺序求值的,
+         写在前面的话会在代理还没编出来时就把文件列表定死成空的。 -->
+    <ItemGroup>
+        <BleProxyFiles Include="$(BleProxyBuildDir)**\*.*" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(BleProxyOutDir)" Condition="!Exists('$(BleProxyOutDir)')" />
+    <Copy SourceFiles="@(BleProxyFiles)" DestinationFolder="$(BleProxyOutDir)%(RecursiveDir)" SkipUnchangedFiles="true" Condition="Exists('$(BleProxyBuildDir)')" />
+    <Message Text="[Shell] 蓝牙代理已拷贝到 $(BleProxyOutDir)" Importance="high" Condition="Exists('$(BleProxyBuildDir)')" />
+    <Warning Text="[Shell] 找不到蓝牙代理 $(BleProxyBuildDir),笔式酸度计将只能用「透传串口」连接方式" Condition="!Exists('$(BleProxyBuildDir)')" />
 </Target>
 </Project>

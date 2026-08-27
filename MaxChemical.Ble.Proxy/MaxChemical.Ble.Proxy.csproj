@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    蓝牙代理进程。
+
+    ── 为什么蓝牙要单独开一个进程 ────────────────────────────────────
+    调 Windows 原生 BLE（WinRT 的 GATT 客户端）**必须**把目标框架写成
+    net8.0-windows10.0.19041.0，程序集就会依赖 WinRT.Runtime.dll 与
+    Microsoft.Windows.SDK.NET.dll。
+
+    这两个依赖放进设备驱动里是行不通的：驱动是被 MEF 从 <程序目录>\Plugins\
+    扫出来加载的，而那个目录只放驱动 dll 自己，依赖到不了旁边，
+    程序集加载会**静默失败** —— 表现是设备库里根本没有那台设备、且不报任何错。
+    （实测过就是这个结果。）
+
+    做成 exe 就没这问题：dotnet publish 会把依赖一并放进它自己的目录，
+    自成一体，跟主程序的程序集加载完全不相干。
+    仓库里的 MaxChemical.GatewayConfig.Proxy 也是同样的路子（它是为了 x86），
+    build.bat 里两者的发布方式一致。
+
+    ── 通信方式 ──────────────────────────────────────────────────────
+    stdin / stdout，一行一条消息，UTF-8。协议见 Program.cs 顶部。
+    没用命名管道是因为这里只有一个固定的调用方、且数据量极小
+    （仪器每秒推一帧，27 字节），stdio 更简单也更好排查 ——
+    真出问题时把进程单独跑起来手敲命令就能验。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+
+    <!--
+      编译期用 19041 的投影，运行期只要求 1809。实际用到的 GATT 接口
+      （FromBluetoothAddressAsync / GetGattServicesAsync / WriteValueAsync /
+      BluetoothLEAdvertisementWatcher）都是 1607 就有的；GattSession.MaxPduSize
+      要 1709，那处已经包在 try 里，拿不到就退回 BLE 默认 MTU。
+    -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>false</UseWPF>
+    <UseWindowsForms>false</UseWindowsForms>
+    <AssemblyName>MaxChemical.Ble.Proxy</AssemblyName>
+    <RootNamespace>MaxChemical.Ble.Proxy</RootNamespace>
+
+    <!-- 控制台程序，但不该在用户面前弹黑框；调用方用 CreateNoWindow 启动 -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

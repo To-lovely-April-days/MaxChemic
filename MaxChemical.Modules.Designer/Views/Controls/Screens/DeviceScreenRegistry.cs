@@ -102,6 +102,20 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Resolution = new Size(1240, 620),
                 });
 
+                // ── 触摸屏酸度计(TTL 串口私有协议) ──────────────
+                Register("PhMeterTouchScreen", new ScreenRegistration
+                {
+                    Factory = () => new PhMeterScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
+                // ── 笔式酸度-电导率计(BLE 透传) ─────────────────
+                Register("PenMeterBle", new ScreenRegistration
+                {
+                    Factory = () => new PenMeterScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
                 _initialized = true;
