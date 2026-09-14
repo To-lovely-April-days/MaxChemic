@@ -36,13 +36,34 @@ namespace PhMeter_TouchScreen
     [Export(typeof(IDevice))]
     public class PhMeter_TouchScreen : Device, IDeviceScreen
     {
+        /// <summary>
+        /// 源码版本戳。**改动本文件时请手动更新**。
+        /// 蓝牙那个驱动吃过亏:改完代码重新生成,现场日志和改之前一模一样,
+        /// 实际跑的还是旧程序集,只能靠逐行比对日志文本去猜。
+        /// 连接时第一行就打出来,对不上立刻知道是构建没生效。
+        /// </summary>
+        public const string SourceStamp = "2026-08-28-a";
+
         private readonly ILogService _logger;
 
-        /// <summary>握手等待上限。仪器收到请求连接包会立刻回显,1.5s 已经很宽裕。</summary>
-        private const int HandshakeTimeoutMs = 1500;
+        /// <summary>
+        /// 握手等待上限。手册说仪器"立即"回显,但真机上仪器可能正忙着刷屏,
+        /// 而且它每 ~800ms 才推一次包 —— 2.5s 覆盖两个推包周期,留足余量。
+        /// </summary>
+        private const int HandshakeTimeoutMs = 2500;
 
-        /// <summary>握手重试次数。串口刚打开时缓冲区里可能还有上一次的残留字节。</summary>
-        private const int HandshakeRetries = 3;
+        /// <summary>每种接线方式下的握手次数。</summary>
+        private const int HandshakeRetries = 2;
+
+        /// <summary>
+        /// 串口打开之后、发第一包之前的静置时间。
+        ///
+        /// 不少 USB-TTL 芯片(CH340/CP2102 之流)在串口被打开时会翻转 DTR/RTS,
+        /// 而这两根线在很多板子上是接到 MCU 复位脚的 —— 也就是说**开串口这个动作
+        /// 本身就可能把仪器重启一次**。刚复位的仪器不会理你的请求连接包。
+        /// 静置一下再开口说话。
+        /// </summary>
+        private const int SettleAfterOpenMs = 600;
 
         /// <summary>
         /// 判定"还活着"的推包间隔上限。仪器标称 ~800ms 一包,
@@ -61,8 +82,22 @@ namespace PhMeter_TouchScreen
         /// <summary>最近一次收到**任何**合法帧的时刻,用于判活。</summary>
         private long _lastFrameTicks;
 
-        /// <summary>握手用:接收线程看到 ConnectAck 时置位。</summary>
+        /// <summary>握手用:接收线程看到任意一个合法帧时置位。</summary>
         private volatile TaskCompletionSource<bool>? _handshake;
+
+        /// <summary>
+        /// 串口上收到的**原始字节**,只留开头这些。
+        ///
+        /// 握手失败时最要命的问题是"不知道线上到底有没有东西":
+        /// 收到一堆解不开的字节(波特率/接线不对),和一个字节都没收到
+        /// (串口选错、线没插、仪器没开),处理方式完全相反,
+        /// 而原来的日志"握手无回应"对这两种情况一模一样。
+        /// 失败时把这段十六进制打出来,一眼就能分清。
+        /// </summary>
+        private readonly byte[] _rawPeek = new byte[256];
+        private int _rawPeekLen;
+        private long _rawTotal;
+        private readonly object _rawLock = new object();
 
         /// <summary>记录上传用:发出查询命令后由接收线程往里塞记录,收到结束包时完成。</summary>
         private readonly object _recordLock = new object();
@@ -143,7 +178,38 @@ namespace PhMeter_TouchScreen
                 return false;
             }
 
-            CloseInternal();   // 上一次没关干净的话先收拾掉
+            _logger.LogInformation(
+                $"[触摸屏酸度计 {SourceStamp}] 连接 {portName} @ 9600/8/N/1(手册规定,不可改)。" +
+                $"本机现有串口:{string.Join("、", SerialPortOptions.Scan())}");
+
+            // DTR/RTS 两种接法都试一遍。
+            //
+            // 这两根线在纯 TTL 接法里通常没有意义,但 USB-TTL 芯片会把它们引出来,
+            // 而有的板子拿它当复位脚、有的仪器拿它当"上位机在线"的判据。
+            // 到底该置位还是不置位,只有真机知道 —— 与其让人猜,不如两种都试。
+            foreach (bool assertDtrRts in new[] { true, false })
+            {
+                if (await TryHandshakeAsync(portName, assertDtrRts).ConfigureAwait(false))
+                    return true;
+
+                CloseInternal();
+            }
+
+            _logger.LogError(
+                $"[触摸屏酸度计] {portName} 握手失败。" + DiagnoseRaw() +
+                "\r\n可依次排查:① 串口号是否选对(设备管理器里看仪器插拔时哪个口出现/消失);" +
+                "② USB 线是否插牢、仪器是否已开机并停在测量界面;" +
+                "③ 该口是否被别的软件占着(厂家自带的上位机、串口调试助手)。");
+            CloseInternal();
+            return false;
+        }
+
+        /// <summary>按一种 DTR/RTS 接法开口并握手。</summary>
+        private async Task<bool> TryHandshakeAsync(string portName, bool assertDtrRts)
+        {
+            CloseInternal();
+
+            lock (_rawLock) { _rawPeekLen = 0; _rawTotal = 0; }
 
             try
             {
@@ -153,8 +219,8 @@ namespace PhMeter_TouchScreen
                     // 也不会让"停止"指令等太久。
                     ReadTimeout = 200,
                     WriteTimeout = 1000,
-                    DtrEnable = true,
-                    RtsEnable = true,
+                    DtrEnable = assertDtrRts,
+                    RtsEnable = assertDtrRts,
                 };
                 port.Open();
                 port.DiscardInBuffer();
@@ -164,23 +230,33 @@ namespace PhMeter_TouchScreen
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"[触摸屏酸度计] 打开串口 {portName} 失败");
-                CloseInternal();
+                _logger.LogError(ex, $"[触摸屏酸度计] 打开串口 {portName} 失败(DTR/RTS={assertDtrRts})");
                 return false;
             }
 
             StartReceiver();
 
-            // 手册核心约定:串口 open 成功 ≠ 连上。必须发"请求连接包"并收到原样回显。
+            // 开串口可能刚把仪器复位过,先静置一下再说话。见 SettleAfterOpenMs。
+            await Task.Delay(SettleAfterOpenMs).ConfigureAwait(false);
+
             for (int attempt = 1; attempt <= HandshakeRetries; attempt++)
             {
                 var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _handshake = tcs;
 
+                // 先补一个"请求断开包"。上一次连接没正常收尾的话,仪器可能还认为
+                // 自己连着上位机;先让它断干净,再请求连接。仪器对断开包不回应,
+                // 发完稍等一下即可。手册说这个包不是必需的,这里是拿它清场。
+                if (attempt > 1)
+                {
+                    WriteRaw(TouchPhProtocol.BuildDisconnect());
+                    await Task.Delay(200).ConfigureAwait(false);
+                }
+
                 if (!WriteRaw(TouchPhProtocol.BuildConnect()))
                 {
                     _handshake = null;
-                    break;
+                    return false;
                 }
 
                 var finished = await Task.WhenAny(tcs.Task, Task.Delay(HandshakeTimeoutMs)).ConfigureAwait(false);
@@ -188,18 +264,45 @@ namespace PhMeter_TouchScreen
 
                 if (finished == tcs.Task)
                 {
-                    _logger.LogInformation($"[触摸屏酸度计] 握手成功 ({portName},第 {attempt} 次)");
+                    _logger.LogInformation(
+                        $"[触摸屏酸度计] 握手成功({portName},DTR/RTS={assertDtrRts},第 {attempt} 次)");
                     Volatile.Write(ref _lastFrameTicks, DateTime.UtcNow.Ticks);
                     return true;
                 }
 
-                _logger.LogWarning($"[触摸屏酸度计] 第 {attempt} 次握手无回应");
+                _logger.LogWarning(
+                    $"[触摸屏酸度计] 第 {attempt} 次握手无回应(DTR/RTS={assertDtrRts})。" + DiagnoseRaw());
             }
 
-            _logger.LogError($"[触摸屏酸度计] {portName} 握手失败:仪器没有回请求连接包。" +
-                             "请确认 USB 线已插好、串口号选对、且仪器处于测量界面。");
-            CloseInternal();
             return false;
+        }
+
+        /// <summary>
+        /// 把线上收到的原始字节说清楚。
+        ///
+        /// "握手无回应"这一句对两种截然不同的情况长得一模一样:
+        ///   · 一个字节都没收到 —— 串口选错、线没插、仪器没开、口被别人占着;
+        ///   · 收到一堆解不开的字节 —— 线通着,但波特率或接线不对。
+        /// 两者的排查方向完全相反,所以必须分清。
+        /// </summary>
+        private string DiagnoseRaw()
+        {
+            long total;
+            string hex;
+            lock (_rawLock)
+            {
+                total = _rawTotal;
+                hex = _rawPeekLen == 0
+                    ? ""
+                    : BitConverter.ToString(_rawPeek, 0, _rawPeekLen).Replace('-', ' ');
+            }
+
+            if (total == 0)
+                return "串口上**一个字节都没收到** —— 说明线路根本不通:" +
+                       "串口号选错、USB 线没插好、仪器没开机,或者这个口正被别的软件占着。";
+
+            return $"串口上收到了 {total} 字节,但没有一个能解成合法帧(帧头 0x15 / 包尾 0x16)。" +
+                   $"说明线是通的、但数据对不上 —— 多半是串口号选到了别的设备。开头这些字节:{hex}";
         }
 
         protected override Task<bool> OnDisconnectAsync()
@@ -322,6 +425,19 @@ namespace PhMeter_TouchScreen
 
                 if (read <= 0) continue;
 
+                // 先把原始字节留个证,再谈解析。见 _rawPeek 的说明。
+                lock (_rawLock)
+                {
+                    _rawTotal += read;
+                    int room = _rawPeek.Length - _rawPeekLen;
+                    if (room > 0)
+                    {
+                        int n = Math.Min(room, read);
+                        Buffer.BlockCopy(chunk, 0, _rawPeek, _rawPeekLen, n);
+                        _rawPeekLen += n;
+                    }
+                }
+
                 // 缓冲区放不下就说明一直在收垃圾(正常帧最长 73 字节),清空重来,
                 // 免得越积越多、每轮都从头扫一遍 4KB。
                 if (len + read > buf.Length)
@@ -361,10 +477,15 @@ namespace PhMeter_TouchScreen
         {
             Volatile.Write(ref _lastFrameTicks, DateTime.UtcNow.Ticks);
 
+            // **收到任意一个合法帧就算连上了**,不只认 ConnectAck。
+            // 手册写的是"仪器把请求连接包原封不动返回",但固件不见得都这么老实 ——
+            // 有的直接开始推测量包。既然帧头、长度、包尾三项都对上了,
+            // 对面就是这台仪器,没有理由因为它没回显就判失败。
+            _handshake?.TrySetResult(true);
+
             switch (frame.Kind)
             {
                 case TouchPhFrameKind.ConnectAck:
-                    _handshake?.TrySetResult(true);
                     break;
 
                 case TouchPhFrameKind.Params:

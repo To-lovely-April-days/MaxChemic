@@ -1,0 +1,346 @@
+﻿<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.ClimateChamberScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d"
+             Width="1240" Height="620">
+
+    <!--
+      人工气候箱嵌入式屏幕。全矢量，不引用任何图片素材。
+
+      屏幕上**没有**调试输出那一组（0x1080~0x108C 直接翻转加热/制冷/加湿
+      和十路通用输出的电平）。协议里有，驱动里也做了命令，但没上屏幕：
+      屏幕是给日常操作用的，那一组绕过仪器自己的控制逻辑直接动执行器，
+      手滑点到"翻转加热"跟点错一个设定值不是一个量级的后果。
+      要用就去设备命令列表里发，那里有一层"你在干什么"的心理门槛。
+
+      协议里有几处仪器可能"应答正常但不动"，屏幕上都写了出来：
+        · 启停和电机需要仪器侧的 license(lic_ok=1)，协议没给读它的地址；
+        · 三路 PID 自整定要"设备运行时"才生效。
+      这些情况驱动没法分辨，唯一的判据是发完之后状态变没变，所以状态灯
+      是从仪器读回来的，不是本地点一下就亮。
+    -->
+
+    <base:DeviceScreenBase.Resources>
+
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#D91A1A1F"/>
+            <Setter Property="BorderBrush" Value="#3D8A8A96"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9AA0AA"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#7E8490"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style x:Key="Reading" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E8E8EE"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9AA0AA"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <Style x:Key="Entry" TargetType="TextBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="#2A2A32"/>
+            <Setter Property="BorderBrush" Value="#4A4A55"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Btn" TargetType="Button">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#E8E8EE"/>
+            <Setter Property="Background" Value="#3A3A42"/>
+            <Setter Property="BorderBrush" Value="#5A5A64"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A54"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GoBtn" TargetType="Button" BasedOn="{StaticResource Btn}">
+            <Setter Property="Background" Value="#1E4D33"/>
+            <Setter Property="BorderBrush" Value="#2F7A4E"/>
+        </Style>
+
+        <Style x:Key="StopBtn" TargetType="Button" BasedOn="{StaticResource Btn}">
+            <Setter Property="Background" Value="#5A2A2E"/>
+            <Setter Property="BorderBrush" Value="#8A3A42"/>
+        </Style>
+
+        <!-- 状态指示灯：一个圆点 + 一行字。Fill 由代码按读回来的状态改 -->
+        <Style x:Key="Lamp" TargetType="Ellipse">
+            <Setter Property="Width" Value="11"/>
+            <Setter Property="Height" Value="11"/>
+            <Setter Property="Fill" Value="#4A4A55"/>
+            <Setter Property="Margin" Value="0,0,9,0"/>
+        </Style>
+
+        <Style x:Key="LampText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#C8CCD4"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+    </base:DeviceScreenBase.Resources>
+
+    <Canvas>
+        <Canvas.Background>
+            <RadialGradientBrush GradientOrigin="0.14,0.1" Center="0.14,0.1" RadiusX="1.0" RadiusY="1.0">
+                <GradientStop Color="#1B3326" Offset="0"/>
+                <GradientStop Color="#101A14" Offset="0.42"/>
+                <GradientStop Color="#08090C" Offset="0.85"/>
+            </RadialGradientBrush>
+        </Canvas.Background>
+
+        <!-- ══ 抬头 ══════════════════════════════════════════════ -->
+        <StackPanel Canvas.Left="40" Canvas.Top="22">
+            <TextBlock Text="人工气候箱" FontSize="26" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Text="Modbus RTU · RS485 · 9600 8E1（偶校验）· 站号默认 3"
+                       FontSize="13" Foreground="#8A9098" Margin="0,5,0,0"/>
+        </StackPanel>
+
+        <Border x:Name="LinkChip" Canvas.Left="1010" Canvas.Top="28" Width="190" Height="38"
+                CornerRadius="19" Background="#2A2A32" BorderBrush="#4A4A55" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse x:Name="LinkDot" Width="10" Height="10" Fill="#6A6A74" Margin="0,0,9,0"/>
+                <TextBlock x:Name="LinkText" Text="等待数据" Foreground="#C8CCD4" FontSize="14" FontWeight="SemiBold"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ══ 温度 ══════════════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="94" Width="470" Height="230">
+            <Canvas>
+                <TextBlock Text="箱内温度" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="16"/>
+
+                <TextBlock x:Name="TempPv" Text="--" Canvas.Left="22" Canvas.Top="44"
+                           FontFamily="Consolas" FontSize="88" FontWeight="Bold" Foreground="#4FD1C5"/>
+                <TextBlock Text="℃" Canvas.Left="330" Canvas.Top="108"
+                           FontSize="30" FontWeight="SemiBold" Foreground="#4FD1C5" Opacity="0.75"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="164">
+                    <TextBlock Text="设定值" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="TempSet" Text="--" Style="{StaticResource Reading}" Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <!-- 文档没给温度的标度，驱动里做成了"温度小数位"参数。
+                     显示出来是为了让人一眼看出"显示 250℃ 其实是 25.0℃"这种情况。 -->
+                <StackPanel Canvas.Left="190" Canvas.Top="164">
+                    <TextBlock Text="标度（可在设备参数里改）" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="TempScaleHint" Text="--" Style="{StaticResource Reading}" FontSize="16" Margin="0,7,0,0"/>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 转速 ══════════════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="530" Canvas.Top="94" Width="330" Height="230">
+            <Canvas>
+                <TextBlock Text="转速" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="16"/>
+
+                <TextBlock x:Name="SpeedPv" Text="--" Canvas.Left="22" Canvas.Top="48"
+                           FontFamily="Consolas" FontSize="66" FontWeight="Bold" Foreground="#F6C453"/>
+                <TextBlock Text="RPM" Canvas.Left="212" Canvas.Top="92"
+                           FontSize="22" FontWeight="SemiBold" Foreground="#F6C453" Opacity="0.75"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="164">
+                    <TextBlock Text="设定值" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="SpeedSet" Text="--" Style="{StaticResource Reading}" Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="190" Canvas.Top="164">
+                    <TextBlock Text="电机" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Ellipse x:Name="MotorLamp" Style="{StaticResource Lamp}"/>
+                        <TextBlock x:Name="MotorText" Text="--" Style="{StaticResource LampText}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 输出与自整定 ══════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="880" Canvas.Top="94" Width="320" Height="230">
+            <Canvas>
+                <TextBlock Text="输出与自整定" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="16"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="48" Orientation="Horizontal">
+                    <Ellipse x:Name="SunLamp" Style="{StaticResource Lamp}"/>
+                    <TextBlock Text="太阳光输出" Style="{StaticResource LampText}"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="78" Orientation="Horizontal">
+                    <Ellipse x:Name="StripLamp" Style="{StaticResource Lamp}"/>
+                    <TextBlock Text="剥离输出" Style="{StaticResource LampText}"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="118" Orientation="Horizontal">
+                    <Ellipse x:Name="TuneTempLamp" Style="{StaticResource Lamp}"/>
+                    <TextBlock Text="温度 PID 自整定" Style="{StaticResource LampText}"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="148" Orientation="Horizontal">
+                    <Ellipse x:Name="TuneHumiLamp" Style="{StaticResource Lamp}"/>
+                    <TextBlock Text="湿度 PID 自整定" Style="{StaticResource LampText}"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="178" Orientation="Horizontal">
+                    <Ellipse x:Name="TuneCo2Lamp" Style="{StaticResource Lamp}"/>
+                    <TextBlock Text="CO₂ PID 自整定" Style="{StaticResource LampText}"/>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 状态条 ════════════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="338" Width="1160" Height="104">
+            <Canvas>
+                <StackPanel Canvas.Left="22" Canvas.Top="16">
+                    <TextBlock Text="设备运行" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Ellipse x:Name="RunLamp" Style="{StaticResource Lamp}"/>
+                        <TextBlock x:Name="RunText" Text="--" Style="{StaticResource LampText}" FontWeight="Bold"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="190" Canvas.Top="16">
+                    <TextBlock Text="定时启动使能" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Ellipse x:Name="TimerStartLamp" Style="{StaticResource Lamp}"/>
+                        <TextBlock x:Name="TimerStartText" Text="--" Style="{StaticResource LampText}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="380" Canvas.Top="16">
+                    <TextBlock Text="定时停止使能" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Ellipse x:Name="TimerStopLamp" Style="{StaticResource Lamp}"/>
+                        <TextBlock x:Name="TimerStopText" Text="--" Style="{StaticResource LampText}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="570" Canvas.Top="16">
+                    <TextBlock Text="仪器系统时间" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock x:Name="ClockText" Text="--" Style="{StaticResource Reading}" FontSize="17"/>
+                        <Button x:Name="SyncClockBtn" Style="{StaticResource Btn}" Content="对时"
+                                Height="28" FontSize="12" Width="56" Margin="14,-2,0,0" Click="SyncClockBtn_Click"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 两个调试开关的状态。平时应该都是灭的；亮着说明仪器处在调试态，
+                     这时候它的自动控制逻辑可能是被旁路的，值得让人一眼看见。 -->
+                <StackPanel Canvas.Left="920" Canvas.Top="16">
+                    <TextBlock Text="调试开关（正常应为关）" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Ellipse x:Name="IoDebugLamp" Style="{StaticResource Lamp}"/>
+                        <TextBlock Text="IO 总使能" Style="{StaticResource LampText}" Margin="0,0,18,0"/>
+                        <Ellipse x:Name="RemainDebugLamp" Style="{StaticResource Lamp}"/>
+                        <TextBlock Text="剩余时间标记" Style="{StaticResource LampText}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 程序段编辑 ════════════════════════════════════════
+             段号 0 = 定值模式，1~60 = 程序段。地址由驱动按
+             「程序段基址 + 段号 × 程序段步长」算出，基址和步长是设备参数 ——
+             文档那几个地址没带 0x，进制说不死，现场对不上改参数就行。 -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="456" Width="770" Height="140">
+            <Canvas>
+                <TextBlock Text="程序段编辑（段号 0 = 定值模式，1~60 = 程序段）"
+                           Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="14"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="48" Width="90">
+                    <TextBlock Text="段号" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="SegBox" Style="{StaticResource Entry}" Text="0" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="128" Canvas.Top="48" Width="120">
+                    <TextBlock Text="设定温度 ℃" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="SegTempBox" Style="{StaticResource Entry}" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="264" Canvas.Top="48" Width="120">
+                    <TextBlock Text="设定时间" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="SegTimeBox" Style="{StaticResource Entry}" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="400" Canvas.Top="48" Width="120">
+                    <TextBlock Text="设定转速 RPM" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="SegSpeedBox" Style="{StaticResource Entry}" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <Button x:Name="SegReadBtn" Style="{StaticResource Btn}" Content="读取本段"
+                        Canvas.Left="536" Canvas.Top="74" Width="106" Click="SegReadBtn_Click"/>
+                <Button x:Name="SegWriteBtn" Style="{StaticResource GoBtn}" Content="写入本段"
+                        Canvas.Left="652" Canvas.Top="74" Width="106" Click="SegWriteBtn_Click"/>
+
+                <TextBlock x:Name="StatusText" Text="就绪" Foreground="#7E8490" FontSize="12"
+                           Canvas.Left="22" Canvas.Top="112" Width="736" TextTrimming="CharacterEllipsis"/>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 控制 ══════════════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="830" Canvas.Top="456" Width="370" Height="140">
+            <Canvas>
+                <TextBlock Text="运行控制（启停需仪器侧 license）"
+                           Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="14"/>
+
+                <Button x:Name="StartBtn" Style="{StaticResource GoBtn}" Content="启动设备"
+                        Canvas.Left="22" Canvas.Top="40" Width="100" Click="StartBtn_Click"/>
+                <Button x:Name="StopBtn" Style="{StaticResource StopBtn}" Content="停止设备"
+                        Canvas.Left="134" Canvas.Top="40" Width="100" Click="StopBtn_Click"/>
+                <Button x:Name="BuzzerBtn" Style="{StaticResource Btn}" Content="消音"
+                        Canvas.Left="246" Canvas.Top="40" Width="102" Click="BuzzerBtn_Click"/>
+
+                <Button x:Name="MotorBtn" Style="{StaticResource Btn}" Content="电机"
+                        Canvas.Left="22" Canvas.Top="90" Width="100" Click="MotorBtn_Click"/>
+                <Button x:Name="SunBtn" Style="{StaticResource Btn}" Content="太阳光"
+                        Canvas.Left="134" Canvas.Top="90" Width="100" Click="SunBtn_Click"/>
+                <Button x:Name="StripBtn" Style="{StaticResource Btn}" Content="剥离"
+                        Canvas.Left="246" Canvas.Top="90" Width="102" Click="StripBtn_Click"/>
+            </Canvas>
+        </Border>
+
+    </Canvas>
+</base:DeviceScreenBase>

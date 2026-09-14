@@ -80,6 +80,7 @@
 	  <None Remove="Resources\CommadIcon\wait.png" />
 	  <None Remove="Resources\CommadIcon\waitif.png" />
 	  <None Remove="Resources\CommadIcon\weight.png" />
+	  <None Remove="Resources\DeviceIcon\ClimateChamber.png" />
 	  <None Remove="Resources\DeviceIcon\Default.png" />
 	  <None Remove="Resources\DeviceIcon\DynamicTubularReactor_CY.jpg" />
 	  <None Remove="Resources\DeviceIcon\ErlenmeyerFlasks.png" />
@@ -98,10 +99,12 @@
 	  <None Remove="Resources\DeviceIcon\RotavapIKA_RV10.png" />
 	  <None Remove="Resources\DeviceIcon\SampleReactor.png" />
 	  <None Remove="Resources\DeviceIcon\SelectionValveMXII.png" />
+	  <None Remove="Resources\DeviceIcon\ShakingIncubator.png" />
 	  <None Remove="Resources\DeviceIcon\SiliconCarbideChip_CY.png" />
 	  <None Remove="Resources\DeviceIcon\SolenoidValves_ZBS_1RL.png" />
 	  <None Remove="Resources\DeviceIcon\SyringePumpC3000.png" />
 	  <None Remove="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png" />
+	  <None Remove="Resources\DeviceIcon\WaterQualityMeter_UART.png" />
 	  <None Remove="Resources\Icon\app.ico" />
 	  <None Remove="Resources\Icon\Canvasscaling.png" />
 	  <None Remove="Resources\Icon\close.png" />
@@ -263,6 +266,9 @@
 	  <EmbeddedResource Include="Resources\CommadIcon\weight.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\ClimateChamber.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\Default.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -323,6 +329,9 @@
 	  <EmbeddedResource Include="Resources\DeviceIcon\SelectionValveMXII.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\ShakingIncubator.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\SiliconCarbideChip_CY.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -339,6 +348,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\TwoLiquidOneGasFeedSystem.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\WaterQualityMeter_UART.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\Icon\app.ico">

@@ -5761,7 +5761,25 @@ namespace MaxChemical.Modules.Designer.Views
                     case "HighLowTemperature_ModbusTCP":
                         return new Size(288, 400);
                     case "JingRuiPump_ModbusRTU":
-                        return new Size(297*0.8, 300 * 0.8);      
+                        return new Size(297*0.8, 300 * 0.8);
+
+                    // 这两台的图是 1:1 的方图(原图 3280×3280),所以画布上也给方框。
+                    // 不写在这里的话会掉进下面 CalculateImageBasedSize,被那句
+                    // Math.Min(120, ...) 夹到 120 以内,方图就只剩一个小方块。
+                    // 气候箱是落地柜,摇床是台式机,所以前者给得比后者大一圈。
+                    case "ClimateChamber_ModbusRTU":
+                        return new Size(300, 300);
+                    case "ShakingIncubator_ModbusRTU":
+                        return new Size(260, 260);
+
+                    // 手持式三参数水质仪,图也是方图;它本身是个巴掌大的东西,给得比箱体类小
+                    case "WaterQualityMeter_UART":
+                        return new Size(180, 180);
+
+                    // 两台创锐蠕动泵,方图;台式小机器,给到 200
+                    case "PeristalticPumpSN100CQ_ModbusRTU":
+                    case "PeristalticPumpLC_ModbusRTU":
+                        return new Size(200, 200);
 
                         // 以后还想给别的设备单独定尺寸,继续在这里加 case
                 }

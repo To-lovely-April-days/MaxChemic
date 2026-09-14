@@ -116,6 +116,41 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Resolution = new Size(1240, 620),
                 });
 
+                // ── 人工气候箱(Modbus RTU / RS485,9600 8E1) ─────
+                Register("ClimateChamberScreen", new ScreenRegistration
+                {
+                    Factory = () => new ClimateChamberScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
+                // ── 恒温振荡培养箱(Modbus RTU / RS485,9600 8N1) ─
+                Register("ShakingIncubatorScreen", new ScreenRegistration
+                {
+                    Factory = () => new ShakingIncubatorScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
+                // ── 便携式三参数水质测定仪(USB 串口私有协议,460800 8N1)─
+                Register("WaterQualityMeterScreen", new ScreenRegistration
+                {
+                    Factory = () => new WaterQualityMeterScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
+                // ── 创锐 SN100CQ 蠕动泵(Modbus RTU / RS485)────────
+                Register("PeristalticPumpSN100CQScreen", new ScreenRegistration
+                {
+                    Factory = () => new PeristalticPumpSN100CQScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
+                // ── 创锐 LC / FC 系列蠕动泵(触摸屏款,Modbus RTU)──
+                Register("PeristalticPumpLCScreen", new ScreenRegistration
+                {
+                    Factory = () => new PeristalticPumpLCScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
                 _initialized = true;

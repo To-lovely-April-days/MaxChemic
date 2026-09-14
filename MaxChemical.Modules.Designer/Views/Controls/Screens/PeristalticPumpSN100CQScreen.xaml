@@ -1,0 +1,223 @@
+<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.PeristalticPumpSN100CQScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d"
+             Width="1240" Height="620">
+
+    <!--
+      创锐 SN100CQ 蠕动泵嵌入式屏幕。全矢量。
+      读:轮询「获取所有数据」(线圈 + 输入寄存器 + 保持寄存器,三帧),1s 一轮。
+      写:每个控件对应驱动里的一条命令,屏幕不拼报文。
+      这台泵的写指令只在「485 控制方式」(拨码 Bit1~3 全 OFF)下生效,泵不在这个方式时
+      写命令回显成功、值却不变 —— 驱动会回读比对并在状态栏里说清楚。
+    -->
+
+    <base:DeviceScreenBase.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#D91A1A1F"/>
+            <Setter Property="BorderBrush" Value="#3D8A8A96"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9AA0AA"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#7E8490"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style x:Key="Reading" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E8E8EE"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9AA0AA"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+        <Style x:Key="Box" TargetType="TextBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="#2A2A32"/>
+            <Setter Property="BorderBrush" Value="#4A4A55"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="Btn" TargetType="Button">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#E8E8EE"/>
+            <Setter Property="Background" Value="#3A3A42"/>
+            <Setter Property="BorderBrush" Value="#5A5A64"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="StartBtn" TargetType="Button" BasedOn="{StaticResource Btn}">
+            <Setter Property="Background" Value="#1F5F3A"/>
+            <Setter Property="BorderBrush" Value="#2FB84D"/>
+        </Style>
+        <Style x:Key="StopBtn" TargetType="Button" BasedOn="{StaticResource Btn}">
+            <Setter Property="Background" Value="#5A2A2E"/>
+            <Setter Property="BorderBrush" Value="#8A3A42"/>
+        </Style>
+    </base:DeviceScreenBase.Resources>
+
+    <Canvas>
+        <Canvas.Background>
+            <RadialGradientBrush GradientOrigin="0.14,0.1" Center="0.14,0.1" RadiusX="1.0" RadiusY="1.0">
+                <GradientStop Color="#17323A" Offset="0"/>
+                <GradientStop Color="#101820" Offset="0.42"/>
+                <GradientStop Color="#08090C" Offset="0.85"/>
+            </RadialGradientBrush>
+        </Canvas.Background>
+
+        <!-- ══ 抬头 ══ -->
+        <StackPanel Canvas.Left="40" Canvas.Top="22">
+            <TextBlock x:Name="TitleText" Text="SN100CQ 蠕动泵" FontSize="26" FontWeight="Bold" Foreground="White"/>
+            <TextBlock x:Name="MetaText" Text="RS485 · Modbus RTU · 9600 8N1" FontSize="13" Foreground="#8A9098" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <Border Canvas.Left="1010" Canvas.Top="28" Width="190" Height="38"
+                CornerRadius="19" Background="#2A2A32" BorderBrush="#4A4A55" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse x:Name="LinkDot" Width="10" Height="10" Fill="#6A6A74" Margin="0,0,9,0"/>
+                <TextBlock x:Name="LinkText" Text="等待应答" Foreground="#C8CCD4" FontSize="14" FontWeight="SemiBold"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ══ 实际转速 ══ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="92" Width="560" Height="236">
+            <Canvas>
+                <TextBlock Text="实际转速" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="16"/>
+
+                <Border x:Name="RunChip" Canvas.Left="430" Canvas.Top="14" Width="108" Height="28"
+                        CornerRadius="14" Background="#2A2A32" BorderBrush="#4A4A55" BorderThickness="1">
+                    <TextBlock x:Name="RunText" Text="—" Foreground="#9AA0AA" FontSize="13"
+                               FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+
+                <TextBlock x:Name="SpeedPvText" Text="--" Canvas.Left="22" Canvas.Top="46"
+                           FontFamily="Consolas" FontSize="96" FontWeight="Bold" Foreground="#4FD1C5"/>
+                <TextBlock Text="rpm" Canvas.Left="404" Canvas.Top="120"
+                           FontSize="28" FontWeight="SemiBold" Foreground="#4FD1C5" Opacity="0.75"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="172">
+                    <TextBlock Text="设定转速" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                        <TextBlock x:Name="SpeedSetText" Text="--" Style="{StaticResource Reading}"/>
+                        <TextBlock Text="rpm" Style="{StaticResource Caption}" Margin="7,9,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="200" Canvas.Top="172">
+                    <TextBlock Text="方向" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="DirectionText" Text="--" Style="{StaticResource Reading}" Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="378" Canvas.Top="172">
+                    <TextBlock Text="全速" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="FullSpeedText" Text="--" Style="{StaticResource Reading}" Margin="0,3,0,0"/>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 运行控制 ══ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="620" Canvas.Top="92" Width="580" Height="236">
+            <Canvas>
+                <TextBlock Text="运行控制" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="16"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="46" Width="150">
+                    <TextBlock x:Name="SpeedLabel" Text="转速设定 rpm（回车下发）" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="SpeedBox" Style="{StaticResource Box}" KeyDown="SpeedBox_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <Button x:Name="SetSpeedBtn" Style="{StaticResource Btn}" Content="下发转速" Canvas.Left="186" Canvas.Top="63" Width="110" Height="34" Click="SetSpeedBtn_Click"/>
+                <Button x:Name="StartAtBtn" Style="{StaticResource StartBtn}" Content="按转速启动" Canvas.Left="306" Canvas.Top="63" Width="120" Height="34" Click="StartAtBtn_Click"/>
+
+                <Button x:Name="StartBtn" Style="{StaticResource StartBtn}" Content="启动" Canvas.Left="22" Canvas.Top="116" Width="120" Click="StartBtn_Click"/>
+                <Button x:Name="StopBtn" Style="{StaticResource StopBtn}" Content="停止" Canvas.Left="152" Canvas.Top="116" Width="120" Click="StopBtn_Click"/>
+                <Button x:Name="FullBtn" Style="{StaticResource Btn}" Content="全速" Canvas.Left="282" Canvas.Top="116" Width="120" Click="FullBtn_Click"/>
+
+                <TextBlock Text="方向" Style="{StaticResource Caption}" Canvas.Left="22" Canvas.Top="172"/>
+                <Button x:Name="CwBtn" Style="{StaticResource Btn}" Content="顺时针" Canvas.Left="62" Canvas.Top="164" Width="110" Height="34" Click="CwBtn_Click"/>
+                <Button x:Name="CcwBtn" Style="{StaticResource Btn}" Content="逆时针" Canvas.Left="182" Canvas.Top="164" Width="110" Height="34" Click="CcwBtn_Click"/>
+
+                <TextBlock Text="写指令仅在泵处于 485 控制方式时生效（拨码 Bit1~3 全 OFF）"
+                           Style="{StaticResource Caption}" FontSize="11" Canvas.Left="22" Canvas.Top="208"/>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 量程与通讯参数 ══ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="342" Width="1160" Height="130">
+            <Canvas>
+                <TextBlock Text="量程与通讯参数（输入框回车下发；写入后回读比对）" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="14"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="46" Width="180">
+                    <TextBlock Text="手控最大转速 2~150 rpm" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="MaxSpeedBox" Style="{StaticResource Box}" Tag="设置手控最大转速" KeyDown="ParamBox_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="222" Canvas.Top="46" Width="180">
+                    <TextBlock Text="模拟速度上限 rpm" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="AnalogHiBox" Style="{StaticResource Box}" Tag="设置模拟速度上限" KeyDown="ParamBox_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="422" Canvas.Top="46" Width="180">
+                    <TextBlock Text="模拟速度下限 rpm" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="AnalogLoBox" Style="{StaticResource Box}" Tag="设置模拟速度下限" KeyDown="ParamBox_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="660" Canvas.Top="46">
+                    <TextBlock Text="泵内本机地址" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="AddressText" Text="--" Style="{StaticResource Reading}" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="820" Canvas.Top="46">
+                    <TextBlock Text="泵内波特率" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="BaudText" Text="--" Style="{StaticResource Reading}" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <TextBlock Text="地址与波特率改动会让泵立刻换通讯参数，只在流程命令里提供，不放在屏幕上"
+                           Style="{StaticResource Caption}" FontSize="11" Canvas.Left="660" Canvas.Top="100"/>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 状态栏 ══ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="556" Width="1160" Height="42">
+            <TextBlock x:Name="StatusText" Text="就绪" Foreground="#9AA0AA" FontSize="13"
+                       Margin="16,0,16,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </Border>
+    </Canvas>
+</base:DeviceScreenBase>

@@ -409,13 +409,24 @@
                                                                 </ContentControl.Style>
                                                             </ContentControl>
 
+                                                            <!--
+                                                              Source 直接绑字符串，不要写成
+                                                                  <Image.Source><BitmapImage UriSource="{Binding ...}"/></Image.Source>
+                                                              两者行为差很多：显式的 BitmapImage 是在 XAML 解析时就地构造的，
+                                                              图标文件不存在时 EndInit 会抛 FileNotFoundException，
+                                                              再被包成 XamlParseException —— 整个设备库直接打不开。
+                                                              而绑到 Source 上时，字符串→ImageSource 的转换发生在绑定引擎内部，
+                                                              失败只会在输出窗口记一条绑定错误，Source 留空，其余设备照常显示。
+
+                                                              这一点很要紧：设备图标是随安装包分发、不进版本库的，
+                                                              新增一台设备时图标常常晚几天才补上。不能因为少一张 png
+                                                              就让整个设备库崩掉。
+                                                            -->
                                                             <Image Stretch="Uniform"
                                                                    Margin="2"
                                                                    HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center">
-                                                                <Image.Source>
-                                                                    <BitmapImage UriSource="{Binding ImageLocation}"/>
-                                                                </Image.Source>
+                                                                   VerticalAlignment="Center"
+                                                                   Source="{Binding ImageLocation}">
                                                                 <Image.Style>
                                                                     <Style TargetType="Image">
                                                                         <Setter Property="Visibility" Value="Visible"/>

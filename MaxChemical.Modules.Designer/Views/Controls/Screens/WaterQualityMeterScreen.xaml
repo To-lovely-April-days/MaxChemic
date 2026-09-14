@@ -1,0 +1,356 @@
+<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.WaterQualityMeterScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d"
+             Width="1240" Height="620">
+
+    <!--
+      便携式三参数水质测定仪嵌入式屏幕。全矢量,不引用图片素材。
+
+      这台仪器一次只显示一个参数(当前模式),所以屏幕主体是"一个大读数 + 模式切换",
+      不像触摸屏酸度计那样三通道同时摆。读数走 DeviceScreenBase 的轮询
+      ("获取测量数据"),那条命令在驱动里是**真的一次串口往返**(主从问答),
+      所以轮询周期不能太密 —— 代码里设为 500ms,文档建议 ≥ 200ms。
+
+      设置整包只在打开屏幕后读一次、每次下发后回读一次,不跟着轮询走。
+    -->
+
+    <base:DeviceScreenBase.Resources>
+
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#D91A1A1F"/>
+            <Setter Property="BorderBrush" Value="#3D8A8A96"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9AA0AA"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#7E8490"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style x:Key="Reading" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E8E8EE"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9AA0AA"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <Style x:Key="Combo" TargetType="ComboBox">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Box" TargetType="TextBox">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="#2A2A32"/>
+            <Setter Property="BorderBrush" Value="#4A4A55"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Btn" TargetType="Button">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#E8E8EE"/>
+            <Setter Property="Background" Value="#3A3A42"/>
+            <Setter Property="BorderBrush" Value="#5A5A64"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DangerBtn" TargetType="Button" BasedOn="{StaticResource Btn}">
+            <Setter Property="Background" Value="#5A2A2E"/>
+            <Setter Property="BorderBrush" Value="#8A3A42"/>
+        </Style>
+
+        <!-- 模式按钮:小一号,横排 -->
+        <Style x:Key="ModeBtn" TargetType="Button" BasedOn="{StaticResource Btn}">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Width" Value="96"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+        </Style>
+
+    </base:DeviceScreenBase.Resources>
+
+    <Canvas>
+        <Canvas.Background>
+            <RadialGradientBrush GradientOrigin="0.14,0.1" Center="0.14,0.1" RadiusX="1.0" RadiusY="1.0">
+                <GradientStop Color="#17323A" Offset="0"/>
+                <GradientStop Color="#101820" Offset="0.42"/>
+                <GradientStop Color="#08090C" Offset="0.85"/>
+            </RadialGradientBrush>
+        </Canvas.Background>
+
+        <!-- ══ 抬头 ══════════════════════════════════════════════ -->
+        <StackPanel Canvas.Left="40" Canvas.Top="22">
+            <TextBlock Text="便携式三参数水质测定仪" FontSize="26" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Text="USB 转串口 · 460800 8N1 · 主从问答,联机后按需读取"
+                       FontSize="13" Foreground="#8A9098" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- 联机状态:这台仪器不推包,"最近一次读数有没有应答"就是在线的判据 -->
+        <Border x:Name="LinkChip" Canvas.Left="1010" Canvas.Top="28" Width="190" Height="38"
+                CornerRadius="19" Background="#2A2A32" BorderBrush="#4A4A55" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse x:Name="LinkDot" Width="10" Height="10" Fill="#6A6A74" Margin="0,0,9,0"/>
+                <TextBlock x:Name="LinkText" Text="等待应答" Foreground="#C8CCD4" FontSize="14" FontWeight="SemiBold"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ══ 主读数 ═════════════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="92" Width="560" Height="236">
+            <Canvas>
+                <StackPanel Orientation="Horizontal" Canvas.Left="22" Canvas.Top="16">
+                    <TextBlock Text="当前测量" Style="{StaticResource CardTitle}"/>
+                    <Border Margin="12,-3,0,0" Height="24" CornerRadius="12" Background="#1F3A3E" BorderBrush="#2F6F6A" BorderThickness="1" Padding="12,0">
+                        <TextBlock x:Name="ModeChipText" Text="--" Foreground="#4FD1C5" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+
+                <Border x:Name="StableChip" Canvas.Left="430" Canvas.Top="14" Width="108" Height="28"
+                        CornerRadius="14" Background="#2A2A32" BorderBrush="#4A4A55" BorderThickness="1">
+                    <TextBlock x:Name="StableText" Text="—" Foreground="#9AA0AA" FontSize="13"
+                               FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- 大字读数,小数位跟仪器给的 disp_res 走 -->
+                <TextBlock x:Name="MainValue" Text="--" Canvas.Left="22" Canvas.Top="46"
+                           FontFamily="Consolas" FontSize="96" FontWeight="Bold" Foreground="#4FD1C5"/>
+                <TextBlock x:Name="MainUnit" Text="" Canvas.Left="404" Canvas.Top="120"
+                           FontSize="28" FontWeight="SemiBold" Foreground="#4FD1C5" Opacity="0.75"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="172">
+                    <TextBlock Text="温度" Style="{StaticResource Caption}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                        <TextBlock x:Name="TempValue" Text="--" Style="{StaticResource Reading}"/>
+                        <TextBlock x:Name="TempUnit" Text="℃" Style="{StaticResource Caption}" Margin="7,10,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="200" Canvas.Top="172">
+                    <TextBlock Text="温补方式" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="AtcText" Text="--" Style="{StaticResource Reading}" FontSize="22" Margin="0,6,0,0"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="378" Canvas.Top="172">
+                    <TextBlock Text="电极 / 校准等级" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="LevelText" Text="--" Style="{StaticResource Reading}" FontSize="22" Margin="0,6,0,0"/>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 模式切换 ═══════════════════════════════════════════
+             九个按钮在代码里生成。灰掉的是联机应答 modes_sta 位图里没启用的模式,
+             文档 5.1 要求只切已启用的。 -->
+        <Border Style="{StaticResource Card}" Canvas.Left="620" Canvas.Top="92" Width="580" Height="118">
+            <Canvas>
+                <TextBlock Text="测量模式（灰色为仪器未启用）" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="14"/>
+                <WrapPanel x:Name="ModePanel" Canvas.Left="22" Canvas.Top="40" Width="540"/>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 仪器信息 ═══════════════════════════════════════════ -->
+        <Border Style="{StaticResource Card}" Canvas.Left="620" Canvas.Top="222" Width="580" Height="106">
+            <Canvas>
+                <TextBlock Text="仪器信息" Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="14"/>
+
+                <StackPanel Canvas.Left="22" Canvas.Top="44">
+                    <TextBlock Text="设备 ID" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="DeviceIdText" Text="--" Style="{StaticResource Reading}" FontSize="20" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="130" Canvas.Top="44">
+                    <TextBlock Text="已启用模式" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="ModesText" Text="--" Style="{StaticResource Reading}" FontSize="16" Margin="0,7,0,0"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="420" Canvas.Top="44">
+                    <TextBlock Text="显示小数位" Style="{StaticResource Caption}"/>
+                    <TextBlock x:Name="DecimalsText" Text="--" Style="{StaticResource Reading}" FontSize="20" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 仪器设置 ═══════════════════════════════════════════
+             改任何一项,驱动都是"读整包 → 改一项 → 写整包 → 回读"。
+             下拉框选中即下发;输入框回车下发。回填期间用 _suppress 挡住 SelectionChanged。 -->
+        <Border Style="{StaticResource Card}" Canvas.Left="40" Canvas.Top="342" Width="1160" Height="200">
+            <Canvas>
+                <TextBlock Text="仪器设置（下拉即下发，输入框回车下发；写入后自动回读）"
+                           Style="{StaticResource CardTitle}" Canvas.Left="22" Canvas.Top="12"/>
+
+                <!-- 第一行:开关与枚举 -->
+                <StackPanel Canvas.Left="22" Canvas.Top="42" Width="134">
+                    <TextBlock Text="温度单位" Style="{StaticResource SettingLabel}"/>
+                    <ComboBox x:Name="TempUnitCombo" Style="{StaticResource Combo}" Tag="设置温度单位" SelectionChanged="Combo_Changed">
+                        <ComboBoxItem Content="℃"/>
+                        <ComboBoxItem Content="℉"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="164" Canvas.Top="42" Width="134">
+                    <TextBlock Text="提示音" Style="{StaticResource SettingLabel}"/>
+                    <ComboBox x:Name="BeepCombo" Style="{StaticResource Combo}" Tag="设置提示音" SelectionChanged="Combo_Changed">
+                        <ComboBoxItem Content="关"/>
+                        <ComboBoxItem Content="开"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="306" Canvas.Top="42" Width="134">
+                    <TextBlock Text="背光亮度 3~100" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="BgLightBox" Style="{StaticResource Box}" Tag="设置背光亮度"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="448" Canvas.Top="42" Width="134">
+                    <TextBlock Text="自动关机（分钟）" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="ShutdownBox" Style="{StaticResource Box}" Tag="设置自动关机时间"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="590" Canvas.Top="42" Width="134">
+                    <TextBlock Text="pH 纯水类型" Style="{StaticResource SettingLabel}"/>
+                    <ComboBox x:Name="WaterCombo" Style="{StaticResource Combo}" Tag="设置pH纯水类型" SelectionChanged="Combo_Changed">
+                        <ComboBoxItem Content="普通水样"/>
+                        <ComboBoxItem Content="纯水"/>
+                        <ComboBoxItem Content="氨水"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="732" Canvas.Top="42" Width="134">
+                    <TextBlock Text="pH 标液体系" Style="{StaticResource SettingLabel}"/>
+                    <ComboBox x:Name="PhStdCombo" Style="{StaticResource Combo}" Tag="设置pH标液体系" SelectionChanged="Combo_Changed">
+                        <ComboBoxItem Content="中国标准 CH"/>
+                        <ComboBoxItem Content="NIST"/>
+                        <ComboBoxItem Content="美国标准 USA"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="874" Canvas.Top="42" Width="134">
+                    <TextBlock Text="pH 显示小数位" Style="{StaticResource SettingLabel}"/>
+                    <ComboBox x:Name="PhResCombo" Style="{StaticResource Combo}" Tag="设置pH显示小数位" SelectionChanged="Combo_Changed">
+                        <ComboBoxItem Content="2 位（0.01）"/>
+                        <ComboBoxItem Content="3 位（0.001）"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="1016" Canvas.Top="42" Width="134">
+                    <TextBlock Text="电导率标液体系" Style="{StaticResource SettingLabel}"/>
+                    <ComboBox x:Name="CondStdCombo" Style="{StaticResource Combo}" Tag="设置电导率标液体系" SelectionChanged="Combo_Changed">
+                        <ComboBoxItem Content="中国标准 CH"/>
+                        <ComboBoxItem Content="美国标准 USA"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- 第二行:数值 -->
+                <StackPanel Canvas.Left="22" Canvas.Top="118" Width="134">
+                    <TextBlock Text="手动温补 ℃" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="ManualTempBox" Style="{StaticResource Box}" Tag="设置手动温补温度"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="164" Canvas.Top="118" Width="134">
+                    <TextBlock Text="电导率参考温度 ℃" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="RefTempBox" Style="{StaticResource Box}" Tag="设置电导率参考温度"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="306" Canvas.Top="118" Width="134">
+                    <TextBlock Text="电导率温度系数" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="TempCoeBox" Style="{StaticResource Box}" Tag="设置电导率温度系数"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="448" Canvas.Top="118" Width="134">
+                    <TextBlock Text="TDS 系数" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="TdsCoeBox" Style="{StaticResource Box}" Tag="设置TDS系数"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="590" Canvas.Top="118" Width="134">
+                    <TextBlock Text="电极常数 K" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="CondKBox" Style="{StaticResource Box}" Tag="设置电极常数"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="732" Canvas.Top="118" Width="134">
+                    <TextBlock Text="溶解氧盐度补偿" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="DoSalBox" Style="{StaticResource Box}" Tag="设置溶解氧盐度补偿"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="874" Canvas.Top="118" Width="134">
+                    <TextBlock Text="溶解氧大气压补偿" Style="{StaticResource SettingLabel}"/>
+                    <TextBox x:Name="DoPressureBox" Style="{StaticResource Box}" Tag="设置溶解氧大气压补偿"
+                             KeyDown="Box_KeyDown" GotKeyboardFocus="SelectAllOnFocus"/>
+                </StackPanel>
+
+                <StackPanel Canvas.Left="1016" Canvas.Top="118" Width="134">
+                    <TextBlock Text="设置整包" Style="{StaticResource SettingLabel}"/>
+                    <Button x:Name="RefreshBtn" Style="{StaticResource Btn}" Content="重新读取" Height="32" FontSize="13" Click="RefreshBtn_Click"/>
+                </StackPanel>
+            </Canvas>
+        </Border>
+
+        <!-- ══ 记录与维护 ═════════════════════════════════════════ -->
+        <Button x:Name="RecordsBtn" Style="{StaticResource Btn}" Content="读取存储记录"
+                Canvas.Left="40" Canvas.Top="558" Width="160" Click="RecordsBtn_Click"/>
+
+        <Button x:Name="LockBtn" Style="{StaticResource Btn}" Content="锁定仪器按键"
+                Canvas.Left="214" Canvas.Top="558" Width="160" Click="LockBtn_Click"/>
+
+        <Button x:Name="ResetBtn" Style="{StaticResource DangerBtn}" Content="恢复出厂设置"
+                Canvas.Left="388" Canvas.Top="558" Width="160" Click="ResetBtn_Click"/>
+
+        <Border Style="{StaticResource Card}" Canvas.Left="562" Canvas.Top="558" Width="638" Height="42">
+            <TextBlock x:Name="StatusText" Text="就绪" Foreground="#9AA0AA" FontSize="13"
+                       Margin="16,0,16,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </Border>
+
+    </Canvas>
+</base:DeviceScreenBase>
