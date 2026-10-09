@@ -42,7 +42,7 @@ namespace MaxChemical.Modules.Designer.Views
         // ★ 上云: 当前项目名(随 ProjectNameUpdatedEvent 更新),Ctrl+U 上传时带上,云端按名归档
         private string _currentProjectName = "";
         // ★ 上云: 地址/密钥(与云端一致)+ 实时值推送(节流)
-        private const string CloudBaseUrl = "http://139.224.67.86:9080";
+        private const string CloudBaseUrl = "http://47.242.253.50:9080";
         private const string CloudUploadKey = "";   // 云端若设了 Process:UploadKey,填成同值
         private readonly System.Net.Http.HttpClient _cloudHttp = new() { Timeout = TimeSpan.FromSeconds(10) };
         private System.Windows.Threading.DispatcherTimer _cloudTelemetryTimer;

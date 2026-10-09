@@ -29,7 +29,7 @@ namespace MaxChemical.Modules.Designer.Service.Cloud
     public sealed class CloudPushService : IDisposable
     {
         // ★ 与 ProcessDesignerView Ctrl+U 中的常量保持一致
-        private const string CloudBaseUrl = "http://139.224.67.86:9080";
+        private const string CloudBaseUrl = "http://47.242.253.50:9080";
         private const string UploadKey = "";               // 云端若设了 Process:UploadKey,填成同值
 
         private const int TelemetryFlushMs = 1000;         // 实时值最快 1s 推一次

@@ -577,6 +577,7 @@ namespace HighPreactor_ModbusRTU
                         else
                         {
                             // 创建指令
+
                             //byte[] frame = { slaveId, 0x06, 0x00, 0xFC, data[0], data[1] };
                             byte[] frame = BuildWriteCmd(252, temperature);
                             DebugLog($"设置搅拌速度SV的请求报文：[{BitConverter.ToString(frame)}]");

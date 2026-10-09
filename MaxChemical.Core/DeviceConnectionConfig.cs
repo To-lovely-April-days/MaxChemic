@@ -75,7 +75,7 @@ namespace MaxChemical.Core
         /// <summary>
         /// 服务器 SignalR Hub 地址，例如 http://your-server:5000/dtuhub
         /// </summary>
-        public string ServerUrl { get; set; } = "http://139.224.67.86:9080/dtuhub";//
+        public string ServerUrl { get; set; } = "http://47.242.253.50:9080/dtuhub";//
 
         /// <summary>
         /// 接入令牌（与服务器配置一致；服务器据此鉴权，防止他人控制设备）。

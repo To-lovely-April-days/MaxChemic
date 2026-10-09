@@ -16,10 +16,11 @@
 //      0x0008「当前温度设定值」在手册里只有"读数据0x03",是**只读**的。
 //      真正改设定值要走 0x0026~0x002F 这个"程式编辑窗口":
 //          先写 要修改的模式/段数/时/分/温度/转速/风速,
-//          最后写 0x0026 = 2(写标志),仪器才把这批值收下。
+//          沿用原实现:最后写 0x0026 = 2(写标志),随后等待并重新装载目标段校验。
 //      读某一段的设定值同理:先写 模式/段数,再写 0x0026 = 1(读标志),
 //      然后回读 0x0029~0x002F。
-//      **顺序不能反** —— 标志寄存器必须最后写,它是这批参数的"提交"动作。
+//      协议表只给出了标志值,未明确触发时序;此处不把原实现的顺序当成厂家保证。
+//      写应答仅证明 Modbus 事务应答正常,必须通过回读确认参数是否被采用。
 //      后来维护的人如果把"设置温度"改成直接写 0x0008,仪器不会报错,
 //      但设定值一点都不会变,而且很难看出来。
 //
@@ -86,7 +87,7 @@ namespace ShakingIncubator_ModbusRTU
         public const ushort BookHour = 0x0024;
         public const ushort BookMinute = 0x0025;
 
-        /// <summary>程式编辑窗口的提交标志:1=读标志,2=写标志。**必须最后写**。</summary>
+        /// <summary>模式读写标志:1=读标志,2=写标志。协议表未明确触发时序。</summary>
         public const ushort EditFlag = 0x0026;
         public const ushort EditMode = 0x0027;   // 0 定值,1~5 程式
         public const ushort EditSegment = 0x0028;   // 1~100,仅程式模式有效
@@ -154,7 +155,7 @@ namespace ShakingIncubator_ModbusRTU
         /// 现场日志第一行会打出来 —— 改完代码日志却没变,先看这里对不对,
         /// 免得对着旧程序集查半天(蓝牙那个驱动吃过这个亏)。
         /// </summary>
-        public const string SourceStamp = "2026-09-01-a";
+        public const string SourceStamp = "2026-10-08-write-verify-a";
 
         private readonly ILogService _logger;
 
@@ -164,6 +165,9 @@ namespace ShakingIncubator_ModbusRTU
 
         /// <summary>按 DeviceId 隔离的实例锁,保证同一台仪器的 IO 串行。</summary>
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> _instanceLocks = new();
+
+        // 一帧 IO 的锁不能保护整个编辑窗口:选段、写参数、提交、装载和回读必须串行。
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _editWindowLocks = new();
 
         public string ScreenKey => "ShakingIncubatorScreen";
 
@@ -227,6 +231,9 @@ namespace ShakingIncubator_ModbusRTU
 
             // 手册没写从站地址。现场大多是出厂默认 1,做成可配。
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254),手册未规定,现场按仪器设置填"));
+
+            Parameters.Variables.Add(new NumberParameter("编辑等待毫秒", 120, 5000, 300,
+                "编辑窗口读写标志后的等待时间;协议未规定,默认 300ms,设备响应慢时可增大", false, "ms"));
 
             InitializeCommands();
         }
@@ -372,7 +379,7 @@ namespace ShakingIncubator_ModbusRTU
             {
                 Name = "设置定值参数",
                 HelpText = "设置定值模式下的温度 / 转速 / 风速 / 运行时长。" +
-                           "内部按手册流程:先写编辑窗口(0x002B~0x002F),最后写 0x0026=2 提交。" +
+                           "写编辑窗口后设置 0x0026=2,并重新装载及回读确认;不会自动切换当前模式。" +
                            "转速仅在「转速功能」开启时有效,风速仅在「风机可调功能」开启时有效。",
                 InputParameters = new DeviceParameters
                 {
@@ -417,7 +424,7 @@ namespace ShakingIncubator_ModbusRTU
             Commands.Add(new DeviceCommand
             {
                 Name = "读取程式段",
-                HelpText = "读一段程式的设定值。内部按手册流程:先写模式/段号,再写 0x0026=1 读标志," +
+                HelpText = "读一段程式的设定值。沿用原实现:先写模式/段号,再写 0x0026=1 读标志," +
                            "然后回读 0x0029~0x002F。模式填 0 表示读定值模式。",
                 InputParameters = new DeviceParameters
                 {
@@ -752,15 +759,12 @@ namespace ShakingIncubator_ModbusRTU
             ushort seg = (ushort)(int)(p?.GetNullableValue<double>("Segment") ?? 1);
             var token = CancellationToken.None;
 
-            // 手册流程:先指定要看哪一段,再落"读标志",仪器才把那一段搬到编辑窗口。
-            if (!await WriteMultipleAsync(Regs.EditMode, new[] { mode, seg }, token)) return o;
-            if (!await WriteSingleAsync(Regs.EditFlag, 1, token)) return o;
+            var editLock = GetEditWindowLock();
+            await editLock.WaitAsync(token).ConfigureAwait(false);
+            ushort[] r;
+            try { r = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false); }
+            finally { editLock.Release(); }
 
-            // 仪器要一点时间把那一段搬进编辑窗口。手册没给时间,给 120ms 余量;
-            // 不等就回读,读到的可能还是上一次的内容。
-            await Task.Delay(120, token).ConfigureAwait(false);
-
-            ushort[] r = await ReadRegistersAsync(Regs.EditTotalCycle, 7, token);
             if (r.Length < 7) return o;
 
             o.SetValue("TotalCycle", (double)(short)r[0]);
@@ -780,55 +784,192 @@ namespace ShakingIncubator_ModbusRTU
 
         /// <summary>
         /// 往编辑窗口写一批参数并提交。定值模式与程式模式共用一段代码,
-        /// 差别只在于程式模式多写 段号 / 总周期 / 总段数 三项。
+        /// 定值模式只写时/分/温度/速度/风速;程式模式另外写段号/总周期/总段数。
         /// </summary>
         private async Task<DeviceParameters> WriteEditWindowAsync(DeviceParameters? p, bool programMode)
         {
             if (IsSimulationMode) return Success(true);
 
             var token = CancellationToken.None;
+            // 先验证再转型,避免空参数被当成 0、负整数回绕成 ushort。
+            double temp = RequiredNumber(p, "Temp", -40, 200);
+            ushort speed = RequiredInteger(p, "Speed", 0, 2000);
+            ushort fan = RequiredInteger(p, "Fan", 0, 10);
+            ushort hour = RequiredInteger(p, "Hour", 0, 9999);
+            ushort minute = RequiredInteger(p, "Minute", 0, 59);
+            ushort mode = programMode ? RequiredInteger(p, "Mode", 1, 5) : (ushort)0;
+            ushort seg = programMode ? RequiredInteger(p, "Segment", 1, 100) : (ushort)1;
+            ushort cycles = programMode ? RequiredInteger(p, "TotalCycle", 0, 999) : (ushort)0;
+            ushort totalSeg = programMode ? RequiredInteger(p, "TotalSegment", 1, 100) : (ushort)1;
+            if (programMode && seg > totalSeg)
+                throw new ArgumentException("要修改的段号不能大于此模式的总段数");
 
-            double temp = p?.GetNullableValue<double>("Temp") ?? 0;
-            ushort speed = (ushort)(int)(p?.GetNullableValue<double>("Speed") ?? 0);
-            ushort fan = (ushort)(int)(p?.GetNullableValue<double>("Fan") ?? 0);
-            ushort hour = (ushort)(int)(p?.GetNullableValue<double>("Hour") ?? 0);
-            ushort minute = (ushort)(int)(p?.GetNullableValue<double>("Minute") ?? 0);
-
-            ushort mode = programMode ? (ushort)(int)(p?.GetNullableValue<double>("Mode") ?? 1) : (ushort)0;
-            ushort seg = programMode ? (ushort)(int)(p?.GetNullableValue<double>("Segment") ?? 1) : (ushort)1;
-            ushort cycles = programMode ? (ushort)(int)(p?.GetNullableValue<double>("TotalCycle") ?? 1) : (ushort)0;
-            ushort totalSeg = programMode ? (ushort)(int)(p?.GetNullableValue<double>("TotalSegment") ?? 1) : (ushort)1;
-
-            // 温度 ×10 送下去。负温用补码,手册说 s16 按 Modbus 标准补码传输。
-            short tempRaw = (short)Math.Round(temp * 10.0, MidpointRounding.AwayFromZero);
-
-            // 0x0027~0x002F 是连续的九个寄存器,一条 0x10 就写完 —— 手册明确
-            // 允许 0x10。分成九条 0x06 也能work,但中间任何一条掉了就会写进
-            // 半套参数,而提交标志一落仪器就当真了。一条多写把这个窗口关掉。
-            var block = new ushort[]
+            short tempRaw = checked((short)Math.Round(temp * 10.0, MidpointRounding.AwayFromZero));
+            var expected = new ushort[]
             {
-                mode,                       // 0x0027 要修改的模式
-                seg,                        // 0x0028 要修改的段数
-                cycles,                     // 0x0029 此模式的总周期
-                totalSeg,                   // 0x002A 此模式的总段数
-                hour,                       // 0x002B 时
-                minute,                     // 0x002C 分
-                unchecked((ushort)tempRaw), // 0x002D 温度 ×10
-                speed,                      // 0x002E 转速
-                fan,                        // 0x002F 风速
+                cycles, totalSeg, hour, minute, unchecked((ushort)tempRaw), speed, fan
             };
 
-            if (!await WriteMultipleAsync(Regs.EditMode, block, token))
-                return Success(false);
+            var editLock = GetEditWindowLock();
+            await editLock.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                // 0x0004~0x001C:实际温度/速度量程、当前模式、速度/风机功能及风速量程。
+                ushort[] state = await ReadRegistersAsync(Regs.TempLoLimit, 25, token).ConfigureAwait(false);
+                if (state.Length != 25)
+                    throw new InvalidOperationException("未读到设备量程和功能状态,取消参数写入");
+                bool speedEnabled = state[Regs.SpeedFunc - Regs.TempLoLimit] != 0;
+                bool fanEnabled = state[Regs.FanFunc - Regs.TempLoLimit] != 0;
+                ValidateDeviceRange(tempRaw, (short)state[0], (short)state[1], "温度(×10)");
+                if (speedEnabled) ValidateDeviceRange(speed, (short)state[2], (short)state[3], "转速");
+                else if (speed != 0) throw new InvalidOperationException("设备速度功能未开启,不能设置非零转速");
+                if (fanEnabled)
+                    ValidateDeviceRange(fan, (short)state[Regs.FanLoLimit - Regs.TempLoLimit],
+                        (short)state[Regs.FanHiLimit - Regs.TempLoLimit], "风速");
+                else if (fan != 0) throw new InvalidOperationException("设备风机可调功能未开启,不能设置非零风速");
 
-            // 提交。必须是最后一步。
-            bool ok = await WriteSingleAsync(Regs.EditFlag, 2, token);
+                InfoLog($"编辑模式{mode}/段{seg},设备当前模式{state[Regs.CurrentMode - Regs.TempLoLimit]}:" +
+                    $"温度{tempRaw / 10.0:F1}℃ 转速{speed}RPM 风速{fan}档 时长{hour}:{minute:00}");
 
-            InfoLog(programMode
-                ? $"写程式段:模式{mode} 第{seg}段 共{totalSeg}段/{cycles}周期 {hour}时{minute}分 {temp:F1}℃ {speed}RPM {fan}档 → {ok}"
-                : $"写定值参数:{temp:F1}℃ {speed}RPM {fan}档 {hour}时{minute}分 → {ok}");
+                // 先装载目标段,使编辑窗口属于目标模式;也让重复设置之间经过读标志 1。
+                // 读写标志时序沿用原驱动,并非协议表额外规定。
+                ushort[] before = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false);
+                if (before.Length != 7)
+                    throw new InvalidOperationException("未能装载目标模式/段,取消参数写入");
 
-            return Success(ok);
+                if (programMode)
+                {
+                    var block = new ushort[]
+                    {
+                        mode, seg, cycles, totalSeg, hour, minute, unchecked((ushort)tempRaw), speed, fan
+                    };
+                    if (!await WriteMultipleAsync(Regs.EditMode, block, token).ConfigureAwait(false))
+                        throw new InvalidOperationException("程式段参数写入未得到有效应答,未提交;请查看通信日志");
+                }
+                else
+                {
+                    // 定值模式不写仅对程式有效的总周期/总段数(0x0029/0x002A)。
+                    if (!await WriteMultipleAsync(Regs.EditHour,
+                        new ushort[] { hour, minute, unchecked((ushort)tempRaw), speed, fan }, token).ConfigureAwait(false))
+                        throw new InvalidOperationException("定值参数写入未得到有效应答,未提交;请查看通信日志");
+                }
+
+                if (!await WriteSingleAsync(Regs.EditFlag, 2, token).ConfigureAwait(false))
+                    throw new InvalidOperationException("模式写标志 0x0026=2 未得到有效应答,不能确认设置成功");
+                await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false);
+
+                // 不能只读刚写过的暂存寄存器:重新发读标志,让设备装载保存的目标段。
+                string mismatch = "";
+                bool verified = false;
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    ushort[] actual = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false);
+                    mismatch = DescribeEditMismatch(expected, actual, programMode, speedEnabled, fanEnabled);
+                    if (mismatch.Length == 0) { verified = true; break; }
+                    _logger.LogWarning($"[恒温振荡培养箱] 模式{mode}/段{seg}回读不符({attempt + 1}/3):{mismatch}");
+                    // 仅重读,不自动重写或启停设备。
+                }
+                if (!verified)
+                    throw new InvalidOperationException("写入已应答,但重新装载后参数不符,不能确认保存成功:" + mismatch);
+
+                if (!programMode)
+                    await VerifyCurrentFixedSettingsAsync(expected, speedEnabled, fanEnabled, token).ConfigureAwait(false);
+
+                InfoLog($"模式{mode}/段{seg}参数已通过回读校验");
+                return Success(true);
+            }
+            finally { editLock.Release(); }
+        }
+
+        private SemaphoreSlim GetEditWindowLock()
+        {
+            var key = Parameters?.GetValue<string>("DeviceId") ?? DeviceId ?? "default";
+            return _editWindowLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        }
+
+        private int GetEditWaitMs()
+        {
+            var value = Parameters.GetNullableValue<double>("编辑等待毫秒") ?? 300;
+            return double.IsFinite(value) ? (int)Math.Clamp(value, 120, 5000) : 300;
+        }
+
+        // 调用方必须持有编辑窗口锁;低层 IO 仍使用原有的单帧锁。
+        private async Task<ushort[]> LoadEditWindowAsync(ushort mode, ushort seg, CancellationToken token)
+        {
+            if (!await WriteMultipleAsync(Regs.EditMode, new[] { mode, seg }, token).ConfigureAwait(false))
+                return Array.Empty<ushort>();
+            if (!await WriteSingleAsync(Regs.EditFlag, 1, token).ConfigureAwait(false))
+                return Array.Empty<ushort>();
+            await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false);
+            return await ReadRegistersAsync(Regs.EditTotalCycle, 7, token).ConfigureAwait(false);
+        }
+
+        private static double RequiredNumber(DeviceParameters? p, string name, double min, double max)
+        {
+            double? value = p?.GetNullableValue<double>(name);
+            if (!value.HasValue || !double.IsFinite(value.Value) || value.Value < min || value.Value > max)
+                throw new ArgumentException($"参数 {name} 必须提供且位于 {min}~{max} 范围内");
+            return value.Value;
+        }
+
+        private static ushort RequiredInteger(DeviceParameters? p, string name, int min, int max)
+        {
+            double value = RequiredNumber(p, name, min, max);
+            if (value != Math.Truncate(value)) throw new ArgumentException($"参数 {name} 必须是整数");
+            return checked((ushort)value);
+        }
+
+        private static void ValidateDeviceRange(int value, int min, int max, string name)
+        {
+            if (min > max || value < min || value > max)
+                throw new ArgumentOutOfRangeException(name, value, $"设备当前允许的 {name} 范围为 {min}~{max}");
+        }
+
+        private static string DescribeEditMismatch(ushort[] expected, ushort[] actual,
+            bool programMode, bool speedEnabled, bool fanEnabled)
+        {
+            if (actual.Length != 7) return "未读到完整的编辑窗口";
+            string[] names = { "总周期", "总段数", "时", "分", "温度(×10)", "转速", "风速" };
+            var differences = new List<string>();
+            for (int i = programMode ? 0 : 2; i < 7; i++)
+            {
+                if (i == 5 && !speedEnabled || i == 6 && !fanEnabled) continue;
+                if (actual[i] != expected[i])
+                    differences.Add($"{names[i]} 期望{(short)expected[i]}/回读{(short)actual[i]}");
+            }
+            return string.Join("; ", differences);
+        }
+
+        private async Task VerifyCurrentFixedSettingsAsync(ushort[] expected, bool speedEnabled,
+            bool fanEnabled, CancellationToken token)
+        {
+            string mismatch = "";
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                // 0x0008~0x0010:只读的当前设定值与当前模式,不能用编辑窗口回显代替。
+                ushort[] current = await ReadRegistersAsync(Regs.TempSet, 9, token).ConfigureAwait(false);
+                if (current.Length != 9) { mismatch = "未读到当前设定值"; }
+                else if (current[8] != 0)
+                {
+                    _logger.LogWarning($"[恒温振荡培养箱] 定值参数保存回读一致,但当前模式是{current[8]}," +
+                        "不会自动切换模式;需要应用定值参数时请显式执行「设置当前模式」=0");
+                    return;
+                }
+                else
+                {
+                    ushort[] actual = { 0, 0, current[6], current[7], current[0], current[2], 0 };
+                    if (fanEnabled)
+                    {
+                        ushort[] fan = await ReadRegistersAsync(Regs.FanSet, 1, token).ConfigureAwait(false);
+                        if (fan.Length != 1) { mismatch = "未读到当前风速设定值"; }
+                        else { actual[6] = fan[0]; mismatch = DescribeEditMismatch(expected, actual, false, speedEnabled, true); }
+                    }
+                    else { mismatch = DescribeEditMismatch(expected, actual, false, speedEnabled, false); }
+                    if (mismatch.Length == 0) return;
+                }
+                await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false);
+            }
+            throw new InvalidOperationException("编辑窗口回读一致,但定值模式的当前设定值未更新:" + mismatch);
         }
 
         private async Task<DeviceParameters> SetBookingAsync(DeviceParameters? p)
@@ -1073,12 +1214,7 @@ namespace ShakingIncubator_ModbusRTU
                     using var transport = await GetTransportAsync().ConfigureAwait(false);
                     int len = await transport.SendAndReceiveAsync(cmd, recv, IoTimeoutMs, token).ConfigureAwait(false);
 
-                    if (len < 8) { _logger.LogWarning($"[恒温振荡培养箱] 写 0x{reg:X4} 应答太短:{len}"); return false; }
-                    if ((recv[1] & 0x80) != 0)
-                    {
-                        _logger.LogWarning($"[恒温振荡培养箱] 写 0x{reg:X4}={value} 被拒,异常码 0x{recv[2]:X2}");
-                        return false;
-                    }
+                    if (!ValidateWriteResponse(cmd, recv, len, $"写 0x{reg:X4}={value}")) return false;
                     // 0x06 的正常应答是把请求原样回显。逐字节比对是最省事的成功判据。
                     for (int i = 0; i < 6; i++)
                         if (recv[i] != cmd[i])
@@ -1108,13 +1244,7 @@ namespace ShakingIncubator_ModbusRTU
                     using var transport = await GetTransportAsync().ConfigureAwait(false);
                     int len = await transport.SendAndReceiveAsync(cmd, recv, IoTimeoutMs, token).ConfigureAwait(false);
 
-                    if (len < 8) { _logger.LogWarning($"[恒温振荡培养箱] 写多个 0x{start:X4} 应答太短:{len}"); return false; }
-                    if ((recv[1] & 0x80) != 0)
-                    {
-                        _logger.LogWarning($"[恒温振荡培养箱] 写多个 0x{start:X4}+{values.Length} 被拒,异常码 0x{recv[2]:X2}");
-                        return false;
-                    }
-                    if (recv[1] != 0x10) { _logger.LogWarning($"[恒温振荡培养箱] 功能码不对:0x{recv[1]:X2}"); return false; }
+                    if (!ValidateWriteResponse(cmd, recv, len, $"写多个 0x{start:X4}+{values.Length}")) return false;
 
                     ushort echoStart = (ushort)(recv[2] << 8 | recv[3]);
                     ushort echoCount = (ushort)(recv[4] << 8 | recv[5]);
@@ -1129,6 +1259,37 @@ namespace ShakingIncubator_ModbusRTU
                 }
                 finally { sem.Release(); }
             }, $"写多个 0x{start:X4}+{values.Length}", token);
+        }
+
+        private bool ValidateWriteResponse(byte[] request, byte[] response, int length, string what)
+        {
+            _logger.LogInformation($"[恒温振荡培养箱] {what} TX={Convert.ToHexString(request)} " +
+                $"RX={Convert.ToHexString(response, 0, Math.Clamp(length, 0, response.Length))}");
+            if (length < 5 || length > response.Length)
+            {
+                _logger.LogWarning($"[恒温振荡培养箱] {what} 应答长度不对:{length}");
+                return false;
+            }
+            bool exception = response[1] == (byte)(request[1] | 0x80);
+            int frameLength = exception ? 5 : 8;
+            if (length != frameLength || response[0] != request[0] ||
+                !Crc16Modbus.VerifyPrefix(response, frameLength))
+            {
+                _logger.LogWarning($"[恒温振荡培养箱] {what} 应答站号/长度/CRC 校验失败:" +
+                    Convert.ToHexString(response, 0, length));
+                return false;
+            }
+            if (exception)
+            {
+                _logger.LogWarning($"[恒温振荡培养箱] {what} 被拒,Modbus 异常码 0x{response[2]:X2}");
+                return false;
+            }
+            if (response[1] != request[1])
+            {
+                _logger.LogWarning($"[恒温振荡培养箱] {what} 功能码不符:0x{response[1]:X2}");
+                return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -1208,6 +1369,10 @@ namespace ShakingIncubator_ModbusRTU
                 try
                 {
                     var output = await inner(parameters).ConfigureAwait(false);
+                    // DeviceCommand.ExecuteAsync 在委托正常返回时把执行结果标成成功。
+                    // 将驱动内部的失败变成异常,避免「执行成功」掩盖「设置失败」。
+                    if (output.Variables.Any(v => v.Name == "Success") && !output.GetValue<bool>("Success"))
+                        throw new InvalidOperationException("设备未确认命令成功,请查看通信日志中的应答和异常码");
                     sw.Stop();
                     _logger.LogInformation(
                         $"[恒温振荡培养箱命令-完成] Device={Name} Command={commandName} DurationMs={sw.ElapsedMilliseconds}");
