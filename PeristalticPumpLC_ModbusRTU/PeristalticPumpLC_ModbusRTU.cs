@@ -150,7 +150,7 @@ namespace PeristalticPumpLC_ModbusRTU
             DeviceId = "LCP0001";
             Name = "LC 蠕动泵";
             Manufacturer = "创锐 LC/FC 系列蠕动泵(触摸屏款,Modbus RTU / RS485)";
-            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumpLC.png";
+            ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/PeristalticPumpLC.jpg";
             Category = DeviceCategories.Pumps;
             ComId = "LCP0001";
             ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
@@ -200,7 +200,7 @@ namespace PeristalticPumpLC_ModbusRTU
             });
 
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "泵的 485 地址,出厂 1,可在泵菜单查看"));
-
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTQK3GBNNWWK", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
             InitializeCommands();
         }
 

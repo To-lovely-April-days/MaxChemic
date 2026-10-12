@@ -134,7 +134,7 @@ namespace HighPreactor_ModbusRTU
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));
 
             // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
-            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTXA8Q956DAD", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTLWVDTTHLJV", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
 
             // 初始化命令
             InitializeCommands();

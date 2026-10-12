@@ -108,7 +108,7 @@ namespace HighTempFurnace_ModbusRTU
                 Options = new ObservableCollection<string>() { "Direct", "PLC", "ModbusTcp", "ZLanGateway", "RemoteServer" }
             });
             // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
-            Parameters.Variables.Add(new StringParameter("DTU序列号", "", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTWX9U4NS4RT", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
 
             // Modbus 从机站号 (1~254);宇电温控表里默认地址为 2
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 2, "Modbus 从机站号 (1~254)"));

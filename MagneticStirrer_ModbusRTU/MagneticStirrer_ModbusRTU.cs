@@ -122,7 +122,7 @@ namespace MagneticStirrer_ModbusRTU
             DeviceParameterOptions.AddSerialParameters(Parameters);
 
             // 自建云服务器参数（仅"通信方式=RemoteServer"时生效）
-            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTRWEGE9VMAG", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTB8HYQ2UHFF", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
 
             // Modbus 从机站号 (1~254)
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254)"));

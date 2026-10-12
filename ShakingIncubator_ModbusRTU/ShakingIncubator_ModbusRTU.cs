@@ -1,31 +1,31 @@
 // ============================================================================
 //  ShakingIncubator_ModbusRTU.cs
 //  恒温振荡培养箱(摇床)驱动 —— Modbus RTU / RS485。
-//  依据《0x140B 恒温振荡培养箱 485 通讯协议 PHRYH_ST70_206Ti 20260714》。
+//  依据《0x140B 恒温振荡培养箱 485 通讯协议 PHRYH_ST70_206Ti 20240103》。
 //
 //  ── 通信参数(手册"说明"列写死) ────────────────────────────────────
 //      9600 / N / 8 / 1,Modbus RTU + CRC,**每次读取最多 32 个地址变量**。
 //      手册没有给从站地址,做成可配参数,默认 1。
 //
 //  ── 寄存器全景 ────────────────────────────────────────────────────
-//      0x0000~0x001F  只读:身份、报警位、量程、当前测量/设定值、运行状态
-//      0x0020~0x0039  可读可写:预约、程式编辑窗口、系统时钟、运行/照明/灭菌
-//      正好被 32 个一批的限制切成两刀:0x0000+32 与 0x0020+26。
+//      0x0000~0x0019  读:身份、报警位、量程、当前测量/设定值、运行状态和功能
+//      0x001A~0x0032  可读可写:预约、程式编辑窗口、系统时钟、运行/照明/灭菌
+//      读全量使用 0x0000+32 与 0x0020+19,每次均不超过 32 个地址。
 //
 //  ── 这台仪器最容易踩的坑:改温度不是"写一个温度寄存器" ─────────────
 //      0x0008「当前温度设定值」在手册里只有"读数据0x03",是**只读**的。
-//      真正改设定值要走 0x0026~0x002F 这个"程式编辑窗口":
-//          先写 要修改的模式/段数/时/分/温度/转速/风速,
-//          沿用原实现:最后写 0x0026 = 2(写标志),随后等待并重新装载目标段校验。
-//      读某一段的设定值同理:先写 模式/段数,再写 0x0026 = 1(读标志),
-//      然后回读 0x0029~0x002F。
+//      真正改设定值要走 0x0020~0x0028 这个"程式编辑窗口":
+//          先写 要修改的模式/段数/时/分/温度/转速,
+//          最后写 0x0020 = 2(写标志),随后等待并重新装载目标段校验。
+//      读某一段的设定值同理:先写 模式/段数,再写 0x0020 = 1(读标志),
+//      然后回读 0x0023~0x0028。
 //      协议表只给出了标志值,未明确触发时序;此处不把原实现的顺序当成厂家保证。
 //      写应答仅证明 Modbus 事务应答正常,必须通过回读确认参数是否被采用。
 //      后来维护的人如果把"设置温度"改成直接写 0x0008,仪器不会报错,
 //      但设定值一点都不会变,而且很难看出来。
 //
 //  ── 小数点 ────────────────────────────────────────────────────────
-//      手册"小数点位"列:温度 1 位(寄存器值 = 实际值 ×10),转速/风速 0 位。
+//      手册"小数点位"列:温度 1 位(寄存器值 = 实际值 ×10),转速 0 位。
 //      所有温度进出都要 ×10 / ÷10,别只改一头。
 // ============================================================================
 
@@ -45,81 +45,66 @@ namespace ShakingIncubator_ModbusRTU
     /// </summary>
     internal static class Regs
     {
-        // ── 只读区 ──────────────────────────────────────────
-        public const ushort ProductType = 0x0000;   // 应为 0x140B
+        // 2024-01-03 协议：0x0000~0x0019 为读区/功能状态，0x001A~0x0032 为可读写区。
+        public const ushort ProductType = 0x0000;
         public const ushort SerialNo = 0x0001;
-        public const ushort Alarm1 = 0x0002;   // 位域,见 Alarm1Bits
-        public const ushort Alarm2 = 0x0003;   // 位域,见 Alarm2Bits
-        public const ushort TempLoLimit = 0x0004;   // ÷10
-        public const ushort TempHiLimit = 0x0005;   // ÷10
+        public const ushort Alarm1 = 0x0002;
+        public const ushort Alarm2 = 0x0003;
+        public const ushort TempLoLimit = 0x0004; // s16，协议小数点 1 位
+        public const ushort TempHiLimit = 0x0005;
         public const ushort SpeedLoLimit = 0x0006;
         public const ushort SpeedHiLimit = 0x0007;
-        public const ushort TempSet = 0x0008;   // ÷10,只读!改设定值走编辑窗口
-        public const ushort TempPv = 0x0009;   // ÷10
+        public const ushort TempSet = 0x0008; // 只读当前设定，×10
+        public const ushort TempPv = 0x0009;  // ×10
         public const ushort SpeedSet = 0x000A;
         public const ushort SpeedPv = 0x000B;
         public const ushort ElapsedHour = 0x000C;
         public const ushort ElapsedMinute = 0x000D;
         public const ushort SetHour = 0x000E;
         public const ushort SetMinute = 0x000F;
-        public const ushort CurrentMode = 0x0010;   // 0 定值,1~5 程式
+        public const ushort CurrentMode = 0x0010;
         public const ushort RunSegment = 0x0011;
         public const ushort RunCycle = 0x0012;
         public const ushort SetSegment = 0x0013;
         public const ushort SetCycle = 0x0014;
-        public const ushort RunState = 0x0015;   // 0停止 1预约等待 2运行 3计时 4自整定
-        public const ushort AlarmState = 0x0016;   // 0无报警 1有报警
-        public const ushort SpeedFunc = 0x0017;   // 转速功能是否开启
-        public const ushort FanFunc = 0x0018;   // 风机可调功能是否开启
-        public const ushort FanLoLimit = 0x0019;
-        public const ushort FanHiLimit = 0x001A;
-        public const ushort FanSet = 0x001B;
-        public const ushort FanPv = 0x001C;
-        public const ushort LightFunc = 0x001D;   // 照明功能是否开启
-        public const ushort SterilizeFunc = 0x001E;   // 灭菌功能是否开启
-        public const ushort BookFunc = 0x001F;   // 预约功能是否开启
+        public const ushort RunState = 0x0015;
+        public const ushort AlarmState = 0x0016;
+        public const ushort LightFunc = 0x0017;
+        public const ushort SterilizeFunc = 0x0018;
+        public const ushort BookFunc = 0x0019;
 
-        // ── 读写区 ──────────────────────────────────────────
-        public const ushort BookOnOff = 0x0020;
-        public const ushort BookYear = 0x0021;
-        public const ushort BookMonth = 0x0022;
-        public const ushort BookDay = 0x0023;
-        public const ushort BookHour = 0x0024;
-        public const ushort BookMinute = 0x0025;
+        // 2024-01-03 可读写区（没有风机功能/风速寄存器）。
+        public const ushort BookOnOff = 0x001A;
+        public const ushort BookYear = 0x001B;
+        public const ushort BookMonth = 0x001C;
+        public const ushort BookDay = 0x001D;
+        public const ushort BookHour = 0x001E;
+        public const ushort BookMinute = 0x001F;
+        public const ushort EditFlag = 0x0020;
+        public const ushort EditMode = 0x0021;
+        public const ushort EditSegment = 0x0022;
+        public const ushort EditTotalCycle = 0x0023;
+        public const ushort EditTotalSegment = 0x0024;
+        public const ushort EditHour = 0x0025;
+        public const ushort EditMinute = 0x0026;
+        public const ushort EditTemp = 0x0027;
+        public const ushort EditSpeed = 0x0028;
+        public const ushort ClockYear = 0x0029;
+        public const ushort ClockMonth = 0x002A;
+        public const ushort ClockDay = 0x002B;
+        public const ushort ClockHour = 0x002C;
+        public const ushort ClockMinute = 0x002D;
+        public const ushort ClockSecond = 0x002E;
+        public const ushort SetMode = 0x002F;
+        public const ushort RunStop = 0x0030;
+        public const ushort LightSwitch = 0x0031;
+        public const ushort SterilizeSwitch = 0x0032;
 
-        /// <summary>模式读写标志:1=读标志,2=写标志。协议表未明确触发时序。</summary>
-        public const ushort EditFlag = 0x0026;
-        public const ushort EditMode = 0x0027;   // 0 定值,1~5 程式
-        public const ushort EditSegment = 0x0028;   // 1~100,仅程式模式有效
-        public const ushort EditTotalCycle = 0x0029;   // 0~999,仅程式模式有效
-        public const ushort EditTotalSegment = 0x002A;   // 1~100,仅程式模式有效
-        public const ushort EditHour = 0x002B;
-        public const ushort EditMinute = 0x002C;
-        public const ushort EditTemp = 0x002D;   // ×10
-        public const ushort EditSpeed = 0x002E;
-        public const ushort EditFan = 0x002F;
-
-        public const ushort ClockYear = 0x0030;
-        public const ushort ClockMonth = 0x0031;
-        public const ushort ClockDay = 0x0032;
-        public const ushort ClockHour = 0x0033;
-        public const ushort ClockMinute = 0x0034;
-        public const ushort ClockSecond = 0x0035;
-
-        public const ushort SetMode = 0x0036;
-        public const ushort RunStop = 0x0037;   // 0 停止,1 开启
-        public const ushort LightSwitch = 0x0038;
-        public const ushort SterilizeSwitch = 0x0039;
-
-        /// <summary>只读块:0x0000 起 32 个(正好是手册允许的单次上限)。</summary>
+        // 每次最多 32 个；读全量时用两个不重叠的块。
         public const ushort BlockAStart = 0x0000;
-        public const ushort BlockACount = 32;
-
-        /// <summary>读写块:0x0020 起 26 个。</summary>
+        public const ushort BlockACount = 32; // 0x0000~0x001F
         public const ushort BlockBStart = 0x0020;
-        public const ushort BlockBCount = 26;
-
-        /// <summary>手册标称的产品类型编号。对不上不拦,只告警。</summary>
+        public const ushort BlockBCount = 19; // 0x0020~0x0032
         public const ushort ExpectedProductType = 0x140B;
     }
 
@@ -155,7 +140,7 @@ namespace ShakingIncubator_ModbusRTU
         /// 现场日志第一行会打出来 —— 改完代码日志却没变,先看这里对不对,
         /// 免得对着旧程序集查半天(蓝牙那个驱动吃过这个亏)。
         /// </summary>
-        public const string SourceStamp = "2026-10-08-write-verify-a";
+        public const string SourceStamp = "2024-01-03-write-verify-a";
 
         private readonly ILogService _logger;
 
@@ -181,7 +166,8 @@ namespace ShakingIncubator_ModbusRTU
             ImageLocation = "pack://siteoforigin:,,,/Resources/DeviceIcon/ShakingIncubator.png";
             Category = DeviceCategories.Reactors;
             ComId = "SKI0001";
-            ConnectionManager = DeviceConnectionManagerFactory.GetInstance();
+            // 此驱动使用 Device.CreateTransportAsync 的字节传输层。
+            // 不在构造函数中调用连接管理器工厂：Direct 模式没有全局 manager，RemoteServer 也不需要它。
 
             AllowedRegions = new List<RegionType>
             {
@@ -229,7 +215,10 @@ namespace ShakingIncubator_ModbusRTU
                 Options = new ObservableCollection<string> { "Direct", "ModbusTcp", "ZLanGateway", "RemoteServer" }
             });
 
-            // 手册没写从站地址。现场大多是出厂默认 1,做成可配。
+            // RemoteServer 模式下由云端 DTU 网关按登录包中的序列号路由原始 Modbus RTU 字节。
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTVA8YXK7XKN", "RemoteServer 模式必填：DTU 登录包中的设备序列号"));
+
+            // 手册没写从站地址。现场大多是出厂默认 1,做成可配.
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "Modbus 从机站号 (1~254),手册未规定,现场按仪器设置填"));
 
             Parameters.Variables.Add(new NumberParameter("编辑等待毫秒", 120, 5000, 300,
@@ -248,7 +237,6 @@ namespace ShakingIncubator_ModbusRTU
             new CollectableParameter("TEMP_SET", "温度设定", "℃",  "获取所有数据", "TEMP_SET"),
             new CollectableParameter("SPEED_PV", "转速",     "RPM", "获取所有数据", "SPEED_PV"),
             new CollectableParameter("SPEED_SET","转速设定", "RPM", "获取所有数据", "SPEED_SET"),
-            new CollectableParameter("FAN_PV",   "风速",     "档",  "获取所有数据", "FAN_PV"),
         };
 
         public override int AutoCollectIntervalMs => 1000;
@@ -322,8 +310,8 @@ namespace ShakingIncubator_ModbusRTU
             Commands.Add(new DeviceCommand
             {
                 Name = "获取所有数据",
-                HelpText = "一次读回全部 58 个寄存器(分两批,受手册单次 32 个的限制):" +
-                           "温度/转速/风速的测量值与设定值、量程、运行状态、报警位、" +
+                HelpText = "一次读回协议相关寄存器(分两批,受手册单次 32 个的限制):" +
+                           "温度/转速的测量值与设定值、量程、运行状态、报警位、" +
                            "功能开关、预约与系统时钟。屏幕轮询用的就是它。",
                 OutputParameters = new DeviceParameters { Variables = BuildAllOutputs() },
                 AsyncAction = AsyncWrapAction("获取所有数据", _ => ReadAllAsync())
@@ -378,17 +366,16 @@ namespace ShakingIncubator_ModbusRTU
             Commands.Add(new DeviceCommand
             {
                 Name = "设置定值参数",
-                HelpText = "设置定值模式下的温度 / 转速 / 风速 / 运行时长。" +
-                           "写编辑窗口后设置 0x0026=2,并重新装载及回读确认;不会自动切换当前模式。" +
-                           "转速仅在「转速功能」开启时有效,风速仅在「风机可调功能」开启时有效。",
+                HelpText = "设置定值模式下的温度 / 转速 / 运行时长。" +
+                           "按 2024-01-03 协议写入 0x0025~0x0028，随后设置 0x0020=2 提交并回读确认。" +
+                           "不会自动切换当前模式。",
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
                     {
                         new NumberParameter("Temp", -40, 200, 37, "温度设定", false, "℃") { DecimalPlaces = 1 },
                         new NumberParameter("Speed", 0, 2000, 0, "转速设定", false, "RPM"),
-                        new NumberParameter("Fan", 0, 10, 0, "风速设定档位", false, "档"),
-                        new NumberParameter("Hour", 0, 9999, 0, "运行时长-时", false, "h"),
+                        new NumberParameter("Hour", 0, 999, 0, "运行时长-时", false, "h"),
                         new NumberParameter("Minute", 0, 59, 0, "运行时长-分", false, "min"),
                     }
                 },
@@ -410,11 +397,10 @@ namespace ShakingIncubator_ModbusRTU
                         new NumberParameter("Segment", 1, 100, 1, "要修改的段号", false),
                         new NumberParameter("TotalCycle", 0, 999, 1, "此模式的总周期", false),
                         new NumberParameter("TotalSegment", 1, 100, 1, "此模式的总段数", false),
-                        new NumberParameter("Hour", 0, 9999, 0, "本段时长-时", false, "h"),
+                        new NumberParameter("Hour", 0, 999, 0, "本段时长-时", false, "h"),
                         new NumberParameter("Minute", 0, 59, 0, "本段时长-分", false, "min"),
                         new NumberParameter("Temp", -40, 200, 37, "本段温度", false, "℃") { DecimalPlaces = 1 },
                         new NumberParameter("Speed", 0, 2000, 0, "本段转速", false, "RPM"),
-                        new NumberParameter("Fan", 0, 10, 0, "本段风速档位", false, "档"),
                     }
                 },
                 OutputParameters = SuccessOnly(),
@@ -424,8 +410,8 @@ namespace ShakingIncubator_ModbusRTU
             Commands.Add(new DeviceCommand
             {
                 Name = "读取程式段",
-                HelpText = "读一段程式的设定值。沿用原实现:先写模式/段号,再写 0x0026=1 读标志," +
-                           "然后回读 0x0029~0x002F。模式填 0 表示读定值模式。",
+                HelpText = "读一段程式的设定值。先写模式/段号,再写 0x0020=1 读标志," +
+                           "然后回读 0x0023~0x0028。模式填 0 表示读定值模式。",
                 InputParameters = new DeviceParameters
                 {
                     Variables = new ObservableCollection<ParameterBase>
@@ -440,11 +426,10 @@ namespace ShakingIncubator_ModbusRTU
                     {
                         new NumberParameter("TotalCycle", 0, 999, 0, "此模式的总周期", true),
                         new NumberParameter("TotalSegment", 0, 100, 0, "此模式的总段数", true),
-                        new NumberParameter("Hour", 0, 9999, 0, "本段时长-时", true, "h"),
+                        new NumberParameter("Hour", 0, 999, 0, "本段时长-时", true, "h"),
                         new NumberParameter("Minute", 0, 59, 0, "本段时长-分", true, "min"),
                         new NumberParameter("Temp", -100, 300, 0, "本段温度", true, "℃"),
                         new NumberParameter("Speed", 0, 65535, 0, "本段转速", true, "RPM"),
-                        new NumberParameter("Fan", 0, 10, 0, "本段风速档位", true, "档"),
                         new BooleanParameter("Success", false, "是否读到"),
                     }
                 },
@@ -477,7 +462,7 @@ namespace ShakingIncubator_ModbusRTU
             Commands.Add(new DeviceCommand
             {
                 Name = "同步系统时间",
-                HelpText = "把上位机当前时间写进仪器的 0x0030~0x0035。" +
+                HelpText = "把上位机当前时间写进仪器的 0x0029~0x002E。" +
                            "预约和记录都依赖仪器自己的时钟,换季或断电后建议同步一次。",
                 OutputParameters = SuccessOnly(),
                 AsyncAction = AsyncWrapAction("同步系统时间", _ => SyncClockAsync())
@@ -545,165 +530,81 @@ namespace ShakingIncubator_ModbusRTU
 
         private static ObservableCollection<ParameterBase> BuildAllOutputs() => new()
         {
-            // 身份
             new NumberParameter("PRODUCT_TYPE", 0, 65535, 0, "产品类型编号", true),
             new NumberParameter("SERIAL_NO", 0, 65535, 0, "产品序列号", true),
-
-            // 测量与设定
-            new NumberParameter("TEMP_PV", -100, 300, 0, "腔内温度测量值", true, "℃"),
+            new NumberParameter("TEMP_PV", -60, 220, 0, "腔内温度测量值", true, "℃"),
             new NumberParameter("TEMP_SET", -40, 200, 0, "温度设定值", true, "℃"),
             new NumberParameter("SPEED_PV", 0, 65535, 0, "转速测量值", true, "RPM"),
             new NumberParameter("SPEED_SET", 0, 2000, 0, "转速设定值", true, "RPM"),
-            new NumberParameter("FAN_PV", 0, 10, 0, "风速测量档位", true, "档"),
-            new NumberParameter("FAN_SET", 0, 10, 0, "风速设定档位", true, "档"),
-
-            // 量程(仪器自报,界面拿它约束输入框)
-            new NumberParameter("TEMP_LO", -100, 300, 0, "温度设定下限", true, "℃"),
-            new NumberParameter("TEMP_HI", -100, 300, 0, "温度设定上限", true, "℃"),
-            new NumberParameter("SPEED_LO", 0, 65535, 0, "速度设定下限", true, "RPM"),
-            new NumberParameter("SPEED_HI", 0, 65535, 0, "速度设定上限", true, "RPM"),
-            new NumberParameter("FAN_LO", 0, 10, 0, "风速设定下限", true, "档"),
-            new NumberParameter("FAN_HI", 0, 10, 0, "风速设定上限", true, "档"),
-
-            // 计时
-            new NumberParameter("ELAPSED_H", 0, 9999, 0, "已计时-时", true, "h"),
+            new NumberParameter("TEMP_LO", -40, 200, 0, "温度设定下限", true, "℃"),
+            new NumberParameter("TEMP_HI", -40, 200, 0, "温度设定上限", true, "℃"),
+            new NumberParameter("SPEED_LO", 0, 2000, 0, "速度设定下限", true, "RPM"),
+            new NumberParameter("SPEED_HI", 0, 2000, 0, "速度设定上限", true, "RPM"),
+            new NumberParameter("ELAPSED_H", 0, 999, 0, "已计时-时", true, "h"),
             new NumberParameter("ELAPSED_M", 0, 59, 0, "已计时-分", true, "min"),
-            new NumberParameter("SET_H", 0, 9999, 0, "设定时长-时", true, "h"),
+            new NumberParameter("SET_H", 0, 999, 0, "设定时长-时", true, "h"),
             new NumberParameter("SET_M", 0, 59, 0, "设定时长-分", true, "min"),
-
-            // 运行
             new NumberParameter("MODE", 0, 5, 0, "当前模式 0定值/1~5程式", true),
             new StringParameter("MODE_TEXT", "", "当前模式文字"),
-            new NumberParameter("RUN_SEGMENT", 0, 100, 0, "当前运行段数", true),
+            new NumberParameter("RUN_SEGMENT", 0, 30, 0, "当前运行段数", true),
             new NumberParameter("RUN_CYCLE", 0, 999, 0, "当前运行周期", true),
-            new NumberParameter("SET_SEGMENT", 0, 100, 0, "当前设定段数", true),
+            new NumberParameter("SET_SEGMENT", 0, 30, 0, "当前设定段数", true),
             new NumberParameter("SET_CYCLE", 0, 999, 0, "当前设定周期", true),
             new NumberParameter("RUN_STATE", 0, 4, 0, "运行状态码", true),
             new StringParameter("RUN_STATE_TEXT", "", "运行状态文字"),
             new BooleanParameter("RUNNING", false, "是否在运行", true),
-
-            // 报警
             new BooleanParameter("HAS_ALARM", false, "是否有报警", true),
             new NumberParameter("ALARM1", 0, 65535, 0, "报警状态1 位域原值", true),
             new NumberParameter("ALARM2", 0, 65535, 0, "报警状态2 位域原值", true),
             new StringParameter("ALARM_TEXT", "", "报警明细"),
-
-            // 功能开关(决定界面上哪几块可用)
-            new BooleanParameter("FUNC_SPEED", false, "转速功能是否开启", true),
-            new BooleanParameter("FUNC_FAN", false, "风机可调功能是否开启", true),
             new BooleanParameter("FUNC_LIGHT", false, "照明功能是否开启", true),
             new BooleanParameter("FUNC_STERILIZE", false, "灭菌功能是否开启", true),
             new BooleanParameter("FUNC_BOOK", false, "预约功能是否开启", true),
-
-            // 开关状态(来自报警状态1 的 bit8/bit9)
             new BooleanParameter("LIGHT_ON", false, "照明当前是否开启", true),
             new BooleanParameter("STERILIZE_ON", false, "灭菌当前是否开启", true),
-
-            // 预约与时钟
             new BooleanParameter("BOOK_ON", false, "预约是否开启", true),
             new StringParameter("BOOK_TIME", "", "预约时间"),
             new StringParameter("CLOCK", "", "仪器系统时间"),
-
             new BooleanParameter("Success", false, "是否取到有效数据", true),
         };
 
         private async Task<DeviceParameters> ReadAllAsync()
         {
             var o = new DeviceParameters { Variables = BuildAllOutputs() };
+            if (IsSimulationMode) { FillSimulated(o); return o; }
 
-            if (IsSimulationMode)
-            {
-                FillSimulated(o);
-                return o;
-            }
-
-            // 手册限制单次最多 32 个地址,所以必须切两刀。
             ushort[] a = await ReadRegistersAsync(Regs.BlockAStart, Regs.BlockACount, CancellationToken.None);
-            if (a.Length < Regs.BlockACount)
-            {
-                o.SetValue("Success", false);
-                return o;
-            }
-
-            // 第二块失败不整条失败:只读区已经拿到了,界面上先把测量值显示出来,
-            // 比整屏 "--" 有用。设定区的项保持默认值,Success 仍标 true。
+            if (a.Length < Regs.BlockACount) { o.SetValue("Success", false); return o; }
             ushort[] b;
             try { b = await ReadRegistersAsync(Regs.BlockBStart, Regs.BlockBCount, CancellationToken.None); }
             catch (Exception ex)
             {
-                _logger.LogWarning($"[恒温振荡培养箱] 读设定区(0x0020~0x0039)失败,只显示测量值:{ex.Message}");
+                _logger.LogWarning($"[恒温振荡培养箱 2024-01-03] 读可写区(0x0020~0x0032)失败:{ex.Message}");
                 b = Array.Empty<ushort>();
             }
-
             ushort A(ushort addr) => a[addr - Regs.BlockAStart];
             ushort B(ushort addr) => b.Length >= Regs.BlockBCount ? b[addr - Regs.BlockBStart] : (ushort)0;
-
-            o.SetValue("PRODUCT_TYPE", (double)A(Regs.ProductType));
-            o.SetValue("SERIAL_NO", (double)A(Regs.SerialNo));
-
-            o.SetValue("TEMP_PV", Tenths(A(Regs.TempPv)));
-            o.SetValue("TEMP_SET", Tenths(A(Regs.TempSet)));
-            o.SetValue("SPEED_PV", (double)(short)A(Regs.SpeedPv));
-            o.SetValue("SPEED_SET", (double)(short)A(Regs.SpeedSet));
-            o.SetValue("FAN_PV", (double)(short)A(Regs.FanPv));
-            o.SetValue("FAN_SET", (double)(short)A(Regs.FanSet));
-
-            o.SetValue("TEMP_LO", Tenths(A(Regs.TempLoLimit)));
-            o.SetValue("TEMP_HI", Tenths(A(Regs.TempHiLimit)));
-            o.SetValue("SPEED_LO", (double)(short)A(Regs.SpeedLoLimit));
-            o.SetValue("SPEED_HI", (double)(short)A(Regs.SpeedHiLimit));
-            o.SetValue("FAN_LO", (double)(short)A(Regs.FanLoLimit));
-            o.SetValue("FAN_HI", (double)(short)A(Regs.FanHiLimit));
-
-            o.SetValue("ELAPSED_H", (double)(short)A(Regs.ElapsedHour));
-            o.SetValue("ELAPSED_M", (double)(short)A(Regs.ElapsedMinute));
-            o.SetValue("SET_H", (double)(short)A(Regs.SetHour));
-            o.SetValue("SET_M", (double)(short)A(Regs.SetMinute));
-
-            int mode = (short)A(Regs.CurrentMode);
-            o.SetValue("MODE", (double)mode);
-            o.SetValue("MODE_TEXT", ModeText(mode));
-            o.SetValue("RUN_SEGMENT", (double)(short)A(Regs.RunSegment));
-            o.SetValue("RUN_CYCLE", (double)(short)A(Regs.RunCycle));
-            o.SetValue("SET_SEGMENT", (double)(short)A(Regs.SetSegment));
-            o.SetValue("SET_CYCLE", (double)(short)A(Regs.SetCycle));
-
-            int state = (short)A(Regs.RunState);
-            o.SetValue("RUN_STATE", (double)state);
-            o.SetValue("RUN_STATE_TEXT", RunStateText(state));
-            // 2=正在运行,3=正在计时,4=自整定中 —— 这三种都算"仪器在动"
-            o.SetValue("RUNNING", state >= 2);
-
-            ushort al1 = A(Regs.Alarm1), al2 = A(Regs.Alarm2);
-            o.SetValue("ALARM1", (double)al1);
-            o.SetValue("ALARM2", (double)al2);
-            o.SetValue("HAS_ALARM", (short)A(Regs.AlarmState) != 0);
-            o.SetValue("ALARM_TEXT", DescribeAlarms(al1, al2));
-
-            o.SetValue("FUNC_SPEED", (short)A(Regs.SpeedFunc) != 0);
-            o.SetValue("FUNC_FAN", (short)A(Regs.FanFunc) != 0);
-            o.SetValue("FUNC_LIGHT", (short)A(Regs.LightFunc) != 0);
-            o.SetValue("FUNC_STERILIZE", (short)A(Regs.SterilizeFunc) != 0);
-            o.SetValue("FUNC_BOOK", (short)A(Regs.BookFunc) != 0);
-
-            // 照明/灭菌的**当前状态**在报警状态1 的 bit8/bit9 里,不在 0x0038/0x0039。
-            // 那两个是写入口,回读的是上位机上次写的值,不代表仪器实际状态。
-            o.SetValue("LIGHT_ON", (al1 >> Alarm1Bits.LightStateBit & 1) != 0);
-            o.SetValue("STERILIZE_ON", (al1 >> Alarm1Bits.SterilizeStateBit & 1) != 0);
-
+            o.SetValue("PRODUCT_TYPE", (double)A(Regs.ProductType)); o.SetValue("SERIAL_NO", (double)A(Regs.SerialNo));
+            o.SetValue("TEMP_PV", Tenths(A(Regs.TempPv))); o.SetValue("TEMP_SET", Tenths(A(Regs.TempSet)));
+            o.SetValue("SPEED_PV", (double)A(Regs.SpeedPv)); o.SetValue("SPEED_SET", (double)(short)A(Regs.SpeedSet));
+            o.SetValue("TEMP_LO", Tenths(A(Regs.TempLoLimit))); o.SetValue("TEMP_HI", Tenths(A(Regs.TempHiLimit)));
+            o.SetValue("SPEED_LO", (double)(short)A(Regs.SpeedLoLimit)); o.SetValue("SPEED_HI", (double)(short)A(Regs.SpeedHiLimit));
+            o.SetValue("ELAPSED_H", (double)(short)A(Regs.ElapsedHour)); o.SetValue("ELAPSED_M", (double)(short)A(Regs.ElapsedMinute));
+            o.SetValue("SET_H", (double)(short)A(Regs.SetHour)); o.SetValue("SET_M", (double)(short)A(Regs.SetMinute));
+            int mode = (short)A(Regs.CurrentMode); o.SetValue("MODE", (double)mode); o.SetValue("MODE_TEXT", ModeText(mode));
+            o.SetValue("RUN_SEGMENT", (double)(short)A(Regs.RunSegment)); o.SetValue("RUN_CYCLE", (double)(short)A(Regs.RunCycle));
+            o.SetValue("SET_SEGMENT", (double)(short)A(Regs.SetSegment)); o.SetValue("SET_CYCLE", (double)(short)A(Regs.SetCycle));
+            int state = (short)A(Regs.RunState); o.SetValue("RUN_STATE", (double)state); o.SetValue("RUN_STATE_TEXT", RunStateText(state)); o.SetValue("RUNNING", state >= 2);
+            ushort al1 = A(Regs.Alarm1), al2 = A(Regs.Alarm2); o.SetValue("ALARM1", (double)al1); o.SetValue("ALARM2", (double)al2);
+            o.SetValue("HAS_ALARM", (short)A(Regs.AlarmState) != 0); o.SetValue("ALARM_TEXT", DescribeAlarms(al1, al2));
+            o.SetValue("FUNC_LIGHT", (short)A(Regs.LightFunc) != 0); o.SetValue("FUNC_STERILIZE", (short)A(Regs.SterilizeFunc) != 0); o.SetValue("FUNC_BOOK", (short)A(Regs.BookFunc) != 0);
+            o.SetValue("LIGHT_ON", (al1 >> Alarm1Bits.LightStateBit & 1) != 0); o.SetValue("STERILIZE_ON", (al1 >> Alarm1Bits.SterilizeStateBit & 1) != 0);
+            // 预约寄存器 0x001A~0x001F 已包含在第一批 0x0000~0x001F 中。
+            o.SetValue("BOOK_ON", (short)A(Regs.BookOnOff) != 0);
+            o.SetValue("BOOK_TIME", $"{(short)A(Regs.BookYear):0000}/{(short)A(Regs.BookMonth):00}/{(short)A(Regs.BookDay):00} {(short)A(Regs.BookHour):00}:{(short)A(Regs.BookMinute):00}");
             if (b.Length >= Regs.BlockBCount)
-            {
-                o.SetValue("BOOK_ON", (short)B(Regs.BookOnOff) != 0);
-                o.SetValue("BOOK_TIME",
-                    $"{(short)B(Regs.BookYear):0000}/{(short)B(Regs.BookMonth):00}/{(short)B(Regs.BookDay):00} " +
-                    $"{(short)B(Regs.BookHour):00}:{(short)B(Regs.BookMinute):00}");
-                o.SetValue("CLOCK",
-                    $"{(short)B(Regs.ClockYear):0000}/{(short)B(Regs.ClockMonth):00}/{(short)B(Regs.ClockDay):00} " +
-                    $"{(short)B(Regs.ClockHour):00}:{(short)B(Regs.ClockMinute):00}:{(short)B(Regs.ClockSecond):00}");
-            }
-
-            o.SetValue("Success", true);
-            return o;
+                o.SetValue("CLOCK", $"{(short)B(Regs.ClockYear):0000}/{(short)B(Regs.ClockMonth):00}/{(short)B(Regs.ClockDay):00} {(short)B(Regs.ClockHour):00}:{(short)B(Regs.ClockMinute):00}:{(short)B(Regs.ClockSecond):00}");
+            o.SetValue("Success", b.Length >= Regs.BlockBCount); return o;
         }
 
         private async Task<DeviceParameters> ReadAlarmsAsync()
@@ -741,41 +642,19 @@ namespace ShakingIncubator_ModbusRTU
             var o = new DeviceParameters
             {
                 Variables = new ObservableCollection<ParameterBase>
-                {
-                    new NumberParameter("TotalCycle", 0, 999, 0, "此模式的总周期", true),
-                    new NumberParameter("TotalSegment", 0, 100, 0, "此模式的总段数", true),
-                    new NumberParameter("Hour", 0, 9999, 0, "本段时长-时", true, "h"),
-                    new NumberParameter("Minute", 0, 59, 0, "本段时长-分", true, "min"),
-                    new NumberParameter("Temp", -100, 300, 0, "本段温度", true, "℃"),
-                    new NumberParameter("Speed", 0, 65535, 0, "本段转速", true, "RPM"),
-                    new NumberParameter("Fan", 0, 10, 0, "本段风速档位", true, "档"),
-                    new BooleanParameter("Success", false, "是否读到"),
-                }
+            {
+                new NumberParameter("TotalCycle",0,999,0,"此模式的总周期",true), new NumberParameter("TotalSegment",0,100,0,"此模式的总段数",true),
+                new NumberParameter("Hour",0,999,0,"本段时长-时",true,"h"), new NumberParameter("Minute",0,59,0,"本段时长-分",true,"min"),
+                new NumberParameter("Temp",-40,200,0,"本段温度",true,"℃"), new NumberParameter("Speed",0,2000,0,"本段转速",true,"RPM"),
+                new BooleanParameter("Success",false,"是否读到")
+            }
             };
-
             if (IsSimulationMode) { o.SetValue("Success", true); return o; }
-
-            ushort mode = (ushort)(int)(p?.GetNullableValue<double>("Mode") ?? 0);
-            ushort seg = (ushort)(int)(p?.GetNullableValue<double>("Segment") ?? 1);
-            var token = CancellationToken.None;
-
-            var editLock = GetEditWindowLock();
-            await editLock.WaitAsync(token).ConfigureAwait(false);
-            ushort[] r;
-            try { r = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false); }
-            finally { editLock.Release(); }
-
-            if (r.Length < 7) return o;
-
-            o.SetValue("TotalCycle", (double)(short)r[0]);
-            o.SetValue("TotalSegment", (double)(short)r[1]);
-            o.SetValue("Hour", (double)(short)r[2]);
-            o.SetValue("Minute", (double)(short)r[3]);
-            o.SetValue("Temp", Tenths(r[4]));
-            o.SetValue("Speed", (double)(short)r[5]);
-            o.SetValue("Fan", (double)(short)r[6]);
-            o.SetValue("Success", true);
-            return o;
+            ushort mode = RequiredInteger(p, "Mode", 0, 5), seg = RequiredInteger(p, "Segment", 1, 100); var token = CancellationToken.None;
+            var editLock = GetEditWindowLock(); await editLock.WaitAsync(token).ConfigureAwait(false); ushort[] r;
+            try { r = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false); } finally { editLock.Release(); }
+            if (r.Length < 6) return o;
+            o.SetValue("TotalCycle", (double)(short)r[0]); o.SetValue("TotalSegment", (double)(short)r[1]); o.SetValue("Hour", (double)(short)r[2]); o.SetValue("Minute", (double)(short)r[3]); o.SetValue("Temp", Tenths(r[4])); o.SetValue("Speed", (double)(short)r[5]); o.SetValue("Success", true); return o;
         }
 
         #endregion
@@ -784,98 +663,42 @@ namespace ShakingIncubator_ModbusRTU
 
         /// <summary>
         /// 往编辑窗口写一批参数并提交。定值模式与程式模式共用一段代码,
-        /// 定值模式只写时/分/温度/速度/风速;程式模式另外写段号/总周期/总段数。
+        /// 定值模式只写时/分/温度/速度;程式模式另外写段号/总周期/总段数。
         /// </summary>
         private async Task<DeviceParameters> WriteEditWindowAsync(DeviceParameters? p, bool programMode)
         {
             if (IsSimulationMode) return Success(true);
-
             var token = CancellationToken.None;
-            // 先验证再转型,避免空参数被当成 0、负整数回绕成 ushort。
-            double temp = RequiredNumber(p, "Temp", -40, 200);
-            ushort speed = RequiredInteger(p, "Speed", 0, 2000);
-            ushort fan = RequiredInteger(p, "Fan", 0, 10);
-            ushort hour = RequiredInteger(p, "Hour", 0, 9999);
-            ushort minute = RequiredInteger(p, "Minute", 0, 59);
-            ushort mode = programMode ? RequiredInteger(p, "Mode", 1, 5) : (ushort)0;
-            ushort seg = programMode ? RequiredInteger(p, "Segment", 1, 100) : (ushort)1;
-            ushort cycles = programMode ? RequiredInteger(p, "TotalCycle", 0, 999) : (ushort)0;
-            ushort totalSeg = programMode ? RequiredInteger(p, "TotalSegment", 1, 100) : (ushort)1;
-            if (programMode && seg > totalSeg)
-                throw new ArgumentException("要修改的段号不能大于此模式的总段数");
-
+            double temp = RequiredNumber(p, "Temp", -40, 200); ushort speed = RequiredInteger(p, "Speed", 0, 2000);
+            ushort hour = RequiredInteger(p, "Hour", 0, 999), minute = RequiredInteger(p, "Minute", 0, 59);
+            ushort mode = programMode ? RequiredInteger(p, "Mode", 1, 5) : (ushort)0, seg = programMode ? RequiredInteger(p, "Segment", 1, 100) : (ushort)1;
+            ushort cycles = programMode ? RequiredInteger(p, "TotalCycle", 0, 999) : (ushort)0, totalSeg = programMode ? RequiredInteger(p, "TotalSegment", 1, 100) : (ushort)1;
+            if (programMode && seg > totalSeg) throw new ArgumentException("要修改的段号不能大于此模式的总段数");
             short tempRaw = checked((short)Math.Round(temp * 10.0, MidpointRounding.AwayFromZero));
-            var expected = new ushort[]
-            {
-                cycles, totalSeg, hour, minute, unchecked((ushort)tempRaw), speed, fan
-            };
-
-            var editLock = GetEditWindowLock();
-            await editLock.WaitAsync(token).ConfigureAwait(false);
+            var expected = new ushort[] { cycles, totalSeg, hour, minute, unchecked((ushort)tempRaw), speed };
+            var editLock = GetEditWindowLock(); await editLock.WaitAsync(token).ConfigureAwait(false);
             try
             {
-                // 0x0004~0x001C:实际温度/速度量程、当前模式、速度/风机功能及风速量程。
-                ushort[] state = await ReadRegistersAsync(Regs.TempLoLimit, 25, token).ConfigureAwait(false);
-                if (state.Length != 25)
-                    throw new InvalidOperationException("未读到设备量程和功能状态,取消参数写入");
-                bool speedEnabled = state[Regs.SpeedFunc - Regs.TempLoLimit] != 0;
-                bool fanEnabled = state[Regs.FanFunc - Regs.TempLoLimit] != 0;
-                ValidateDeviceRange(tempRaw, (short)state[0], (short)state[1], "温度(×10)");
-                if (speedEnabled) ValidateDeviceRange(speed, (short)state[2], (short)state[3], "转速");
-                else if (speed != 0) throw new InvalidOperationException("设备速度功能未开启,不能设置非零转速");
-                if (fanEnabled)
-                    ValidateDeviceRange(fan, (short)state[Regs.FanLoLimit - Regs.TempLoLimit],
-                        (short)state[Regs.FanHiLimit - Regs.TempLoLimit], "风速");
-                else if (fan != 0) throw new InvalidOperationException("设备风机可调功能未开启,不能设置非零风速");
-
-                InfoLog($"编辑模式{mode}/段{seg},设备当前模式{state[Regs.CurrentMode - Regs.TempLoLimit]}:" +
-                    $"温度{tempRaw / 10.0:F1}℃ 转速{speed}RPM 风速{fan}档 时长{hour}:{minute:00}");
-
-                // 先装载目标段,使编辑窗口属于目标模式;也让重复设置之间经过读标志 1。
-                // 读写标志时序沿用原驱动,并非协议表额外规定。
-                ushort[] before = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false);
-                if (before.Length != 7)
-                    throw new InvalidOperationException("未能装载目标模式/段,取消参数写入");
-
+                ushort[] state = await ReadRegistersAsync(Regs.TempLoLimit, 22, token).ConfigureAwait(false);
+                if (state.Length != 22) throw new InvalidOperationException("未读到设备量程和功能状态,取消参数写入");
+                ValidateDeviceRange(tempRaw, (short)state[0], (short)state[1], "温度(×10)"); ValidateDeviceRange(speed, (short)state[2], (short)state[3], "转速");
+                ushort[] before = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false); if (before.Length != 6) throw new InvalidOperationException("未能装载目标模式/段,取消参数写入");
                 if (programMode)
                 {
-                    var block = new ushort[]
-                    {
-                        mode, seg, cycles, totalSeg, hour, minute, unchecked((ushort)tempRaw), speed, fan
-                    };
-                    if (!await WriteMultipleAsync(Regs.EditMode, block, token).ConfigureAwait(false))
-                        throw new InvalidOperationException("程式段参数写入未得到有效应答,未提交;请查看通信日志");
+                    if (!await WriteMultipleAsync(Regs.EditMode, new[] { mode, seg, cycles, totalSeg, hour, minute, unchecked((ushort)tempRaw), speed }, token).ConfigureAwait(false)) throw new InvalidOperationException("程式段参数写入未得到有效应答,未提交");
                 }
-                else
-                {
-                    // 定值模式不写仅对程式有效的总周期/总段数(0x0029/0x002A)。
-                    if (!await WriteMultipleAsync(Regs.EditHour,
-                        new ushort[] { hour, minute, unchecked((ushort)tempRaw), speed, fan }, token).ConfigureAwait(false))
-                        throw new InvalidOperationException("定值参数写入未得到有效应答,未提交;请查看通信日志");
-                }
-
-                if (!await WriteSingleAsync(Regs.EditFlag, 2, token).ConfigureAwait(false))
-                    throw new InvalidOperationException("模式写标志 0x0026=2 未得到有效应答,不能确认设置成功");
+                else if (!await WriteMultipleAsync(Regs.EditHour, new[] { hour, minute, unchecked((ushort)tempRaw), speed }, token).ConfigureAwait(false)) throw new InvalidOperationException("定值参数写入未得到有效应答,未提交");
+                if (!await WriteSingleAsync(Regs.EditFlag, 2, token).ConfigureAwait(false)) throw new InvalidOperationException("模式写标志 0x0020=2 未得到有效应答,不能确认设置成功");
                 await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false);
-
-                // 不能只读刚写过的暂存寄存器:重新发读标志,让设备装载保存的目标段。
-                string mismatch = "";
-                bool verified = false;
+                string mismatch = ""; bool verified = false;
                 for (int attempt = 0; attempt < 3; attempt++)
                 {
-                    ushort[] actual = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false);
-                    mismatch = DescribeEditMismatch(expected, actual, programMode, speedEnabled, fanEnabled);
+                    ushort[] actual = await LoadEditWindowAsync(mode, seg, token).ConfigureAwait(false); mismatch = DescribeEditMismatch(expected, actual, programMode);
                     if (mismatch.Length == 0) { verified = true; break; }
-                    _logger.LogWarning($"[恒温振荡培养箱] 模式{mode}/段{seg}回读不符({attempt + 1}/3):{mismatch}");
-                    // 仅重读,不自动重写或启停设备。
+                    _logger.LogWarning($"[恒温振荡培养箱 2024-01-03] 模式{mode}/段{seg}回读不符({attempt + 1}/3):{mismatch}");
                 }
-                if (!verified)
-                    throw new InvalidOperationException("写入已应答,但重新装载后参数不符,不能确认保存成功:" + mismatch);
-
-                if (!programMode)
-                    await VerifyCurrentFixedSettingsAsync(expected, speedEnabled, fanEnabled, token).ConfigureAwait(false);
-
-                InfoLog($"模式{mode}/段{seg}参数已通过回读校验");
+                if (!verified) throw new InvalidOperationException("写入已应答,但重新装载后参数不符,不能确认保存成功:" + mismatch);
+                if (!programMode) await VerifyCurrentFixedSettingsAsync(expected, token).ConfigureAwait(false);
                 return Success(true);
             }
             finally { editLock.Release(); }
@@ -896,77 +719,29 @@ namespace ShakingIncubator_ModbusRTU
         // 调用方必须持有编辑窗口锁;低层 IO 仍使用原有的单帧锁。
         private async Task<ushort[]> LoadEditWindowAsync(ushort mode, ushort seg, CancellationToken token)
         {
-            if (!await WriteMultipleAsync(Regs.EditMode, new[] { mode, seg }, token).ConfigureAwait(false))
-                return Array.Empty<ushort>();
-            if (!await WriteSingleAsync(Regs.EditFlag, 1, token).ConfigureAwait(false))
-                return Array.Empty<ushort>();
-            await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false);
-            return await ReadRegistersAsync(Regs.EditTotalCycle, 7, token).ConfigureAwait(false);
+            if (!await WriteMultipleAsync(Regs.EditMode, new[] { mode, seg }, token).ConfigureAwait(false)) return Array.Empty<ushort>();
+            if (!await WriteSingleAsync(Regs.EditFlag, 1, token).ConfigureAwait(false)) return Array.Empty<ushort>();
+            await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false); return await ReadRegistersAsync(Regs.EditTotalCycle, 6, token).ConfigureAwait(false);
         }
-
         private static double RequiredNumber(DeviceParameters? p, string name, double min, double max)
-        {
-            double? value = p?.GetNullableValue<double>(name);
-            if (!value.HasValue || !double.IsFinite(value.Value) || value.Value < min || value.Value > max)
-                throw new ArgumentException($"参数 {name} 必须提供且位于 {min}~{max} 范围内");
-            return value.Value;
-        }
-
+        { double? v = p?.GetNullableValue<double>(name); if (!v.HasValue || !double.IsFinite(v.Value) || v.Value < min || v.Value > max) throw new ArgumentException($"参数 {name} 必须提供且位于 {min}~{max} 范围内"); return v.Value; }
         private static ushort RequiredInteger(DeviceParameters? p, string name, int min, int max)
-        {
-            double value = RequiredNumber(p, name, min, max);
-            if (value != Math.Truncate(value)) throw new ArgumentException($"参数 {name} 必须是整数");
-            return checked((ushort)value);
-        }
-
+        { double v = RequiredNumber(p, name, min, max); if (v != Math.Truncate(v)) throw new ArgumentException($"参数 {name} 必须是整数"); return checked((ushort)v); }
         private static void ValidateDeviceRange(int value, int min, int max, string name)
+        { if (min > max || value < min || value > max) throw new ArgumentOutOfRangeException(name, value, $"设备当前允许的 {name} 范围为 {min}~{max}"); }
+        private static string DescribeEditMismatch(ushort[] expected, ushort[] actual, bool programMode)
         {
-            if (min > max || value < min || value > max)
-                throw new ArgumentOutOfRangeException(name, value, $"设备当前允许的 {name} 范围为 {min}~{max}");
+            if (actual.Length != 6) return "未读到完整的编辑窗口"; string[] names = { "总周期", "总段数", "时", "分", "温度(×10)", "转速" }; var d = new List<string>();
+            for (int i = programMode ? 0 : 2; i < 6; i++) if (actual[i] != expected[i]) d.Add($"{names[i]} 期望{(short)expected[i]}/回读{(short)actual[i]}"); return string.Join("; ", d);
         }
-
-        private static string DescribeEditMismatch(ushort[] expected, ushort[] actual,
-            bool programMode, bool speedEnabled, bool fanEnabled)
+        private async Task VerifyCurrentFixedSettingsAsync(ushort[] expected, CancellationToken token)
         {
-            if (actual.Length != 7) return "未读到完整的编辑窗口";
-            string[] names = { "总周期", "总段数", "时", "分", "温度(×10)", "转速", "风速" };
-            var differences = new List<string>();
-            for (int i = programMode ? 0 : 2; i < 7; i++)
+            string mismatch = ""; for (int attempt = 0; attempt < 3; attempt++)
             {
-                if (i == 5 && !speedEnabled || i == 6 && !fanEnabled) continue;
-                if (actual[i] != expected[i])
-                    differences.Add($"{names[i]} 期望{(short)expected[i]}/回读{(short)actual[i]}");
-            }
-            return string.Join("; ", differences);
-        }
-
-        private async Task VerifyCurrentFixedSettingsAsync(ushort[] expected, bool speedEnabled,
-            bool fanEnabled, CancellationToken token)
-        {
-            string mismatch = "";
-            for (int attempt = 0; attempt < 3; attempt++)
-            {
-                // 0x0008~0x0010:只读的当前设定值与当前模式,不能用编辑窗口回显代替。
                 ushort[] current = await ReadRegistersAsync(Regs.TempSet, 9, token).ConfigureAwait(false);
-                if (current.Length != 9) { mismatch = "未读到当前设定值"; }
-                else if (current[8] != 0)
-                {
-                    _logger.LogWarning($"[恒温振荡培养箱] 定值参数保存回读一致,但当前模式是{current[8]}," +
-                        "不会自动切换模式;需要应用定值参数时请显式执行「设置当前模式」=0");
-                    return;
-                }
-                else
-                {
-                    ushort[] actual = { 0, 0, current[6], current[7], current[0], current[2], 0 };
-                    if (fanEnabled)
-                    {
-                        ushort[] fan = await ReadRegistersAsync(Regs.FanSet, 1, token).ConfigureAwait(false);
-                        if (fan.Length != 1) { mismatch = "未读到当前风速设定值"; }
-                        else { actual[6] = fan[0]; mismatch = DescribeEditMismatch(expected, actual, false, speedEnabled, true); }
-                    }
-                    else { mismatch = DescribeEditMismatch(expected, actual, false, speedEnabled, false); }
-                    if (mismatch.Length == 0) return;
-                }
+                if (current.Length != 9) mismatch = "未读到当前设定值";
+                else if (current[8] != 0) { _logger.LogWarning($"[恒温振荡培养箱 2024-01-03] 定值参数保存回读一致,但当前模式是{current[8]},不会自动切换模式"); return; }
+                else { ushort[] actual = { 0, 0, current[6], current[7], current[0], current[2] }; mismatch = DescribeEditMismatch(expected, actual, false); if (mismatch.Length == 0) return; }
                 await Task.Delay(GetEditWaitMs(), token).ConfigureAwait(false);
             }
             throw new InvalidOperationException("编辑窗口回读一致,但定值模式的当前设定值未更新:" + mismatch);
@@ -1072,14 +847,10 @@ namespace ShakingIncubator_ModbusRTU
             o.SetValue("TEMP_SET", 37.0);
             o.SetValue("SPEED_PV", Math.Round(200 + 6 * Math.Sin(t / 5.0)));
             o.SetValue("SPEED_SET", 200d);
-            o.SetValue("FAN_PV", 3d);
-            o.SetValue("FAN_SET", 3d);
             o.SetValue("TEMP_LO", -10d);
             o.SetValue("TEMP_HI", 60d);
             o.SetValue("SPEED_LO", 0d);
             o.SetValue("SPEED_HI", 300d);
-            o.SetValue("FAN_LO", 0d);
-            o.SetValue("FAN_HI", 10d);
             o.SetValue("ELAPSED_H", 1d);
             o.SetValue("ELAPSED_M", 23d);
             o.SetValue("SET_H", 8d);
@@ -1089,8 +860,6 @@ namespace ShakingIncubator_ModbusRTU
             o.SetValue("RUN_STATE", 3d);
             o.SetValue("RUN_STATE_TEXT", RunStateText(3));
             o.SetValue("RUNNING", true);
-            o.SetValue("FUNC_SPEED", true);
-            o.SetValue("FUNC_FAN", true);
             o.SetValue("FUNC_LIGHT", true);
             o.SetValue("FUNC_STERILIZE", true);
             o.SetValue("FUNC_BOOK", true);

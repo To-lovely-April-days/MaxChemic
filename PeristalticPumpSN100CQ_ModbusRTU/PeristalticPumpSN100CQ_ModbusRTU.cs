@@ -157,7 +157,7 @@ namespace PeristalticPumpSN100CQ_ModbusRTU
             });
 
             Parameters.Variables.Add(new NumberParameter("Modbus站号", 1, 254, 1, "泵的 485 地址,出厂 1,可在泵菜单查看"));
-
+            Parameters.Variables.Add(new StringParameter("DTU序列号", "HTLHYRF2GFU9", "DTU 登录包(序列号)，需与云服务器侧该设备的 DTU 一致"));
             InitializeCommands();
         }
 

@@ -90,6 +90,7 @@
 	  <None Remove="Resources\DeviceIcon\JingRuiPump.png" />
 	  <None Remove="Resources\DeviceIcon\magneticstirrer.png" />
 	  <None Remove="Resources\DeviceIcon\PenMeter_BLE.png" />
+	  <None Remove="Resources\DeviceIcon\PeristalticPumpLC.jpg" />
 	  <None Remove="Resources\DeviceIcon\PeristalticPumps_CY.png" />
 	  <None Remove="Resources\DeviceIcon\PhMeter_TouchScreen.png" />
 	  <None Remove="Resources\DeviceIcon\Pistonpumps.png" />
@@ -297,6 +298,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\PenMeter_BLE.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\DeviceIcon\PeristalticPumpLC.jpg">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\DeviceIcon\PeristalticPumps_CY.png">
