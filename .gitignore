@@ -363,3 +363,8 @@ MigrationBackup/
 FodyWeavers.xsd
 # Piper TTS 语音数据（体积大，单独分发）
 MaxChemical.Shell/Resources/piper/
+
+# GitHub 分支保留源码，安装产物和大文件由局域网仓库保存
+installer/output/
+installer/stage/
+installer/安装指南/MaxChemical 安装指南.pdf
