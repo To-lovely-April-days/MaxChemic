@@ -61,6 +61,7 @@ public partial class App : PrismApplication
 
             _logger = MaxChemical.Logging.LogManager.GetLogger<App>();
             _logger.LogInformation("MaxChemical 应用程序启动");
+            RegisterGlobalExceptionHandlers();
             Mark("日志系统就绪");
             Services.SplashScreen.Step(1);   // 日志系统
 
@@ -92,6 +93,33 @@ public partial class App : PrismApplication
             Services.SplashScreen.Kill();
             throw;
         }
+    }
+
+    /// <summary>
+    /// 全局异常兜底:未处理异常先落日志,再按默认行为处理(不吞异常)。
+    /// 没有这层时,UI 线程一个未捕获异常就是无声"闪退",现场无法定位。
+    /// 注意:渲染线程/非托管层崩溃(显卡驱动、视频解码器)不会经过这里,
+    /// 那种崩溃要看 Windows 事件查看器(应用程序日志里的 .NET Runtime / Application Error)。
+    /// </summary>
+    private void RegisterGlobalExceptionHandlers()
+    {
+        DispatcherUnhandledException += (s, args) =>
+        {
+            _logger?.LogCritical(args.Exception, "UI 线程未处理异常");
+            // 不设置 args.Handled:保持原有行为,只补日志
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+        {
+            _logger?.LogCritical(args.ExceptionObject as Exception,
+                $"后台线程未处理异常 (IsTerminating={args.IsTerminating})");
+        };
+
+        TaskScheduler.UnobservedTaskException += (s, args) =>
+        {
+            _logger?.LogError(args.Exception, "未观察到的异步任务异常");
+            args.SetObserved();
+        };
     }
 
     private void CreateHost()

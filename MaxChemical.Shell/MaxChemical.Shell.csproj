@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
@@ -43,6 +43,11 @@
 
 	<ItemGroup>
 		<Resource Include="Assets\**\*" />
+	</ItemGroup>
+
+	<!-- 用户手册视频:放在 Resources\Videos 下,构建时原样复制到输出目录(不嵌入 DLL,避免视频过大拖慢编译) -->
+	<ItemGroup>
+		<Content Include="Resources\Videos\**" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>

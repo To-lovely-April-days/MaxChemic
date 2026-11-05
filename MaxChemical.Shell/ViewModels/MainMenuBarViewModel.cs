@@ -1,4 +1,4 @@
-﻿using MaxChemical.Data.Repositories;
+using MaxChemical.Data.Repositories;
 using MaxChemical.Data.Services;
 using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
@@ -11,6 +11,7 @@ using MaxChemical.Modules.GatewayConfig.Services;
 using MaxChemical.Shell.Events;
 using MaxChemical.Shell.Models;
 using MaxChemical.Shell.Services;
+using MaxChemical.Shell.Views;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Newtonsoft.Json;
@@ -995,7 +996,83 @@ public class MainMenuBarViewModel : BindableBase
     private void ExecuteOptions() => MessageBox.Show("选项设置", _localizationService.GetString("Message_Info"));
 
     // 帮助命令实现
-    private void ExecuteUserManual() => MessageBox.Show(_localizationService.GetString("Message_UserManual"), _localizationService.GetString("Message_Info"));
+    private void ExecuteUserManual()
+    {
+        try
+        {
+            var videoPath = FindUserManualVideo();
+            if (videoPath == null)
+            {
+                MessageBox.Show(_localizationService.GetString("Message_UserManual"),
+                    _localizationService.GetString("Message_Info"));
+                return;
+            }
+
+            // 扩展屏(尤其是投屏这种虚拟显示器)上,显卡硬件渲染的视频路径可能让进程
+            // 直接闪退 —— 本地屏正常、投屏屏闪退就是这个原因。播放在非主屏时,
+            // 播放期间把进程临时切到软件渲染(不依赖显卡),关闭后恢复。
+            var targetBounds = Utils.ScreenHelper.GetCurrentScreenBounds(Application.Current.MainWindow);
+            bool onExtendedScreen = targetBounds.Left != 0 || targetBounds.Top != 0;
+            var previousRenderMode = System.Windows.Media.RenderOptions.ProcessRenderMode;
+            bool switchedToSoftware = false;
+
+            try
+            {
+                if (onExtendedScreen)
+                {
+                    System.Windows.Media.RenderOptions.ProcessRenderMode =
+                        System.Windows.Interop.RenderMode.SoftwareOnly;
+                    switchedToSoftware = true;
+                    _logger.LogWarning("视频将在扩展/投屏屏幕播放,播放期间已切换为软件渲染(关闭视频后恢复)");
+                }
+
+                // 全屏循环播放用户手册视频,按 Esc 退出
+                var player = new UserManualPlayerWindow(
+                    videoPath,
+                    _localizationService.GetString("UserManual_ExitHint", "按 Esc 退出播放"))
+                {
+                    Owner = Application.Current.MainWindow
+                };
+                player.ShowDialog();
+
+                // 播放窗口因解码失败等原因被动关闭时,回到主界面后给出明确提示
+                if (player.PlaybackError != null)
+                {
+                    MessageBox.Show(
+                        $"视频播放失败: {player.PlaybackError}\n\n" +
+                        $"大体积视频建议转码为 H.264 编码的 1080P MP4 后重试(HEVC/4K 需要系统安装对应解码器)。",
+                        _localizationService.GetString("Message_Info"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            finally
+            {
+                if (switchedToSoftware)
+                {
+                    System.Windows.Media.RenderOptions.ProcessRenderMode = previousRenderMode;
+                    _logger.LogInformation("视频播放结束,渲染模式已恢复");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "打开用户手册视频失败");
+            MessageBox.Show($"打开用户手册失败: {ex.Message}", _localizationService.GetString("Message_Info"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>在输出目录的 Resources\Videos 下查找用户手册视频文件。</summary>
+    private static string? FindUserManualVideo()
+    {
+        var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Videos");
+        foreach (var ext in new[] { ".mp4", ".wmv", ".avi", ".mov", ".mkv" })
+        {
+            var path = Path.Combine(dir, "UserManual" + ext);
+            if (File.Exists(path)) return path;
+        }
+        return null;
+    }
     private void ExecuteQuickStart() => MessageBox.Show("快速入门指南", _localizationService.GetString("Message_Info"));
     private void ExecuteVideoTutorial() => MessageBox.Show(_localizationService.GetString("Message_VideoTutorial"), _localizationService.GetString("Message_Info"));
     private void ExecuteSampleProjects() => MessageBox.Show("示例项目", _localizationService.GetString("Message_Info"));

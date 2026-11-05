@@ -1,4 +1,4 @@
-﻿{
+{
   "ApplicationTitle": "智能流程控制系统",
   "Menu_File": "文件(F)",
   "Menu_New": "新建",
@@ -69,6 +69,7 @@
   "Message_ExperimentStats": "数据统计分析",
   "Message_GenerateReport": "报告生成",
   "Message_UserManual": "用户手册",
+  "UserManual_ExitHint": "按 Esc 退出播放",
   "Message_VideoTutorial": "视频教程",
   "Message_TechSupport": "技术支持",
   "Message_CheckUpdate": "检查更新",

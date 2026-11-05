@@ -72,6 +72,7 @@
   "Message_ExperimentStats": "Data Analysis",
   "Message_GenerateReport": "Generate Report",
   "Message_UserManual": "User Manual",
+  "UserManual_ExitHint": "Press Esc to exit",
   "Message_VideoTutorial": "Video Tutorial",
   "Message_TechSupport": "Technical Support",
   "Message_CheckUpdate": "Check Update",

@@ -165,12 +165,14 @@ namespace MaxChemical.Shell.Views
             }
         }
 
-        /// <summary>小组件停靠到工作区右下角(等布局完成拿到实际尺寸后再定位)。</summary>
+        /// <summary>小组件停靠到主窗口所在屏幕工作区的右下角(等布局完成拿到实际尺寸后再定位)。</summary>
         private void PositionMiniBottomRight()
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                var wa = SystemParameters.WorkArea;
+                // 跟随主界面所在屏幕,而不是固定主屏
+                var anchor = Application.Current.MainWindow ?? this;
+                var wa = Utils.ScreenHelper.GetCurrentScreenWorkArea(anchor);
                 Left = wa.Right - ActualWidth - 16;
                 Top = wa.Bottom - ActualHeight - 16;
             }), System.Windows.Threading.DispatcherPriority.Loaded);

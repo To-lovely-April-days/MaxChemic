@@ -1,7 +1,8 @@
-﻿using MaxChemical.Infrastructure.Events;
+using MaxChemical.Infrastructure.Events;
 using MaxChemical.Infrastructure.Services;
 using MaxChemical.Logging;
 using MaxChemical.Shell.Services;
+using MaxChemical.Shell.Utils;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -331,11 +332,12 @@ namespace MaxChemical.Shell.ViewModels
             {
                 //window.WindowState = WindowState.Maximized;
 
-                // 最大化时铺满工作区
-                window.Top = 0;
-                window.Left = 0;
-                window.Width = SystemParameters.WorkArea.Width;
-                window.Height = SystemParameters.WorkArea.Height;
+                // 最大化时铺满窗口当前所在屏幕的工作区（支持扩展屏）
+                var workArea = ScreenHelper.GetCurrentScreenWorkArea(window);
+                window.Left = workArea.Left;
+                window.Top = workArea.Top;
+                window.Width = workArea.Width;
+                window.Height = workArea.Height;
 
                 //if (window.Content is FrameworkElement rootElement)
                 //{
@@ -351,10 +353,10 @@ namespace MaxChemical.Shell.ViewModels
                 window.Width = 1200;
                 window.Height = 800;
 
-                var screenWidth = SystemParameters.PrimaryScreenWidth;
-                var screenHeight = SystemParameters.PrimaryScreenHeight;
-                window.Left = (screenWidth - window.Width) / 2;
-                window.Top = (screenHeight - window.Height) / 2;
+                // 还原后在窗口当前所在屏幕居中
+                var workArea = ScreenHelper.GetCurrentScreenWorkArea(window);
+                window.Left = workArea.Left + (workArea.Width - window.Width) / 2;
+                window.Top = workArea.Top + (workArea.Height - window.Height) / 2;
 
                 //if (window.Content is FrameworkElement rootElement)
                 //{
@@ -374,7 +376,7 @@ namespace MaxChemical.Shell.ViewModels
 
             if (_isWindowMinimized)
             {
-                var workingArea = SystemParameters.WorkArea;
+                var workingArea = ScreenHelper.GetCurrentScreenWorkArea(window);
                 window.Width = workingArea.Width;
                 window.Height = workingArea.Height;
 
