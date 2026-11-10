@@ -11,6 +11,8 @@
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<ApplicationIcon>Resources\Icon\app.ico</ApplicationIcon>
+		<!-- PerMonitorV2 DPI:投放到大屏时按大屏自己的缩放清晰绘制(见 app.manifest) -->
+		<ApplicationManifest>app.manifest</ApplicationManifest>
 	</PropertyGroup>
 
 	<ItemGroup>
