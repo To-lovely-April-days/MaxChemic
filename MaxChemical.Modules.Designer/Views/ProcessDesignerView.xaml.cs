@@ -12800,6 +12800,16 @@ namespace MaxChemical.Modules.Designer.Views
             _eventAggregator?.GetEvent<VoiceControlDeviceStateEvent>()?.Subscribe(
                 OnVoiceControlDeviceState,
                 ThreadOption.UIThread);
+
+            // ========== 新增：AI 小桐创建设备(等效拖拽,带结果回调) ==========
+            _eventAggregator?.GetEvent<AgentCreateDeviceEvent>()?.Subscribe(
+                OnAgentCreateDevice,
+                ThreadOption.UIThread);
+
+            // ========== 新增：AI 小桐打开设备连接界面(等效双击) ==========
+            _eventAggregator?.GetEvent<ShowDevicePropertyDialogRequestEvent>()?.Subscribe(
+                OnAgentShowDeviceDialog,
+                ThreadOption.UIThread);
             Debug.WriteLine(" 语音助手事件已订阅");
         }
 
@@ -12840,6 +12850,73 @@ namespace MaxChemical.Modules.Designer.Views
                 Debug.WriteLine($"语音创建设备失败: {ex.Message}");
                 _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish(
                     "创建设备失败");
+            }
+        }
+
+        /// <summary>
+        /// 处理 AI 小桐创建设备事件(等效拖拽):复用语音链路同一创建路径,
+        /// 但带结果回调,让 AI 工具能拿到新设备的显示名(如 自研冷水机#1)。
+        /// </summary>
+        private void OnAgentCreateDevice(AgentCreateDeviceEventArgs args)
+        {
+            var result = new AgentCreateDeviceResult();
+            try
+            {
+                Debug.WriteLine($"[AgentCreateDevice] 请求放置设备: {args.DeviceName}");
+
+                var device = FindDeviceByName(args.DeviceName);
+                if (device == null)
+                {
+                    result.Success = false;
+                    var available = string.Join("、", _deviceManager?.GetAllDevices()?
+                        .Select(d => d.Name) ?? Array.Empty<string>());
+                    result.Error = string.IsNullOrEmpty(available)
+                        ? $"设备库中没有「{args.DeviceName}」"
+                        : $"设备库中没有「{args.DeviceName}」,可用设备:{available}";
+                    return;
+                }
+
+                var dropPosition = CalculateSmartPosition();
+                CreateDeviceFromVoiceCommand(device, dropPosition);
+
+                // 显示名由 CreateDeviceControl 同步写入 _deviceDisplayNames(如 自研冷水机#1)
+                var created = _viewModel?.CanvasDevices?.LastOrDefault();
+                result.Success = true;
+                result.DeviceId = created?.DeviceId ?? "";
+                result.DisplayName = (created != null &&
+                    _deviceDisplayNames.TryGetValue(created.DeviceId, out var displayName))
+                    ? displayName
+                    : device.Name;
+
+                Debug.WriteLine($"[AgentCreateDevice] 放置成功: {result.DisplayName} ({result.DeviceId})");
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = "创建设备失败:" + ex.Message;
+                Debug.WriteLine($"[AgentCreateDevice] 失败: {ex.Message}");
+            }
+            finally
+            {
+                args.Callback?.Invoke(result);
+            }
+        }
+
+        /// <summary>
+        /// 处理 AI 小桐打开设备连接界面事件(等效双击):复用 ShowDevicePropertyDialog 同一路径,
+        /// 监控参数保存/关闭清理全部保留。用 BeginInvoke 延后弹窗,模态窗口不会拖住发布方。
+        /// </summary>
+        private void OnAgentShowDeviceDialog(string deviceId)
+        {
+            try
+            {
+                Debug.WriteLine($"[AgentShowDeviceDialog] 请求打开设备界面: {deviceId}");
+                Dispatcher.BeginInvoke(new Action(() => ShowDevicePropertyDialog(deviceId)),
+                    System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AgentShowDeviceDialog] 失败: {ex.Message}");
             }
         }
         // ========== 新增：智能计算位置（避免重叠）==========

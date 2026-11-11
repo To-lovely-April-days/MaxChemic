@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS 3D Laboratory</title>
+  <link rel="icon" type="image/png" href="./assets/devices/logo.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main id="viewport" aria-label="交互式 3D 实验室">
+    <div class="top-shade"></div>
+    <nav class="toolbar" aria-label="场景工具">
+      <button class="tool-button" data-action="overview" title="返回总览 (Home)"><span>⌂</span></button>
+      <button class="tool-button" data-action="reset" title="重置视角 (R)"><span>↻</span></button>
+      <button class="tool-button quality-button" data-action="quality" title="切换画质"><span id="quality-label">HQ</span></button>
+      <button class="tool-button" data-action="fullscreen" title="全屏显示" aria-label="全屏显示" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </nav>
+    <section id="ai-inspection-banner" class="ai-inspection-banner hidden" aria-label="AI 大脑规则巡检">
+      <span class="inspection-symbol" aria-hidden="true"><img src="./assets/xiaotong.png" alt="" /></span>
+      <div>
+        <span class="inspection-kicker">RULE INSPECTION</span>
+        <strong id="ai-inspection-target">AI 巡检中</strong>
+        <span id="ai-inspection-task">等待设备数据</span>
+      </div>
+      <i aria-hidden="true"></i>
+    </section>
+    <aside class="navigation-hint">
+      <span>场景导航</span>
+      <div><b>左键</b> 旋转 <i></i><b>右键</b> 平移 <i></i><b>滚轮</b> 缩放</div>
+      <div><b>右键设备</b> 删除</div>
+    </aside>
+    <div class="view-status">
+      <div class="compass"><span>N</span><svg id="compass-arrow" viewBox="0 0 40 40"><path d="M20 5 L14 29 L20 25 L26 29 Z" /></svg></div>
+      <span id="zoom-label">100%</span>
+      <span id="fps-label">WEBGL2</span>
+    </div>
+    <div id="focus-badge" class="focus-badge hidden"><span></span><b id="focus-text"></b></div>
+    <div id="toast" class="toast hidden"></div>
+    <div id="scene-error" class="scene-error hidden"><strong>3D 场景加载失败</strong><p id="scene-error-text"></p><button onclick="location.reload()">重新加载</button></div>
+  </main>
+  <script>
+    window.reportSceneError = function (message) {
+      const text = String(message || '未知错误');
+      document.getElementById('scene-error')?.classList.remove('hidden');
+      const target = document.getElementById('scene-error-text');
+      if (target) target.textContent = text;
+      if (window.chrome?.webview) window.chrome.webview.postMessage({ type: 'scene-error', message: text });
+    };
+    window.addEventListener('error', event => {
+      if (event.message) window.reportSceneError(event.message);
+    });
+    window.addEventListener('unhandledrejection', event => window.reportSceneError(event.reason));
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

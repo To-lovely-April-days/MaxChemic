@@ -31,10 +31,17 @@ namespace MaxChemical.Shell.Services
         private readonly object _lock = new();
         private CancellationTokenSource? _currentCts;
         private WaveOutEvent? _waveOut;
+        private bool _isPlaying;
         private float _rate = 1.0f;
 
         public string EngineName => "百炼 CosyVoice";
         public bool IsAvailable => !string.IsNullOrWhiteSpace(_apiKey);
+
+        /// <summary>
+        /// 播放状态变化(true=开始播放,false=播放结束/被打断)。
+        /// 供语音服务在播报期间挂起麦克风采集,避免播报声被收回形成识别回声污染。
+        /// </summary>
+        public event EventHandler<bool>? PlayingChanged;
 
         public BailianTtsEngine(ILogService logger, IConfiguration configuration)
         {
@@ -84,16 +91,41 @@ namespace MaxChemical.Shell.Services
 
             try
             {
-                await SynthesizeAndPlayAsync(text, ct);
+                await SynthesizeAndPlayAsync(text, ct, () =>
+                {
+                    lock (_lock)
+                    {
+                        if (ReferenceEquals(_currentCts, cts)) SetPlayingStateLocked(true);
+                    }
+                });
             }
             catch (OperationCanceledException) { /* 被新播报/停止打断,正常 */ }
             catch (Exception ex)
             {
                 _logger.LogError($"[{EngineName}] 合成播放失败: {ex.Message}");
             }
+            finally
+            {
+                lock (_lock)
+                {
+                    if (ReferenceEquals(_currentCts, cts))
+                    {
+                        _currentCts = null;
+                        SetPlayingStateLocked(false);
+                    }
+                }
+                cts.Dispose();
+            }
         }
 
-        private async Task SynthesizeAndPlayAsync(string text, CancellationToken ct)
+        private void SetPlayingStateLocked(bool playing)
+        {
+            if (_isPlaying == playing) return;
+            _isPlaying = playing;
+            PlayingChanged?.Invoke(this, playing);
+        }
+
+        private async Task SynthesizeAndPlayAsync(string text, CancellationToken ct, Action playbackStarted)
         {
             string taskId = Guid.NewGuid().ToString("N");
 
@@ -138,13 +170,26 @@ namespace MaxChemical.Shell.Services
             WaveOutEvent waveOut;
             lock (_lock)
             {
-                _waveOut = new WaveOutEvent();
+                _waveOut = new WaveOutEvent
+                {
+                    DesiredLatency = 150,
+                    NumberOfBuffers = 3
+                };
                 waveOut = _waveOut;
             }
             waveOut.Init(provider);
             bool playing = false;
             bool taskStartedSent = false;
             bool finished = false;
+            int playbackPrebufferBytes = _sampleRate * 2 * 180 / 1000;
+
+            void StartPlayback()
+            {
+                if (playing || provider.BufferedBytes == 0) return;
+                waveOut.Play();
+                playing = true;
+                playbackStarted();
+            }
 
             var buffer = new byte[32768];
             var messageBuf = new MemoryStream();
@@ -172,11 +217,8 @@ namespace MaxChemical.Shell.Services
                     // 音频帧 → 播放缓冲
                     var chunk = messageBuf.ToArray();
                     provider.AddSamples(chunk, 0, chunk.Length);
-                    if (!playing)
-                    {
-                        waveOut.Play();
-                        playing = true;
-                    }
+                    if (provider.BufferedBytes >= playbackPrebufferBytes)
+                        StartPlayback();
                     continue;
                 }
 
@@ -219,15 +261,19 @@ namespace MaxChemical.Shell.Services
 
             ct.ThrowIfCancellationRequested();
 
-            // 4) 音频帧收完,等播放缓冲耗尽
+            // 4) 短句不足预缓冲门限时也立即开播,再等播放缓冲耗尽
+            StartPlayback();
             if (playing)
             {
                 while (!ct.IsCancellationRequested &&
                        provider.BufferedBytes > 0 &&
-                       waveOut.PlaybackState == PlaybackState.Playing)
+                       (waveOut.PlaybackState == PlaybackState.Playing ||
+                        waveOut.PlaybackState == PlaybackState.Paused))
                 {
                     await Task.Delay(100, ct);
                 }
+
+                await Task.Delay(150, ct);
             }
 
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None); } catch { }
@@ -253,12 +299,39 @@ namespace MaxChemical.Shell.Services
             lock (_lock) StopCurrentLocked();
         }
 
+        public bool PauseSpeaking()
+        {
+            lock (_lock)
+            {
+                if (!_isPlaying || _waveOut == null ||
+                    _waveOut.PlaybackState != PlaybackState.Playing)
+                    return false;
+
+                _waveOut.Pause();
+                return true;
+            }
+        }
+
+        public bool ResumeSpeaking()
+        {
+            lock (_lock)
+            {
+                if (!_isPlaying || _waveOut == null ||
+                    _waveOut.PlaybackState != PlaybackState.Paused)
+                    return false;
+
+                _waveOut.Play();
+                return true;
+            }
+        }
+
         private void StopCurrentLocked()
         {
             try { _currentCts?.Cancel(); } catch { }
             _currentCts = null;
             try { _waveOut?.Stop(); _waveOut?.Dispose(); } catch { }
             _waveOut = null;
+            SetPlayingStateLocked(false);
         }
 
         public void SetSpeakingRate(float rate)

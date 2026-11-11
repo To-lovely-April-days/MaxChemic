@@ -154,6 +154,12 @@ namespace MaxChemical.Shell.ViewModels
         private readonly AgentChatStorage _storage = new();
         private readonly ILocalizationService _localization;
         private readonly IEventAggregator _eventAggregator;
+        private readonly Services.Agent.Safety.VoiceConfirmationService _voiceConfirm;
+        private readonly Services.Agent.Safety.EmergencyStopService _emergencyStop;
+        private readonly ISpeechPlaybackService _speechPlayback;
+        private readonly HashSet<string> _activeTurnToolNames = new(StringComparer.OrdinalIgnoreCase);
+        private bool _isSpeechPlaybackActive;
+        private bool _isSpeechPaused;
 
         private string _inputText = "";
         private string _searchText = "";
@@ -175,7 +181,10 @@ namespace MaxChemical.Shell.ViewModels
 
         public AgentChatViewModel(XiaoTongAgent agent, IVoiceAssistantService voice,
             MaxChemical.Infrastructure.Services.IDialogService dialog, ILocalizationService localization,
-            IEventAggregator eventAggregator)
+            IEventAggregator eventAggregator,
+            Services.Agent.Safety.VoiceConfirmationService voiceConfirm,
+            Services.Agent.Safety.EmergencyStopService emergencyStop,
+            ISpeechPlaybackService speechPlayback)
         {
             _agent = agent;
             _voice = voice;
@@ -183,8 +192,16 @@ namespace MaxChemical.Shell.ViewModels
             _logger = LogManager.GetLogger<AgentChatViewModel>();
             _localization = localization;
             _eventAggregator = eventAggregator;
+            _voiceConfirm = voiceConfirm;
+            _emergencyStop = emergencyStop;
+            _speechPlayback = speechPlayback;
+            _speechPlayback.StateChanged += (s, state) => RunOnUi(UpdateSpeechPlaybackState);
 
-            SendCommand = new DelegateCommand(Send, () => !IsBusy && !string.IsNullOrWhiteSpace(InputText))
+            // 忙碌时常规发送被禁用,但急停指令必须任何时刻都能发出去(急停本地直连,不占 Agent 轮次);
+            // 有待确认的写操作时也放行输入——发送「确认/取消」直接解决确认卡
+            SendCommand = new DelegateCommand(Send,
+                    () => !string.IsNullOrWhiteSpace(InputText) &&
+                          (!IsBusy || _emergencyStop.Matches(InputText) || _voiceConfirm.HasPending))
                 .ObservesProperty(() => InputText)
                 .ObservesProperty(() => IsBusy);
             NewChatCommand = new DelegateCommand(NewChat, () => !IsBusy).ObservesProperty(() => IsBusy);
@@ -194,6 +211,11 @@ namespace MaxChemical.Shell.ViewModels
             // 空会话引导面板:点示例问题填入输入框(可修改后发送),降低「不知道能聊什么」的门槛
             FillInputCommand = new DelegateCommand<string>(s => { if (!string.IsNullOrEmpty(s)) InputText = s; });
 
+            // 按键说话:点麦克风开始聆听,再点一次停止
+            ToggleListenCommand = new DelegateCommand(OnToggleListen);
+            ToggleSpeechPlaybackCommand = new DelegateCommand(ToggleSpeechPlayback);
+            StopSpeechPlaybackCommand = new DelegateCommand(() => _speechPlayback.Stop());
+
             ConversationsView = CollectionViewSource.GetDefaultView(Conversations);
             ConversationsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversationVm.DateGroup)));
             ConversationsView.SortDescriptions.Add(new SortDescription(nameof(ConversationVm.LastActiveAt), ListSortDirection.Descending));
@@ -201,6 +223,30 @@ namespace MaxChemical.Shell.ViewModels
 
             _agent.EventRaised += OnAgentEvent;
             _agent.ConfirmationRequested += OnConfirmationRequestedAsync;
+
+            // ── 按键说话(PTT)事件:聆听状态 → 按钮反馈;实时片段 → 边说边出字;整句结束 → 自动发送 ──
+            _voice.ListenOnceStateChanged += (s, on) => RunOnUi(() =>
+            {
+                IsListeningOnce = on;
+                if (!on) _listenFeedback = "";
+            });
+            _voice.ListenPartialChanged += (s, partial) => RunOnUi(() =>
+            {
+                // 上一句已定稿、现在开始新的一句:先清掉旧文字,只保留这次说对的
+                if (_awaitingNewUtterance)
+                {
+                    _awaitingNewUtterance = false;
+                    InputText = "";
+                }
+                // 边说边在输入框里实时显示识别内容
+                _listenFeedback = partial ?? "";
+                InputText = partial ?? "";
+                RaisePropertyChanged(nameof(InputTipText));
+            });
+            _voice.ListenOnceCompleted += (s, final) => RunOnUi(() => OnListenOnceCompleted(final ?? ""));
+
+            // 语音唤醒状态只由主界面标题栏的状态弹框展示(单一反馈通道),
+            // 聊天窗状态行不再同步——避免"两个正在聆听的框"
 
             // 启动时恢复历史会话;程序退出时兜底保存一次
             LoadPersistedConversations();
@@ -254,10 +300,60 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand StopTurnCommand { get; }
         public DelegateCommand<ConversationVm> DeleteConversationCommand { get; }
         public DelegateCommand<string> FillInputCommand { get; }
+        public DelegateCommand ToggleSpeechPlaybackCommand { get; }
+        public DelegateCommand StopSpeechPlaybackCommand { get; }
 
-        /// <summary>停止当前这轮:取消令牌传到总控与专员子循环,未决的确认/选择卡一并释放。</summary>
-        private void StopTurn()
+        public bool IsSpeechPlaybackActive
         {
+            get => _isSpeechPlaybackActive;
+            private set => SetProperty(ref _isSpeechPlaybackActive, value);
+        }
+
+        public string SpeechPauseText => _isSpeechPaused ? "继续播报" : "暂停播报";
+
+        private void UpdateSpeechPlaybackState()
+        {
+            IsSpeechPlaybackActive = _speechPlayback.State == SpeechPlaybackState.Playing ||
+                                     _speechPlayback.State == SpeechPlaybackState.Paused;
+            _isSpeechPaused = _speechPlayback.State == SpeechPlaybackState.Paused;
+            RaisePropertyChanged(nameof(SpeechPauseText));
+        }
+
+        private void ToggleSpeechPlayback()
+        {
+            if (_speechPlayback.State == SpeechPlaybackState.Paused) _speechPlayback.Resume();
+            else _speechPlayback.Pause();
+        }
+
+        private bool TryHandleSpeechControl(string text)
+        {
+            string command = MaxChemical.Shell.Services.Agent.TextMatchHelper.StripPunctuation(text).Trim();
+            if (command is "停止播报" or "停止说话" or "停止朗读" or "取消播报" or "别说了" or "不要再说了" or "闭嘴")
+            {
+                _speechPlayback.Stop();
+                StatusText = "已停止播报";
+                return true;
+            }
+            if (command is "暂停播报" or "暂停说话" or "暂停朗读")
+            {
+                _speechPlayback.Pause();
+                return true;
+            }
+            if (command is "继续播报" or "继续朗读" or "恢复播报")
+            {
+                _speechPlayback.Resume();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 停止当前这轮:取消令牌传到总控与专员子循环,未决的确认/选择卡一并释放。
+        /// public:急停链路(EmergencyStopService.CancelCurrentTurn)需要调用。
+        /// </summary>
+        public void StopTurn()
+        {
+            _speechPlayback.Stop();
             var cts = _turnCts;
             if (cts == null) return;
             StatusText = _localization.GetString("Agent_StatusMsg_Stoping","正在停止…");
@@ -280,10 +376,56 @@ namespace MaxChemical.Shell.ViewModels
         public bool IsBusy
         {
             get => _isBusy;
-            set { if (SetProperty(ref _isBusy, value)) RaisePropertyChanged(nameof(IsNotBusy)); }
+            set
+            {
+                if (SetProperty(ref _isBusy, value))
+                {
+                    RaisePropertyChanged(nameof(IsNotBusy));
+                    if (!value) FlushPendingVoiceSend();   // 忙完自动发送排队中的语音指令
+                }
+            }
         }
 
         public bool IsNotBusy => !IsBusy;
+
+        // ── 按键说话(PTT)状态:聊天窗麦克风按钮与"边说边出字"反馈 ──
+        private bool _isListeningOnce;
+        private string _listenFeedback = "";
+
+        public bool IsListeningOnce
+        {
+            get => _isListeningOnce;
+            set
+            {
+                if (SetProperty(ref _isListeningOnce, value))
+                {
+                    RaisePropertyChanged(nameof(MicTipTxt));
+                    RaisePropertyChanged(nameof(InputTipText));
+                }
+            }
+        }
+
+        /// <summary>麦克风按钮悬浮提示(图标按钮没有文字,靠提示说明)。</summary>
+        public string MicTipTxt => _isListeningOnce
+            ? "结束聆听并发送"
+            : "语音输入:点击开始说话,边说边出字,再点一次发送";
+
+        /// <summary>输入区提示行:有待确认操作时引导文字回复;聆听时显示实时片段;平时显示审计提示。</summary>
+        public string InputTipText
+        {
+            get
+            {
+                if (_voiceConfirm.HasPending)
+                    return "有操作待确认:输入「确认」或「取消」后发送,或直接点卡片按钮";
+                if (_isListeningOnce)
+                    return string.IsNullOrWhiteSpace(_listenFeedback)
+                        ? "正在聆听,请说话…(再点一次喇叭结束并发送)"
+                        : $"正在聆听:{_listenFeedback}…(再点一次结束并发送)";
+                return _localization.GetString("Agent_Send_Tip", "小桐在执行写操作前会逐项与你确认 · 全部操作记录审计日志");
+            }
+        }
+
+        public DelegateCommand ToggleListenCommand { get; }
 
         /// <summary>
         /// 执行值守小组件模式:窗口收缩到屏幕右下角(头像+输入框),
@@ -378,7 +520,7 @@ namespace MaxChemical.Shell.ViewModels
                 SaveConversations();
             });
             if (speak)
-                _voice?.SpeakAsync(BuildSpeech(text));
+                _speechPlayback.Play(new[] { BuildSpeech(text) });
         }
 
         /// <summary>
@@ -398,33 +540,235 @@ namespace MaxChemical.Shell.ViewModels
             });
         }
 
-        /// <summary>供语音链路调用:把语音识别文本作为一轮对话丢给小桐。</summary>
+        /// <summary>供语音链路调用:把语音识别文本作为一轮对话丢给小桐(来源标记「语音」)。</summary>
         public void AskFromVoice(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
-            if (IsBusy)
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
             {
-                // 忙碌中不静默吞掉语音指令:给一句播报,让用户知道要等
-                _voice?.SpeakAsync("小桐正在处理上一件事,请稍候或在窗口点停止。");
+                dispatcher.BeginInvoke(new Action(() => AskFromVoice(text)));
                 return;
             }
-            _ = RunAsync(text);
+
+            if (TryHandleSpeechControl(text)) return;
+            if (IsDuplicateVoiceCommand(text))
+            {
+                StatusText = "相同语音指令正在处理或刚完成,已忽略重复识别";
+                _logger.LogInformation($"忽略重复语音轮次:{text}");
+                return;
+            }
+            if (IsBusy)
+            {
+                EnqueueVoiceSend(text);
+                return;
+            }
+            _ = RunAsync(text, "语音");
+        }
+
+        /// <summary>麦克风按钮:开始聆听;聆听中再点=结束聆听并发送输入框内容。</summary>
+        private async void OnToggleListen()
+        {
+            if (IsListeningOnce)
+            {
+                _voice.StopListenOnce();   // 结束聆听(按钮变回喇叭形状)
+                // 留出约 700ms 让识别服务输出整句定稿,发送内容更完整准确
+                await Task.Delay(700);
+                SendVoiceTextNow();
+            }
+            else
+            {
+                // 麦克风按钮同时承担可靠的播报打断:先取消整个队列,再开启录音。
+                _speechPlayback.Stop();
+                _awaitingNewUtterance = false;   // 新一轮聆听:第一句不清用户之前手动输入的文字
+                _voice.StartListenOnce();
+            }
+        }
+
+        /// <summary>把输入框里的语音内容发送出去(第二次点击喇叭时触发)。</summary>
+        private void SendVoiceTextNow()
+        {
+            string text = InputText?.Trim();
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            // 有待确认的写操作:内容若为确认词则解决确认卡,不再当消息发送/排队
+            if (_voiceConfirm.HasPending)
+            {
+                var verdict = _voiceConfirm.TryResolve(text);
+                if (verdict.HasValue)
+                {
+                    InputText = "";
+                    return;
+                }
+            }
+
+            if (TryHandleSpeechControl(text))
+            {
+                InputText = "";
+                return;
+            }
+
+            InputText = "";
+            if (IsBusy)
+            {
+                if (EnqueueVoiceSend(text))
+                    _speechPlayback.Play(new[] { "小桐正在处理上一件事,你的指令已排队,处理完自动发送。" });
+                return;
+            }
+            _ = RunAsync(text, "语音");
+        }
+
+        /// <summary>
+        /// 整句定稿回调:把干净的最终文本替换输入框里的中间内容(不自动发送,
+        /// 等用户再点一次喇叭按钮才发送);空串是本轮聆听结束标记。
+        /// 定稿后标记"新一句待开始"——用户重新说时先清掉旧文字,只保留说对的。
+        /// 有待确认的写操作时,说出的「确认/取消」直接解决确认卡,
+        /// 并立即结束本轮聆听、把麦克风还给唤醒环——不等再点一次喇叭。
+        /// </summary>
+        private void OnListenOnceCompleted(string final)
+        {
+            if (string.IsNullOrWhiteSpace(final)) return;
+            if (!IsListeningOnce) return;   // 已结束聆听,忽略迟到句子
+
+            if (_voiceConfirm.HasPending)
+            {
+                var verdict = _voiceConfirm.TryResolve(final);
+                if (verdict.HasValue)
+                {
+                    InputText = "";
+                    _awaitingNewUtterance = false;
+                    _voice.StopListenOnce();   // 确认卡已解决,结束聆听,唤醒环自动恢复
+                    return;
+                }
+            }
+
+            InputText = final;
+            _awaitingNewUtterance = true;
+        }
+
+        /// <summary>上一句已定稿,下一句开始时要先清掉输入框旧文字(重新说只保留说对的)。</summary>
+        private bool _awaitingNewUtterance;
+
+        /// <summary>忙碌期间到达的语音指令(按到达顺序执行)。</summary>
+        private readonly Queue<string> _pendingVoiceSends = new();
+        private const int MaxPendingVoiceSends = 8;
+        private string _activeVoiceCommandKey = "";
+        private string _lastCompletedVoiceCommandKey = "";
+        private DateTime _lastCompletedVoiceCommandUtc = DateTime.MinValue;
+
+        private static string NormalizeVoiceCommand(string text)
+        {
+            string normalized = string.Concat(MaxChemical.Shell.Services.Agent.TextMatchHelper
+                .StripPunctuation(text).Where(c => !char.IsWhiteSpace(c))).ToLowerInvariant();
+            // 仅用于重复判断,不改写实际发送给Agent的原文。
+            foreach (string filler in new[] { "嗯", "呃", "啊", "请", "帮我", "给我", "一下", "一个" })
+                normalized = normalized.Replace(filler, "");
+            return normalized;
+        }
+
+        private bool IsDuplicateVoiceCommand(string text)
+        {
+            string key = NormalizeVoiceCommand(text);
+            if (key.Length == 0) return false;
+            if (IsBusy && key == _activeVoiceCommandKey) return true;
+            if (_pendingVoiceSends.Any(pending => NormalizeVoiceCommand(pending) == key)) return true;
+            return key == _lastCompletedVoiceCommandKey &&
+                   DateTime.UtcNow - _lastCompletedVoiceCommandUtc < TimeSpan.FromSeconds(6);
+        }
+
+        private bool EnqueueVoiceSend(string text)
+        {
+            if (_pendingVoiceSends.Count >= MaxPendingVoiceSends)
+            {
+                StatusText = "待处理语音指令较多,请稍后再说";
+                return false;
+            }
+            if (_pendingVoiceSends.Count > 0 &&
+                string.Equals(_pendingVoiceSends.Last(), text, StringComparison.Ordinal))
+                return true;
+
+            _pendingVoiceSends.Enqueue(text);
+            StatusText = $"已收到语音指令,当前任务完成后按顺序执行(排队 {_pendingVoiceSends.Count} 条)";
+            return true;
+        }
+
+        private void FlushPendingVoiceSend()
+        {
+            if (_pendingVoiceSends.Count == 0) return;
+            _ = RunAsync(_pendingVoiceSends.Dequeue(), "语音");
         }
 
         private void Send()
         {
             string text = InputText?.Trim();
             if (string.IsNullOrWhiteSpace(text)) return;
+            if (TryHandleSpeechControl(text))
+            {
+                InputText = "";
+                return;
+            }
+
+            // 急停优先:任何时刻都走本地直连(RunAsync 开头处理)
+            if (_emergencyStop.Matches(text))
+            {
+                InputText = "";
+                if (IsMiniMode) IsMiniMode = false;
+                _ = RunAsync(text);
+                return;
+            }
+
+            // 有待确认的写操作:输入框发送「确认/确认执行」批准、「取消」拒绝,
+            // 解决后 Agent 继续执行后续动作——与点卡片按钮、语音说「确认」完全等价
+            if (_voiceConfirm.HasPending)
+            {
+                var verdict = _voiceConfirm.TryResolve(text);
+                if (verdict.HasValue)
+                {
+                    InputText = "";
+                    return;   // 卡片已解决(卡片上显示 已确认执行/已取消),Agent 自动继续
+                }
+                InputText = "";
+                StatusText = "有操作待确认:请输入「确认」或「取消」后发送,或直接点卡片按钮";
+                return;
+            }
+
             InputText = "";
             if (IsMiniMode) IsMiniMode = false; // 用户开口即恢复大窗继续对话
             _ = RunAsync(text);
         }
 
-        private async Task RunAsync(string text)
+        private async Task RunAsync(string text, string source = "文本")
         {
+            _speechPlayback.Stop();
+            _activeTurnToolNames.Clear();
+
+            // ── 急停本地直连:关键词正则直接触发,不走大模型 ——
+            // 断网、模型思考中、任何时刻都立即生效(方案安全设计:急停本地化)。
+            // 播报与设备停机由 EmergencyStopService 统一执行,这里只落聊天记录。
+            if (_emergencyStop.Matches(text))
+            {
+                RunOnUi(() =>
+                {
+                    var conv = Current;
+                    if (conv == null) { NewChat(); conv = Current; }
+                    if (conv == null) return;
+                    conv.Items.Add(new ChatItem { IsUser = true, Text = text });
+                    TrimChatItems(conv);
+                    conv.LastActiveAt = DateTime.Now;
+                    if (!conv.TitleLocked) { conv.Title = Truncate(text, 16); conv.TitleLocked = true; }
+                    ConversationsView.Refresh();
+                    if (conv == Current) RequestScroll();
+                });
+
+                await _emergencyStop.ExecuteAsync(text);
+                RunOnUi(() => SaveConversations());
+                return;
+            }
+
             var conv = Current;
             if (conv == null) { NewChat(); conv = Current; }
             _activeTurnConversation = conv;
+            if (source == "语音") _activeVoiceCommandKey = NormalizeVoiceCommand(text);
 
             var cts = new System.Threading.CancellationTokenSource();
             _turnCts = cts;
@@ -432,7 +776,7 @@ namespace MaxChemical.Shell.ViewModels
             StatusText = _localization.GetString("Agent_StatusMsg_Think","小桐思考中");
             try
             {
-                string reply = await Task.Run(() => _agent.AskAsync(text, cts.Token));
+                string reply = await Task.Run(() => _agent.AskAsync(text, cts.Token, source));
 
                 conv.History = _agent.ExportHistory();
                 conv.LastActiveAt = DateTime.Now;
@@ -445,10 +789,9 @@ namespace MaxChemical.Shell.ViewModels
                     conv.Preview = Truncate(StripMarkdown(reply), 24);
                 RunOnUi(() => ConversationsView.Refresh());
 
-                // 语音播报纯文本摘要(剥离 Markdown 与表格)
-                string speech = BuildSpeech(reply);
-                if (!string.IsNullOrWhiteSpace(speech))
-                    _voice?.SpeakAsync(speech);
+                // 操作结果只读结论;闲聊和知识问答按自然段完整播放。
+                var chunks = CreateSpeechChunks(text, reply);
+                if (chunks.Count > 0) _speechPlayback.Play(chunks);
             }
             catch (Exception ex)
             {
@@ -457,11 +800,18 @@ namespace MaxChemical.Shell.ViewModels
             finally
             {
                 _activeTurnConversation = null;
-                IsBusy = false;
-                StatusText = _localization.GetString("Agent_StatusMsg_Ready","就绪");
+                _activeTurnToolNames.Clear();
                 _turnCts = null;
                 cts.Dispose();
+                StatusText = _localization.GetString("Agent_StatusMsg_Ready","就绪");
                 SaveConversations();
+                if (source == "语音")
+                {
+                    _lastCompletedVoiceCommandKey = _activeVoiceCommandKey;
+                    _lastCompletedVoiceCommandUtc = DateTime.UtcNow;
+                    _activeVoiceCommandKey = "";
+                }
+                IsBusy = false;
             }
         }
 
@@ -696,6 +1046,7 @@ namespace MaxChemical.Shell.ViewModels
                             items.Add(new ChatItem { IsAssistant = true, Text = e.Text });
                         break;
                     case AgentEventKind.ToolCallStarted:
+                        if (!string.IsNullOrWhiteSpace(e.ToolName)) _activeTurnToolNames.Add(e.ToolName);
                         items.Add(new ChatItem { IsToolLine = true, ToolStage = "执行", Text = e.Text, ToolName = e.ToolName });
                         break;
                     case AgentEventKind.ToolCallFinished:
@@ -739,47 +1090,41 @@ namespace MaxChemical.Shell.ViewModels
                     ToolName = action.DisplayName,
                     Decision = tcs
                 };
-                item.ApproveCommand = new DelegateCommand(() =>
+
+                // 卡片唯一的解决路径:按钮、超时、停止取消、语音确认全部经这里,
+                // 保证界面状态与决策一致,且解决后必定清除语音确认登记(防幽灵待确认项)。
+                void Resolve(bool approved) => RunOnUi(() =>
                 {
                     if (item.IsResolved) return;
                     item.IsResolved = true;
-                    item.Approved = true;
-                    tcs.TrySetResult(true);
+                    item.Approved = approved;
+                    tcs.TrySetResult(approved);
+                    _voiceConfirm.ClearPending();
+                    RaisePropertyChanged(nameof(InputTipText));
                 });
-                item.RejectCommand = new DelegateCommand(() =>
-                {
-                    if (item.IsResolved) return;
-                    item.IsResolved = true;
-                    item.Approved = false;
-                    tcs.TrySetResult(false);
-                });
+
+                item.ApproveCommand = new DelegateCommand(() => Resolve(true));
+                item.RejectCommand = new DelegateCommand(() => Resolve(false));
                 conv.Items.Add(item);
                 if (conv == Current) RequestScroll();
                 if (IsMiniMode) IsMiniMode = false; // 确认卡必须在大窗里看全
                 ShowWindowRequested?.Invoke();
 
+                // 语音/文字确认:可直接说「确认/好的」批准、「取消/不要」拒绝;
+                // 也可在输入框发送「确认执行/取消」——与点按钮完全等价
+                _voiceConfirm.SetPending(() => Resolve(true), () => Resolve(false));
+                // 确认提示播报保持极短(完整动作说明在确认卡片上):
+                // 播报越短,麦克风越早恢复,用户的「确认执行」越快被听到
+                _speechPlayback.Play(new[] { "有操作需要确认,请说确认或取消" });
+                RaisePropertyChanged(nameof(InputTipText));
+
                 // 确认超时:2 分钟无人响应视为取消,避免 Agent 会话被无限挂起
-                _ = Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(_ => RunOnUi(() =>
-                {
-                    if (!item.IsResolved)
-                    {
-                        item.IsResolved = true;
-                        item.Approved = false;
-                        tcs.TrySetResult(false);
-                    }
-                }));
+                _ = Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(_ => Resolve(false));
 
                 // 用户点「停止」时立刻按取消放行,不让未决卡片把取消拖满超时
-                RegisterTurnCancel(() =>
-                {
-                    if (item.IsResolved) return;
-                    item.IsResolved = true;
-                    item.Approved = false;
-                    tcs.TrySetResult(false);
-                });
+                RegisterTurnCancel(() => Resolve(false));
             });
 
-            _voice?.SpeakAsync("请确认:" + StripMarkdown(action.Summary));
             return tcs.Task;
         }
 
@@ -888,9 +1233,58 @@ namespace MaxChemical.Shell.ViewModels
 
         private static string BuildSpeech(string reply)
         {
+            // 只播报第一句(结论/结果),不全文播报——完整内容看对话窗口
             string s = StripMarkdown(reply);
             if (string.IsNullOrWhiteSpace(s)) return "已完成,详情见对话窗口。";
-            return s.Length <= 160 ? s : s.Substring(0, 160) + "。详情见对话窗口。";
+
+            // 取第一句(按句末标点/换行切)
+            int idx = s.IndexOfAny(new[] { '。', '！', '？', '!', '?', '；', ';', '\n' });
+            string first = idx > 0 ? s.Substring(0, idx + 1) : s;
+            if (first.Length > 40) first = first.Substring(0, 40) + "…";   // 首句超长只截到 40 字:播报越短,下一句命令越早被听到
+            return first;
+        }
+
+        private List<string> CreateSpeechChunks(string userText, string reply)
+        {
+            // 操作结果仍只读第一句;知识意图、无工具的闲聊/问答、资料检索回答则完整朗读。
+            bool knowledgeIntent = Regex.IsMatch(userText ?? "",
+                "有什么用|有什么用途|用途|是什么|什么叫|为什么|原理|介绍|讲解|怎么用|如何使用|哪些作用|什么功能|告诉我|说说|讲讲");
+            bool commandIntent = Regex.IsMatch(userText ?? "",
+                "打开|关闭|设置|启动|停止|暂停|继续|新建|保存|执行|生成|连接|查询|查看|读取|列出");
+            bool fullAnswer = knowledgeIntent || (!commandIntent && _activeTurnToolNames.Count == 0) ||
+                              _activeTurnToolNames.Any(name => name is "web_search" or "kb_search");
+            if (!fullAnswer) return new List<string> { BuildSpeech(reply) };
+
+            string fullText = StripMarkdown(reply);
+            // Markdown 链接只读可见文字,不朗读冗长 URL;正文不做 40 字或全文长度截断。
+            fullText = Regex.Replace(fullText, @"\[([^\]]+)\]\([^\)]+\)", "$1");
+            if (string.IsNullOrWhiteSpace(fullText)) return new List<string> { BuildSpeech(reply) };
+
+            var chunks = new List<string>();
+            var current = new System.Text.StringBuilder();
+            foreach (string sentence in Regex.Split(fullText, @"(?<=[。！？!?；;])")
+                         .Select(s => s.Trim()).Where(s => s.Length > 0))
+            {
+                if (current.Length > 0 && current.Length + sentence.Length > 1200)
+                {
+                    chunks.Add(current.ToString());
+                    current.Clear();
+                }
+                if (sentence.Length > 1200)
+                {
+                    if (current.Length > 0)
+                    {
+                        chunks.Add(current.ToString());
+                        current.Clear();
+                    }
+                    for (int offset = 0; offset < sentence.Length; offset += 1200)
+                        chunks.Add(sentence.Substring(offset, Math.Min(1200, sentence.Length - offset)));
+                    continue;
+                }
+                current.Append(sentence);
+            }
+            if (current.Length > 0) chunks.Add(current.ToString());
+            return chunks;
         }
 
         private static string Truncate(string s, int len)

@@ -93,7 +93,7 @@ $@"你是 MaxChemic 智慧化学实验室的「{DisplayName}」,总控助手小�
         {
             Key = "execution",
             DisplayName = "执行专员",
-            Mission = "设备与执行:设备清单/状态/连接实测、设参数、执行设备命令、流程启停、DOE 批次执行与进度查询、化学家坐标系联动调参。",
+            Mission = "设备与执行:设备清单/状态/连接实测、设参数、执行设备命令、流程启停、DOE 批次执行与进度查询、化学家坐标系联动调参、3D实验室展台状态与实时参数查询。",
             Rules =
 @"1. 用户问设备「连接状态/在不在线/连不连得上」时,必须用 connect_devices 逐台真实连接实测,严禁只读状态标志下结论。模拟模式是全局开关(见快照「运行模式」):模拟模式下没有物理链路,连接检查整体跳过,要明确汇报「当前为模拟模式,已跳过设备连接检查」。不确定指哪台设备时,先查询列出候选,用 ask_user_choice 让用户点选,不要猜。
 2. DOE 执行进度的唯一权威来源是 get_doe_progress:问执行到第几组、正在跑哪组参数,一律调它回答,严禁读设备当前参数值比对矩阵反推第几组——设备读数有滞后和换算,反推必然出错。
@@ -102,14 +102,16 @@ $@"你是 MaxChemic 智慧化学实验室的「{DisplayName}」,总控助手小�
 5. 批次寻址:任务里给了批次ID就一律把它当 batch_name 传入,严禁再按名字搜索;工具报「匹配到多个批次」时,用返回的批次ID精确选择或把候选交回总控,不许原样重试。
 6. 化学家坐标系调参:用户要把停留时间或当量比调到某值时,用 set_process_condition 联动解算两泵一次写入,严禁自己算泵速再分次 set_device_parameter(两泵先后写会造成当量比瞬时错误);涉及派生因子的汇报,数值双空间并列(先物理量,后泵速)。
 7. 结果回填:延迟录入批次(阶梯扫描)执行完后各组停在待录结果,用户报出离线分析结果时用 record_run_response 逐组写入——回填前把整理好的「组号-结果」表放进汇报或复述请用户核对;组号按执行看板的「第 N 组」;改写已有结果必须先经用户确认再传 overwrite=true。
-8. 执行完操作用一句话汇报结果,数值带单位。",
+8. 执行完操作用一句话汇报结果,数值带单位。
+9. 查询3D实验室展台用 list_lab3d_devices/get_lab3d_device_status 读取3D实时缓存,严格区分未绑定、未连接、已连接等待数据与数据正常;页面关闭也可查询,不得为查询主动打开窗口、连接设备或执行硬件命令,过期值不得说成当前实测值。",
             ToolNames = new[]
             {
                 "list_devices", "connect_devices", "get_device_status",
                 "set_device_parameter", "execute_device_command",
                 "get_flow_status", "run_current_flow", "pause_flow", "resume_flow", "stop_flow",
                 "execute_doe_batch", "get_doe_progress", "get_doe_autopilot_config",
-                "set_process_condition", "record_run_response", "ask_user_choice"
+                "set_process_condition", "record_run_response",
+                "list_lab3d_devices", "get_lab3d_device_status", "ask_user_choice"
             }
         };
 
@@ -154,19 +156,47 @@ $@"你是 MaxChemic 智慧化学实验室的「{DisplayName}」,总控助手小�
             }
         };
 
+        public static readonly SpecialistProfile Engineering = new()
+        {
+            Key = "engineering",
+            DisplayName = "工程专员",
+            Mission = "工程文档与界面操作:新建工程文档(自动保存)、新建空白工艺流程、保存当前工程、把设备库设备添加到画布、打开设备连接界面、打开工艺设计器/流程设计器、打开、全屏展示或关闭3D实验室。",
+            Rules =
+@"1. 新建工程文档的名称必须来自用户原话或经用户确认;任务里没给名称就先向总控提问,严禁自己编名字。
+2. 新建文档/新建流程/添加设备到画布会改动界面内容,系统会弹确认卡让用户确认;用户取消后不要重试,改为询问用户下一步。
+3. 打开界面与保存类操作直接执行,完成后一句话汇报。
+4. 汇报必须原样包含工具返回的文档名、保存路径与设备显示名。
+5. 添加设备到画布前,先用 list_library_devices 核对设备库中的准确名称,严禁凭印象写设备名;可一次放多台。
+6. 添加设备只是放置,不会自动连接;用户要连设备时用 open_device_dialog 打开连接界面,真实连接由用户在界面里点,或让总控转派执行专员 connect_devices。
+7. 设备参数设置、启停、实验设计、数据分析不属于你的职责,不要越权,把任务交回总控。
+8. 打开/进入3D实验室用 open_lab3d,全屏播放/全屏展示/最大化显示用 fullscreen_lab3d,关闭/退出用 close_lab3d,均免确认且幂等;只操作3D窗口,不停止设备或采集。全屏展示会最大化窗口并收起右侧详情栏,不重载Three.js场景。窗口显示不代表场景已加载完成,设备状态与参数查询交执行专员或总控只读工具。",
+            ToolNames = new[]
+            {
+                "create_new_document", "create_new_flow", "save_current_document",
+                "open_flow_designer", "open_process_designer",
+                "list_library_devices", "add_device_to_canvas", "open_device_dialog",
+                "open_lab3d", "fullscreen_lab3d", "close_lab3d", "ask_user_choice"
+            }
+        };
+
         /// <summary>全部专员。</summary>
-        public static readonly IReadOnlyList<SpecialistProfile> All = new[] { Design, Execution, Analysis, Mechanism };
+        public static readonly IReadOnlyList<SpecialistProfile> All = new[] { Design, Execution, Analysis, Mechanism, Engineering };
 
         /// <summary>
-        /// 总控小桐暴露给模型的工具清单:只有派工与交互。
-        /// 注册表里仍保有全部领域工具(历史会话里的旧调用与专员执行都从注册表查),
-        /// 但总控的请求里不再携带,提示词短、路由清晰。
+        /// 总控小桐暴露给模型的工具清单:派工、常用只读查询与交互。
+        /// 注册表里仍保有全部领域工具(历史会话里的旧调用与专员执行都从注册表查)。
         /// </summary>
         public static readonly string[] OrchestratorToolNames =
         {
             "assign_design_task", "assign_execution_task",
             "assign_analysis_task", "assign_mechanism_task",
-            "ask_user_choice"
+            "assign_engineering_task",
+            "list_devices", "get_device_status", "get_flow_status", "get_doe_progress",
+            "list_lab3d_devices", "get_lab3d_device_status",
+            "create_experiment_preparation", "execute_experiment_preparation", "get_experiment_preparation_status",
+            "ask_user_choice",
+            // 通用能力(联网/知识库/记忆)由总控自己持有,不必派工
+            "web_search", "kb_search", "kb_list_documents", "save_memory"
         };
     }
 }

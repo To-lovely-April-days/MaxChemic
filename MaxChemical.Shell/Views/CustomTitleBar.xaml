@@ -187,6 +187,18 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- 知识库入口:导入设备手册/操作规程等文档,小桐基于资料作答 -->
+                    <Button Command="{Binding OpenKnowledgeBaseCommand}"
+                            Style="{StaticResource VoiceAssistantButtonStyle}"
+                            ToolTip="知识库管理:导入设备手册、操作规程等文档,小桐基于资料作答并标注出处"
+                            Margin="4,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="知识库" FontSize="12" FontWeight="Medium"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource Text.OnPrimaryBrush}"/>
+                        </StackPanel>
+                    </Button>
+
                     <!-- 已停用的语音动画模板(保留占位,防止资源引用断裂) -->
                     <StackPanel Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal">
@@ -233,14 +245,14 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- 语音助手交互 Popup -->
+                    <!-- 语音助手交互 Popup:聆听期间一直挂着(点击外部也不关),只有「退出语音」才收起 -->
                     <Popup x:Name="VoiceAssistantPopup"
                            PlacementTarget="{Binding ElementName=VoiceAssistantButton}"
                            Placement="Bottom"
                            HorizontalOffset="-100"
                            VerticalOffset="8"
                            AllowsTransparency="True"
-                           StaysOpen="False"
+                           StaysOpen="True"
                            IsOpen="{Binding IsVoiceInteractionVisible, Mode=TwoWay}">
                         <Border Background="White"
                                 BorderBrush="{StaticResource Border.DefaultBrush}"

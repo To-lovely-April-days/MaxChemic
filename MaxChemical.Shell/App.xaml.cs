@@ -218,10 +218,24 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.AgentBootstrapper>();
         containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.AgentChatWindowService>();
         containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.XiaoTongSentinel>();
+        // 实验准备协调器保存跨语音轮次的方案与执行状态,必须全应用共享同一个实例。
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Experiment.ExperimentPreparationCoordinator>();
         containerRegistry.RegisterSingleton<ViewModels.AgentChatViewModel>();
+
+        // ==========  小桐能力扩展:联网搜索 / 知识库 / 记忆 / 审计 / 安全 ==========
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Search.WebSearchService>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Knowledge.EmbeddingService>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Knowledge.KnowledgeBaseService>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.KnowledgeBaseWindowService>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Memory.MemoryStore>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Audit.AiAuditLog>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Safety.VoiceConfirmationService>();
+        containerRegistry.RegisterSingleton<MaxChemical.Shell.Services.Agent.Safety.EmergencyStopService>();
 
         // ==========  注册语音助手服务 ==========
         containerRegistry.RegisterSingleton<IVoiceAssistantService, PiperVoiceAssistantService>();
+        // 全文播报会话由独立服务管理,停止时能同时取消当前音频和后续段落。
+        containerRegistry.RegisterSingleton<ISpeechPlaybackService, SpeechPlaybackService>();
 
         // ========== 数据库相关服务 ==========
         if (_host != null)
@@ -315,6 +329,7 @@ public partial class App : PrismApplication
             moduleCatalog.AddModule<DeviceModule>();
             moduleCatalog.AddModule<DesignerModule>();
             moduleCatalog.AddModule<DOEModule>();
+            moduleCatalog.AddModule<MaxChemical.Modules.Lab3D.Lab3DModule>();
             moduleCatalog.AddModule<MaxChemical.Modules.GatewayConfig.GatewayConfigModule>(); // ★ 新增这一行
             _logger?.LogInformation("模块目录配置完成");
         }

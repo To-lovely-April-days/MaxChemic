@@ -88,6 +88,10 @@ namespace MaxChemical.Shell.Services.Agent.Mcp
             ["assign_execution_task"] = "派工工具会启动专员子循环,执行专员可直接控制设备,等同提权",
             ["assign_analysis_task"] = "派工工具会启动专员子循环,等同提权",
             ["assign_mechanism_task"] = "派工工具会启动专员子循环,专员可写入取样数据,等同提权",
+            ["assign_engineering_task"] = "派工工具会启动专员子循环,专员可新建/保存工程文档与改动设计器,等同提权",
+
+            ["add_device_to_canvas"] = "写操作:改动设计器画布",
+            ["open_device_dialog"] = "会在现场机器上弹出设备窗口,外部客户端不应打断现场操作员",
 
             ["connect_devices"] = "会真实打开串口/建立 TCP 连接,对硬件有物理副作用",
             ["pause_flow"] = "暂停正在运行的流程属于控制动作",

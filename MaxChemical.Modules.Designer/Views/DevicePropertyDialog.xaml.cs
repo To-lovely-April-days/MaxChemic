@@ -476,7 +476,7 @@ namespace MaxChemical.Modules.Designer.Views
                 SelectFirstCommandOnly();
             }
             // 切回 Overview 并按设备有无屏幕决定 Tab 可见性 + 清理上一台设备的屏幕
-            DetachActiveScreen();
+            DetachActiveScreen(); 
             ShowOverview();
             bool hasScreen = DeviceScreenRegistry.HasScreen(_canvasDevice?.Device);
             ScreenTabBorder.Visibility = hasScreen ? Visibility.Visible : Visibility.Collapsed;

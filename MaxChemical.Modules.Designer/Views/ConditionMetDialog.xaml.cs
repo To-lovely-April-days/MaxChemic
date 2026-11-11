@@ -1,4 +1,4 @@
-﻿using MaxChemical.Infrastructure.Services;
+using MaxChemical.Infrastructure.Services;
 using System;
 using System.Globalization;
 using System.Threading;
@@ -53,6 +53,8 @@ namespace MaxChemical.Modules.Designer.Views
                 ApplyWarningGauge(currentValue, thresholdValue, parameterName);
             else
                 ApplySuccessGauge();
+
+            Loaded += Window_Loaded;
         }
 
         public void SetCurrentValue(string value)
@@ -236,9 +238,24 @@ namespace MaxChemical.Modules.Designer.Views
 
         #region 按钮
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            FlowInteractionCoordinator.Register(this, ContinueExecution);
+        }
+
+        private bool ContinueExecution()
+        {
+            if (_isContinue || _isStopped) return false;
+
+            _isContinue = true;
+            DialogResult = true;
+            Close();
+            return true;
+        }
+
         private void ContinueButton_Click(object sender, RoutedEventArgs e)
         {
-            _isContinue = true; DialogResult = true; Close();
+            ContinueExecution();
         }
 
         private void StopButton_Click(object sender, RoutedEventArgs e)
@@ -253,6 +270,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            FlowInteractionCoordinator.Unregister(this);
             _cancellationTokenSource?.Dispose(); base.OnClosed(e);
         }
 

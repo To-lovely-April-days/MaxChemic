@@ -20,8 +20,10 @@ namespace MaxChemical.Shell.Services.Agent
         private readonly List<IAgentTool> _tools = new();
         private readonly List<AgentMessage> _history = new();
         private readonly SemaphoreSlim _gate = new(1, 1);
+        private Dictionary<string, string> _turnToolResults = new();
 
         private Func<string> _labSnapshotProvider = () => "";
+        private Func<string, string> _memoryProvider = _ => "";
 
         /// <summary>
         /// 总控暴露给模型的工具名单(null=全部)。注册表 _tools 始终保有全部工具:
@@ -74,12 +76,18 @@ namespace MaxChemical.Shell.Services.Agent
 
         public IReadOnlyList<IAgentTool> Tools => _tools;
 
-        /// <summary>设定总控实际暴露给模型的工具名单(多专员模式下只暴露派工与交互工具)。</summary>
+        /// <summary>设定总控实际暴露给模型的工具名单(派工、常用只读查询与交互工具)。</summary>
         public void SetAdvertisedTools(IEnumerable<string> names)
             => _advertisedToolNames = names == null ? null : new HashSet<string>(names);
 
         /// <summary>注入"实验室实时快照"提供者(设备清单/状态/当前流程/DOE 概况)。</summary>
         public void SetLabSnapshotProvider(Func<string> provider) => _labSnapshotProvider = provider ?? (() => "");
+
+        /// <summary>注入"长期记忆召回"提供者:按当前用户输入返回相关记忆片段文本(无相关记忆返回空串)。</summary>
+        public void SetMemoryProvider(Func<string, string> provider) => _memoryProvider = provider ?? ((_) => "");
+
+        /// <summary>AI 操作审计日志(由 AgentBootstrapper 注入;未装配时调用点静默跳过)。</summary>
+        public Audit.AiAuditLog AuditLog { get; set; }
 
         public void ResetConversation()
         {
@@ -115,20 +123,25 @@ namespace MaxChemical.Shell.Services.Agent
             }
         }
 
-        /// <summary>处理一句用户输入,返回小桐的最终文字回复(供 TTS 播报与界面显示)。</summary>
-        public async Task<string> AskAsync(string userText, CancellationToken ct = default)
+        /// <summary>
+        /// 处理一句用户输入,返回小桐的最终文字回复(供 TTS 播报与界面显示)。
+        /// source 标注输入来源(文本/语音),写入审计日志。
+        /// </summary>
+        public async Task<string> AskAsync(string userText, CancellationToken ct = default, string source = "文本")
         {
             if (string.IsNullOrWhiteSpace(userText)) return "";
 
             await _gate.WaitAsync(ct).ConfigureAwait(false);
             IsBusy = true;
             CurrentTurnToken = ct;
+            _turnToolResults = new Dictionary<string, string>();
             List<AgentMessage> newTurnRef = null; // 中断路径也要能提交已完成的部分
             try
             {
                 Raise(AgentEventKind.UserMessage, userText);
+                AuditLog?.LogTurnStart(source, userText);
 
-                var messages = new List<AgentMessage> { AgentMessage.FromSystem(BuildSystemPrompt()) };
+                var messages = new List<AgentMessage> { AgentMessage.FromSystem(BuildSystemPrompt(userText)) };
                 lock (_history) messages.AddRange(_history);
                 var userMsg = AgentMessage.FromUser(userText);
                 messages.Add(userMsg);
@@ -136,7 +149,7 @@ namespace MaxChemical.Shell.Services.Agent
                 var newTurnMessages = new List<AgentMessage> { userMsg };
                 newTurnRef = newTurnMessages;
 
-                // 总控只暴露派工与交互工具;注册表仍持有全部工具供执行查找
+                // 总控只暴露名单内工具;注册表仍持有全部工具供执行查找
                 IReadOnlyList<IAgentTool> exposed = _advertisedToolNames == null
                     ? _tools
                     : _tools.Where(t => _advertisedToolNames.Contains(t.Name)).ToList();
@@ -156,6 +169,7 @@ namespace MaxChemical.Shell.Services.Agent
                         string reply = assistant.Content ?? "";
                         CommitHistory(newTurnMessages);
                         Raise(AgentEventKind.AssistantMessage, reply);
+                        AuditLog?.LogReply(reply);
                         return reply;
                     }
 
@@ -198,6 +212,7 @@ namespace MaxChemical.Shell.Services.Agent
                             new AgentMessage { Role = AgentRole.Assistant, Content = wrap.Content }
                         });
                         Raise(AgentEventKind.AssistantMessage, wrap.Content);
+                        AuditLog?.LogReply(wrap.Content);
                         return wrap.Content;
                     }
                 }
@@ -205,12 +220,14 @@ namespace MaxChemical.Shell.Services.Agent
 
                 const string overrun = "这一步的任务链比较长,我先停在这里。上面已查到的结果可以先用;把剩下的问题单独问我,我接着做。";
                 Raise(AgentEventKind.AssistantMessage, overrun);
+                AuditLog?.LogReply(overrun);
                 return overrun;
             }
             catch (OperationCanceledException)
             {
                 CommitPartialTurn(newTurnRef, "本轮被用户取消。");
                 Raise(AgentEventKind.Error, "已取消");
+                AuditLog?.LogEvent("取消", "本轮被用户取消:" + userText);
                 return "好的,已取消。已执行的部分(含已确认的写操作)结果保留,可以接着问我。";
             }
             catch (Exception ex)
@@ -218,10 +235,12 @@ namespace MaxChemical.Shell.Services.Agent
                 _logger.LogError($"小桐处理失败: {ex.Message}");
                 CommitPartialTurn(newTurnRef, "本轮处理中途失败:" + ex.Message);
                 Raise(AgentEventKind.Error, ex.Message);
+                AuditLog?.LogError(ex.Message);
                 return "抱歉,我这边出了点问题:" + ex.Message;
             }
             finally
             {
+                _turnToolResults.Clear();
                 IsBusy = false;
                 _gate.Release();
             }
@@ -327,11 +346,15 @@ namespace MaxChemical.Shell.Services.Agent
             IReadOnlyList<IAgentTool> toolset = null, string actorLabel = null)
         {
             string name = call.Function?.Name ?? "";
+            string rawArgs = call.Function?.Arguments ?? "";
+
             var source = toolset ?? _tools;
             var tool = source.FirstOrDefault(t => t.Name == name);
             if (tool == null)
             {
+                // 命令白名单拦截:模型幻觉出的未知工具一律记录,绝不执行
                 _logger.LogWarning($"模型请求了不存在的工具: {name}");
+                AuditLog?.LogToolCall(actorLabel, name, rawArgs, null, false, "白名单拦截:不存在该工具");
                 return AgentMessage.FromTool(call.Id, $"错误:不存在名为 {name} 的工具");
             }
 
@@ -345,8 +368,14 @@ namespace MaxChemical.Shell.Services.Agent
             }
             catch (Exception ex)
             {
+                AuditLog?.LogToolCall(actorLabel, name, rawArgs, null, false, "参数不是合法 JSON:" + ex.Message);
                 return AgentMessage.FromTool(call.Id, "错误:工具参数不是合法 JSON——" + ex.Message);
             }
+
+            bool cacheResult = tool.RequiresConfirmation || name.StartsWith("assign_", StringComparison.Ordinal);
+            string cacheKey = cacheResult ? name + "\n" + NormalizeJson(args) : null;
+            if (cacheKey != null && _turnToolResults.TryGetValue(cacheKey, out string cachedResult))
+                return CreateToolResultMessage(call.Id, name, cachedResult);
 
             // ── 写操作确认闸门 ──
             if (tool.RequiresConfirmation)
@@ -383,8 +412,11 @@ namespace MaxChemical.Shell.Services.Agent
 
                 if (!approved)
                 {
+                    const string resultText = "用户取消了该操作。请不要重试,改为询问用户下一步。";
+                    _turnToolResults[cacheKey] = resultText;
                     Raise(AgentEventKind.ToolCallFinished, "用户已取消:" + summary, display, success: false);
-                    return AgentMessage.FromTool(call.Id, "用户取消了该操作。请不要重试,改为询问用户下一步。");
+                    AuditLog?.LogToolCall(actorLabel, name, rawArgs, false, false, "用户已取消:" + summary);
+                    return CreateToolResultMessage(call.Id, name, resultText);
                 }
             }
 
@@ -394,10 +426,11 @@ namespace MaxChemical.Shell.Services.Agent
                 var result = await tool.ExecuteAsync(args).ConfigureAwait(false);
                 Raise(AgentEventKind.ToolCallFinished,
                     SummarizeForStatusLine(result.Content, result.Success), display, result.Success);
-                var msg = AgentMessage.FromTool(call.Id, result.ToLlmText());
-                // 专员汇报免历史截断(编号与待决事项散布全文,截哪头都丢信息)
-                msg.PreserveFullInHistory = tool.Name.StartsWith("assign_", StringComparison.Ordinal);
-                return msg;
+                AuditLog?.LogToolCall(actorLabel, name, rawArgs,
+                    tool.RequiresConfirmation ? true : (bool?)null, result.Success, result.Content);
+                string resultText = result.ToLlmText();
+                if (cacheKey != null) _turnToolResults[cacheKey] = resultText;
+                return CreateToolResultMessage(call.Id, name, resultText);
             }
             catch (OperationCanceledException)
             {
@@ -408,7 +441,53 @@ namespace MaxChemical.Shell.Services.Agent
             {
                 _logger.LogError($"工具 {tool.Name} 执行异常: {ex.Message}");
                 Raise(AgentEventKind.ToolCallFinished, "异常:" + ex.Message, display, success: false);
-                return AgentMessage.FromTool(call.Id, "错误:" + ex.Message);
+                AuditLog?.LogToolCall(actorLabel, name, rawArgs,
+                    tool.RequiresConfirmation ? true : (bool?)null, false, "异常:" + ex.Message);
+                string resultText = "错误:" + ex.Message;
+                if (cacheKey != null) _turnToolResults[cacheKey] = resultText;
+                return CreateToolResultMessage(call.Id, name, resultText);
+            }
+        }
+
+        private static AgentMessage CreateToolResultMessage(string callId, string toolName, string resultText)
+        {
+            var msg = AgentMessage.FromTool(callId, resultText);
+            // 专员汇报免历史截断(编号与待决事项散布全文,截哪头都丢信息)
+            msg.PreserveFullInHistory = toolName.StartsWith("assign_", StringComparison.Ordinal);
+            return msg;
+        }
+
+        private static string NormalizeJson(JsonElement element)
+        {
+            using var buffer = new System.IO.MemoryStream();
+            using (var writer = new Utf8JsonWriter(buffer))
+            {
+                WriteNormalizedJson(writer, element);
+            }
+            return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+        }
+
+        private static void WriteNormalizedJson(Utf8JsonWriter writer, JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    writer.WriteStartObject();
+                    foreach (var property in element.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
+                    {
+                        writer.WritePropertyName(property.Name);
+                        WriteNormalizedJson(writer, property.Value);
+                    }
+                    writer.WriteEndObject();
+                    break;
+                case JsonValueKind.Array:
+                    writer.WriteStartArray();
+                    foreach (var item in element.EnumerateArray()) WriteNormalizedJson(writer, item);
+                    writer.WriteEndArray();
+                    break;
+                default:
+                    element.WriteTo(writer);
+                    break;
             }
         }
 
@@ -465,14 +544,19 @@ namespace MaxChemical.Shell.Services.Agent
             return total;
         }
 
-        private string BuildSystemPrompt()
+        private string BuildSystemPrompt(string currentUserText)
         {
             string snapshot;
             try { snapshot = _labSnapshotProvider() ?? ""; }
             catch (Exception ex) { snapshot = "(快照获取失败:" + ex.Message + ")"; }
 
+            // 长期记忆召回:按当前用户输入检索相关记忆片段注入(失败静默,不影响对话)
+            string memory;
+            try { memory = _memoryProvider?.Invoke(currentUserText ?? "") ?? ""; }
+            catch { memory = ""; }
+
             return
-$@"你是「小桐」,MaxChemic 智慧化学实验室平台的总控助手,由化学自动化团队打造。你带领一支四人专员团队:理解用户意图、拆解任务、派工给合适的专员、汇总专员汇报后答复用户。
+$@"你是「小桐」,MaxChemic 智慧化学实验室平台的总控助手,由化学自动化团队打造。你带领一支五人专员团队:理解用户意图、拆解任务、派工给合适的专员、汇总专员汇报后答复用户。
 
 ## 表达规范
 1. 回答一律用简体中文,专业、简洁。对话窗口支持 Markdown,但格式必须因内容而异,不要千篇一律套表格:
@@ -484,26 +568,52 @@ $@"你是「小桐」,MaxChemic 智慧化学实验室平台的总控助手,由�
 
 ## 团队分工(用对应派工工具)
 - 设计专员(assign_design_task):实验设计与建库——因子候选分析、DOE 矩阵预览与入库、化学家坐标系设计(停留时间/当量比)、阶梯扫描(动力学专用 τ 台阶)、开放实验接入(导入用户自己的历史数据或外部设计的方案,CSV 文件)、口述搭流程、按智能决策建议生成下一轮预览。
-- 执行专员(assign_execution_task):设备与执行——设备清单/状态/连接实测、设参数、执行设备命令、流程启停、DOE 批次执行与进度查询、化学家坐标系联动调参、离线结果回填。
+- 执行专员(assign_execution_task):设备与执行——设备清单/状态/连接实测、设参数、执行设备命令、流程启停、DOE 批次执行与进度查询、3D实验室展台状态与实时参数、化学家坐标系联动调参、离线结果回填。
 - 分析专员(assign_analysis_task):数据分析与预测——批次/项目统计分析、实验历史、项目查找、智能决策报告解读、What-if 预测、反向寻优、实验室历史记忆检索(以前做过什么)、生成项目 PDF 报告。
 - 机理专员(assign_mechanism_task):机理动力学——速率常数与活化能拟合、机理外推预测、取样浓度数据录入、多步反应网络拟合与浓度曲线仿真。
+- 工程专员(assign_engineering_task):工程文档与界面操作——新建工程文档(自动保存到默认目录)、新建空白工艺流程、保存当前工程、把设备库设备添加到画布、打开设备连接界面、打开工艺设计器/流程设计器、打开、全屏展示或关闭3D实验室。
 
 ## 派工纪律
-3. 涉及设备、实验、数据的一切实质工作都必须派给专员完成,你手里没有直接操作设备与数据库的工具,严禁凭记忆、快照或猜测替专员作答;与实验无关的闲聊可以简短回应,并自然把话题带回实验室工作。
+3. 设备清单、设备状态、流程状态、DOE 进度、3D实验室展台状态与参数等简单只读查询,优先直接使用总控已有的 list_devices、get_device_status、get_flow_status、get_doe_progress、list_lab3d_devices、get_lab3d_device_status 工具,不必派工;其余实质分析、设计与写操作仍派给专员,严禁凭记忆、快照或猜测作答。3D查询只读缓存,严格区分未绑定、未连接、等待数据与数据正常,页面关闭也可查,不得为查询主动打开窗口或连接设备。与实验无关的闲聊可以简短回应,并自然把话题带回实验室工作。
+
+## 实验准备主流程(优先于通用派工)
+- 用户说“我要做某实验”并希望系统推荐设备、摆放设备和生成流程时,第一步必须调用 create_experiment_preparation,不要自行拆成多轮流搜索、逐台添加和逐条建流程。experiment_description保留用户完整需求;public_search_query只能包含公开实验主题/反应名,严禁带本地设备参数、私有配方和实验数据。
+- 工具返回 missing_information 时只向用户询问缺失项,不得执行;返回待确认方案时,完整展示设备、步骤、安全事项、来源与 preparation_id,等用户明确同意该方案后才可调用 execute_experiment_preparation。用户中途要求修改时,用补充后的完整描述重新生成方案,不得擅自改参数。
+- execute_experiment_preparation 会按本地确定性顺序完成设备去重放置、逐台真实连接检查、命令参数校验、流程生成和保存,必需设备失败会自动停止。不要再对同一方案重复调用添加设备、连接或 build_flow 工具,也不要把进度状态当作完成结果。
+- 本流程只生成并保存实验准备结果,绝不自动运行。即使用户已确认准备方案,启动真实实验仍是独立操作,必须之后再次明确请求并经 run_current_flow 的确认。查询进度或失败原因用 get_experiment_preparation_status。
 4. task 必须自包含:专员看不到对话历史。用户原话里的数值、单位、设备名、项目/批次/预览编号必须原样写进 task;体积、浓度这类物理常数只能照抄用户原话,严禁自己发明、换算或沿用旧值;用户此前已确认过的事项(项目名、是否启用智能推荐等)要把结论一并写进去。
 5. 专员汇报里的表格、编号(preview_id、批次ID、项目编号、文件路径)和「待用户决策/补充」事项必须原样转述给用户,不得压缩、改写或代替用户拍板;用户答复后再次派工时,把答复与相关编号一起写进 task。设计预览的矩阵表格、智能推荐的参数表格(参数/当前值/作用三列)都要完整展示,不许删列。
 6. 跨领域任务按顺序分步派工(如先设计后执行、先录数据再拟合),一次派一个任务,上一步产出的编号传给下一步;不要把两个领域的活塞进同一个 task。
 7. 同一任务同一专员最多派两次,第二次必须带上修正信息(新的编号、用户澄清);仍失败就如实向用户汇报卡点与原因,严禁死循环重派。
 8. 会诊:分析专员给出最优条件或重要预测、且该体系有机理模型可用时,可追加派机理专员独立验证,两边结论并列呈现——一致就说一致,不一致要如实指出分歧与可能原因,严禁只挑一边或折中编数。
 9. 让用户在有限候选里做选择时,一律用 ask_user_choice 弹选择卡,绝不在文字回复里出选择题。判定标准是句式:凡是你准备写出「是A还是B」「请问选哪一个」「以下哪台/哪组/哪种」,就必须改成选择卡;单选传 multi_select=false,允许多个答案才传 true;选项逐项完整可辨。一次只弹一张卡,次要确认并入 question 说明。自由文本问题(项目命名、数值输入)仍用普通文字提问。用户取消或超时后不要再弹同一张卡。
-10. 汇总答复只基于专员汇报与快照,数字不加不减不编;专员汇报失败或数据不足时如实转达并给下一步建议。图表由系统直接插入对话窗,你不要复述图上逐点数据,也不要再画同内容的表格。
-11. 进度、状态类问题(执行到第几组、设备在不在线)也要派执行专员实测回答,严禁用旧汇报或快照猜测;历史里带 [值守播报] 前缀的消息是系统值守的主动播报,用户追问时可直接引用,拿不准就派工再查。值守播报里出现的批次ID、轮次、项目名(尤其是智能决策自动创建的下一轮批次ID)是专员看不到的关键上下文,后续派工时必须原样写进 task;用户说「执行下一轮」「继续」时,把播报里的新批次ID带给执行专员,不要让专员按名字重新搜。
+10. 汇总答复只基于实时工具结果、专员汇报与快照,数字不加不减不编;工具调用或专员汇报失败、数据不足时如实转达并给下一步建议。图表由系统直接插入对话窗,你不要复述图上逐点数据,也不要再画同内容的表格。
+11. 进度、状态类问题(执行到第几组、设备在不在线)直接用对应只读工具实测回答,严禁用旧汇报或快照猜测;历史里带 [值守播报] 前缀的消息是系统值守的主动播报,用户追问时可直接引用,拿不准就用工具再查。值守播报里出现的批次ID、轮次、项目名(尤其是智能决策自动创建的下一轮批次ID)是专员看不到的关键上下文,后续派工时必须原样写进 task;用户说「执行下一轮」「继续」时,把播报里的新批次ID带给执行专员,不要让专员按名字重新搜。
 12. 写操作(设参数、启停、创建项目、执行批次)由系统在专员执行时弹确认卡,用户取消后不要重派同一操作,改为询问用户下一步。
 
-## 当前实验室快照
+## 联网与知识库纪律
+13. 联网搜索(web_search)只用于公开信息:行业动态、通用知识、外部资料。设备参数、实验数据、工艺条件属本实验室私有信息,严禁写进搜索词;涉及实验、设备、数据的判断一律靠专员本地工具,严禁依赖联网结果;引用联网结果必须标注来源链接。
+14. 用户问「资料/手册/SOP/论文里怎么说」时,先用 kb_search 查知识库;查不到就如实说知识库没有该资料,严禁编造「文档里有」;作答标注出处文档名;kb_list_documents 可确认库里有哪些资料。知识库检索与实验室历史检索(search_lab_history)是两回事:前者查导入的文档,后者查做过的实验,不要混用。用户问怎么导入资料时,说「点主界面右上角小桐旁的『知识库』按钮即可导入文档」。
+
+## 长期记忆
+15. 对话中用户明确表达了长期有效的偏好、约定、别名、个人习惯时,在本轮收尾前用 save_memory 记下(一轮最多 2 条,只记真正值得长期记住的);严禁保存 API 密钥、密码、试剂配方等敏感信息。系统会在你作答前自动附带与本轮相关的记忆片段,引用记忆时不必向用户复述记忆机制。
+16. 记忆只在本机生效;实验数据与项目信息不要写进记忆,那些由数据库与专员工具负责。
+
+{(string.IsNullOrWhiteSpace(memory) ? "" : memory + "\n\n")}## 当前实验室快照
 {snapshot}
 
 严格基于以上快照与工具结果作答。";
+        }
+
+        /// <summary>
+        /// 报告确定性长任务的阶段进度。
+        /// 实验准备协调器在本地执行设备放置、连接检查等步骤时直接调用此方法,
+        /// 不增加 DeepSeek 往返;界面仍复用现有状态行和 UI 调度,不会新开一套进度通道。
+        /// </summary>
+        public void ReportProgress(string text)
+        {
+            if (!string.IsNullOrWhiteSpace(text))
+                Raise(AgentEventKind.AssistantThinking, text.Trim());
         }
 
         private void Raise(AgentEventKind kind, string text, string toolName = null, bool success = true)

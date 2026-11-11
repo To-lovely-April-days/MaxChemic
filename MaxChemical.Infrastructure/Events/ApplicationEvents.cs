@@ -154,6 +154,41 @@ public class VoiceCreateDeviceEventArgs
 public class VoiceCreateDeviceEvent : PubSubEvent<VoiceCreateDeviceEventArgs>
 {
 }
+
+/// <summary>
+/// AI 小桐请求创建设备的结果(请求-回调,让工具拿到新设备的显示名等)。
+/// </summary>
+public class AgentCreateDeviceResult
+{
+    public bool Success { get; set; }
+    public string DeviceId { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string Error { get; set; } = "";
+}
+
+/// <summary>
+/// AI 小桐请求把设备库设备放到工艺设计器画布的事件参数(等效拖拽)。
+/// 位置由画布自动排列(CreateDeviceFromVoiceCommand 的智能避让),不指定坐标。
+/// </summary>
+public class AgentCreateDeviceEventArgs
+{
+    public string DeviceName { get; set; } = "";
+    public Action<AgentCreateDeviceResult> Callback { get; set; }
+}
+
+/// <summary>
+/// AI 小桐请求创建设备事件(ProcessDesignerView 订阅后走语音链路同一创建路径)。
+/// </summary>
+public class AgentCreateDeviceEvent : PubSubEvent<AgentCreateDeviceEventArgs>
+{
+}
+
+/// <summary>
+/// AI 小桐请求打开画布设备的连接界面(等效双击)。载荷 = 画布设备 DeviceId。
+/// </summary>
+public class ShowDevicePropertyDialogRequestEvent : PubSubEvent<string>
+{
+}
 /// <summary>
 /// 语音设置设备参数事件参数
 /// </summary>

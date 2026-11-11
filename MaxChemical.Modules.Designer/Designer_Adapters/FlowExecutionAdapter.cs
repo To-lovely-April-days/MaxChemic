@@ -3,6 +3,7 @@ using MaxChemical.Logging;
 using MaxChemical.Modules.Designer.Event;
 using MaxChemical.Modules.Designer.Service.Execution;
 using MaxChemical.Modules.Designer.ViewModels;
+using MaxChemical.Modules.Designer.Views;
 using Prism.Events;
 using System;
 using System.Threading;
@@ -201,6 +202,11 @@ namespace MaxChemical.Modules.Designer.Service
         public bool IsEngineIdle()
         {
             return _engine.State == FlowExecutionState.Idle;
+        }
+
+        public bool TryAdvanceFlowInteraction()
+        {
+            return FlowInteractionCoordinator.TryAdvance();
         }
     }
 }

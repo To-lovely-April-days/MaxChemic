@@ -1,0 +1,139 @@
+<Window x:Class="MaxChemical.Modules.Lab3D.Views.DeleteDeviceConfirmationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="删除设备" Width="440" Height="242"
+        WindowStartupLocation="CenterOwner" WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="Transparent"
+        FontFamily="Segoe UI, Microsoft YaHei UI"
+        ShowInTaskbar="False" Topmost="True">
+    <Window.Resources>
+        <Style x:Key="DialogButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinWidth" Value="82"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background"
+                                        Value="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#A41626"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CancelButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonStyle}">
+            <Setter Property="Background" Value="#F4F3EF"/>
+            <Setter Property="Foreground" Value="#1A1A1A"/>
+            <Setter Property="BorderBrush" Value="#EAEAEA"/>
+            <Setter Property="Tag" Value="#EAE9E3"/>
+        </Style>
+        <Style x:Key="DeleteButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonStyle}">
+            <Setter Property="Background" Value="#A41626"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#A41626"/>
+            <Setter Property="Tag" Value="#8E121F"/>
+            <Setter Property="MinWidth" Value="96"/>
+        </Style>
+        <Style x:Key="CloseButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="Transparent" CornerRadius="4">
+                            <Path Data="M5,5 L11,11 M11,5 L5,11"
+                                  Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#40FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#25FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Border Background="#FFFFFF" BorderBrush="#EAEAEA" BorderThickness="1"
+            CornerRadius="10" Effect="{StaticResource DeepShadow}" SnapsToDevicePixels="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="68"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#A41626" CornerRadius="9,9,0,0">
+                <Grid Margin="22,0,14,0">
+                    <TextBlock Text="删除设备" Foreground="#FFFFFF" FontSize="15"
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource CloseButtonStyle}" HorizontalAlignment="Right"
+                            ToolTip="取消" IsCancel="True" Click="Cancel_Click"/>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="26,18,26,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="40" Height="40" CornerRadius="20" Background="#FAEEDA"
+                        HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock Text="!" Foreground="#BA7517" FontSize="22" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DeviceDisplayName}" FontSize="15" FontWeight="SemiBold"
+                               Foreground="#1A1A1A" TextWrapping="Wrap" LineHeight="23"
+                               TextTrimming="CharacterEllipsis" MaxHeight="46"/>
+                    <TextBlock Text="确定要删除该设备吗？删除后将同步移除模型和设备库信息。"
+                               FontSize="12" Foreground="#5F5E5A" TextWrapping="Wrap"
+                               LineHeight="20" Margin="0,7,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <Border Grid.Row="2" Background="#FAFAF6" BorderBrush="#EAEAEA"
+                    BorderThickness="0,1,0,0" CornerRadius="0,0,9,9">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center" Margin="0,0,22,0">
+                    <Button Content="取消" Style="{StaticResource CancelButtonStyle}"
+                            IsCancel="True" Click="Cancel_Click" Margin="0,0,10,0"/>
+                    <Button Content="确认删除" Style="{StaticResource DeleteButtonStyle}"
+                            Click="Confirm_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

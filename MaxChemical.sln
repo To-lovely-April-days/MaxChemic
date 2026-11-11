@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36518.9 d17.14
+VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Shell", "MaxChemical.Shell\MaxChemical.Shell.csproj", "{F96DA0CA-79A7-4387-AAAF-6DD47577BFA7}"
 EndProject
@@ -96,6 +96,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MagneticStirrer_ModbusRTU", "MagneticStirrer_ModbusRTU\MagneticStirrer_ModbusRTU.csproj", "{339DFD9E-85C9-0EC6-4F90-4A8666918034}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HighTempFurnace_ModbusRTU", "HighTempFurnace_ModbusRTU\HighTempFurnace_ModbusRTU.csproj", "{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChilLer_ModbusRtu", "ChilLer_ModbusRtu\ChilLer_ModbusRtu.csproj", "{4F0A9561-A990-4F89-B9C9-78BFB7BF12D1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxChemical.Modules.Lab3D", "MaxChemical.Modules.Lab3D\MaxChemical.Modules.Lab3D.csproj", "{B10D08E7-7728-49B4-9F67-4B786F1D0A8A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -287,6 +291,14 @@ Global
 		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4F0A9561-A990-4F89-B9C9-78BFB7BF12D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F0A9561-A990-4F89-B9C9-78BFB7BF12D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F0A9561-A990-4F89-B9C9-78BFB7BF12D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F0A9561-A990-4F89-B9C9-78BFB7BF12D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B10D08E7-7728-49B4-9F67-4B786F1D0A8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B10D08E7-7728-49B4-9F67-4B786F1D0A8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B10D08E7-7728-49B4-9F67-4B786F1D0A8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B10D08E7-7728-49B4-9F67-4B786F1D0A8A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -323,6 +335,7 @@ Global
 		{B2D5F8A3-4C6E-4F7A-9B0C-2D3E4F5A6B72} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{339DFD9E-85C9-0EC6-4F90-4A8666918034} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{2DE09649-FC1E-B0E0-4988-DE2EC29723F1} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{4F0A9561-A990-4F89-B9C9-78BFB7BF12D1} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {72D8DB25-9C37-4F38-B4CF-213BB0AEEFF7}

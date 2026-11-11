@@ -12,6 +12,10 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+        <!-- 麦克风/停止图标(豆包语音按钮风格:圆形实底 + 白色图标) -->
+        <Geometry x:Key="MicIconGeometry">M12,1 A3,3,0,0,0,9,4 L9,12 A3,3,0,0,0,15,12 L15,4 A3,3,0,0,0,12,1 Z M5,10 L5,12 A7,7,0,0,0,19,12 L19,10 M12,19 L12,23 M8,23 L16,23</Geometry>
+        <Geometry x:Key="StopIconGeometry">M7,7 L17,7 L17,17 L7,17 Z</Geometry>
+
         <!-- 删除会话图标(垃圾桶):默认与辅助文字同灰,悬停转品牌危险色 -->
         <Geometry x:Key="TrashIconGeometry">M864 256 160 256C142.32 256 128 241.68 128 224 128 206.32 142.32 192 160 192L864 192C881.68 192 896 206.32 896 224 896 241.68 881.68 256 864 256ZM608 128 416 128C398.32 128 384 113.68 384 96 384 78.32 398.32 64 416 64L608 64C625.68 64 640 78.32 640 96 640 113.68 625.68 128 608 128ZM224 320C241.68 320 256 334.32 256 352L256 832C256 867.344 284.656 896 320 896L384 896 384 352C384 334.32 398.32 320 416 320 433.68 320 448 334.32 448 352L448 896 576 896 576 352C576 334.32 590.32 320 608 320 625.68 320 640 334.32 640 352L640 896 704 896C739.344 896 768 867.344 768 832L768 352C768 334.32 782.32 320 800 320 817.68 320 832 334.32 832 352L832 832C832 902.688 774.688 960 704 960L320 960C249.312 960 192 902.688 192 832L192 352C192 334.32 206.32 320 224 320Z</Geometry>
 
@@ -812,9 +816,17 @@
                 <Border Grid.Row="2" Background="{StaticResource Bg.PrimaryBrush}" CornerRadius="0,0,14,0"
                         BorderBrush="{StaticResource Border.DefaultBrush}" BorderThickness="0,1,0,0" Padding="18,12,18,10">
                     <StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8"
+                                    Visibility="{Binding IsSpeechPlaybackActive, Converter={StaticResource BoolToVis}}">
+                            <Button Content="{Binding SpeechPauseText}" Command="{Binding ToggleSpeechPlaybackCommand}"
+                                    Style="{StaticResource ChatOutlineBtn}" Padding="12,4" Margin="0,0,8,0"/>
+                            <Button Content="停止播报" Command="{Binding StopSpeechPlaybackCommand}"
+                                    Style="{StaticResource ChatOutlineBtn}" Padding="12,4"/>
+                        </StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" CornerRadius="9" BorderBrush="{StaticResource Border.StrongBrush}"
@@ -830,8 +842,41 @@
                                     </TextBox.Resources>
                                 </TextBox>
                             </Border>
+                            <!-- 麦克风按钮(豆包语音按钮风格:圆形实底+白色麦克风图标):
+                                 点击开始说话(边说边出字,说完自动发送),聆听中变红方块可再点停止 -->
+                            <Button Grid.Column="1" Width="38" Height="38" Margin="10,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand"
+                                    Command="{Binding ToggleListenCommand}"
+                                    ToolTip="{Binding MicTipTxt}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" CornerRadius="19"
+                                                Background="{StaticResource Brand.PrimaryBrush}"
+                                                SnapsToDevicePixels="True">
+                                            <Path x:Name="Icon" Data="{StaticResource MicIconGeometry}"
+                                                  Fill="#FFFFFF" Stroke="#FFFFFF" StrokeThickness="1.6"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                  Stretch="Uniform" Width="15" Height="15"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brand.PrimaryHoverBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brand.PrimaryDarkBrush}"/>
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsListeningOnce}" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Status.DangerBrush}"/>
+                                                <Setter TargetName="Icon" Property="Data" Value="{StaticResource StopIconGeometry}"/>
+                                                <Setter TargetName="Icon" Property="StrokeThickness" Value="0"/>
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
                             <!-- 忙碌时发送位切换成停止:多专员派工后单轮可能较长,给用户一个不杀进程的刹车 -->
-                                <Button Grid.Column="1" Content="{Binding SendTxt}" Command="{Binding SendCommand}"
+                                <Button Grid.Column="2" Content="{Binding SendTxt}" Command="{Binding SendCommand}"
                                     Padding="24,9" Margin="10,0,0,0" VerticalAlignment="Stretch">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ChatPrimaryBtn}">
@@ -843,7 +888,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Grid.Column="1" Content="停止" Command="{Binding StopTurnCommand}"
+                            <Button Grid.Column="2" Content="停止" Command="{Binding StopTurnCommand}"
                                     Padding="24,9" Margin="10,0,0,0" VerticalAlignment="Stretch"
                                     ToolTip="停止当前这轮任务(已确认执行的操作不会回滚)">
                                 <Button.Style>
@@ -858,7 +903,7 @@
                                 </Button.Style>
                             </Button>
                         </Grid>
-                            <TextBlock Text="{Binding SendTipTxt}"
+                            <TextBlock Text="{Binding InputTipText}"
                                    FontSize="10" Foreground="{StaticResource Text.TertiaryBrush}"
                                    HorizontalAlignment="Center" Margin="0,8,0,0"/>
                     </StackPanel>

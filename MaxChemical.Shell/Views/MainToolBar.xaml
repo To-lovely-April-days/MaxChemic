@@ -278,6 +278,17 @@
                     </StackPanel>
                 </Button>
 
+                <Button Style="{StaticResource ToolBarButtonStyle}"
+                        Width="78"
+                        Command="{Binding Lab3DCommand}"
+                        ToolTip="3D实验室">
+                    <TextBlock Text="3D实验室"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               Foreground="{StaticResource Brand.PrimaryBrush}"
+                               VerticalAlignment="Center"/>
+                </Button>
+
             </StackPanel>
 
             <!-- 右侧播放控制组 -->

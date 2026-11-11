@@ -20,6 +20,7 @@ namespace MaxChemical.Shell.ViewModels
         private readonly IVoiceAssistantService _voiceAssistant;
         private readonly PiperVoiceAssistantService _piperVoiceService;
         private readonly Services.Agent.AgentChatWindowService _agentChatWindowService;
+        private readonly Services.Agent.KnowledgeBaseWindowService _knowledgeBaseWindowService;
         private readonly ILogService _logger;
 
         private string _applicationTitle = string.Empty;
@@ -50,13 +51,15 @@ namespace MaxChemical.Shell.ViewModels
             IEventAggregator eventAggregator,
             ILocalizationService localizationService,
             IVoiceAssistantService voiceAssistant,
-            Services.Agent.AgentChatWindowService agentChatWindowService)
+            Services.Agent.AgentChatWindowService agentChatWindowService,
+            Services.Agent.KnowledgeBaseWindowService knowledgeBaseWindowService)
         {
             _logger = LogManager.GetLogger<CustomTitleBarViewModel>();
             _eventAggregator = eventAggregator;
             _localizationService = localizationService;
             _voiceAssistant = voiceAssistant;
             _agentChatWindowService = agentChatWindowService;
+            _knowledgeBaseWindowService = knowledgeBaseWindowService;
 
             _piperVoiceService = voiceAssistant as PiperVoiceAssistantService;
 
@@ -209,6 +212,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand MaximizeCommandNoPostion { get; private set; } = null!;
         public DelegateCommand ToggleVoiceAssistantCommand { get; private set; } = null!;
         public DelegateCommand OpenAgentChatCommand { get; private set; } = null!;
+        public DelegateCommand OpenKnowledgeBaseCommand { get; private set; } = null!;
         public DelegateCommand ToggleMuteCommand { get; private set; } = null!;
         public DelegateCommand TestVoiceCommand { get; private set; } = null!;
         public DelegateCommand CloseVoiceInteractionCommand { get; private set; } = null!;
@@ -225,9 +229,10 @@ namespace MaxChemical.Shell.ViewModels
             MaximizeCommandNoPostion = new DelegateCommand(OnMaximizeNoPosition);
             ToggleVoiceAssistantCommand = new DelegateCommand(OnToggleVoiceAssistant);
             OpenAgentChatCommand = new DelegateCommand(() => _agentChatWindowService?.ShowWindow());
+            OpenKnowledgeBaseCommand = new DelegateCommand(() => _knowledgeBaseWindowService?.ShowWindow());
             ToggleMuteCommand = new DelegateCommand(OnToggleMute);
             TestVoiceCommand = new DelegateCommand(OnTestVoice);
-            CloseVoiceInteractionCommand = new DelegateCommand(OnCloseVoiceInteraction);
+            CloseVoiceInteractionCommand = new DelegateCommand(OnCloseVoiceInteraction); 
         }
 
         private void InitializeProperties()
@@ -554,14 +559,47 @@ namespace MaxChemical.Shell.ViewModels
             });
         }
 
+        /// <summary>
+        /// 聆听弹框保持器:唤醒后每 2 秒强制弹框可见——
+        /// 防任何路径(点击外部/状态切换/误关)意外关闭,保证一直挂在页面上,
+        /// 直到说「退出语音」才收起。
+        /// </summary>
+        private System.Windows.Threading.DispatcherTimer _popupKeeperTimer;
+
+        private void StartPopupKeeper()
+        {
+            if (_popupKeeperTimer == null)
+            {
+                _popupKeeperTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(2)
+                };
+                _popupKeeperTimer.Tick += (_, _) =>
+                {
+                    if (IsAwake && !IsVoiceInteractionVisible)
+                        IsVoiceInteractionVisible = true;
+                };
+            }
+            _popupKeeperTimer.Start();
+        }
+
+        private void StopPopupKeeper()
+        {
+            try { _popupKeeperTimer?.Stop(); } catch { }
+        }
+
         private void OnVoiceCommandRecognized(object sender, string command)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
                 _logger.LogInformation($"收到语音命令: {command}");
 
-                // 显示交互界面（除了自动休眠命令）
-                if (command != "AUTO_SLEEP")
+                // 只在控制类反馈(唤醒/休眠/忽略/窗口指令)时弹状态框;
+                // 普通语音指令文本不再重复弹框——唤醒弹一次、说指令又弹一次会被当成两个框
+                bool isControlFeedback = command is "WAKE_UP" or "SLEEP" or "IGNORED"
+                    or "最大化窗口" or "最小化窗口" or "还原窗口" or "关闭窗口"
+                    or "静音" or "取消静音" or "现在几点" or "今天星期几";
+                if (isControlFeedback)
                 {
                     IsVoiceInteractionVisible = true;
                     RecognizedText = command;
@@ -575,14 +613,30 @@ namespace MaxChemical.Shell.ViewModels
                         IsListening = true;
                         AssistantReply = "你好！我是小桐，有什么可以帮您的？";
                         _logger.LogInformation("语音助手已唤醒");
+                        // 聆听弹框一直挂着,直到「退出语音」才关闭;保持器防止任何路径意外关闭
+                        StartPopupKeeper();
                         break;
 
                     case "AUTO_SLEEP":
                         VoiceAssistantStatus = "自动休眠 💤";
                         IsAwake = false;
                         IsListening = false;
-                        IsVoiceInteractionVisible = false;
+                        StopPopupKeeper();
                         _logger.LogInformation("语音助手自动休眠");
+                        break;
+
+                    case "VOICE_OFF":
+                        VoiceAssistantStatus = "已退出语音,说「你好小桐」可再次唤醒";
+                        IsAwake = false;
+                        IsListening = false;
+                        StopPopupKeeper();
+                        IsVoiceInteractionVisible = false;   // 「退出语音」说完立即收起监听提示框
+                        _logger.LogInformation("已退出语音,回到待命状态");
+                        break;
+
+                    case "IGNORED":
+                        VoiceAssistantStatus = "指令与项目无关,已忽略";
+                        AssistantReply = "刚才的语音与项目无关,已忽略(与实验室/软件相关的指令和正常聊天都会发送)。";
                         break;
 
                     case "SLEEP":
@@ -590,16 +644,7 @@ namespace MaxChemical.Shell.ViewModels
                         IsAwake = false;
                         IsListening = false;
                         AssistantReply = "好的，我先休息了。需要时说'你好小桐'唤醒我。";
-                        // 3秒后关闭 Popup
-                        System.Threading.Tasks.Task.Delay(3000).ContinueWith(_ =>
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                IsVoiceInteractionVisible = false;
-                                RecognizedText = string.Empty;
-                                AssistantReply = string.Empty;
-                            });
-                        });
+                        StopPopupKeeper();
                         _logger.LogInformation("语音助手已休眠");
                         break;
 

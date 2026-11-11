@@ -151,6 +151,13 @@ namespace MaxChemical.Modules.Designer.Views.Controls.Screens
                     Resolution = new Size(1240, 620),
                 });
 
+                // ── 冷水机──《主机触模屏通讯协议2023》
+                Register("ChillerScreen", new ScreenRegistration
+                {
+                    Factory = () => new ChillerScreen(),
+                    Resolution = new Size(1240, 620),
+                });
+
                 // ── 后续设备在此继续 Register("XxxKey", ...) ──────
 
                 _initialized = true;

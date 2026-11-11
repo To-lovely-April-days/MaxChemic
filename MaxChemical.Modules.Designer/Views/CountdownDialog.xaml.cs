@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // CountdownDialog.xaml.cs — 完整替换
 //
 // 改动：用 Ellipse StrokeDashArray/Offset 实现圆环进度
@@ -81,6 +81,7 @@ namespace MaxChemical.Modules.Designer.Views
                 Interval = TimeSpan.FromMilliseconds(100)
             };
             _timer.Tick += Timer_Tick;
+            Loaded += Window_Loaded;
         }
 
         /// <summary>
@@ -240,11 +241,24 @@ namespace MaxChemical.Modules.Designer.Views
             return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
         }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            FlowInteractionCoordinator.Register(this, SkipWait);
+        }
+
+        private bool SkipWait()
+        {
+            if (_isSkipped || _isStopped || _isCompleted) return false;
+
+            _isSkipped = true;
+            _timer.Stop();
+            Close();   // ★ 非模态：不设 DialogResult
+            return true;
+        }
+
         private void SkipButton_Click(object sender, RoutedEventArgs e)
         {
-            _isSkipped = true;
-            _timer?.Stop();
-            Close();   // ★ 非模态：不设 DialogResult
+            SkipWait();
         }
 
         private void StopButton_Click(object sender, RoutedEventArgs e)
@@ -267,6 +281,7 @@ namespace MaxChemical.Modules.Designer.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            FlowInteractionCoordinator.Unregister(this);
             _timer?.Stop();
             base.OnClosed(e);
         }

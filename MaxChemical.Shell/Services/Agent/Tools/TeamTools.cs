@@ -74,7 +74,7 @@ namespace MaxChemical.Shell.Services.Agent.Tools
 
         public string Name => "assign_execution_task";
         public string DisplayName => "指派执行专员";
-        public string Description => "把设备与执行类任务派给执行专员:设备清单/状态/连接实测、设置参数、执行设备命令、流程启停、DOE 批次执行与进度查询、化学家坐标系联动调参(停留时间/当量比一次写入)。专员完成后返回工作汇报。" + SpecialistDispatch.TaskDescription;
+        public string Description => "把设备与执行类任务派给执行专员:设备清单/状态/连接实测、设置参数、执行设备命令、流程启停、DOE 批次执行与进度查询、3D实验室展台状态与实时参数查询、化学家坐标系联动调参(停留时间/当量比一次写入)。专员完成后返回工作汇报。" + SpecialistDispatch.TaskDescription;
         public string ParametersSchema => SpecialistDispatch.SchemaJson;
         public bool RequiresConfirmation => false;
         public string DescribeAction(JsonElement args) => SpecialistDispatch.Describe(SpecialistTeam.Execution, args);
@@ -109,5 +109,20 @@ namespace MaxChemical.Shell.Services.Agent.Tools
         public bool RequiresConfirmation => false;
         public string DescribeAction(JsonElement args) => SpecialistDispatch.Describe(SpecialistTeam.Mechanism, args);
         public Task<AgentToolResult> ExecuteAsync(JsonElement args) => SpecialistDispatch.RunAsync(_ctx, SpecialistTeam.Mechanism, args);
+    }
+
+    /// <summary>派工:工程专员(工程文档与界面操作)。</summary>
+    public sealed class AssignEngineeringTaskTool : IAgentTool
+    {
+        private readonly AgentToolContext _ctx;
+        public AssignEngineeringTaskTool(AgentToolContext ctx) => _ctx = ctx;
+
+        public string Name => "assign_engineering_task";
+        public string DisplayName => "指派工程专员";
+        public string Description => "把工程文档与界面操作类任务派给工程专员:新建工程文档(自动保存到默认目录)、新建空白工艺流程、保存当前工程、打开工艺设计器/流程设计器、打开、全屏展示或关闭3D实验室。专员完成后返回工作汇报。" + SpecialistDispatch.TaskDescription;
+        public string ParametersSchema => SpecialistDispatch.SchemaJson;
+        public bool RequiresConfirmation => false;
+        public string DescribeAction(JsonElement args) => SpecialistDispatch.Describe(SpecialistTeam.Engineering, args);
+        public Task<AgentToolResult> ExecuteAsync(JsonElement args) => SpecialistDispatch.RunAsync(_ctx, SpecialistTeam.Engineering, args);
     }
 }

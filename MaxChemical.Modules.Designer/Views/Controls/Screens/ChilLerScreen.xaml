@@ -1,0 +1,176 @@
+﻿<base:DeviceScreenBase x:Class="MaxChemical.Modules.Designer.Views.Controls.Screens.ChillerScreen"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:base="clr-namespace:MaxChemical.Modules.Designer.Views.Controls"
+             mc:Ignorable="d"
+             Width="1240" Height="720">
+
+    <!-- 唯一的 Content 根节点 -->
+    <Grid Background="Black">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="76*"/>
+            <ColumnDefinition Width="79*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 隐藏区域：用于保留原后台代码引用的所有控件，防止 C# 编译报错 -->
+        <Grid Visibility="Collapsed" Grid.ColumnSpan="2">
+            <TextBlock x:Name="SubTitle"/>
+            <TextBlock x:Name="SetTempValue"/>
+            <TextBlock x:Name="Comp1CurrentPv"/>
+            <TextBlock x:Name="Comp2CurrentPv"/>
+            <TextBlock x:Name="ChilledPumpCurrentPv"/>
+            <TextBlock x:Name="CoolingPumpCurrentPv"/>
+            <TextBlock x:Name="InputStatusText"/>
+            <TextBlock x:Name="RelayStatusText"/>
+            <TextBlock x:Name="Comp1RuntimeText"/>
+            <TextBlock x:Name="Comp2RuntimeText"/>
+            <ComboBox x:Name="StartStopModeCombo" SelectedIndex="0"/>
+            <ComboBox x:Name="CompSelectCombo" SelectedIndex="0"/>
+            <ComboBox x:Name="LanguageCombo" SelectedIndex="0"/>
+            <!--<Button x:Name="CompAllowBtn" Click="CompAllowBtn_Click"/>-->
+            <!--<Button x:Name="MuteBtn" Click="MuteBtn_Click"/>-->
+            <!--<Button x:Name="ResetBtn" Click="ResetBtn_Click"/>-->
+            <Border x:Name="AlarmChip">
+                <TextBlock x:Name="AlarmCount"/>
+            </Border>
+        </Grid>
+
+        <!-- ══ 主界面开始 ══ -->
+
+        <!-- 顶部标题栏 -->
+        <Border Height="60" VerticalAlignment="Top" Background="#3F6CB0" BorderBrush="White" BorderThickness="0,0,0,2" Grid.ColumnSpan="2" Margin="0,0,10,0" HorizontalAlignment="Right" Width="1220">
+            <Grid>
+                <TextBlock Text="自研冷水机" Foreground="White" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center" Margin="20,0,10,0"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <Ellipse x:Name="LinkDot" Width="16" Height="16" Fill="#6A6A74" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="LinkText" Text="等待数据" Foreground="#C8CCD4" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                    <!--<TextBlock Text="🔍" FontSize="28" Foreground="White" Margin="0,0,15,0" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
+                    <TextBlock Text="⚙" FontSize="28" Foreground="White" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>-->
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 内容区 -->
+        <Grid Margin="10,70,10,10" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.2*"/>
+                <ColumnDefinition Width="1*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧面板 (PV1, PV2, SV) -->
+            <Grid Grid.Column="0" Margin="0,0,10,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="0.8*"/>
+                </Grid.RowDefinitions>
+
+                <!-- PV1 -->
+                <Border Grid.Row="0" BorderBrush="White" BorderThickness="2" Background="Black" Margin="0,0,0,5">
+                    <Grid>
+                        <TextBlock Text="液体温度" Foreground="White" FontSize="24" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="15,10,0,0"/>
+                        <TextBlock Text="℃" Foreground="White" FontSize="36" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,10,15,0"/>
+                        <TextBlock x:Name="LiquidTempPv" Text="--" Foreground="#E4ED65" FontSize="140" FontFamily="Consolas" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-20,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- PV2 -->
+                <Border Grid.Row="1" BorderBrush="White" BorderThickness="2" Background="Black" Margin="0,0,0,5">
+                    <Grid>
+                        <TextBlock Text="防冻温度" Foreground="White" FontSize="24" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="15,10,0,0"/>
+                        <TextBlock Text="℃" Foreground="White" FontSize="36" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,10,15,0"/>
+                        <TextBlock x:Name="AntiFreezeTemp" Text="--" Foreground="#E4ED65" FontSize="140" FontFamily="Consolas" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-20,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- SV 设定温度 -->
+                <Border Grid.Row="2" BorderBrush="White" BorderThickness="2" Background="#142A54">
+                    <Grid>
+                        <TextBlock Text="设定温度" Foreground="White" FontSize="24" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="15,10,0,0"/>
+                        <TextBlock Text="℃" Foreground="White" FontSize="36" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,10,15,0"/>
+
+                        <!-- 锁图标 -->
+                        <TextBlock Text="🔓" Foreground="#F6C453" FontSize="36" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="20,0,0,0" FontFamily="Segoe UI Symbol"/>
+
+                        <!-- 设定值输入框 -->
+                        <TextBox x:Name="SetTempBox" Text="--" Foreground="#7DB1E5" Background="Transparent" BorderThickness="0" 
+                                 FontSize="100" FontFamily="Consolas" FontWeight="Bold" 
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" Width="280" TextAlignment="Center" Margin="0,-10,0,0"
+                                 GotKeyboardFocus="SelectAllOnFocus" CaretBrush="White"/>
+
+                        <!-- 下发按钮 -->
+                        <Button x:Name="WriteParamBtn" Content="下发" Background="#142A54" Foreground="White" BorderBrush="White" BorderThickness="2"
+                                FontSize="24" Width="100" Height="50" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,50,0"
+                                Click="WriteParamBtn_Click" Cursor="Hand"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- 右侧面板 -->
+            <Grid Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.6*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 状态显示区 -->
+                <Border Grid.Column="0" BorderBrush="White" BorderThickness="2" Background="Black" Margin="0,0,5,130">
+                    <Grid>
+                        <TextBlock x:Name="RunStateText2" Text="OFF" Foreground="White" FontSize="40" FontFamily="Arial" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                      
+                    </Grid>
+                </Border>
+                <Border Grid.Column="0" BorderBrush="White" BorderThickness="2" Background="Black" Margin="0,378,5,-2">
+                    <Grid>
+                        <TextBlock x:Name="RunStateText" Text="空闲" Foreground="White" FontSize="40" FontFamily="Arial" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                       
+                    </Grid>
+                </Border>
+
+                <!-- 侧边按钮区 -->
+                <Grid Grid.Column="1" Margin="5,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*"/>
+                        <RowDefinition Height="1*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 禁止按钮 (显式包裹 Button.Content) -->
+                    <Button x:Name="CompForbidBtn" Grid.Row="0" Background="#D3413C" BorderBrush="White" BorderThickness="2" Margin="0,0,0,5" Click="CompForbidBtn_Click" Cursor="Hand">
+                        <Button.Content>
+                            <StackPanel>
+                                <TextBlock Text="❄" FontSize="70" Foreground="White" HorizontalAlignment="Center"/>
+                                <TextBlock Text="禁止" FontSize="32" Foreground="White" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+
+                    <!-- 电源按钮 -->
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="1*"/>
+                            <RowDefinition Height="1*"/>
+                        </Grid.RowDefinitions>
+                        <Button x:Name="PowerOnBtn" Grid.Row="0" Background="#A33B42" BorderBrush="White" BorderThickness="2" Margin="0,0,0,2" Click="PowerOnBtn_Click" Cursor="Hand">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="⏻" FontSize="50" Foreground="White" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
+                                    <TextBlock Text="开机" FontSize="28" Foreground="White" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                        <Button x:Name="PowerOffBtn" Grid.Row="1" Background="#A33B42" BorderBrush="White" BorderThickness="2" Margin="0,2,0,0" Click="PowerOffBtn_Click" Cursor="Hand">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="⏻" FontSize="50" Foreground="White" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
+                                    <TextBlock Text="关机" FontSize="28" Foreground="White" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</base:DeviceScreenBase>

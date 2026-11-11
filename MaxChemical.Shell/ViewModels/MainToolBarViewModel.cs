@@ -338,6 +338,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand SettingsCommand { get; private set; }
         public DelegateCommand PredictiveAssessmentCommand { get; set; }//数据分析预测
         public DelegateCommand DOECommand { get; private set; }
+        public DelegateCommand Lab3DCommand { get; private set; }
         public DelegateCommand SettingsChartCommand { get; private set; }
         public DelegateCommand StartCommand { get; private set; }
         public DelegateCommand PauseCommand { get; private set; }
@@ -369,6 +370,7 @@ namespace MaxChemical.Shell.ViewModels
             StopCommand = new DelegateCommand(ExecuteStop, CanExecuteStop);
             StatusCommand = new DelegateCommand(ExecuteStatus);
             DOECommand = new DelegateCommand(ExecuteOpenDOE);
+            Lab3DCommand = new DelegateCommand(ExecuteOpenLab3D);
             ShowLogViewCommand = new DelegateCommand(ExecuteShowLogViewCommand);
             System.Diagnostics.Debug.WriteLine("MainToolBarViewModel InitializeCommands 完成");
         }
@@ -1521,6 +1523,23 @@ namespace MaxChemical.Shell.ViewModels
                 _dialogService?.ShowError($"打开 DOE 模块失败: {ex.Message}", "错误");
             }
         }
+
+        private void ExecuteOpenLab3D()
+        {
+            try
+            {
+                _logger.LogInformation("打开 3D 实验室窗口");
+                _container.Resolve<MaxChemical.Modules.Lab3D.Services.ILab3DWindowService>()
+                    .ShowLab3D(Application.Current.MainWindow);
+                _eventAggregator?.GetEvent<StatusMessageChangedEvent>()?.Publish("3D 实验室窗口已打开");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "打开 3D 实验室窗口失败");
+                _dialogService?.ShowError($"打开 3D 实验室失败: {ex.Message}", "错误");
+            }
+        }
+
         /// <summary>
         /// 模拟模式状态改变处理
         /// </summary>

@@ -189,6 +189,8 @@ namespace MaxChemical.Shell.ViewModels
                 _eventAggregator?.GetEvent<LanguageChangedEvent>()?.Subscribe(OnLanguageChanged);
                 //新增：订阅项目名称更新事件
                 _eventAggregator?.GetEvent<ProjectNameUpdatedEvent>()?.Subscribe(OnProjectNameUpdated);
+                // AI 工程专员请求切换主界面 Tab("flow"/"process")
+                _eventAggregator?.GetEvent<Events.TabSwitchRequestEvent>()?.Subscribe(OnTabSwitchRequest);
                 Debug.WriteLine("Events 订阅完成");
             }
             catch (Exception ex)
@@ -213,6 +215,20 @@ namespace MaxChemical.Shell.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"切换到工艺设计器失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>AI 工程专员经 TabSwitchRequestEvent 请求切换主界面 Tab。</summary>
+        private void OnTabSwitchRequest(string target)
+        {
+            try
+            {
+                if (target == "flow") SelectFlowDesigner();
+                else if (target == "process") SelectProcessDesigner();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AI 请求切换 Tab 失败: {ex.Message}");
             }
         }
 
