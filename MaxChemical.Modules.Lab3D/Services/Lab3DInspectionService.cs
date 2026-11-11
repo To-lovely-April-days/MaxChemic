@@ -233,6 +233,54 @@ public sealed class Lab3DInspectionService : ILab3DInspectionService
         int alertCount = notices.Count(notice => notice.Level == "warning");
         if (alertCount > 0) status = "需要关注";
 
+        bool bound = !string.IsNullOrWhiteSpace(snapshot?.SourceDeviceId);
+        bool connected = bound && snapshot is { IsConnected: true };
+        bool fresh = connected && snapshot is { HasFreshData: true };
+        string primaryUnit = snapshot?.Primary.Unit ?? device.PrimaryUnit;
+        string secondaryUnit = snapshot?.Secondary.Unit ?? device.SecondaryUnit;
+        double? coverage = boundCount == 0 ? null : coveredCount * 100.0 / boundCount;
+        double? primaryRange = trend.Primary.Count > 1
+            ? trend.Primary.Max(point => point.Value) - trend.Primary.Min(point => point.Value)
+            : null;
+        var overall = alertCount > 0 ? Lab3DSignalState.Alert
+            : fresh ? Lab3DSignalState.Live
+            : connected ? Lab3DSignalState.Stale
+            : Lab3DSignalState.Off;
+        int rotationIndex = -1;
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            if (_devices[i].Id != device.Id) continue;
+            rotationIndex = i;
+            break;
+        }
+        var inputs = new[]
+        {
+            CreateParameterSignal($"主参数 · {snapshot?.Primary.Name ?? device.PrimaryName}", primaryUnit,
+                snapshot?.Primary.Value, primary, trend.Primary, connected, fresh),
+            CreateParameterSignal($"次参数 · {snapshot?.Secondary.Name ?? device.SecondaryName}", secondaryUnit,
+                snapshot?.Secondary.Value, secondary, trend.Secondary, connected, fresh),
+            new Lab3DInspectionSignal("连接状态",
+                !bound ? "未绑定" : !connected ? "未连接" : fresh ? "已连接" : "已连接 · 待数据",
+                !connected ? Lab3DSignalState.Off : fresh ? Lab3DSignalState.Live : Lab3DSignalState.Stale),
+            usage is not null && usage.UsageCount > 0
+                ? new Lab3DInspectionSignal("实验记录", $"{usage.UsageCount} 次", Lab3DSignalState.Live)
+                : new Lab3DInspectionSignal("实验记录", "暂无记录", Lab3DSignalState.Off)
+        };
+        var outputs = new[]
+        {
+            coverage.HasValue
+                ? new Lab3DInspectionSignal("数据完整", $"{coverage.Value:F0}%", Lab3DSignalState.Live)
+                : new Lab3DInspectionSignal("数据完整", "--", Lab3DSignalState.Off),
+            alertCount > 0
+                ? new Lab3DInspectionSignal("异常提示", $"{alertCount} 条预警", Lab3DSignalState.Alert)
+                : new Lab3DInspectionSignal("异常提示", "0 条", Lab3DSignalState.Live),
+            primaryRange.HasValue
+                ? new Lab3DInspectionSignal("趋势分析",
+                    $"波动 {primaryRange.Value.ToString("0.##", CultureInfo.InvariantCulture)} {primaryUnit}".TrimEnd(),
+                    fresh ? Lab3DSignalState.Live : Lab3DSignalState.Stale)
+                : new Lab3DInspectionSignal("趋势分析", "--", Lab3DSignalState.Off)
+        };
+
         return new Lab3DInspectionSnapshot(
             device.Id,
             device.Name,
@@ -240,12 +288,32 @@ public sealed class Lab3DInspectionService : ILab3DInspectionService
             GetTask(device.Kind),
             _inspectionCount,
             alertCount,
-            boundCount == 0 ? null : coveredCount * 100.0 / boundCount,
+            coverage,
             _statistics?.TotalExperiments > 0 ? _statistics.SuccessRate : null,
             usage?.UsageCount ?? 0,
             usage?.UsageCount > 0 ? usage.SuccessRate : null,
             notices.Take(5).ToArray(),
-            now);
+            now)
+        {
+            Inputs = inputs,
+            Outputs = outputs,
+            RotationIndex = rotationIndex,
+            RotationCount = _devices.Count,
+            OverallState = overall
+        };
+    }
+
+    private static Lab3DInspectionSignal CreateParameterSignal(string label, string unit, string? raw, double? parsed,
+        IReadOnlyList<Lab3DParameterPoint> series, bool connected, bool fresh)
+    {
+        if (!connected) return new Lab3DInspectionSignal(label, "--", Lab3DSignalState.Off);
+        if (fresh && parsed is not null && !string.IsNullOrWhiteSpace(raw))
+            return new Lab3DInspectionSignal(label, $"{raw.Trim()} {unit}".TrimEnd(), Lab3DSignalState.Live);
+        if (series.Count > 0)
+            return new Lab3DInspectionSignal(label,
+                $"{series[series.Count - 1].Value.ToString("0.##", CultureInfo.InvariantCulture)} {unit}".TrimEnd(),
+                Lab3DSignalState.Stale);
+        return new Lab3DInspectionSignal(label, "--", Lab3DSignalState.Stale);
     }
 
     private void CaptureSamples()

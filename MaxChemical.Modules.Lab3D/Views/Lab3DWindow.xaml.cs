@@ -46,12 +46,21 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
     private readonly Lab3DOverlayWindow SidePanelsPopup;
     private ContentControl SidePanelsPopupRoot => SidePanelsPopup.Root;
     private Grid SidePanelsPopupGrid => SidePanelsPopup.PanelGrid;
-    private const double SelectionDurationMs = 460;
+    private const double SelectionDurationMs = 220;
+    private const double InsetLeft = 324;
+    private const double InsetTop = 288;
+    private const double InsetRight = 364;
+    private const double InsetBottom = 196;
+    private const double BrainRegionLeft = 312;
+    private const double BrainRegionRight = 352;
+    private const double BrainBottom = 276;
+    private double _uiScale = 1;
     private LabDevice? _selectedDevice;
     private bool _sceneReady;
     private bool _initializing;
     private bool _isDeleting;
     private bool _isEditing;
+    private bool _isAdding;
     private bool _isClosed;
     private bool _isSceneFullscreen;
     private bool _sidePanelsOverlayInitialized;
@@ -90,6 +99,10 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
     public string DeviceCountText => $"DEVICES · {Devices.Count:00}";
     public int DeviceRowCount => Math.Max(1, Devices.Count);
     public string OnlineDeviceCountText => Devices.Count(d => d.IsOnline).ToString();
+    public bool HasOnlineDevices => Devices.Any(d => d.IsOnline);
+    public string AssistantAvatarPath => Path.Combine(_wwwroot, "assets", "xiaotong.png");
+    public ObservableCollection<string> InspectionRounds { get; } = new();
+    public string InspectionLinkStateKey => Inspection.Outputs.Count > 1 ? Inspection.Outputs[1].StateKey : "off";
     public ObservableCollection<Lab3DTrendItem> TrendItems { get; } = new();
     public ObservableCollection<Lab3DHistoryItem> RecentExperiments { get; } = new();
     public ObservableCollection<Lab3DHistoryItem> SelectedDeviceExperiments { get; } = new();
@@ -109,6 +122,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         get => _inspection;
         private set
         {
+            string previousLink = InspectionLinkStateKey;
             _inspection = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(InspectionTargetText));
@@ -117,6 +131,15 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(InspectionTimeText));
             OnPropertyChanged(nameof(InspectionAnalysisText));
             OnPropertyChanged(nameof(InspectionNoticeCountText));
+            if (previousLink != InspectionLinkStateKey) OnPropertyChanged(nameof(InspectionLinkStateKey));
+            var rounds = new List<string>();
+            for (int i = 0; i < value.RotationCount; i++)
+                rounds.Add(i == value.RotationIndex ? value.OverallStateKey : i < value.RotationIndex ? "done" : "todo");
+            if (!InspectionRounds.SequenceEqual(rounds))
+            {
+                InspectionRounds.Clear();
+                foreach (string key in rounds) InspectionRounds.Add(key);
+            }
         }
     }
     public string InspectionTargetText => string.IsNullOrEmpty(Inspection.TargetId) ? Inspection.TargetName : $"{Inspection.TargetId} · {Inspection.TargetName}";
@@ -130,7 +153,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         "等待数据" => "数据完整性检查",
         _ => Inspection.Task
     };
-    public string InspectionNoticeCountText => $"当前 {Inspection.Notices.Count} 条";
+    public string InspectionNoticeCountText => $"当前 {Inspection.Notices.Count} 条 · 规则检查";
     private ExperimentRecord? DisplayedExperiment => _activeExperiment;
     public string ActiveExperimentName => DisplayedExperiment?.ExperimentName ?? "暂无进行中实验";
     public string ActiveExperimentStatus => DisplayedExperiment is null ? "等待实验开始" : $"{DisplayedExperiment.CompletedNodes} / {DisplayedExperiment.TotalNodes} 个节点 · {DisplayedExperiment.ModeText}";
@@ -141,8 +164,8 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
     public bool HasNoSelectedHistory => SelectedDeviceExperiments.Count == 0;
     public bool HasRecentHistory => RecentExperiments.Count > 0;
     public bool HasNoRecentHistory => RecentExperiments.Count == 0;
-    public bool HasTrend => TrendItems.Count > 0;
-    public bool HasNoTrend => TrendItems.Count == 0;
+    public bool HasTrend => TrendItems.Any(item => item.Count > 0);
+    public bool HasNoTrend => !HasTrend;
     public Visibility SelectedHistoryEmptyVisibility => HasNoSelectedHistory ? Visibility.Visible : Visibility.Collapsed;
     public Visibility SelectedHistoryListVisibility => HasSelectedHistory ? Visibility.Visible : Visibility.Collapsed;
     public Visibility RecentHistoryEmptyVisibility => HasNoRecentHistory ? Visibility.Visible : Visibility.Collapsed;
@@ -162,7 +185,6 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedHistoryEmptyText));
             if (IsLoaded)
             {
-                RightPanelScrollViewer.ScrollToTop();
                 QueueDeviceSelectionAnimation();
                 _dashboardRefreshQueued = true;
                 _ = RefreshDashboardAsync();
@@ -183,7 +205,13 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
         Current = this;
         InitializeComponent();
+        var work = SystemParameters.WorkArea;
+        MinWidth = Math.Min(MinWidth, work.Width);
+        MinHeight = Math.Min(MinHeight, work.Height);
+        Width = Math.Min(Width, work.Width);
+        Height = Math.Min(Height, work.Height);
         SidePanelsPopup = new Lab3DOverlayWindow();
+        SizeChanged += (_, _) => UpdateUiScale();
         CreateDevices();
         LoadCustomDevices();
         SelectedDevice = Devices.Count > 0 ? Devices[Random.Shared.Next(Devices.Count)] : null;
@@ -204,7 +232,6 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         _dashboardTimer.Tick += async (_, _) => await RefreshDashboardAsync();
         _dashboardTimer.Start();
         Loaded += (_, _) => QueueDeviceSelectionAnimation(true);
-        Loaded += (_, _) => Dispatcher.BeginInvoke(new Action(() => RightPanelScrollViewer.ScrollToTop()), DispatcherPriority.Loaded);
         Loaded += (_, _) => InitializeSidePanelsOverlay();
         Loaded += async (_, _) => await InitializeWebViewAsync();
         Loaded += async (_, _) => await RefreshDashboardAsync();
@@ -245,24 +272,31 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         };
         _foregroundTimer.Tick += (_, _) =>
         {
-            if (_isClosed || !_sidePanelsOverlayInitialized || !IsOtherApplicationForeground()) return;
-            SidePanelsPopup.IsOpen = false;
-            BrainView.SetAnimationActive(false);
+            if (_isClosed || !_sidePanelsOverlayInitialized) return;
+            if (IsOtherApplicationForeground())
+            {
+                SidePanelsPopup.IsOpen = false;
+                BrainView.SetAnimationActive(false);
+                return;
+            }
+            // 经由本程序其它窗口回到前台时主窗口不一定触发 Activated，这里对称地恢复侧栏
+            if (_isSceneFullscreen || WindowState == WindowState.Minimized || !IsVisible || SidePanelsPopup.IsOpen) return;
+            if (GetForegroundWindow() == IntPtr.Zero) return;
+            SidePanelsPopup.IsOpen = true;
+            BrainView.SetAnimationActive(true);
         };
         _foregroundTimer.Start();
         LocationChanged += (_, _) => UpdateSidePanelsOverlayPosition();
-        SceneViewport.SizeChanged += (_, _) =>
-        {
-            UpdateSidePanelsOverlaySize();
-            Dispatcher.BeginInvoke(new Action(FitSidePanelsContent), DispatcherPriority.Loaded);
-        };
+        SceneViewport.SizeChanged += (_, _) => UpdateSidePanelsOverlaySize();
+        DeviceScrollViewer.SizeChanged += (_, _) => QueueDeviceSelectionAnimation(true);
         SidePanelsPopup.IsVisibleChanged += (_, _) =>
         {
+            SendSceneInsets();
             if (SidePanelsPopup.IsOpen)
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     UpdateSidePanelsOverlayPosition();
-                    FitSidePanelsContent();
+                    AnimateDeviceSelection(true);
                 }), DispatcherPriority.Render);
         };
         Closed += (_, _) =>
@@ -270,6 +304,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
             _isClosed = true;
             if (Current == this) Current = null;
             _foregroundTimer.Stop();
+            SidePanelsPopup.AllowClose = true;
             SidePanelsPopup.IsOpen = false;
             BrainView.SetAnimationActive(false);
             if (_selectionAnimating) CompositionTarget.Rendering -= DeviceSelectionRendering;
@@ -286,78 +321,85 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         };
     }
 
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (!e.Cancel) SidePanelsPopup.AllowClose = true;
+    }
+
+    // 模态对话框以主窗口为 Owner，侧栏是独立窗口，需在对话框期间手动禁止其响应鼠标
+    private void SetOverlayInteractive(bool enabled) => SidePanelsPopup.Root.IsHitTestVisible = enabled;
+
+    private void ShowModalWarning(string message, string caption)
+    {
+        SetOverlayInteractive(false);
+        try
+        {
+            MessageBox.Show(this, message, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            SetOverlayInteractive(true);
+        }
+    }
+
     private void InitializeSidePanelsOverlay()
     {
         if (_sidePanelsOverlayInitialized) return;
-        ContentGrid.Children.Remove(LeftPanel);
-        ContentGrid.Children.Remove(RightPanel);
+        ContentGrid.Children.Remove(OverlayLayer);
         SidePanelsPopupRoot.DataContext = DataContext;
-        Grid.SetColumn(LeftPanel, 0);
-        Grid.SetColumn(RightPanel, 2);
-        SidePanelsPopupGrid.Children.Add(LeftPanel);
-        SidePanelsPopupGrid.Children.Add(RightPanel);
+        SidePanelsPopupGrid.Children.Add(OverlayLayer);
+        SidePanelsPopup.PreviewKeyDown += (_, e) => HandleShortcutKey(e);
         _sidePanelsOverlayInitialized = true;
         SidePanelsPopup.Owner = this;
         UpdateSidePanelsOverlaySize();
         SidePanelsPopup.IsOpen = true;
         BrainView.SetAnimationActive(true);
-        Dispatcher.BeginInvoke(new Action(FitSidePanelsContent), DispatcherPriority.Loaded);
-    }
-
-    private void FitSidePanelsContent()
-    {
-        if (!_sidePanelsOverlayInitialized) return;
-        FitPanelContent(LeftPanelScrollViewer, LeftPanelContent, preserveWidth: true);
-        FitPanelContent(RightPanelScrollViewer, RightPanelContent, preserveWidth: true);
-    }
-
-    private static void FitPanelContent(ScrollViewer scrollViewer, Grid content, bool preserveWidth = false)
-    {
-        if (scrollViewer.ViewportWidth <= 0 || scrollViewer.ViewportHeight <= 0) return;
-        content.LayoutTransform = Transform.Identity;
-        content.MinHeight = 0;
-        content.Height = double.NaN;
-        content.Measure(new Size(scrollViewer.ViewportWidth, double.PositiveInfinity));
-        double availableHeight = scrollViewer.ViewportHeight;
-        double contentHeight = content.DesiredSize.Height;
-        if (contentHeight <= availableHeight)
-        {
-            content.MinHeight = availableHeight;
-            content.Height = availableHeight;
-            content.LayoutTransform = Transform.Identity;
-        }
-        else
-        {
-            content.MinHeight = 0;
-            content.Height = contentHeight;
-            content.LayoutTransform = preserveWidth
-                ? Transform.Identity
-                : new ScaleTransform(availableHeight / contentHeight, availableHeight / contentHeight, 0, 0);
-        }
+        QueueDeviceSelectionAnimation(true);
     }
 
     private void UpdateSidePanelWidths()
     {
-        if (_isSceneFullscreen)
-        {
-            SceneModeBorder.Margin = new Thickness(12);
-            return;
-        }
+        SendSceneInsets();
+    }
 
-        bool maximized = WindowState == WindowState.Maximized;
-        double leftWidth = maximized ? 280 : 240;
-        double rightWidth = maximized ? 300 : 244;
-        ContentGrid.ColumnDefinitions[0].Width = new GridLength(leftWidth);
-        RightPanelColumn.Width = new GridLength(rightWidth);
-        SidePanelsPopupGrid.ColumnDefinitions[0].Width = new GridLength(leftWidth);
-        SidePanelsPopupGrid.ColumnDefinitions[2].Width = new GridLength(rightWidth);
-        SceneModeBorder.Margin = new Thickness(leftWidth + 12, 12, 12, 12);
-        SendToScene("scene-panels-width-changed", new { left = leftWidth, right = rightWidth });
+    private void UpdateUiScale()
+    {
+        double width = RootGrid.ActualWidth, height = RootGrid.ActualHeight;
+        if (width <= 0 || height <= 0) return;
+        double scale = Math.Clamp(Math.Min(width / 1440.0, height / 900.0), 0.6, 2.5);
+        LabLoadingPanel.Margin = _isSceneFullscreen
+            ? new Thickness(0)
+            : new Thickness(0, InsetTop * scale, 0, InsetBottom * scale);
+        if (Math.Abs(scale - _uiScale) < 0.0005) return;
+        _uiScale = scale;
+        TitleScale.ScaleX = scale;
+        TitleScale.ScaleY = scale;
+        SidePanelsPopup.SetScale(scale);
+    }
+
+    private void SendSceneInsets()
+    {
+        if (!_sceneReady) return;
+        double s = _uiScale;
+        double logicalWidth = Math.Max(1, SceneViewport.ActualWidth) / s;
+        SendToScene("scene-insets", new
+        {
+            left = InsetLeft * s,
+            top = InsetTop * s,
+            right = InsetRight * s,
+            bottom = InsetBottom * s,
+            scale = s,
+            anchorX = (BrainRegionLeft + (logicalWidth - BrainRegionLeft - BrainRegionRight) / 2) * s,
+            anchorY = BrainBottom * s,
+            panels = SidePanelsPopup.IsOpen
+        });
     }
 
     private void UpdateSidePanelsOverlaySize()
     {
         if (!_sidePanelsOverlayInitialized) return;
+        UpdateUiScale();
         UpdateSidePanelWidths();
         double width = Math.Max(1, SceneViewport.ActualWidth);
         double height = Math.Max(1, SceneViewport.ActualHeight);
@@ -459,7 +501,9 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
                         devices = Devices.Select(CreateDevicePayload),
                         selectedId = SelectedDevice?.Id,
                         inspectionId = Inspection.TargetId,
-                        inspectionTask = Inspection.Task
+                        inspectionTask = Inspection.Task,
+                        inspectionName = Inspection.TargetName,
+                        inspectionState = Inspection.OverallStateKey
                     });
                     break;
                 case "scene-loading-progress":
@@ -612,9 +656,9 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
                     offset == 6 ? "今天" : date.ToString("M/d"),
                     total,
                     successful,
-                    total * 88.0 / _trendAxisMaximum,
-                    successful * 88.0 / _trendAxisMaximum,
-                    failed * 88.0 / _trendAxisMaximum);
+                    total * 100.0 / _trendAxisMaximum,
+                    successful * 100.0 / _trendAxisMaximum,
+                    failed * 100.0 / _trendAxisMaximum);
             }));
             OnPropertyChanged(string.Empty);
         }
@@ -632,8 +676,8 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
     private static Geometry CreateSuccessArc(double percentage)
     {
-        const double radius = 33.5;
-        var center = new Point(36, 36);
+        const double radius = 42;
+        var center = new Point(48, 48);
         double normalized = Math.Clamp(percentage, 0, 100) / 100;
         if (normalized >= 1) return new EllipseGeometry(center, radius, radius);
 
@@ -731,14 +775,28 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
         Inspection = e.Snapshot;
         BrainView.SetFocus(e.Snapshot.TargetId);
-        foreach (var device in Devices) device.SetTrend(_inspectionService.GetTrend(device.Id));
+        BrainView.SetSignals(
+            e.Snapshot.Inputs.Select(signal => signal.State).ToArray(),
+            e.Snapshot.Outputs.Select(signal => signal.State).ToArray(),
+            e.Snapshot.OverallState);
+        foreach (var device in Devices)
+        {
+            device.SetTrend(_inspectionService.GetTrend(device.Id));
+            device.InspectionStateKey = device.Id == e.Snapshot.TargetId ? e.Snapshot.OverallStateKey : string.Empty;
+        }
         SendInspectionFocus();
     }
 
     private void SendInspectionFocus()
     {
         if (!_sceneReady) return;
-        SendToScene("ai-inspection-focus", new { id = Inspection.TargetId, task = Inspection.Task });
+        SendToScene("ai-inspection-focus", new
+        {
+            id = Inspection.TargetId,
+            task = Inspection.Task,
+            name = Inspection.TargetName,
+            state = Inspection.OverallStateKey
+        });
     }
 
     private void QueueDeviceSelectionAnimation(bool immediate = false)
@@ -778,7 +836,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         _selectionToX = offset.X;
         _selectionToWidth = targetWidth;
         _selectionToRight = offset.X + targetWidth;
-        SelectionIndicator.Height = container.ActualHeight > 0 ? container.ActualHeight : 70;
+        SelectionIndicator.Height = container.ActualHeight > 0 ? container.ActualHeight : 88;
         SelectionIndicator.Opacity = 1;
 
         if (immediate || !_selectionInitialized)
@@ -857,8 +915,8 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         SelectionTranslate.X = left;
         SelectionIndicator.Width = Math.Max(40, right - left);
         SelectionScale.ScaleX = 1;
-        SelectionScale.ScaleY = 1 + Math.Sin(Math.PI * progress) * 0.045;
-        SelectionIndicator.CornerRadius = new CornerRadius(35 + Math.Sin(Math.PI * progress) * 10);
+        SelectionScale.ScaleY = 1;
+        SelectionIndicator.CornerRadius = new CornerRadius(8);
         SelectionIndicator.Opacity = 0.9 + Math.Sin(Math.PI * progress) * 0.1;
     }
 
@@ -936,6 +994,8 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         _realtimeService.SetDevices(Devices);
         OnPropertyChanged(nameof(DeviceCountText));
         OnPropertyChanged(nameof(OnlineSummary));
+        OnPropertyChanged(nameof(HasOnlineDevices));
+        OnPropertyChanged(nameof(OnlineDeviceCountText));
         if (!string.IsNullOrEmpty(_deviceLibrary.LastError) && _deviceLibrary.LastError is string error)
             AddEvent(error);
     }
@@ -979,71 +1039,94 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
     private void AddDevice_Click(object sender, RoutedEventArgs e)
     {
-        if (_isDeleting || _isClosed) return;
-        AddEvent("打开设备图片选择器");
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "选择设备图片",
-            Filter = "设备图片|*.png;*.jpg;*.jpeg;*.webp;*.bmp",
-            CheckFileExists = true,
-            Multiselect = false,
-            InitialDirectory = Path.Combine(_wwwroot, "assets", "devices")
-        };
-        if (dialog.ShowDialog(this) != true) return;
-        AddEvent($"已选择设备图片：{Path.GetFileName(dialog.FileName)}");
+        if (_isAdding || _isDeleting || _isEditing || _isClosed) return;
+        _isAdding = true;
+        SetOverlayInteractive(false);
         try
         {
-            var editor = new DeviceEditorWindow(dialog.FileName, _deviceLibrary.StorageDirectory) { Owner = this };
-            if (editor.ShowDialog() != true) return;
-            string previousDirectory = _deviceLibrary.StorageDirectory;
-            var entry = _deviceLibrary.AddDevice(
-                editor.DeviceName,
-                editor.EnglishName,
-                double.Parse(editor.ModelHeightText, System.Globalization.CultureInfo.InvariantCulture),
-                dialog.FileName,
-                editor.StorageDirectory,
-                GetNextDevicePosition(),
-                Devices.Select(device => device.Id));
-            if (!string.Equals(
-                Path.TrimEndingDirectorySeparator(previousDirectory),
-                Path.TrimEndingDirectorySeparator(_deviceLibrary.StorageDirectory),
-                StringComparison.OrdinalIgnoreCase))
+            AddEvent("打开设备图片选择器");
+            var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                LoadCustomDevices();
-                var restoredDevice = Devices.First(device => device.LibraryId == entry.LibraryId);
-                SelectDevice(restoredDevice, false, false);
-                ReloadSceneAfterLibraryChange();
-                AddEvent($"设备库新增 {entry.Id} {entry.Name}");
-                return;
-            }
+                Title = "选择设备图片",
+                Filter = "设备图片|*.png;*.jpg;*.jpeg;*.webp;*.bmp",
+                CheckFileExists = true,
+                Multiselect = false,
+                InitialDirectory = Path.Combine(_wwwroot, "assets", "devices")
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            AddEvent($"已选择设备图片：{Path.GetFileName(dialog.FileName)}");
+            try
+            {
+                var editor = new DeviceEditorWindow(dialog.FileName, _deviceLibrary.StorageDirectory) { Owner = this };
+                if (editor.ShowDialog() != true) return;
+                string previousDirectory = _deviceLibrary.StorageDirectory;
+                var entry = _deviceLibrary.AddDevice(
+                    editor.DeviceName,
+                    editor.EnglishName,
+                    double.Parse(editor.ModelHeightText, System.Globalization.CultureInfo.InvariantCulture),
+                    dialog.FileName,
+                    editor.StorageDirectory,
+                    GetNextDevicePosition(),
+                    Devices.Select(device => device.Id));
+                if (!string.Equals(
+                    Path.TrimEndingDirectorySeparator(previousDirectory),
+                    Path.TrimEndingDirectorySeparator(_deviceLibrary.StorageDirectory),
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    LoadCustomDevices();
+                    var restoredDevice = Devices.First(device => device.LibraryId == entry.LibraryId);
+                    SelectDevice(restoredDevice, false, false);
+                    ReloadSceneAfterLibraryChange();
+                    AddEvent($"设备库新增 {entry.Id} {entry.Name}");
+                    return;
+                }
 
-            var device = ToLabDevice(entry);
-            Devices.Add(device);
-            _inspectionService.SetDevices(Devices);
-            _realtimeService.SetDevices(Devices);
-            OnPropertyChanged(nameof(DeviceCountText));
-            OnPropertyChanged(nameof(DeviceRowCount));
-            OnPropertyChanged(nameof(OnlineSummary));
-            if (_sceneReady) SendToScene("add-device", CreateDevicePayload(device));
-            SelectDevice(device, true);
-            AddEvent($"设备库新增 {entry.Id} {device.Name}");
+                var device = ToLabDevice(entry);
+                Devices.Add(device);
+                _inspectionService.SetDevices(Devices);
+                _realtimeService.SetDevices(Devices);
+                OnPropertyChanged(nameof(DeviceCountText));
+                OnPropertyChanged(nameof(DeviceRowCount));
+                OnPropertyChanged(nameof(OnlineSummary));
+                OnPropertyChanged(nameof(HasOnlineDevices));
+                OnPropertyChanged(nameof(OnlineDeviceCountText));
+                if (_sceneReady) SendToScene("add-device", CreateDevicePayload(device));
+                SelectDevice(device, true);
+                AddEvent($"设备库新增 {entry.Id} {device.Name}");
+            }
+            catch (Exception ex)
+            {
+                if (!_isClosed)
+                    MessageBox.Show(this, $"添加设备失败：{ex.Message}", "设备库", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            MessageBox.Show(this, $"添加设备失败：{ex.Message}", "设备库", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _isAdding = false;
+            SetOverlayInteractive(true);
         }
     }
 
     private async void OpenDeviceEditor(LabDevice device)
     {
-        if (_isDeleting || _isEditing || _isClosed) return;
+        if (_isDeleting || _isEditing || _isAdding || _isClosed) return;
 
         _isEditing = true;
         try
         {
             string previousDirectory = _deviceLibrary.StorageDirectory;
             var editor = new DeviceEditorWindow(device, previousDirectory) { Owner = this };
-            if (editor.ShowDialog() != true) return;
+            bool? editorResult;
+            SetOverlayInteractive(false);
+            try
+            {
+                editorResult = editor.ShowDialog();
+            }
+            finally
+            {
+                SetOverlayInteractive(true);
+            }
+            if (editorResult != true) return;
 
             double modelHeight = double.Parse(editor.ModelHeightText, System.Globalization.CultureInfo.InvariantCulture);
             DeviceLibraryEntry entry;
@@ -1089,7 +1172,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             if (!_isClosed)
-                MessageBox.Show(this, $"编辑设备失败：{ex.Message}", "编辑设备", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowModalWarning($"编辑设备失败：{ex.Message}", "编辑设备");
         }
         finally
         {
@@ -1118,7 +1201,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
     private void ShowDeviceContextMenu(LabDevice device)
     {
-        if (_isDeleting || _isEditing || _isClosed) return;
+        if (_isDeleting || _isEditing || _isAdding || _isClosed) return;
 
         var menu = new ContextMenu
         {
@@ -1146,9 +1229,19 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
     private async void DeleteDevice(LabDevice device)
     {
-        if (_isDeleting) return;
+        if (_isDeleting || _isEditing || _isAdding || _isClosed) return;
         var confirmation = new DeleteDeviceConfirmationWindow(device) { Owner = this };
-        if (confirmation.ShowDialog() != true) return;
+        bool? confirmationResult;
+        SetOverlayInteractive(false);
+        try
+        {
+            confirmationResult = confirmation.ShowDialog();
+        }
+        finally
+        {
+            SetOverlayInteractive(true);
+        }
+        if (confirmationResult != true) return;
 
         _isDeleting = true;
         try
@@ -1178,6 +1271,8 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(DeviceCountText));
             OnPropertyChanged(nameof(DeviceRowCount));
             OnPropertyChanged(nameof(OnlineSummary));
+            OnPropertyChanged(nameof(HasOnlineDevices));
+            OnPropertyChanged(nameof(OnlineDeviceCountText));
             if (_sceneReady) SendToScene("remove-device", new { id = device.Id });
             if (!string.IsNullOrEmpty(_deviceLibrary.LastError)) AddEvent(_deviceLibrary.LastError);
             AddEvent($"设备库已删除 {device.Id} {device.Name}");
@@ -1185,7 +1280,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             if (!_isClosed)
-                MessageBox.Show(this, $"删除设备失败：{ex.Message}", "设备库", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowModalWarning($"删除设备失败：{ex.Message}", "设备库");
         }
         finally
         {
@@ -1275,6 +1370,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         }
 
         OnPropertyChanged(nameof(OnlineSummary));
+        OnPropertyChanged(nameof(HasOnlineDevices));
         OnPropertyChanged(nameof(OnlineDeviceCountText));
         SendTelemetry();
     }
@@ -1363,7 +1459,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         {
             SelectionTranslate.X = _touchFromX + Math.Clamp(deltaX * 0.12, -18, 18);
             SelectionIndicator.Width = _touchFromWidth;
-            SelectionScale.ScaleY = 1 + Math.Min(1, Math.Abs(deltaX) / 200) * 0.025;
+            SelectionScale.ScaleY = 1;
             return;
         }
         if (!UpdateTouchTarget(previewIndex)) return;
@@ -1398,8 +1494,8 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
         SelectionTranslate.X = left;
         SelectionIndicator.Width = Math.Max(40, right - left);
         SelectionScale.ScaleX = 1;
-        SelectionScale.ScaleY = 1 + progress * 0.045;
-        SelectionIndicator.CornerRadius = new CornerRadius(35 + progress * 10);
+        SelectionScale.ScaleY = 1;
+        SelectionIndicator.CornerRadius = new CornerRadius(8);
         SelectionIndicator.Opacity = 0.95 + progress * 0.05;
     }
 
@@ -1453,6 +1549,11 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
     private void DeleteSelected_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedDevice is not null) DeleteDevice(SelectedDevice);
+    }
+
+    private void EditSelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedDevice is not null) OpenDeviceEditor(SelectedDevice);
     }
 
     /// <summary>
@@ -1514,7 +1615,7 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
             Grid.SetRow(SceneViewport, 0);
             Grid.SetColumn(SceneViewport, 0);
             Grid.SetRowSpan(SceneViewport, 1);
-            Grid.SetColumnSpan(SceneViewport, 3);
+            Grid.SetColumnSpan(SceneViewport, 1);
             Panel.SetZIndex(SceneViewport, 0);
             SceneModeBorder.Margin = new Thickness(252, 12, 12, 12);
             TitleBarBorder.Visibility = Visibility.Visible;
@@ -1525,11 +1626,22 @@ public partial class Lab3DWindow : Window, INotifyPropertyChanged
 
         _isSceneFullscreen = enabled;
         SendToScene("scene-fullscreen-changed", new { enabled });
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            UpdateUiScale();
+            SendSceneInsets();
+        }), DispatcherPriority.Loaded);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        HandleShortcutKey(e);
+    }
+
+    private void HandleShortcutKey(KeyEventArgs e)
+    {
+        if (e.Handled) return;
         if (e.Key == Key.Escape && _isSceneFullscreen)
         {
             SetSceneFullscreen(false);

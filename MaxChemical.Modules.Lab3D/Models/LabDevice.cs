@@ -25,6 +25,7 @@ public sealed class LabDevice : INotifyPropertyChanged
     private string _imagePath = string.Empty;
     private double _modelHeight = 2;
     private double _focusDistance = 8.5;
+    private string _inspectionStateKey = string.Empty;
 
     public required string Id { get; init; }
     public required string Name
@@ -116,6 +117,7 @@ public sealed class LabDevice : INotifyPropertyChanged
             if (_primaryUnit == value) return;
             _primaryUnit = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(PrimaryDockText));
         }
     }
 
@@ -165,6 +167,12 @@ public sealed class LabDevice : INotifyPropertyChanged
             OnPropertyChanged(nameof(ConnectionText));
             OnPropertyChanged(nameof(PrimaryDisplay));
             OnPropertyChanged(nameof(SecondaryDisplay));
+            OnPropertyChanged(nameof(StatusKey));
+            OnPropertyChanged(nameof(HasLiveValues));
+            OnPropertyChanged(nameof(PrimaryDisplayText));
+            OnPropertyChanged(nameof(SecondaryDisplayText));
+            OnPropertyChanged(nameof(PrimaryDockText));
+            OnPropertyChanged(nameof(DockStatusText));
         }
     }
 
@@ -178,6 +186,14 @@ public sealed class LabDevice : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(ActivityText));
             OnPropertyChanged(nameof(ConnectionText));
+            OnPropertyChanged(nameof(PrimaryDisplay));
+            OnPropertyChanged(nameof(SecondaryDisplay));
+            OnPropertyChanged(nameof(StatusKey));
+            OnPropertyChanged(nameof(HasLiveValues));
+            OnPropertyChanged(nameof(PrimaryDisplayText));
+            OnPropertyChanged(nameof(SecondaryDisplayText));
+            OnPropertyChanged(nameof(PrimaryDockText));
+            OnPropertyChanged(nameof(DockStatusText));
         }
     }
 
@@ -205,6 +221,36 @@ public sealed class LabDevice : INotifyPropertyChanged
     public string PrimaryDisplay => IsOnline && HasFreshData ? PrimaryValue : string.Empty;
     public string SecondaryDisplay => IsOnline && HasFreshData ? SecondaryValue : string.Empty;
 
+    public string StatusKey => !IsOnline ? "off" : HasFreshData ? "live" : "stale";
+    public bool HasLiveValues => IsOnline && HasFreshData;
+    public string PrimaryDisplayText => string.IsNullOrWhiteSpace(PrimaryDisplay) ? "--" : PrimaryDisplay;
+    public string SecondaryDisplayText => string.IsNullOrWhiteSpace(SecondaryDisplay) ? "--" : SecondaryDisplay;
+    public string PrimaryDockText
+    {
+        get
+        {
+            string display = PrimaryDisplay;
+            if (string.IsNullOrWhiteSpace(display) || display == "--") return string.Empty;
+            return $"{display} {PrimaryUnit}".TrimEnd();
+        }
+    }
+
+    public string InspectionStateKey
+    {
+        get => _inspectionStateKey;
+        set
+        {
+            value ??= string.Empty;
+            if (_inspectionStateKey == value) return;
+            _inspectionStateKey = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsInspected));
+            OnPropertyChanged(nameof(DockStatusText));
+        }
+    }
+    public bool IsInspected => InspectionStateKey.Length > 0;
+    public string DockStatusText => IsInspected ? $"{ActivityText} · AI 巡检中" : ActivityText;
+
     public string PrimaryValue
     {
         get => _primaryValue;
@@ -214,6 +260,8 @@ public sealed class LabDevice : INotifyPropertyChanged
             _primaryValue = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(PrimaryDisplay));
+            OnPropertyChanged(nameof(PrimaryDisplayText));
+            OnPropertyChanged(nameof(PrimaryDockText));
         }
     }
 
@@ -226,6 +274,7 @@ public sealed class LabDevice : INotifyPropertyChanged
             _secondaryValue = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SecondaryDisplay));
+            OnPropertyChanged(nameof(SecondaryDisplayText));
         }
     }
 

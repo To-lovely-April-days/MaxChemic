@@ -72,6 +72,37 @@ let lowFpsSamples = 0;
 let pendingModelLoads = 0;
 let modelLoadFailed = false;
 let resolveModelLoads = () => {};
+// Free scene area reported by the WPF host (real CSS px from each viewport edge) plus the shared UI scale.
+const sceneInsets = { left: 324, top: 288, right: 364, bottom: 196, scale: 1, anchorX: NaN, anchorY: NaN, panels: true };
+let sceneFullscreen = false;
+const USE_VIEW_OFFSET = true; // kill switch
+const HUD_GAP = 12;           // logical px between the dock-side inset and the HUD bars
+
+function applySceneInsets() {
+  const w = Math.max(1, viewport.clientWidth);
+  const h = Math.max(1, viewport.clientHeight);
+  const s = sceneInsets.scale > 0 ? sceneInsets.scale : 1;
+  const full = sceneFullscreen;
+  const left = full ? 0 : sceneInsets.left, top = full ? 0 : sceneInsets.top;
+  const right = full ? 0 : sceneInsets.right, bottom = full ? 0 : sceneInsets.bottom;
+  const freeW = w - left - right, freeH = h - top - bottom;
+  if (camera) {
+    if (!USE_VIEW_OFFSET || full || freeW < 120 || freeH < 120) camera.clearViewOffset();
+    else camera.setViewOffset(w, h, -Math.round(left + freeW / 2 - w / 2), -Math.round(top + freeH / 2 - h / 2), w, h);
+  }
+  const style = document.documentElement.style;
+  style.setProperty('--ui-scale', String(s));
+  style.setProperty('--hud-left', '16px');
+  style.setProperty('--hud-bottom', `${full ? 16 : bottom / s - HUD_GAP - 44}px`);
+  style.setProperty('--hud-right', `${full ? 16 : right / s}px`);
+  style.setProperty('--free-left', `${full ? 16 : left / s}px`);
+  style.setProperty('--free-right', `${full ? 16 : right / s}px`);
+  style.setProperty('--free-top', `${full ? 16 : top / s}px`);
+  inspectionLayer?.setLayout({
+    anchorX: sceneInsets.anchorX, anchorY: sceneInsets.anchorY, scale: s,
+    fullscreen: full, panels: sceneInsets.panels, left, top, right, bottom
+  });
+}
 
 function waitForModelLoads() {
   if (pendingModelLoads === 0) return Promise.resolve();
@@ -522,7 +553,7 @@ function removeDeviceFromScene(id) {
     if (nextId) {
       selectDevice(nextId, false, true);
     } else {
-      setViewName('数字展厅总览');
+      setViewName('实验室总览');
     }
   } catch (error) {
     window.reportSceneError(`删除设备失败：${error?.message || error}`);
@@ -565,7 +596,8 @@ async function initializeDevices(payload) {
   await waitForModelLoads();
   if (modelLoadFailed) return;
   const inspectionId = devices.has(payload.inspectionId) ? payload.inspectionId : payload.selectedId;
-  inspectionLayer?.setFocus({ id: inspectionId, task: payload.inspectionTask });
+  inspectionLayer?.setFocus({ id: inspectionId, task: payload.inspectionTask, name: payload.inspectionName, state: payload.inspectionState });
+  applySceneInsets();
   post('scene-loading-progress', { stage: 'compile' });
   await renderer.compileAsync(scene, camera);
   post('scene-loading-progress', { stage: 'first-frame' });
@@ -589,7 +621,6 @@ function selectDevice(id, focus = false, notifyHost = false) {
   selectionRing.visible = true;
   selectionRing.position.set(entry.model.position.x, entry.model.position.y + 0.025, entry.model.position.z);
   selectionRing.scale.setScalar(entry.model.userData.ringScale ?? 0.86);
-  setViewName(`${entry.data.id} · ${entry.data.name}`);
   if (notifyHost) post('device-selected', { id });
 }
 
@@ -643,11 +674,7 @@ function restoreFocusDevicePoses() {
 }
 
 function setNavigationHint(focused) {
-  const hint = document.querySelector('.navigation-hint div');
-  if (!hint) return;
-  hint.innerHTML = focused
-    ? '<b>左键</b> 旋转 <i></i><b>滚轮</b> 放大'
-    : '<b>左键</b> 旋转 <i></i><b>右键</b> 平移 <i></i><b>滚轮</b> 缩放';
+  // The hint is a fixed line inside the tools bar now; kept as a no-op for its two callers.
 }
 
 let locatedDeviceId = null;
@@ -667,14 +694,17 @@ function locateDevice(id) {
   const radius = Math.max(0.1, Math.max(size.x, size.y, size.z) * 0.5);
   const target = entry.model.position.clone();
   target.y += Math.max(0.35, (entry.model.userData.height || size.y) * 0.55);
-  const distance = Math.max(2.2, radius * 3.2);
+  const viewH = Math.max(1, viewport.clientHeight);
+  const freeH = sceneFullscreen ? viewH : Math.max(120, viewH - sceneInsets.top - sceneInsets.bottom);
+  const fit = THREE.MathUtils.clamp(0.55 * viewH / freeH, 1, 1.5);
+  const distance = Math.max(2.2, radius * 3.2 * fit);
   const direction = camera.position.clone().sub(controls.target);
   if (direction.lengthSq() < 0.000001) direction.set(0, 0.2, 1);
   direction.normalize();
   const position = target.clone().addScaledVector(direction, distance);
   stableDistance = distance;
   startCameraTween(position, target, 650);
-  setViewName(`${entry.data.id} · ${entry.data.name}`);
+  setViewName(entry.data.name);
 }
 
 function focusDevice(id) {
@@ -764,7 +794,7 @@ function focusDevice(id) {
   renderer.shadowMap.needsUpdate = true;
   renderer.render(scene, camera);
   setNavigationHint(true);
-  setViewName(`${entry.data.id} · ${entry.data.name}`);
+  setViewName(entry.data.name);
   post('device-focus-mode', { enabled: true, id });
 }
 
@@ -809,7 +839,7 @@ function returnOverview() {
   applyRenderQuality();
   setNavigationHint(false);
   updateLabelVisibility();
-  setViewName('数字展厅总览');
+  setViewName('实验室总览');
   document.getElementById('focus-badge').classList.add('hidden');
   post('device-focus-mode', { enabled: false });
 }
@@ -873,6 +903,7 @@ function resize() {
     ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(baseFov / 2)) * fitAspect / camera.aspect))
     : baseFov;
   camera.updateProjectionMatrix();
+  applySceneInsets();
   renderer.setSize(width, height);
   composer?.setSize(width, height);
   ssaoPass?.setSize(Math.max(1, Math.floor(width * 0.5)), Math.max(1, Math.floor(height * 0.5)));
@@ -1064,6 +1095,8 @@ function updateTelemetry(records) {
 }
 
 function updateSceneFullscreenButton(enabled) {
+  sceneFullscreen = !!enabled;
+  applySceneInsets();
   const button = document.querySelector('[data-action="fullscreen"]');
   if (!button) return;
   document.body.classList.toggle('scene-fullscreen', enabled);
@@ -1099,12 +1132,15 @@ function handleHostMessage(message) {
     case 'update-device': updateDeviceInScene(data); break;
     case 'overview': returnOverview(); break;
     case 'scene-fullscreen-changed': updateSceneFullscreenButton(data.enabled); break;
-    case 'scene-panels-width-changed':
-      if (!document.body.classList.contains('scene-fullscreen')) {
-        document.documentElement.style.setProperty('--panel-left', `${Number(data.left) || 240}px`);
-        document.documentElement.style.setProperty('--panel-right', `${Number(data.right) || 244}px`);
-      }
+    case 'scene-insets':
+      Object.assign(sceneInsets, {
+        left: +data.left || 0, top: +data.top || 0, right: +data.right || 0, bottom: +data.bottom || 0,
+        scale: +data.scale || 1, anchorX: +data.anchorX, anchorY: +data.anchorY, panels: data.panels !== false
+      });
+      applySceneInsets();
       break;
+    case 'scene-panels-width-changed':
+      break; // no longer sent by the host; superseded by scene-insets
     case 'ai-inspection-focus': inspectionLayer?.setFocus(data); break;
     case 'telemetry': updateTelemetry(data); break;
   }

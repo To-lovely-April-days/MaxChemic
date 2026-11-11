@@ -7,59 +7,95 @@
         xmlns:converters="clr-namespace:MaxChemical.Modules.Lab3D.Converters"
         xmlns:views="clr-namespace:MaxChemical.Modules.Lab3D.Views"
         mc:Ignorable="d"
-        Title="HOTREE · 3D 智能数字展厅" Width="1150" Height="640"
-        MinWidth="360" MinHeight="420"
+        Title="HOTREE · 3D 智能数字展厅" Width="1440" Height="900"
+        MinWidth="864" MinHeight="540"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
         AllowsTransparency="True"
-        Background="#FFFFFF" Foreground="#1A1A1A"
+        Background="#ECE9E3" Foreground="#1F2326" FontSize="12"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Window.Resources>
-        <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="PanelLightBrush" Color="#FAFAF6"/>
-        <SolidColorBrush x:Key="LineBrush" Color="#EAEAEA"/>
-        <SolidColorBrush x:Key="MutedBrush" Color="#888780"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+
+        <!-- Design tokens (light) -->
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#FBFAF7"/>
+        <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SurfaceSunkBrush" Color="#F1EFEA"/>
+        <SolidColorBrush x:Key="HairlineBrush" Color="#E7E4DE"/>
+        <SolidColorBrush x:Key="BorderStrongBrush" Color="#CFCBC4"/>
+        <SolidColorBrush x:Key="FloatBorderBrush" Color="#1F1F2326"/>
+        <SolidColorBrush x:Key="SceneBackingBrush" Color="#ECE9E3"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1F2326"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5A5F63"/>
+        <SolidColorBrush x:Key="PlaceholderBrush" Color="#7A7E82"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#A41626"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#C42626"/>
-        <SolidColorBrush x:Key="OnlineBrush" Color="#1D9E75"/>
-        <SolidColorBrush x:Key="TitleBrush" Color="#A41626"/>
         <SolidColorBrush x:Key="TitleHoverBrush" Color="#8E121F"/>
         <SolidColorBrush x:Key="TitleDarkBrush" Color="#6B0E1A"/>
-        <SolidColorBrush x:Key="PrimaryLightBrush" Color="#FCEAEC"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5F5E5A"/>
-        <SolidColorBrush x:Key="HoverBrush" Color="#F4F3EF"/>
-        <SolidColorBrush x:Key="BorderStrongBrush" Color="#D3D1C7"/>
+        <SolidColorBrush x:Key="OnlineBrush" Color="#12704F"/>
+        <SolidColorBrush x:Key="StaleBrush" Color="#8A5A00"/>
+        <SolidColorBrush x:Key="ChartSuccessBrush" Color="#2E8B6E"/>
+
+        <!-- Legacy keys kept for compatibility -->
+        <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="PanelLightBrush" Color="#FBFAF7"/>
+        <SolidColorBrush x:Key="LineBrush" Color="#E7E4DE"/>
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A7E82"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#A41626"/>
+        <SolidColorBrush x:Key="TitleBrush" Color="#A41626"/>
+        <SolidColorBrush x:Key="PrimaryLightBrush" Color="#F1EFEA"/>
+        <SolidColorBrush x:Key="HoverBrush" Color="#F1EFEA"/>
         <LinearGradientBrush x:Key="BrandBrush" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#A41626" Offset="0"/>
             <GradientStop Color="#8E121F" Offset="1"/>
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="ImageFadeBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#00FAFAF6" Offset="0.42"/>
-            <GradientStop Color="#FFFAFAF6" Offset="1"/>
+            <GradientStop Color="#00FBFAF7" Offset="0.42"/>
+            <GradientStop Color="#FFFBFAF7" Offset="1"/>
         </LinearGradientBrush>
+
+        <DrawingBrush x:Key="FailHatchBrush" TileMode="Tile" Stretch="None"
+                      Viewport="0,0,5,5" ViewportUnits="Absolute" Viewbox="0,0,5,5" ViewboxUnits="Absolute">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#A41626">
+                        <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,5,5"/></GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen><Pen Brush="#99FFFFFF" Thickness="1.2"/></GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <LineGeometry StartPoint="0,5" EndPoint="5,0"/>
+                                <LineGeometry StartPoint="-2.5,2.5" EndPoint="2.5,-2.5"/>
+                                <LineGeometry StartPoint="2.5,7.5" EndPoint="7.5,2.5"/>
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+
         <Style TargetType="Button" x:Key="IconButtonStyle">
             <Setter Property="Width" Value="36"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="Margin" Value="5,0,0,0"/>
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="Foreground" Value="#5F5E5A"/>
-            <Setter Property="BorderBrush" Value="#D3D1C7"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#1F2326"/>
+            <Setter Property="BorderBrush" Value="#CFCBC4"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#FCEAEC"/>
-                                <Setter Property="Foreground" Value="#A41626"/>
-                                <Setter TargetName="Border" Property="BorderBrush" Value="#A41626"/>
+                                <Setter TargetName="Border" Property="Background" Value="#F1EFEA"/>
+                                <Setter Property="Foreground" Value="#1F2326"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#CFCBC4"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#F4F3EF"/>
+                                <Setter TargetName="Border" Property="Background" Value="#E7E4DE"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -67,22 +103,50 @@
             </Setter>
         </Style>
         <Style TargetType="Button" x:Key="TitleBarButtonStyle" BasedOn="{StaticResource IconButtonStyle}">
-            <Setter Property="Width" Value="45"/>
-            <Setter Property="Height" Value="28"/>
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#5A5F63"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="0">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#8E121F"/>
+                                <Setter TargetName="Border" Property="Background" Value="#F1EFEA"/>
+                                <Setter Property="Foreground" Value="#1F2326"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#E7E4DE"/>
+                                <Setter Property="Foreground" Value="#1F2326"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Button" x:Key="TitleBarCloseButtonStyle" BasedOn="{StaticResource IconButtonStyle}">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#5A5F63"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#A41626"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
@@ -108,8 +172,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -127,34 +191,71 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="Button" x:Key="TextLinkButtonStyle">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="2,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Foreground" Value="#1F2326"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="TextBlock" x:Key="SectionTitleStyle">
-            <Setter Property="Foreground" Value="#888780"/>
-            <Setter Property="FontSize" Value="10"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+            <Setter Property="Foreground" Value="#5A5F63"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="StatusGlyphStyle" TargetType="Path">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Data" Value="M4,0.75 A3.25,3.25 0 1 1 3.99,0.75 Z"/>
+            <Setter Property="Stroke" Value="#5A5F63"/>
+            <Setter Property="StrokeThickness" Value="1.5"/>
+            <Setter Property="Fill" Value="Transparent"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding StatusKey}" Value="live">
+                    <Setter Property="Fill" Value="#12704F"/>
+                    <Setter Property="Stroke" Value="#12704F"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusKey}" Value="stale">
+                    <Setter Property="Data" Value="M4,0.5 L7.5,7.5 L0.5,7.5 Z"/>
+                    <Setter Property="Fill" Value="#8A5A00"/>
+                    <Setter Property="Stroke" Value="#8A5A00"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="SidePanelCardStyle" TargetType="ContentControl">
-            <Setter Property="Background" Value="#F5FFFFFF"/>
+            <Setter Property="Background" Value="#FBFAF7"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
-            <Setter Property="Padding" Value="10,9"/>
+            <Setter Property="Padding" Value="20,16"/>
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ContentControl">
                         <Grid>
-                            <Border Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="1" SnapsToDevicePixels="True"/>
+                            <Border Background="#FBFAF7" CornerRadius="10" IsHitTestVisible="False">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#1F2326" BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.14"/>
+                                </Border.Effect>
+                            </Border>
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource FloatBorderBrush}"
+                                    BorderThickness="1" CornerRadius="10" SnapsToDevicePixels="True"/>
                             <ContentPresenter Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                            <Canvas Height="8" VerticalAlignment="Top" IsHitTestVisible="False">
-                                <Polygon Points="0,0 12,0 0,8" Width="12" Height="8" Stretch="Fill"
-                                         Fill="{StaticResource AccentBrush}" Opacity="0.48" Canvas.Left="0" Canvas.Top="0"/>
-                                <Polygon Points="0,0 12,0 12,8" Width="12" Height="8" Stretch="Fill"
-                                         Fill="{StaticResource AccentBrush}" Opacity="0.48" Canvas.Right="0" Canvas.Top="0"/>
-                            </Canvas>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -162,9 +263,9 @@
         </Style>
         <Style x:Key="LabContextMenuStyle" TargetType="ContextMenu">
             <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="Foreground" Value="#1A1A1A"/>
+            <Setter Property="Foreground" Value="#1F2326"/>
             <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
-            <Setter Property="BorderBrush" Value="#EAEAEA"/>
+            <Setter Property="BorderBrush" Value="#E7E4DE"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="5"/>
             <Setter Property="MinWidth" Value="154"/>
@@ -187,7 +288,7 @@
             </Setter>
         </Style>
         <Style x:Key="LabMenuItemStyle" TargetType="MenuItem">
-            <Setter Property="Foreground" Value="#1A1A1A"/>
+            <Setter Property="Foreground" Value="#1F2326"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
             <Setter Property="FontSize" Value="13"/>
@@ -209,7 +310,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border x:Name="IconBorder" Width="24" Height="24"
-                                        Background="#F4F3EF" CornerRadius="5">
+                                        Background="#F1EFEA" CornerRadius="5">
                                     <ContentPresenter ContentSource="Icon"
                                                       HorizontalAlignment="Center"
                                                       VerticalAlignment="Center"/>
@@ -223,13 +324,13 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#FCEAEC"/>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#F1EFEA"/>
                                 <Setter TargetName="IconBorder" Property="Background" Value="#FFFFFF"/>
-                                <Setter Property="Foreground" Value="#A41626"/>
+                                <Setter Property="Foreground" Value="#1F2326"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#F6DDE1"/>
-                                <Setter Property="Foreground" Value="#8E121F"/>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#E7E4DE"/>
+                                <Setter Property="Foreground" Value="#1F2326"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ItemBorder" Property="Opacity" Value="0.45"/>
@@ -246,690 +347,803 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Separator">
-                        <Border Height="1" Background="#EAEAEA" Margin="9,4"
+                        <Border Height="1" Background="#E7E4DE" Margin="9,4"
                                 VerticalAlignment="Center"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-        <DataTemplate DataType="{x:Type models:LabDevice}">
-            <Button Width="212" Height="70" Margin="0,0,10,0" Padding="0" Background="Transparent" BorderThickness="0"
-                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" FocusVisualStyle="{x:Null}"
-                    Cursor="Hand" Click="DeviceCard_Click" AutomationProperties.Name="{Binding Name}">
+
+        <!-- Dock card. Keyed on purpose: the dock lives in the overlay window, where an implicit template of this window is not found. -->
+        <DataTemplate x:Key="DockDeviceTemplate" DataType="{x:Type models:LabDevice}">
+            <Button MinWidth="150" Height="88" Margin="0,0,6,0" Padding="0" Background="Transparent" BorderThickness="0"
+                    Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
+                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                    Click="DeviceCard_Click" AutomationProperties.Name="{Binding Name}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        <Border x:Name="Card" CornerRadius="8" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Card" Property="Background" Value="#F1EFEA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
-                <Border x:Name="Card" Padding="10,7" BorderThickness="0" Background="Transparent" CornerRadius="35">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="50"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Width="46" Height="54" Background="Transparent" BorderThickness="0">
-                        <Grid>
-                            <Image Source="{Binding ImagePath}" Stretch="Uniform" Margin="4" RenderTransformOrigin="0.5,0.5">
+                    <Grid Margin="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="44"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="44" Height="68" CornerRadius="6" Background="#FFFFFF" BorderBrush="#E7E4DE" BorderThickness="1" Padding="4">
+                            <Image Source="{Binding ImagePath}" Stretch="Uniform" RenderTransformOrigin="0.5,0.5">
                                 <Image.RenderTransform>
                                     <ScaleTransform ScaleX="1" ScaleY="1"/>
                                 </Image.RenderTransform>
                             </Image>
+                        </Border>
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PrimaryDockText}" FontSize="13" FontWeight="SemiBold" Foreground="#1F2326" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Id}" FontFamily="Consolas" FontSize="12" Foreground="#5A5F63" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
+                                       LineHeight="17" LineStackingStrategy="BlockLineHeight" MaxHeight="34"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#1F2326"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Foreground" Value="#8E121F"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <DockPanel Grid.Row="2">
+                                <Path DockPanel.Dock="Left" Style="{StaticResource StatusGlyphStyle}"/>
+                                <TextBlock Text="{Binding DockStatusText}" FontSize="12" Margin="6,0,0,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           Foreground="{Binding StatusKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=status}"/>
+                            </DockPanel>
                         </Grid>
-                    </Border>
-                    <StackPanel Grid.Column="1" Margin="10,1,5,0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="#1A1A1A"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                            <Setter Property="Foreground" Value="#A41626"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="5" Height="5" Fill="{StaticResource OnlineBrush}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding StatusText}" FontSize="9" Foreground="#5F5E5A" Margin="5,0,0,0"/>
-                            <TextBlock Text="·" Foreground="#D3D1C7" Margin="4,0"
-                                       Visibility="{Binding Protocol, Converter={x:Static converters:ProtocolVisibilityConverter.Instance}}"/>
-                            <TextBlock Text="{Binding Protocol}" FontFamily="Consolas" FontSize="8" Foreground="#888780"
-                                       Visibility="{Binding Protocol, Converter={x:Static converters:ProtocolVisibilityConverter.Instance}}"/>
-                        </StackPanel>
-                    </StackPanel>
+                    </Grid>
+                    <Grid IsHitTestVisible="False">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="3*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Height="3" VerticalAlignment="Bottom"
+                                Background="{Binding InspectionStateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=line}"
+                                Visibility="{Binding IsInspected, Converter={StaticResource BoolToVisibility}}"/>
+                    </Grid>
                 </Grid>
-            </Border>
             </Button>
         </DataTemplate>
     </Window.Resources>
 
     <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
-            <RowDefinition Height="28"/>
-            <RowDefinition x:Name="DeviceNavigationRow" Height="96"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="0"/>
         </Grid.RowDefinitions>
 
-        <Border x:Name="TitleBarBorder" Grid.Row="0" Background="#A41626" BorderBrush="#6B0E1A" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-            <Grid Margin="24,0,18,0">
+        <!-- A. Title bar -->
+        <Border x:Name="TitleBarBorder" Grid.Row="0" Background="#FBFAF7" BorderBrush="#E7E4DE" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid Height="44">
+                <Grid.LayoutTransform>
+                    <ScaleTransform x:Name="TitleScale" ScaleX="1" ScaleY="1"/>
+                </Grid.LayoutTransform>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="32" Height="16" Margin="12,0,4,0">
-                        <Image Source="pack://siteoforigin:,,,/Resources/Icon/logo.png"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Border Width="28" Height="28" CornerRadius="6" Background="#A41626">
+                        <Image Source="pack://siteoforigin:,,,/Resources/Icon/logo.png" Stretch="Uniform" Margin="4"/>
                     </Border>
-                    <StackPanel Margin="8,0,0,0" VerticalAlignment="Center" Orientation="Horizontal">
-                        <TextBlock Text="HOTREE" FontFamily="Segoe UI" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF"/>
-                        <TextBlock x:Name="TitleBrandSubText" Text="3D 智能数字展厅" FontSize="8" Foreground="#FCEAEC" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <StackPanel x:Name="TitleDescriptionPanel" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="1" Height="18" Background="#FCEAEC" Opacity="0.5" Margin="20,0,16,0"/>
-                        <TextBlock Text="智能设备展示 · 数字孪生中心" FontSize="14" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <TextBlock Text="HOTREE" FontFamily="Segoe UI" FontWeight="Bold" FontSize="15" Foreground="#A41626" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="3D 智能数字展厅" FontSize="12" Foreground="#5A5F63" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="16" Background="#CFCBC4" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="智能设备展示 · 数字孪生中心" FontSize="13" FontWeight="SemiBold" Foreground="#1F2326" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
-                <StackPanel x:Name="TitleStatusPanel" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,30,0">
-                    <Ellipse Width="6" Height="6" Fill="{StaticResource OnlineBrush}" VerticalAlignment="Center"/>
-                    <TextBlock Text="系统运行正常" FontSize="11" Foreground="#FFFFFF" Margin="7,0,0,0" VerticalAlignment="Center"/>
-                    <Border Width="1" Height="18" Background="#FCEAEC" Opacity="0.5" Margin="10,0"/>
-                    <TextBlock Text="{Binding OnlineSummary}" FontSize="11" Foreground="#E1F5EE" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ItemsControl ItemsSource="{Binding Devices}" VerticalAlignment="Center" Focusable="False" IsHitTestVisible="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Height="6" VerticalAlignment="Center">
+                                    <Border Width="10" Margin="0,0,3,0" CornerRadius="1" BorderThickness="1" VerticalAlignment="Bottom">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Height" Value="6"/>
+                                                <Setter Property="BorderBrush" Value="#CFCBC4"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding StatusKey}" Value="live">
+                                                        <Setter Property="BorderBrush" Value="#12704F"/>
+                                                        <Setter Property="Background" Value="#12704F"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding StatusKey}" Value="stale">
+                                                        <Setter Property="BorderBrush" Value="#8A5A00"/>
+                                                        <Setter Property="Background" Value="#8A5A00"/>
+                                                        <Setter Property="Height" Value="3"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding OnlineSummary}" FontSize="13" FontWeight="SemiBold" Margin="5,0,6,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#5A5F63"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasOnlineDevices}" Value="True">
+                                        <Setter Property="Foreground" Value="#12704F"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
                     <Button Style="{StaticResource TitleBarButtonStyle}" Content="&#xE922;" FontFamily="Segoe MDL2 Assets" Click="Maximize_Click" ToolTip="最大化 / 还原"/>
-                    <Button Style="{StaticResource TitleBarButtonStyle}" Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" Click="Close_Click" ToolTip="关闭"/>
+                    <Button Style="{StaticResource TitleBarCloseButtonStyle}" Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" Click="Close_Click" ToolTip="关闭"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border x:Name="DeviceNavigationBorder" Grid.Row="1" Background="#FAFAF6" BorderBrush="#EAEAEA" BorderThickness="0,0,0,1">
-            <Grid Margin="18,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="112"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="170"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition x:Name="DeviceNavigationPrimaryRow" Height="*"/>
-                    <RowDefinition x:Name="DeviceNavigationSecondaryRow" Height="0"/>
-                </Grid.RowDefinitions>
-                <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <Border Width="3" Height="18" Background="#A41626" Margin="0,0,8,0"/>
-                        <TextBlock Text="设备导航" FontSize="16" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                    </StackPanel>
-                </StackPanel>
-                <ScrollViewer x:Name="DeviceScrollViewer" Grid.Column="1" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden"
-                              CanContentScroll="False" PanningMode="None" PreviewMouseWheel="DeviceScroll_PreviewMouseWheel"
-                              TouchDown="DeviceScroll_TouchDown" TouchMove="DeviceScroll_TouchMove"
-                              TouchUp="DeviceScroll_TouchUp" LostTouchCapture="DeviceScroll_LostTouchCapture">
-                    <Grid x:Name="DeviceTrackHost" HorizontalAlignment="Left">
-                        <Border x:Name="SelectionIndicator" Width="212" Height="70" Padding="0"
-                                HorizontalAlignment="Left" VerticalAlignment="Top" BorderBrush="#66A41626" BorderThickness="1"
-                                CornerRadius="35" Opacity="0" IsHitTestVisible="False"
-                                RenderTransformOrigin="0.5,0.5">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#D9FFFFFF" Offset="0"/>
-                                    <GradientStop Color="#99FCEAEC" Offset="0.55"/>
-                                    <GradientStop Color="#CCFFFFFF" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <Border.RenderTransform>
-                                <TransformGroup>
-                                    <ScaleTransform x:Name="SelectionScale" ScaleX="1" ScaleY="1"/>
-                                    <TranslateTransform x:Name="SelectionTranslate"/>
-                                </TransformGroup>
-                            </Border.RenderTransform>
-                            <Border.Effect>
-                                <DropShadowEffect Color="#6B5E58" BlurRadius="18" ShadowDepth="3" Opacity="0.18"/>
-                            </Border.Effect>
-                            <Grid IsHitTestVisible="False">
-                                <Border Height="22" Margin="14,3,22,0" VerticalAlignment="Top" CornerRadius="10">
-                                    <Border.Background>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#BFFFFFFF" Offset="0"/>
-                                            <GradientStop Color="#00FFFFFF" Offset="1"/>
-                                        </LinearGradientBrush>
-                                    </Border.Background>
-                                </Border>
-                                <Border Width="18" Height="8" Margin="0,9,14,0"
-                                        HorizontalAlignment="Right" VerticalAlignment="Top"
-                                        CornerRadius="6" Background="#CCFFFFFF">
-                                    <Border.Effect><BlurEffect Radius="3"/></Border.Effect>
-                                </Border>
-                            </Grid>
-                        </Border>
-                        <ItemsControl x:Name="DeviceList" ItemsSource="{Binding Devices}" Panel.ZIndex="1">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </Grid>
-                </ScrollViewer>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource IconButtonStyle}" Content="&#xE76B;" FontFamily="Segoe MDL2 Assets" Click="DeviceScrollLeft_Click" ToolTip="向左滑动"/>
-                    <Button Style="{StaticResource IconButtonStyle}" Content="&#xE76C;" FontFamily="Segoe MDL2 Assets" Click="DeviceScrollRight_Click" ToolTip="向右滑动"/>
-                    <Button Style="{StaticResource IconButtonStyle}" Content="+" FontSize="20" Click="AddDevice_Click" ToolTip="新增设备"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <Grid x:Name="ContentGrid" Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition x:Name="RightPanelColumn" Width="244"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="0"/>
-                <RowDefinition x:Name="CompactDetailsRow" Height="0"/>
-            </Grid.RowDefinitions>
-
-            <Border x:Name="LeftPanel" Grid.Column="0" Grid.Row="0" Panel.ZIndex="2" Background="#F2FFFFFF" BorderBrush="#66EAEAEA" BorderThickness="0,0,1,0" Padding="5" VerticalAlignment="Stretch">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                <ScrollViewer Grid.Row="0" x:Name="LeftPanelScrollViewer" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
-                    <Grid x:Name="LeftPanelContent" VerticalAlignment="Stretch" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <ContentControl x:Name="OverviewCard" Grid.Row="0" Style="{StaticResource SidePanelCardStyle}" Margin="0,0,0,6">
-                            <StackPanel>
-                                <Grid Height="17">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="3" Height="14" Background="#A41626" Margin="0,0,7,0"/>
-                                        <TextBlock Text="实验室概览" FontSize="12" FontWeight="SemiBold" Foreground="#1A1A1A" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding OverviewUpdatedText}" FontSize="8" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Margin="9,5,10,0" Height="90">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="88"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid Width="82" Height="87" HorizontalAlignment="Left">
-                                        <Ellipse Width="82" Height="82" Stroke="#D8C6CA" StrokeThickness="1" StrokeDashArray="1 2"/>
-                                        <Ellipse Width="72" Height="72" Stroke="#F0E7E9" StrokeThickness="5"/>
-                                        <Path Width="72" Height="72" Data="{Binding ExperimentSuccessArc}" Stroke="#A41626" StrokeThickness="5"
-                                              StrokeStartLineCap="Flat" StrokeEndLineCap="Flat" Stretch="None"/>
-                                        <StackPanel VerticalAlignment="Center" Margin="0,-9,0,0">
-                                            <TextBlock Text="{Binding ExperimentSuccessRateText}" FontFamily="Segoe UI" FontSize="17" FontWeight="SemiBold" Foreground="#8E121F" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="实验成功率" FontSize="8" Foreground="#5F5E5A" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                    <UniformGrid Grid.Column="1" Columns="2" Rows="2">
-                                        <StackPanel Margin="0,4,3,0" VerticalAlignment="Top">
-                                            <TextBlock Text="设备总数" FontSize="8" Foreground="#888780"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="{Binding Devices.Count}" FontSize="16" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                                <TextBlock Text=" 台" FontSize="8" Foreground="#888780" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <StackPanel Margin="3,4,0,0" VerticalAlignment="Top">
-                                            <TextBlock Text="在线设备" FontSize="8" Foreground="#888780"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="{Binding OnlineDeviceCountText}" FontSize="16" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                                <TextBlock Text=" 台" FontSize="8" Foreground="#888780" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <StackPanel Margin="0,8,3,0" VerticalAlignment="Top">
-                                            <TextBlock Text="累计实验" FontSize="8" Foreground="#888780"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="{Binding ExperimentCountText}" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                                <TextBlock Text=" 次" FontSize="8" Foreground="#888780" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <StackPanel Margin="3,8,0,0" VerticalAlignment="Top">
-                                            <TextBlock Text="今日实验" FontSize="8" Foreground="#888780"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="{Binding TodayExperimentCountText}" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                                <TextBlock Text=" 次" FontSize="8" Foreground="#888780" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </UniformGrid>
-                                </Grid>
-                            </StackPanel>
-                        </ContentControl>
-
-                        <ContentControl x:Name="DeviceStatusCard" Grid.Row="1" Style="{StaticResource SidePanelCardStyle}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="26"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid Grid.Row="0">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="3" Height="14" Background="#A41626" Margin="0,0,7,0"/>
-                                        <TextBlock Text="设备状态" FontSize="11" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                    </StackPanel>
-                                    <TextBlock Text="点击设备查看详情" FontSize="8" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                </Grid>
-                                <ItemsControl Grid.Row="1" ItemsSource="{Binding Devices}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><UniformGrid Rows="{Binding DeviceRowCount}"/></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button MinHeight="20" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Cursor="Hand" Click="DeviceCard_Click" AutomationProperties.Name="{Binding Name}" FocusVisualStyle="{x:Null}">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/></ControlTemplate>
-                                        </Button.Template>
-                                        <Border BorderThickness="0" BorderBrush="Transparent">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                            <Setter Property="Background" Value="#F2FCEAEC"/>
-                                                            <Setter Property="BorderBrush" Value="#A41626"/>
-                                                            <Setter Property="BorderThickness" Value="2,0,0,0"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <Grid MinHeight="20">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="12"/>
-                                                    <ColumnDefinition Width="76"/>
-                                                    <ColumnDefinition Width="38"/>
-                                                    <ColumnDefinition Width="44"/>
-                                                    <ColumnDefinition Width="34"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="○" FontSize="12" Foreground="#A7A49E" VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#A7A49E"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                                                    <Setter Property="Text" Value="●"/>
-                                                                    <Setter Property="Foreground" Value="#1D9E75"/>
-                                                                </DataTrigger>
-                                                                <MultiDataTrigger>
-                                                                    <MultiDataTrigger.Conditions>
-                                                                        <Condition Binding="{Binding IsOnline}" Value="True"/>
-                                                                        <Condition Binding="{Binding HasFreshData}" Value="False"/>
-                                                                    </MultiDataTrigger.Conditions>
-                                                                    <MultiDataTrigger.Setters>
-                                                                        <Setter Property="Text" Value="▲"/>
-                                                                        <Setter Property="Foreground" Value="#B78B45"/>
-                                                                        <Setter Property="FontSize" Value="8"/>
-                                                                    </MultiDataTrigger.Setters>
-                                                                </MultiDataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="9" Foreground="#303332" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <Grid Grid.Column="2" Width="38" Height="19" VerticalAlignment="Center">
-                                                    <Polyline Points="{Binding PrimaryTrend}" Stroke="#A41626" StrokeThickness="1.2" Stretch="Fill" Visibility="{Binding PrimaryTrendVisibility}"/>
-                                                    <Line X1="0" Y1="10" X2="38" Y2="10" Stroke="#B5B1AB" StrokeThickness="1" StrokeDashArray="2 2" Visibility="{Binding PrimaryTrendPlaceholderVisibility}"/>
-                                                </Grid>
-                                                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding PrimaryDisplay}" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#A7A49E"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsOnline}" Value="True"><Setter Property="Foreground" Value="#52616B"/></DataTrigger>
-                                                                    <MultiDataTrigger>
-                                                                        <MultiDataTrigger.Conditions>
-                                                                            <Condition Binding="{Binding IsOnline}" Value="True"/>
-                                                                            <Condition Binding="{Binding HasFreshData}" Value="False"/>
-                                                                        </MultiDataTrigger.Conditions>
-                                                                        <MultiDataTrigger.Setters><Setter Property="Foreground" Value="#B78B45"/></MultiDataTrigger.Setters>
-                                                                    </MultiDataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Text="{Binding PrimaryUnit}" FontSize="7" Foreground="#888780" Margin="2,3,0,0"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="4" Text="{Binding ActivityText}" FontSize="8" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="4,0,0,0">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#888780"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsOnline}" Value="True"><Setter Property="Foreground" Value="#1D9E75"/></DataTrigger>
-                                                                <MultiDataTrigger>
-                                                                    <MultiDataTrigger.Conditions>
-                                                                        <Condition Binding="{Binding IsOnline}" Value="True"/>
-                                                                        <Condition Binding="{Binding HasFreshData}" Value="False"/>
-                                                                    </MultiDataTrigger.Conditions>
-                                                                    <MultiDataTrigger.Setters><Setter Property="Foreground" Value="#B78B45"/></MultiDataTrigger.Setters>
-                                                                </MultiDataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </Grid>
-                                        </Border>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Grid>
-                        </ContentControl>
-                    </Grid>
-                </ScrollViewer>
-                        <ContentControl x:Name="TrendCard" Grid.Row="1" Style="{StaticResource SidePanelCardStyle}" Margin="0,6,0,0" VerticalAlignment="Bottom">
-                            <StackPanel>
-                                <Grid Height="18">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="3" Height="14" Background="#A41626" Margin="0,0,7,0"/>
-                                        <TextBlock Text="近 7 天实验趋势" FontSize="11" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Rectangle Width="6" Height="6" Fill="#1D9E75" Margin="0,0,3,0"/>
-                                        <TextBlock Text="成功" FontSize="8" Foreground="#5F5E5A"/>
-                                        <Rectangle Width="6" Height="6" Fill="#A41626" Margin="9,0,3,0"/>
-                                        <TextBlock Text="失败" FontSize="8" Foreground="#5F5E5A"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="23"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid Height="88">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="{Binding TrendAxisTopText}" FontSize="7" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,4,0"/>
-                                        <TextBlock Grid.Row="1" Text="{Binding TrendAxisUpperText}" FontSize="7" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,4,0"/>
-                                        <TextBlock Grid.Row="2" Text="{Binding TrendAxisMiddleText}" FontSize="7" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,4,0"/>
-                                        <TextBlock Grid.Row="3" Text="{Binding TrendAxisLowerText}" FontSize="7" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,4,0"/>
-                                        <TextBlock Grid.Row="4" Text="0" FontSize="7" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,-4"/>
-                                    </Grid>
-                                    <StackPanel Grid.Column="1">
-                                        <Grid Height="88">
-                                            <Grid>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                                                </Grid.RowDefinitions>
-                                                <Border BorderBrush="#E8E5E2" BorderThickness="0,0,0,1"/>
-                                                <Border Grid.Row="1" BorderBrush="#E8E5E2" BorderThickness="0,0,0,1"/>
-                                                <Border Grid.Row="2" BorderBrush="#E8E5E2" BorderThickness="0,0,0,1"/>
-                                                <Border Grid.Row="3" BorderBrush="#E8E5E2" BorderThickness="0,0,0,1"/>
-                                                <Border Grid.Row="4" BorderBrush="#D6D1CC" BorderThickness="0,0,0,1"/>
-                                            </Grid>
-                                            <ItemsControl ItemsSource="{Binding TrendItems}">
-                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Height="88" ToolTip="{Binding ToolTipText}">
-                                                            <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                                <Rectangle Width="14" Height="{Binding FailedHeight}" Fill="#A41626"/>
-                                                                <Rectangle Width="14" Height="{Binding SuccessHeight}" Fill="#1D9E75"/>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </Grid>
-                                        <ItemsControl ItemsSource="{Binding TrendItems}" Height="20">
-                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate><TextBlock Text="{Binding Label}" FontSize="7" Foreground="#888780" HorizontalAlignment="Center" Margin="0,4,0,0"/></DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </ContentControl>
-                </Grid>
-            </Border>
-
-            <Grid x:Name="SceneViewport" Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="0" Background="#E6E2DB" ClipToBounds="True">
+        <!-- B. Scene + floating layer -->
+        <Grid x:Name="ContentGrid" Grid.Row="1">
+            <Grid x:Name="SceneViewport" Background="#ECE9E3" ClipToBounds="True">
                 <wv2:WebView2 x:Name="LabWebView" Visibility="Hidden"
                               xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"/>
-                <Border x:Name="LabLoading" Background="#FFFFFF">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="300">
+                <Border x:Name="LabLoading" Background="#FBFAF7">
+                    <StackPanel x:Name="LabLoadingPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Width="300">
                         <Border Width="52" Height="52" CornerRadius="10" Background="#A41626" BorderBrush="#A41626" BorderThickness="1" HorizontalAlignment="Center">
                             <Image Source="pack://siteoforigin:,,,/Resources/Icon/logo.png" Stretch="Uniform" Margin="6"/>
                         </Border>
-                        <TextBlock x:Name="LabLoadingTitle" Text="正在构建高保真展厅" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A" HorizontalAlignment="Center" Margin="0,18,0,6"/>
-                        <TextBlock x:Name="LabLoadingText" Text="霍桐仪器" FontFamily="Consolas" FontSize="9" Foreground="#888780" HorizontalAlignment="Center"/>
-                        <ProgressBar x:Name="LabLoadingProgress" IsIndeterminate="True" Height="3" Margin="28,22,28,0" Foreground="#A41626" Background="#EAEAEA" BorderThickness="0"/>
+                        <TextBlock x:Name="LabLoadingTitle" Text="正在构建高保真展厅" FontSize="15" FontWeight="SemiBold" Foreground="#1F2326" HorizontalAlignment="Center" Margin="0,18,0,6"/>
+                        <TextBlock x:Name="LabLoadingText" Text="霍桐仪器" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Center"
+                                   MaxHeight="72" TextTrimming="CharacterEllipsis" TextAlignment="Center"/>
+                        <ProgressBar x:Name="LabLoadingProgress" IsIndeterminate="True" Height="3" Margin="28,22,28,0" Foreground="#A41626" Background="#F1EFEA" BorderThickness="0"/>
                         <Button x:Name="LabRetryButton" Style="{StaticResource ActionButtonStyle}" Content="重新加载场景" Click="RetryScene_Click" HorizontalAlignment="Center" Margin="0,18,0,0" Visibility="Collapsed"/>
                     </StackPanel>
                 </Border>
-                <Border x:Name="SceneModeBorder" Margin="252,12,12,12" Padding="8,4" Background="#CCFFFFFF" BorderBrush="#EAEAEA" BorderThickness="1" CornerRadius="5" HorizontalAlignment="Left" VerticalAlignment="Top">
-                    <TextBlock Text="{Binding SceneModeTitle}" FontSize="10" Foreground="#5F5E5A"/>
+                <Border x:Name="SceneModeBorder" Visibility="Collapsed" Margin="12" Padding="8,4" Background="#FBFAF7" BorderBrush="#E7E4DE" BorderThickness="1" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding SceneModeTitle}" FontSize="12" Foreground="#5A5F63"/>
                 </Border>
             </Grid>
 
-            <Border x:Name="RightPanel" Grid.Column="2" Panel.ZIndex="2" Background="#F2FFFFFF" BorderBrush="#66E3E1DE" BorderThickness="1,0,0,0" Padding="5" DataContext="{Binding SelectedDevice}" VerticalAlignment="Stretch">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                <ScrollViewer Grid.Row="0" x:Name="RightPanelScrollViewer" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
-                    <Grid x:Name="RightPanelContent" VerticalAlignment="Stretch" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <ContentControl x:Name="DeviceDetailsCard" Grid.Row="0" Style="{StaticResource SidePanelCardStyle}" Padding="10,6" Margin="0,0,0,6">
-                            <StackPanel>
-                        <Grid Height="17">
-                            <StackPanel Orientation="Horizontal">
-                                <Border Width="3" Height="14" Background="#A41626" Margin="0,0,7,0"/>
-                                <TextBlock Text="设备详情" FontSize="12" FontWeight="SemiBold" Foreground="#1A1A1A" VerticalAlignment="Center"/>
-                            </StackPanel>
-                            <TextBlock Text="{Binding Id}" FontFamily="Consolas" FontSize="10" Foreground="#5F5E5A" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <!-- Everything floating. Moved into Lab3DOverlayWindow at Loaded: no ElementName bindings inside. -->
+            <Grid x:Name="OverlayLayer" Panel.ZIndex="2">
+
+                <!-- C1. Lab overview -->
+                <ContentControl x:Name="LeftPanel" Style="{StaticResource SidePanelCardStyle}"
+                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16,12,0,0" Width="296" Padding="20,18,20,16">
+                    <StackPanel>
+                        <Grid x:Name="OverviewCard">
+                            <TextBlock Text="实验室概览" FontSize="15" FontWeight="SemiBold" Foreground="#1F2326" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding OverviewUpdatedText}" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
-                        <Grid Margin="0,4,0,0">
-                            <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" Foreground="#1A1A1A" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,77,0"/>
-                            <Border HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,3" CornerRadius="2" BorderThickness="1">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="#FCEAEC"/>
-                                        <Setter Property="BorderBrush" Value="#E5C2C8"/>
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="96" Height="96">
+                                <Ellipse Width="90" Height="90" Stroke="#F1EFEA" StrokeThickness="6"/>
+                                <Path Width="96" Height="96" Stretch="None" Data="{Binding ExperimentSuccessArc}" Stroke="#A41626" StrokeThickness="6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding ExperimentSuccessRateText}" FontSize="22" FontWeight="SemiBold" Foreground="#1F2326" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="实验成功率" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <UniformGrid Grid.Column="2" Columns="2" Rows="2" VerticalAlignment="Center">
+                                <StackPanel Margin="0,0,4,5">
+                                    <TextBlock Text="设备总数" FontSize="12" Foreground="#5A5F63"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Devices.Count}" FontSize="20" FontWeight="SemiBold" Foreground="#1F2326"/>
+                                        <TextBlock Text=" 台" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Margin="4,0,0,5">
+                                    <TextBlock Text="在线设备" FontSize="12" Foreground="#5A5F63"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding OnlineDeviceCountText}" FontSize="20" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#1F2326"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasOnlineDevices}" Value="True">
+                                                            <Setter Property="Foreground" Value="#12704F"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text=" 台" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Margin="0,5,4,0">
+                                    <TextBlock Text="累计实验" FontSize="12" Foreground="#5A5F63"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding ExperimentCountText}" FontSize="20" FontWeight="SemiBold" Foreground="#1F2326"/>
+                                        <TextBlock Text=" 次" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Margin="4,5,0,0">
+                                    <TextBlock Text="今日实验" FontSize="12" Foreground="#5A5F63"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding TodayExperimentCountText}" FontSize="20" FontWeight="SemiBold" Foreground="#1F2326"/>
+                                        <TextBlock Text=" 次" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </UniformGrid>
+                        </Grid>
+
+                        <Border Height="1" Background="#E7E4DE" Margin="0,14"/>
+
+                        <!-- Current experiment -->
+                        <Grid>
+                            <TextBlock Text="当前实验" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ActiveExperimentProgressText}" FontFamily="Consolas" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#1F2326"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsOnline}" Value="True">
-                                                <Setter Property="Background" Value="#E1F5EE"/>
-                                                <Setter Property="BorderBrush" Value="#BADFD1"/>
+                                            <DataTrigger Binding="{Binding ActiveExperimentProgressText}" Value="--">
+                                                <Setter Property="Foreground" Value="#7A7E82"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </Border.Style>
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="5" Height="5" VerticalAlignment="Center">
-                                        <Ellipse.Style>
-                                            <Style TargetType="Ellipse">
-                                                <Setter Property="Fill" Value="#A41626"/>
-                                                <Style.Triggers><DataTrigger Binding="{Binding IsOnline}" Value="True"><Setter Property="Fill" Value="#1D9E75"/></DataTrigger></Style.Triggers>
-                                            </Style>
-                                        </Ellipse.Style>
-                                    </Ellipse>
-                                    <TextBlock Text="{Binding ActivityText}" FontSize="8" Margin="5,0,0,0" VerticalAlignment="Center">
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <TextBlock Text="{Binding ActiveExperimentName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,6,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#1F2326"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ActiveExperimentProgressText}" Value="--">
+                                            <Setter Property="Foreground" Value="#5A5F63"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ProgressBar Height="4" Maximum="100" Value="{Binding ActiveExperimentProgress, Mode=OneWay}" Margin="0,6,0,0"
+                                     Foreground="#A41626" Background="#F1EFEA" BorderThickness="0"/>
+                        <TextBlock Text="{Binding ActiveExperimentStatus}" FontSize="12" Foreground="#5A5F63" TextTrimming="CharacterEllipsis" Margin="0,6,0,0"/>
+
+                        <Border Height="1" Background="#E7E4DE" Margin="0,14"/>
+
+                        <!-- 7-day trend -->
+                        <Grid x:Name="TrendCard">
+                            <TextBlock Text="近 7 天实验趋势" FontSize="13" FontWeight="SemiBold" Foreground="#1F2326" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Rectangle Width="8" Height="8" RadiusX="1" RadiusY="1" Fill="#2E8B6E" VerticalAlignment="Center"/>
+                                <TextBlock Text="成功" FontSize="12" Foreground="#5A5F63" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                <Rectangle Width="8" Height="8" RadiusX="1" RadiusY="1" Fill="{StaticResource FailHatchBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="失败" FontSize="12" Foreground="#5A5F63" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0" Height="100" Visibility="{Binding TrendItemsVisibility}">
+                                <TextBlock Text="{Binding TrendAxisTopText}" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="-14,-8,6,0"/>
+                                <TextBlock Text="{Binding TrendAxisUpperText}" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="-14,17,6,0"/>
+                                <TextBlock Text="{Binding TrendAxisMiddleText}" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="-14,42,6,0"/>
+                                <TextBlock Text="{Binding TrendAxisLowerText}" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="-14,67,6,0"/>
+                                <TextBlock Text="0" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="-14,0,6,-8"/>
+                            </Grid>
+                            <Grid Grid.Column="1" Height="100">
+                                <Border Height="1" Background="#E7E4DE" VerticalAlignment="Top"/>
+                                <Border Height="1" Background="#E7E4DE" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                <Border Height="1" Background="#E7E4DE" VerticalAlignment="Top" Margin="0,50,0,0"/>
+                                <Border Height="1" Background="#E7E4DE" VerticalAlignment="Top" Margin="0,75,0,0"/>
+                                <Border Height="1" Background="#CFCBC4" VerticalAlignment="Bottom"/>
+                                <ItemsControl ItemsSource="{Binding TrendItems}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Width="18" HorizontalAlignment="Center" VerticalAlignment="Bottom" ToolTip="{Binding ToolTipText}">
+                                                <Rectangle Height="{Binding FailedHeight}" Fill="{StaticResource FailHatchBrush}"/>
+                                                <Rectangle Height="{Binding SuccessHeight}" Fill="#2E8B6E"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FBFAF7" CornerRadius="4" Padding="10,2"
+                                        Visibility="{Binding TrendEmptyVisibility}">
+                                    <TextBlock Text="暂无趋势数据" FontSize="12" Foreground="#5A5F63"/>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding TrendItems}" Margin="20,8,0,0" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}" FontSize="12" HorizontalAlignment="Center" TextAlignment="Center">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#A41626"/>
-                                                <Style.Triggers><DataTrigger Binding="{Binding IsOnline}" Value="True"><Setter Property="Foreground" Value="#1D9E75"/></DataTrigger></Style.Triggers>
+                                                <Setter Property="Foreground" Value="#5A5F63"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Label}" Value="今天">
+                                                        <Setter Property="Foreground" Value="#1F2326"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                        <Grid Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="当前实验" FontSize="8" Foreground="#888780" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="{Binding ActiveExperimentName, Source={x:Static views:Lab3DWindow.Current}}" FontSize="9" Foreground="#303332" TextTrimming="CharacterEllipsis" Margin="8,0" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="{Binding ActiveExperimentProgressText, Source={x:Static views:Lab3DWindow.Current}}" FontFamily="Consolas" FontSize="11" Foreground="#1A1A1A" VerticalAlignment="Center"/>
-                        </Grid>
-                        <ProgressBar Value="{Binding ActiveExperimentProgress, Mode=OneWay, Source={x:Static views:Lab3DWindow.Current}}" Maximum="100" Height="4" Margin="0,10,0,0" Foreground="#A41626" Background="#EAEAEA" BorderThickness="0"/>
-                        <TextBlock Text="{Binding ActiveExperimentStatus, Source={x:Static views:Lab3DWindow.Current}}" FontSize="8" Foreground="#888780" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ContentControl>
 
-                        <UniformGrid Columns="3" Margin="0,5,0,0">
-                            <StackPanel>
-                                <TextBlock Text="{Binding PrimaryName}" FontSize="8" Foreground="#888780" TextTrimming="CharacterEllipsis"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                    <TextBlock Text="{Binding PrimaryDisplay}" FontFamily="Consolas" FontSize="14" FontWeight="SemiBold" Foreground="#303332"/>
-                                    <TextBlock Text="{Binding PrimaryUnit}" FontSize="7" Foreground="#888780" VerticalAlignment="Bottom" Margin="3,0,0,1"/>
-                                </StackPanel>
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="{Binding SecondaryName}" FontSize="8" Foreground="#888780" TextTrimming="CharacterEllipsis"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                    <TextBlock Text="{Binding SecondaryDisplay}" FontFamily="Consolas" FontSize="14" FontWeight="SemiBold" Foreground="#303332"/>
-                                    <TextBlock Text="{Binding SecondaryUnit}" FontSize="7" Foreground="#888780" VerticalAlignment="Bottom" Margin="3,0,0,1"/>
-                                </StackPanel>
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="本机成功率" FontSize="8" Foreground="#888780"/>
-                                <TextBlock Text="{Binding SelectedSuccessRateText, Source={x:Static views:Lab3DWindow.Current}}" FontFamily="Consolas" FontSize="14" FontWeight="SemiBold" Foreground="#303332" Margin="0,3,0,0"/>
-                            </StackPanel>
-                        </UniformGrid>
+                <!-- C2. AI console host -->
+                <Grid HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="312,12,352,0" Height="264"
+                      DataContext="{Binding Inspection, Source={x:Static views:Lab3DWindow.Current}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="720"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                        <Grid Margin="0,3,0,0" Height="13">
-                            <TextBlock Text="近 60 秒实时曲线" FontSize="9" Foreground="#303332" VerticalAlignment="Center"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Line X1="0" Y1="4" X2="18" Y2="4" Stroke="#888780" StrokeThickness="1" StrokeDashArray="2 2"/>
-                                <TextBlock Text="{Binding SecondaryName}" FontSize="8" Foreground="#888780" Margin="4,0,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                        <views:Lab3DRealtimeChart Height="48" Margin="0,3,0,0"
-                                                  PrimarySamples="{Binding PrimarySamples}" SecondarySamples="{Binding SecondarySamples}"
-                                                  PrimaryName="{Binding PrimaryName}" SecondaryName="{Binding SecondaryName}"
-                                                  PrimaryUnit="{Binding PrimaryUnit}" SecondaryUnit="{Binding SecondaryUnit}"
-                                                  AutomationProperties.Name="近60秒实测值与设定值曲线"/>
-                            </StackPanel>
-                        </ContentControl>
-                        <ContentControl x:Name="BrainCard" Grid.Row="1" Style="{StaticResource SidePanelCardStyle}" Padding="10,6"
-                                        DataContext="{Binding Inspection, Source={x:Static views:Lab3DWindow.Current}}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid Grid.Row="0" Height="18">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="3" Height="14" Background="#A41626" Margin="0,0,7,0"/>
-                                        <TextBlock Text="AI 实验大脑" FontSize="12" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                    </StackPanel>
-                                    <TextBlock Text="规则引擎运行中" FontSize="8" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Grid.Row="1" MinHeight="40" Margin="0,2,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
-                                    <views:Lab3DBrainView x:Name="BrainView" Grid.ColumnSpan="3" AutomationProperties.Name="AI 大脑规则巡检可视化"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <Grid Height="15"><TextBlock Text="主参数" FontSize="7" Foreground="#888780"/></Grid>
-                                        <Grid Height="15"><TextBlock Text="次参数" FontSize="7" Foreground="#888780"/></Grid>
-                                        <Grid Height="15"><TextBlock Text="连接状态" FontSize="7" Foreground="#888780"/></Grid>
-                                        <Grid Height="15"><TextBlock Text="实验记录" FontSize="7" Foreground="#888780"/></Grid>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,7,0,0">
-                                        <Grid Height="17"><TextBlock Text="数据完整" FontSize="7" Foreground="#888780" HorizontalAlignment="Right"/></Grid>
-                                        <Grid Height="17"><TextBlock Text="异常提示" FontSize="7" Foreground="#888780" HorizontalAlignment="Right"/></Grid>
-                                        <Grid Height="17"><TextBlock Text="趋势分析" FontSize="7" Foreground="#888780" HorizontalAlignment="Right"/></Grid>
-                                    </StackPanel>
-                                </Grid>
-                                <Grid Grid.Row="2" Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock Text="当前分析" FontSize="8" Foreground="#888780"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding TargetName}" FontSize="9" FontWeight="SemiBold" Foreground="#303332" Margin="7,0" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding DataContext.InspectionAnalysisText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="8" Foreground="#5F5E5A"/>
-                                </Grid>
-                                <UniformGrid Grid.Row="3" Columns="4" Margin="0,6,0,0">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding InspectionCount}" FontFamily="Consolas" FontSize="16" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                        <TextBlock Text="巡检次数" FontSize="7" Foreground="#888780" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding AlertCount}" FontFamily="Consolas" FontSize="16" FontWeight="SemiBold" Foreground="#A41626"/>
-                                        <TextBlock Text="异常预警" FontSize="7" Foreground="#888780" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding DataContext.InspectionDataCoverageText, Source={x:Static views:Lab3DWindow.Current}}" FontFamily="Consolas" FontSize="16" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                        <TextBlock Text="数据覆盖率" FontSize="7" Foreground="#888780" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding DataContext.InspectionSuccessRateText, Source={x:Static views:Lab3DWindow.Current}}" FontFamily="Consolas" FontSize="16" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                        <TextBlock Text="历史成功率" FontSize="7" Foreground="#888780" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                </UniformGrid>
+                    <ContentControl x:Name="BrainCard" Grid.Column="1" Style="{StaticResource SidePanelCardStyle}" Padding="20,16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="150"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="34"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="28" Height="28" Stroke="#E7E4DE" StrokeThickness="1">
+                                        <Ellipse.Fill>
+                                            <ImageBrush ImageSource="{Binding AssistantAvatarPath, Source={x:Static views:Lab3DWindow.Current}}" Stretch="UniformToFill" AlignmentY="Top"/>
+                                        </Ellipse.Fill>
+                                    </Ellipse>
+                                    <TextBlock Text="AI 智慧大脑" FontSize="16" FontWeight="SemiBold" Foreground="#1F2326" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    <Ellipse Width="6" Height="6" Fill="#12704F" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="规则引擎运行中" FontSize="12" Foreground="#5A5F63" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <TextBlock Text="当前分析" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TargetId}" FontFamily="Consolas" FontSize="12" Foreground="#5A5F63" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TargetName}" FontSize="13" FontWeight="SemiBold" Foreground="#1F2326" MaxWidth="140" TextTrimming="CharacterEllipsis" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="·" FontSize="13" Foreground="#1F2326" Margin="8,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding InspectionAnalysisText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="13" Foreground="#1F2326" VerticalAlignment="Center"/>
+                                    <Border Height="22" CornerRadius="4" BorderThickness="1" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            BorderBrush="{Binding OverallStateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=status}">
+                                        <TextBlock Text="{Binding TargetStatus}" FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{Binding OverallStateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=status}"/>
+                                    </Border>
+                                </StackPanel>
                             </Grid>
-                        </ContentControl>
-                    </Grid>
-                </ScrollViewer>
-                        <ContentControl x:Name="AnalysisCard" Grid.Row="1" Style="{StaticResource SidePanelCardStyle}" Padding="10,6" Margin="0,6,0,0" VerticalAlignment="Bottom"
-                                        DataContext="{Binding Inspection, Source={x:Static views:Lab3DWindow.Current}}">
-                            <StackPanel>
-                                <Grid Height="17">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="3" Height="14" Background="#A41626" Margin="0,0,7,0"/>
-                                        <TextBlock Text="AI 分析结论" FontSize="12" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding DataContext.InspectionNoticeCountText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="8" Foreground="#888780" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                </Grid>
-                                <ItemsControl ItemsSource="{Binding Notices}" Margin="0,8,0,0" HorizontalContentAlignment="Stretch">
-                                    <ItemsControl.ItemContainerStyle>
-                                        <Style TargetType="ContentPresenter">
-                                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                                        </Style>
-                                    </ItemsControl.ItemContainerStyle>
+
+                            <!-- Inputs / brain / outputs -->
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="280"/>
+                                    <ColumnDefinition Width="200"/>
+                                </Grid.ColumnDefinitions>
+                                <ItemsControl Grid.Column="0" ItemsSource="{Binding Inputs}" Margin="0,3" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Rows="4" Columns="1"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="#F5FFFFFF" BorderBrush="#D3D1C7" BorderThickness="1" CornerRadius="2" Padding="4" Margin="0,0,0,6" HorizontalAlignment="Stretch">
-                                            <Grid>
-                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                <Border Width="28" Height="16" BorderThickness="1" Padding="1,0" VerticalAlignment="Center">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="BorderBrush" Value="#A7A49E"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Level}" Value="warning"><Setter Property="BorderBrush" Value="#A41626"/></DataTrigger>
-                                                                <DataTrigger Binding="{Binding Level}" Value="normal"><Setter Property="BorderBrush" Value="#1D9E75"/></DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <TextBlock Text="{Binding LevelText}" FontSize="7.5" TextAlignment="Center" VerticalAlignment="Center">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#888780"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Level}" Value="warning"><Setter Property="Foreground" Value="#A41626"/></DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Level}" Value="normal"><Setter Property="Foreground" Value="#1D9E75"/></DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </Border>
-                                                <Grid Grid.Column="1">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="26"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding DataContext.Inspection.TargetName, Source={x:Static views:Lab3DWindow.Current}}" FontSize="9" FontWeight="SemiBold" Foreground="#303332" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding TimeText}" FontFamily="Consolas" FontSize="7" Foreground="#888780" Margin="4,0" VerticalAlignment="Center"/>
-                                                    <Border Grid.Column="2" Height="2" Background="#52616B" VerticalAlignment="Center" Margin="3,0"/>
-                                                    <TextBlock Grid.Column="3" Text="规则检查" FontSize="7" Foreground="#888780" VerticalAlignment="Center"/>
-                                                </Grid>
-                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Text}" FontSize="8" Foreground="#5F5E5A" TextWrapping="Wrap" LineHeight="13" Margin="0,5,0,0"/>
-                                            </Grid>
+                                            <DockPanel>
+                                                <Ellipse DockPanel.Dock="Right" Width="8" Height="8" StrokeThickness="1.5" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                         Stroke="{Binding StateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=line}"
+                                                         Fill="{Binding StateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=fill}"/>
+                                                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#5A5F63" TextTrimming="CharacterEllipsis" TextAlignment="Right" HorizontalAlignment="Right"/>
+                                                    <TextBlock Text="{Binding Value}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Right" HorizontalAlignment="Right"
+                                                               Foreground="{Binding StateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=text}"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <views:Lab3DBrainView x:Name="BrainView" Grid.Column="1" Width="280" Height="150" AutomationProperties.Name="AI 大脑规则巡检可视化"/>
+                                <ItemsControl Grid.Column="2" ItemsSource="{Binding Outputs}" Margin="0,3" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Rows="3" Columns="1"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <Ellipse DockPanel.Dock="Left" Width="8" Height="8" StrokeThickness="1.5" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                         Stroke="{Binding StateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=line}"
+                                                         Fill="{Binding StateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=fill}"/>
+                                                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#5A5F63" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Value}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                               Foreground="{Binding StateKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=text}"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+
+                            <!-- Footer -->
+                            <Border Grid.Row="4" BorderBrush="#E7E4DE" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                        <TextBlock Text="轮巡" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Center"/>
+                                        <ItemsControl ItemsSource="{Binding InspectionRounds, Source={x:Static views:Lab3DWindow.Current}}"
+                                                      MaxWidth="240" ClipToBounds="True" Margin="12,0,0,0" VerticalAlignment="Center" Focusable="False">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="18" Height="4" CornerRadius="2" Margin="0,0,3,0"
+                                                            Background="{Binding Converter={x:Static converters:Lab3DStateBrushConverter.Instance}}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="{Binding RotationText}" FontFamily="Consolas" FontSize="12" Foreground="#5A5F63" Margin="9,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding InspectionCount}" FontSize="16" FontWeight="SemiBold" Foreground="#1F2326" VerticalAlignment="Center"/>
+                                            <TextBlock Text="巡检次数" FontSize="12" Foreground="#5A5F63" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                            <TextBlock Text="{Binding AlertCount}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#A41626"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AlertCount}" Value="0">
+                                                                <Setter Property="Foreground" Value="#1F2326"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="异常预警" FontSize="12" Foreground="#5A5F63" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                            <TextBlock Text="{Binding InspectionDataCoverageText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#1F2326"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding InspectionDataCoverageText, Source={x:Static views:Lab3DWindow.Current}}" Value="--">
+                                                                <Setter Property="Foreground" Value="#7A7E82"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="数据覆盖率" FontSize="12" Foreground="#5A5F63" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                            <TextBlock Text="{Binding InspectionSuccessRateText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="16" FontWeight="SemiBold" Foreground="#1F2326" VerticalAlignment="Center"/>
+                                            <TextBlock Text="历史成功率" FontSize="12" Foreground="#5A5F63" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </ContentControl>
+
+                    <!-- Link from the console's alert output to the conclusions card. Decorative only. -->
+                    <Border Grid.Column="2" Height="2" VerticalAlignment="Top" Margin="-6,127,-6,0" IsHitTestVisible="False"
+                            Background="{Binding InspectionLinkStateKey, Source={x:Static views:Lab3DWindow.Current}, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=line}"/>
+                    <Ellipse Grid.Column="2" Width="10" Height="10" StrokeThickness="2" Fill="#FFFFFF" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,123,-6,0" IsHitTestVisible="False"
+                             Stroke="{Binding InspectionLinkStateKey, Source={x:Static views:Lab3DWindow.Current}, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=line}"/>
+                </Grid>
+
+                <!-- C3. Right column: conclusions + device details -->
+                <Grid x:Name="RightPanel" HorizontalAlignment="Right" Margin="0,12,16,136" Width="336" DataContext="{Binding SelectedDevice}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <ContentControl x:Name="AnalysisCard" Grid.Row="0" Style="{StaticResource SidePanelCardStyle}" Padding="20,16,20,8" MaxHeight="280"
+                                    DataContext="{Binding Inspection, Source={x:Static views:Lab3DWindow.Current}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="0,0,0,2">
+                                <TextBlock Text="AI 分析结论" FontSize="15" FontWeight="SemiBold" Foreground="#1F2326" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding InspectionNoticeCountText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <ScrollViewer x:Name="RightPanelScrollViewer" Grid.Row="1" Margin="0,6,0,0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"
+                                          PanningMode="VerticalOnly" Focusable="False">
+                                <ItemsControl ItemsSource="{Binding Notices}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#E7E4DE" BorderThickness="0,1,0,0" Padding="0,8">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <Border DockPanel.Dock="Left" Height="20" CornerRadius="4" BorderThickness="1" Padding="6,0" VerticalAlignment="Center">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="BorderBrush" Value="#5A5F63"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Level}" Value="warning"><Setter Property="BorderBrush" Value="#A41626"/></DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Level}" Value="normal"><Setter Property="BorderBrush" Value="#12704F"/></DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding LevelTagText}" FontSize="12" VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#5A5F63"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Level}" Value="warning"><Setter Property="Foreground" Value="#A41626"/></DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Level}" Value="normal"><Setter Property="Foreground" Value="#12704F"/></DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding TimeText}" FontFamily="Consolas" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Inspection.TargetName, Source={x:Static views:Lab3DWindow.Current}}" FontSize="13" FontWeight="SemiBold" Foreground="#1F2326"
+                                                                   Margin="8,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding Text}" FontSize="12" Foreground="#1F2326" TextWrapping="Wrap" LineHeight="18" Margin="0,4,0,0"/>
+                                                </StackPanel>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </StackPanel>
-                        </ContentControl>
-                </Grid>
-            </Border>
+                            </ScrollViewer>
+                        </Grid>
+                    </ContentControl>
 
+                    <ContentControl x:Name="DeviceDetailsCard" Grid.Row="2" Style="{StaticResource SidePanelCardStyle}" Padding="20,16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- 1 -->
+                            <Grid Grid.Row="0">
+                                <TextBlock Text="设备详情 · 当前选中" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Id}" FontFamily="Consolas" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <!-- 2 -->
+                            <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                                <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" Foreground="#1F2326" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding EnglishName}" FontSize="11" Foreground="#5A5F63" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <!-- 3 -->
+                            <DockPanel Grid.Row="2" Margin="0,8,0,0">
+                                <Border DockPanel.Dock="Left" Height="24" CornerRadius="4" BorderThickness="1" Padding="8,0" VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="#CFCBC4"/>
+                                            <Setter Property="Background" Value="#F1EFEA"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding StatusKey}" Value="live">
+                                                    <Setter Property="BorderBrush" Value="#12704F"/>
+                                                    <Setter Property="Background" Value="#FFFFFF"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding StatusKey}" Value="stale">
+                                                    <Setter Property="BorderBrush" Value="#8A5A00"/>
+                                                    <Setter Property="Background" Value="#FFFFFF"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Style="{StaticResource StatusGlyphStyle}"/>
+                                        <TextBlock Text="{Binding ActivityText}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{Binding StatusKey, Converter={x:Static converters:Lab3DStateBrushConverter.Instance}, ConverterParameter=status}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Button DockPanel.Dock="Right" Content="删除" Style="{StaticResource TextLinkButtonStyle}" Foreground="#A41626" VerticalAlignment="Center" Click="DeleteSelected_Click"/>
+                                <Button DockPanel.Dock="Right" Content="编辑" Style="{StaticResource TextLinkButtonStyle}" VerticalAlignment="Center" Margin="0,0,4,0" Click="EditSelected_Click"/>
+                                <TextBlock DockPanel.Dock="Left" Text="{Binding Location}" FontSize="12" Foreground="#5A5F63" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <TextBlock DockPanel.Dock="Left" Text=" · " FontSize="12" Foreground="#5A5F63" VerticalAlignment="Center"
+                                           Visibility="{Binding Protocol, Converter={x:Static converters:ProtocolVisibilityConverter.Instance}, FallbackValue=Collapsed}"/>
+                                <TextBlock Text="{Binding Protocol}" FontFamily="Consolas" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           Visibility="{Binding Protocol, Converter={x:Static converters:ProtocolVisibilityConverter.Instance}, FallbackValue=Collapsed}"/>
+                            </DockPanel>
+
+                            <!-- 4 -->
+                            <TextBlock Grid.Row="3" Text="{Binding Description}" FontSize="12" Foreground="#5A5F63" Margin="0,8,0,0"
+                                       TextWrapping="Wrap" LineHeight="18" MaxHeight="36" TextTrimming="CharacterEllipsis"/>
+
+                            <!-- 5 -->
+                            <Border Grid.Row="4" Height="1" Background="#E7E4DE" Margin="0,12,0,0"/>
+
+                            <!-- 6 -->
+                            <UniformGrid Grid.Row="5" Columns="3" Margin="0,12,0,0">
+                                <StackPanel Margin="0,0,4,0">
+                                    <TextBlock Text="{Binding PrimaryName}" FontSize="12" Foreground="#5A5F63" TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding PrimaryDisplayText}" FontSize="22" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#7A7E82"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasLiveValues}" Value="True">
+                                                            <Setter Property="Foreground" Value="#1F2326"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding PrimaryUnit}" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Bottom" Margin="4,0,0,4"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Margin="0,0,4,0">
+                                    <TextBlock Text="{Binding SecondaryName}" FontSize="12" Foreground="#5A5F63" TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding SecondaryDisplayText}" FontSize="22" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#7A7E82"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasLiveValues}" Value="True">
+                                                            <Setter Property="Foreground" Value="#1F2326"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding SecondaryUnit}" FontSize="12" Foreground="#5A5F63" VerticalAlignment="Bottom" Margin="4,0,0,4"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="本机成功率" FontSize="12" Foreground="#5A5F63"/>
+                                    <TextBlock Text="{Binding SelectedSuccessRateText, Source={x:Static views:Lab3DWindow.Current}}" FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#1F2326"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedSuccessRateText, Source={x:Static views:Lab3DWindow.Current}}" Value="--">
+                                                        <Setter Property="Foreground" Value="#7A7E82"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <!-- 7 -->
+                            <Border Grid.Row="6" Height="1" Background="#E7E4DE" Margin="0,12,0,0"/>
+
+                            <!-- 8 -->
+                            <Grid Grid.Row="7" Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="近 60 秒实时曲线" FontSize="13" FontWeight="SemiBold" Foreground="#1F2326" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0">
+                                    <Rectangle Width="12" Height="2" Fill="#A41626" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding PrimaryName}" FontSize="12" Foreground="#5A5F63" MaxWidth="70" TextTrimming="CharacterEllipsis" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                    <Line X1="0" Y1="1" X2="12" Y2="1" Width="12" Height="2" Stroke="#5A5F63" StrokeThickness="2" StrokeDashArray="1.5 1.5" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SecondaryName}" FontSize="12" Foreground="#5A5F63" MaxWidth="70" TextTrimming="CharacterEllipsis" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- 9 -->
+                            <views:Lab3DRealtimeChart Grid.Row="8" Margin="0,8,0,0" MinHeight="64" MaxHeight="140" VerticalAlignment="Top"
+                                                      PrimarySamples="{Binding PrimarySamples}" SecondarySamples="{Binding SecondarySamples}"
+                                                      PrimaryName="{Binding PrimaryName}" SecondaryName="{Binding SecondaryName}"
+                                                      PrimaryUnit="{Binding PrimaryUnit}" SecondaryUnit="{Binding SecondaryUnit}"
+                                                      AutomationProperties.Name="近60秒实测值与设定值曲线"/>
+                        </Grid>
+                    </ContentControl>
+                </Grid>
+
+                <!-- C4. Device dock -->
+                <ContentControl x:Name="DeviceNavigationBorder" Style="{StaticResource SidePanelCardStyle}"
+                                VerticalAlignment="Bottom" Margin="16,0,16,16" Height="112" Padding="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ScrollViewer x:Name="DeviceScrollViewer" Grid.Column="0" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden"
+                                      CanContentScroll="False" PanningMode="None" Focusable="False" PreviewMouseWheel="DeviceScroll_PreviewMouseWheel"
+                                      TouchDown="DeviceScroll_TouchDown" TouchMove="DeviceScroll_TouchMove"
+                                      TouchUp="DeviceScroll_TouchUp" LostTouchCapture="DeviceScroll_LostTouchCapture">
+                            <Grid x:Name="DeviceTrackHost">
+                                <Border x:Name="SelectionIndicator" Width="150" Height="88"
+                                        HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0" IsHitTestVisible="False"
+                                        RenderTransformOrigin="0.5,0.5" Background="Transparent" BorderThickness="0">
+                                    <Border.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform x:Name="SelectionScale" ScaleX="1" ScaleY="1"/>
+                                            <TranslateTransform x:Name="SelectionTranslate"/>
+                                        </TransformGroup>
+                                    </Border.RenderTransform>
+                                    <Border Margin="0,0,6,0" CornerRadius="8" Background="#FFFFFF" BorderBrush="#A41626" BorderThickness="1.5"/>
+                                </Border>
+                                <ItemsControl x:Name="DeviceList" ItemsSource="{Binding Devices}" Panel.ZIndex="1" Focusable="False"
+                                              ItemTemplate="{StaticResource DockDeviceTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <TextBlock Text="暂无设备，请点击右侧 + 新增设备。" FontSize="12" Foreground="#5A5F63" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Devices.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </ScrollViewer>
+                        <Border Grid.Column="1" Width="1" Height="40" Background="#CFCBC4" Margin="4,0,10,0" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Width="44" Height="44" Margin="0" Focusable="False"
+                                Content="&#xE710;" FontFamily="Segoe MDL2 Assets" Click="AddDevice_Click" ToolTip="新增设备"/>
+                    </Grid>
+                </ContentControl>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

@@ -168,35 +168,144 @@ export function createInspectionLayer(scene, devices) {
     lastBeamAnchor.copy(coreAnchor);
   }
 
-  function setFocus(data = {}) {
+  // ---- HTML HUD: fullscreen banner + tether from the WPF console to the inspected device ----
+  const STATE_COLORS = { live: '#12704F', alert: '#A41626', stale: '#8A5A00', off: '#5A5F63' };
+  const TETHER_CASING = 'rgba(251,250,247,.85)';
+  let focusState = 'off';
+  let focusName = '';
+  let layout = { anchorX: NaN, anchorY: NaN, scale: 1, fullscreen: false, panels: true, left: 0, top: 0, right: 0, bottom: 0 };
+  let lastCamera = null;
+  let tetherVisible = false;
+  let tetherKey = '';
+  const tetherPoint = new THREE.Vector3();
+
+  function setText(element, text) {
+    if (element && element.textContent !== text) element.textContent = text;
+  }
+
+  function applyBanner() {
     const banner = document.getElementById('ai-inspection-banner');
+    if (banner) banner.classList.toggle('hidden', !(targetId && layout.fullscreen));
+  }
+
+  function setTetherVisible(visible) {
+    if (tetherVisible === visible) return;
+    tetherVisible = visible;
+    if (!visible) tetherKey = '';
+    document.getElementById('ai-tether')?.classList.toggle('hidden', !visible);
+    document.getElementById('ai-tether-tag')?.classList.toggle('hidden', !visible);
+  }
+
+  function updateTether(camera) {
+    const entry = targetId ? devices.get(targetId) : null;
+    const s = layout.scale > 0 ? layout.scale : 1;
+    const ax = layout.anchorX;
+    const ay = layout.anchorY;
+    if (!camera || !entry || !entry.model.visible || layout.fullscreen || layout.panels === false
+      || !Number.isFinite(ax) || !Number.isFinite(ay)) {
+      setTetherVisible(false);
+      return;
+    }
+    const host = document.getElementById('viewport');
+    const tag = document.getElementById('ai-tether-tag');
+    const casing = document.getElementById('ai-tether-casing');
+    const line = document.getElementById('ai-tether-line');
+    const ring = document.getElementById('ai-tether-ring');
+    const dot = document.getElementById('ai-tether-dot');
+    if (!host || !tag || !casing || !line || !ring || !dot) return;
+    const W = host.clientWidth;
+    const H = host.clientHeight;
+    tetherPoint.copy(entry.model.position);
+    tetherPoint.y += (entry.model.userData.height || 1.2) * 0.6;
+    tetherPoint.project(camera);
+    if (!Number.isFinite(tetherPoint.x) || !Number.isFinite(tetherPoint.y) || !Number.isFinite(tetherPoint.z)
+      || tetherPoint.z > 1) {
+      setTetherVisible(false);
+      return;
+    }
+    const tx = Math.round((tetherPoint.x + 1) / 2 * W * 2) / 2;
+    const ty = Math.round((1 - tetherPoint.y) / 2 * H * 2) / 2;
+    if (tx < layout.left + 8 || tx > W - layout.right - 8 || ty < layout.top + 8 || ty > H - layout.bottom - 8) {
+      setTetherVisible(false);
+      return;
+    }
+    const color = STATE_COLORS[focusState] || STATE_COLORS.off;
+    const key = `${targetId}|${ax}|${ay}|${tx}|${ty}|${s}|${W}|${layout.right}|${color}`;
+    if (tetherVisible && key === tetherKey) return;
+    setTetherVisible(true);
+    tetherKey = key;
+    const end = ty - 6 * s;
+    const elbow = Math.max(ay, Math.min(ay + 28 * s, end));
+    const d = `M ${ax} ${ay} V ${elbow} L ${tx} ${end}`;
+    casing.setAttribute('d', d);
+    casing.setAttribute('stroke', TETHER_CASING);
+    casing.setAttribute('stroke-width', String(4 * s));
+    line.setAttribute('d', d);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', String(1.6 * s));
+    ring.setAttribute('cx', String(tx));
+    ring.setAttribute('cy', String(ty));
+    ring.setAttribute('r', String(9 * s));
+    ring.setAttribute('stroke', color);
+    ring.setAttribute('stroke-width', String(1.6 * s));
+    ring.setAttribute('fill', TETHER_CASING);
+    dot.setAttribute('cx', String(tx));
+    dot.setAttribute('cy', String(ty));
+    dot.setAttribute('r', String(3.5 * s));
+    dot.setAttribute('fill', color);
+    const tagLeft = Math.min(tx + 17 * s, W - layout.right - tag.offsetWidth * s - 8);
+    tag.style.left = `${tagLeft}px`;
+    tag.style.top = `${ty - 26 * s}px`;
+    tag.style.borderColor = color;
+  }
+
+  function setLayout(next = {}) {
+    layout = { ...layout, ...next };
+    applyBanner();
+    if (lastCamera) updateTether(lastCamera);
+  }
+
+  // Idempotent: the host re-sends the focus about once per second.
+  function setFocus(data = {}) {
+    if ('state' in data) focusState = data.state || 'off';
+    if ('name' in data) focusName = data.name || '';
     const target = document.getElementById('ai-inspection-target');
     const task = document.getElementById('ai-inspection-task');
     if (!data.id) {
       targetId = null;
       targetModel = null;
       root.visible = false;
-      banner?.classList.add('hidden');
+      applyBanner();
+      setTetherVisible(false);
       return;
     }
-    if (target) target.textContent = `${data.id} · AI 巡检中`;
-    if (task) task.textContent = data.task || '综合数据分析';
-    banner?.classList.add('hidden');
+    setText(target, focusName ? `${data.id} ${focusName} · AI 巡检中` : `${data.id} · AI 巡检中`);
+    if ('task' in data) setText(task, data.task || '综合数据分析');
+    setText(document.getElementById('ai-tether-id'), String(data.id));
     const entry = devices.get(data.id);
     if (!entry) {
       targetId = data.id;
       targetModel = null;
       root.visible = false;
+      applyBanner();
       return;
     }
-    if (targetId === data.id && targetModel === entry.model) return;
+    if (targetId === data.id && targetModel === entry.model) {
+      applyBanner();
+      return;
+    }
     targetId = data.id;
     targetModel = entry.model;
     updateTargetLayout(entry.model);
     root.visible = false;
+    applyBanner();
   }
 
   function update(delta, elapsed, camera = null, mode = 'overview') {
+    if (camera) {
+      lastCamera = camera;
+      updateTether(camera);
+    }
     if (!targetId) return;
     const entry = devices.get(targetId);
     if (!entry) {
@@ -246,5 +355,5 @@ export function createInspectionLayer(scene, devices) {
     });
   }
 
-  return { setFocus, update };
+  return { setFocus, update, setLayout };
 }
