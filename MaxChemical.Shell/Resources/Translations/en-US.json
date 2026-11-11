@@ -39,6 +39,12 @@
   "Maximize_Tooltip": "Maximize",
   "Restore_Tooltip": "Restore",
   "Close_Tooltip": "Close",
+  "Projection_Start_Tooltip": "Cast to big screen (fits its resolution)",
+  "Projection_Stop_Tooltip": "Bring back to this screen",
+  "Projection_Waiting_Tooltip": "Waiting for the big screen... (click again to cancel)",
+  "Projection_Title": "Cast to big screen",
+  "Projection_NoScreen_Message": "No big screen detected.\n\nClick OK to open the Windows Cast panel (same as Win+K) and pick the big screen.\nOnce connected, the app moves to the big screen and fills it; this PC's resolution stays unchanged.",
+  "Projection_Timeout_Message": "The big screen did not connect.\n\nMake sure wireless display (Miracast) receiving is on for the big screen and Wi-Fi is on for this PC, then click \"Cast to big screen\" again.",
   "Title_OpenAgent": "Xiaotong Assistant",
   "ToolTip_Agent": "Open the Xiaotong dialogue window: inquire about status, control equipment, establish process, design experiment, analyze results",
 

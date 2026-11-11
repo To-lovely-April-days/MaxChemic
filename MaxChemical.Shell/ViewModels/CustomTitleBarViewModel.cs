@@ -22,6 +22,7 @@ namespace MaxChemical.Shell.ViewModels
         private readonly Services.Agent.AgentChatWindowService _agentChatWindowService;
         private readonly Services.Agent.KnowledgeBaseWindowService _knowledgeBaseWindowService;
         private readonly ILogService _logger;
+        private readonly ScreenProjectionService _projection;
 
         private string _applicationTitle = string.Empty;
         private string _loginText = string.Empty;
@@ -29,6 +30,7 @@ namespace MaxChemical.Shell.ViewModels
         private string _maximizeTooltip = string.Empty;
         private string _minimizeTooltip = string.Empty;
         private string _closeTooltip = string.Empty;
+        private string _projectionTooltip = string.Empty;
         private bool _isWindowMaximized = false;
         private bool _isWindowMinimized = false;
         private bool _isVoiceAssistantActive = false;
@@ -62,6 +64,11 @@ namespace MaxChemical.Shell.ViewModels
             _knowledgeBaseWindowService = knowledgeBaseWindowService;
 
             _piperVoiceService = voiceAssistant as PiperVoiceAssistantService;
+
+            // 投放到大屏(见 ScreenProjectionService)
+            _projection = new ScreenProjectionService(localizationService);
+            _projection.StateChanged += OnProjectionStateChanged;
+            _projection.WindowPlaced += OnProjectionWindowPlaced;
 
             InitializeCommands();
             InitializeProperties();
@@ -112,6 +119,18 @@ namespace MaxChemical.Shell.ViewModels
             get => _closeTooltip;
             set => SetProperty(ref _closeTooltip, value);
         }
+
+        public string ProjectionTooltip
+        {
+            get => _projectionTooltip;
+            set => SetProperty(ref _projectionTooltip, value);
+        }
+
+        /// <summary>主窗口当前是否投放在大屏上</summary>
+        public bool IsProjected => _projection.IsProjected;
+
+        /// <summary>正在等待大屏接入(Win+K 选屏 / 复制切扩展)</summary>
+        public bool IsProjectionWaiting => _projection.IsWaiting;
 
         public bool IsWindowMaximized
         {
@@ -216,6 +235,7 @@ namespace MaxChemical.Shell.ViewModels
         public DelegateCommand ToggleMuteCommand { get; private set; } = null!;
         public DelegateCommand TestVoiceCommand { get; private set; } = null!;
         public DelegateCommand CloseVoiceInteractionCommand { get; private set; } = null!;
+        public DelegateCommand ToggleProjectionCommand { get; private set; } = null!;
 
         #endregion
 
@@ -232,7 +252,8 @@ namespace MaxChemical.Shell.ViewModels
             OpenKnowledgeBaseCommand = new DelegateCommand(() => _knowledgeBaseWindowService?.ShowWindow());
             ToggleMuteCommand = new DelegateCommand(OnToggleMute);
             TestVoiceCommand = new DelegateCommand(OnTestVoice);
-            CloseVoiceInteractionCommand = new DelegateCommand(OnCloseVoiceInteraction); 
+            CloseVoiceInteractionCommand = new DelegateCommand(OnCloseVoiceInteraction);
+            ToggleProjectionCommand = new DelegateCommand(() => _projection.Toggle());
         }
 
         private void InitializeProperties()
@@ -278,6 +299,32 @@ namespace MaxChemical.Shell.ViewModels
             CloseTooltip = _localizationService.GetString("Close_Tooltip");
             Assistant = _localizationService.GetString("Title_OpenAgent", "小桐助手");
             AgentTip = _localizationService.GetString("ToolTip_Agent", "打开小桐对话窗口:问状态、控设备、搭流程、设计实验、分析结果");
+            UpdateMaximizeTooltip();
+            UpdateProjectionTooltip();
+        }
+
+        private void UpdateProjectionTooltip()
+        {
+            ProjectionTooltip = _projection.IsWaiting
+                ? _localizationService.GetString("Projection_Waiting_Tooltip", "正在等待大屏接入…(再点一次取消)")
+                : _projection.IsProjected
+                    ? _localizationService.GetString("Projection_Stop_Tooltip", "收回到本机屏幕")
+                    : _localizationService.GetString("Projection_Start_Tooltip", "投放到大屏(自动适配大屏分辨率)");
+        }
+
+        private void OnProjectionStateChanged(object? sender, EventArgs e)
+        {
+            UpdateProjectionTooltip();
+            RaisePropertyChanged(nameof(IsProjected));
+            RaisePropertyChanged(nameof(IsProjectionWaiting));
+        }
+
+        private void OnProjectionWindowPlaced(object? sender, EventArgs e)
+        {
+            // 投放/收回后窗口都是铺满某块屏的"最大化"状态,同步标志位,
+            // 否则下一次点最大化按钮会把状态判断反
+            _isWindowMinimized = false;
+            _isWindowMaximized = true;
             UpdateMaximizeTooltip();
         }
 
@@ -774,6 +821,10 @@ namespace MaxChemical.Shell.ViewModels
             try
             {
                 _logger.LogInformation("正在清理 CustomTitleBarViewModel 资源");
+
+                _projection.StateChanged -= OnProjectionStateChanged;
+                _projection.WindowPlaced -= OnProjectionWindowPlaced;
+                _projection.Dispose();
 
                 if (_voiceAssistant != null)
                 {
